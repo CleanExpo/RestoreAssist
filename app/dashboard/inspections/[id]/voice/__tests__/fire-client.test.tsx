@@ -15,9 +15,10 @@ describe("frozen save (kind K12: a key belongs to the save, never to the payload
     expect(hook).toMatch(/postFireAction\(inspectionId, save\.action, save\.key\)/);
   });
 
-  it("a key is made only when a new save is frozen, and the held save is re-sent first", () => {
+  it("a key is made only when a new save is frozen, and only retry re-sends a held one", () => {
     expect(hook.match(/newIdempotencyKey\(\)/g) ?? []).toHaveLength(1);
-    expect(hook).toMatch(/const save: HeldSave = earlier \?\? \{ action, words, onDone, key: newIdempotencyKey\(\) \}/);
+    expect(hook).toMatch(/await deliver\(\{ action, words, onDone, key: newIdempotencyKey\(\) \}\)/);
+    expect(hook).toMatch(/if \(held\.current\) await deliver\(held\.current\)/);
   });
 
   it("no key is derived from the payload's contents", () => {

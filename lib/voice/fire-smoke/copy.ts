@@ -21,10 +21,9 @@ export const FIRE_COPY = {
   typedPlaceholder: "Or type your answer here",
   typedSubmit: "Save answer",
   saveFailed:
-    "I could not save that. Your words are in the typing box. Check your signal and tap Save answer to try again.",
-  earlierSaved: "Your earlier answer is saved now. Please give me your next answer again.",
-  saveFailedKept:
-    "I could not save your earlier answer yet. Your new words are still in the typing box. Tap Save answer: the earlier answer goes first.",
+    "I could not confirm that was saved. Check your signal and tap Try again. Nothing else can be saved until it goes through.",
+  retryButton: "Try again",
+  retryFirst: "Your last answer is not confirmed yet. Tap Try again before anything else.",
   notSaved: (words: string) => `Not saved: "${words}"`,
   notHeard: "Sorry, I didn't catch that. Please say it again, or type it.",
   filed: (title: string) => `Saved to ${title}.`,

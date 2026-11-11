@@ -3,7 +3,7 @@ import { join } from "node:path";
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, within, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 
 /**
  * The walkthrough screen against the real fire actions, status and router,
@@ -14,6 +14,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 import { FireWalkthrough, FIRE_TOGGLE_SIZE_PX } from "../_fire/FireWalkthrough";
+import { useFireWalkthrough } from "../_fire/use-fire-walkthrough";
 import { runFireAction, nextStep, type FireActionDb } from "@/lib/voice/fire-smoke/actions";
 import { loadFireWalkthrough } from "@/lib/voice/fire-smoke/server";
 import { FIRE_SECTION_IDS, getFireSection, sectionSpeech } from "@/lib/voice/fire-smoke/checklist";
@@ -344,7 +345,7 @@ describe("filing answers", () => {
     await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
     expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("Gas meter is off and power isolated at the board");
 
-    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.retryButton }));
     await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1));
     const captures = calls.filter((c) => c.action === "capture");
     expect(captures).toHaveLength(2);
@@ -373,7 +374,7 @@ describe("filing answers", () => {
     expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("Gas meter is off and power isolated at the board");
     expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(0);
 
-    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.retryButton }));
     await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1));
     const captures = calls.filter((c) => c.action === "capture");
     expect(captures).toHaveLength(2);
@@ -381,38 +382,55 @@ describe("filing answers", () => {
     expect(captures[1].key).toBe(captures[0].key);
   });
 
-  it("moving to another section after an unconfirmed save re-sends the same save and key (K12, round 14)", async () => {
+  it("while a save is unconfirmed nothing else can be given; Try again re-sends it unchanged (K12, K17)", async () => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();
     holdNextPost = 409;
     await typeAnswer("All good here");
     await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
-    fireEvent.click(screen.getByRole("button", { name: /^Next section/ }));
-    await waitFor(() => expect(screen.getByRole("button", { name: /^Next section/ })).toHaveTextContent("Safety brief and PPE"));
 
-    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
+    // Every control that could give a new answer or change place is locked.
+    const open = screen.getAllByRole("button").filter((b) => !(b as HTMLButtonElement).disabled);
+    const allowed = new Set([FIRE_COPY.retryButton, "Back", FIRE_COPY.toggleOn, FIRE_COPY.toggleOff]);
+    expect(open.map((b) => b.getAttribute("aria-label") ?? b.textContent?.trim())).toEqual(
+      expect.arrayContaining([FIRE_COPY.retryButton]),
+    );
+    for (const b of open) expect(allowed.has(b.getAttribute("aria-label") ?? b.textContent?.trim() ?? "")).toBe(true);
+    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toBeDisabled();
+
+    // Speech heard while pending is not taken as a new answer.
+    act(() => FakeRecognition.live[0]?.hear("Smoke odour through the whole ground floor"));
+    expect(calls.some((c) => c.body.transcript === "Smoke odour through the whole ground floor")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.retryButton }));
     await waitFor(() => expect(calls.filter((c) => c.action === "capture")).toHaveLength(2));
     const [first, retry] = calls.filter((c) => c.action === "capture");
     expect(retry.key).toBe(first.key);
     expect(retry.body).toEqual(first.body);
-    expect(first.body).toMatchObject({ currentSectionId: "site_access" });
+    await waitFor(() => expect(screen.queryByRole("button", { name: FIRE_COPY.retryButton })).toBeNull());
+    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toBeEnabled();
   });
 
-  it("a new answer while an earlier save is unconfirmed re-sends the earlier one first (K12, round 14)", async () => {
+  it("a section choice cannot change while its save is unconfirmed (round 21)", async () => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();
-    failNextPost = true;
-    await typeAnswer("Gas meter is off and power isolated at the board");
-    await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
+    await typeAnswer("All good here");
+    await waitFor(() => expect(screen.getByRole("group", { name: "Margot's question" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    const picker = await screen.findByRole("group", { name: "Choose a section" });
 
-    await typeAnswer("Smoke odour through the whole ground floor");
+    holdNextPost = 409;
+    fireEvent.click(within(picker).getByRole("button", { name: "Arrival and site access" }));
+    await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
+    // The picker stays on screen, locked, so the pending choice is visible and cannot be swapped.
+    const still = screen.getByRole("group", { name: "Choose a section" });
+    expect(within(still).getByRole("button", { name: "Safety brief and PPE" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.retryButton }));
     await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1));
-    const captures = calls.filter((c) => c.action === "capture");
-    expect(captures).toHaveLength(2);
-    expect(captures[1].key).toBe(captures[0].key);
-    expect(captures[1].body).toEqual(captures[0].body);
-    expect(captures.some((c) => c.body.transcript === "Smoke odour through the whole ground floor")).toBe(false);
-    await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.earlierSaved));
+    const files = calls.filter((c) => c.action === "file");
+    expect(files.every((c) => c.body.sectionId === "site_access")).toBe(true);
+    expect(new Set(files.map((c) => c.key)).size).toBe(1);
   });
 
   it("a saved answer whose reply cannot be read stays retryable, never stuck on Saving (round 15)", async () => {
@@ -422,10 +440,10 @@ describe("filing answers", () => {
     await typeAnswer("Gas meter is off and power isolated at the board");
     await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
     expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1);
-    const save = screen.getByRole("button", { name: FIRE_COPY.typedSubmit });
-    expect(save).toBeEnabled();
+    const tryAgain = screen.getByRole("button", { name: FIRE_COPY.retryButton });
+    expect(tryAgain).toBeEnabled();
 
-    fireEvent.click(save);
+    fireEvent.click(tryAgain);
     await waitFor(() => expect(calls.filter((c) => c.action === "capture")).toHaveLength(2));
     const [first, retry] = calls.filter((c) => c.action === "capture");
     expect(retry.key).toBe(first.key);
@@ -433,53 +451,54 @@ describe("filing answers", () => {
     expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1);
   });
 
-  describe("the typing box belongs to the technician (kind K17, round 20)", () => {
-    const A = "Gas meter is off and power isolated at the board";
-    const B = "Smoke odour through the whole ground floor";
-    const box = () => screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder });
-
-    it("a retry that fails again never overwrites newer typed words", async () => {
+  describe("the typing box belongs to the technician (kind K17, rounds 20 and 21)", () => {
+    it("a refused spoken answer never overwrites words already in the box", async () => {
       await renderScreen();
       await acknowledgeAndFinishSpeaking();
-      failNextPost = true;
-      await typeAnswer(A);
-      await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
-
-      holdNextPost = 409;
-      await typeAnswer(B);
-      await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailedKept));
-      expect(box()).toHaveValue(B);
-
-      // The next Save sends A first with its own key; B stays for the technician.
-      fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
-      await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.earlierSaved));
-      expect(box()).toHaveValue(B);
-      const captures = calls.filter((c) => c.action === "capture");
-      expect(new Set(captures.map((c) => c.key)).size).toBe(1);
-      expect(captures.every((c) => c.body.transcript === A)).toBe(true);
-
-      fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
-      await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(2));
-      await waitFor(() => expect(box()).toHaveValue(""));
-    });
-
-    it("a refused earlier answer keeps its words on screen without taking the box", async () => {
-      await renderScreen();
-      await acknowledgeAndFinishSpeaking();
-      failNextPost = true;
-      await typeAnswer(A);
-      await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
-
+      const box = screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder });
+      fireEvent.change(box, { target: { value: "Half typed note" } });
       refuseNextPost = true;
-      await typeAnswer(B);
-      await waitFor(() => expect(screen.getByText(new RegExp(FIRE_COPY.notSaved(A).replace(/"/g, ".")))).toBeInTheDocument());
-      expect(box()).toHaveValue(B);
+      act(() => FakeRecognition.live[0].hear("Power isolated but the wiring is damaged"));
+      await waitFor(() =>
+        expect(screen.getByRole("alert")).toHaveTextContent(FIRE_COPY.notSaved("Power isolated but the wiring is damaged")),
+      );
+      expect(box).toHaveValue("Half typed note");
     });
 
-    it("no failed save writes the box directly", () => {
+    it("the hook itself refuses every input while a save is held, even if a control were clickable", async () => {
+      await runFireAction(db, { inspectionId: "insp-1", userId: "tech-1" }, { action: "acknowledge_notice", sessionId: "vs-1", spoken: false, recognitionMode: "typed" });
+      const initial = await snapshot();
+      const { result } = renderHook(() => useFireWalkthrough("insp-1", initial));
+      await waitFor(() => expect(result.current.sessionReady).toBe(true));
+      act(() => result.current.setTyped("All good here"));
+      holdNextPost = 409;
+      act(() => result.current.submitTyped());
+      await waitFor(() => expect(result.current.pending).toBe(true));
+      const sent = calls.length;
+      const section = result.current.currentSectionId;
+
+      act(() => result.current.selectSection("safety_brief"));
+      act(() => result.current.markNa("contents"));
+      act(() => result.current.nextSection());
+      act(() => result.current.setTyped("New words"));
+      act(() => result.current.submitTyped());
+
+      expect(result.current.currentSectionId).toBe(section);
+      expect(result.current.naFor).toBeNull();
+      expect(result.current.typed).toBe("All good here");
+      expect(calls).toHaveLength(sent);
+      expect(result.current.say).toBe(FIRE_COPY.retryFirst);
+    });
+
+    it("no save writes the box directly, and every screen input passes the lock", () => {
       const hook = readFileSync(join(__dirname, "..", "_fire", "use-fire-walkthrough.ts"), "utf8");
       expect(hook).not.toMatch(/setTyped\(save\.words\)/);
-      expect(hook.match(/offerWords\(save\.words\)/g) ?? []).toHaveLength(1);
+      const ret = hook.slice(hook.lastIndexOf("  return {"));
+      for (const input of ["setTyped", "submitTyped", "answerAsk", "pick", "cancelPick", "selectSection", "markNa", "nextSection", "signOff"]) {
+        expect(ret, input).toMatch(new RegExp(`\\b${input}: whenFree\\(`));
+      }
+      // A new save is refused while one is held; only retry re-sends it.
+      expect(hook).toMatch(/if \(held\.current\) \{\n\s+talk\(FIRE_COPY\.retryFirst\);\n\s+return;\n\s+\}\n\s+await deliver\(\{ action, words, onDone, key: newIdempotencyKey\(\) \}\)/);
     });
   });
 
@@ -491,7 +510,7 @@ describe("filing answers", () => {
     await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
     expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(0);
 
-    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.retryButton }));
     await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1));
     const [first, retry] = calls.filter((c) => c.action === "capture");
     expect(retry.key).toBe(first.key);

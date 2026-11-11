@@ -42,6 +42,8 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   const [naFor, setNaFor] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
   const [saving, setSaving] = useState(false);
+  // A save was sent and its outcome is unconfirmed (kind K17, round 21).
+  const [pending, setPending] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [noticeSpoken, setNoticeSpoken] = useState(false);
   const held = useRef<HeldSave | null>(null);
@@ -88,20 +90,8 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   }, [inspectionId]);
 
   /**
-   * Sends one action; onDone runs with the server's answer once it is saved.
-   *
-   * Kind K12 (fifth instance) is closed by design: a save is frozen the moment
-   * it is first sent, as one object holding the exact action, its words, its
-   * Idempotency-Key and what to do when it lands. While that save has no
-   * final reply, every send re-sends the frozen object unchanged, whatever
-   * the screen now shows (section, question, typing box), so nothing can give
-   * an unconfirmed answer a new key or a different body. Only a 2xx or a
-   * final refusal releases it; then the next answer can be sent.
-   */
-  /**
    * Round 20, kind K17: the typing box belongs to the technician. Code may put
-   * words in it only while it is empty (or already holds those words), so a
-   * save that returns late can never overwrite something typed since.
+   * words in it only while it is empty (or already holds those words).
    * Returns false when the box holds other words and was left alone.
    */
   const offerWords = useCallback((words: string): boolean => {
@@ -112,19 +102,18 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     return true;
   }, []);
 
-  const send = useCallback(
-    async (action: FireAction, words?: string, onDone?: (res: FireActionResponse) => void): Promise<void> => {
-      const earlier = held.current;
-      const save: HeldSave = earlier ?? { action, words, onDone, key: newIdempotencyKey() };
+  /**
+   * Delivers one frozen save (kind K12: its action, words and key never change
+   * once made). Only a 2xx or a checked final refusal releases it. An
+   * unconfirmed reply leaves it held and the screen pending: listening stays
+   * paused and every input is locked until retry() gets it through.
+   */
+  const deliver = useCallback(
+    async (save: HeldSave): Promise<void> => {
       held.current = save;
       setSaving(true);
       setProblem(null);
       speech.setBusy(true);
-      // The screen always leaves "Saving" (round 15), whatever happens below.
-      const release = () => {
-        setSaving(false);
-        speech.setBusy(false);
-      };
       let result: Awaited<ReturnType<typeof postFireAction>>;
       try {
         result = await postFireAction(inspectionId, save.action, save.key);
@@ -132,35 +121,67 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
         // postFireAction is built never to throw; if it does, nothing proves the outcome.
         result = { ok: false, kind: "unconfirmed" };
       }
+      // The screen always leaves "Saving" (round 15), whatever happens below.
+      setSaving(false);
+      if (!result.ok && result.kind === "unconfirmed") {
+        setPending(true);
+        if (save.words !== undefined) offerWords(save.words);
+        talk(FIRE_COPY.saveFailed);
+        return;
+      }
+      held.current = null;
+      setPending(false);
+      speech.setBusy(false);
       if (result.ok) {
-        held.current = null;
-        release();
         setView(result.data);
         const sent = save.words;
         if (sent !== undefined) setTyped((t) => (t.trim() === sent.trim() ? "" : t));
         save.onDone?.(result.data);
-        // The newer request was not sent while the earlier one was waiting.
-        if (earlier && JSON.stringify(earlier.action) !== JSON.stringify(action)) talk(FIRE_COPY.earlierSaved);
         return;
       }
-      release();
-      // One rule for every failure (kind K11): words leave the typing box only
-      // when the save succeeded, so a network drop and a server refusal both
-      // keep what the technician said where they can correct and resend it.
+      if (result.kind !== "refused") return;
+      // Released by a final refusal: its words must stay visible somewhere.
       const placed = save.words === undefined || offerWords(save.words);
-      if (result.kind === "unconfirmed") {
-        // Still held with its key: the next Save re-sends it first.
-        talk(placed ? FIRE_COPY.saveFailed : FIRE_COPY.saveFailedKept);
-      } else {
-        held.current = null;
-        // Released, so its words must stay visible even when the box is taken.
-        setProblem(placed ? result.message : `${result.message} ${FIRE_COPY.notSaved(save.words!)}`);
-        // The job file changed since it was reviewed: show the new words so
-        // the technician can read them before signing again.
-        if (result.body?.code === "REVIEW_STALE") void refresh();
-      }
+      setProblem(placed ? result.message : `${result.message} ${FIRE_COPY.notSaved(save.words!)}`);
+      // The job file changed since it was reviewed: show the new words so
+      // the technician can read them before signing again.
+      if (result.body?.code === "REVIEW_STALE") void refresh();
     },
     [inspectionId, offerWords, refresh, speech, talk],
+  );
+
+  /**
+   * Round 21, kind K17 (second instance): while a save is unconfirmed nothing
+   * new can be given, so nothing new can be lost. A new save is refused, not
+   * merged or queued; the only way forward is retry(), which re-sends the
+   * frozen save with its own key.
+   */
+  const send = useCallback(
+    async (action: FireAction, words?: string, onDone?: (res: FireActionResponse) => void): Promise<void> => {
+      if (held.current) {
+        talk(FIRE_COPY.retryFirst);
+        return;
+      }
+      await deliver({ action, words, onDone, key: newIdempotencyKey() });
+    },
+    [deliver, talk],
+  );
+
+  const retry = useCallback(async () => {
+    if (held.current) await deliver(held.current);
+  }, [deliver]);
+
+  /** Every screen input that changes state goes through this (round 21). */
+  const whenFree = useCallback(
+    <A extends unknown[]>(fn: (...args: A) => void) =>
+      (...args: A) => {
+        if (held.current) {
+          talk(FIRE_COPY.retryFirst);
+          return;
+        }
+        fn(...args);
+      },
+    [talk],
   );
 
   const moveTo = useCallback(
@@ -309,23 +330,29 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     picking,
     naFor,
     typed,
-    setTyped,
+    setTyped: whenFree(setTyped),
     saving,
+    pending,
+    // Every input is locked while saving or while a save is unconfirmed.
+    locked: saving || pending,
+    retry,
     problem,
     speech,
     readNotice: () => talk(FIRE_COPY.notice, () => setNoticeSpoken(true)),
     acknowledge,
-    submitTyped: () => handleTextRef.current(typed),
-    answerAsk: (yes: boolean) => handleTextRef.current(yes ? "yes" : "no"),
-    pick: (sectionId: string) => picking && void fileTo(sectionId, picking, "technician_chose"),
-    cancelPick: () => setPicking(null),
-    selectSection: (sectionId: string) => moveTo(sectionId),
-    markNa: (sectionId: string) => {
+    submitTyped: whenFree(() => handleTextRef.current(typed)),
+    answerAsk: whenFree((yes: boolean) => handleTextRef.current(yes ? "yes" : "no")),
+    pick: whenFree((sectionId: string) => {
+      if (picking) void fileTo(sectionId, picking, "technician_chose");
+    }),
+    cancelPick: whenFree(() => setPicking(null)),
+    selectSection: whenFree((sectionId: string) => moveTo(sectionId)),
+    markNa: whenFree((sectionId: string) => {
       setCurrentSectionId(sectionId);
       setNaFor(sectionId);
       talk(FIRE_COPY.naAskReason);
-    },
-    nextSection,
-    signOff,
+    }),
+    nextSection: whenFree(nextSection),
+    signOff: whenFree((name: string) => void signOff(name)),
   };
 }

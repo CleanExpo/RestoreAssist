@@ -32,7 +32,7 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
   const done = status.sections.filter((s) => s.state !== "todo").length;
   const acknowledged = status.noticeAcknowledged;
   const allClosed = status.openSectionIds.length === 0;
-  const inputDisabled = !acknowledged || !w.sessionReady || w.saving || w.picking !== null;
+  const inputDisabled = !acknowledged || !w.sessionReady || w.locked || w.picking !== null;
 
   return (
     <div className="flex min-h-screen flex-col bg-brand-canvas text-white">
@@ -64,6 +64,16 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
             {w.problem}
           </p>
         )}
+        {w.pending && (
+          <button
+            type="button"
+            disabled={w.saving}
+            onClick={() => void w.retry()}
+            className="min-h-16 w-full rounded-xl border-2 border-brand-gold bg-brand-navy text-base font-semibold disabled:opacity-40"
+          >
+            {w.saving ? "Saving" : FIRE_COPY.retryButton}
+          </button>
+        )}
         {w.sessionFailed && (
           <div role="alert" className="space-y-2 rounded-xl border border-red-500/40 bg-red-900/30 p-3 text-sm text-red-200">
             <p>Could not start the voice session. Check your signal.</p>
@@ -82,7 +92,7 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
             </button>
             <button
               type="button"
-              disabled={!w.sessionReady || w.saving}
+              disabled={!w.sessionReady || w.locked}
               onClick={() => void w.acknowledge()}
               className="min-h-16 w-full rounded-xl bg-brand-navy text-base font-semibold disabled:opacity-40"
             >
@@ -102,16 +112,16 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
           <div role="group" aria-label="Margot's question" className="space-y-2">
             <p className="text-sm text-white/90">{w.ask.say}</p>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" disabled={w.saving} onClick={() => w.answerAsk(true)} className="min-h-16 rounded-xl bg-green-800 text-base font-semibold">
+              <button type="button" disabled={w.locked} onClick={() => w.answerAsk(true)} className="min-h-16 rounded-xl bg-green-800 text-base font-semibold">
                 Yes
               </button>
-              <button type="button" disabled={w.saving} onClick={() => w.answerAsk(false)} className="min-h-16 rounded-xl bg-white/10 text-base font-semibold">
+              <button type="button" disabled={w.locked} onClick={() => w.answerAsk(false)} className="min-h-16 rounded-xl bg-white/10 text-base font-semibold">
                 No
               </button>
             </div>
           </div>
         )}
-        {w.picking !== null && <FireSectionPicker disabled={w.saving} onPick={w.pick} onCancel={w.cancelPick} />}
+        {w.picking !== null && <FireSectionPicker disabled={w.locked} onPick={w.pick} onCancel={w.cancelPick} />}
 
         <form
           method="post"
@@ -144,7 +154,7 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
             {!allClosed && (
               <button
                 type="button"
-                disabled={w.saving}
+                disabled={w.locked}
                 onClick={w.nextSection}
                 className="min-h-14 w-full rounded-xl border border-brand-gold/50 text-base"
               >
@@ -152,11 +162,11 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
                 {w.currentSectionId ? ` (now: ${getFireSection(w.currentSectionId)?.title ?? ""})` : ""}
               </button>
             )}
-            {allClosed && <FireSignOff signoff={status.signoff} saving={w.saving} onSign={(n) => void w.signOff(n)} />}
+            {allClosed && <FireSignOff signoff={status.signoff} saving={w.locked} onSign={(n) => w.signOff(n)} />}
             <FireSectionList
               sections={status.sections}
               currentSectionId={w.currentSectionId}
-              disabled={w.saving}
+              disabled={w.locked}
               onSelect={w.selectSection}
               onMarkNa={w.markNa}
             />
