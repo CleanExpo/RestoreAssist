@@ -28,6 +28,7 @@ export const FIRE_COPY = {
   naAskReason: "Tell me why this section does not apply, and I'll mark it N/A.",
   markedNa: (title: string) => `${title} marked not applicable.`,
   reviewStale: "New answers were saved since you read the job file. Read them, then sign again.",
+  inspectionSubmitted: "This job has been submitted, so the walkthrough can no longer change.",
   confirmNa: (title: string) => `Mark the whole ${title} section as not applicable? Say yes or no.`,
   sectionDone: (title: string) => `That covers ${title}. Say more, or tap Next section.`,
   allDone:

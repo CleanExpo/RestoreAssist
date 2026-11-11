@@ -14,6 +14,7 @@ const store = vi.hoisted(() => ({
   fireAssessment: false,
   findManyWheres: [] as unknown[],
   clock: 0,
+  inspectionStatus: "DRAFT" as string,
 }));
 const gate = vi.hoisted(() => ({ refuse: false, scopeLost: false }));
 const auth = vi.hoisted(() => ({ getServerSession: vi.fn() }));
@@ -24,7 +25,7 @@ vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 vi.mock("@/lib/prisma", () => {
   const prisma = {
     inspection: {
-      findFirst: async () => ({ id: "insp-1", claimType: store.claimType }),
+      findFirst: async () => ({ id: "insp-1", claimType: store.claimType, status: store.inspectionStatus }),
     },
     voiceCopilotSession: {
       findFirst: async ({ where }: { where: { id: string } }) => store.sessions.get(where.id) ?? null,
@@ -64,8 +65,10 @@ vi.mock("@/lib/auth/assert-tenancy", async () => {
       gate.refuse
         ? { ok: false, status: 404, reason: "Inspection not found" }
         : { ok: true, data: { inspectionManyWhere: { id: "insp-1" }, viaAssignment: true } },
-    writeWithinInspectionScope: async (_s: unknown, _d: unknown, work: (tx: unknown) => unknown) =>
-      gate.scopeLost ? null : work(prisma),
+    // Mirrors the real helper: the locked update matches only when every
+    // field of the scope matches the row, status included.
+    writeWithinInspectionScope: async (s: { status?: string }, _d: unknown, work: (tx: unknown) => unknown) =>
+      gate.scopeLost || (s.status !== undefined && s.status !== store.inspectionStatus) ? null : work(prisma),
   };
 });
 vi.mock("@/lib/idempotency", () => ({
@@ -116,6 +119,7 @@ beforeEach(() => {
   store.fireAssessment = false;
   store.findManyWheres = [];
   store.clock = 0;
+  store.inspectionStatus = "DRAFT";
   gate.refuse = false;
   gate.scopeLost = false;
   auth.getServerSession.mockResolvedValue({ user: { id: "tech-1" } });
@@ -236,6 +240,23 @@ describe("walkthrough", () => {
 
     const fresh = await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: await reviewed() });
     expect(fresh.status).toBe(200);
+  });
+
+  it("a submitted job refuses every walkthrough write, so its sign-off stays as signed (K13)", async () => {
+    await ack();
+    await fillAll();
+    await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: await reviewed() });
+    const before = store.observations.length;
+    store.inspectionStatus = "SUBMITTED";
+
+    const late = await post({ action: "file", sessionId: "vs-1", sectionId: "contents", transcript: "Late note after submit", routedBy: "technician_chose" });
+    expect(late.status).toBe(422);
+    expect((await late.json()).code).toBe("INSPECTION_SUBMITTED");
+    const resign = await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: await reviewed() });
+    expect(resign.status).toBe(422);
+    expect(store.observations).toHaveLength(before);
+    expect(store.audit).toHaveLength(1);
+    expect((await (await get()).json()).status.signoff.state).toBe("signed");
   });
 
   it("a change after sign-off shows as changed and allows a fresh sign-off", async () => {

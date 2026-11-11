@@ -48,7 +48,7 @@ type Call = { action: string; body: Record<string, unknown>; key: string | null 
 let calls: Call[] = [];
 let failNextPost = false;
 let refuseNextPost = false;
-let pendingNextPost = false;
+let holdNextPost: number | null = null;
 
 async function snapshot(): Promise<FireWalkthroughResponse> {
   const loaded = await loadFireWalkthrough("insp-1", db, "tech-1");
@@ -67,9 +67,10 @@ const fakeFetch = vi.fn(async (input: string, init?: RequestInit) => {
     failNextPost = false;
     throw new TypeError("Failed to fetch");
   }
-  if (pendingNextPost) {
-    pendingNextPost = false;
-    return json({ error: "A request with this Idempotency-Key is already in progress. Retry shortly." }, 409);
+  if (holdNextPost !== null) {
+    const status = holdNextPost;
+    holdNextPost = null;
+    return json({ error: "Not finished. Retry shortly." }, status);
   }
   if (refuseNextPost) {
     refuseNextPost = false;
@@ -149,7 +150,7 @@ beforeEach(() => {
   calls = [];
   failNextPost = false;
   refuseNextPost = false;
-  pendingNextPost = false;
+  holdNextPost = null;
   spoken.length = 0;
   FakeRecognition.live = [];
   FakeRecognition.starts = 0;
@@ -316,10 +317,10 @@ describe("filing answers", () => {
     expect(calls.at(-1)!.body).toMatchObject({ action: "mark_na", sectionId: "site_access", reason: "Not applicable, nobody else is on site" });
   });
 
-  it("a 409 still-in-progress reply keeps the words and the retry key (K12)", async () => {
+  it.each([409, 408, 429])("a %i reply keeps the words and the retry key (K12)", async (status) => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();
-    pendingNextPost = true;
+    holdNextPost = status;
     await typeAnswer("Gas meter is off and power isolated at the board");
     await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
     expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("Gas meter is off and power isolated at the board");

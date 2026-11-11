@@ -15,12 +15,11 @@ import type {
 
 export type FireCallResult<T> =
   | { ok: true; data: T }
-  /** No reply, or a 5xx: keep the words and let the technician retry. */
   /**
-   * The save may or may not have happened: no reply, a 5xx, or a 409 from the
-   * idempotency layer (still in progress, or completion unverified). The fire
-   * route's own refusals are only ever 400 or 422, so a 409 is never final.
-   * Retry with the same key; never release it.
+   * Anything that does not prove the outcome: no reply, a timeout (408), an
+   * in-progress or unverified reply (409), throttling (429), a 5xx, or any
+   * status not on the final list below. The save may have happened, so the
+   * technician retries with the same key; it is never released.
    */
   | { ok: false; kind: "unconfirmed"; status?: number }
   /** The server refused the action and said why. */
@@ -39,6 +38,14 @@ async function readRefusal(res: Response): Promise<{ message: string; body?: Fir
   }
 }
 
+/**
+ * The only refusals that release a retry key (kind K12: an allow-list, never a
+ * list of exceptions). Each is returned before anything is written, or is the
+ * fire route's own decided refusal: 400 bad request, 401 no login, 403 wrong
+ * session, 404 no access, 422 walkthrough rule.
+ */
+export const FINAL_REFUSAL_STATUSES: ReadonlySet<number> = new Set([400, 401, 403, 404, 422]);
+
 async function call<T>(input: string, init?: RequestInit): Promise<FireCallResult<T>> {
   let res: Response;
   try {
@@ -46,9 +53,11 @@ async function call<T>(input: string, init?: RequestInit): Promise<FireCallResul
   } catch {
     return { ok: false, kind: "unconfirmed" };
   }
-  if (res.status >= 500 || res.status === 409) return { ok: false, kind: "unconfirmed", status: res.status };
-  if (!res.ok) return { ok: false, kind: "refused", status: res.status, ...(await readRefusal(res)) };
-  return { ok: true, data: (await res.json()) as T };
+  if (res.ok) return { ok: true, data: (await res.json()) as T };
+  if (FINAL_REFUSAL_STATUSES.has(res.status)) {
+    return { ok: false, kind: "refused", status: res.status, ...(await readRefusal(res)) };
+  }
+  return { ok: false, kind: "unconfirmed", status: res.status };
 }
 
 export function getFireWalkthrough(inspectionId: string) {

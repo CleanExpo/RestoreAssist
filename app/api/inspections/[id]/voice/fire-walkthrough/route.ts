@@ -25,7 +25,13 @@ import {
 } from "@/lib/auth/assert-tenancy";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
-import { fireActionSchema, type FireActionResponse, type FireWalkthroughResponse } from "@/lib/voice/fire-smoke/schema";
+import {
+  fireActionSchema,
+  type FireActionResponse,
+  type FireBlockerBody,
+  type FireWalkthroughResponse,
+} from "@/lib/voice/fire-smoke/schema";
+import { FIRE_COPY } from "@/lib/voice/fire-smoke/copy";
 import {
   isFireWalkthroughApplicable,
   loadFireWalkthrough,
@@ -105,12 +111,28 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         return apiError(req, { code: "FORBIDDEN", message: "Forbidden", status: 403 });
       }
 
+      // The walkthrough can change only while the job is a DRAFT. The status
+      // sits in the same locked update as the write, and submit moves DRAFT to
+      // SUBMITTED under that row lock, so no answer or sign-off can land on a
+      // submitted job (kind K13: no write after the record's terminal state).
       const result = await writeWithinInspectionScope(
-        tenancy.data.inspectionManyWhere,
+        { ...tenancy.data.inspectionManyWhere, status: "DRAFT" },
         { updatedAt: new Date() },
         (tx) => runFireAction(tx as unknown as FireActionDb, { inspectionId: id, userId }, action),
       );
-      if (!result) return notFound(req);
+      if (!result) {
+        // Nothing was written. Only the message is chosen here: a job that
+        // left DRAFT never returns to it through submit.
+        const current = await prisma.inspection.findFirst({
+          where: tenancy.data.inspectionManyWhere,
+          select: { status: true },
+        });
+        if (current && current.status !== "DRAFT") {
+          const body: FireBlockerBody = { error: FIRE_COPY.inspectionSubmitted, code: "INSPECTION_SUBMITTED", openSectionIds: [] };
+          return NextResponse.json(body, { status: 422 });
+        }
+        return notFound(req);
+      }
       if (!result.ok) return NextResponse.json(result.body, { status: result.httpStatus });
 
       const body: FireActionResponse = {

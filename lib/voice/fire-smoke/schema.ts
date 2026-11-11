@@ -194,6 +194,7 @@ export interface FireBlockerBody {
     | "NOTICE_REQUIRED"
     | "SECTIONS_OPEN"
     | "CHANGED_AFTER_SIGNOFF"
-    | "REVIEW_STALE";
+    | "REVIEW_STALE"
+    | "INSPECTION_SUBMITTED";
   openSectionIds: string[];
 }
