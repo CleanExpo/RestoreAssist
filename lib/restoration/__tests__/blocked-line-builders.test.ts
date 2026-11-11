@@ -285,11 +285,13 @@ describe("RA-8281 B2: review of #2536", () => {
     expect(doc.blockedPricing ?? null).toBeNull();
   });
 
-  // Review round 7: the treatment a contractor selects decides the rate
-  // field whatever its capitals, in both documents, with no hazard ticked.
-  const selected = (treatment: string) =>
+  // Review rounds 7 and 8: the scope of works reads its treatment text
+  // whatever its capitals. Which treatment a job is charged for, and whether
+  // the cost estimate should follow the same rule, is RA-8309 (a pricing
+  // decision); B2 leaves both documents' rules as they are on main.
+  const selected = (treatment: string, hazards = ["None identified"]) =>
     ({
-      tier1: { T1_Q7_hazards: ["None identified"], T1_Q6_materialsAffected: [] },
+      tier1: { T1_Q7_hazards: hazards, T1_Q6_materialsAffected: [] },
       tier3: {
         T3_Q3_chemicalTreatment: treatment,
         T3_Q4_totalAffectedArea: "45 sqm",
@@ -307,27 +309,51 @@ describe("RA-8281 B2: review of #2536", () => {
     ["Enhanced mould remediation (if active growth suspected)", "mouldRemediationTreatmentRate"],
     ["MOULD TREATMENT", "mouldRemediationTreatmentRate"],
     ["Standard antimicrobial treatment (preventative — all Category 1 losses)", "antimicrobialTreatmentRate"],
-  ])("selected treatment %j reads %s in both documents", (treatment, field) => {
+  ])("scope of works: selected treatment %j reads %s", (treatment, field) => {
     const job = selected(treatment);
-    // Cleared: both documents are blocked on exactly that field.
-    const scopeLine = chemicalLine(scope(job, field));
-    expect(scopeLine.pricingStatus).toBe("rate_not_set");
-    expect(scopeLine.rateField).toBe(field);
-    expect(scopeLine.subtotal).toBeNull();
-    const costLines = costChemicals(cost(job, field));
-    expect(costLines).toHaveLength(1);
-    expect(costLines[0].pricingStatus).toBe("rate_not_set");
-    expect(costLines[0].rateField).toBe(field);
-    expect(costLines[0].subtotal).toBeNull();
-    // Control, every rate set: both are priced from that same field.
+    // Cleared: the scope is blocked on exactly that field.
+    const blockedLine = chemicalLine(scope(job, field));
+    expect(blockedLine.pricingStatus).toBe("rate_not_set");
+    expect(blockedLine.rateField).toBe(field);
+    expect(blockedLine.subtotal).toBeNull();
+    // Control, every rate set: it is priced from that same field.
     const rate = (FULL as Record<string, number>)[field];
-    const pricedScope = chemicalLine(scope(job, null));
-    expect(pricedScope.rate).toBe(rate);
-    expect(pricedScope.subtotal).toBe(pricedScope.qty * rate);
-    const pricedCost = costChemicals(cost(job, null));
-    expect(pricedCost).toHaveLength(1);
-    expect(pricedCost[0].ratePerSqm).toBe(rate);
-    expect(pricedCost[0].subtotal).toBe(pricedCost[0].sqm * rate);
+    const priced = chemicalLine(scope(job, null));
+    expect(priced.rate).toBe(rate);
+    expect(priced.subtotal).toBe(priced.qty * rate);
+  });
+
+  it("scope of works: the selected treatment still comes before the hazard ticked, as on main", () => {
+    const job = selected("Mould treatment", ["Biohazard contamination"]);
+    expect(chemicalLine(scope(job, null)).rate).toBe(
+      FULL.mouldRemediationTreatmentRate,
+    );
+    // The biohazard rate is not read by this line, so clearing it blocks nothing here.
+    expect(chemicalLine(scope(job, "biohazardTreatmentRate")).pricingStatus).toBeUndefined();
+    expect(chemicalLine(scope(job, "mouldRemediationTreatmentRate")).rateField).toBe(
+      "mouldRemediationTreatmentRate",
+    );
+  });
+
+  it.each([
+    ["no hazard ticked, any treatment selected", "biohazard treatment", ["None identified"], ["antimicrobialTreatmentRate"]],
+    ["biohazard ticked, mould treatment selected", "Mould treatment", ["Biohazard contamination"], ["biohazardTreatmentRate"]],
+    ["mould ticked", "Standard antimicrobial treatment", ["Active mould growth"], ["mouldRemediationTreatmentRate"]],
+  ])("cost estimate: chemical lines follow the hazards ticked, unchanged by B2 (%s)", (_name, treatment, hazards, fields) => {
+    const job = selected(treatment, hazards);
+    // Every rate set: one line per field, priced from that field.
+    const priced = costChemicals(cost(job, null));
+    expect(priced.map((l: any) => l.ratePerSqm)).toEqual(
+      fields.map((f) => (FULL as Record<string, number>)[f]),
+    );
+    // Each field the document reads, cleared, blocks its own line.
+    for (const field of fields) {
+      const lines = costChemicals(cost(job, field));
+      const blockedLines = lines.filter((l: any) => l.pricingStatus);
+      expect(blockedLines).toHaveLength(1);
+      expect(blockedLines[0].rateField).toBe(field);
+      expect(blockedLines[0].subtotal).toBeNull();
+    }
   });
 
   const ZERO_UNITS = [
