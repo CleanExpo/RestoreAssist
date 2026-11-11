@@ -196,6 +196,22 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     [talk],
   );
 
+  /**
+   * One owner for every question or mode that belongs to the section on
+   * screen (N/A reason, "is this part of...?", the section picker). Changing
+   * section by the technician ends them all, so a later Yes or answer can
+   * never be applied to the section they left. Words that were never filed
+   * go back to the typing box, never lost.
+   */
+  const leaveSection = useCallback(() => {
+    const unfiled = ask?.transcript ?? picking;
+    setNaFor(null);
+    if (ask === null && picking === null) return;
+    setAsk(null);
+    setPicking(null);
+    if (unfiled && !offerWords(unfiled)) setProblem(FIRE_COPY.notSaved(unfiled));
+  }, [ask, offerWords, picking]);
+
   const handleOutcome = useCallback(
     (res: FireActionResponse, transcript: string) => {
       const outcome = res.outcome;
@@ -335,8 +351,9 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
 
   const nextSection = useCallback(() => {
     const open = view.status.openSectionIds;
+    leaveSection();
     moveTo(open.find((id) => id !== currentSectionId) ?? open[0] ?? null);
-  }, [currentSectionId, moveTo, view.status.openSectionIds]);
+  }, [currentSectionId, leaveSection, moveTo, view.status.openSectionIds]);
 
   const signOff = useCallback(
     async (typedName: string) => {
@@ -383,8 +400,12 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
       if (picking) void fileTo(sectionId, picking, "technician_chose");
     }),
     cancelPick: whenFree(() => setPicking(null)),
-    selectSection: whenFree((sectionId: string) => moveTo(sectionId)),
+    selectSection: whenFree((sectionId: string) => {
+      leaveSection();
+      moveTo(sectionId);
+    }),
     markNa: whenFree((sectionId: string) => {
+      leaveSection();
       setCurrentSectionId(sectionId);
       setNaFor(sectionId);
       talk(FIRE_COPY.naAskReason);

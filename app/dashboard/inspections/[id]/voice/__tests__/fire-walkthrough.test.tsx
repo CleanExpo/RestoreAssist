@@ -317,6 +317,32 @@ describe("state held across screen changes (kind: a mode outliving the thing it 
     expect(result.current.naFor).toBeNull();
   });
 
+  it.each([
+    ["an N/A question", "Not applicable, nobody else is on site"],
+    ["a which-section question", "All good here"],
+  ])("moving to another section while %s is open drops the question and keeps the words", async (_n, words) => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    await typeAnswer(words);
+    await screen.findByRole("group", { name: "Margot's question" });
+    fireEvent.click(screen.getByRole("button", { name: /^Next section/ }));
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Margot's question" })).toBeNull());
+    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue(words);
+    expect(calls.some((c) => c.action === "mark_na" || c.action === "file")).toBe(false);
+  });
+
+  it("moving on while the section picker is open drops the picker and keeps the words", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    await typeAnswer("All good here");
+    await screen.findByRole("group", { name: "Margot's question" });
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    await screen.findByRole("group", { name: "Choose a section" });
+    fireEvent.click(screen.getByRole("button", { name: /^Next section/ }));
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Choose a section" })).toBeNull());
+    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("All good here");
+  });
+
   it("a listening OFF chosen while the first prompt is spoken is still OFF when it ends", async () => {
     await renderScreen();
     fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.noticeAccept }));
