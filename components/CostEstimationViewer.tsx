@@ -9,6 +9,12 @@ import {
   Printer,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  readBlockedPricing,
+  type BlockedPricing,
+} from "@/lib/pricing/blocked-line";
+import { BlockedPricingNotice } from "@/components/pricing/BlockedPricingNotice";
 import VisualCostEstimationViewer from "./VisualCostEstimationViewer";
 import { jurisdictionLawLabels } from "@/lib/reports/viewer-compliance-prose";
 
@@ -23,6 +29,9 @@ export default function CostEstimationViewer({
 }: CostEstimationViewerProps) {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [blockedPricing, setBlockedPricing] = useState<BlockedPricing | null>(
+    null,
+  );
   const [report, setReport] = useState<any>(null);
   const [costDocument, setCostDocument] = useState<string>("");
   const [costData, setCostData] = useState<any>(null);
@@ -94,6 +103,7 @@ export default function CostEstimationViewer({
 
   const handleGenerateEstimation = async () => {
     setGenerating(true);
+    setBlockedPricing(null);
     try {
       const response = await fetch("/api/reports/generate-cost-estimation", {
         method: "POST",
@@ -119,7 +129,13 @@ export default function CostEstimationViewer({
         let errorMessage = "Failed to generate cost estimation";
         try {
           const error = await response.json();
-          errorMessage = error.error || errorMessage;
+          // RA-8281 (B2): a rate that is not set is shown line by line.
+          const blocked = readBlockedPricing(error);
+          if (blocked) {
+            setBlockedPricing(blocked);
+            return;
+          }
+          errorMessage = apiErrorMessage(error) ?? errorMessage;
         } catch (e) {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
@@ -259,6 +275,10 @@ export default function CostEstimationViewer({
           )}
         </div>
       </div>
+
+      {blockedPricing && (
+        <BlockedPricingNotice blocked={blockedPricing} title="Cost estimation" />
+      )}
 
       {/* Generate Estimation Options */}
       {!costDocument && (
