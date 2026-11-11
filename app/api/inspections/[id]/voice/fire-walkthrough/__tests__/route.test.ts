@@ -281,6 +281,24 @@ describe("walkthrough", () => {
     expect(store.audit).toHaveLength(1);
   });
 
+  it("a technician cannot sign before acknowledging the notice themselves (round 19, K11)", async () => {
+    await ack();
+    await fillAll("vs-1");
+    auth.getServerSession.mockResolvedValue({ user: { id: "tech-2" } });
+    const sign = async () =>
+      post({ action: "sign_off", sessionId: "vs-other-user", typedName: "Bo Example", declarationAccepted: true, reviewedRevision: await reviewed() });
+    const before = await sign();
+    expect(before.status).toBe(422);
+    expect((await before.json()).code).toBe("NOTICE_REQUIRED");
+    expect(store.observations.filter((o) => o.type === "fire_walkthrough_signoff")).toHaveLength(0);
+    expect(store.audit).toHaveLength(0);
+
+    // Positive control: the same request succeeds once B has acknowledged.
+    await post({ action: "acknowledge_notice", sessionId: "vs-other-user", spoken: true, recognitionMode: "cloud" });
+    expect((await sign()).status).toBe(200);
+    expect(store.observations.filter((o) => o.type === "fire_walkthrough_signoff")).toHaveLength(1);
+  });
+
   it("a second technician with a current view signs in their own name (round 16)", async () => {
     await ack();
     await fillAll("vs-1");

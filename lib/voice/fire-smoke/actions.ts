@@ -105,6 +105,22 @@ const UNKNOWN_SECTION: FireActionResult = {
   body: { error: "Unknown section" },
 };
 
+/**
+ * The refusals every fire action shares, checked against THIS technician's
+ * status under the inspection lock. Only acknowledging the notice itself is
+ * allowed before the notice; everything else, sign-off included, needs the
+ * requester's own acknowledgement (spec R7).
+ */
+function sharedRefusal(action: FireAction, status: WalkthroughStatus): FireActionResult | null {
+  if (action.action === "acknowledge_notice") return null;
+  if (action.action !== "sign_off") {
+    const sectionId = action.action === "capture" ? action.currentSectionId : action.sectionId;
+    if (sectionId !== undefined && !isFireSectionId(sectionId)) return UNKNOWN_SECTION;
+  }
+  if (!status.noticeAcknowledged) return NOTICE_REQUIRED;
+  return null;
+}
+
 export async function runFireAction(
   db: FireActionDb,
   ctx: { inspectionId: string; userId: string },
@@ -115,6 +131,11 @@ export async function runFireAction(
   // unique and follows commit order. It, not createdAt, orders the rows.
   const seq = nextFireSeq(before.observations);
   let outcome: CaptureOutcome | undefined;
+
+  // Round 19, kind K11: the guards every recorded action shares run here,
+  // once, before any branch. No branch can be added that skips them.
+  const refused = sharedRefusal(action, before.status);
+  if (refused) return refused;
 
   if (action.action === "acknowledge_notice") {
     const parsed = noticeParsedSchema.parse({
@@ -128,9 +149,6 @@ export async function runFireAction(
     const result = await signOff(db, ctx, action, before.status, before.observations, seq);
     if (!result.ok) return result;
   } else {
-    const sectionId = action.action === "capture" ? action.currentSectionId : action.sectionId;
-    if (sectionId !== undefined && !isFireSectionId(sectionId)) return UNKNOWN_SECTION;
-    if (!before.status.noticeAcknowledged) return NOTICE_REQUIRED;
     outcome = (await recordAnswer(db, action, seq)).outcome;
   }
 
