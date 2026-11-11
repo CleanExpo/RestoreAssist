@@ -60,6 +60,7 @@ import {
   editableStoredEquipment,
   equipmentLineAmount,
 } from "@/lib/reports/stored-equipment-pricing";
+import { UnreadableEquipmentNotice } from "@/components/UnreadableEquipmentNotice";
 import type { InitialDataEntryFormProps } from "./initial-data-entry/types";
 import { normalizeDate } from "./initial-data-entry/normalize-date";
 import { shouldCreateReport } from "@/lib/reports/should-create-report";
@@ -484,6 +485,12 @@ export default function InitialDataEntryForm({
   );
   // Calculator defaults are examples, not site measurements or an approved plan.
   const [includeEquipmentEstimate, setIncludeEquipmentEstimate] = useState(false);
+  // Saved equipment lines the one reader could not read. They are not in the
+  // list shown here, and the user is told so for as long as the form is open.
+  // This form sends equipment only when it CREATES a report; saved lines are
+  // loaded only for an existing report, which it never writes back (see
+  // shouldCreateReport in handleSubmit), so it cannot delete the line.
+  const [unreadableSavedLines, setUnreadableSavedLines] = useState(0);
 
   // NIR State (only used when reportType is 'nir')
   const [nirEnvironmentalData, setNirEnvironmentalData] = useState({
@@ -744,17 +751,13 @@ export default function InitialDataEntryForm({
 
           // RA-8281 B1 round 13: saved lines are read through the one
           // reader. A line that cannot be read is left out of the editable
-          // list and the user is told, so saving again stores a clean list.
+          // list, counted and shown as a standing notice.
           const saved = editableStoredEquipment(
             equipmentData.equipmentSelection,
           );
           if (saved.hasLines) {
             setEquipmentSelections(saved.selections);
-            if (saved.unusableCount > 0) {
-              toast.error(
-                "A saved equipment line could not be read and was left out. Check the equipment list and save again.",
-              );
-            }
+            setUnreadableSavedLines(saved.unusableCount);
             hasAutoSelectedEquipment.current = true; // Mark as already set to prevent auto-selection
           }
 
@@ -4622,6 +4625,7 @@ export default function InitialDataEntryForm({
               />
               Include this equipment estimate and its inputs in the saved draft
             </label>
+            <UnreadableEquipmentNotice count={unreadableSavedLines} />
 
             {/* Psychrometric Assessment */}
             <div className="space-y-4">
@@ -5085,6 +5089,9 @@ export default function InitialDataEntryForm({
       </form>
 
       {/* Review Section - Shows all data before report type selection */}
+      {showReview && (
+        <UnreadableEquipmentNotice count={unreadableSavedLines} />
+      )}
       {showReview && (
         <ReviewSection
           formData={formData}

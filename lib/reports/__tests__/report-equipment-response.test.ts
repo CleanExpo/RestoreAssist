@@ -95,6 +95,9 @@ describe("withoutCachedEquipmentMoney (bulk exports that cannot reprice)", () =>
       row(JSON.stringify([null, { groupId: "lgr-85", quantity: 2, dailyRate: 61 }])),
     );
     expect(out.equipmentSelection).toEqual([{ groupId: "lgr-85", quantity: 2 }]);
+    // The null entry could not be read: the row says so instead of reading
+    // as the whole saved list.
+    expect(out.equipmentSelectionUnreadableLines).toBe(1);
     expect("equipmentCostTotal" in out).toBe(false);
     expect(out.title).toBe("Synthetic report");
     const text = JSON.stringify(out);
@@ -104,5 +107,10 @@ describe("withoutCachedEquipmentMoney (bulk exports that cannot reprice)", () =>
 
   it("nothing stored stays null", () => {
     expect(withoutCachedEquipmentMoney(row(null)).equipmentSelection).toBeNull();
+  });
+
+  it("a fully readable list carries no unreadable count", () => {
+    const out = withoutCachedEquipmentMoney(row(JSON.stringify([{ groupId: "lgr-85", quantity: 2 }])));
+    expect("equipmentSelectionUnreadableLines" in out).toBe(false);
   });
 });

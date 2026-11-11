@@ -725,3 +725,56 @@ describe("RA-8281 B1 round 13 rule G: a restricted price-list query loads every 
     expect(restrictedPriceListSelects(src)).toEqual([["id", "airMoverAxialDailyRate"]]);
   });
 });
+
+/*
+ * Rule H (review 8): a file that loads saved lines into an editable list drops
+ * the lines the reader could not read. It must take the count and refuse to
+ * save while any are pending, or an ordinary Save deletes a saved line without
+ * a word and presents the rest as the whole job.
+ */
+describe("RA-8281 B1 round 13 rule H: an editable list never drops an unreadable saved line silently", () => {
+  const OWNER_FILE = "lib/reports/stored-equipment-pricing.ts";
+  const callers = SCAN_DIRS.flatMap((d) => sourceFiles(join(ROOT, d)))
+    .map(posix)
+    .filter((file) => file !== OWNER_FILE)
+    .map((file) => ({ file, source: stripComments(readFileSync(join(ROOT, file), "utf8")) }))
+    .filter(({ source }) => source.includes("editableStoredEquipment("));
+
+  it("finds the editable loaders (so an empty list is not read as a pass)", () => {
+    expect(callers.map((c) => c.file).sort()).toEqual([
+      "components/EquipmentToolsSelection.tsx",
+      "components/InitialDataEntryForm.tsx",
+    ]);
+  });
+
+  it("each one takes the unreadable count and shows the notice", () => {
+    const missing = callers.flatMap(({ file, source }) =>
+      ["unusableCount", "<UnreadableEquipmentNotice"]
+        .filter((needle) => !source.includes(needle))
+        .map((needle) => `${file}: ${needle}`),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it("each one that writes the list back refuses to save while a line is unreadable", () => {
+    // A caller that sends equipmentSelection in a request body can replace
+    // the saved list. The entry form sends it only when it creates a report
+    // (no saved list exists then), which shouldCreateReport holds.
+    const writers = callers.filter(({ source }) => /equipmentSelection:\s*equipmentSelections/.test(source));
+    expect(writers.map((w) => w.file).sort()).toEqual([
+      "components/EquipmentToolsSelection.tsx",
+      "components/InitialDataEntryForm.tsx",
+    ]);
+    const unguarded = writers
+      .filter(({ source }) => !source.includes("toast.error(UNREADABLE_LINES_BLOCK_SAVE)"))
+      .filter(({ source }) => !source.includes("existingReportId: reportId"))
+      .map((w) => w.file);
+    expect(unguarded).toEqual([]);
+  });
+
+  it("the owner's own bulk export marks the row instead of dropping the line silently", () => {
+    const owner = stripComments(readFileSync(join(ROOT, OWNER_FILE), "utf8"));
+    expect(owner.split("editableStoredEquipment(").length - 1).toBe(2);
+    expect(owner).toContain("copy.equipmentSelectionUnreadableLines = saved.unusableCount");
+  });
+});

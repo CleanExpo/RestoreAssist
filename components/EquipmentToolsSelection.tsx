@@ -38,6 +38,10 @@ import {
 } from "@/lib/equipment-matrix";
 import { RateNotSetError } from "@/lib/pricing/rate-not-set";
 import {
+  UNREADABLE_LINES_BLOCK_SAVE,
+  UnreadableEquipmentNotice,
+} from "@/components/UnreadableEquipmentNotice";
+import {
   calculateTotalCost,
   calculateTotalDailyCost,
   editableStoredEquipment,
@@ -108,12 +112,17 @@ export default function EquipmentToolsSelection({
   });
 
   // Step 3: Equipment Selection
+  // RA-8281 B1 round 13: saved lines are read through the one reader. A line
+  // that cannot be read is not loaded into the editable list; it is counted,
+  // shown as a notice, and blocks Save until the user removes it on purpose.
+  const [savedEquipment] = useState(() =>
+    editableStoredEquipment(initialData?.equipmentSelection),
+  );
   const [equipmentSelections, setEquipmentSelections] = useState<
     EquipmentSelection[]
-  >(() =>
-    // RA-8281 B1 round 13: saved lines are read through the one reader; a
-    // line that cannot be read is not loaded into the editor.
-    editableStoredEquipment(initialData?.equipmentSelection).selections,
+  >(savedEquipment.selections);
+  const [unreadableSavedLines, setUnreadableSavedLines] = useState(
+    savedEquipment.unusableCount,
   );
   const [durationDays, setDurationDays] = useState(4);
 
@@ -328,6 +337,10 @@ export default function EquipmentToolsSelection({
   };
 
   const handleSave = async () => {
+    if (unreadableSavedLines > 0) {
+      toast.error(UNREADABLE_LINES_BLOCK_SAVE);
+      return;
+    }
     setLoading(true);
     try {
       const psychrometricAssessment = {
@@ -385,6 +398,10 @@ export default function EquipmentToolsSelection({
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      <UnreadableEquipmentNotice
+        count={unreadableSavedLines}
+        onRemove={() => setUnreadableSavedLines(0)}
+      />
       {/* Step Indicator */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">

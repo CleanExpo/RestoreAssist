@@ -321,6 +321,8 @@ export function editableStoredEquipment(value: StoredEquipmentSelections): {
 /**
  * A Report row for a bulk export that cannot reprice every row: the readable
  * stored lines WITHOUT their cached rate, and no cached equipmentCostTotal.
+ * When a stored line could not be read, equipmentSelectionUnreadableLines
+ * carries the count, so the row never reads as the whole saved list.
  * (A single-report response reprices instead: see withCurrentEquipment in
  * report-equipment-response.ts.)
  */
@@ -330,13 +332,18 @@ export function withoutCachedEquipmentMoney<
   report: T,
 ): Omit<T, "equipmentSelection" | "equipmentCostTotal"> & {
   equipmentSelection: Array<{ groupId: string; quantity: number }> | null;
+  equipmentSelectionUnreadableLines?: number;
 } {
   const copy: Record<string, unknown> = { ...report };
   delete copy.equipmentCostTotal;
   const saved = editableStoredEquipment(report.equipmentSelection);
   copy.equipmentSelection = saved.hasLines ? saved.selections : null;
+  if (saved.unusableCount > 0) {
+    copy.equipmentSelectionUnreadableLines = saved.unusableCount;
+  }
   return copy as Omit<T, "equipmentSelection" | "equipmentCostTotal"> & {
     equipmentSelection: Array<{ groupId: string; quantity: number }> | null;
+    equipmentSelectionUnreadableLines?: number;
   };
 }
 

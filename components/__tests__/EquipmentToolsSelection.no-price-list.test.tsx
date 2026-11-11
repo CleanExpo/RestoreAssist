@@ -109,6 +109,8 @@ describe("equipment screen loading saved lines (RA-8281 B1 round 13)", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/pricing-config"));
     fireEvent.click(screen.getByText("Next: Scope Areas"));
     fireEvent.click(screen.getByText("Next: Select Equipment"));
+  }
+  async function savedBody() {
     fireEvent.click(screen.getByText("Save & Complete"));
     await waitFor(() => expect(equipmentPosts()).toHaveLength(1));
     return JSON.parse(String((equipmentPosts()[0][1] as RequestInit).body));
@@ -117,11 +119,39 @@ describe("equipment screen loading saved lines (RA-8281 B1 round 13)", () => {
   it.each([
     ["a null entry beside a readable line", [null, { groupId: "lgr-85", quantity: 2, dailyRate: 61 }]],
     ["the stored column text", JSON.stringify([null, { groupId: "lgr-85", quantity: 2, dailyRate: 61 }])],
-  ])("%s: the screen renders and saves only the readable line at the price-list rate", async (_label, saved) => {
-    const body = await saveLoaded(saved);
+    ["an equipment type the catalogue does not have", [{ groupId: "not-in-catalogue", quantity: 1 }, { groupId: "lgr-85", quantity: 2 }]],
+  ])("%s: Save is refused and the line is named until the user removes it; then only the readable line is saved", async (_label, saved) => {
+    await saveLoaded(saved);
+    // Review 8: the unreadable line used to vanish and Save posted the rest
+    // as the whole job. It is shown, and Save is refused.
+    expect(screen.getByRole("alert")).toHaveTextContent("1 saved equipment line could not be read");
+    fireEvent.click(screen.getByText("Save & Complete"));
+    expect(toastError).toHaveBeenCalledWith(
+      "A saved equipment line could not be read. Remove it from the job before saving.",
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(equipmentPosts()).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove unreadable line" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    const body = await savedBody();
     expect(body.equipmentSelection).toHaveLength(1);
     expect(body.equipmentSelection[0]).toMatchObject({ groupId: "lgr-85", quantity: 2 });
     expect(body.equipmentSelection[0].dailyRate).not.toBe(61);
     expect(body.equipmentCostTotal).toBe(70 * 2 * body.estimatedDryingDuration);
+  });
+
+  it("a fully readable saved list shows no notice and saves straight away", async () => {
+    await saveLoaded([{ groupId: "lgr-85", quantity: 2 }]);
+    expect(screen.queryByRole("alert")).toBeNull();
+    const body = await savedBody();
+    expect(body.equipmentSelection).toHaveLength(1);
+  });
+
+  it("two unreadable lines are counted, on every step", async () => {
+    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => ({}) }));
+    render(<EquipmentToolsSelection reportId="r1" initialData={{ equipmentSelection: [null, "x"] }} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("2 saved equipment lines could not be read");
+    expect(screen.getByRole("button", { name: "Remove unreadable lines" })).toBeInTheDocument();
   });
 });
