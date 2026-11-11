@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { newIdempotencyKey, postFireAction } from "../_fire/fire-client";
+import { getFireWalkthrough, newIdempotencyKey, postFireAction, startVoiceSession } from "../_fire/fire-client";
 import type { FireAction } from "@/lib/voice/fire-smoke/schema";
 
 const capture = (transcript: string): FireAction =>
@@ -53,6 +53,8 @@ describe("postFireAction (kind K12: only a final refusal releases the key)", () 
     ["an empty body", ""],
     ["a null body", "null"],
     ["a body with no status", JSON.stringify({ outcome: { kind: "filed" } })],
+    ["a null status", JSON.stringify({ status: null, applicable: true })],
+    ["an empty status", JSON.stringify({ status: {}, applicable: true, nextPrompt: "x", nextSectionId: null })],
   ])("a 200 with %s is unconfirmed and never throws (round 15)", async (_label, body) => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
     await expect(postFireAction("insp-1", capture("Gas meter is off"), "k-1")).resolves.toMatchObject({
@@ -60,5 +62,32 @@ describe("postFireAction (kind K12: only a final refusal releases the key)", () 
       kind: "unconfirmed",
       status: 200,
     });
+  });
+});
+
+describe("every reply passes a schema before it counts (kind K15, round 16)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const reply200 = (body: string) => vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+  it.each(["null", "{}", JSON.stringify({ status: null, applicable: true })])(
+    "a malformed walkthrough load (%s) is unconfirmed",
+    async (body) => {
+      reply200(body);
+      await expect(getFireWalkthrough("insp-1")).resolves.toMatchObject({ ok: false, kind: "unconfirmed" });
+    },
+  );
+
+  it.each(["null", "{}", JSON.stringify({ session: null }), JSON.stringify({ session: { sessionId: "" } }), "{bad"])(
+    "a malformed voice session reply (%s) gives no session and never throws",
+    async (body) => {
+      reply200(body);
+      await expect(startVoiceSession("insp-1")).resolves.toBeNull();
+    },
+  );
+
+  it("the schema is a required argument of call(), so no request can skip it", () => {
+    const client = readFileSync(join(__dirname, "..", "_fire", "fire-client.ts"), "utf8");
+    expect(client).toMatch(/async function call<T>\(input: string, init: RequestInit, schema: z\.ZodType<T>\)/);
+    expect(client).not.toMatch(/as T\b/);
   });
 });

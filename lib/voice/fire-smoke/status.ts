@@ -93,6 +93,11 @@ function latestSignoff(ordered: FireObservationRow[]) {
   return null;
 }
 
+/** Who made the newest valid sign-off, or null when there is none. */
+export function latestSignerUserId(observations: readonly FireObservationRow[]): string | null {
+  return latestSignoff(inWriteOrder(observations))?.parsed.signerUserId ?? null;
+}
+
 /**
  * Sections and sign-off are job-wide. The privacy notice is personal: it
  * counts only when the viewing technician acknowledged it in a session

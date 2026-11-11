@@ -242,6 +242,37 @@ describe("walkthrough", () => {
     expect(fresh.status).toBe(200);
   });
 
+  it("refuses a stale view even when another technician has already signed the newer rows (K5, round 16)", async () => {
+    await ack();
+    await fillAll("vs-1");
+    const seenByA = await reviewed();
+    auth.getServerSession.mockResolvedValue({ user: { id: "tech-2" } });
+    await post({ action: "acknowledge_notice", sessionId: "vs-other-user", spoken: true, recognitionMode: "cloud" });
+    await post({ action: "file", sessionId: "vs-other-user", sectionId: "services", transcript: "Late note from B", routedBy: "technician_chose" });
+    const byB = await post({ action: "sign_off", sessionId: "vs-other-user", typedName: "Bo Example", declarationAccepted: true, reviewedRevision: await reviewed() });
+    expect(byB.status).toBe(200);
+
+    auth.getServerSession.mockResolvedValue({ user: { id: "tech-1" } });
+    const byA = await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: seenByA });
+    expect(byA.status).toBe(422);
+    expect((await byA.json()).code).toBe("REVIEW_STALE");
+    expect(store.observations.filter((o) => o.type === "fire_walkthrough_signoff")).toHaveLength(1);
+    expect(store.audit).toHaveLength(1);
+  });
+
+  it("a second technician with a current view signs in their own name (round 16)", async () => {
+    await ack();
+    await fillAll("vs-1");
+    await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: await reviewed() });
+    auth.getServerSession.mockResolvedValue({ user: { id: "tech-2" } });
+    await post({ action: "acknowledge_notice", sessionId: "vs-other-user", spoken: true, recognitionMode: "cloud" });
+    const byB = await post({ action: "sign_off", sessionId: "vs-other-user", typedName: "Bo Example", declarationAccepted: true, reviewedRevision: await reviewed() });
+    expect(byB.status).toBe(200);
+    const signoffs = store.observations.filter((o) => o.type === "fire_walkthrough_signoff");
+    expect(signoffs.map((o) => (o.parsed as { signerUserId: string }).signerUserId)).toEqual(["tech-1", "tech-2"]);
+    expect(store.audit).toHaveLength(2);
+  });
+
   it("a submitted job refuses every walkthrough write, so its sign-off stays as signed (K13)", async () => {
     await ack();
     await fillAll();

@@ -62,7 +62,13 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
 
   const openSession = useCallback(async () => {
     setSessionFailed(false);
-    const id = await startVoiceSession(inspectionId);
+    let id: string | null = null;
+    try {
+      id = await startVoiceSession(inspectionId);
+    } catch {
+      // Built never to throw; if it does, the retry control must still show.
+      id = null;
+    }
     if (id) setSessionId(id);
     else setSessionFailed(true);
   }, [inspectionId]);

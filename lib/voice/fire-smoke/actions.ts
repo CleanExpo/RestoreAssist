@@ -31,7 +31,7 @@ import {
   type WalkthroughStatus,
 } from "./schema";
 import { loadFireWalkthrough, type FireDb } from "./server";
-import { newestSectionObservationAt, nextFireSeq, sectionObservationIds } from "./status";
+import { latestSignerUserId, newestSectionObservationAt, nextFireSeq, sectionObservationIds } from "./status";
 
 export interface FireActionDb extends FireDb {
   voiceCopilotObservation: FireDb["voiceCopilotObservation"] & {
@@ -208,8 +208,8 @@ async function signOff(
   observations: Parameters<typeof newestSectionObservationAt>[0],
   seq: number,
 ): Promise<{ ok: true } | Extract<FireActionResult, { ok: false }>> {
-  // A repeat sign-off while already validly signed returns the existing one.
-  if (status.signoff.state === "signed") return { ok: true };
+  // Every check runs before any shortcut (round 16, K5): an accepted sign-off
+  // always means THIS technician signed THE ROWS THEY WERE SHOWN.
   if (!status.canSignOff) {
     return {
       ok: false,
@@ -230,6 +230,10 @@ async function signOff(
       body: { error: FIRE_COPY.reviewStale, code: "REVIEW_STALE", openSectionIds: [] },
     };
   }
+  // Only now, with the view proven current: the same technician repeating a
+  // sign-off that still covers every row is already done. Anyone else signs
+  // in their own name below.
+  if (status.signoff.state === "signed" && latestSignerUserId(observations) === ctx.userId) return { ok: true };
   const sectionStates = Object.fromEntries(
     status.sections.map((s) => [s.sectionId, s.state === "na" ? "na" : "filled"]),
   );

@@ -6,12 +6,13 @@
  * lost its reply is never recorded twice.
  */
 
-import type {
-  FireAction,
-  FireActionResponse,
-  FireBlockerBody,
-  FireWalkthroughResponse,
-} from "@/lib/voice/fire-smoke/schema";
+import type { z } from "zod";
+import {
+  fireActionReplySchema,
+  fireWalkthroughReplySchema,
+  voiceSessionReplySchema,
+} from "@/lib/voice/fire-smoke/reply-schema";
+import type { FireAction, FireBlockerBody } from "@/lib/voice/fire-smoke/schema";
 
 export type FireCallResult<T> =
   | { ok: true; data: T }
@@ -46,21 +47,15 @@ async function readRefusal(res: Response): Promise<{ message: string; body?: Fir
  */
 export const FINAL_REFUSAL_STATUSES: ReadonlySet<number> = new Set([400, 401, 403, 404, 422]);
 
-/** A fire reply is usable only if it carries the walkthrough status. */
-const hasStatus = (data: unknown): boolean =>
-  typeof data === "object" && data !== null && typeof (data as { status?: unknown }).status === "object";
-
 /**
- * Never throws (round 15). A save is "ok" only when the reply is a 2xx whose
- * body was read, parsed and accepted; anything that cannot be proven, from a
- * dropped connection to an unreadable or malformed 2xx body, is "unconfirmed",
- * so the caller keeps the save frozen and can retry it with the same key.
+ * Never throws (round 15), and never trusts a shape (round 16, kind K15). A
+ * reply is "ok" only when it is a 2xx whose body was read, parsed and passed
+ * the caller's schema in full. Anything that cannot be proven, from a dropped
+ * connection to an unreadable or malformed 2xx body, is "unconfirmed", so a
+ * save stays frozen with its key and the screen never reads a missing field.
+ * The schema is required: no call can opt out of the check.
  */
-async function call<T>(
-  input: string,
-  init?: RequestInit,
-  accept: (data: unknown) => boolean = () => true,
-): Promise<FireCallResult<T>> {
+async function call<T>(input: string, init: RequestInit, schema: z.ZodType<T>): Promise<FireCallResult<T>> {
   let res: Response;
   try {
     res = await fetch(input, init);
@@ -69,8 +64,8 @@ async function call<T>(
   }
   if (res.ok) {
     try {
-      const data: unknown = await res.json();
-      if (accept(data)) return { ok: true, data: data as T };
+      const parsed = schema.safeParse(await res.json());
+      if (parsed.success) return { ok: true, data: parsed.data };
     } catch {
       // Unreadable body: fall through to unconfirmed.
     }
@@ -83,31 +78,32 @@ async function call<T>(
 }
 
 export function getFireWalkthrough(inspectionId: string) {
-  return call<FireWalkthroughResponse>(base(inspectionId), { cache: "no-store" }, hasStatus);
+  return call(base(inspectionId), { cache: "no-store" }, fireWalkthroughReplySchema);
 }
 
 export function postFireAction(inspectionId: string, action: FireAction, idempotencyKey: string) {
-  return call<FireActionResponse>(
+  return call(
     base(inspectionId),
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
       body: JSON.stringify(action),
     },
-    hasStatus,
+    fireActionReplySchema,
   );
 }
 
 export async function startVoiceSession(inspectionId: string): Promise<string | null> {
-  const result = await call<{ session?: { sessionId?: string } }>(
+  const result = await call(
     `/api/inspections/${inspectionId}/voice/session`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode: "guided" }),
     },
+    voiceSessionReplySchema,
   );
-  return result.ok ? (result.data.session?.sessionId ?? null) : null;
+  return result.ok ? result.data.session.sessionId : null;
 }
 
 /**
