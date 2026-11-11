@@ -7,7 +7,7 @@
  * rate not set". No amount is ever worked out from the range.
  */
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { RAIcon } from "@/components/brand/RAIcon";
 import {
   rateNotSetText,
   type BlockedPricing,
@@ -51,7 +51,7 @@ export function BlockedPricingNotice({
       className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100"
     >
       <div className="mb-3 flex items-start gap-2">
-        <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden />
+        <RAIcon name="warning" size={18} decorative className="mt-0.5 shrink-0" />
         <div>
           <p className="font-semibold">
             {title}: {blocked.totalNote}
