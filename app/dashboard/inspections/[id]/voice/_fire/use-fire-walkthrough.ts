@@ -103,6 +103,18 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   }, []);
 
   /**
+   * The one way words that are not filed yet are kept (kind: words held in a
+   * transient mode must never vanish with it). They go to the typing box, or
+   * are shown in the problem line when the box holds something else.
+   */
+  const keepWords = useCallback(
+    (words: string) => {
+      if (!offerWords(words)) setProblem(FIRE_COPY.notSaved(words));
+    },
+    [offerWords],
+  );
+
+  /**
    * Delivers one frozen save (kind K12: its action, words and key never change
    * once made). Only a 2xx or a checked final refusal releases it. An
    * unconfirmed reply leaves it held and the screen pending: listening stays
@@ -209,8 +221,8 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     if (ask === null && picking === null) return;
     setAsk(null);
     setPicking(null);
-    if (unfiled && !offerWords(unfiled)) setProblem(FIRE_COPY.notSaved(unfiled));
-  }, [ask, offerWords, picking]);
+    if (unfiled) keepWords(unfiled);
+  }, [ask, keepWords, picking]);
 
   const handleOutcome = useCallback(
     (res: FireActionResponse, transcript: string) => {
@@ -267,7 +279,7 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
           // Not a bare yes or no ("yes, and the ceiling is sagging"). Nothing
           // is cut out of it: the whole reply waits in the typing box and the
           // question stays open, so no word of it is lost or reversed.
-          if (!offerWords(words)) setProblem(FIRE_COPY.notSaved(words));
+          keepWords(words);
           talk(ask.say);
           return;
         }
@@ -294,6 +306,8 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
         return;
       }
       if (picking) {
+        // Words spoken while the picker is open are kept, never dropped.
+        keepWords(words);
         talk(FIRE_COPY.confirmNo);
         return;
       }
@@ -303,7 +317,7 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
         (res) => handleOutcome(res, words),
       );
     },
-    [ask, currentSectionId, fileTo, handleOutcome, naFor, offerWords, picking, saving, send, sessionId, talk, view.status.noticeAcknowledged],
+    [ask, currentSectionId, fileTo, handleOutcome, keepWords, naFor, picking, saving, send, sessionId, talk, view.status.noticeAcknowledged],
   );
   handleTextRef.current = (t) => void handleText(t);
 
@@ -377,7 +391,10 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     pick: whenFree((sectionId: string) => {
       if (picking) void fileTo(sectionId, picking, "technician_chose");
     }),
-    cancelPick: whenFree(() => setPicking(null)),
+    cancelPick: whenFree(() => {
+      if (picking) keepWords(picking);
+      setPicking(null);
+    }),
     selectSection: whenFree((sectionId: string) => {
       leaveSection();
       moveTo(sectionId);

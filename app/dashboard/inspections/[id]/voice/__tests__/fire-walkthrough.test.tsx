@@ -343,6 +343,31 @@ describe("state held across screen changes (kind: a mode outliving the thing it 
     expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("All good here");
   });
 
+  it("Cancel on the section picker returns the unfiled words to the typing box", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    act(() => FakeRecognition.live[0].hear("All good here"));
+    await screen.findByRole("group", { name: "Margot's question" });
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    const picker = await screen.findByRole("group", { name: "Choose a section" });
+    fireEvent.click(within(picker).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Choose a section" })).toBeNull());
+    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("All good here");
+  });
+
+  it("words spoken while the section picker is open are kept, not dropped", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    await typeAnswer("All good here");
+    await screen.findByRole("group", { name: "Margot's question" });
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    await screen.findByRole("group", { name: "Choose a section" });
+    act(() => lastUtterance().end());
+    await waitFor(() => expect(FakeRecognition.live).toHaveLength(1));
+    act(() => FakeRecognition.live[0].hear("Put that under safety brief"));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("Put that under safety brief"));
+  });
+
   it("a listening OFF chosen while the first prompt is spoken is still OFF when it ends", async () => {
     await renderScreen();
     fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.noticeAccept }));
