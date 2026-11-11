@@ -1,4 +1,15 @@
-import { getEquipmentGroupById } from "@/lib/equipment-matrix";
+import {
+  equipmentAmps,
+  equipmentUnitCount,
+  equipmentUnitsLabel,
+  moneyOrRateNotSet,
+  priceStoredEquipment,
+  sumOrNull,
+  UNUSABLE_LINE_LABEL,
+  type PricedEquipment,
+  type PricedEquipmentLine,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 import {
   extractWaterCategory,
   extractAverageMoisture,
@@ -10,6 +21,29 @@ import {
 
 const AU_LAW_INVENTION_GUARD =
   "Jurisdiction was not recorded. Do not invent a safety Act, building code, or Australian instrument.";
+
+/**
+ * RA-8281 B1 class fix: one prompt line per stored selection, priced from the
+ * current price list. An unset rate is named as not set and the model is told
+ * not to state a price for it; it is never written as $0 or the cached rate.
+ */
+function equipmentPromptLine(line: PricedEquipmentLine, type?: string): string {
+  if (!line.usable) {
+    return `- ${UNUSABLE_LINE_LABEL}. ${line.note ?? ""} Do not state or estimate a price for this equipment.`;
+  }
+  const name = type ? `${line.name} (${type})` : line.name;
+  if (line.dailyRate === null) {
+    return `- ${name}: ${line.quantity} units × daily rate not set. ${line.note ?? ""} Do not state or estimate a price for this equipment.`;
+  }
+  return `- ${name}: ${line.quantity} units × ${moneyOrRateNotSet(line.dailyRate)}/day = ${moneyOrRateNotSet(line.dailyTotal)}/day (Total: ${moneyOrRateNotSet(line.total)})`;
+}
+
+/** The equipment total line, or the instruction not to state one. */
+function equipmentTotalLine(priced: PricedEquipment, label: string): string {
+  return priced.total === null
+    ? `- ${label}: ${moneyOrRateNotSet(null)}. A daily rate in the contractor's price list is not set, so no equipment total can be given. Do not state or estimate one.`
+    : `- ${label}: ${moneyOrRateNotSet(priced.total)}`;
+}
 
 const NZ_LAW_GUARD =
   "This is a New Zealand property. Cite only the New Zealand instruments named above. Do not cite Australian state or territory law.";
@@ -112,7 +146,7 @@ export function buildVisualCentricReportPrompt(data: {
   standardsContext?: string;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
-  equipmentSelection?: any[];
+  equipmentSelection?: StoredEquipmentSelections;
   waterCategory: string | null;
   materials: string[];
   affectedAreas: string | null;
@@ -144,7 +178,8 @@ export function buildVisualCentricReportPrompt(data: {
   totalAffectedArea: string | null;
   class4Drying: string | null;
   estimatedDryingDuration?: number | null;
-  equipmentCostTotal?: number | null;
+  /** RA-8281 B1: the report business's current price list. */
+  pricingConfig?: unknown;
 }): string {
   const {
     report,
@@ -171,7 +206,7 @@ export function buildVisualCentricReportPrompt(data: {
     hasVulnerablePersons,
     petsPresent,
     estimatedDryingDuration,
-    equipmentCostTotal,
+    pricingConfig,
     waterMigration,
     hazards,
     occupancyStatus,
@@ -189,7 +224,13 @@ export function buildVisualCentricReportPrompt(data: {
 
   const estimatedDays =
     estimatedDryingDuration || report.estimatedDryingDuration || 4;
-  const totalCost = equipmentCostTotal || report.equipmentCostTotal || 0;
+  // RA-8281 B1 class fix: priced from the current price list. The cached
+  // report.equipmentCostTotal and each selection's cached rate are never read.
+  const pricedEquipment = priceStoredEquipment(
+    equipmentSelection,
+    pricingConfig,
+    estimatedDays,
+  );
 
   return `Generate a VISUAL-CENTRIC Water Damage Restoration Overview Report for RestoreAssist. This report should be highly visual, using icons, gauges, charts, and visual representations to present information at a glance.
 
@@ -219,20 +260,12 @@ ${report.technicianAttendanceDate ? `- Technician Attendance: ${new Date(report.
 - Drying Index: ${dryingIndex || "N/A"}
 - Drying Status: ${dryingStatus || "N/A"}
 - Estimated Duration: ${estimatedDays} Days
-- Total Equipment Cost: $${totalCost?.toFixed(2) || "0.00"}
+${pricedEquipment.lines.length > 0 ? equipmentTotalLine(pricedEquipment, "Total Equipment Cost") : ""}
 
 ${
-  equipmentSelection && equipmentSelection.length > 0
+  pricedEquipment.lines.length > 0
     ? `## Equipment Breakdown
-${equipmentSelection
-  .map((sel: any) => {
-    const group = getEquipmentGroupById(sel.groupId);
-    const dailyRate = sel.dailyRate || 0;
-    const itemDailyTotal = dailyRate * sel.quantity;
-    const itemTotalCost = itemDailyTotal * estimatedDays;
-    return `- ${group?.name || sel.groupId}: ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`;
-  })
-  .join("\n")}`
+${pricedEquipment.lines.map((line) => equipmentPromptLine(line)).join("\n")}`
     : ""
 }
 
@@ -277,7 +310,7 @@ Create visual summary cards in a grid layout:
 **🏠 Rooms Affected:** ${roomsAffectedCount}
 **🧱 Materials Affected:** ${materialsList}
 **💧 Moisture Level:** Avg. ${avgMoisture ? `${avgMoisture.toFixed(0)}%` : "32%"}
-**💰 Total Cost:** $${totalCost?.toFixed(2) || "2,320"}
+${pricedEquipment.lines.length > 0 ? `**💰 Total Cost:** ${moneyOrRateNotSet(pricedEquipment.total)}` : ""}
 
 **📈 Drying Status:** ${dryingStatus || "Fair"}
 **💧 Total Litres Extracted:** ${totalLitresExtracted ? `${totalLitresExtracted} L` : "80-100 L"}
@@ -306,27 +339,24 @@ ${
           const roomMoisture = avgMoisture ? avgMoisture.toFixed(0) : "32";
           const targetMoisture = "12";
           const isSaturated = parseFloat(roomMoisture) > 20;
+          // RA-8281 B1 round 13: read from the validated lines, never the
+          // raw stored value.
+          const roomEquipmentLines = pricedEquipment.lines.filter(
+            (line) =>
+              line.groupId.includes("airmover") ||
+              line.groupId.includes("lgr") ||
+              line.groupId.includes("desiccant"),
+          );
           const roomEquipment =
-            equipmentSelection && equipmentSelection.length > 0
-              ? equipmentSelection
-                  .filter((sel: any) => {
-                    const group = getEquipmentGroupById(sel.groupId);
-                    return (
-                      group?.id.includes("airmover") ||
-                      group?.id.includes("lgr") ||
-                      group?.id.includes("desiccant")
-                    );
-                  })
-                  .map((sel: any) => {
-                    const group = getEquipmentGroupById(sel.groupId);
-                    const isAirMover = group?.id.includes("airmover");
-                    const isLGR = group?.id.includes("lgr");
-                    return isAirMover
-                      ? `Air Mover (x${sel.quantity})`
-                      : isLGR
+            pricedEquipment.lines.length > 0
+              ? roomEquipmentLines
+                  .map((line) =>
+                    line.groupId.includes("airmover")
+                      ? `Air Mover (x${line.quantity})`
+                      : line.groupId.includes("lgr")
                         ? `LGR Dehumidifier`
-                        : `${group?.name || sel.groupId}`;
-                  })
+                        : line.name,
+                  )
                   .join(", ")
               : "Air Mover, LGR Dehumidifier";
 
@@ -391,14 +421,14 @@ ${
 **${totalEquipmentUnits} Drying Units Deployed**
 
 ${
-  equipmentSelection && equipmentSelection.length > 0
-    ? equipmentSelection
-        .map((sel: any) => {
-          const group = getEquipmentGroupById(sel.groupId);
+  pricedEquipment.lines.length > 0
+    ? pricedEquipment.lines
+        .map((line) => {
+          if (!line.usable) return `- ${UNUSABLE_LINE_LABEL}`;
           const isDehumidifier =
-            group?.id.includes("lgr") || group?.id.includes("desiccant");
-          const isAirMover = group?.id.includes("airmover");
-          return `- ${isDehumidifier ? "💨" : isAirMover ? "🌀" : "⚙️"} ${group?.name || sel.groupId}: **${sel.quantity}** units`;
+            line.groupId.includes("lgr") || line.groupId.includes("desiccant");
+          const isAirMover = line.groupId.includes("airmover");
+          return `- ${isDehumidifier ? "💨" : isAirMover ? "🌀" : "⚙️"} ${line.name}: **${line.quantity}** units`;
         })
         .join("\n")
     : ""
@@ -423,59 +453,30 @@ This timeframe is based on the current equipment loadout and site conditions.
 | QTY | RATE/DAY | TOTAL |
 |-----|----------|-------|
 ${
-  equipmentSelection && equipmentSelection.length > 0
+  pricedEquipment.lines.length > 0
     ? (() => {
-        const dehumidifiers = equipmentSelection.filter((sel: any) => {
-          const group = getEquipmentGroupById(sel.groupId);
-          return group?.id.includes("lgr") || group?.id.includes("desiccant");
-        });
-        const airMovers = equipmentSelection.filter((sel: any) => {
-          const group = getEquipmentGroupById(sel.groupId);
-          return group?.id.includes("airmover");
-        });
-
-        let rows: string[] = [];
-
-        if (dehumidifiers.length > 0) {
-          const totalQty = dehumidifiers.reduce(
-            (sum: number, sel: any) => sum + sel.quantity,
-            0,
-          );
-          const totalDailyRate = dehumidifiers.reduce(
-            (sum: number, sel: any) => {
-              const dailyRate = sel.dailyRate || 0;
-              return sum + dailyRate * sel.quantity;
-            },
-            0,
-          );
-          const totalCostRow = totalDailyRate * estimatedDays;
-          rows.push(
-            `| LGR (${totalQty}) | $${totalDailyRate.toFixed(2)} | $${totalCostRow.toFixed(2)} |`,
-          );
-        }
-
-        if (airMovers.length > 0) {
-          const totalQty = airMovers.reduce(
-            (sum: number, sel: any) => sum + sel.quantity,
-            0,
-          );
-          const totalDailyRate = airMovers.reduce((sum: number, sel: any) => {
-            const dailyRate = sel.dailyRate || 0;
-            return sum + dailyRate * sel.quantity;
-          }, 0);
-          const totalCostRow = totalDailyRate * estimatedDays;
-          rows.push(
-            `| Air (${totalQty}) | $${totalDailyRate.toFixed(2)} | $${totalCostRow.toFixed(2)} |`,
-          );
-        }
-
-        if (rows.length === 0) {
-          rows.push("| Equipment | $0.00 | $0.00 |");
-        }
-
+        // RA-8281 B1 class fix: one row per equipment kind, priced from the
+        // current price list. Any unset rate in a kind blocks that row.
+        const row = (label: string, lines: PricedEquipmentLine[]) => {
+          const qty = lines.reduce((sum, l) => sum + l.quantity, 0);
+          // The lines' own figures, added in whole cents; a blocked line
+          // (null) blocks the row.
+          const daily = sumOrNull(lines.map((l) => l.dailyTotal));
+          const reserve = sumOrNull(lines.map((l) => l.total));
+          return `| ${label} (${qty}) | ${moneyOrRateNotSet(daily)} | ${moneyOrRateNotSet(reserve)} |`;
+        };
+        const dehumidifiers = pricedEquipment.lines.filter(
+          (l) => l.groupId.includes("lgr") || l.groupId.includes("desiccant"),
+        );
+        const airMovers = pricedEquipment.lines.filter((l) =>
+          l.groupId.includes("airmover"),
+        );
+        const rows: string[] = [];
+        if (dehumidifiers.length > 0) rows.push(row("LGR", dehumidifiers));
+        if (airMovers.length > 0) rows.push(row("Air", airMovers));
         return rows.join("\n");
       })()
-    : "| Equipment | $0.00 | $0.00 |"
+    : ""
 }
 
 **Total reserve:** ${estimatedDays} days
@@ -539,7 +540,9 @@ export function buildInspectionReportPrompt(data: {
   standardsContext?: string;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
-  equipmentSelection?: any[];
+  equipmentSelection?: StoredEquipmentSelections;
+  /** RA-8281 B1: the report business's current price list. */
+  pricingConfig?: unknown;
   businessInfo?: {
     businessName?: string | null;
     businessAddress?: string | null;
@@ -560,9 +563,23 @@ export function buildInspectionReportPrompt(data: {
     standardsContext,
     psychrometricAssessment,
     scopeAreas,
-    equipmentSelection,
+    pricingConfig,
     businessInfo,
   } = data;
+
+  // RA-8281 B1 round 13: the stored value stays opaque here. Every section
+  // below, money and non-money alike (unit counts, power draw, labels), reads
+  // pricedEquipment.lines, so a line that cannot be read is shown as not
+  // usable and never throws.
+  const equipmentSelection = data.equipmentSelection;
+
+  // RA-8281 B1 class fix: stored selections priced from the current price
+  // list; the cached report.equipmentCostTotal and cached rates are not read.
+  const pricedEquipment = priceStoredEquipment(
+    equipmentSelection,
+    pricingConfig,
+    report.estimatedDryingDuration || 1,
+  );
 
   // Extract water category from tier1 or analysis (only if exists)
   const waterCategory = tier1?.T1_Q3_waterSource
@@ -640,19 +657,7 @@ export function buildInspectionReportPrompt(data: {
   const stateRegulatoryText = inspectionRegulatoryText(stateInfo);
 
   // Calculate total amps from equipment selection (only if equipment exists)
-  const totalAmps =
-    equipmentSelection && equipmentSelection.length > 0
-      ? equipmentSelection.reduce((total: number, sel: any) => {
-          const group = getEquipmentGroupById(sel.groupId);
-          return total + (group?.amps || 0) * (sel.quantity || 0);
-        }, 0)
-      : 0;
-
-  // Ensure totalAmps is always a number
-  const totalAmpsNumber =
-    typeof totalAmps === "number"
-      ? totalAmps
-      : parseFloat(String(totalAmps)) || 0;
+  const totalAmpsNumber = equipmentAmps(pricedEquipment.lines);
 
   // Calculate visual metrics for basic reports
   const roomsAffectedCount = affectedAreas
@@ -665,13 +670,7 @@ export function buildInspectionReportPrompt(data: {
   const avgMoisture = moistureReadings
     ? extractAverageMoisture(moistureReadings)
     : null;
-  const totalEquipmentUnits =
-    equipmentSelection && equipmentSelection.length > 0
-      ? equipmentSelection.reduce(
-          (sum: number, sel: any) => sum + sel.quantity,
-          0,
-        )
-      : 0;
+  const totalEquipmentUnits = equipmentUnitCount(pricedEquipment.lines);
   const totalLitresExtracted = report.dehumidificationCapacity || null;
   const dryingIndex =
     psychrometricAssessment?.dryingPotential?.dryingIndex || null;
@@ -721,7 +720,7 @@ export function buildInspectionReportPrompt(data: {
       totalAffectedArea,
       class4Drying,
       estimatedDryingDuration: report.estimatedDryingDuration,
-      equipmentCostTotal: report.equipmentCostTotal,
+      pricingConfig,
     });
   }
 
@@ -777,26 +776,12 @@ ${materials.join(", ")}`
 }
 
 ${
-  equipmentSelection && equipmentSelection.length > 0
+  pricedEquipment.lines.length > 0
     ? `## Equipment Selection
-${equipmentSelection
-  .map((sel: any) => {
-    const group = getEquipmentGroupById(sel.groupId);
-    const dailyRate = sel.dailyRate || 0;
-    const itemDailyTotal = dailyRate * sel.quantity;
-    const itemTotalCost =
-      itemDailyTotal * (report.estimatedDryingDuration || 1);
-    return `- ${group?.name || sel.groupId}: ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`;
-  })
-  .join("\n")}
-- Total Daily Cost: $${equipmentSelection
-        .reduce((sum: number, sel: any) => {
-          const dailyRate = sel.dailyRate || 0;
-          return sum + dailyRate * sel.quantity;
-        }, 0)
-        .toFixed(2)}
+${pricedEquipment.lines.map((line) => equipmentPromptLine(line)).join("\n")}
+- Total Daily Cost: ${moneyOrRateNotSet(pricedEquipment.dailyTotal)}
 - Estimated Duration: ${report.estimatedDryingDuration || "N/A"} days
-- Total Equipment Cost: $${report.equipmentCostTotal?.toFixed(2) || "0.00"}
+${equipmentTotalLine(pricedEquipment, "Total Equipment Cost")}
 `
     : equipmentDeployed
       ? `## Equipment Deployed
@@ -916,26 +901,12 @@ Area ${idx + 1}: ${area.name}
 }
 
 ${
-  equipmentSelection && equipmentSelection.length > 0
+  pricedEquipment.lines.length > 0
     ? `## Equipment Selection
-${equipmentSelection
-  .map((sel: any) => {
-    const group = getEquipmentGroupById(sel.groupId);
-    const dailyRate = sel.dailyRate || 0;
-    const itemDailyTotal = dailyRate * sel.quantity;
-    const itemTotalCost =
-      itemDailyTotal * (report.estimatedDryingDuration || 1);
-    return `- ${group?.name || sel.groupId}: ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`;
-  })
-  .join("\n")}
-- Total Daily Cost: $${equipmentSelection
-        .reduce((sum: number, sel: any) => {
-          const dailyRate = sel.dailyRate || 0;
-          return sum + dailyRate * sel.quantity;
-        }, 0)
-        .toFixed(2)}
+${pricedEquipment.lines.map((line) => equipmentPromptLine(line)).join("\n")}
+- Total Daily Cost: ${moneyOrRateNotSet(pricedEquipment.dailyTotal)}
 - Estimated Duration: ${report.estimatedDryingDuration || "N/A"} days
-- Total Equipment Cost: $${report.equipmentCostTotal?.toFixed(2) || "0.00"}
+${equipmentTotalLine(pricedEquipment, "Total Equipment Cost")}
 `
     : ""
 }
@@ -1008,37 +979,32 @@ ${psychrometricAssessment.dryingPotential.recommendation}`
 
 
 ${
-  equipmentSelection && equipmentSelection.length > 0
+  pricedEquipment.lines.length > 0
     ? `### EQUIPMENT LOADOUT SCHEDULE
-${equipmentSelection.reduce((sum: number, sel: any) => sum + sel.quantity, 0)} Total Units
+${totalEquipmentUnits} Total Units
 
-${equipmentSelection
-  .map((sel: any) => {
-    const group = getEquipmentGroupById(sel.groupId);
-    const type = group?.id.includes("lgr")
+${pricedEquipment.lines
+  .map((line) => {
+    const type = line.groupId.includes("lgr")
       ? "LGR DEHUMIDIFIER"
-      : group?.id.includes("desiccant")
+      : line.groupId.includes("desiccant")
         ? "DESICCANT DEHUMIDIFIER"
-        : group?.id.includes("airmover")
+        : line.groupId.includes("airmover")
           ? "AIR MOVER"
-          : group?.id.includes("heat")
+          : line.groupId.includes("heat")
             ? "HEAT DRYING"
             : "EQUIPMENT";
-    const dailyRate = sel.dailyRate || 0;
-    const itemDailyTotal = dailyRate * sel.quantity;
-    const itemTotalCost =
-      itemDailyTotal * (report.estimatedDryingDuration || 1);
-    return `- ${group?.name || sel.groupId} (${type}): ${sel.quantity} units × $${dailyRate.toFixed(2)}/day = $${itemDailyTotal.toFixed(2)}/day (Total: $${itemTotalCost.toFixed(2)})`;
+    return equipmentPromptLine(line, type);
   })
   .join("\n")}
 
 ${
   report.estimatedDryingDuration ||
-  report.equipmentCostTotal ||
+  pricedEquipment.lines.length > 0 ||
   totalAmpsNumber > 0
     ? `**Estimated Consumption:**
 ${report.estimatedDryingDuration ? `- Duration: ${report.estimatedDryingDuration} Days` : ""}
-${report.equipmentCostTotal ? `- Total Equipment Cost: $${report.equipmentCostTotal.toFixed(2)}` : ""}
+${pricedEquipment.lines.length > 0 ? equipmentTotalLine(pricedEquipment, "Total Equipment Cost") : ""}
 ${totalAmpsNumber > 0 ? `- Total Electrical Draw: ${totalAmpsNumber.toFixed(1)} Amps` : ""}`
     : ""
 }
@@ -1086,13 +1052,8 @@ ${
 ## SECTION 7: INITIAL REMEDIATION ACTIONS COMPLETED
 - Standing Water Extraction
 ${
-  equipmentSelection && equipmentSelection.length > 0
-    ? `- Equipment Deployed: ${equipmentSelection
-        .map((sel: any) => {
-          const group = getEquipmentGroupById(sel.groupId);
-          return `${sel.quantity}x ${group?.name || sel.groupId}`;
-        })
-        .join(", ")}`
+  pricedEquipment.lines.length > 0
+    ? `- Equipment Deployed: ${pricedEquipment.lines.map(equipmentUnitsLabel).join(", ")}`
     : equipmentDeployed
       ? `- Equipment Deployed: ${equipmentDeployed}`
       : "- Equipment Deployed: (To be specified)"
@@ -1121,20 +1082,16 @@ ${occupancyStatus && occupancyStatus.includes("Vacant") ? "Include: Security, Ti
 
 ## SECTION 11: POWER AND EQUIPMENT REQUIREMENTS
 ${
-  equipmentSelection && equipmentSelection.length > 0
+  pricedEquipment.lines.length > 0
     ? `- Power Draw Calculation: ${totalAmpsNumber.toFixed(1)} Amps total (calculated from selected equipment)
-- Equipment Load: ${equipmentSelection
-        .map((sel: any) => {
-          const group = getEquipmentGroupById(sel.groupId);
-          return `${sel.quantity}x ${group?.name || sel.groupId} (${(group?.amps || 0) * sel.quantity}A)`;
-        })
+- Equipment Load: ${pricedEquipment.lines
+        .map((line) =>
+          line.usable
+            ? `${equipmentUnitsLabel(line)} (${equipmentAmps([line])}A)`
+            : equipmentUnitsLabel(line),
+        )
         .join(", ")}
-- Total Daily Equipment Cost: $${equipmentSelection
-        .reduce((sum: number, sel: any) => {
-          const dailyRate = sel.dailyRate || 0;
-          return sum + dailyRate * sel.quantity;
-        }, 0)
-        .toFixed(2)}`
+- Total Daily Equipment Cost: ${moneyOrRateNotSet(pricedEquipment.dailyTotal)}`
     : "- Power Draw Calculation: (calculate from equipment deployed)"
 }
 - Context and recommendations

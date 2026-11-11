@@ -1,4 +1,7 @@
-import { getEquipmentGroupById } from "@/lib/equipment-matrix";
+import {
+  priceStoredEquipment,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 import {
   asbestosEraBasis,
   presumeAsbestosFromEra,
@@ -86,7 +89,14 @@ export function buildStructuredBasicReport(data: {
   stateInfo: any;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
-  equipmentSelection?: any[];
+  /** Opaque: only stored-equipment-pricing.ts reads inside it. */
+  equipmentSelection?: StoredEquipmentSelections;
+  /**
+   * RA-8281 B1 class fix: the report business's CURRENT price list
+   * (resolveReportPricing). Stored selections are priced from it, never from
+   * the rate cached on the selection; null means none could be loaded.
+   */
+  pricingConfig?: unknown;
   inspectionData?: any;
   // RA-7003 artifact bridge — capture-side artifacts joined into the deliverable.
   floorPlans?: Array<{
@@ -130,6 +140,7 @@ export function buildStructuredBasicReport(data: {
     psychrometricAssessment,
     scopeAreas,
     equipmentSelection,
+    pricingConfig,
     inspectionData,
     floorPlans,
     signedAuthorityForms,
@@ -540,9 +551,11 @@ export function buildStructuredBasicReport(data: {
     description: string;
     quantity: number;
     unit: string;
-    rate: number;
-    subtotal: number;
-    total: number;
+    // RA-8281 B1: null when an equipment line's rate is not set.
+    rate: number | null;
+    subtotal: number | null;
+    total: number | null;
+    rateNote?: string | null;
   }> = [];
 
   if (
@@ -566,28 +579,34 @@ export function buildStructuredBasicReport(data: {
     });
   }
 
-  // If no cost estimates but we have equipment costs, create cost estimates from equipment
-  if (
-    costEstimates.length === 0 &&
-    equipmentSelection &&
-    Array.isArray(equipmentSelection) &&
-    equipmentSelection.length > 0
-  ) {
-    equipmentSelection.forEach((sel: any) => {
-      const group = getEquipmentGroupById(sel.groupId);
-      const dailyRate = Number(sel.dailyRate) || 0;
-      const quantity = Number(sel.quantity) || 0;
-      const duration = Number(report.estimatedDryingDuration) || 1;
-      const total = dailyRate * quantity * duration;
+  // RA-8281 B1 class fix: stored selections are priced from the current price
+  // list, never from the rate cached on the selection. An unset rate leaves
+  // that line's money null ("Rate not set") and blocks the equipment total.
+  const pricedEquipment = priceStoredEquipment(
+    equipmentSelection,
+    pricingConfig,
+    Number(report.estimatedDryingDuration) || 1,
+  );
+  // An equipment line that cannot be priced blocks the summary total (null),
+  // whether or not inspection cost estimates exist (RA-8281 B1 review round
+  // 10): a sum that silently leaves the line out is never shown as complete.
+  const equipmentTotalBlocked =
+    pricedEquipment.lines.length > 0 && pricedEquipment.total === null;
 
-      if (total > 0) {
+  // If no cost estimates but we have equipment costs, create cost estimates from equipment
+  const estimatesAreEquipmentOnly =
+    costEstimates.length === 0 && pricedEquipment.lines.length > 0;
+  if (estimatesAreEquipmentOnly) {
+    pricedEquipment.lines.forEach((line) => {
+      if (line.total === null || line.total > 0) {
         costEstimates.push({
-          description: `${group?.name || sel.groupId || "Equipment"} Rental`,
-          quantity: quantity,
+          description: `${line.name || "Equipment"} Rental`,
+          quantity: line.quantity,
           unit: "unit",
-          rate: dailyRate,
-          subtotal: dailyRate * quantity,
-          total: total,
+          rate: line.dailyRate,
+          subtotal: line.dailyTotal,
+          total: line.total,
+          rateNote: line.note,
         });
       }
     });
@@ -629,10 +648,16 @@ export function buildStructuredBasicReport(data: {
         ? `PRE-${leadEraBasis("AU").year}_BUILDING`
         : `POST-${leadEraBasis("AU").year}_NOT_CLEARED`;
 
-  const totalCost =
-    costEstimates.length > 0
+  // RA-8281 B1 class fix: a blocked equipment line blocks the total (null),
+  // and the cached report.equipmentCostTotal is never read back as money.
+  const totalCost = equipmentTotalBlocked
+    ? null
+    : estimatesAreEquipmentOnly
+      ? // Only equipment rows: the reader's job total, summed in whole cents.
+        pricedEquipment.total
+      : costEstimates.length > 0
       ? costEstimates.reduce((sum, c) => sum + (Number(c.total) || 0), 0)
-      : Number(report.equipmentCostTotal) || 0;
+      : 0;
   const roomsAffected =
     affectedAreasList.length ||
     scopeAreas?.length ||
@@ -847,33 +872,26 @@ export function buildStructuredBasicReport(data: {
     },
     scopeItems: scopeItemsList,
     costEstimates: costEstimates,
-    equipment:
-      equipmentSelection && Array.isArray(equipmentSelection)
-        ? equipmentSelection.map((sel: any) => {
-            const group = getEquipmentGroupById(sel.groupId);
-            const dailyRate = Number(sel.dailyRate) || 0;
-            const quantity = Number(sel.quantity) || 0;
-            const duration = Number(report.estimatedDryingDuration) || 1;
-            const totalCostItem = dailyRate * quantity * duration;
-
-            return {
-              name: group?.name || sel.groupId || "Equipment",
-              type: sel.groupId?.includes("lgr")
-                ? "LGR_DEHUMIDIFIER"
-                : sel.groupId?.includes("desiccant")
-                  ? "DESICCANT_DEHUMIDIFIER"
-                  : sel.groupId?.includes("airmover")
-                    ? "AIR_MOVER"
-                    : sel.groupId?.includes("heat")
-                      ? "HEAT_DRYING"
-                      : "OTHER",
-              quantity: quantity,
-              dailyRate: dailyRate,
-              estimatedDuration: duration,
-              totalCost: totalCostItem,
-            };
-          })
-        : [],
+    // RA-8281 B1 class fix: priced from the current price list; an unset
+    // rate leaves dailyRate and totalCost null with a "Rate not set" note.
+    equipment: pricedEquipment.lines.map((line) => ({
+      name: line.name || "Equipment",
+      type: line.groupId.includes("lgr")
+        ? "LGR_DEHUMIDIFIER"
+        : line.groupId.includes("desiccant")
+          ? "DESICCANT_DEHUMIDIFIER"
+          : line.groupId.includes("airmover")
+            ? "AIR_MOVER"
+            : line.groupId.includes("heat")
+              ? "HEAT_DRYING"
+              : "OTHER",
+      quantity: line.quantity,
+      dailyRate: line.dailyRate,
+      estimatedDuration: line.durationDays,
+      totalCost: line.total,
+      rateNote: line.note,
+    })),
+    equipmentTotal: pricedEquipment.total,
     photos: photos,
     // RA-7003 artifact bridge: floor plans, signed authorisations, and the
     // contents manifest now travel with the structured report.

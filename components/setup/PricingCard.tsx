@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useSetupStore } from './store';
+import { parseRateInput } from '@/lib/pricing/rate-input';
 
 interface RateRow {
   key: string;
@@ -77,8 +78,9 @@ export function PricingCard() {
   }, [org?.pricingConfig]);
 
   const handleBlur = async (key: string, raw: string) => {
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0) return;
+    // RA-8281: a blank input is an unset rate; never save it as 0.
+    const n = parseRateInput(raw);
+    if (n === null) return;
     setSaving((p) => ({ ...p, [key]: true }));
     try {
       await patchPricing(key, n);

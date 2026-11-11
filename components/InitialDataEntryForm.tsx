@@ -10,7 +10,7 @@ import {
   calculateTotalAmps,
   desiccantDehumidifiers,
   getEquipmentGroupById,
-  getEquipmentPricingField,
+  getEquipmentDailyRateOrNull,
   lgrDehumidifiers,
   type EquipmentSelection,
 } from "@/lib/equipment-matrix";
@@ -55,6 +55,12 @@ import { useRouter } from "next/navigation";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import {
+  addEquipmentAmounts,
+  editableStoredEquipment,
+  equipmentLineAmount,
+} from "@/lib/reports/stored-equipment-pricing";
+import { UnreadableEquipmentNotice } from "@/components/UnreadableEquipmentNotice";
 import type { InitialDataEntryFormProps } from "./initial-data-entry/types";
 import { normalizeDate } from "./initial-data-entry/normalize-date";
 import { shouldCreateReport } from "@/lib/reports/should-create-report";
@@ -479,6 +485,12 @@ export default function InitialDataEntryForm({
   );
   // Calculator defaults are examples, not site measurements or an approved plan.
   const [includeEquipmentEstimate, setIncludeEquipmentEstimate] = useState(false);
+  // Saved equipment lines the one reader could not read. They are not in the
+  // list shown here, and the user is told so for as long as the form is open.
+  // This form sends equipment only when it CREATES a report; saved lines are
+  // loaded only for an existing report, which it never writes back (see
+  // shouldCreateReport in handleSubmit), so it cannot delete the line.
+  const [unreadableSavedLines, setUnreadableSavedLines] = useState(0);
 
   // NIR State (only used when reportType is 'nir')
   const [nirEnvironmentalData, setNirEnvironmentalData] = useState({
@@ -737,11 +749,17 @@ export default function InitialDataEntryForm({
             );
           }
 
-          if (
-            equipmentData.equipmentSelection &&
-            Array.isArray(equipmentData.equipmentSelection)
-          ) {
-            setEquipmentSelections(equipmentData.equipmentSelection);
+          // RA-8281 B1 round 13: saved lines are read through the one
+          // reader. A line that cannot be read is left out of the editable
+          // list, counted and shown as a standing notice.
+          const saved = editableStoredEquipment(
+            equipmentData.equipmentSelection,
+          );
+          // Set on every load, also when nothing is stored, so a count
+          // from an earlier report never outlives it.
+          setUnreadableSavedLines(saved.unusableCount);
+          if (saved.hasLines) {
+            setEquipmentSelections(saved.selections);
             hasAutoSelectedEquipment.current = true; // Mark as already set to prevent auto-selection
           }
 
@@ -1169,22 +1187,28 @@ export default function InitialDataEntryForm({
       ?.circuitsRequired ?? 0;
   // A preview price exists only when the actual rate card has a finite,
   // non-negative rate for the group. Zero is a real configured price.
+  // It is the BILLABLE rate (the price-list rate to the whole cent) from the
+  // rate reader, so the rate shown here is the rate the running total and the
+  // server use: 49.995 reads $50.00/day, never $49.99 beside a $50.00 bill.
   const knownDailyRate = (groupId: string): number | null => {
-    const field = getEquipmentPricingField(groupId);
-    const rate = field && pricingConfig ? pricingConfig[field] : undefined;
-    return typeof rate === "number" && Number.isFinite(rate) && rate >= 0
-      ? rate
-      : null;
+    const rate = getEquipmentDailyRateOrNull(groupId, pricingConfig);
+    return rate !== null && rate >= 0 ? rate : null;
   };
   const selectionRates = equipmentSelections.map((sel) =>
     knownDailyRate(sel.groupId),
   );
   const totalCost = selectionRates.every((rate) => rate !== null)
-    ? equipmentSelections.reduce(
-        (total, sel, i) =>
-          total + (selectionRates[i] as number) * sel.quantity * durationDays,
-        0,
-      )
+    ? equipmentSelections.reduce<number | null>((total, sel, i) => {
+        // Whole cents, through the same arithmetic the server stores.
+        const amount = equipmentLineAmount(
+          selectionRates[i] as number,
+          sel.quantity,
+          durationDays,
+        );
+        return total === null || amount === null
+          ? null
+          : addEquipmentAmounts(total, amount);
+      }, 0)
     : null;
   const dailyRateLabel = (groupId: string) => {
     const rate = knownDailyRate(groupId);
@@ -4603,6 +4627,7 @@ export default function InitialDataEntryForm({
               />
               Include this equipment estimate and its inputs in the saved draft
             </label>
+            <UnreadableEquipmentNotice count={unreadableSavedLines} />
 
             {/* Psychrometric Assessment */}
             <div className="space-y-4">
@@ -5066,6 +5091,9 @@ export default function InitialDataEntryForm({
       </form>
 
       {/* Review Section - Shows all data before report type selection */}
+      {showReview && (
+        <UnreadableEquipmentNotice count={unreadableSavedLines} />
+      )}
       {showReview && (
         <ReviewSection
           formData={formData}

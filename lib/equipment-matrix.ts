@@ -10,6 +10,7 @@
 // be verified from a published source have been removed rather than guessed.
 // Rating conditions matter for dehumidifiers: AHAM = 26.7C/60%RH; AU-relevant
 // hot-humid rating = 30C/80%RH; each capacity states its condition.
+import { RateNotSetError, requireRate } from "@/lib/pricing/rate-not-set";
 import { FT3_TO_M3 } from "@/lib/anz/localisation";
 
 export interface EquipmentModel {
@@ -376,6 +377,9 @@ export function calculateTotalAmps(selections: EquipmentSelection[]): number {
 
 // Map equipment group ID to pricing config field name
 export function getEquipmentPricingField(groupId: string): string | null {
+  // The id must BE a catalogue group, not merely start like one: "lgr-bogus"
+  // and "lgr-85 " (trailing space) are not equipment the price list prices.
+  if (!getEquipmentGroupById(groupId)) return null;
   if (groupId.startsWith("lgr-")) {
     return "dehumidifierLGRDailyRate";
   }
@@ -399,6 +403,27 @@ export function getEquipmentPricingField(groupId: string): string | null {
   return null;
 }
 
+/**
+ * True when the price list prices this equipment type. Every catalogue group
+ * does. A blank id, spaces, or any id outside the catalogue does not (an id
+ * that only shares a catalogue prefix included), and such a line has no rate
+ * at all (round 13 review 6; getEquipmentPricingField holds the membership).
+ */
+export function isPricedEquipmentType(groupId: string): boolean {
+  return getEquipmentPricingField(groupId) !== null;
+}
+
+/**
+ * RA-8281 B1 round 13: the BILLABLE daily rate is the price-list rate to the
+ * whole cent (half up; toPrecision(15) first removes binary noise, so 1.005
+ * is $1.01). It is applied once, here, where an equipment rate is read, so
+ * the rate a screen or document shows, the daily amount and the job total are
+ * all made from the same figure and reconcile to the cent.
+ */
+export function billableDailyRate(rate: number): number {
+  return Math.round(Number((rate * 100).toPrecision(15))) / 100;
+}
+
 // Get daily rate from pricing config for an equipment group
 export function getEquipmentDailyRate(
   groupId: string,
@@ -408,47 +433,73 @@ export function getEquipmentDailyRate(
   // Pricing config has one rate per equipment type (e.g., all LGR use dehumidifierLGRDailyRate)
   const pricingField = getEquipmentPricingField(groupId);
 
-  if (
-    pricingField &&
-    pricingConfig &&
-    pricingConfig[pricingField] !== undefined &&
-    pricingConfig[pricingField] !== null
-  ) {
-    // Use pricing config rate - this is the user's configured rate
-    const rate = pricingConfig[pricingField];
-    return rate;
+  // RA-8281: with a price list, the contractor's own rate is the only rate.
+  // An unset rate throws RateNotSetError; it is never priced at $0.
+  if (pricingField && pricingConfig) {
+    return billableDailyRate(requireRate(pricingConfig, pricingField));
   }
 
-  // No fallback - pricing config is required
-  // Return 0 if pricing config is not available (should not happen in production)
-  console.warn(
-    `[Pricing Config] No rate found for equipment group: ${groupId} (field: ${pricingField}). Please configure pricing.`,
-  );
-  return 0;
+  // RA-8281 B1 review: no price list (still loading, or the fetch failed) or no
+  // price-list field for this id means the rate is unset. It always throws
+  // RateNotSetError; it is never priced at $0, and the price list is never
+  // read by an arbitrary id (an id that happened to name another price-list
+  // column would otherwise be priced at that column's figure).
+  return requireRate(null, pricingField ?? groupId);
 }
 
-// Calculate total daily cost for selected equipment using pricing config
-export function calculateTotalDailyCost(
-  selections: EquipmentSelection[],
+/**
+ * RA-8281: the daily rate for one selected item. With a price list, the
+ * contractor's current rate is the only rate. A rate cached on the selection
+ * when it was made is ignored, so a rate cleared later blocks the total
+ * (RateNotSetError) instead of reusing the old figure. With no price list
+ * loaded the rate is unset (RA-8281 B1 review round 8).
+ *
+ * Round 13 review 6: the cached rate is NEVER used. Every catalogue group has
+ * a price-list field, so the only lines the cached rate could price were ids
+ * outside the catalogue, where the "rate" is whatever was posted or stored.
+ * Such an id has no rate (RateNotSetError); the one reader treats the line as
+ * unusable before it gets here.
+ */
+export function selectionDailyRate(
+  selection: Pick<EquipmentSelection, "groupId" | "dailyRate">,
   pricingConfig?: any,
 ): number {
-  return selections.reduce((total, selection) => {
-    // Use the rate from selection (which should come from pricing config), or get from pricing config
-    const rate =
-      selection.dailyRate ||
-      (pricingConfig
-        ? getEquipmentDailyRate(selection.groupId, pricingConfig)
-        : 0);
-    return total + rate * selection.quantity;
-  }, 0);
+  // RA-8281 B1 review round 8: a group with a price-list field is priced only
+  // from a loaded price list. With none (still loading, or the fetch failed)
+  // the current rate is unknown, so it throws RateNotSetError — a rate cached
+  // on the selection, including a 0 the screen once stored, is never used.
+  return getEquipmentDailyRate(selection.groupId, pricingConfig);
 }
 
-// Calculate total cost for selected equipment over duration
-export function calculateTotalCost(
-  selections: EquipmentSelection[],
-  durationDays: number,
+/** The same rate for screens: null when the contractor has not set it. */
+export function selectionDailyRateOrNull(
+  selection: Pick<EquipmentSelection, "groupId" | "dailyRate">,
   pricingConfig?: any,
-): number {
-  const dailyCost = calculateTotalDailyCost(selections, pricingConfig);
-  return dailyCost * durationDays;
+): number | null {
+  try {
+    return selectionDailyRate(selection, pricingConfig);
+  } catch (err) {
+    if (err instanceof RateNotSetError) return null;
+    throw err;
+  }
+}
+
+// RA-8281 B1 round 13: calculateTotalDailyCost and calculateTotalCost live in
+// lib/reports/stored-equipment-pricing.ts, beside the whole-cent arithmetic
+// they use. No equipment money is multiplied or added in this file.
+
+/**
+ * RA-8281: the same rate for screens that must not crash. null means the
+ * contractor has not set this rate; show "rate not set", never $0.
+ */
+export function getEquipmentDailyRateOrNull(
+  groupId: string,
+  pricingConfig: any,
+): number | null {
+  try {
+    return getEquipmentDailyRate(groupId, pricingConfig);
+  } catch (err) {
+    if (err instanceof RateNotSetError) return null;
+    throw err;
+  }
 }

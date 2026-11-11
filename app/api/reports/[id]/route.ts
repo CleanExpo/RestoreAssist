@@ -7,6 +7,10 @@ import { parseDate } from "@/lib/parse-date";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 import {
+  currentReportEquipment,
+  withCurrentEquipment,
+} from "@/lib/reports/report-equipment-response";
+import {
   enhancedReportJurisdiction,
   resolveEnhancedReportStateInfo,
 } from "@/lib/services/ai/generate-enhanced-report";
@@ -137,9 +141,9 @@ export async function GET(
         ? JSON.parse(report.psychrometricAssessment)
         : null,
       scopeAreas: report.scopeAreas ? JSON.parse(report.scopeAreas) : null,
-      equipmentSelection: report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection)
-        : null,
+      // RA-8281 B1 round 13: the stored lines priced NOW, never the cached
+      // rate or the cached report.equipmentCostTotal (both overridden here).
+      ...(await currentReportEquipment(report)),
     };
 
     // RA-7625: the law the report screens name, resolved with the same
@@ -466,7 +470,9 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json(updatedReport);
+    // RA-8281 B1 round 13: a saved row answers with its equipment priced now,
+    // never the cached rate or the cached equipmentCostTotal.
+    return NextResponse.json(await withCurrentEquipment(updatedReport));
   } catch (error) {
     return fromException(request, error, { stage: "update" });
   }

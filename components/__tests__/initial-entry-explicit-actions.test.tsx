@@ -58,6 +58,12 @@ beforeEach(() => {
       }
       return jsonResponse({ report: { id: "r1" }, inspectionLinkWarning: inspectionWarning });
     }
+    if (url === "/api/reports/r9/equipment") {
+      return jsonResponse({
+        scopeAreas: [{ name: "Lounge", length: 4, width: 4, height: 2.7, wetPercentage: 100 }],
+        equipmentSelection: [null, { groupId: "lgr-85", quantity: 2, dailyRate: 61 }],
+      });
+    }
     if (url === "/api/reports/r1") return jsonResponse({ id: "r1", status: "DRAFT", detailedReport: null, reportDepthLevel: null });
     if (url.includes("/api/user/quick-fill-credits")) return jsonResponse({ hasUnlimited: true, creditsRemaining: 0 });
     return jsonResponse({});
@@ -241,5 +247,55 @@ describe("initial entry requires an explicit save and generation action", () => 
     await screen.findByRole("button", { name: "Generate Basic Report" });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 650)); });
     expect(calls).not.toContain("/api/reports/generate-inspection-report");
+  });
+});
+
+describe("RA-8281 B1 round 13 review 8: a saved equipment line the form cannot read", () => {
+  it("is named on the equipment step and on the review, and the form never writes the saved list back", async () => {
+    const { container } = render(<InitialDataEntryForm initialReportId="r9" initialData={{
+      clientName: "Synthetic Client", propertyAddress: "1 Test Street", propertyPostcode: "4000",
+    }} />);
+    await waitFor(() => expect(calls).toContain("/api/reports/r9/equipment"));
+    let include: HTMLElement | null = null;
+    for (let i = 0; i < 12 && !include; i++) {
+      include = screen.queryByLabelText(/Include this equipment estimate/);
+      if (!include) await act(async () => fireEvent.click(screen.getByRole("button", { name: "Next" })));
+    }
+    expect(include).not.toBeNull();
+    const notice = await screen.findByRole("alert");
+    expect(notice).toHaveTextContent("1 saved equipment line could not be read");
+    expect(notice).toHaveTextContent("This screen does not change the saved list.");
+    expect(screen.queryByRole("button", { name: /Remove unreadable/ })).toBeNull();
+
+    // Submitting an existing report opens the review; nothing is posted, so
+    // the unreadable saved line cannot be deleted from here.
+    await act(async () => fireEvent.click(include!));
+    await act(async () => fireEvent.submit(container.querySelector("form")!));
+    expect(await screen.findByText("Review All Data")).toBeInTheDocument();
+    expect(entryBodies).toHaveLength(0);
+    expect(calls.filter((url) => url.includes("/equipment"))).toEqual(["/api/reports/r9/equipment"]);
+    // The review carries its own notice (the equipment step may not be the
+    // one on screen when the review opens): the step's and the review's.
+    expect(screen.getAllByRole("alert").filter((el) =>
+      el.textContent?.includes("1 saved equipment line could not be read"))).toHaveLength(2);
+  });
+});
+
+describe("RA-8281 B1 (CodeRabbit on #2533): the unreadable count never outlives the report it came from", () => {
+  it("a later load with no saved equipment clears the notice", async () => {
+    const initialData = { clientName: "Synthetic Client", propertyAddress: "1 Test Street", propertyPostcode: "4000" };
+    const { rerender } = render(<InitialDataEntryForm initialReportId="r9" initialData={initialData} />);
+    await waitFor(() => expect(calls).toContain("/api/reports/r9/equipment"));
+    let include: HTMLElement | null = null;
+    for (let i = 0; i < 12 && !include; i++) {
+      include = screen.queryByLabelText(/Include this equipment estimate/);
+      if (!include) await act(async () => fireEvent.click(screen.getByRole("button", { name: "Next" })));
+    }
+    expect(await screen.findByText("1 saved equipment line could not be read")).toBeInTheDocument();
+
+    // Report r1 has no saved equipment (the stub answers {}).
+    await act(async () => rerender(<InitialDataEntryForm initialReportId="r1" initialData={initialData} />));
+    await waitFor(() => expect(calls).toContain("/api/reports/r1/equipment"));
+    await waitFor(() => expect(screen.queryByText("1 saved equipment line could not be read")).toBeNull());
   });
 });

@@ -2,14 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withCurrentEquipment } from "@/lib/reports/report-equipment-response";
 import { resolveStateInfo } from "@/lib/state-detection";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getGstTreatment } from "@/lib/gst-rules";
-import { buildCostEstimationData } from "@/lib/restoration/cost-estimation-builder";
+import {
+  buildCostEstimationData,
+  COST_ESTIMATION_RATE_FIELDS,
+} from "@/lib/restoration/cost-estimation-builder";
+import { RateNotSetError, unsetRates } from "@/lib/pricing/rate-not-set";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 import { resolveReportPricing } from "@/lib/pricing/report-pricing";
+import type { StoredEquipmentSelections } from "@/lib/reports/stored-equipment-pricing";
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
@@ -43,12 +49,20 @@ export async function POST(request: NextRequest) {
             select: { country: true },
           },
           pricingConfig: {
+            // Every equipment daily rate is selected: the one reader prices
+            // each stored equipment line from this row, and a column left out
+            // reads as "rate not set" and refuses the document (422).
             select: {
               id: true,
               administrationFee: true,
+              afdUnitLargeDailyRate: true,
+              airMoverAxialDailyRate: true,
+              airMoverCentrifugalDailyRate: true,
               antimicrobialTreatmentRate: true,
               biohazardTreatmentRate: true,
               callOutFee: true,
+              dehumidifierDesiccantDailyRate: true,
+              dehumidifierLGRDailyRate: true,
               extractionTruckMountedHourlyRate: true,
               injectionDryingSystemDailyRate: true,
               labourerNormalHours: true,
@@ -154,10 +168,11 @@ export async function POST(request: NextRequest) {
         ? JSON.parse(report.tier3Responses)
         : null;
 
-      // Parse equipment selection data (from Equipment Tools Selection step)
-      const equipmentSelection = report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection)
-        : [];
+      // Equipment selection (from Equipment Tools Selection step). RA-8281 B1
+      // round 13: passed on as stored. Only stored-equipment-pricing.ts parses
+      // it or reads inside it.
+      const equipmentSelection: StoredEquipmentSelections =
+        report.equipmentSelection;
 
       // Parse psychrometric assessment and scope areas
       const psychrometricAssessment = report.psychrometricAssessment
@@ -188,6 +203,16 @@ export async function POST(request: NextRequest) {
           message:
             "Pricing configuration not found. Please configure your pricing in Settings.",
           status: 400,
+        });
+      }
+
+      // RA-8281: an unset price-list rate blocks the document; never $0.
+      const unset = unsetRates(pricingConfig, COST_ESTIMATION_RATE_FIELDS);
+      if (unset.length > 0) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: unset.map((u) => u.note).join(" "),
+          status: 422,
         });
       }
 
@@ -239,7 +264,7 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({
-        report: updatedReport,
+        report: await withCurrentEquipment(updatedReport),
         costEstimation: {
           document: costDocument,
           data: costData,
@@ -250,6 +275,14 @@ export async function POST(request: NextRequest) {
         message: "Cost Estimation generated successfully",
       });
     } catch (error) {
+      // RA-8281: an unset equipment rate (via getEquipmentDailyRate) blocks.
+      if (error instanceof RateNotSetError) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: error.message,
+          status: 422,
+        });
+      }
       return fromException(request, error, { stage: "generate-cost-estimation" });
     }
   });
@@ -272,18 +305,19 @@ function buildCostEstimationDocument(costData: any): string {
         cat.lineItems.forEach((item: any) => {
           const qty = item.qty || 1;
           const days = item.days || 1;
-          const rate = item.dailyRate || 0;
+          // RA-8281: an unset rate reads "rate not set", never $0.00.
+          const rate = rateCell(item.dailyRate);
           const subtotal = item.subtotal || 0;
-          output += `| ${item.description} | ${qty} | ${days} | $${rate.toFixed(2)} | $${subtotal.toFixed(2)} |\n`;
+          output += `| ${item.description} | ${qty} | ${days} | ${rate} | $${subtotal.toFixed(2)} |\n`;
         });
       } else if (hasSqm) {
         output += `| Description | Sqm | Rate per Sqm | Subtotal |\n`;
         output += `|-------------|-----|--------------|----------|\n`;
         cat.lineItems.forEach((item: any) => {
           const sqm = item.sqm || 0;
-          const rate = item.ratePerSqm || 0;
+          const rate = rateCell(item.ratePerSqm);
           const subtotal = item.subtotal || 0;
-          output += `| ${item.description} | ${sqm} | $${rate.toFixed(2)} | $${subtotal.toFixed(2)} |\n`;
+          output += `| ${item.description} | ${sqm} | ${rate} | $${subtotal.toFixed(2)} |\n`;
         });
       } else {
         // Default: Hours/Qty, Rate, Subtotal
@@ -433,4 +467,11 @@ ${formatFlaggedItems(costData.flaggedItems || [])}
   }
 
   return document;
+}
+
+/** RA-8281: a rate cell; an unset rate reads "rate not set", never $0.00. */
+function rateCell(rate: unknown): string {
+  return typeof rate === "number" && Number.isFinite(rate)
+    ? `$${rate.toFixed(2)}`
+    : "rate not set";
 }

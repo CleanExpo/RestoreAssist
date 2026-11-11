@@ -96,7 +96,7 @@ export function generateStormScope(params: {
     iicrcReference: S500_EXTRACTION,
     quantity: area,
     unit: "m²",
-    unitCostAud: pricingConfig.extractionElectricHourlyRate,
+    unitCostAud: pricingConfig.extractionElectricHourlyRate ?? undefined,
     // RA-8281: not tagged. The quantity is m² and this field is $/hr, so the
     // assessment domains must not price it from the price list.
     isRequired: true,
@@ -110,7 +110,7 @@ export function generateStormScope(params: {
     iicrcReference: S500_DRYING,
     quantity: days,
     unit: "day",
-    unitCostAud: pricingConfig.dehumidifierLGRDailyRate,
+    unitCostAud: pricingConfig.dehumidifierLGRDailyRate ?? undefined,
     rateField: "dehumidifierLGRDailyRate",
     isRequired: true,
   });
@@ -123,7 +123,7 @@ export function generateStormScope(params: {
     iicrcReference: S500_MOISTURE_MAPPING,
     quantity: 1,
     unit: "job",
-    unitCostAud: pricingConfig.thermalCameraUseCostPerAssessment,
+    unitCostAud: pricingConfig.thermalCameraUseCostPerAssessment ?? undefined,
     rateField: "thermalCameraUseCostPerAssessment",
     isRequired: true,
   });
@@ -173,7 +173,7 @@ export function generateStormScope(params: {
       iicrcReference: S500_DRYING,
       quantity: days,
       unit: "day",
-      unitCostAud: pricingConfig.injectionDryingSystemDailyRate,
+      unitCostAud: pricingConfig.injectionDryingSystemDailyRate ?? undefined,
       rateField: "injectionDryingSystemDailyRate",
       isRequired: true,
     });
@@ -204,7 +204,7 @@ export function generateStormScope(params: {
       iicrcReference: S500_CAT3_TREATMENT,
       quantity: area,
       unit: "m²",
-      unitCostAud: pricingConfig.antimicrobialTreatmentRate,
+      unitCostAud: pricingConfig.antimicrobialTreatmentRate ?? undefined,
       rateField: "antimicrobialTreatmentRate",
       isRequired: true,
     });
@@ -216,7 +216,7 @@ export function generateStormScope(params: {
       iicrcReference: S500_CAT3_TREATMENT,
       quantity: area,
       unit: "m²",
-      unitCostAud: pricingConfig.antimicrobialTreatmentRate,
+      unitCostAud: pricingConfig.antimicrobialTreatmentRate ?? undefined,
       rateField: "antimicrobialTreatmentRate",
       isRequired: true,
     });

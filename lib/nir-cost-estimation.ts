@@ -18,6 +18,7 @@
  *   Rates    — as per NRPG_RATE_RANGES units ($/hr, $/day, $/m², $)
  */
 
+import { requireRate } from "@/lib/pricing/rate-not-set";
 import { prisma } from "@/lib/prisma";
 import {
   resolveEffectivePricing,
@@ -94,24 +95,25 @@ export interface CostEstimateResult {
 }
 
 /** Subset of CompanyPricingConfig fields used by the estimation engine */
+/** RA-8281: a rate is null until the contractor sets it; null never prices at $0. */
 export interface CompanyPricingRates {
-  masterQualifiedNormalHours: number;
-  qualifiedTechnicianNormalHours: number;
-  labourerNormalHours: number;
-  airMoverAxialDailyRate: number;
-  airMoverCentrifugalDailyRate: number;
-  dehumidifierLGRDailyRate: number;
-  dehumidifierDesiccantDailyRate: number;
-  afdUnitLargeDailyRate: number;
-  extractionTruckMountedHourlyRate: number;
-  extractionElectricHourlyRate: number;
-  injectionDryingSystemDailyRate: number;
-  antimicrobialTreatmentRate: number;
-  mouldRemediationTreatmentRate: number;
-  biohazardTreatmentRate: number;
-  administrationFee: number;
-  callOutFee: number;
-  thermalCameraUseCostPerAssessment: number;
+  masterQualifiedNormalHours: number | null;
+  qualifiedTechnicianNormalHours: number | null;
+  labourerNormalHours: number | null;
+  airMoverAxialDailyRate: number | null;
+  airMoverCentrifugalDailyRate: number | null;
+  dehumidifierLGRDailyRate: number | null;
+  dehumidifierDesiccantDailyRate: number | null;
+  afdUnitLargeDailyRate: number | null;
+  extractionTruckMountedHourlyRate: number | null;
+  extractionElectricHourlyRate: number | null;
+  injectionDryingSystemDailyRate: number | null;
+  antimicrobialTreatmentRate: number | null;
+  mouldRemediationTreatmentRate: number | null;
+  biohazardTreatmentRate: number | null;
+  administrationFee: number | null;
+  callOutFee: number | null;
+  thermalCameraUseCostPerAssessment: number | null;
 }
 
 // ─── SCOPE → NRPG MAPPING ────────────────────────────────────────────────────
@@ -465,8 +467,10 @@ function buildEstimateItem(
   let rate: number;
   let rateSource: "company-config" | "nrpg-midpoint";
 
-  if (rates && config.nrpgField && rates[config.nrpgField] != null) {
-    rate = rates[config.nrpgField] as number;
+  if (rates && config.nrpgField) {
+    // RA-8281: the contractor has a price list, so their own rate is the only
+    // rate. An unset rate is never replaced by an NRPG midpoint or $0.
+    rate = requireRate(rates, config.nrpgField);
     rateSource = "company-config";
   } else {
     rate = config.defaultRate;

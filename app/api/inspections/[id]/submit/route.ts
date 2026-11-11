@@ -1,3 +1,4 @@
+import { RateNotSetError } from "@/lib/pricing/rate-not-set";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -695,12 +696,23 @@ async function processInspectionComplete(
     );
     return { pricingRefused: true as const };
   }
-  const costEstimate = await estimateCosts(
-    scopeItems,
-    buildingCodeRequirements?.state,
-    pricing.rates,
-    null,
-  );
+  let costEstimate: Awaited<ReturnType<typeof estimateCosts>>;
+  try {
+    costEstimate = await estimateCosts(
+      scopeItems,
+      buildingCodeRequirements?.state,
+      pricing.rates,
+      null,
+    );
+  } catch (err) {
+    // RA-8281: an unset price-list rate leaves the inspection SCOPED with no
+    // estimate, the same as unproven pricing; it is never estimated at $0.
+    if (err instanceof RateNotSetError) {
+      console.warn(`[submit] ${inspectionId}: ${err.message}`);
+      return { pricingRefused: true as const };
+    }
+    throw err;
+  }
 
   // Save cost estimates — rows built by the shared line helper (RA-7708).
   // One batched write instead of N sequential creates.

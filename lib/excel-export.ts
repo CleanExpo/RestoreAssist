@@ -1,6 +1,11 @@
 import ExcelJS from "exceljs";
 import { format } from "date-fns";
 import { versionHistoryForExport } from "@/lib/reports/version-history-export";
+import { getEquipmentGroupById } from "@/lib/equipment-matrix";
+import {
+  moneyOrRateNotSet,
+  priceStoredEquipment,
+} from "@/lib/reports/stored-equipment-pricing";
 
 /**
  * Professional Excel export utilities for RestoreAssist reports
@@ -11,6 +16,13 @@ export interface ExcelExportOptions {
   includeScope?: boolean;
   includeEstimate?: boolean;
   includePhotos?: boolean;
+  /**
+   * RA-8281 B1 class fix: the report business's CURRENT price list
+   * (resolveReportPricing). Stored equipment is priced from it, never from the
+   * rate cached on each selection. Absent means none could be loaded, so every
+   * equipment rate reads "Rate not set".
+   */
+  pricingConfig?: unknown;
 }
 
 /** Represents a JSON-parsed field from the Report model (stored as JSON string in DB). */
@@ -146,7 +158,14 @@ export async function generateSingleReportExcel(
   const moistureReadings = safeParse(report.moistureReadings);
   const psychrometricAssessment = safeParse(report.psychrometricAssessment);
   const scopeAreas = safeParse(report.scopeAreas);
-  const equipmentSelection = safeParse(report.equipmentSelection);
+  // RA-8281 B1 class fix: priced from the current price list. The cached
+  // report.equipmentCostTotal and each selection's cached rate are never read.
+  // Round 13: the stored value goes to the one reader as it is.
+  const pricedEquipment = priceStoredEquipment(
+    report.equipmentSelection,
+    options.pricingConfig,
+    Number(report.estimatedDryingDuration) || 1,
+  );
   const geographicIntelligence = safeParse(report.geographicIntelligence);
   const parsedVersionHistory = safeParse(report.versionHistory);
   const versionHistory = Array.isArray(parsedVersionHistory)
@@ -210,9 +229,10 @@ export async function generateSingleReportExcel(
     },
     {
       field: "Equipment Cost Total",
-      value: report.equipmentCostTotal
-        ? `$${Number(report.equipmentCostTotal).toFixed(2)}`
-        : "N/A",
+      value:
+        pricedEquipment.lines.length > 0
+          ? moneyOrRateNotSet(pricedEquipment.total)
+          : "N/A",
     },
     {
       field: "Estimated Drying Duration (days)",
@@ -787,11 +807,9 @@ export async function generateSingleReportExcel(
   // ============================================
   // SHEET 12: EQUIPMENT DEPLOYMENT
   // ============================================
-  if (
-    equipmentSelection &&
-    Array.isArray(equipmentSelection) &&
-    equipmentSelection.length > 0
-  ) {
+  // RA-8281 B1 review round 11: every stored shape is read through the
+  // priced lines, so a legacy single object is priced, never dumped raw.
+  if (pricedEquipment.lines.length > 0) {
     const equipmentDeploySheet = workbook.addWorksheet("Equipment Deployment");
     equipmentDeploySheet.columns = [
       { header: "Equipment", key: "name", width: 30 },
@@ -801,24 +819,15 @@ export async function generateSingleReportExcel(
       { header: "Total Cost", key: "totalCost", width: 20 },
     ];
 
-    let totalEquipmentCost = 0;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    equipmentSelection.forEach((item: any) => {
-      const cost =
-        item.totalCost ||
-        (item.dailyRate && item.quantity && item.duration
-          ? item.dailyRate * item.quantity * item.duration
-          : 0);
-      totalEquipmentCost += typeof cost === "number" ? cost : 0;
-
+    // RA-8281 B1 class fix: each line priced from the current price list; an
+    // unset rate reads "Rate not set" and blocks the total row.
+    pricedEquipment.lines.forEach((line) => {
       equipmentDeploySheet.addRow({
-        name: item.name || item.equipmentName || "N/A",
-        quantity: item.quantity || 0,
-        dailyRate: item.dailyRate
-          ? `$${Number(item.dailyRate).toFixed(2)}`
-          : "$0.00",
-        duration: item.duration || item.estimatedDuration || 0,
-        totalCost: cost ? `$${Number(cost).toFixed(2)}` : "$0.00",
+        name: line.name || "N/A",
+        quantity: line.quantity,
+        dailyRate: moneyOrRateNotSet(line.dailyRate),
+        duration: line.durationDays,
+        totalCost: moneyOrRateNotSet(line.total),
       });
     });
 
@@ -828,7 +837,7 @@ export async function generateSingleReportExcel(
       quantity: "",
       dailyRate: "",
       duration: "",
-      totalCost: `$${totalEquipmentCost.toFixed(2)}`,
+      totalCost: moneyOrRateNotSet(pricedEquipment.total),
     });
 
     const totalRow = equipmentDeploySheet.getRow(equipmentDeploySheet.rowCount);
@@ -843,7 +852,7 @@ export async function generateSingleReportExcel(
     applyAlternatingRows(
       equipmentDeploySheet,
       2,
-      equipmentSelection.length + 1,
+      pricedEquipment.lines.length + 1,
     );
   }
 
@@ -1105,63 +1114,34 @@ export async function generateSingleReportExcel(
   // ============================================
   // SHEET 11: EQUIPMENT SELECTION
   // ============================================
-  if (equipmentSelection) {
+  if (pricedEquipment.lines.length > 0) {
     const equipmentSheet = workbook.addWorksheet("Equipment Selection");
+    equipmentSheet.columns = [
+      { header: "Equipment Name", key: "name", width: 30 },
+      { header: "Type", key: "type", width: 25 },
+      { header: "Quantity", key: "quantity", width: 15 },
+      { header: "Daily Rate", key: "dailyRate", width: 20 },
+      { header: "Duration (days)", key: "duration", width: 20 },
+      { header: "Total Cost", key: "totalCost", width: 20 },
+      { header: "Specifications", key: "specifications", width: 40 },
+    ];
 
-    if (Array.isArray(equipmentSelection)) {
-      equipmentSheet.columns = [
-        { header: "Equipment Name", key: "name", width: 30 },
-        { header: "Type", key: "type", width: 25 },
-        { header: "Quantity", key: "quantity", width: 15 },
-        { header: "Daily Rate", key: "dailyRate", width: 20 },
-        { header: "Duration (days)", key: "duration", width: 20 },
-        { header: "Total Cost", key: "totalCost", width: 20 },
-        { header: "Specifications", key: "specifications", width: 40 },
-      ];
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      equipmentSelection.forEach((item: any) => {
-        equipmentSheet.addRow({
-          name: item.name || item.equipmentName || "N/A",
-          type: item.type || item.equipmentType || "N/A",
-          quantity: item.quantity || 0,
-          dailyRate: item.dailyRate
-            ? `$${Number(item.dailyRate).toFixed(2)}`
-            : "$0.00",
-          duration: item.duration || item.estimatedDuration || 0,
-          totalCost: item.totalCost
-            ? `$${Number(item.totalCost).toFixed(2)}`
-            : "$0.00",
-          specifications:
-            typeof item.specifications === "object"
-              ? JSON.stringify(item.specifications)
-              : item.specifications || "N/A",
-        });
+    // RA-8281 B1 class fix: money from the current price list, never the
+    // rate cached on the selection; an unset rate reads "Rate not set".
+    pricedEquipment.lines.forEach((line) => {
+      equipmentSheet.addRow({
+        name: line.name || "N/A",
+        type: line.groupId,
+        quantity: line.quantity,
+        dailyRate: moneyOrRateNotSet(line.dailyRate),
+        duration: line.durationDays,
+        totalCost: moneyOrRateNotSet(line.total),
+        specifications: getEquipmentGroupById(line.groupId)?.capacity ?? "N/A",
       });
+    });
 
-      formatHeaderRow(equipmentSheet, 1);
-      applyAlternatingRows(equipmentSheet, 2, equipmentSelection.length + 1);
-    } else if (typeof equipmentSelection === "object") {
-      equipmentSheet.columns = [
-        { header: "Field", key: "field", width: 40 },
-        { header: "Value", key: "value", width: 60 },
-      ];
-
-      const equipRows: Array<{ field: string; value: string }> = [];
-      Object.entries(equipmentSelection).forEach(([key, value]) => {
-        equipRows.push({
-          field: formatKey(key),
-          value:
-            typeof value === "object"
-              ? JSON.stringify(value, null, 2)
-              : String(value || "N/A"),
-        });
-      });
-
-      equipmentSheet.addRows(equipRows);
-      formatHeaderRow(equipmentSheet, 1);
-      applyAlternatingRows(equipmentSheet, 2, equipRows.length + 1);
-    }
+    formatHeaderRow(equipmentSheet, 1);
+    applyAlternatingRows(equipmentSheet, 2, pricedEquipment.lines.length + 1);
   }
 
   // ============================================

@@ -106,7 +106,8 @@ interface ReportData {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   scopeAreas?: any[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  equipmentSelection?: any[];
+  /** Opaque: only stored-equipment-pricing.ts reads inside it. */
+  equipmentSelection?: unknown;
   standardsContext?: string;
   businessInfo?: BusinessInfo;
 }
@@ -712,7 +713,7 @@ async function renderPage2(
     scopeItems: ScopeItem[];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     report: any;
-    equipmentSelection?: JsonRecord[];
+    equipmentSelection?: unknown;
     pricingConfig?: JsonRecord;
   },
 ) {

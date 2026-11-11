@@ -12,7 +12,10 @@ vi.mock("@/lib/reports/extract-report-data", async (importOriginal) => {
 import { extractWaterCategory } from "@/lib/reports/extract-report-data";
 import { generateAssessmentReportPDF } from "@/lib/generate-assessment-report-pdf";
 import { generateForensicReportPDF } from "@/lib/generate-forensic-report-pdf";
-import { buildScopeOfWorksData } from "@/lib/restoration/scope-of-works-builder";
+import {
+  SCOPE_OF_WORKS_RATE_FIELDS,
+  buildScopeOfWorksData,
+} from "@/lib/restoration/scope-of-works-builder";
 
 /**
  * The assessment PDF, the forensic PDF and the scope-of-works builder each
@@ -54,7 +57,10 @@ describe("report generators use the shared water-category classifier", () => {
       },
       tier2: null,
       tier3: null,
-      pricingConfig: {},
+      // RA-8281: the builder refuses an incomplete price list; fixture rates.
+      pricingConfig: Object.fromEntries(
+        SCOPE_OF_WORKS_RATE_FIELDS.map((f) => [f, 100]),
+      ),
       stateInfo: null,
     }) as { waterCategory: string };
     expect(extractWaterCategory).toHaveBeenCalledWith(

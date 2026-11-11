@@ -1,4 +1,13 @@
-import { getEquipmentGroupById, getEquipmentDailyRate } from "@/lib/equipment-matrix";
+import { assertRatesSet } from "@/lib/pricing/rate-not-set";
+import { billableDailyRate } from "@/lib/equipment-matrix";
+import {
+  AMOUNT_TOO_LARGE_NOTE,
+  assertEquipmentPriced,
+  equipmentLineAmount,
+  priceStoredEquipment,
+  readStoredEquipment,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
 import { extractWaterCategory } from "@/lib/reports/extract-report-data";
@@ -9,6 +18,24 @@ import { extractWaterCategory } from "@/lib/reports/extract-report-data";
  * report for the same job. Reaching it through POST would mean mocking an
  * AI call and a credit ledger to assert a boolean.
  */
+/** RA-8281: every price-list rate this builder reads. An unset one blocks the document. */
+export const SCOPE_OF_WORKS_RATE_FIELDS = [
+  "administrationFee",
+  "afdUnitLargeDailyRate",
+  "airMoverAxialDailyRate",
+  "antimicrobialTreatmentRate",
+  "biohazardTreatmentRate",
+  "callOutFee",
+  "dehumidifierLGRDailyRate",
+  "extractionTruckMountedHourlyRate",
+  "injectionDryingSystemDailyRate",
+  "labourerNormalHours",
+  "masterQualifiedNormalHours",
+  "mouldRemediationTreatmentRate",
+  "qualifiedTechnicianNormalHours",
+  "thermalCameraUseCostPerAssessment",
+] as const;
+
 export function buildScopeOfWorksData(data: {
   report: any;
   analysis: any;
@@ -17,7 +44,8 @@ export function buildScopeOfWorksData(data: {
   tier3: any;
   pricingConfig: any;
   stateInfo: any;
-  equipmentSelection?: any[];
+  /** Opaque: only stored-equipment-pricing.ts reads inside it. */
+  equipmentSelection?: StoredEquipmentSelections;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
 }) {
@@ -29,10 +57,12 @@ export function buildScopeOfWorksData(data: {
     tier3,
     pricingConfig,
     stateInfo,
-    equipmentSelection = [],
+    equipmentSelection,
     psychrometricAssessment,
     scopeAreas = [],
   } = data;
+  // RA-8281: never price an unset rate at $0 (null * n === 0 in JS).
+  assertRatesSet(pricingConfig, SCOPE_OF_WORKS_RATE_FIELDS);
 
   if (!pricingConfig) {
     throw new Error("Pricing configuration is required");
@@ -57,16 +87,12 @@ export function buildScopeOfWorksData(data: {
       pricingConfig.qualifiedTechnicianNormalHours,
     ),
     labourerNormalHours: ensureNumber(pricingConfig.labourerNormalHours),
-    airMoverAxialDailyRate: ensureNumber(pricingConfig.airMoverAxialDailyRate),
-    dehumidifierLGRDailyRate: ensureNumber(
-      pricingConfig.dehumidifierLGRDailyRate,
-    ),
-    afdUnitLargeDailyRate: ensureNumber(pricingConfig.afdUnitLargeDailyRate),
     extractionTruckMountedHourlyRate: ensureNumber(
       pricingConfig.extractionTruckMountedHourlyRate,
     ),
-    injectionDryingSystemDailyRate: ensureNumber(
-      pricingConfig.injectionDryingSystemDailyRate,
+    // The billable rate (to the whole cent), as for every equipment line.
+    injectionRate: billableDailyRate(
+      ensureNumber(pricingConfig.injectionDryingSystemDailyRate),
     ),
     thermalCameraUseCostPerAssessment: ensureNumber(
       pricingConfig.thermalCameraUseCostPerAssessment,
@@ -140,28 +166,25 @@ export function buildScopeOfWorksData(data: {
           ? parseFloat(String(report.affectedArea))
           : 0;
 
-  // Use actual equipment selection data if available, otherwise use 0 (no defaults)
-  const equipmentSelections = Array.isArray(equipmentSelection)
-    ? equipmentSelection
-    : [];
+  // RA-8281 B1 round 13: the stored selection is read only through
+  // stored-equipment-pricing.ts. Unit counts come from its validated lines.
+  const storedEquipmentLines = readStoredEquipment(equipmentSelection);
 
   // Calculate equipment quantities from actual selections
   let airMoversQty = 0;
   let dehumidifiersQty = 0;
   let afdQty = 0;
 
-  equipmentSelections.forEach((sel: any) => {
-    if (sel.groupId && sel.quantity) {
-      if (sel.groupId.startsWith("airmover-")) {
-        airMoversQty += sel.quantity || 0;
-      } else if (
-        sel.groupId.startsWith("lgr-") ||
-        sel.groupId.startsWith("desiccant-")
-      ) {
-        dehumidifiersQty += sel.quantity || 0;
-      } else if (sel.groupId.includes("afd")) {
-        afdQty += sel.quantity || 0;
-      }
+  storedEquipmentLines.forEach((line) => {
+    if (line.groupId.startsWith("airmover-")) {
+      airMoversQty += line.quantity;
+    } else if (
+      line.groupId.startsWith("lgr-") ||
+      line.groupId.startsWith("desiccant-")
+    ) {
+      dehumidifiersQty += line.quantity;
+    } else if (line.groupId.includes("afd")) {
+      afdQty += line.quantity;
     }
   });
 
@@ -183,6 +206,17 @@ export function buildScopeOfWorksData(data: {
     (affectedAreaSqm > 0
       ? Math.max(2, Math.min(8, Math.ceil(affectedAreaSqm / 25)))
       : 4);
+
+  // RA-8281 B1 round 13: priced from the current price list by the one
+  // reader. This document cannot show a blocked line, so an unset rate or a
+  // line that cannot be read refuses the whole document (RateNotSetError, 422
+  // from the route). It is never a $0 line and never an unnamed 500.
+  const pricedEquipment = priceStoredEquipment(
+    equipmentSelection,
+    pricingConfig,
+    dryingDuration,
+  );
+  assertEquipmentPriced(pricedEquipment);
 
   // Build line items
   const lineItems = [
@@ -211,67 +245,46 @@ export function buildScopeOfWorksData(data: {
         masterQualified: { hours: 4, rate: rates.masterQualifiedNormalHours },
         qualified: { hours: 6, rate: rates.qualifiedTechnicianNormalHours },
       },
-      equipment:
-        equipmentSelections.length > 0
-          ? equipmentSelections.reduce((acc: any, sel: any) => {
-              if (sel.quantity > 0) {
-                const group = getEquipmentGroupById(sel.groupId);
-                const dailyRate =
-                  sel.dailyRate ||
-                  getEquipmentDailyRate(sel.groupId, pricingConfig);
-                const key = sel.groupId.startsWith("lgr-")
-                  ? "lgr"
-                  : sel.groupId.startsWith("desiccant-")
-                    ? "desiccant"
-                    : sel.groupId.startsWith("airmover-")
-                      ? "airMovers"
-                      : sel.groupId.startsWith("heat-")
-                        ? "heat"
-                        : sel.groupId.includes("afd")
-                          ? "afd"
-                          : "other";
+      equipment: pricedEquipment.lines.reduce((acc: any, line) => {
+        if (line.quantity > 0) {
+          const key = line.groupId.startsWith("lgr-")
+            ? "lgr"
+            : line.groupId.startsWith("desiccant-")
+              ? "desiccant"
+              : line.groupId.startsWith("airmover-")
+                ? "airMovers"
+                : line.groupId.startsWith("heat-")
+                  ? "heat"
+                  : line.groupId.includes("afd")
+                    ? "afd"
+                    : "other";
 
-                if (!acc[key]) {
-                  acc[key] = {
-                    qty: 0,
-                    days: dryingDuration,
-                    rate: dailyRate,
-                    items: [],
-                  };
-                }
-                acc[key].qty += sel.quantity;
-                acc[key].items.push({
-                  groupId: sel.groupId,
-                  name: group?.name || sel.groupId,
-                  quantity: sel.quantity,
-                  dailyRate: dailyRate,
-                });
-              }
-              return acc;
-            }, {})
-          : {},
+          // No rate on the group: its lines can carry different rates (axial
+          // and centrifugal air movers), so one rate times the group's unit
+          // count would disagree with the subtotal. Each line keeps its own
+          // rate and the amount the one reader made for it.
+          if (!acc[key]) {
+            acc[key] = {
+              qty: 0,
+              days: dryingDuration,
+              items: [],
+            };
+          }
+          acc[key].qty += line.quantity;
+          acc[key].items.push({
+            groupId: line.groupId,
+            name: line.name,
+            quantity: line.quantity,
+            dailyRate: line.dailyRate,
+            total: line.total,
+          });
+        }
+        return acc;
+      }, {}),
       subtotal:
-        equipmentSelections.length > 0
-          ? (() => {
-              const labour =
-                4 * rates.masterQualifiedNormalHours +
-                6 * rates.qualifiedTechnicianNormalHours;
-              const equipmentCost = equipmentSelections.reduce(
-                (total: number, sel: any) => {
-                  if (sel.quantity > 0) {
-                    const dailyRate =
-                      sel.dailyRate ||
-                      getEquipmentDailyRate(sel.groupId, pricingConfig);
-                    return total + dailyRate * sel.quantity * dryingDuration;
-                  }
-                  return total;
-                },
-                0,
-              );
-              return labour + equipmentCost;
-            })()
-          : 4 * rates.masterQualifiedNormalHours +
-            6 * rates.qualifiedTechnicianNormalHours,
+        4 * rates.masterQualifiedNormalHours +
+        6 * rates.qualifiedTechnicianNormalHours +
+        (pricedEquipment.total as number),
     },
     {
       id: "RW_4",
@@ -321,6 +334,14 @@ export function buildScopeOfWorksData(data: {
 
   // Add Class 4 drying if needed
   if (needsClass4 && hasYellowTongue) {
+    // A whole-cent amount; a figure that is not an exact amount is refused,
+    // never shown as $0.
+    const injectionTotal = equipmentLineAmount(
+      rates.injectionRate,
+      1,
+      dryingDuration,
+    );
+    if (injectionTotal === null) throw new RangeError(AMOUNT_TOO_LARGE_NOTE);
     lineItems.push({
       id: "RW_6",
       description: "Drying Protocol — Yellow Tongue Sandwich Drying",
@@ -334,13 +355,14 @@ export function buildScopeOfWorksData(data: {
         injectionSystem: {
           qty: 1,
           days: dryingDuration,
-          rate: rates.injectionDryingSystemDailyRate,
+          rate: rates.injectionRate,
+          total: injectionTotal,
         },
       },
       subtotal:
         12 * rates.masterQualifiedNormalHours +
         8 * rates.qualifiedTechnicianNormalHours +
-        dryingDuration * rates.injectionDryingSystemDailyRate,
+        injectionTotal,
     });
   }
 
@@ -493,7 +515,12 @@ export function buildScopeOfWorksData(data: {
     // `affectedAreaM2` takes precedence only when it is > 0, so a job with real
     // scope rows is unaffected.
     affectedAreaM2: affectedAreaSqm > 0 ? affectedAreaSqm : undefined,
-    equipmentSelection,
+    // The validated lines, not the raw stored value. `type` carries the
+    // equipment group id so the air-mover gate sees stored selections.
+    equipmentSelection: storedEquipmentLines.map((line) => ({
+      type: line.groupId,
+      quantity: line.quantity,
+    })),
     waterCategory,
     mouldActive: mouldActiveForSafety,
     hazards,

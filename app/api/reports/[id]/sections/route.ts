@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withCurrentEquipment } from "@/lib/reports/report-equipment-response";
 import { apiError, fromException } from "@/lib/api-errors";
 
 export async function PATCH(
@@ -116,7 +117,7 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
       message: `${section} updated successfully`,
-      report: updatedReport,
+      report: await withCurrentEquipment(updatedReport),
     });
   } catch (error) {
     return fromException(request, error, { stage: "update-section" });

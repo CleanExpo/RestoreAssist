@@ -59,7 +59,7 @@ function mid(field: string): number {
  * Returns NRPG midpoint values for all CompanyPricingConfig fields.
  * Used when creating a new config and as a reset target.
  */
-export function getNRPGDefaults(): PricingConfigInput {
+export function getNRPGDefaults(): PricingConfigUpdateInput {
   return {
     // Labour — Master Qualified Technician
     masterQualifiedNormalHours: mid("masterQualifiedNormalHours"),

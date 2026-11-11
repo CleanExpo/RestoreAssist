@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { addEquipmentAmounts, equipmentLineAmount } from "@/lib/reports/stored-equipment-pricing";
+import { billableDailyRate } from "@/lib/equipment-matrix";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   completeIdempotentSuccessInTransaction,
@@ -317,7 +319,8 @@ export async function POST(request: NextRequest) {
         // card. USER/MANAGER cannot read that card (GET /api/pricing-config is
         // ADMIN-only), so any rate or total the browser sends is discarded.
         // No selection means no estimate: nothing is priced or stored.
-        const selection = equipmentData.equipmentSelection ?? null;
+        // Typed unknown: every entry is checked below before it is read.
+        const selection: unknown = equipmentData.equipmentSelection ?? null;
         if (selection !== null && !Array.isArray(selection)) {
           return apiError(request, {
             code: "VALIDATION",
@@ -377,8 +380,8 @@ export async function POST(request: NextRequest) {
           let total = 0;
           for (const item of items) {
             const field = getEquipmentPricingField(item.groupId) as string;
-            const dailyRate = (pricing as unknown as Record<string, unknown>)[field];
-            if (typeof dailyRate !== "number" || !Number.isFinite(dailyRate) || dailyRate < 0) {
+            const listRate = (pricing as unknown as Record<string, unknown>)[field];
+            if (typeof listRate !== "number" || !Number.isFinite(listRate) || listRate < 0) {
               return apiError(request, {
                 code: "VALIDATION",
                 message: "A selected equipment type has no usable daily rate. An administrator must set it in Pricing settings before this estimate can be saved.",
@@ -386,9 +389,14 @@ export async function POST(request: NextRequest) {
                 fields: { [field]: "Missing or invalid daily rate" },
               });
             }
-            const totalCost = dailyRate * item.quantity * durationDays;
-            total += totalCost;
-            if (!Number.isFinite(totalCost) || !Number.isFinite(total)) {
+            // RA-8281 B1 round 13: whole cents, made by the one reader's own
+            // arithmetic, so what is stored is the figure every reader shows.
+            // The billable rate (the price-list rate to the cent) is the only
+            // rate used or stored from here on.
+            const dailyRate = billableDailyRate(listRate);
+            const totalCost = equipmentLineAmount(dailyRate, item.quantity, durationDays);
+            const nextTotal = totalCost === null ? null : addEquipmentAmounts(total, totalCost);
+            if (totalCost === null || nextTotal === null) {
               return apiError(request, {
                 code: "VALIDATION",
                 message: "Equipment estimate is too large to calculate",
@@ -396,6 +404,7 @@ export async function POST(request: NextRequest) {
                 fields: { equipmentSelection: "Estimate exceeds the calculable range" },
               });
             }
+            total = nextTotal;
             priced.push({ ...item, dailyRate, totalCost });
           }
 
