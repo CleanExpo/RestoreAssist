@@ -265,11 +265,14 @@ export function buildScopeOfWorksData(data: {
                       ? "afd"
                       : "other";
 
+          // No rate on the group: its lines can carry different rates (axial
+          // and centrifugal air movers), so one rate times the group's unit
+          // count would disagree with the subtotal. Each line keeps its own
+          // rate and the amount the one reader made for it.
           if (!acc[key]) {
             acc[key] = {
               qty: 0,
               days: dryingDuration,
-              rate: line.dailyRate,
               items: [],
             };
           }
@@ -279,6 +282,7 @@ export function buildScopeOfWorksData(data: {
             name: line.usable ? line.name : UNUSABLE_LINE_LABEL,
             quantity: line.quantity,
             dailyRate: line.dailyRate,
+            total: line.total,
             ...equipmentLineBlockedFields(line),
           });
         }
@@ -329,6 +333,13 @@ export function buildScopeOfWorksData(data: {
   if (needsClass4 && hasYellowTongue) {
     // The billable rate (to the whole cent), as for every equipment line.
     const injectionRate = P.calc([INJECTION], (r) => billableDailyRate(r));
+    // A whole-cent amount; a figure that is not an exact amount is refused,
+    // never shown as $0. null: the injection rate is not set.
+    const injectionTotal = P.calc([INJECTION], (r) => {
+      const amount = equipmentLineAmount(billableDailyRate(r), 1, dryingDuration);
+      if (amount === null) throw new RangeError(AMOUNT_TOO_LARGE_NOTE);
+      return amount;
+    });
     lineItems.push({
       id: "RW_6",
       description: "Drying Protocol — Yellow Tongue Sandwich Drying",
@@ -339,17 +350,17 @@ export function buildScopeOfWorksData(data: {
         qualified: { hours: 8, rate: rate(QUALIFIED) },
       },
       equipment: {
-        injectionSystem: { qty: 1, days: dryingDuration, rate: injectionRate },
+        injectionSystem: {
+          qty: 1,
+          days: dryingDuration,
+          rate: injectionRate,
+          total: injectionTotal,
+        },
       },
-      subtotal: P.calc([MASTER, QUALIFIED, INJECTION], (m, q, i) => {
-        const injectionTotal = equipmentLineAmount(
-          billableDailyRate(i),
-          1,
-          dryingDuration,
-        );
-        if (injectionTotal === null) throw new RangeError(AMOUNT_TOO_LARGE_NOTE);
-        return 12 * m + 8 * q + injectionTotal;
-      }),
+      subtotal:
+        injectionTotal === null
+          ? null
+          : P.calc([MASTER, QUALIFIED], (m, q) => 12 * m + 8 * q + injectionTotal),
       ...blockedBy([MASTER, QUALIFIED, INJECTION]),
     });
   }

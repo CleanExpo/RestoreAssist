@@ -755,9 +755,11 @@ export default function InitialDataEntryForm({
           const saved = editableStoredEquipment(
             equipmentData.equipmentSelection,
           );
+          // Set on every load, also when nothing is stored, so a count
+          // from an earlier report never outlives it.
+          setUnreadableSavedLines(saved.unusableCount);
           if (saved.hasLines) {
             setEquipmentSelections(saved.selections);
-            setUnreadableSavedLines(saved.unusableCount);
             hasAutoSelectedEquipment.current = true; // Mark as already set to prevent auto-selection
           }
 

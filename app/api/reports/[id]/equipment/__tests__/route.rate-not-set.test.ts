@@ -407,6 +407,9 @@ describe("POST /api/reports/[id]/equipment refuses an equipment type the price l
     ["an id outside the catalogue", "no-such-group"],
     ["a price-list column name used as an id", "callOutFee"],
     ["a catalogue id with spaces around it", " lgr-85 "],
+    ["a catalogue prefix with an unknown model", "lgr-bogus"],
+    ["a catalogue id with a trailing space", "lgr-85 "],
+    ["an air mover prefix with an unknown model", "airmover-zzz"],
   ])("%s with a posted rate of 61: 422, nothing stored", async (_label, groupId) => {
     resolveReportPricing.mockResolvedValue({
       ok: true,

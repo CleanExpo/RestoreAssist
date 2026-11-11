@@ -280,3 +280,22 @@ describe("RA-8281 B1 round 13 review 8: a saved equipment line the form cannot r
       el.textContent?.includes("1 saved equipment line could not be read"))).toHaveLength(2);
   });
 });
+
+describe("RA-8281 B1 (CodeRabbit on #2533): the unreadable count never outlives the report it came from", () => {
+  it("a later load with no saved equipment clears the notice", async () => {
+    const initialData = { clientName: "Synthetic Client", propertyAddress: "1 Test Street", propertyPostcode: "4000" };
+    const { rerender } = render(<InitialDataEntryForm initialReportId="r9" initialData={initialData} />);
+    await waitFor(() => expect(calls).toContain("/api/reports/r9/equipment"));
+    let include: HTMLElement | null = null;
+    for (let i = 0; i < 12 && !include; i++) {
+      include = screen.queryByLabelText(/Include this equipment estimate/);
+      if (!include) await act(async () => fireEvent.click(screen.getByRole("button", { name: "Next" })));
+    }
+    expect(await screen.findByText("1 saved equipment line could not be read")).toBeInTheDocument();
+
+    // Report r1 has no saved equipment (the stub answers {}).
+    await act(async () => rerender(<InitialDataEntryForm initialReportId="r1" initialData={initialData} />));
+    await waitFor(() => expect(calls).toContain("/api/reports/r1/equipment"));
+    await waitFor(() => expect(screen.queryByText("1 saved equipment line could not be read")).toBeNull());
+  });
+});

@@ -310,7 +310,7 @@ Create visual summary cards in a grid layout:
 **🏠 Rooms Affected:** ${roomsAffectedCount}
 **🧱 Materials Affected:** ${materialsList}
 **💧 Moisture Level:** Avg. ${avgMoisture ? `${avgMoisture.toFixed(0)}%` : "32%"}
-**💰 Total Cost:** ${moneyOrRateNotSet(pricedEquipment.lines.length > 0 ? pricedEquipment.total : null)}
+${pricedEquipment.lines.length > 0 ? `**💰 Total Cost:** ${moneyOrRateNotSet(pricedEquipment.total)}` : ""}
 
 **📈 Drying Status:** ${dryingStatus || "Fair"}
 **💧 Total Litres Extracted:** ${totalLitresExtracted ? `${totalLitresExtracted} L` : "80-100 L"}

@@ -28,6 +28,7 @@ import {
   priceStoredEquipment,
   readEquipmentDeploymentLog,
   readStoredEquipment,
+  scopeEquipmentRows,
   storedEquipmentResponse,
   UNUSABLE_LINE_LABEL,
 } from "@/lib/reports/stored-equipment-pricing";
@@ -191,6 +192,25 @@ describe("the deployment log (IICRC PDF and insurer portal): no money, never thr
     for (const key of ["equipment", "items", "selected"]) {
       expect(readEquipmentDeploymentLog({ [key]: [row] })).toEqual(expected);
     }
+  });
+
+  // CodeRabbit on #2533: a line saved by the equipment screens carries only
+  // its groupId, so the PDF and the insurer portal showed a blank type.
+  it("a saved line with only a groupId is named by its catalogue group", () => {
+    const log = readEquipmentDeploymentLog([
+      { groupId: "lgr-85", quantity: 2, dailyRate: 61 },
+      { groupId: "not-in-catalogue", quantity: 1 },
+      { groupId: "   ", quantity: 1 },
+      { groupId: "lgr-85", type: "Named by the technician" },
+    ]);
+    expect(log.map((row) => row.type)).toEqual([
+      readStoredEquipment([{ groupId: "lgr-85", quantity: 1 }])[0].name,
+      "not-in-catalogue",
+      null,
+      "Named by the technician",
+    ]);
+    expect(log[0].type).not.toBe("lgr-85");
+    expect(JSON.stringify(log)).not.toContain("61");
   });
 
   it("nothing stored, text that is not JSON, and an object with no list are an empty log", () => {
@@ -385,7 +405,8 @@ describe("the priced documents (cost estimation, scope of works)", () => {
 
   it("control: scope of works prices the stored line at the current 70", () => {
     const rw3 = scope(STALE).lineItems.find((i: { id: string }) => i.id === "RW_3");
-    expect(rw3.equipment.lgr).toMatchObject({ qty: 2, days: 4, rate: 70 });
+    expect(rw3.equipment.lgr).toMatchObject({ qty: 2, days: 4 });
+    expect(rw3.equipment.lgr.items[0]).toMatchObject({ dailyRate: 70, total: 560 });
     expect(rw3.subtotal).toBe(4 * 50 + 6 * 50 + 560);
   });
 
@@ -817,8 +838,56 @@ describe("the cents model: every equipment figure is an exact cent amount and re
     } as Parameters<typeof buildScopeOfWorksData>[0]) as any;
     const rw3 = doc.lineItems.find((i: { id: string }) => i.id === "RW_3");
     const reader = priceStoredEquipment(THREE, pricing(33.335), rw3.equipment.lgr.days);
-    expect(rw3.equipment.lgr).toMatchObject({ qty: 3, rate: 33.34 });
+    expect(rw3.equipment.lgr).toMatchObject({ qty: 3 });
+    expect(rw3.equipment.lgr.items.map((i: { dailyRate: number }) => i.dailyRate)).toEqual([33.34, 33.34, 33.34]);
     expect(rw3.subtotal).toBe(4 * 50 + 6 * 50 + (reader.total as number));
+  });
+
+  // CodeRabbit on #2533: axial and centrifugal air movers sit in one group at
+  // different rates. The document applied the first line's rate to every unit
+  // in the group, so its rows disagreed with the RW_3 subtotal.
+  it("scope of works: a group whose lines have different rates shows each line at its own rate and amount", () => {
+    const mixed = new Proxy({}, {
+      get: (_t, key) =>
+        key === "airMoverAxialDailyRate" ? 25 : key === "airMoverCentrifugalDailyRate" ? 40.005 : 50,
+    }) as Record<string, number>;
+    const selection = [
+      { groupId: "airmover-800", quantity: 2 },
+      { groupId: "airmover-1500", quantity: 3 },
+      { groupId: "lgr-85", quantity: 1 },
+    ];
+    const doc = buildScopeOfWorksData({
+      ...common,
+      pricingConfig: mixed,
+      equipmentSelection: selection,
+    } as Parameters<typeof buildScopeOfWorksData>[0]) as any;
+    const rw3 = doc.lineItems.find((i: { id: string }) => i.id === "RW_3");
+    const days = rw3.equipment.airMovers.days;
+    const reader = priceStoredEquipment(selection, mixed, days);
+    // No single rate on the group; each line keeps its own.
+    expect("rate" in rw3.equipment.airMovers).toBe(false);
+    expect(rw3.equipment.airMovers.items).toMatchObject([
+      { groupId: "airmover-800", quantity: 2, dailyRate: 25, total: 25 * 2 * days },
+      { groupId: "airmover-1500", quantity: 3, dailyRate: 40.01, total: reader.lines[1].total },
+    ]);
+    const rows = scopeEquipmentRows(rw3.equipment);
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toContain(`2 units × ${days} days @ $25.00/unit/day = $${(25 * 2 * days).toFixed(2)}`);
+    expect(rows[1]).toContain(`3 units × ${days} days @ $40.01/unit/day = $${(reader.lines[1].total as number).toFixed(2)}`);
+    // The rows the document prints add up to the equipment part of the subtotal, to the cent.
+    const printed = rows.map((r) => Math.round(Number(r.slice(r.lastIndexOf("$") + 1)) * 100));
+    expect(printed.reduce((a, b) => a + b, 0)).toBe(Math.round((reader.total as number) * 100));
+    expect(rw3.subtotal).toBe(4 * 50 + 6 * 50 + (reader.total as number));
+  });
+
+  it("scope of works rows: the injection row prints the amount made for it; a missing figure is never $0", () => {
+    expect(scopeEquipmentRows({ injectionSystem: { qty: 1, days: 3, rate: 33.34, total: 100.02 } })).toEqual([
+      "  - Injection Drying System: 1 units × 3 days @ $33.34/unit/day = $100.02",
+    ]);
+    const blank = scopeEquipmentRows({ lgr: { days: 2, items: [{ name: "LGR", quantity: 1 }] } });
+    expect(blank[0]).not.toContain("$0.00");
+    expect(blank[0]).toContain(moneyOrRateNotSet(null));
+    expect(scopeEquipmentRows(undefined)).toEqual([]);
   });
 });
 
@@ -897,6 +966,37 @@ describe("the cents model: screens, the prompt table and the viewers add in whol
     // $2.01 a day over half a day is 100.5 cents: $1.01 on the line, so $1.01 in the table.
     expect(text).toContain("| LGR (1) | $2.01 | $1.01 |");
     expect(text).not.toContain("$1.00");
+    expect(text).toMatch(/Total Cost:\*\* \$1\.01/);
+  });
+
+  // CodeRabbit on #2533: with no equipment stored the overview card read
+  // "Total Cost: Rate not set", telling the model a rate was missing.
+  it.each([["nothing stored", null], ["an empty list", []]])(
+    "the overview prompt has no Total Cost card when the report has no equipment (%s)",
+    (_label, equipmentSelection) => {
+      const text = buildInspectionReportPrompt({
+        report: { estimatedDryingDuration: 2 },
+        analysis: null,
+        stateInfo: null,
+        reportType: "basic",
+        equipmentSelection,
+        pricingConfig: { dehumidifierLGRDailyRate: 2.01 },
+      } as Parameters<typeof buildInspectionReportPrompt>[0]);
+      expect(text).toContain("Overview Metrics Cards");
+      expect(text).not.toMatch(/Total Cost:/);
+    },
+  );
+
+  it("the overview card still says the rate is not set when a stored line has no rate", () => {
+    const text = buildInspectionReportPrompt({
+      report: { estimatedDryingDuration: 2 },
+      analysis: null,
+      stateInfo: null,
+      reportType: "basic",
+      equipmentSelection: [{ groupId: "lgr-85", quantity: 1 }],
+      pricingConfig: { dehumidifierLGRDailyRate: null },
+    } as Parameters<typeof buildInspectionReportPrompt>[0]);
+    expect(text).toContain(`Total Cost:** ${moneyOrRateNotSet(null)}`);
   });
 });
 
@@ -972,7 +1072,13 @@ describe("the billable rate is the rate every screen and document shows", () => 
 // an unusable line for every reader; its cached rate is never money.
 describe("an equipment type the price list does not price is unusable, never priced from its cached rate", () => {
   const CFG = { dehumidifierLGRDailyRate: 70, callOutFee: 99 };
-  it.each([["   "], ["no-such-group"], ["callOutFee"], [" lgr-85 "], ["\t"]])("id %j", (groupId) => {
+  // CodeRabbit on #2533: an id that only STARTS like a catalogue group
+  // ("lgr-bogus", "lgr-85 " with a trailing space) was priced at that
+  // prefix's rate. The id must be a catalogue group.
+  it.each([
+    ["   "], ["no-such-group"], ["callOutFee"], [" lgr-85 "], ["\t"],
+    ["lgr-bogus"], ["lgr-85 "], ["lgr-"], ["desiccant-x"], ["airmover-zzz"], ["afd-"], ["heat-x"], ["LGR-85"],
+  ])("id %j", (groupId) => {
     for (const config of [null, CFG]) {
       const priced = priceStoredEquipment([{ groupId, quantity: 1, dailyRate: 61 }], config, 4);
       expect(priced.lines[0]).toMatchObject({ usable: false, dailyRate: null, dailyTotal: null, total: null });

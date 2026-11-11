@@ -377,6 +377,9 @@ export function calculateTotalAmps(selections: EquipmentSelection[]): number {
 
 // Map equipment group ID to pricing config field name
 export function getEquipmentPricingField(groupId: string): string | null {
+  // The id must BE a catalogue group, not merely start like one: "lgr-bogus"
+  // and "lgr-85 " (trailing space) are not equipment the price list prices.
+  if (!getEquipmentGroupById(groupId)) return null;
   if (groupId.startsWith("lgr-")) {
     return "dehumidifierLGRDailyRate";
   }
@@ -402,8 +405,9 @@ export function getEquipmentPricingField(groupId: string): string | null {
 
 /**
  * True when the price list prices this equipment type. Every catalogue group
- * does. A blank id, spaces, or any id outside the catalogue does not, and
- * such a line has no rate at all (round 13 review 6).
+ * does. A blank id, spaces, or any id outside the catalogue does not (an id
+ * that only shares a catalogue prefix included), and such a line has no rate
+ * at all (round 13 review 6; getEquipmentPricingField holds the membership).
  */
 export function isPricedEquipmentType(groupId: string): boolean {
   return getEquipmentPricingField(groupId) !== null;
