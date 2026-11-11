@@ -91,3 +91,45 @@ describe("every reply passes a schema before it counts (kind K15, round 16)", ()
     expect(client).not.toMatch(/as T\b/);
   });
 });
+
+describe("a refusal counts only when its body passes the refusal schema (kind K15, round 17)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const reply = (status: number, body: string) =>
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status })));
+
+  it.each([
+    ["an object error with no message", JSON.stringify({ error: { code: "X" } })],
+    ["a number error", JSON.stringify({ error: 42 })],
+    ["an empty error", JSON.stringify({ error: "" })],
+    ["a blocker with an unknown code", JSON.stringify({ error: "x", code: "NOPE", openSectionIds: [] })],
+    ["null", "null"],
+    ["unreadable", "{bad"],
+  ])("a 422 with %s is unconfirmed, so the save keeps its key", async (_label, body) => {
+    reply(422, body);
+    await expect(postFireAction("insp-1", capture("Gas meter is off"), "k-1")).resolves.toMatchObject({
+      ok: false,
+      kind: "unconfirmed",
+      status: 422,
+    });
+  });
+
+  it("the shared apiError shape gives its message as a plain string", async () => {
+    reply(401, JSON.stringify({ error: { code: "UNAUTHORIZED", message: "Please sign in again.", eventId: "e-1" } }));
+    const result = await postFireAction("insp-1", capture("Gas meter is off"), "k-1");
+    expect(result).toEqual({ ok: false, kind: "refused", status: 401, message: "Please sign in again." });
+  });
+
+  it("a fire blocker keeps its code for the screen", async () => {
+    const blocker = { error: "Your view is out of date.", code: "REVIEW_STALE", openSectionIds: [] };
+    reply(422, JSON.stringify(blocker));
+    const result = await postFireAction("insp-1", capture("Gas meter is off"), "k-1");
+    expect(result).toEqual({ ok: false, kind: "refused", status: 422, message: blocker.error, body: blocker });
+  });
+
+  it("every body is read in one place, through a schema", () => {
+    const client = readFileSync(join(__dirname, "..", "_fire", "fire-client.ts"), "utf8");
+    expect(client.match(/\.json\(\)/g) ?? []).toHaveLength(1);
+    expect(client).toMatch(/schema\.safeParse\(await res\.json\(\)\)/);
+    expect(client).toMatch(/readChecked\(res, fireRefusalSchema\)/);
+  });
+});

@@ -160,6 +160,27 @@ describe("refusals", () => {
     expect((await post({ action: "file", sessionId: "vs-1", sectionId: "made_up", transcript: "x", routedBy: "technician_chose" })).status).toBe(400);
   });
 
+  it("every refusal the route sends passes the browser's refusal check (round 17)", async () => {
+    const { fireRefusalSchema } = await import("@/lib/voice/fire-smoke/reply-schema");
+    const refusals = [
+      await post("{not json"),
+      await post({ action: "delete_everything", sessionId: "vs-1" }),
+      await post({ action: "acknowledge_notice", sessionId: "vs-missing", spoken: true, recognitionMode: "cloud" }),
+      await post({ action: "capture", sessionId: "vs-1", transcript: "Power isolated at the switchboard" }),
+    ];
+    gate.refuse = true;
+    const noAccess = await ack();
+    auth.getServerSession.mockResolvedValue(null);
+    const noLogin = await ack();
+    const all = [...refusals, noAccess, noLogin];
+    expect(all.map((r) => r.status)).toEqual([400, 400, 403, 422, 404, 401]);
+    for (const res of all) {
+      const parsed = fireRefusalSchema.safeParse(await res.json());
+      expect(parsed.success).toBe(true);
+      expect(typeof parsed.data?.message).toBe("string");
+    }
+  });
+
   it("another technician's notice does not open the microphone for this one", async () => {
     auth.getServerSession.mockResolvedValue({ user: { id: "tech-2" } });
     const theirs = await post({ action: "acknowledge_notice", sessionId: "vs-other-user", spoken: true, recognitionMode: "cloud" });

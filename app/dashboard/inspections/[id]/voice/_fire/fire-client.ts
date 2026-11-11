@@ -9,6 +9,7 @@
 import type { z } from "zod";
 import {
   fireActionReplySchema,
+  fireRefusalSchema,
   fireWalkthroughReplySchema,
   voiceSessionReplySchema,
 } from "@/lib/voice/fire-smoke/reply-schema";
@@ -29,13 +30,17 @@ export type FireCallResult<T> =
 const base = (inspectionId: string) =>
   `/api/inspections/${inspectionId}/voice/fire-walkthrough`;
 
-async function readRefusal(res: Response): Promise<{ message: string; body?: FireBlockerBody }> {
+/**
+ * The one place a reply body is read (round 17, kind K15). It is parsed and
+ * checked against the given schema in full; an unreadable or malformed body
+ * gives null, never a guess at its fields.
+ */
+async function readChecked<T>(res: Response, schema: z.ZodType<T>): Promise<T | null> {
   try {
-    const body = (await res.json()) as Partial<FireBlockerBody> & { message?: string };
-    const message = body.error ?? body.message ?? `Request refused (${res.status})`;
-    return { message, body: body.code ? (body as FireBlockerBody) : undefined };
+    const parsed = schema.safeParse(await res.json());
+    return parsed.success ? parsed.data : null;
   } catch {
-    return { message: `Request refused (${res.status})` };
+    return null;
   }
 }
 
@@ -50,9 +55,11 @@ export const FINAL_REFUSAL_STATUSES: ReadonlySet<number> = new Set([400, 401, 40
 /**
  * Never throws (round 15), and never trusts a shape (round 16, kind K15). A
  * reply is "ok" only when it is a 2xx whose body was read, parsed and passed
- * the caller's schema in full. Anything that cannot be proven, from a dropped
- * connection to an unreadable or malformed 2xx body, is "unconfirmed", so a
- * save stays frozen with its key and the screen never reads a missing field.
+ * the caller's schema in full, and "refused" only when a final status carries
+ * a refusal body that passes fireRefusalSchema. Anything that cannot be
+ * proven, from a dropped connection to an unreadable or malformed body of any
+ * status, is "unconfirmed", so a save stays frozen with its key and the
+ * screen never reads a missing field.
  * The schema is required: no call can opt out of the check.
  */
 async function call<T>(input: string, init: RequestInit, schema: z.ZodType<T>): Promise<FireCallResult<T>> {
@@ -63,16 +70,13 @@ async function call<T>(input: string, init: RequestInit, schema: z.ZodType<T>): 
     return { ok: false, kind: "unconfirmed" };
   }
   if (res.ok) {
-    try {
-      const parsed = schema.safeParse(await res.json());
-      if (parsed.success) return { ok: true, data: parsed.data };
-    } catch {
-      // Unreadable body: fall through to unconfirmed.
-    }
-    return { ok: false, kind: "unconfirmed", status: res.status };
+    const data = await readChecked(res, schema);
+    return data === null ? { ok: false, kind: "unconfirmed", status: res.status } : { ok: true, data };
   }
   if (FINAL_REFUSAL_STATUSES.has(res.status)) {
-    return { ok: false, kind: "refused", status: res.status, ...(await readRefusal(res)) };
+    // A refusal releases the held save only when its body proves it is one.
+    const refusal = await readChecked(res, fireRefusalSchema);
+    if (refusal !== null) return { ok: false, kind: "refused", status: res.status, ...refusal };
   }
   return { ok: false, kind: "unconfirmed", status: res.status };
 }

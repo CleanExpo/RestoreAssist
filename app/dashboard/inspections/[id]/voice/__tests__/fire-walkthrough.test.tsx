@@ -50,6 +50,7 @@ let failNextPost = false;
 let refuseNextPost = false;
 let holdNextPost: number | null = null;
 let garbleNextPost = false;
+let malformedRefusalNextPost = false;
 const replies = new Map<string, unknown>();
 
 async function snapshot(): Promise<FireWalkthroughResponse> {
@@ -73,6 +74,10 @@ const fakeFetch = vi.fn(async (input: string, init?: RequestInit) => {
     const status = holdNextPost;
     holdNextPost = null;
     return json({ error: "Not finished. Retry shortly." }, status);
+  }
+  if (malformedRefusalNextPost) {
+    malformedRefusalNextPost = false;
+    return json({ error: { code: "X" } }, 422);
   }
   if (refuseNextPost) {
     refuseNextPost = false;
@@ -161,6 +166,7 @@ beforeEach(() => {
   refuseNextPost = false;
   holdNextPost = null;
   garbleNextPost = false;
+  malformedRefusalNextPost = false;
   replies.clear();
   spoken.length = 0;
   FakeRecognition.live = [];
@@ -423,6 +429,21 @@ describe("filing answers", () => {
     expect(retry.key).toBe(first.key);
     await waitFor(() => expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue(""));
     expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1);
+  });
+
+  it("a refusal whose body cannot be trusted keeps the save held with its key (round 17)", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    malformedRefusalNextPost = true;
+    await typeAnswer("Gas meter is off and power isolated at the board");
+    await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
+    expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
+    await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1));
+    const [first, retry] = calls.filter((c) => c.action === "capture");
+    expect(retry.key).toBe(first.key);
+    expect(retry.body).toEqual(first.body);
   });
 });
 

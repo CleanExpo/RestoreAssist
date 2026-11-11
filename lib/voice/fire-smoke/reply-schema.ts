@@ -9,7 +9,13 @@
  */
 
 import { z } from "zod";
-import type { CaptureOutcome, FireActionResponse, FireWalkthroughResponse, WalkthroughStatus } from "./schema";
+import type {
+  CaptureOutcome,
+  FireActionResponse,
+  FireBlockerBody,
+  FireWalkthroughResponse,
+  WalkthroughStatus,
+} from "./schema";
 
 const sectionStatusSchema = z.object({
   sectionId: z.string(),
@@ -57,3 +63,29 @@ export const fireActionReplySchema: z.ZodType<FireActionResponse> = z.object({
 export const voiceSessionReplySchema = z.object({
   session: z.object({ sessionId: z.string().min(1) }),
 });
+
+/** What the screen may show and act on from a final refusal. */
+export interface FireRefusal {
+  message: string;
+  body?: FireBlockerBody;
+}
+
+const blockerBodySchema: z.ZodType<FireBlockerBody> = z.object({
+  error: z.string().min(1),
+  code: z.enum(["NOTICE_REQUIRED", "SECTIONS_OPEN", "CHANGED_AFTER_SIGNOFF", "REVIEW_STALE", "INSPECTION_SUBMITTED"]),
+  openSectionIds: z.array(z.string()),
+});
+
+/**
+ * Round 17, kind K15: a refusal body is checked like any other reply. Three
+ * shapes are known: the fire route's blocker (422), its plain refusal
+ * ({ error: string }), and the shared apiError ({ error: { message } }) used
+ * for 400/401/403/404. Each resolves to a plain string message. Anything else
+ * fails the check, and the caller treats it as unconfirmed.
+ */
+export const fireRefusalSchema: z.ZodType<FireRefusal> = z.union([
+  blockerBodySchema.transform((body) => ({ message: body.error, body })),
+  // Strict: a blocker with an unknown code must not pass as a plain refusal.
+  z.strictObject({ error: z.string().min(1) }).transform((b) => ({ message: b.error })),
+  z.object({ error: z.object({ message: z.string().min(1) }) }).transform((b) => ({ message: b.error.message })),
+]);
