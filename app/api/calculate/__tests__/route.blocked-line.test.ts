@@ -218,5 +218,12 @@ describe("POST /api/calculate: a rate that is not set (RA-8281 B2)", () => {
       true,
     );
     expect(body.pricingSource).toBe("company_pricing_config");
+    // A priced quote carries no blocked-line key, on the answer or on a line.
+    expect(body).not.toHaveProperty("status");
+    for (const line of body.lineItems) {
+      for (const key of ["pricingStatus", "rateField", "pricingNote", "nationalRange"]) {
+        expect(line).not.toHaveProperty(key);
+      }
+    }
   });
 });

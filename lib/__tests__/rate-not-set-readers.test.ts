@@ -127,6 +127,30 @@ describe("NIR estimateCosts", () => {
     const est = await estimateCosts(scope, null, full as never);
     expect(est.items[0].rate).toBe(60);
   });
+
+  // RA-8281 (B2) review round 1: blocked lines must not change what a fully
+  // priced estimate looks like. Its keys, and its lines' keys, are the ones
+  // it had before blocked lines existed: no status, no blocked-line fields.
+  it("a fully priced estimate keeps its pre-B2 shape: no status key, no blocked-line fields", async () => {
+    const est = await estimateCosts(scope, null, full as never);
+    expect(Object.keys(est).sort()).toEqual([
+      "breakdown",
+      "contingency",
+      "contingencyPercentage",
+      "currency",
+      "items",
+      "nrpgCompliant",
+      "nrpgViolations",
+      "pricingSource",
+      "subtotal",
+      "total",
+    ]);
+    for (const item of est.items) {
+      for (const key of ["pricingStatus", "rateField", "pricingNote", "nationalRange"]) {
+        expect(item).not.toHaveProperty(key);
+      }
+    }
+  });
 });
 
 const FIRE_FIELDS = [

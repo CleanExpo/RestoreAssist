@@ -216,6 +216,18 @@ export function blockedPricing(
 }
 
 /**
+ * True for an engine result that is blocked. A complete result keeps the
+ * shape it had before blocked lines existed (it carries no status key), so
+ * what is saved and returned for a fully priced result is unchanged; only a
+ * blocked result carries `status: "blocked"`.
+ */
+export function isBlockedResult<T extends object>(
+  result: T,
+): result is Extract<T, { status: "blocked" }> {
+  return (result as { status?: unknown }).status === "blocked";
+}
+
+/**
  * The blocked result in a route's answer (blockedPricingResponse), or null
  * when the answer is anything else. Screens call this on a failed pricing
  * request so a blocked result is shown line by line, not as an error.

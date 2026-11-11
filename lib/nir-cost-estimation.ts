@@ -94,8 +94,6 @@ export interface NRPGViolation {
 }
 
 export interface CostEstimateResult {
-  /** Every line is priced. Only a complete estimate is ever saved. */
-  status: "complete";
   items: CostEstimateItem[];
   subtotal: number;
   contingency: number;
@@ -521,7 +519,6 @@ export async function estimateCosts(
     sources.length === 2 ? "mixed" : (sources[0] ?? "nrpg-midpoint");
 
   return {
-    status: "complete",
     items,
     subtotal,
     contingency,

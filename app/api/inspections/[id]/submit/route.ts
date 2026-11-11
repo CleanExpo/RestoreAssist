@@ -16,6 +16,7 @@ import {
   estimateCosts,
   resolveInspectionRates,
 } from "@/lib/nir-cost-estimation";
+import { isBlockedResult } from "@/lib/pricing/blocked-line";
 import { buildEstimateLines } from "@/lib/estimate-lines";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
@@ -705,7 +706,7 @@ async function processInspectionComplete(
   // estimate. Nothing is saved, so the inspection stays SCOPED, the same as
   // unproven pricing. The blocked lines are shown when the contractor
   // generates the estimate from the inspection page. Never estimated at $0.
-  if (costEstimate.status === "blocked") {
+  if (isBlockedResult(costEstimate)) {
     console.warn(
       `[submit] ${inspectionId}: ${costEstimate.totalNote} (${costEstimate.missing
         .map((m) => m.field)
