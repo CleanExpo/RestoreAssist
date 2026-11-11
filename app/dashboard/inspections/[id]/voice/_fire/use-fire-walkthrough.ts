@@ -45,6 +45,11 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   const [problem, setProblem] = useState<string | null>(null);
   const [noticeSpoken, setNoticeSpoken] = useState(false);
   const held = useRef<HeldSave | null>(null);
+  // What the technician has in the typing box now, read after a save returns.
+  const typedNow = useRef(typed);
+  useEffect(() => {
+    typedNow.current = typed;
+  }, [typed]);
   const handleTextRef = useRef<(text: string) => void>(() => {});
 
   const speech = useFireSpeech({
@@ -93,6 +98,20 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
    * an unconfirmed answer a new key or a different body. Only a 2xx or a
    * final refusal releases it; then the next answer can be sent.
    */
+  /**
+   * Round 20, kind K17: the typing box belongs to the technician. Code may put
+   * words in it only while it is empty (or already holds those words), so a
+   * save that returns late can never overwrite something typed since.
+   * Returns false when the box holds other words and was left alone.
+   */
+  const offerWords = useCallback((words: string): boolean => {
+    const now = typedNow.current;
+    if (now.trim() !== "" && now.trim() !== words.trim()) return false;
+    typedNow.current = words;
+    setTyped(words);
+    return true;
+  }, []);
+
   const send = useCallback(
     async (action: FireAction, words?: string, onDone?: (res: FireActionResponse) => void): Promise<void> => {
       const earlier = held.current;
@@ -128,18 +147,20 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
       // One rule for every failure (kind K11): words leave the typing box only
       // when the save succeeded, so a network drop and a server refusal both
       // keep what the technician said where they can correct and resend it.
-      if (save.words !== undefined) setTyped(save.words);
+      const placed = save.words === undefined || offerWords(save.words);
       if (result.kind === "unconfirmed") {
-        talk(FIRE_COPY.saveFailed);
+        // Still held with its key: the next Save re-sends it first.
+        talk(placed ? FIRE_COPY.saveFailed : FIRE_COPY.saveFailedKept);
       } else {
         held.current = null;
-        setProblem(result.message);
+        // Released, so its words must stay visible even when the box is taken.
+        setProblem(placed ? result.message : `${result.message} ${FIRE_COPY.notSaved(save.words!)}`);
         // The job file changed since it was reviewed: show the new words so
         // the technician can read them before signing again.
         if (result.body?.code === "REVIEW_STALE") void refresh();
       }
     },
-    [inspectionId, refresh, speech, talk],
+    [inspectionId, offerWords, refresh, speech, talk],
   );
 
   const moveTo = useCallback(

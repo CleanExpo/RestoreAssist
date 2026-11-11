@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -429,6 +431,56 @@ describe("filing answers", () => {
     expect(retry.key).toBe(first.key);
     await waitFor(() => expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue(""));
     expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1);
+  });
+
+  describe("the typing box belongs to the technician (kind K17, round 20)", () => {
+    const A = "Gas meter is off and power isolated at the board";
+    const B = "Smoke odour through the whole ground floor";
+    const box = () => screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder });
+
+    it("a retry that fails again never overwrites newer typed words", async () => {
+      await renderScreen();
+      await acknowledgeAndFinishSpeaking();
+      failNextPost = true;
+      await typeAnswer(A);
+      await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
+
+      holdNextPost = 409;
+      await typeAnswer(B);
+      await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailedKept));
+      expect(box()).toHaveValue(B);
+
+      // The next Save sends A first with its own key; B stays for the technician.
+      fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
+      await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.earlierSaved));
+      expect(box()).toHaveValue(B);
+      const captures = calls.filter((c) => c.action === "capture");
+      expect(new Set(captures.map((c) => c.key)).size).toBe(1);
+      expect(captures.every((c) => c.body.transcript === A)).toBe(true);
+
+      fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
+      await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(2));
+      await waitFor(() => expect(box()).toHaveValue(""));
+    });
+
+    it("a refused earlier answer keeps its words on screen without taking the box", async () => {
+      await renderScreen();
+      await acknowledgeAndFinishSpeaking();
+      failNextPost = true;
+      await typeAnswer(A);
+      await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
+
+      refuseNextPost = true;
+      await typeAnswer(B);
+      await waitFor(() => expect(screen.getByText(new RegExp(FIRE_COPY.notSaved(A).replace(/"/g, ".")))).toBeInTheDocument());
+      expect(box()).toHaveValue(B);
+    });
+
+    it("no failed save writes the box directly", () => {
+      const hook = readFileSync(join(__dirname, "..", "_fire", "use-fire-walkthrough.ts"), "utf8");
+      expect(hook).not.toMatch(/setTyped\(save\.words\)/);
+      expect(hook.match(/offerWords\(save\.words\)/g) ?? []).toHaveLength(1);
+    });
   });
 
   it("a refusal whose body cannot be trusted keeps the save held with its key (round 17)", async () => {

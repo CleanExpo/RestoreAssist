@@ -23,6 +23,9 @@ export const FIRE_COPY = {
   saveFailed:
     "I could not save that. Your words are in the typing box. Check your signal and tap Save answer to try again.",
   earlierSaved: "Your earlier answer is saved now. Please give me your next answer again.",
+  saveFailedKept:
+    "I could not save your earlier answer yet. Your new words are still in the typing box. Tap Save answer: the earlier answer goes first.",
+  notSaved: (words: string) => `Not saved: "${words}"`,
   notHeard: "Sorry, I didn't catch that. Please say it again, or type it.",
   filed: (title: string) => `Saved to ${title}.`,
   confirmNo: "Okay. Which section does it belong to? Tap one below.",
