@@ -62,25 +62,28 @@ export function isNaUtterance(text: string): boolean {
   return NA_PATTERNS.some((p) => p.test(normalised));
 }
 
-/** Words that may follow a yes or no without adding anything to the job file. */
-const CONFIRM_FILLER =
-  /^(?:and|but|also|so|that(?:'|\u2019)?s (?:right|correct)|that is (?:right|correct)|correct|right|please|thanks|thank you|yes|yeah|no)\b[\s,.!;:-]*/i;
+/**
+ * What may follow a yes or no without being an observation. An allow-list, and
+ * deliberately narrow: one leading connector, then only a pure acknowledgement
+ * that is the WHOLE remainder. Content words, "no" and "not" among them, are
+ * never trimmed: "yes, and no power at the switchboard" keeps "no power".
+ */
+const CONNECTOR = /^(?:and|but|also|so)\b[\s,.!;:-]*/i;
+const ACKNOWLEDGEMENT =
+  /^(?:that(?:'|\u2019)?s (?:right|correct)|that is (?:right|correct)|correct|right|please|thanks|thank you)[\s,.!;:-]*$/i;
 const CONFIRM_LEAD = /^(?:yes|yeah|yep|yup|correct|that's right|right|affirmative|sure|ok|okay|no|nope|nah|wrong|not that|negative)\b[\s,.!;:-]*/i;
 
 /**
  * A yes or no, plus whatever else was said. "Yes, and the ceiling is
  * sagging" is a yes AND a new observation: the observation is returned in
- * `rest` so the caller files it, never drops it. Only filler words are
- * trimmed from `rest`.
+ * `rest` so the caller files it, never drops it.
  */
 export function parseConfirmation(text: string): { answer: "yes" | "no"; rest: string } | null {
   const answer = parseYesNo(text);
   if (answer === null) return null;
   let rest = text.replace(/^[^A-Za-z]+/, "").replace(CONFIRM_LEAD, "");
-  for (let trimmed = rest.replace(CONFIRM_FILLER, ""); trimmed !== rest; trimmed = rest.replace(CONFIRM_FILLER, "")) {
-    rest = trimmed;
-  }
-  return { answer, rest: rest.trim() };
+  rest = rest.replace(CONNECTOR, "").trim();
+  return { answer, rest: ACKNOWLEDGEMENT.test(rest) ? "" : rest };
 }
 
 export function parseYesNo(text: string): "yes" | "no" | null {

@@ -341,6 +341,15 @@ describe("state held across screen changes (kind: a mode outliving the thing it 
     expect(calls.find((c) => c.action === "file")!.body).toMatchObject({ sectionId: "site_access", transcript: "All good here", routedBy: "technician_confirmed" });
   });
 
+  it("a negation after Yes is kept word for word in the saved observation", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    await typeAnswer("All good here");
+    await waitFor(() => expect(screen.getByRole("group", { name: "Margot's question" })).toBeInTheDocument());
+    await typeAnswer("Yes, and no power at the switchboard");
+    await waitFor(() => expect(calls.some((c) => c.action === "capture" && c.body.transcript === "no power at the switchboard")).toBe(true));
+  });
+
   it("a spoken Yes to the N/A question with more words closes the section AND keeps the extra observation", async () => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();

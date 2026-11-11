@@ -120,6 +120,9 @@ describe("parseConfirmation keeps what was said after the yes or no", () => {
     ["Yes, thanks", "yes", ""],
     ["Yes, and the ceiling is sagging", "yes", "the ceiling is sagging"],
     ["yep but there is water on the floor", "yes", "there is water on the floor"],
+    ["Yes, and no power at the switchboard", "yes", "no power at the switchboard"],
+    ["Yes, but not isolated at the gas meter", "yes", "not isolated at the gas meter"],
+    ["Yes, yes", "yes", "yes"],
     ["No", "no", ""],
     ["No, it's the structure", "no", "it's the structure"],
   ])("%s", (text, answer, rest) => {
