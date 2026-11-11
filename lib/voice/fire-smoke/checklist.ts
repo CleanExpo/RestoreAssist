@@ -83,7 +83,7 @@ export const FIRE_CHECKLIST: readonly FireChecklistSection[] = [
       {
         id: "swms_reviewed",
         prompt:
-          "This is high-risk construction work. Has a safe work method statement been prepared and gone through with the crew?",
+          "Will any work today be high-risk construction work, such as demolition, disturbing asbestos, work near live electrics or pressurised gas lines, propping up the structure, or a fall risk of more than 2 metres? If so, has a safe work method statement been prepared and gone through with the crew before that work starts?",
         cites: [{ source: "S09", pinpoint: "r322, r327" }],
       },
       {
@@ -101,8 +101,8 @@ export const FIRE_CHECKLIST: readonly FireChecklistSection[] = [
       {
         id: "incident_notification",
         prompt:
-          "Has anyone been hurt or has anything dangerous happened on site? If so, it must be reported to WorkSafe straight away and the scene left as it is.",
-        cites: [{ source: "S08", pinpoint: "s38, s39" }],
+          "Has anyone been hurt, or has anything dangerous happened on site? If it may be a notifiable incident, for example a death, a serious injury or a dangerous occurrence, WorkSafe must be told straight away on 13 23 60, and the scene left as it is unless you need to make it safe or help someone.",
+        cites: [{ source: "S08", pinpoint: "s37, s38, s39" }],
       },
     ],
   },
@@ -153,7 +153,7 @@ export const FIRE_CHECKLIST: readonly FireChecklistSection[] = [
       {
         id: "gas_isolated",
         prompt:
-          "Is the gas off at the meter or the LPG cylinder closed? A licensed gasfitter must check before reconnection.",
+          "Is the gas off at the meter or the LPG cylinder closed? Will a licensed gasfitter check it before it is turned back on?",
         cites: [{ source: "S35" }, { source: "S09", pinpoint: "r322(j)" }, { source: "S33" }],
       },
       {
@@ -185,7 +185,7 @@ export const FIRE_CHECKLIST: readonly FireChecklistSection[] = [
       {
         id: "suspected_acm",
         prompt:
-          "Do you suspect asbestos in damaged areas or debris? Do not cut, break or sweep it. Has sampling been arranged? Fire-damaged asbestos needs a Class A licensed removalist.",
+          "Do you suspect asbestos in damaged areas or debris? Do not cut, break or sweep it. Has a competent person been arranged to sample it and judge its condition? If fire-damaged asbestos is friable, may become friable, or its condition cannot be judged, only a Class A licensed removalist may remove it; where it is confirmed non-friable, a Class B licence holder can.",
         cites: [{ source: "S09", pinpoint: "r304 to r307, r264, r265" }, { source: "S32" }, { source: "S40" }],
       },
       {

@@ -72,6 +72,40 @@ describe("fire checklist", () => {
     }
   });
 
+  // Design rule (kind K6): a spoken prompt never states a legal duty as if it
+  // always applies. A sentence that names a duty is either a question or
+  // carries its condition (if, when, where, unless, whether), because the
+  // cited law sets conditions the technician must check on site.
+  it("every spoken legal duty is a question or carries its condition", () => {
+    const DUTY = /\b(must|is required|are required|needs? an? (?:Class|licen)|Class [AB]|high-risk construction work)\b/i;
+    const CONDITION = /\b(if|when|where|unless|whether)\b/i;
+    const spoken = FIRE_CHECKLIST.flatMap((s) => [
+      { id: `${s.id}.intro`, text: s.intro },
+      ...s.items.map((i) => ({ id: `${s.id}.${i.id}`, text: i.prompt })),
+    ]);
+    const unconditional = spoken.flatMap(({ id, text }) =>
+      text
+        .split(/(?<=[.?!])\s+/)
+        .filter((sentence) => DUTY.test(sentence))
+        .filter((sentence) => !sentence.trim().endsWith("?") && !CONDITION.test(sentence))
+        .map((sentence) => `${id}: ${sentence}`),
+    );
+    expect(unconditional).toEqual([]);
+  });
+
+  it("asbestos removal follows friability and the SWMS follows listed work (S32, S09 r322)", () => {
+    const prompt = (sectionId: string, itemId: string) =>
+      FIRE_CHECKLIST.find((s) => s.id === sectionId)!.items.find((i) => i.id === itemId)!.prompt;
+    const acm = prompt("asbestos_hazmat", "suspected_acm");
+    expect(acm).toMatch(/friable/);
+    expect(acm).toMatch(/cannot be judged/);
+    expect(acm).toMatch(/Class A/);
+    expect(acm).toMatch(/Class B/);
+    const swms = prompt("safety_brief", "swms_reviewed");
+    expect(swms.startsWith("Will any work today be high-risk construction work")).toBe(true);
+    expect(prompt("safety_brief", "incident_notification")).toMatch(/notifiable incident/);
+  });
+
   it("the research pack carries no real client details", () => {
     expect(PACK).not.toMatch(/RACV/i);
   });
