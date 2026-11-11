@@ -215,7 +215,7 @@ function FieldRow({
           {label}
         </label>
         {hint && (
-          <p className="text-xs text-neutral-400 dark:text-slate-500 mt-0.5">
+          <p className="text-xs text-neutral-600 dark:text-slate-500 mt-0.5">
             {hint}
           </p>
         )}
@@ -316,7 +316,7 @@ function GateBadge({ ok, label }: { ok: boolean; label: string }) {
         "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
         ok
           ? "bg-success-subtle text-success-subtle-foreground"
-          : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-400",
+          : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400",
       )}
     >
       {ok ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
@@ -831,7 +831,7 @@ function ContentsNewItemForm({
 
   return (
     <div className="p-4 rounded-xl border border-dashed border-neutral-200 dark:border-slate-700 space-y-3 mt-2">
-      <p className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wide">
+      <p className="text-xs font-semibold text-neutral-600 dark:text-slate-400 uppercase tracking-wide">
         Add Pack-Out Item
       </p>
       <div className="grid grid-cols-2 gap-2">
@@ -1359,14 +1359,14 @@ function AustralianComplianceForm({
           <span className="text-sm font-semibold text-neutral-700 dark:text-slate-200">
             Australian Compliance
           </span>
-          <span className="text-xs text-neutral-400 dark:text-slate-500">
+          <span className="text-xs text-neutral-600 dark:text-slate-500">
             Insurer · Technician credentials
           </span>
         </div>
         {open ? (
-          <ChevronUp size={15} className="text-neutral-400" />
+          <ChevronUp size={15} className="text-neutral-600 dark:text-neutral-400" />
         ) : (
-          <ChevronDown size={15} className="text-neutral-400" />
+          <ChevronDown size={15} className="text-neutral-600 dark:text-neutral-400" />
         )}
       </button>
       {open && (
@@ -1788,7 +1788,7 @@ const NIRClaimAssessmentPanel = forwardRef<
       {/* Claim type selector — hidden when locked to upstream picker */}
       {!lockedClaimType && (
         <div>
-          <p className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+          <p className="text-xs font-semibold text-neutral-600 dark:text-slate-400 uppercase tracking-wide mb-2">
             Claim Type
           </p>
           <div
@@ -1800,7 +1800,7 @@ const NIRClaimAssessmentPanel = forwardRef<
               const isSelected = selectedType === ct.type;
               const colorCls = isSelected
                 ? COLOR_MAP[ct.color]
-                : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700";
+                : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700";
               return (
                 <button
                   key={ct.type}
@@ -1865,7 +1865,7 @@ const NIRClaimAssessmentPanel = forwardRef<
             {loading && (
               <Loader2
                 size={13}
-                className="animate-spin text-neutral-400 ml-auto"
+                className="animate-spin text-neutral-600 dark:text-neutral-400 ml-auto"
               />
             )}
           </div>
@@ -1873,7 +1873,7 @@ const NIRClaimAssessmentPanel = forwardRef<
           <div className="px-4 divide-y divide-neutral-100 dark:divide-slate-800 pb-2">
             {loading ? (
               <div className="py-8 flex items-center justify-center">
-                <Loader2 size={20} className="animate-spin text-neutral-300" />
+                <Loader2 size={20} className="animate-spin text-neutral-700 dark:text-neutral-300" />
               </div>
             ) : (
               <>
@@ -1910,7 +1910,7 @@ const NIRClaimAssessmentPanel = forwardRef<
                                 {item.itemName as string}
                               </span>
                               {item.itemCategory != null && (
-                                <span className="ml-2 text-xs text-neutral-400">
+                                <span className="ml-2 text-xs text-neutral-600 dark:text-neutral-400">
                                   {(item.itemCategory as string).toLowerCase()}
                                 </span>
                               )}
@@ -1941,7 +1941,7 @@ const NIRClaimAssessmentPanel = forwardRef<
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-neutral-400 text-center py-4">
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400 text-center py-4">
                         No contents items yet.
                       </p>
                     )}
@@ -1968,7 +1968,7 @@ const NIRClaimAssessmentPanel = forwardRef<
       )}
 
       {!selectedType && (
-        <div className="flex items-center gap-2 p-4 rounded-xl bg-neutral-50 dark:bg-slate-800/60 text-sm text-neutral-400">
+        <div className="flex items-center gap-2 p-4 rounded-xl bg-neutral-50 dark:bg-slate-800/60 text-sm text-neutral-600 dark:text-neutral-400">
           <Info size={15} />
           Select a claim type above to enter the assessment data.
         </div>

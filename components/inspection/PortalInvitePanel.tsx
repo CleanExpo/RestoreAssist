@@ -201,7 +201,7 @@ export default function PortalInvitePanel({
         <Link2 size={16} className="text-cyan-500" />
         <h4 className="font-semibold text-sm">Share Job Status with Client</h4>
       </div>
-      <p className="text-xs text-neutral-500 dark:text-slate-400 mb-4">
+      <p className="text-xs text-neutral-600 dark:text-slate-400 mb-4">
         Give your client read-only access to track their restoration job
         progress.
       </p>
@@ -218,7 +218,7 @@ export default function PortalInvitePanel({
       )}
       {inviteStatus === "pending" && (
         <div className="space-y-3">
-          <div className="flex items-start gap-2 text-sm text-amber-600 dark:text-amber-400">
+          <div className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
             <Info size={14} className="mt-0.5 shrink-0" />
             <span>
               An invitation is already pending for{" "}

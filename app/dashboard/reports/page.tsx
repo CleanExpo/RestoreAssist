@@ -426,19 +426,19 @@ export default function ReportsPage() {
           />
           {dataSource === "native" && selectedReports.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-300">
+              <span className="text-sm text-slate-700 dark:text-slate-300">
                 {selectedReports.length} selected
               </span>
               <button
                 onClick={() => setShowBulkDeleteModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-700 dark:text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
               >
                 <Trash2 size={16} />
                 Delete Selected
               </button>
               <button
                 onClick={clearSelection}
-                className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors"
+                className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 Clear
               </button>
@@ -473,7 +473,7 @@ export default function ReportsPage() {
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white placeholder-slate-500"
+                className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-slate-900 dark:text-white placeholder-slate-500"
               />
             </div>
           </div>
@@ -497,12 +497,12 @@ export default function ReportsPage() {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-white placeholder-slate-500"
+            className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-slate-900 dark:text-white placeholder-slate-500"
           />
         </div>
         <button
           onClick={() => setFilterOpen(!filterOpen)}
-          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
+          className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           aria-label="Toggle filters"
         >
           <Filter size={20} />
@@ -510,7 +510,7 @@ export default function ReportsPage() {
         <button
           onClick={handleBatchDownload}
           disabled={batchDownloading || selectedReports.length === 0}
-          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label={
             selectedReports.length > 0
               ? `Download ${selectedReports.length} selected report(s) as ZIP`
@@ -532,7 +532,7 @@ export default function ReportsPage() {
 
       {/* Filter Panel */}
       {filterOpen && (
-        <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 space-y-4 animate-fade-in">
+        <div className="p-4 rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/30 dark:bg-slate-800/30 space-y-4 animate-fade-in">
           <div className="grid md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Status</label>
@@ -542,7 +542,7 @@ export default function ReportsPage() {
                   setFilters({ ...filters, status: e.target.value });
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
               >
                 <option value="all">All Status</option>
                 <option value="COMPLETED">Completed</option>
@@ -562,7 +562,7 @@ export default function ReportsPage() {
                   setFilters({ ...filters, hazard: e.target.value });
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
               >
                 <option value="all">All Categories</option>
                 <option value="Category 1">Category 1</option>
@@ -580,7 +580,7 @@ export default function ReportsPage() {
                   setFilters({ ...filters, insurance: e.target.value });
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
               >
                 <option value="all">All Types</option>
                 <option value="Building & Contents">Building & Contents</option>
@@ -601,7 +601,7 @@ export default function ReportsPage() {
                 onChange={(e) =>
                   setFilters({ ...filters, dateFrom: e.target.value })
                 }
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
               />
             </div>
             <div>
@@ -613,7 +613,7 @@ export default function ReportsPage() {
                 onChange={(e) =>
                   setFilters({ ...filters, dateTo: e.target.value })
                 }
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
               />
             </div>
           </div>
@@ -632,7 +632,7 @@ export default function ReportsPage() {
                 });
                 setCurrentPage(1);
               }}
-              className="px-4 py-2 border border-slate-600 rounded-lg text-sm hover:bg-slate-800"
+              className="px-4 py-2 border border-slate-600 rounded-lg text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               Clear All
             </button>
@@ -652,9 +652,9 @@ export default function ReportsPage() {
       {/* Reports Table */}
       {!listError && (
       <>
-      <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden mb-4">
+      <div className="rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/30 dark:bg-slate-800/30 overflow-hidden mb-4">
         {loading ? (
-          <div className="divide-y divide-slate-700/50">
+          <div className="divide-y divide-slate-200/50 dark:divide-slate-700/50">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4 px-4 py-3">
                 <Skeleton className="h-4 w-4 rounded" />
@@ -673,11 +673,11 @@ export default function ReportsPage() {
                 field techs aren't horizontally-scrolling through 11 columns. */}
             <div className="sm:hidden space-y-3 px-4 py-4">
               {paginatedReports.length === 0 ? (
-                <div className="text-center py-8 text-slate-300">
+                <div className="text-center py-8 text-slate-700 dark:text-slate-300">
                   No reports found.{" "}
                   <Link
                     href="/dashboard/reports/new"
-                    className="text-cyan-400 hover:underline"
+                    className="text-cyan-700 dark:text-cyan-400 hover:underline"
                   >
                     Create your first report
                   </Link>
@@ -686,7 +686,7 @@ export default function ReportsPage() {
                 paginatedReports.map((report, i) => (
                   <div
                     key={report.id || i}
-                    className="rounded-xl border border-slate-700/50 bg-slate-900/50 p-4"
+                    className="rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/50 p-4"
                   >
                     <div className="flex items-start gap-3">
                       <button
@@ -699,7 +699,7 @@ export default function ReportsPage() {
                         className="mt-1 flex-shrink-0 text-slate-500 dark:text-slate-400 hover:text-white transition-colors min-h-[24px] min-w-[24px]"
                       >
                         {selectedReports.includes(report.id) ? (
-                          <CheckSquare size={20} className="text-cyan-400" />
+                          <CheckSquare size={20} className="text-cyan-700 dark:text-cyan-400" />
                         ) : (
                           <Square size={20} />
                         )}
@@ -708,7 +708,7 @@ export default function ReportsPage() {
                         <div className="flex items-center gap-2 flex-wrap mb-2">
                           <Link
                             href={`/dashboard/reports/${report.id}`}
-                            className="font-mono text-sm font-semibold text-cyan-400 hover:underline"
+                            className="font-mono text-sm font-semibold text-cyan-700 dark:text-cyan-400 hover:underline"
                           >
                             {report.reportNumber || report.id}
                           </Link>
@@ -721,7 +721,7 @@ export default function ReportsPage() {
                             {report.status || "COMPLETED"}
                           </StatusBadge>
                           <AiOwnershipBadge report={report} />
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-700/50 text-slate-300 flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-200/50 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 flex items-center gap-1">
                             {report.waterCategory || "—"}
                           </span>
                         </div>
@@ -734,11 +734,11 @@ export default function ReportsPage() {
                             {localSynopsis[report.id] || report.aiSynopsis}
                           </p>
                         )}
-                        <div className="text-xs text-slate-300 truncate mb-2">
+                        <div className="text-xs text-slate-700 dark:text-slate-300 truncate mb-2">
                           {report.propertyAddress || "No address"}
                         </div>
                         <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
-                          <span className="font-medium text-slate-300">
+                          <span className="font-medium text-slate-700 dark:text-slate-300">
                             {formatCost(report.estimatedCost)}
                           </span>
                           <span>{formatDate(report.createdAt)}</span>
@@ -749,14 +749,14 @@ export default function ReportsPage() {
                         <div className="flex items-center gap-2 mt-3">
                           <Link
                             href={`/dashboard/reports/${report.id}`}
-                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors text-xs"
+                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors text-xs"
                             aria-label="View report"
                           >
                             <Eye size={16} />
                           </Link>
                           <Link
                             href={`/dashboard/reports/${report.id}/edit`}
-                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors text-xs"
+                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors text-xs"
                             aria-label="Edit report"
                           >
                             <Edit size={16} />
@@ -764,7 +764,7 @@ export default function ReportsPage() {
                           <button
                             onClick={() => duplicateReport(report.id)}
                             disabled={duplicating === report.id}
-                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors text-xs disabled:opacity-50"
+                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors text-xs disabled:opacity-50"
                             aria-label="Duplicate report"
                           >
                             {duplicating === report.id ? (
@@ -778,13 +778,13 @@ export default function ReportsPage() {
                             <button
                               onClick={() => generateSynopsis(report.id)}
                               disabled={synopsising === report.id}
-                              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors text-xs disabled:opacity-50"
+                              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors text-xs disabled:opacity-50"
                               aria-label="Generate AI summary"
                             >
                               {synopsising === report.id ? (
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500" />
                               ) : (
-                                <Sparkles size={16} className="text-cyan-400" />
+                                <Sparkles size={16} className="text-cyan-700 dark:text-cyan-400" />
                               )}
                             </button>
                           )}
@@ -803,9 +803,9 @@ export default function ReportsPage() {
                 {/* RA-1189 — sticky header so column labels persist when
                     scrolling a long report list. backdrop-blur avoids a
                     hard visual break when rows scroll behind it. */}
-                <thead className="sticky top-0 z-10 backdrop-blur-sm bg-slate-900/80">
-                  <tr className="border-b border-slate-700">
-                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                <thead className="sticky top-0 z-10 backdrop-blur-sm bg-white/80 dark:bg-slate-900/80">
+                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                    <th className="text-left py-4 px-6 text-slate-700 dark:text-slate-300 font-medium">
                       <button
                         onClick={
                           selectedReports.length === paginatedReports.length
@@ -822,34 +822,34 @@ export default function ReportsPage() {
                         Select All
                       </button>
                     </th>
-                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                    <th className="text-left py-4 px-6 text-slate-700 dark:text-slate-300 font-medium">
                       Report ID
                     </th>
-                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                    <th className="text-left py-4 px-6 text-slate-700 dark:text-slate-300 font-medium">
                       Client
                     </th>
-                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                    <th className="text-left py-4 px-6 text-slate-700 dark:text-slate-300 font-medium">
                       Property
                     </th>
-                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                    <th className="text-left py-4 px-6 text-slate-700 dark:text-slate-300 font-medium">
                       Category
                     </th>
-                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                    <th className="text-left py-4 px-6 text-slate-700 dark:text-slate-300 font-medium">
                       Insurance
                     </th>
-                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                    <th className="text-left py-4 px-6 text-slate-700 dark:text-slate-300 font-medium">
                       Status
                     </th>
-                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                    <th className="text-left py-4 px-6 text-slate-700 dark:text-slate-300 font-medium">
                       Cost
                     </th>
-                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                    <th className="text-left py-4 px-6 text-slate-700 dark:text-slate-300 font-medium">
                       Session
                     </th>
-                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                    <th className="text-left py-4 px-6 text-slate-700 dark:text-slate-300 font-medium">
                       Date
                     </th>
-                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                    <th className="text-left py-4 px-6 text-slate-700 dark:text-slate-300 font-medium">
                       Actions
                     </th>
                   </tr>
@@ -876,7 +876,7 @@ export default function ReportsPage() {
                     paginatedReports.map((report, i) => (
                       <tr
                         key={report.id || i}
-                        className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors"
+                        className="border-b border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-200/30 dark:hover:bg-slate-700/30 transition-colors"
                       >
                         <td className="py-4 px-6">
                           <button
@@ -892,14 +892,14 @@ export default function ReportsPage() {
                             {selectedReports.includes(report.id) ? (
                               <CheckSquare
                                 size={16}
-                                className="text-cyan-400"
+                                className="text-cyan-700 dark:text-cyan-400"
                               />
                             ) : (
                               <Square size={16} />
                             )}
                           </button>
                         </td>
-                        <td className="py-4 px-6 font-medium text-cyan-400">
+                        <td className="py-4 px-6 font-medium text-cyan-700 dark:text-cyan-400">
                           <Link
                             href={`/dashboard/reports/${report.id}`}
                             className="hover:underline"
@@ -924,7 +924,7 @@ export default function ReportsPage() {
                               size="sm"
                               disabled={synopsising === report.id}
                               onClick={() => generateSynopsis(report.id)}
-                              className="mt-1 h-6 px-2 text-xs text-cyan-400 hover:text-cyan-300 hover:bg-slate-700/40"
+                              className="mt-1 h-6 px-2 text-xs text-cyan-700 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 hover:bg-slate-200/40 dark:hover:bg-slate-700/40"
                             >
                               {synopsising === report.id ? (
                                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-cyan-500" />
@@ -937,7 +937,7 @@ export default function ReportsPage() {
                             </Button>
                           )}
                         </td>
-                        <td className="py-4 px-6 text-slate-300 text-xs">
+                        <td className="py-4 px-6 text-slate-700 dark:text-slate-300 text-xs">
                           {report.propertyAddress || "N/A"}
                         </td>
                         <td className="py-4 px-6">
@@ -977,12 +977,12 @@ export default function ReportsPage() {
                                       className={`flex-1 h-1.5 rounded-sm ${
                                         p.completed
                                           ? "bg-cyan-500"
-                                          : "bg-slate-700"
+                                          : "bg-slate-200 dark:bg-slate-700"
                                       }`}
                                     />
                                   ))}
                                 </div>
-                                <span className="text-xs text-slate-300 flex-shrink-0">
+                                <span className="text-xs text-slate-700 dark:text-slate-300 flex-shrink-0">
                                   {
                                     report.phases.filter((p) => p.completed)
                                       .length
@@ -1000,14 +1000,14 @@ export default function ReportsPage() {
                             {/* Fan-out count + retry count */}
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {(report.fanOutSessions?.length ?? 0) > 0 && (
-                                <span className="flex items-center gap-0.5 text-xs text-slate-300">
+                                <span className="flex items-center gap-0.5 text-xs text-slate-700 dark:text-slate-300">
                                   <GitBranch size={10} />
                                   {report.fanOutSessions!.length}
                                 </span>
                               )}
                               {(report.evaluatorScores?.retryCount ?? 0) >
                                 0 && (
-                                <span className="flex items-center gap-0.5 text-xs text-orange-400">
+                                <span className="flex items-center gap-0.5 text-xs text-orange-700 dark:text-orange-400">
                                   <RefreshCw size={10} />
                                   {report.evaluatorScores!.retryCount}
                                 </span>
@@ -1015,14 +1015,14 @@ export default function ReportsPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="py-4 px-6 text-slate-300">
+                        <td className="py-4 px-6 text-slate-700 dark:text-slate-300">
                           {formatDate(report.createdAt)}
                         </td>
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-2">
                             <Link
                               href={`/dashboard/reports/${report.id}`}
-                              className="p-1 hover:bg-slate-700 rounded transition-colors"
+                              className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
                               title="View"
                               aria-label="View report"
                             >
@@ -1030,7 +1030,7 @@ export default function ReportsPage() {
                             </Link>
                             <Link
                               href={`/dashboard/reports/${report.id}/edit`}
-                              className="p-1 hover:bg-slate-700 rounded transition-colors"
+                              className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
                               title="Edit"
                               aria-label="Edit report"
                             >
@@ -1039,7 +1039,7 @@ export default function ReportsPage() {
                             <button
                               onClick={() => duplicateReport(report.id)}
                               disabled={duplicating === report.id}
-                              className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                              className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
                               title="Duplicate"
                               aria-label="Duplicate report"
                             >
@@ -1052,7 +1052,7 @@ export default function ReportsPage() {
                             {/* <button 
                             onClick={() => downloadReport(report.id)}
                             disabled={downloading === report.id}
-                            className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                            className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
                             title="Download PDF"
                           >
                             {downloading === report.id ? (
@@ -1061,7 +1061,7 @@ export default function ReportsPage() {
                               <Download size={16} />
                             )}
                           </button>
-                          <button className="p-1 hover:bg-slate-700 rounded transition-colors" title="More">
+                          <button className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors" title="More">
                             <MoreVertical size={16} />
                           </button> */}
                           </div>

@@ -362,13 +362,13 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                   "bg-success-subtle text-success-subtle-foreground",
                 isActive &&
                   !isRejected &&
-                  "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 ring-2 ring-cyan-500/30",
+                  "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 ring-2 ring-cyan-500/30",
                 isActive &&
                   isRejected &&
                   "bg-destructive-subtle text-destructive-subtle-foreground ring-2 ring-red-500/30",
                 !isComplete &&
                   !isActive &&
-                  "bg-neutral-100 dark:bg-slate-800 text-neutral-400 dark:text-slate-500",
+                  "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-500",
               )}
             >
               {isComplete ? (
@@ -405,7 +405,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 
 function moistureColor(level: number): string {
   if (level < 15) return "text-success";
-  if (level < 25) return "text-amber-600 dark:text-amber-400";
+  if (level < 25) return "text-amber-700 dark:text-amber-400";
   return "text-destructive";
 }
 
@@ -1443,7 +1443,7 @@ export default function InspectionDetailPage({
                 {formatWorkflowStatusLabel(inspection.status)}
               </span>
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-500 dark:text-slate-400">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-600 dark:text-slate-400">
               <span className="flex items-center gap-1.5 min-w-0">
                 <MapPin size={14} className="shrink-0" aria-hidden="true" />
                 <span className="truncate">
@@ -1641,7 +1641,7 @@ export default function InspectionDetailPage({
                       <span className="font-medium text-neutral-800 dark:text-slate-200">
                         {PULSE_JOB_TOGGLE_LABEL}
                       </span>
-                      <span className="block text-xs text-neutral-500 dark:text-slate-400">
+                      <span className="block text-xs text-neutral-600 dark:text-slate-400">
                         {PULSE_JOB_TOGGLE_HINT}
                       </span>
                     </span>
@@ -1653,7 +1653,7 @@ export default function InspectionDetailPage({
       </header>
 
       <section className={cn(INSPECTION_HUB_CARD, "p-3 sm:p-4 space-y-3")}>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400 px-0.5">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-slate-400 px-0.5">
           Quick navigation
         </p>
         <InspectionWorkflowStrip
@@ -1677,7 +1677,7 @@ export default function InspectionDetailPage({
       </section>
 
       <section className={cn(INSPECTION_HUB_CARD, "p-4 sm:p-5 space-y-3")}>
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400">
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-slate-400">
           Job progress
         </h2>
         <StatusTimeline currentStatus={inspection.status} />
@@ -1801,7 +1801,7 @@ export default function InspectionDetailPage({
               "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-t-md whitespace-nowrap transition-all border-b-2 -mb-px focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none",
               activeTab === tab.key
                 ? "border-cyan-500 text-cyan-700 dark:text-cyan-300 bg-white dark:bg-slate-900/60"
-                : "border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-800 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-900/30",
+                : "border-transparent text-neutral-600 dark:text-slate-400 hover:text-neutral-800 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-900/30",
             )}
           >
             <tab.icon size={16} aria-hidden="true" />
@@ -1813,7 +1813,7 @@ export default function InspectionDetailPage({
                   "px-1.5 py-0.5 rounded-full text-xs",
                   activeTab === tab.key
                     ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600"
-                    : "bg-neutral-100 dark:bg-slate-800 text-neutral-500",
+                    : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-neutral-500",
                 )}
               >
                 {tab.count}
@@ -1828,7 +1828,7 @@ export default function InspectionDetailPage({
             aria-selected={false}
             aria-expanded={moreSectionsOpen}
             onClick={() => setMoreSectionsOpen((v) => !v)}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-600 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
           >
             <ListChecks size={16} aria-hidden="true" />
             {moreSectionsOpen ? "Fewer sections" : "More sections"}
@@ -1838,7 +1838,7 @@ export default function InspectionDetailPage({
           href={`/dashboard/inspections/${inspection.id}/contents`}
           role="tab"
           aria-selected={false}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-600 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
         >
           <Package size={16} aria-hidden="true" />
           Contents
@@ -1857,10 +1857,10 @@ export default function InspectionDetailPage({
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
-              <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+              <div className="text-xs font-medium text-neutral-600 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Moisture Readings
               </div>
-              <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
+              <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">
                 {inspection.moistureReadings.length}
               </div>
               {inspection.moistureReadings.length > 0 && (
@@ -1877,10 +1877,10 @@ export default function InspectionDetailPage({
               )}
             </div>
             <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
-              <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+              <div className="text-xs font-medium text-neutral-600 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Affected Areas
               </div>
-              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+              <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
                 {inspection.affectedAreas.length}
               </div>
               {inspection.affectedAreas.length > 0 && (
@@ -1894,7 +1894,7 @@ export default function InspectionDetailPage({
               )}
             </div>
             <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
-              <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+              <div className="text-xs font-medium text-neutral-600 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Scope Items
               </div>
               <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
@@ -1906,7 +1906,7 @@ export default function InspectionDetailPage({
               </div>
             </div>
             <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
-              <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+              <div className="text-xs font-medium text-neutral-600 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Estimated Cost
               </div>
               <div className="text-2xl font-bold text-success">
@@ -1936,20 +1936,20 @@ export default function InspectionDetailPage({
             {classification ? (
               <div className="md:col-span-2 p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                  <div className="text-xs font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wider">
                     IICRC S500 Classification
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveTab("classification")}
-                    className="text-xs text-cyan-600 hover:underline"
+                    className="text-xs text-cyan-700 dark:text-cyan-600 hover:underline"
                   >
                     Edit
                   </button>
                 </div>
                 <div className="flex items-center gap-4 mb-2">
                   <div>
-                    <span className="text-sm text-neutral-500 dark:text-slate-400">
+                    <span className="text-sm text-neutral-600 dark:text-slate-400">
                       Category
                     </span>
                     <div className="text-xl font-bold text-neutral-900 dark:text-white">
@@ -1958,7 +1958,7 @@ export default function InspectionDetailPage({
                   </div>
                   <div className="w-px h-10 bg-amber-200 dark:bg-amber-800" />
                   <div>
-                    <span className="text-sm text-neutral-500 dark:text-slate-400">
+                    <span className="text-sm text-neutral-600 dark:text-slate-400">
                       Class
                     </span>
                     <div className="text-xl font-bold text-neutral-900 dark:text-white">
@@ -1969,7 +1969,7 @@ export default function InspectionDetailPage({
                     <>
                       <div className="w-px h-10 bg-amber-200 dark:bg-amber-800" />
                       <div>
-                        <span className="text-sm text-neutral-500 dark:text-slate-400">
+                        <span className="text-sm text-neutral-600 dark:text-slate-400">
                           Confidence
                         </span>
                         <div className="text-xl font-bold text-neutral-900 dark:text-white">
@@ -1982,7 +1982,7 @@ export default function InspectionDetailPage({
                 <p className="text-sm text-neutral-600 dark:text-slate-300">
                   {classification.justification}
                 </p>
-                <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">
+                <p className="text-xs text-neutral-600 dark:text-slate-500 mt-1">
                   Ref: {classification.standardReference}
                 </p>
               </div>
@@ -2041,7 +2041,7 @@ export default function InspectionDetailPage({
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Ambient Temperature
                     </label>
                     <p className="text-2xl font-bold mt-1">
@@ -2049,7 +2049,7 @@ export default function InspectionDetailPage({
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Humidity Level
                     </label>
                     <p className="text-2xl font-bold mt-1">
@@ -2057,7 +2057,7 @@ export default function InspectionDetailPage({
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Dew Point
                     </label>
                     <p className="text-2xl font-bold mt-1">
@@ -2065,7 +2065,7 @@ export default function InspectionDetailPage({
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Air Circulation
                     </label>
                     <p className="text-2xl font-bold mt-1">
@@ -2075,7 +2075,7 @@ export default function InspectionDetailPage({
                 </div>
                 {envData.weatherConditions && (
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Weather Conditions
                     </label>
                     <p className="mt-1 text-neutral-700 dark:text-slate-300">
@@ -2085,7 +2085,7 @@ export default function InspectionDetailPage({
                 )}
                 {envData.notes && (
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Notes
                     </label>
                     <p className="mt-1 text-neutral-700 dark:text-slate-300">
@@ -2104,7 +2104,7 @@ export default function InspectionDetailPage({
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Temperature (°C)
                     </label>
                     <input
@@ -2121,7 +2121,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Humidity (%)
                     </label>
                     <input
@@ -2168,7 +2168,7 @@ export default function InspectionDetailPage({
                   </label>
                 </div>
                 <div>
-                  <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                  <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                     Weather Conditions
                   </label>
                   <input
@@ -2185,7 +2185,7 @@ export default function InspectionDetailPage({
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                  <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                     Notes
                   </label>
                   <textarea
@@ -2271,7 +2271,7 @@ export default function InspectionDetailPage({
               <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Location
                     </label>
                     {sketchRooms.length > 0 ? (
@@ -2349,7 +2349,7 @@ export default function InspectionDetailPage({
                     )}
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Surface Type
                     </label>
                     <input
@@ -2366,7 +2366,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Moisture Level (%)
                     </label>
                     <input
@@ -2383,7 +2383,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Depth
                     </label>
                     <select
@@ -2402,7 +2402,7 @@ export default function InspectionDetailPage({
                     </select>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Notes
                     </label>
                     <input
@@ -2487,7 +2487,7 @@ export default function InspectionDetailPage({
                         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-slate-300">
                           {reading.depth}
                         </td>
-                        <td className="px-4 py-3 text-sm text-neutral-400 max-w-[200px] truncate">
+                        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 max-w-[200px] truncate">
                           {reading.notes || "—"}
                         </td>
                         <td className="px-4 py-3">
@@ -2507,7 +2507,7 @@ export default function InspectionDetailPage({
                 </table>
               </div>
             ) : (
-              <div className="text-center py-12 text-neutral-400">
+              <div className="text-center py-12 text-neutral-600 dark:text-neutral-400">
                 No moisture readings recorded
               </div>
             )}
@@ -2535,7 +2535,7 @@ export default function InspectionDetailPage({
                 }}
               />
             ) : (
-              <div className="text-center py-12 text-neutral-400">
+              <div className="text-center py-12 text-neutral-600 dark:text-neutral-400">
                 No moisture readings to map — add readings first
               </div>
             )}
@@ -2636,7 +2636,7 @@ export default function InspectionDetailPage({
               <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Room / Zone ID *
                     </label>
                     <input
@@ -2653,7 +2653,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Affected Area (m²) *
                     </label>
                     <input
@@ -2670,7 +2670,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Water Source *
                     </label>
                     <input
@@ -2687,7 +2687,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Time Since Loss (hours)
                     </label>
                     <input
@@ -2703,7 +2703,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Description
                     </label>
                     <input
@@ -2857,7 +2857,7 @@ export default function InspectionDetailPage({
                                 });
                               }}
                               aria-label={`Edit area ${area.roomZoneId}`}
-                              className="p-1 text-neutral-400 hover:text-cyan-600 transition-colors rounded"
+                              className="p-1 text-neutral-600 dark:text-neutral-400 hover:text-cyan-600 transition-colors rounded"
                             >
                               <Pencil size={14} aria-hidden="true" />
                             </button>
@@ -2872,7 +2872,7 @@ export default function InspectionDetailPage({
                         </div>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
-                            <span className="text-neutral-400 text-xs">
+                            <span className="text-neutral-600 dark:text-neutral-400 text-xs">
                               Area
                             </span>
                             <p className="font-medium">
@@ -2880,7 +2880,7 @@ export default function InspectionDetailPage({
                             </p>
                           </div>
                           <div>
-                            <span className="text-neutral-400 text-xs">
+                            <span className="text-neutral-600 dark:text-neutral-400 text-xs">
                               Water Source
                             </span>
                             <p className="font-medium capitalize">
@@ -2889,7 +2889,7 @@ export default function InspectionDetailPage({
                           </div>
                           {area.timeSinceLoss && (
                             <div>
-                              <span className="text-neutral-400 text-xs">
+                              <span className="text-neutral-600 dark:text-neutral-400 text-xs">
                                 Time Since Loss
                               </span>
                               <p className="font-medium">
@@ -2899,7 +2899,7 @@ export default function InspectionDetailPage({
                           )}
                         </div>
                         {area.description && (
-                          <p className="text-sm text-neutral-500 dark:text-slate-400 mt-3">
+                          <p className="text-sm text-neutral-600 dark:text-slate-400 mt-3">
                             {area.description}
                           </p>
                         )}
@@ -2908,7 +2908,7 @@ export default function InspectionDetailPage({
                   </div>
                 ))
               ) : (
-                <div className="col-span-2 text-center py-12 space-y-3 text-neutral-400">
+                <div className="col-span-2 text-center py-12 space-y-3 text-neutral-600 dark:text-neutral-400">
                   <p>No affected areas recorded</p>
                   <button
                     type="button"
@@ -3030,7 +3030,7 @@ export default function InspectionDetailPage({
                 >
                   <div className="flex items-center gap-6 mb-4">
                     <div className="text-center">
-                      <div className="text-xs text-amber-600 dark:text-amber-400 uppercase font-semibold mb-1">
+                      <div className="text-xs text-amber-700 dark:text-amber-400 uppercase font-semibold mb-1">
                         Category
                       </div>
                       <div className="w-16 h-16 rounded-full bg-warning-subtle flex items-center justify-center text-2xl font-bold text-warning-subtle-foreground">
@@ -3047,7 +3047,7 @@ export default function InspectionDetailPage({
                     </div>
                     {cls.confidence && (
                       <div className="text-center">
-                        <div className="text-xs text-cyan-600 dark:text-cyan-400 uppercase font-semibold mb-1">
+                        <div className="text-xs text-cyan-700 dark:text-cyan-400 uppercase font-semibold mb-1">
                           Confidence
                         </div>
                         <div className="w-16 h-16 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center text-2xl font-bold text-cyan-700 dark:text-cyan-300">
@@ -3058,7 +3058,7 @@ export default function InspectionDetailPage({
                   </div>
                   <div className="space-y-2">
                     <div>
-                      <span className="text-xs text-neutral-400 uppercase font-semibold">
+                      <span className="text-xs text-neutral-600 dark:text-neutral-400 uppercase font-semibold">
                         Justification
                       </span>
                       <p className="text-sm text-neutral-700 dark:text-slate-300 mt-0.5">
@@ -3066,7 +3066,7 @@ export default function InspectionDetailPage({
                       </p>
                     </div>
                     <div>
-                      <span className="text-xs text-neutral-400 uppercase font-semibold">
+                      <span className="text-xs text-neutral-600 dark:text-neutral-400 uppercase font-semibold">
                         Standard Reference
                       </span>
                       <p className="text-sm text-neutral-700 dark:text-slate-300 mt-0.5">
@@ -3077,7 +3077,7 @@ export default function InspectionDetailPage({
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-neutral-400 text-sm">
+              <div className="text-center py-8 text-neutral-600 dark:text-neutral-400 text-sm">
                 No saved classification yet — use the form above or Auto-classify.
               </div>
             )}
@@ -3141,7 +3141,7 @@ export default function InspectionDetailPage({
                 </DialogHeader>
                 <div className="space-y-4 py-2">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+                    <label className="text-xs font-semibold text-neutral-600 dark:text-slate-400 uppercase tracking-wider">
                       Select Template
                     </label>
                     <Select
@@ -3484,7 +3484,7 @@ export default function InspectionDetailPage({
                             {item.description}
                           </span>
                           {item.autoDetermined && (
-                            <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
+                            <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400">
                               Auto
                             </span>
                           )}
@@ -3495,7 +3495,7 @@ export default function InspectionDetailPage({
                           )}
                         </div>
                         {item.justification && (
-                          <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">
+                          <p className="text-xs text-neutral-600 dark:text-slate-500 mt-1">
                             {item.justification}
                           </p>
                         )}
@@ -3519,7 +3519,7 @@ export default function InspectionDetailPage({
                             });
                           }}
                           aria-label={`Edit scope item: ${item.description}`}
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+                          className="p-1.5 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
                         >
                           <Pencil size={14} aria-hidden="true" />
                         </button>
@@ -3547,7 +3547,7 @@ export default function InspectionDetailPage({
                             }
                           }}
                           aria-label={`Delete scope item: ${item.description}`}
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                          className="p-1.5 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
                         >
                           <Trash2 size={14} aria-hidden="true" />
                         </button>
@@ -3557,7 +3557,7 @@ export default function InspectionDetailPage({
                 </div>
               ))
             ) : (
-              <div className="text-center py-12 text-neutral-400">
+              <div className="text-center py-12 text-neutral-600 dark:text-neutral-400">
                 No scope items — submit the inspection to auto-determine scope,
                 or add one above
               </div>
@@ -3664,7 +3664,7 @@ export default function InspectionDetailPage({
                 </table>
               </div>
             ) : (
-              <div className="text-center py-12 space-y-3 text-neutral-400">
+              <div className="text-center py-12 space-y-3 text-neutral-600 dark:text-neutral-400">
                 <p>
                   No cost estimates yet. Select scope items, then generate from
                   the pricing engine.
@@ -3726,7 +3726,7 @@ export default function InspectionDetailPage({
                 {/* RA-448: Link to full evidence screen with label display/editing */}
                 <Link
                   href={`/dashboard/inspections/${inspection.id}/photos`}
-                  className="flex items-center gap-1.5 px-3 py-2 border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-sm font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium transition-colors"
                 >
                   <Camera size={14} />
                   Evidence Screen
@@ -3823,7 +3823,7 @@ export default function InspectionDetailPage({
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 space-y-3 text-neutral-400">
+              <div className="text-center py-12 space-y-3 text-neutral-600 dark:text-neutral-400">
                 <p>No photos uploaded</p>
                 <div className="flex flex-wrap justify-center gap-3">
                   <span className="text-sm">Use Upload Photo above to choose a file.</span>

@@ -44,7 +44,7 @@ export function DashboardListPageHeader({
               {title}
             </h1>
             {description ? (
-              <p className="mt-1 max-w-2xl text-sm text-neutral-500 dark:text-slate-400">
+              <p className="mt-1 max-w-2xl text-sm text-neutral-600 dark:text-slate-400">
                 {description}
               </p>
             ) : null}
@@ -80,13 +80,13 @@ export function DashboardListPageHeader({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 space-y-2">
             {eyebrow ? (
-              <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+              <p className="text-xs font-semibold uppercase tracking-wider text-cyan-800 dark:text-cyan-200/90">
                 {eyebrow}
               </p>
             ) : null}
             <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
               {icon ? (
-                <span className="text-cyan-300 [&>svg]:h-7 [&>svg]:w-7">
+                <span className="text-cyan-700 dark:text-cyan-300 [&>svg]:h-7 [&>svg]:w-7">
                   {icon}
                 </span>
               ) : null}

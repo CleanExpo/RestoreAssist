@@ -142,7 +142,7 @@ export function InsurerProfilePanel({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-neutral-400">
+      <div className="flex items-center justify-center py-16 text-neutral-600 dark:text-neutral-400">
         <ChromeSpinner className="animate-spin mr-2" size={20} />
         Loading insurer profiles…
       </div>
@@ -161,7 +161,7 @@ export function InsurerProfilePanel({
               <ChromeBuilding className="text-cyan-500" size={18} />
               Insurer profile
             </h3>
-            <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1">
+            <p className="text-sm text-neutral-600 dark:text-slate-400 mt-1">
               Select the insurer for this job to unlock evidence requirements
               and submission preferences that drive Guided Capture.
             </p>
@@ -190,7 +190,7 @@ export function InsurerProfilePanel({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 mb-1 block">
+            <label className="text-xs font-medium text-neutral-600 dark:text-slate-400 mb-1 block">
               Insurer
             </label>
             <select
@@ -207,7 +207,7 @@ export function InsurerProfilePanel({
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 mb-1 block">
+            <label className="text-xs font-medium text-neutral-600 dark:text-slate-400 mb-1 block">
               Claim reference
             </label>
             <input
@@ -290,7 +290,7 @@ export function InsurerProfilePanel({
       )}
 
       {!profile && !gapAnalysis && (
-        <div className="text-center py-8 text-neutral-400 text-sm">
+        <div className="text-center py-8 text-neutral-600 dark:text-neutral-400 text-sm">
           No insurer selected yet. Apply a profile above to see evidence
           requirements for this inspection.
         </div>

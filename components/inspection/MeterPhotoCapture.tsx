@@ -208,7 +208,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-xs text-neutral-500 dark:text-slate-400 uppercase tracking-wide">
+      <label className="text-xs text-neutral-600 dark:text-slate-400 uppercase tracking-wide">
         {label} {required && <span className="text-destructive">*</span>}
       </label>
       <input
@@ -458,7 +458,7 @@ function MoistureConfirm({
         <ConfidenceBadge confidence={extraction.confidence ?? "medium"} />
       </div>
 
-      <p className="text-xs text-neutral-400">
+      <p className="text-xs text-neutral-600 dark:text-neutral-400">
         Meter display:{" "}
         <code className="bg-neutral-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-neutral-600 dark:text-slate-300">
           {extraction.rawText || "(unable to read)"}
@@ -762,14 +762,14 @@ function EnvironmentalConfirm({
       </div>
 
       {extraction.rawText?.trim() ? (
-        <p className="text-xs text-neutral-400">
+        <p className="text-xs text-neutral-600 dark:text-neutral-400">
           Meter display:{" "}
           <code className="bg-neutral-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-neutral-600 dark:text-slate-300">
             {extraction.rawText}
           </code>
         </p>
       ) : (
-        <p className="text-xs text-neutral-400">
+        <p className="text-xs text-neutral-600 dark:text-neutral-400">
           Enter the temperature and humidity from the meter display.
         </p>
       )}
@@ -877,7 +877,7 @@ function MeasurementConfirm({
         <ConfidenceBadge confidence={extraction.confidence ?? "medium"} />
       </div>
 
-      <p className="text-xs text-neutral-400">
+      <p className="text-xs text-neutral-600 dark:text-neutral-400">
         Meter display:{" "}
         <code className="bg-neutral-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-neutral-600 dark:text-slate-300">
           {extraction.rawText || "(unable to read)"}
@@ -893,7 +893,7 @@ function MeasurementConfirm({
           step="0.001"
         />
         <div>
-          <label className="text-xs text-neutral-500 dark:text-slate-400 uppercase tracking-wide">
+          <label className="text-xs text-neutral-600 dark:text-slate-400 uppercase tracking-wide">
             Unit
           </label>
           <select
@@ -918,7 +918,7 @@ function MeasurementConfirm({
           </p>
         )}
 
-      <p className="text-xs text-neutral-400 bg-neutral-50 dark:bg-slate-800/50 rounded-lg px-3 py-2">
+      <p className="text-xs text-neutral-600 dark:text-neutral-400 bg-neutral-50 dark:bg-slate-800/50 rounded-lg px-3 py-2">
         Tap below to copy this value, then paste it into the Affected Areas
         form.
       </p>
@@ -1143,7 +1143,7 @@ export function MeterPhotoCapture({
             <Camera size={15} className="text-cyan-500 flex-shrink-0" />
             {MODE_LABELS[mode]} — Photo OCR
           </p>
-          <p className="text-xs text-neutral-400 mt-0.5">{MODE_HINTS[mode]}</p>
+          <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">{MODE_HINTS[mode]}</p>
         </div>
         {preview && !extraction && (
           <button
@@ -1151,7 +1151,7 @@ export function MeterPhotoCapture({
             className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0"
             aria-label="Clear photo"
           >
-            <X size={15} className="text-neutral-400" />
+            <X size={15} className="text-neutral-600 dark:text-neutral-400" />
           </button>
         )}
       </div>
@@ -1186,14 +1186,14 @@ export function MeterPhotoCapture({
           <div className="flex gap-2">
             <button
               onClick={capturePhoto}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-neutral-200 dark:border-slate-700 hover:border-cyan-400 hover:bg-cyan-50/50 dark:hover:bg-cyan-900/10 transition-all text-sm text-neutral-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 font-medium"
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-neutral-200 dark:border-slate-700 hover:border-cyan-400 hover:bg-cyan-50/50 dark:hover:bg-cyan-900/10 transition-all text-sm text-neutral-600 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 font-medium"
             >
               <Camera size={17} />
               Take Photo
             </button>
             <button
               onClick={openGallery}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors text-sm text-neutral-500 dark:text-slate-400"
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors text-sm text-neutral-600 dark:text-slate-400"
               aria-label="Choose from gallery"
             >
               <Upload size={16} />

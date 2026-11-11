@@ -1,7 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* RA-8305: also match the .dark element itself, so a dark island (an element
+   with a bare dark class) honours its own dark: classes. Same specificity. */
+@custom-variant dark (&:is(.dark, .dark *));
 
 :root {
   --background: oklch(1 0 0);
@@ -15,7 +17,7 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted-foreground: oklch(0.5 0 0); /* RA-8305: AA on --muted in light */
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -23,7 +25,7 @@
   /* Semantic status tokens (DESIGN.md §2 status palette). Reserved for actual
      status — never decorative. Enables text-success / bg-warning / text-info
      so components stop hardcoding text-green-600 / text-amber-500 / text-blue-500. */
-  --success: #10b981;
+  --success: #047857; /* RA-8305: AA as text on white (was #10b981, 2.5:1) */
   --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-foreground: #1c1917;
@@ -268,7 +270,7 @@ html {
 }
 
 body {
-  @apply bg-slate-950 text-slate-50;
+  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50;
 }
 
 /* Smooth animations */

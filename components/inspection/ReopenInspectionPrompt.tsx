@@ -136,7 +136,7 @@ export default function ReopenInspectionPrompt({
               aria-label="Reason for reopening"
               className="min-h-[120px]"
             />
-            <p className="text-xs text-neutral-500 dark:text-slate-400">
+            <p className="text-xs text-neutral-600 dark:text-slate-400">
               Minimum {MIN_REASON_LENGTH} characters.
             </p>
             {error ? (
