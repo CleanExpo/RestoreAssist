@@ -78,9 +78,12 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
         speech.setBusy(false);
         return result.data;
       }
+      // One rule for every failure (kind K11): words leave the typing box only
+      // when the save succeeded, so a network drop and a server refusal both
+      // keep what the technician said where they can correct and resend it.
+      if (words !== undefined) setTyped(words);
       if (result.kind === "network") {
-        // Same key on retry: keep the words where the technician can resend them.
-        if (words !== undefined) setTyped(words);
+        // Same key on retry, so a resend cannot double-file.
         talk(FIRE_COPY.saveFailed);
       } else {
         keys.current.settle();

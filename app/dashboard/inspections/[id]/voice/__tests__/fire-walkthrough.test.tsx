@@ -47,6 +47,7 @@ const db: FireActionDb = {
 type Call = { action: string; body: Record<string, unknown>; key: string | null };
 let calls: Call[] = [];
 let failNextPost = false;
+let refuseNextPost = false;
 
 async function snapshot(): Promise<FireWalkthroughResponse> {
   const loaded = await loadFireWalkthrough("insp-1", db, "tech-1");
@@ -64,6 +65,10 @@ const fakeFetch = vi.fn(async (input: string, init?: RequestInit) => {
   if (failNextPost) {
     failNextPost = false;
     throw new TypeError("Failed to fetch");
+  }
+  if (refuseNextPost) {
+    refuseNextPost = false;
+    return json({ error: "Save refused" }, 422);
   }
   const result = await runFireAction(db, { inspectionId: "insp-1", userId: "tech-1" }, fireActionSchema.parse(body));
   if (!result.ok) return json(result.body, result.httpStatus);
@@ -138,6 +143,7 @@ beforeEach(() => {
   clock = 0;
   calls = [];
   failNextPost = false;
+  refuseNextPost = false;
   spoken.length = 0;
   FakeRecognition.live = [];
   FakeRecognition.starts = 0;
@@ -302,6 +308,18 @@ describe("filing answers", () => {
     fireEvent.click(screen.getByRole("button", { name: "Yes" }));
     await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_na")).toHaveLength(1));
     expect(calls.at(-1)!.body).toMatchObject({ action: "mark_na", sectionId: "site_access", reason: "Not applicable, nobody else is on site" });
+  });
+
+  it("a refused spoken save keeps the words in the typing box", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    refuseNextPost = true;
+    act(() => FakeRecognition.live[0].hear("Power isolated but the wiring is damaged"));
+    await waitFor(() => expect(fireCalls()).toContain("capture"));
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("Power isolated but the wiring is damaged"),
+    );
+    expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(0);
   });
 
   it("a failed save keeps the words, says so, and retries with the same key", async () => {
