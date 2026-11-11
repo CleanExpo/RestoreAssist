@@ -21,7 +21,11 @@ export function walkthroughAppliesAtLocation(location: InspectionLocation): bool
   const country = location.propertyCountry?.trim().toUpperCase();
   if (country === "NZ") return false;
   if (country !== "AU") return true;
-  const state = stateFromPostcode(location.propertyPostcode);
+  // stateFromPostcode strips non-digits, so "abc2000" would read as NSW. Only
+  // a clean four-digit postcode is read; anything else is unreadable.
+  const postcode = location.propertyPostcode?.trim() ?? "";
+  if (!/^\d{4}$/.test(postcode)) return true;
+  const state = stateFromPostcode(postcode);
   if (state === null) return true;
   return state === "VIC";
 }
