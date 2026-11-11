@@ -778,3 +778,18 @@ describe("RA-8281 B1 round 13 rule H: an editable list never drops an unreadable
     expect(owner).toContain("copy.equipmentSelectionUnreadableLines = saved.unusableCount");
   });
 });
+
+// Rule I (CodeRabbit on #2533): the scope of works document prints the
+// equipment rows the one reader's module made. The route used to multiply
+// units, days and the group's first rate for itself, so a group whose lines
+// had different rates printed rows that disagreed with the subtotal.
+describe("RA-8281 B1 round 13 rule I: the scope of works document does not price equipment rows for itself", () => {
+  const route = stripComments(
+    readFileSync(join(ROOT, "app/api/reports/generate-scope-of-works/route.ts"), "utf8"),
+  );
+  it("prints the rows made by scopeEquipmentRows and has no per-unit-per-day arithmetic of its own", () => {
+    expect(route).toContain("scopeEquipmentRows(item.equipment)");
+    expect(route).not.toContain("/unit/day");
+    expect(route).not.toMatch(/qty \* days \* rate/);
+  });
+});

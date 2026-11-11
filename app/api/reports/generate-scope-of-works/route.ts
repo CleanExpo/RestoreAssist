@@ -9,7 +9,10 @@ import {
   SCOPE_OF_WORKS_RATE_FIELDS,
 } from "@/lib/restoration/scope-of-works-builder";
 import { RateNotSetError, unsetRates } from "@/lib/pricing/rate-not-set";
-import type { StoredEquipmentSelections } from "@/lib/reports/stored-equipment-pricing";
+import {
+  scopeEquipmentRows,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -343,39 +346,10 @@ function buildScopeOfWorksDocument(scopeData: any): string {
       // Format equipment if present
       if (item.equipment) {
         output += `- **Equipment:**\n`;
-        if (item.equipment.airMovers) {
-          const qty = Number(item.equipment.airMovers.qty) || 0;
-          const days = Number(item.equipment.airMovers.days) || 0;
-          const rate = Number(item.equipment.airMovers.rate) || 0;
-          const subtotal = qty * days * rate;
-          output += `  - Air Movers: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`;
-        }
-        if (item.equipment.dehumidifiers) {
-          const qty = Number(item.equipment.dehumidifiers.qty) || 0;
-          const days = Number(item.equipment.dehumidifiers.days) || 0;
-          const rate = Number(item.equipment.dehumidifiers.rate) || 0;
-          const subtotal = qty * days * rate;
-          output += `  - Dehumidifiers: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`;
-        }
-        if (item.equipment.afd) {
-          const qty = Number(item.equipment.afd.qty) || 0;
-          const days = Number(item.equipment.afd.days) || 0;
-          const rate = Number(item.equipment.afd.rate) || 0;
-          const subtotal = qty * days * rate;
-          output += `  - AFD: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`;
-        }
-        if (item.equipment.thermalCamera) {
-          const qty = Number(item.equipment.thermalCamera.qty) || 0;
-          const rate = Number(item.equipment.thermalCamera.rate) || 0;
-          const subtotal = qty * rate;
-          output += `  - Thermal Camera: ${qty} assessments @ $${rate.toFixed(2)}/assessment = $${subtotal.toFixed(2)}\n`;
-        }
-        if (item.equipment.injectionSystem) {
-          const qty = Number(item.equipment.injectionSystem.qty) || 0;
-          const days = Number(item.equipment.injectionSystem.days) || 0;
-          const rate = Number(item.equipment.injectionSystem.rate) || 0;
-          const subtotal = qty * days * rate;
-          output += `  - Injection Drying System: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`;
+        // Each row carries the amount already made for it; nothing is
+        // multiplied here (scopeEquipmentRows).
+        for (const row of scopeEquipmentRows(item.equipment)) {
+          output += `${row}\n`;
         }
       }
 

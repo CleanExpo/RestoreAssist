@@ -545,13 +545,56 @@ export function readEquipmentDeploymentLog(
     const brand = text(eq.brand, eq.make) ?? "";
     const model = text(eq.model);
     return {
-      type: text(eq.type, eq.equipmentType, eq.name),
+      // A line saved by the equipment screens carries only its groupId: the
+      // log shows the catalogue name for it (the id itself when the catalogue
+      // does not have it) instead of a blank type.
+      type:
+        text(eq.type, eq.equipmentType, eq.name) ??
+        (typeof eq.groupId === "string" && eq.groupId.trim() !== ""
+          ? (getEquipmentGroupById(eq.groupId)?.name ?? eq.groupId.trim())
+          : null),
       brandModel: `${brand}${model ? ` ${model}` : ""}`.trim() || null,
       serial: text(eq.serialNumber, eq.serial),
       location: text(eq.location, eq.placement, eq.room),
       date: text(eq.deployedDate, eq.date),
     };
   });
+}
+
+/**
+ * The equipment rows of one scope line, as document text. Every amount is
+ * the figure already made for that line (the one reader's line total, or the
+ * injection amount); nothing is multiplied here, so the rows add up to the
+ * line's subtotal. Lives in the one reader's module, which made the amounts, so it
+ * can be tested without the route.
+ */
+export function scopeEquipmentRows(equipment: any): string[] {
+  // A figure that is not a number prints as "Rate not set", never as $0.
+  const amount = (value: unknown) =>
+    moneyOrRateNotSet(typeof value === "number" ? value : null);
+  const rows: string[] = [];
+  for (const group of Object.values<any>(equipment ?? {})) {
+    if (!Array.isArray(group?.items)) continue;
+    for (const item of group.items) {
+      rows.push(
+        `  - ${item.name}: ${item.quantity} units × ${group.days} days @ ${amount(item.dailyRate)}/unit/day = ${amount(item.total)}`,
+      );
+    }
+  }
+  if (equipment?.thermalCamera) {
+    const qty = Number(equipment.thermalCamera.qty) || 0;
+    const rate = Number(equipment.thermalCamera.rate) || 0;
+    rows.push(
+      `  - Thermal Camera: ${qty} assessments @ $${rate.toFixed(2)}/assessment = $${(qty * rate).toFixed(2)}`,
+    );
+  }
+  if (equipment?.injectionSystem) {
+    const sys = equipment.injectionSystem;
+    rows.push(
+      `  - Injection Drying System: ${sys.qty} units × ${sys.days} days @ ${amount(sys.rate)}/unit/day = ${amount(sys.total)}`,
+    );
+  }
+  return rows;
 }
 
 /** What an API returns in place of the stored column and cached total. */

@@ -259,11 +259,14 @@ export function buildScopeOfWorksData(data: {
                     ? "afd"
                     : "other";
 
+          // No rate on the group: its lines can carry different rates (axial
+          // and centrifugal air movers), so one rate times the group's unit
+          // count would disagree with the subtotal. Each line keeps its own
+          // rate and the amount the one reader made for it.
           if (!acc[key]) {
             acc[key] = {
               qty: 0,
               days: dryingDuration,
-              rate: line.dailyRate,
               items: [],
             };
           }
@@ -273,6 +276,7 @@ export function buildScopeOfWorksData(data: {
             name: line.name,
             quantity: line.quantity,
             dailyRate: line.dailyRate,
+            total: line.total,
           });
         }
         return acc;
@@ -352,6 +356,7 @@ export function buildScopeOfWorksData(data: {
           qty: 1,
           days: dryingDuration,
           rate: rates.injectionRate,
+          total: injectionTotal,
         },
       },
       subtotal:
