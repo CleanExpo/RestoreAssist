@@ -302,6 +302,10 @@ describe("sign-off", () => {
     const initial = await snapshot();
     render(<FireWalkthrough inspectionId="insp-1" initial={initial} />);
     const button = await screen.findByRole("button", { name: FIRE_COPY.signoffButton });
+    // The technician can read every saved answer before signing.
+    for (const sectionId of FIRE_SECTION_IDS) {
+      expect(screen.getByText(`Synthetic note for ${sectionId}`)).toBeInTheDocument();
+    }
     expect(button).toBeDisabled();
     fireEvent.change(screen.getByRole("textbox", { name: FIRE_COPY.signoffNamePlaceholder }), { target: { value: "Sam Example" } });
     expect(button).toBeDisabled();

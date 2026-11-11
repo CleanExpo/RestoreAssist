@@ -68,6 +68,15 @@ export function FireSectionList({ sections, currentSectionId, disabled, onSelect
             {state === "na" && status?.naReason && (
               <p className="mt-1 text-xs text-white/50">Reason: {status.naReason}</p>
             )}
+            {state === "filled" && status && status.notes.length > 0 && (
+              <ul className="mt-1 space-y-1" aria-label={`Saved answers for ${section.title}`}>
+                {status.notes.map((note, i) => (
+                  <li key={i} className="text-sm text-white/80 whitespace-pre-wrap">
+                    {note}
+                  </li>
+                ))}
+              </ul>
+            )}
             {current && <SectionDetail section={section} disabled={disabled} onMarkNa={onMarkNa} />}
           </li>
         );

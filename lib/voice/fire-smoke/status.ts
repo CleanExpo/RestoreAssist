@@ -43,6 +43,7 @@ export function nextFireSeq(observations: readonly FireObservationRow[]): number
 interface SectionTally {
   state: SectionStatus["state"];
   entryCount: number;
+  notes: string[];
   naReason?: string;
 }
 
@@ -56,7 +57,7 @@ function tallySections(
 } {
   const known = new Set(sectionIds);
   const tallies = new Map<string, SectionTally>(
-    sectionIds.map((id) => [id, { state: "todo", entryCount: 0 }]),
+    sectionIds.map((id) => [id, { state: "todo", entryCount: 0, notes: [] }]),
   );
   const sectionRowIds: string[] = [];
   for (const row of ordered) {
@@ -66,6 +67,7 @@ function tallySections(
       const tally = tallies.get(parsed.data.sectionId)!;
       tally.state = "filled";
       tally.entryCount += 1;
+      tally.notes.push(parsed.data.note);
       tally.naReason = undefined;
       sectionRowIds.push(row.id);
     } else if (row.type === FIRE_OBSERVATION_TYPES.na) {
@@ -73,6 +75,7 @@ function tallySections(
       if (!parsed.success || !known.has(parsed.data.sectionId)) continue;
       const tally = tallies.get(parsed.data.sectionId)!;
       tally.state = "na";
+      tally.notes = [];
       tally.naReason = parsed.data.reason;
       sectionRowIds.push(row.id);
     }

@@ -141,6 +141,11 @@ export interface SectionStatus {
   sectionId: string;
   state: SectionState;
   entryCount: number;
+  /**
+   * The saved words that make up this section of the job file, in write
+   * order. The technician reads these before signing; empty when N/A.
+   */
+  notes: string[];
   naReason?: string;
 }
 

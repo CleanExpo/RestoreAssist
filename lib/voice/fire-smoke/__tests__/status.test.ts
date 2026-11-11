@@ -45,6 +45,13 @@ describe("computeWalkthroughStatus", () => {
     }
   });
 
+  it("each section carries its saved words in write order; N/A clears them", () => {
+    const rows = [entry("contents", "First note"), entry("contents", "Second note"), entry("structure", "Kept"), na("structure")];
+    const sections = status(rows).sections;
+    expect(sections.find((s) => s.sectionId === "contents")!.notes).toEqual(["First note", "Second note"]);
+    expect(sections.find((s) => s.sectionId === "structure")!.notes).toEqual([]);
+  });
+
   it("a row with no write sequence never decides a section", () => {
     const unsequenced = { ...entry("contents"), seq: 0 };
     expect(status([unsequenced]).started).toBe(false);
