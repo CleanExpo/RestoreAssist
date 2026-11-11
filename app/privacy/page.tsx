@@ -134,9 +134,10 @@ export default function PrivacyPage() {
             <p>
               Technicians can answer an on-site checklist, such as the fire and
               smoke make-safe walkthrough, by speaking. Speech is turned into
-              text by the technician&apos;s own phone browser, which may send
-              the audio to its maker (Google for Chrome, Apple for Safari) for
-              that purpose. RestoreAssist receives only the resulting text,
+              text by the technician&apos;s own browser, which may send the
+              audio to the company that makes it for that purpose (for example
+              Google for Chrome, Apple for Safari and Microsoft for Edge).
+              RestoreAssist receives only the resulting text,
               which is stored in the job file as part of the inspection record.
               The checklist tells the technician this before the microphone is
               used, and every answer can be typed instead.

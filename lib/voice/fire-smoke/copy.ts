@@ -11,7 +11,7 @@ export const FIRE_COPY = {
   noticeTitle: "Before we start",
   /** Spoken and shown before the microphone is used (spec §0 R7). */
   notice:
-    "I'm Margot. I'll guide you through the fire and smoke make-safe, one section at a time. When you speak, your phone's browser sends the audio to its maker, Google or Apple, to turn it into text. If you would rather not, type your answers in the box instead. Tap the big button to start or stop listening.",
+    "I'm Margot. I'll guide you through the fire and smoke make-safe, one section at a time. When you speak, your browser may send the audio to the company that makes it, such as Google, Apple or Microsoft, to turn it into text. If you would rather not, type your answers in the box instead. Tap the big button to start or stop listening.",
   noticeAccept: "I understand, start",
   welcomeBack: "Welcome back. We'll pick up where you left off.",
   listening: "Listening",
