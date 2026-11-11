@@ -90,6 +90,8 @@ function post(body: unknown, id = "insp-1") {
   );
 }
 const get = () => GET(new NextRequest(url()), ctx());
+/** The revision on the technician's screen, read the way the client reads it. */
+const reviewed = async (): Promise<string> => (await (await get()).json()).status.reviewRevision;
 
 const ack = () => post({ action: "acknowledge_notice", sessionId: "vs-1", spoken: true, recognitionMode: "cloud" });
 
@@ -193,7 +195,7 @@ describe("walkthrough", () => {
 
   it("422 SECTIONS_OPEN when signing with zero sections done", async () => {
     await ack();
-    const res = await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true });
+    const res = await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: await reviewed() });
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.code).toBe("SECTIONS_OPEN");
@@ -205,13 +207,13 @@ describe("walkthrough", () => {
     await fillAll("vs-1");
     await post({ action: "mark_na", sessionId: "vs-2", sectionId: "contents", reason: "No contents left in the building" });
 
-    const res = await post({ action: "sign_off", sessionId: "vs-2", typedName: "Sam Example", declarationAccepted: true });
+    const res = await post({ action: "sign_off", sessionId: "vs-2", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: await reviewed() });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status.signoff.state).toBe("signed");
     expect(body.status.sections.find((s: { sectionId: string }) => s.sectionId === "contents").state).toBe("na");
 
-    const again = await post({ action: "sign_off", sessionId: "vs-2", typedName: "Sam Example", declarationAccepted: true });
+    const again = await post({ action: "sign_off", sessionId: "vs-2", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: await reviewed() });
     expect(again.status).toBe(200);
     expect(store.observations.filter((o) => o.type === "fire_walkthrough_signoff")).toHaveLength(1);
     expect(store.audit).toHaveLength(1);
@@ -221,13 +223,28 @@ describe("walkthrough", () => {
     expect(signoff.parsed).toMatchObject({ signerUserId: "tech-1", typedName: "Sam Example" });
   });
 
+  it("refuses a sign-off over answers saved after the technician's last view (K5)", async () => {
+    await ack();
+    await fillAll("vs-1");
+    const seen = await reviewed();
+    // Another device saves a new answer the signer has not seen.
+    await post({ action: "file", sessionId: "vs-2", sectionId: "services", transcript: "Late note from another device", routedBy: "technician_chose" });
+    const res = await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: seen });
+    expect(res.status).toBe(422);
+    expect((await res.json()).code).toBe("REVIEW_STALE");
+    expect(store.observations.filter((o) => o.type === "fire_walkthrough_signoff")).toHaveLength(0);
+
+    const fresh = await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: await reviewed() });
+    expect(fresh.status).toBe(200);
+  });
+
   it("a change after sign-off shows as changed and allows a fresh sign-off", async () => {
     await ack();
     await fillAll();
-    await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true });
+    await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: await reviewed() });
     const changed = await (await post({ action: "file", sessionId: "vs-1", sectionId: "contents", transcript: "Found more items", routedBy: "technician_chose" })).json();
     expect(changed.status.signoff.state).toBe("changed");
-    const resigned = await (await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true })).json();
+    const resigned = await (await post({ action: "sign_off", sessionId: "vs-1", typedName: "Sam Example", declarationAccepted: true, reviewedRevision: await reviewed() })).json();
     expect(resigned.status.signoff.state).toBe("signed");
     expect(store.audit).toHaveLength(2);
   });

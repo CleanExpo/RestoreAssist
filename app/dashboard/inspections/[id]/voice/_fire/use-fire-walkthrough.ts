@@ -11,7 +11,7 @@ import { getFireSection } from "@/lib/voice/fire-smoke/checklist";
 import { FIRE_COPY } from "@/lib/voice/fire-smoke/copy";
 import { parseYesNo } from "@/lib/voice/fire-smoke/router";
 import type { FireAction, FireActionResponse, FireWalkthroughResponse } from "@/lib/voice/fire-smoke/schema";
-import { createKeyRing, postFireAction, startVoiceSession } from "./fire-client";
+import { createKeyRing, getFireWalkthrough, postFireAction, startVoiceSession } from "./fire-client";
 import { useFireSpeech } from "./use-fire-speech";
 
 interface PendingAsk {
@@ -63,6 +63,11 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     void openSession();
   }, [openSession]);
 
+  const refresh = useCallback(async () => {
+    const res = await getFireWalkthrough(inspectionId);
+    if (res.ok) setView(res.data);
+  }, [inspectionId]);
+
   /** Sends one action. Returns the new state, or null after saying why not. */
   const send = useCallback(
     async (action: FireAction, words?: string): Promise<FireActionResponse | null> => {
@@ -82,17 +87,20 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
       // when the save succeeded, so a network drop and a server refusal both
       // keep what the technician said where they can correct and resend it.
       if (words !== undefined) setTyped(words);
-      if (result.kind === "network") {
+      if (result.kind === "unconfirmed") {
         // Same key on retry, so a resend cannot double-file.
         talk(FIRE_COPY.saveFailed);
       } else {
         keys.current.settle(action);
         setProblem(result.message);
+        // The job file changed since it was reviewed: show the new words so
+        // the technician can read them before signing again.
+        if (result.body?.code === "REVIEW_STALE") void refresh();
       }
       speech.setBusy(false);
       return null;
     },
-    [inspectionId, speech, talk],
+    [inspectionId, refresh, speech, talk],
   );
 
   const moveTo = useCallback(
@@ -214,10 +222,18 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   const signOff = useCallback(
     async (typedName: string) => {
       if (!sessionId) return;
-      const res = await send({ action: "sign_off", sessionId, typedName, declarationAccepted: true });
+      // The sign-off names the exact answers on screen; the server refuses it
+      // if anything was saved since (kind K5).
+      const res = await send({
+        action: "sign_off",
+        sessionId,
+        typedName,
+        declarationAccepted: true,
+        reviewedRevision: view.status.reviewRevision,
+      });
       if (res) talk(FIRE_COPY.signedOff);
     },
-    [send, sessionId, talk],
+    [send, sessionId, talk, view.status.reviewRevision],
   );
 
   return {

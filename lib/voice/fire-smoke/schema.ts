@@ -129,6 +129,8 @@ export const fireActionSchema = z.discriminatedUnion("action", [
     sessionId: z.string().min(1),
     typedName: z.string().trim().min(2).max(120),
     declarationAccepted: z.literal(true),
+    /** The reviewRevision of the job file the technician read before signing. */
+    reviewedRevision: z.string().max(100_000),
   }),
 ]);
 
@@ -155,6 +157,11 @@ export interface WalkthroughStatus {
   sections: SectionStatus[];
   openSectionIds: string[];
   canSignOff: boolean;
+  /**
+   * Identifies exactly which saved answers make up the job file now. A
+   * sign-off must quote it; any answer saved since makes it stale.
+   */
+  reviewRevision: string;
   signoff: {
     state: SignoffState;
     signedAt?: string;
@@ -186,6 +193,7 @@ export interface FireBlockerBody {
   code:
     | "NOTICE_REQUIRED"
     | "SECTIONS_OPEN"
-    | "CHANGED_AFTER_SIGNOFF";
+    | "CHANGED_AFTER_SIGNOFF"
+    | "REVIEW_STALE";
   openSectionIds: string[];
 }

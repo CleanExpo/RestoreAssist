@@ -221,6 +221,15 @@ async function signOff(
       },
     };
   }
+  // The rows read here, under the inspection lock, are exactly the rows the
+  // sign-off will cover. They must be the rows the technician was shown.
+  if (action.reviewedRevision !== status.reviewRevision) {
+    return {
+      ok: false,
+      httpStatus: 422,
+      body: { error: FIRE_COPY.reviewStale, code: "REVIEW_STALE", openSectionIds: [] },
+    };
+  }
   const sectionStates = Object.fromEntries(
     status.sections.map((s) => [s.sectionId, s.state === "na" ? "na" : "filled"]),
   );

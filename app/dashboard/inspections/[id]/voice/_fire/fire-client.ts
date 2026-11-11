@@ -16,7 +16,13 @@ import type {
 export type FireCallResult<T> =
   | { ok: true; data: T }
   /** No reply, or a 5xx: keep the words and let the technician retry. */
-  | { ok: false; kind: "network"; status?: number }
+  /**
+   * The save may or may not have happened: no reply, a 5xx, or a 409 from the
+   * idempotency layer (still in progress, or completion unverified). The fire
+   * route's own refusals are only ever 400 or 422, so a 409 is never final.
+   * Retry with the same key; never release it.
+   */
+  | { ok: false; kind: "unconfirmed"; status?: number }
   /** The server refused the action and said why. */
   | { ok: false; kind: "refused"; status: number; message: string; body?: FireBlockerBody };
 
@@ -38,9 +44,9 @@ async function call<T>(input: string, init?: RequestInit): Promise<FireCallResul
   try {
     res = await fetch(input, init);
   } catch {
-    return { ok: false, kind: "network" };
+    return { ok: false, kind: "unconfirmed" };
   }
-  if (res.status >= 500) return { ok: false, kind: "network", status: res.status };
+  if (res.status >= 500 || res.status === 409) return { ok: false, kind: "unconfirmed", status: res.status };
   if (!res.ok) return { ok: false, kind: "refused", status: res.status, ...(await readRefusal(res)) };
   return { ok: true, data: (await res.json()) as T };
 }

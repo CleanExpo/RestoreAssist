@@ -146,6 +146,7 @@ export function computeWalkthroughStatus(
     sections,
     openSectionIds,
     canSignOff: sectionIds.length > 0 && openSectionIds.length === 0,
+    reviewRevision: sectionRowIds.join(","),
     signoff,
   };
 }

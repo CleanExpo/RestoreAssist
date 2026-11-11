@@ -48,6 +48,7 @@ type Call = { action: string; body: Record<string, unknown>; key: string | null 
 let calls: Call[] = [];
 let failNextPost = false;
 let refuseNextPost = false;
+let pendingNextPost = false;
 
 async function snapshot(): Promise<FireWalkthroughResponse> {
   const loaded = await loadFireWalkthrough("insp-1", db, "tech-1");
@@ -65,6 +66,10 @@ const fakeFetch = vi.fn(async (input: string, init?: RequestInit) => {
   if (failNextPost) {
     failNextPost = false;
     throw new TypeError("Failed to fetch");
+  }
+  if (pendingNextPost) {
+    pendingNextPost = false;
+    return json({ error: "A request with this Idempotency-Key is already in progress. Retry shortly." }, 409);
   }
   if (refuseNextPost) {
     refuseNextPost = false;
@@ -144,6 +149,7 @@ beforeEach(() => {
   calls = [];
   failNextPost = false;
   refuseNextPost = false;
+  pendingNextPost = false;
   spoken.length = 0;
   FakeRecognition.live = [];
   FakeRecognition.starts = 0;
@@ -310,6 +316,21 @@ describe("filing answers", () => {
     expect(calls.at(-1)!.body).toMatchObject({ action: "mark_na", sectionId: "site_access", reason: "Not applicable, nobody else is on site" });
   });
 
+  it("a 409 still-in-progress reply keeps the words and the retry key (K12)", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    pendingNextPost = true;
+    await typeAnswer("Gas meter is off and power isolated at the board");
+    await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.saveFailed));
+    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("Gas meter is off and power isolated at the board");
+
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
+    await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1));
+    const captures = calls.filter((c) => c.action === "capture");
+    expect(captures).toHaveLength(2);
+    expect(captures[1].key).toBe(captures[0].key);
+  });
+
   it("a refused spoken save keeps the words in the typing box", async () => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();
@@ -362,6 +383,27 @@ describe("sign-off", () => {
     fireEvent.click(button);
     await waitFor(() => expect(rows.some((r) => r.type === "fire_walkthrough_signoff")).toBe(true));
     expect(await screen.findByText(FIRE_COPY.signedOff, { selector: "section p" })).toBeInTheDocument();
+  });
+
+  it("refuses to sign over an answer saved after the screen was read, and shows the new words (K5)", async () => {
+    await runFireAction(db, { inspectionId: "insp-1", userId: "tech-1" }, { action: "acknowledge_notice", sessionId: "vs-1", spoken: false, recognitionMode: "typed" });
+    for (const sectionId of FIRE_SECTION_IDS) {
+      await runFireAction(db, { inspectionId: "insp-1", userId: "tech-1" }, { action: "file", sessionId: "vs-1", sectionId, transcript: `Synthetic note for ${sectionId}`, routedBy: "technician_chose" });
+    }
+    const initial = await snapshot();
+    render(<FireWalkthrough inspectionId="insp-1" initial={initial} />);
+    const button = await screen.findByRole("button", { name: FIRE_COPY.signoffButton });
+    // Saved on another device after this screen was loaded.
+    await runFireAction(db, { inspectionId: "insp-1", userId: "tech-1" }, { action: "file", sessionId: "vs-1", sectionId: "services", transcript: "Late note from another device", routedBy: "technician_chose" });
+    expect(screen.queryByText("Late note from another device")).toBeNull();
+
+    fireEvent.change(screen.getByRole("textbox", { name: FIRE_COPY.signoffNamePlaceholder }), { target: { value: "Sam Example" } });
+    fireEvent.click(screen.getByRole("checkbox"));
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    expect(await screen.findByText("Late note from another device")).toBeInTheDocument();
+    expect(screen.getByText(FIRE_COPY.reviewStale)).toBeInTheDocument();
+    expect(rows.some((r) => r.type === "fire_walkthrough_signoff")).toBe(false);
   });
 
   it("is not offered while sections are open", async () => {
