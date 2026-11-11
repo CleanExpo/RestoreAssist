@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getFireWalkthrough, newIdempotencyKey, postFireAction, startVoiceSession } from "../_fire/fire-client";
+import { FIRE_CALL_DEADLINE_MS, getFireWalkthrough, newIdempotencyKey, postFireAction, startVoiceSession } from "../_fire/fire-client";
 import type { FireAction } from "@/lib/voice/fire-smoke/schema";
 
 const capture = (transcript: string): FireAction =>
@@ -132,5 +132,36 @@ describe("a refusal counts only when its body passes the refusal schema (kind K1
     expect(client.match(/\.json\(\)/g) ?? []).toHaveLength(1);
     expect(client).toMatch(/schema\.safeParse\(await res\.json\(\)\)/);
     expect(client).toMatch(/readChecked\(res, fireRefusalSchema\)/);
+  });
+});
+
+describe("a call is bounded by one deadline over the request and the body read", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("a connection that never answers is unconfirmed once the deadline passes", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => {})));
+    const result = postFireAction("insp-1", capture("Gas meter is off"), "k-1");
+    await vi.advanceTimersByTimeAsync(FIRE_CALL_DEADLINE_MS + 1);
+    await expect(result).resolves.toMatchObject({ ok: false, kind: "unconfirmed" });
+  });
+
+  it("a reply whose body never finishes is unconfirmed once the deadline passes", async () => {
+    vi.useFakeTimers();
+    const stalled = { ok: true, status: 200, json: () => new Promise(() => {}) } as unknown as Response;
+    vi.stubGlobal("fetch", vi.fn(async () => stalled));
+    const result = postFireAction("insp-1", capture("Gas meter is off"), "k-1");
+    await vi.advanceTimersByTimeAsync(FIRE_CALL_DEADLINE_MS + 1);
+    await expect(result).resolves.toMatchObject({ ok: false, kind: "unconfirmed" });
+  });
+
+  it("an answer inside the deadline is returned and leaves no timer behind", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "x" }), { status: 404 })));
+    await expect(postFireAction("insp-1", capture("Gas meter is off"), "k-1")).resolves.toMatchObject({ kind: "refused", status: 404 });
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

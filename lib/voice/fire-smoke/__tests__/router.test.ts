@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clarifyingQuestion,
   isNaUtterance,
+  parseConfirmation,
   parseYesNo,
   routeUtterance,
 } from "../router";
@@ -109,5 +110,23 @@ describe("helpers", () => {
 
   it("asks in plain words, e.g. is this part of the safety brief", () => {
     expect(clarifyingQuestion("safety_brief")).toBe("Is this part of the safety brief and PPE?");
+  });
+});
+
+describe("parseConfirmation keeps what was said after the yes or no", () => {
+  it.each([
+    ["Yes", "yes", ""],
+    ["yeah that's right", "yes", ""],
+    ["Yes, thanks", "yes", ""],
+    ["Yes, and the ceiling is sagging", "yes", "the ceiling is sagging"],
+    ["yep but there is water on the floor", "yes", "there is water on the floor"],
+    ["No", "no", ""],
+    ["No, it's the structure", "no", "it's the structure"],
+  ])("%s", (text, answer, rest) => {
+    expect(parseConfirmation(text)).toEqual({ answer, rest });
+  });
+
+  it("is null when the words do not start with a yes or no", () => {
+    expect(parseConfirmation("the ceiling is sagging")).toBeNull();
   });
 });

@@ -64,6 +64,8 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
   const wantedRef = useRef(false);
   const speakingRef = useRef(false);
   const busyRef = useRef(false);
+  /** How many times the technician has set the toggle; lets a default step aside for a choice. */
+  const choicesRef = useRef(0);
   const lastPromptRef = useRef("");
   /** Generation of the current utterance; an older one's end event is ignored. */
   const speechGenRef = useRef(0);
@@ -178,6 +180,7 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
 
   const setListeningWanted = useCallback(
     (value: boolean) => {
+      choicesRef.current += 1;
       wantedRef.current = value;
       setWanted(value);
       if (value) startRecognition();
@@ -185,6 +188,8 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
     },
     [startRecognition, stopRecognition],
   );
+
+  const choiceCount = useCallback(() => choicesRef.current, []);
 
   /** While a save is in flight the mic is paused, so answers stay in order. */
   const setBusy = useCallback(
@@ -196,8 +201,11 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
     [startRecognition, stopRecognition],
   );
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Strict Mode runs setup, cleanup, setup on a first mount. The cleanup
+    // below marks this disposed, so setup must mark it live again.
+    disposedRef.current = false;
+    return () => {
       // Invalidate first, so the end event that cancel() fires below is a
       // no-op: no callback runs and the mic cannot reopen.
       disposedRef.current = true;
@@ -209,9 +217,8 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
       recRef.current = null;
       rec?.stop();
       if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
-    },
-    [],
-  );
+    };
+  }, []);
 
-  return { supported, wanted, listening, speaking, speak, setListeningWanted, setBusy };
+  return { supported, wanted, listening, speaking, speak, setListeningWanted, choiceCount, setBusy };
 }

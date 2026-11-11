@@ -65,7 +65,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     if (!tenancy.ok) return notFound(req);
     const inspection = await prisma.inspection.findFirst({
       where: tenancy.data.inspectionManyWhere,
-      select: { id: true, claimType: true },
+      select: { id: true, claimType: true, propertyCountry: true, propertyPostcode: true },
     });
     if (!inspection) return notFound(req);
 
@@ -100,6 +100,12 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return apiError(req, { code: "VALIDATION", message: "Valid Idempotency-Key required", status: 400 });
   }
   const key = keyResult.key;
+
+  // withIdempotency replays a stored reply before it calls the handler, so
+  // current access is checked here first; a revoked caller never sees a
+  // cached answer. The handler checks again to bind the write to the scope.
+  const preflight = await assertInspectionAssignedWrite(session, id);
+  if (!preflight.ok) return notFound(req);
 
   return withIdempotency(req, userId, async (rawBody) => {
     try {

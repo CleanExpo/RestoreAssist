@@ -227,6 +227,8 @@ export async function POST(
       const fireGate = await checkFireSubmitGate({
         id,
         claimType: inspection.claimType,
+        propertyCountry: inspection.propertyCountry,
+        propertyPostcode: inspection.propertyPostcode,
       });
       if (fireGate.blocked) {
         return NextResponse.json(fireGate.body, { status: fireGate.status });
@@ -337,7 +339,12 @@ export async function POST(
       // fire edit cannot slip in between the gate and the claim.
       const submitGuard = await claimSubmitWithFireGate(
         prisma,
-        { id, claimType: inspection.claimType },
+        {
+          id,
+          claimType: inspection.claimType,
+          propertyCountry: inspection.propertyCountry,
+          propertyPostcode: inspection.propertyPostcode,
+        },
         (tx) =>
           tx.inspection.updateMany({
             where: {

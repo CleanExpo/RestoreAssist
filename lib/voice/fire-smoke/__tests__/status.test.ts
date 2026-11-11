@@ -89,7 +89,7 @@ describe("computeWalkthroughStatus", () => {
   it("unknown section ids and malformed rows are ignored", () => {
     const s = status([
       entry("not_a_section"),
-      { type: "fire_section_entry", parsed: { sectionId: "structure" }, createdAt: new Date() },
+      { ...entry("structure"), parsed: { sectionId: "structure" } },
     ]);
     expect(s.started).toBe(false);
   });

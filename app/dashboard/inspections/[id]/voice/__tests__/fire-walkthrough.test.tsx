@@ -288,6 +288,92 @@ describe("glove toggle", () => {
   });
 });
 
+describe("state held across screen changes (kind: a mode outliving the thing it was for)", () => {
+  it("leaving a section while its N/A reason is awaited cancels the N/A: the next answer goes to the section on screen", async () => {
+    await runFireAction(db, { inspectionId: "insp-1", userId: "tech-1" }, { action: "acknowledge_notice", sessionId: "vs-1", spoken: false, recognitionMode: "typed" });
+    const initial = await snapshot();
+    const { result } = renderHook(() => useFireWalkthrough("insp-1", initial));
+    await waitFor(() => expect(result.current.sessionReady).toBe(true));
+
+    act(() => result.current.markNa("contents"));
+    expect(result.current.naFor).toBe("contents");
+    act(() => result.current.selectSection("safety_brief"));
+    expect(result.current.naFor).toBeNull();
+    act(() => result.current.setTyped("Hard hats and gloves worn by everyone on site"));
+    act(() => result.current.submitTyped());
+    await waitFor(() => expect(calls.map((c) => c.action)).toEqual(["capture"]));
+    expect(calls[0].body).toMatchObject({ currentSectionId: "safety_brief" });
+    expect(rows.some((r) => r.type === "fire_section_na")).toBe(false);
+  });
+
+  it("Next section also cancels a pending N/A", async () => {
+    await runFireAction(db, { inspectionId: "insp-1", userId: "tech-1" }, { action: "acknowledge_notice", sessionId: "vs-1", spoken: false, recognitionMode: "typed" });
+    const initial = await snapshot();
+    const { result } = renderHook(() => useFireWalkthrough("insp-1", initial));
+    await waitFor(() => expect(result.current.sessionReady).toBe(true));
+    act(() => result.current.markNa("contents"));
+    act(() => result.current.nextSection());
+    expect(result.current.currentSectionId).not.toBe("contents");
+    expect(result.current.naFor).toBeNull();
+  });
+
+  it("a listening OFF chosen while the first prompt is spoken is still OFF when it ends", async () => {
+    await renderScreen();
+    fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.noticeAccept }));
+    await waitFor(() => expect(lastUtterance()?.text).toBe(sectionSpeech(getFireSection("site_access")!)));
+    const toggle = await screen.findByTestId("fire-listen-toggle");
+    fireEvent.click(toggle); // ON
+    fireEvent.click(toggle); // OFF again, still during the prompt
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    act(() => lastUtterance().end());
+    await new Promise((r) => setTimeout(r, 400));
+    expect(FakeRecognition.starts).toBe(0);
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("a spoken Yes with more words files the confirmed answer AND keeps the extra observation", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    await typeAnswer("All good here");
+    await waitFor(() => expect(screen.getByRole("group", { name: "Margot's question" })).toBeInTheDocument());
+    await typeAnswer("Yes, and the ceiling is sagging");
+    await waitFor(() => expect(calls.some((c) => c.action === "capture" && c.body.transcript === "the ceiling is sagging")).toBe(true));
+    expect(calls.find((c) => c.action === "file")!.body).toMatchObject({ sectionId: "site_access", transcript: "All good here", routedBy: "technician_confirmed" });
+  });
+
+  it("a spoken Yes to the N/A question with more words closes the section AND keeps the extra observation", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    await typeAnswer("Not applicable, nobody else is on site");
+    await waitFor(() => screen.getByRole("button", { name: "Yes" }));
+    await typeAnswer("Yes, and the ceiling is sagging");
+    await waitFor(() => expect(calls.some((c) => c.action === "capture" && c.body.transcript === "the ceiling is sagging")).toBe(true));
+    expect(calls.find((c) => c.action === "mark_na")!.body).toMatchObject({ sectionId: "site_access", reason: "Not applicable, nobody else is on site" });
+  });
+
+  it("a spoken No with more words goes to the picker and the extra words are put in the typing box, not lost", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    await typeAnswer("All good here");
+    await waitFor(() => expect(screen.getByRole("group", { name: "Margot's question" })).toBeInTheDocument());
+    await typeAnswer("No, the ceiling is sagging");
+    await screen.findByRole("group", { name: "Choose a section" });
+    expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("the ceiling is sagging");
+  });
+
+  it("the same when the No is spoken and the box was empty", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    await typeAnswer("All good here");
+    await waitFor(() => expect(screen.getByRole("group", { name: "Margot's question" })).toBeInTheDocument());
+    act(() => lastUtterance().end());
+    await waitFor(() => expect(FakeRecognition.live).toHaveLength(1));
+    act(() => FakeRecognition.live[0].hear("No, the ceiling is sagging"));
+    await screen.findByRole("group", { name: "Choose a section" });
+    await waitFor(() => expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("the ceiling is sagging"));
+  });
+});
+
 describe("filing answers", () => {
   it("files a clear spoken answer to its section", async () => {
     await renderScreen();

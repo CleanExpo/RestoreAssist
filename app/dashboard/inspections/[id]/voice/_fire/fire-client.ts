@@ -53,6 +53,13 @@ async function readChecked<T>(res: Response, schema: z.ZodType<T>): Promise<T | 
 export const FINAL_REFUSAL_STATUSES: ReadonlySet<number> = new Set([400, 401, 403, 404, 422]);
 
 /**
+ * How long one call may take, request and body read together. On expiry the
+ * result is "unconfirmed", so the save stays held with its key and Try again
+ * appears.
+ */
+export const FIRE_CALL_DEADLINE_MS = 20_000;
+
+/**
  * Never throws (round 15), and never trusts a shape (round 16, kind K15). A
  * reply is "ok" only when it is a 2xx whose body was read, parsed and passed
  * the caller's schema in full, and "refused" only when a final status carries
@@ -63,6 +70,25 @@ export const FINAL_REFUSAL_STATUSES: ReadonlySet<number> = new Set([400, 401, 40
  * The schema is required: no call can opt out of the check.
  */
 async function call<T>(input: string, init: RequestInit, schema: z.ZodType<T>): Promise<FireCallResult<T>> {
+  // One deadline covers the request AND the body read, so a connection that
+  // stays open without finishing a reply cannot hold the screen on "Saving".
+  // The race is what bounds the call; abort() only frees the connection.
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<FireCallResult<T>>((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve({ ok: false, kind: "unconfirmed" });
+    }, FIRE_CALL_DEADLINE_MS);
+  });
+  try {
+    return await Promise.race([attempt(input, { ...init, signal: controller.signal }, schema), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function attempt<T>(input: string, init: RequestInit, schema: z.ZodType<T>): Promise<FireCallResult<T>> {
   let res: Response;
   try {
     res = await fetch(input, init);

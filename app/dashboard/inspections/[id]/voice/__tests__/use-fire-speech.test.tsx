@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useFireSpeech } from "../_fire/use-fire-speech";
@@ -172,5 +173,15 @@ describe("useFireSpeech: mic waits for Margot", () => {
     act(() => vi.advanceTimersByTime(60_000));
     expect(FakeRecognition.starts).toBe(0);
     expect(hook.result.current.speaking).toBe(true);
+  });
+});
+
+describe("useFireSpeech: React Strict Mode (development double mount)", () => {
+  it("still listens and speaks after the extra setup and cleanup cycle", () => {
+    const hook = renderHook(() => useFireSpeech({ onFinal: () => {}, onBlocked: () => {} }), { wrapper: StrictMode });
+    act(() => hook.result.current.setListeningWanted(true));
+    expect(FakeRecognition.starts).toBe(1);
+    act(() => hook.result.current.speak("Short prompt."));
+    expect(spoken).toHaveLength(1);
   });
 });

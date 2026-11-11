@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getFireSection, sectionSpeech } from "@/lib/voice/fire-smoke/checklist";
 import { FIRE_COPY } from "@/lib/voice/fire-smoke/copy";
-import { parseYesNo } from "@/lib/voice/fire-smoke/router";
+import { parseConfirmation } from "@/lib/voice/fire-smoke/router";
 import type { FireAction, FireActionResponse, FireWalkthroughResponse } from "@/lib/voice/fire-smoke/schema";
 import { getFireWalkthrough, newIdempotencyKey, postFireAction, startVoiceSession } from "./fire-client";
 import { useFireSpeech } from "./use-fire-speech";
@@ -187,6 +187,8 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   const moveTo = useCallback(
     (sectionId: string | null, prefix?: string) => {
       setCurrentSectionId(sectionId);
+      // An N/A reason being awaited belongs to the section it was asked for.
+      setNaFor(null);
       const section = sectionId ? getFireSection(sectionId) : undefined;
       const next = section ? sectionSpeech(section) : FIRE_COPY.allDone;
       talk(prefix ? `${prefix} ${next}` : next);
@@ -220,48 +222,79 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     [moveTo, talk],
   );
 
+  /**
+   * Words said after a yes or no are a new observation, never dropped: once
+   * the confirmed save has gone through, they are sent as their own capture.
+   */
+  const captureRest = useCallback(
+    async (rest: string, sectionId: string | null) => {
+      if (!rest || !sessionId) return;
+      await send(
+        { action: "capture", sessionId, transcript: rest, currentSectionId: sectionId ?? undefined },
+        rest,
+        (res) => handleOutcome(res, rest),
+      );
+    },
+    [handleOutcome, send, sessionId],
+  );
+
   const fileTo = useCallback(
-    async (sectionId: string, transcript: string, routedBy: "technician_confirmed" | "technician_chose") => {
+    async (sectionId: string, transcript: string, routedBy: "technician_confirmed" | "technician_chose", rest = "") => {
       if (!sessionId) return;
       await send({ action: "file", sessionId, sectionId, transcript, routedBy }, transcript, (res) => {
         setPicking(null);
         setCurrentSectionId(sectionId);
         handleOutcome(res, transcript);
+        void captureRest(rest, sectionId);
       });
     },
-    [handleOutcome, send, sessionId],
+    [captureRest, handleOutcome, send, sessionId],
   );
 
   const handleText = useCallback(
     async (text: string) => {
       const words = text.trim();
       if (!words || !sessionId || saving || !view.status.noticeAcknowledged) return;
-      if (naFor) {
+      // Only the section on screen can be the target of a pending N/A.
+      if (naFor && naFor === currentSectionId) {
         await send({ action: "mark_na", sessionId, sectionId: naFor, reason: words, failedAttemptsBefore: 0 }, words, (res) =>
           handleOutcome(res, words),
         );
         return;
       }
       if (ask) {
-        const answer = parseYesNo(words);
+        const confirmation = parseConfirmation(words);
+        const answer = confirmation?.answer ?? null;
+        const rest = confirmation?.rest ?? "";
         if (ask.mode === "na") {
           if (answer === "yes") {
             const reason = ask.transcript;
             await send(
               { action: "mark_na", sessionId, sectionId: ask.candidateSectionId, reason, failedAttemptsBefore: 0 },
               reason,
-              (res) => handleOutcome(res, reason),
+              (res) => {
+                handleOutcome(res, reason);
+                void captureRest(rest, res.nextSectionId);
+              },
             );
           } else if (answer === "no") {
             // Keep the words, and any hazard in them, as an entry in the section.
-            await fileTo(ask.candidateSectionId, ask.transcript, "technician_chose");
+            await fileTo(ask.candidateSectionId, ask.transcript, "technician_chose", rest);
           } else talk(ask.say);
           return;
         }
-        if (answer === "yes") await fileTo(ask.candidateSectionId, ask.transcript, "technician_confirmed");
+        if (answer === "yes") await fileTo(ask.candidateSectionId, ask.transcript, "technician_confirmed", rest);
         else if (answer === "no") {
           setPicking(ask.transcript);
           setAsk(null);
+          // The extra words stay visible in the typing box until the technician
+          // sends them. A box holding exactly what was just submitted is spent.
+          if (rest) {
+            if (typedNow.current.trim() === words) {
+              typedNow.current = rest;
+              setTyped(rest);
+            } else if (!offerWords(rest)) setProblem(FIRE_COPY.notSaved(rest));
+          }
           talk(FIRE_COPY.confirmNo);
         } else talk(ask.say);
         return;
@@ -276,7 +309,7 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
         (res) => handleOutcome(res, words),
       );
     },
-    [ask, currentSectionId, fileTo, handleOutcome, naFor, picking, saving, send, sessionId, talk, view.status.noticeAcknowledged],
+    [ask, captureRest, currentSectionId, fileTo, handleOutcome, naFor, offerWords, picking, saving, send, sessionId, talk, view.status.noticeAcknowledged],
   );
   handleTextRef.current = (t) => void handleText(t);
 
@@ -290,9 +323,12 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     };
     await send(ack, undefined, (res) => {
       setCurrentSectionId(res.nextSectionId);
-      // Listening starts only once Margot has finished speaking.
+      // Listening starts by default only once Margot has finished speaking,
+      // and only if the technician has not touched the toggle meanwhile:
+      // an OFF chosen during the prompt stays OFF.
+      const choicesBefore = speech.choiceCount();
       talk(res.nextPrompt, () => {
-        if (speech.supported) speech.setListeningWanted(true);
+        if (speech.supported && speech.choiceCount() === choicesBefore) speech.setListeningWanted(true);
       });
     });
   }, [noticeSpoken, send, sessionId, speech, talk]);
@@ -328,7 +364,8 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     say,
     ask,
     picking,
-    naFor,
+    // Only the section on screen can have an N/A reason pending.
+    naFor: naFor === currentSectionId ? naFor : null,
     typed,
     setTyped: whenFree(setTyped),
     saving,

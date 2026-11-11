@@ -15,6 +15,13 @@ import {
   type WalkthroughStatus,
 } from "./schema";
 import { computeWalkthroughStatus, evaluateFireGate } from "./status";
+import { walkthroughAppliesAtLocation, type InspectionLocation } from "./jurisdiction";
+
+/** The inspection fields the walkthrough rules read. */
+export interface FireInspection extends InspectionLocation {
+  id: string;
+  claimType?: string | null;
+}
 
 /** The prisma surface these loaders need; a transaction client also fits. */
 export interface FireDb {
@@ -84,15 +91,17 @@ export async function loadFireWalkthrough(
 }
 
 /**
- * Applicable when the claim is fire and smoke in any spelling, a fire
- * assessment exists, or a walkthrough has already started. Once started
+ * Applicable when the inspection is not positively outside Victoria (the
+ * checklist is Victorian) AND the claim is fire and smoke in any spelling, a
+ * fire assessment exists, or a walkthrough has already started. Once started
  * it stays applicable whatever later routes write to claimType.
  */
 export async function isFireWalkthroughApplicable(
-  inspection: { id: string; claimType?: string | null },
+  inspection: FireInspection,
   loaded: LoadedFireWalkthrough,
   db: FireDb = prisma as unknown as FireDb,
 ): Promise<boolean> {
+  if (!walkthroughAppliesAtLocation(inspection)) return false;
   if (normalizeClaimType(inspection.claimType) === "FIRE_SMOKE") return true;
   if (loaded.observations.some((o) => FIRE_SECTION_OBSERVATION_TYPES.includes(o.type as never))) {
     return true;
@@ -116,14 +125,16 @@ export interface FireSubmitGateResult {
 }
 
 /**
- * Submit gate. Keys on "walkthrough started", never on claimType alone.
+ * Submit gate. Keys on "walkthrough started", never on claimType alone, and
+ * does not apply to an inspection outside Victoria (jurisdiction.ts).
  * Logs one line for every fire job, so a weekly review can see claims
  * submitted with no walkthrough at all.
  */
 export async function checkFireSubmitGate(
-  inspection: { id: string; claimType?: string | null },
+  inspection: FireInspection,
   db: FireDb = prisma as unknown as FireDb,
 ): Promise<FireSubmitGateResult> {
+  if (!walkthroughAppliesAtLocation(inspection)) return { blocked: false };
   const loaded = await loadFireWalkthrough(inspection.id, db);
   const { outcome, canSubmit } = evaluateFireGate(loaded.status);
   const isFireClaim = normalizeClaimType(inspection.claimType) === "FIRE_SMOKE";
@@ -169,7 +180,7 @@ class FireGateMovedError extends Error {
  */
 export async function claimSubmitWithFireGate(
   db: Pick<typeof prisma, "$transaction">,
-  inspection: { id: string; claimType?: string | null },
+  inspection: FireInspection,
   claim: (tx: Prisma.TransactionClient) => Promise<{ count: number }>,
 ): Promise<{ count: number; fireBlock?: FireSubmitGateResult }> {
   try {

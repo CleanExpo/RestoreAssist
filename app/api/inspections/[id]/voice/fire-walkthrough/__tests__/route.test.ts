@@ -15,6 +15,7 @@ const store = vi.hoisted(() => ({
   findManyWheres: [] as unknown[],
   clock: 0,
   inspectionStatus: "DRAFT" as string,
+  location: {} as { propertyCountry?: string; propertyPostcode?: string },
 }));
 const gate = vi.hoisted(() => ({ refuse: false, scopeLost: false }));
 /**
@@ -37,7 +38,7 @@ vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 vi.mock("@/lib/prisma", () => {
   const prisma = {
     inspection: {
-      findFirst: async () => ({ id: "insp-1", claimType: store.claimType, status: store.inspectionStatus }),
+      findFirst: async () => ({ id: "insp-1", claimType: store.claimType, status: store.inspectionStatus, ...store.location }),
     },
     voiceCopilotSession: {
       findFirst: async ({ where }: { where: { id: string } }) => store.sessions.get(where.id) ?? null,
@@ -170,6 +171,7 @@ beforeEach(() => {
   store.findManyWheres = [];
   store.clock = 0;
   store.inspectionStatus = "DRAFT";
+  store.location = {};
   gate.refuse = false;
   gate.scopeLost = false;
   idem.records = new Map();
@@ -179,6 +181,18 @@ beforeEach(() => {
   warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 afterEach(() => warn.mockRestore());
+
+describe("location", () => {
+  it.each([
+    ["Victoria", { propertyCountry: "AU", propertyPostcode: "3000" }, true],
+    ["New South Wales", { propertyCountry: "AU", propertyPostcode: "2000" }, false],
+    ["New Zealand", { propertyCountry: "NZ", propertyPostcode: "6011" }, false],
+    ["an unknown location (fails closed)", {}, true],
+  ])("GET applicable for %s is %s", async (_n, location, applicable) => {
+    store.location = location;
+    expect((await (await get()).json()).applicable).toBe(applicable);
+  });
+});
 
 describe("refusals", () => {
   it("401 without a login", async () => {
@@ -193,6 +207,16 @@ describe("refusals", () => {
     expect((await get()).status).toBe(404);
     expect((await ack()).status).toBe(404);
     expect(store.observations).toHaveLength(0);
+  });
+
+  it("404 on a replay of a stored answer once the caller has lost access to the job", async () => {
+    const body = { action: "acknowledge_notice", sessionId: "vs-1", spoken: true, recognitionMode: "cloud" };
+    const first = await post(body, "insp-1", "replay-key-1");
+    expect(first.status).toBe(200);
+    gate.refuse = true;
+    const replay = await post(body, "insp-1", "replay-key-1");
+    expect(replay.status).toBe(404);
+    expect(replay.headers.get("Idempotent-Replayed")).toBeNull();
   });
 
   it("404 when the scope is lost between check and write", async () => {
