@@ -17,6 +17,18 @@ const store = vi.hoisted(() => ({
   inspectionStatus: "DRAFT" as string,
 }));
 const gate = vi.hoisted(() => ({ refuse: false, scopeLost: false }));
+/**
+ * Idempotency store shaped like lib/idempotency: a key is reserved PENDING,
+ * then completed either inside the route's transaction (marked replies) or
+ * by the middleware after commit. postCommitCacheFails models that later
+ * write failing and the lease lapsing, which frees the key for a re-run.
+ */
+const idem = vi.hoisted(() => ({
+  records: new Map<string, { status: "PENDING" | "COMPLETE"; body?: string }>(),
+  postCommitCacheFails: false,
+  loseReservation: false,
+  seq: 0,
+}));
 const auth = vi.hoisted(() => ({ getServerSession: vi.fn() }));
 
 vi.mock("next-auth", () => auth);
@@ -67,13 +79,50 @@ vi.mock("@/lib/auth/assert-tenancy", async () => {
         : { ok: true, data: { inspectionManyWhere: { id: "insp-1" }, viaAssignment: true } },
     // Mirrors the real helper: the locked update matches only when every
     // field of the scope matches the row, status included.
-    writeWithinInspectionScope: async (s: { status?: string }, _d: unknown, work: (tx: unknown) => unknown) =>
-      gate.scopeLost || (s.status !== undefined && s.status !== store.inspectionStatus) ? null : work(prisma),
+    // A throw inside the work rolls the transaction back.
+    writeWithinInspectionScope: async (s: { status?: string }, _d: unknown, work: (tx: unknown) => unknown) => {
+      if (gate.scopeLost || (s.status !== undefined && s.status !== store.inspectionStatus)) return null;
+      const [obs, audit] = [store.observations.length, store.audit.length];
+      try {
+        return await work(prisma);
+      } catch (error) {
+        store.observations.length = obs;
+        store.audit.length = audit;
+        throw error;
+      }
+    },
   };
 });
 vi.mock("@/lib/idempotency", () => ({
-  withIdempotency: async (req: NextRequest, _u: string, handler: (raw: string) => Promise<Response>) =>
-    handler(await req.text()),
+  getIdempotencyKey: (req: NextRequest) => ({ ok: true, key: req.headers.get("Idempotency-Key") }),
+  completeIdempotentSuccessInTransaction: async ({ key, responseBody }: { key: string; responseBody: string }) => {
+    const record = idem.records.get(key);
+    if (idem.loseReservation || record?.status !== "PENDING") return false;
+    idem.records.set(key, { status: "COMPLETE", body: responseBody });
+    return true;
+  },
+  withIdempotency: async (
+    req: NextRequest,
+    _u: string,
+    handler: (raw: string) => Promise<Response>,
+    options: { successCompletedInHandler?: boolean | "when-marked" } = {},
+  ) => {
+    const key = req.headers.get("Idempotency-Key")!;
+    const record = idem.records.get(key);
+    if (record?.status === "COMPLETE") {
+      return new Response(record.body, { status: 200, headers: { "Idempotent-Replayed": "true" } });
+    }
+    if (record) return Response.json({ error: "in progress" }, { status: 409 });
+    idem.records.set(key, { status: "PENDING" });
+    const res = await handler(await req.text());
+    if (res.headers.get("X-RestoreAssist-Idempotency-Uncertain") === "true") return res;
+    const completedInTx = res.ok && options.successCompletedInHandler === "when-marked" &&
+      res.headers.get("X-RestoreAssist-Idempotency-Completed-In-Transaction") === "true";
+    if (completedInTx) return res;
+    if (res.status >= 500 || idem.postCommitCacheFails) idem.records.delete(key);
+    else idem.records.set(key, { status: "COMPLETE", body: await res.clone().text() });
+    return res;
+  },
 }));
 
 import { GET, POST } from "../route";
@@ -82,12 +131,13 @@ import { FIRE_SECTION_IDS } from "@/lib/voice/fire-smoke/checklist";
 const ctx = (id = "insp-1") => ({ params: Promise.resolve({ id }) });
 const url = (id = "insp-1") => `http://localhost/api/inspections/${id}/voice/fire-walkthrough`;
 
-function post(body: unknown, id = "insp-1") {
+/** Each call gets a fresh Idempotency-Key unless one is given; null sends none. */
+function post(body: unknown, id = "insp-1", key: string | null = `fire-test-key-${++idem.seq}`) {
   return POST(
     new NextRequest(url(id), {
       method: "POST",
       body: typeof body === "string" ? body : JSON.stringify(body),
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(key ? { "Idempotency-Key": key } : {}) },
     }),
     ctx(id),
   );
@@ -122,6 +172,9 @@ beforeEach(() => {
   store.inspectionStatus = "DRAFT";
   gate.refuse = false;
   gate.scopeLost = false;
+  idem.records = new Map();
+  idem.postCommitCacheFails = false;
+  idem.loseReservation = false;
   auth.getServerSession.mockResolvedValue({ user: { id: "tech-1" } });
   warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 });
@@ -346,6 +399,42 @@ describe("walkthrough", () => {
       type: { in: ["fire_notice_acknowledged", "fire_section_entry", "fire_section_na", "fire_walkthrough_signoff"] },
       session: { inspectionId: "insp-1" },
     });
+  });
+});
+
+describe("retry after a lost reply (K12)", () => {
+  const capture = { action: "file", sessionId: "vs-1", sectionId: "services", transcript: "Synthetic gas isolated", routedBy: "technician_chose" };
+
+  it("a retry with the same key replays the reply and writes nothing twice, even if the later cache write fails", async () => {
+    expect((await ack()).status).toBe(200);
+    idem.postCommitCacheFails = true;
+    const first = await post(capture, "insp-1", "fire-retry-key-0001");
+    expect(first.status).toBe(200);
+    const audit = store.audit.length;
+    const again = await post(capture, "insp-1", "fire-retry-key-0001");
+    expect(again.status).toBe(200);
+    expect(again.headers.get("Idempotent-Replayed")).toBe("true");
+    expect(await again.json()).toEqual(await first.json());
+    expect(store.observations.filter((o) => o.type === "fire_section_entry")).toHaveLength(1);
+    expect(store.audit).toHaveLength(audit);
+  });
+
+  it("if the key's reservation is gone at commit, nothing is written and the reply is unconfirmed", async () => {
+    expect((await ack()).status).toBe(200);
+    const rows = store.observations.length;
+    const audit = store.audit.length;
+    idem.loseReservation = true;
+    const res = await post(capture, "insp-1", "fire-retry-key-0002");
+    expect(res.status).toBe(409);
+    expect(res.headers.get("X-RestoreAssist-Idempotency-Uncertain")).toBe("true");
+    expect(store.observations).toHaveLength(rows);
+    expect(store.audit).toHaveLength(audit);
+  });
+
+  it("refuses an action without an Idempotency-Key", async () => {
+    const res = await post({ action: "acknowledge_notice", sessionId: "vs-1", spoken: true, recognitionMode: "cloud" }, "insp-1", null);
+    expect(res.status).toBe(400);
+    expect(store.observations).toHaveLength(0);
   });
 });
 

@@ -13,6 +13,9 @@
  * whose walkthrough has started but is not signed (lib/voice/fire-smoke/server.ts).
  *
  * The client sends one Idempotency-Key per capture and reuses it on retry.
+ * The key is required. A successful answer and its cached reply commit in
+ * ONE transaction, so a retry after a lost reply replays the reply and can
+ * never write the answer twice (K12: a retry must not repeat a committed write).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -23,7 +26,11 @@ import {
   assertInspectionAssignedWrite,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
-import { withIdempotency } from "@/lib/idempotency";
+import {
+  completeIdempotentSuccessInTransaction,
+  getIdempotencyKey,
+  withIdempotency,
+} from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   fireActionSchema,
@@ -40,6 +47,9 @@ import {
 import { nextStep, runFireAction, type FireActionDb } from "@/lib/voice/fire-smoke/actions";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+/** The idempotency reservation was gone when the answer tried to commit; the write rolled back. */
+class IdempotencyReservationLostError extends Error {}
 
 const notFound = (req: NextRequest) =>
   apiError(req, { code: "NOT_FOUND", message: "Inspection not found", status: 404 });
@@ -85,6 +95,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
   const userId = session.user.id;
   const { id } = await params;
+  const keyResult = getIdempotencyKey(req);
+  if (!keyResult.ok || !keyResult.key) {
+    return apiError(req, { code: "VALIDATION", message: "Valid Idempotency-Key required", status: 400 });
+  }
+  const key = keyResult.key;
 
   return withIdempotency(req, userId, async (rawBody) => {
     try {
@@ -118,7 +133,23 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       const result = await writeWithinInspectionScope(
         { ...tenancy.data.inspectionManyWhere, status: "DRAFT" },
         { updatedAt: new Date() },
-        (tx) => runFireAction(tx as unknown as FireActionDb, { inspectionId: id, userId }, action),
+        async (tx) => {
+          const outcome = await runFireAction(tx as unknown as FireActionDb, { inspectionId: id, userId }, action);
+          if (!outcome.ok) return { outcome, body: null };
+          const body: FireActionResponse = {
+            applicable: true,
+            status: outcome.status,
+            outcome: outcome.outcome,
+            ...nextStep(outcome.status),
+          };
+          // The reply is cached in the same transaction as the answer.
+          const completed = await completeIdempotentSuccessInTransaction({
+            tx, scope: userId, key, method: "POST", path: req.nextUrl.pathname, rawBody,
+            responseBody: JSON.stringify(body),
+          });
+          if (!completed) throw new IdempotencyReservationLostError();
+          return { outcome, body };
+        },
       );
       if (!result) {
         // Nothing was written. Only the message is chosen here: a job that
@@ -133,17 +164,21 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         }
         return notFound(req);
       }
-      if (!result.ok) return NextResponse.json(result.body, { status: result.httpStatus });
-
-      const body: FireActionResponse = {
-        applicable: true,
-        status: result.status,
-        outcome: result.outcome,
-        ...nextStep(result.status),
-      };
-      return NextResponse.json(body);
+      if (!result.outcome.ok) return NextResponse.json(result.outcome.body, { status: result.outcome.httpStatus });
+      return NextResponse.json(result.body, {
+        headers: { "X-RestoreAssist-Idempotency-Completed-In-Transaction": "true" },
+      });
     } catch (error) {
+      if (error instanceof IdempotencyReservationLostError) {
+        // Nothing was written. Keep the reservation so a retry waits for it
+        // to lapse, then runs once.
+        const response = apiError(req, {
+          code: "CONFLICT", message: "The answer could not be confirmed. Try again.", status: 409,
+        });
+        response.headers.set("X-RestoreAssist-Idempotency-Uncertain", "true");
+        return response;
+      }
       return fromException(req, error, { stage: "fire-walkthrough-action" });
     }
-  });
+  }, { successCompletedInHandler: "when-marked" });
 }
