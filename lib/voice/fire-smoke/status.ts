@@ -36,12 +36,17 @@ interface SectionTally {
 function tallySections(
   sectionIds: readonly string[],
   ordered: FireObservationRow[],
-): { tallies: Map<string, SectionTally>; newestSectionAt: number } {
+): {
+  tallies: Map<string, SectionTally>;
+  newestSectionAt: number;
+  sectionRowIds: string[];
+} {
   const known = new Set(sectionIds);
   const tallies = new Map<string, SectionTally>(
     sectionIds.map((id) => [id, { state: "todo", entryCount: 0 }]),
   );
   let newestSectionAt = 0;
+  const sectionRowIds: string[] = [];
   for (const row of ordered) {
     if (row.type === FIRE_OBSERVATION_TYPES.entry) {
       const parsed = entryParsedSchema.safeParse(row.parsed);
@@ -51,6 +56,7 @@ function tallySections(
       tally.entryCount += 1;
       tally.naReason = undefined;
       newestSectionAt = Math.max(newestSectionAt, toMillis(row.createdAt));
+      sectionRowIds.push(row.id);
     } else if (row.type === FIRE_OBSERVATION_TYPES.na) {
       const parsed = naParsedSchema.safeParse(row.parsed);
       if (!parsed.success || !known.has(parsed.data.sectionId)) continue;
@@ -58,9 +64,10 @@ function tallySections(
       tally.state = "na";
       tally.naReason = parsed.data.reason;
       newestSectionAt = Math.max(newestSectionAt, toMillis(row.createdAt));
+      sectionRowIds.push(row.id);
     }
   }
-  return { tallies, newestSectionAt };
+  return { tallies, newestSectionAt, sectionRowIds };
 }
 
 function latestSignoff(ordered: FireObservationRow[]) {
@@ -78,7 +85,10 @@ export function computeWalkthroughStatus(
   observations: readonly FireObservationRow[],
 ): WalkthroughStatus {
   const ordered = [...observations].sort(byCreatedAt);
-  const { tallies, newestSectionAt } = tallySections(sectionIds, ordered);
+  const { tallies, newestSectionAt, sectionRowIds } = tallySections(
+    sectionIds,
+    ordered,
+  );
   const sections: SectionStatus[] = sectionIds.map((sectionId) => ({
     sectionId,
     ...tallies.get(sectionId)!,
@@ -96,8 +106,11 @@ export function computeWalkthroughStatus(
   const signed = latestSignoff(ordered);
   let signoff: WalkthroughStatus["signoff"] = { state: "unsigned" };
   if (signed) {
-    const covers = toMillis(signed.parsed.coversThrough);
-    const stillCovers = started && covers >= newestSectionAt;
+    // Set membership, not timestamps: two rows written in the same
+    // millisecond must not let a later edit hide behind the sign-off.
+    const covered = new Set(signed.parsed.coveredRowIds);
+    const stillCovers =
+      started && sectionRowIds.every((rowId) => covered.has(rowId));
     signoff = {
       state: stillCovers ? "signed" : "changed",
       signedAt: new Date(toMillis(signed.row.createdAt)).toISOString(),
@@ -113,6 +126,15 @@ export function computeWalkthroughStatus(
     canSignOff: sectionIds.length > 0 && openSectionIds.length === 0,
     signoff,
   };
+}
+
+/** Ids of every valid section row: what a new sign-off covers. */
+export function sectionObservationIds(
+  sectionIds: readonly string[],
+  observations: readonly FireObservationRow[],
+): string[] {
+  return tallySections(sectionIds, [...observations].sort(byCreatedAt))
+    .sectionRowIds;
 }
 
 /** The newest section observation time, as ISO, for a sign-off's coversThrough. */

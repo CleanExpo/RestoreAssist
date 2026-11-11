@@ -46,7 +46,7 @@ describe("checkFireSubmitGate", () => {
     const rows = allFilled();
     const result = await checkFireSubmitGate(
       { id: "insp-1", claimType },
-      dbWith([...rows, signoff(lastAt(rows)), entry("contents")]),
+      dbWith([...rows, signoff(rows), entry("contents")]),
     );
     expect(result.blocked).toBe(true);
     expect(result.body?.code).toBe("CHANGED_AFTER_SIGNOFF");
@@ -62,7 +62,7 @@ describe("checkFireSubmitGate", () => {
     const rows = allFilled();
     const result = await checkFireSubmitGate(
       { id: "insp-1", claimType: "HVAC" },
-      dbWith([...rows, signoff(lastAt(rows))], ["s1", "s2"]),
+      dbWith([...rows, signoff(rows)], ["s1", "s2"]),
     );
     expect(result.blocked).toBe(false);
     expect(warn).toHaveBeenCalledWith(

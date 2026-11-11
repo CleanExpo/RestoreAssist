@@ -70,21 +70,30 @@ describe("computeWalkthroughStatus", () => {
 
   it("signed when the sign-off covers the newest section observation", () => {
     const rows = allFilled();
-    const s = status([...rows, signoff(lastAt(rows))]);
+    const s = status([...rows, signoff(rows)]);
     expect(s.signoff.state).toBe("signed");
     expect(s.signoff.typedName).toBe("Sam Example");
   });
 
   it("a section change after sign-off makes it Changed (unsigned)", () => {
     const rows = allFilled();
-    const s = status([...rows, signoff(lastAt(rows)), entry("contents", "Found more items")]);
+    const s = status([...rows, signoff(rows), entry("contents", "Found more items")]);
     expect(s.signoff.state).toBe("changed");
   });
 
   it("a sign-off whose coversThrough is older than the newest section is Changed", () => {
     const rows = allFilled();
-    const s = status([...rows, signoff(rows[0].createdAt as Date)]);
+    const s = status([...rows, signoff(rows.slice(0, 1))]);
     expect(s.signoff.state).toBe("changed");
+  });
+
+  it("an uncovered edit stamped with the covered time (coversThrough) is Changed", () => {
+    const rows = allFilled();
+    const signed = signoff(rows);
+    // Same millisecond as the newest covered row, which is coversThrough.
+    const late = { ...entry("contents", "Found more items"), createdAt: lastAt(rows) };
+    expect(status([...rows, signed, late]).signoff.state).toBe("changed");
+    expect(status([...rows, late, signed]).signoff.state).toBe("changed");
   });
 
   it("newestSectionObservationAt ignores notice and sign-off rows", () => {

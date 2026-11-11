@@ -8,7 +8,12 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { FIRE_CHECKLIST, getFireSection, isFireSectionId } from "./checklist";
+import {
+  FIRE_CHECKLIST,
+  FIRE_SECTION_IDS,
+  getFireSection,
+  isFireSectionId,
+} from "./checklist";
 import { FIRE_COPY } from "./copy";
 import { clarifyingQuestion, routeUtterance } from "./router";
 import {
@@ -26,7 +31,7 @@ import {
   type WalkthroughStatus,
 } from "./schema";
 import { loadFireWalkthrough, type FireDb } from "./server";
-import { newestSectionObservationAt } from "./status";
+import { newestSectionObservationAt, sectionObservationIds } from "./status";
 
 export interface FireActionDb extends FireDb {
   voiceCopilotObservation: FireDb["voiceCopilotObservation"] & {
@@ -214,6 +219,7 @@ async function signOff(
     declarationAccepted: action.declarationAccepted,
     signerUserId: ctx.userId,
     coversThrough: newestSectionObservationAt(observations)!,
+    coveredRowIds: sectionObservationIds(FIRE_SECTION_IDS, observations),
     sectionStates,
   });
   await write(db, action.sessionId, FIRE_OBSERVATION_TYPES.signoff, FIRE_COPY.signoffDeclaration, parsed);

@@ -69,6 +69,8 @@ export const signoffParsedSchema = z.object({
   declarationAccepted: z.literal(true),
   signerUserId: z.string().min(1),
   coversThrough: z.string().min(1),
+  /** Ids of every section row this sign-off covers; any other row means Changed. */
+  coveredRowIds: z.array(z.string().min(1)).min(1),
   sectionStates: z.record(z.string(), sectionStateSchema),
 });
 
@@ -79,6 +81,7 @@ export type SignoffParsed = z.infer<typeof signoffParsedSchema>;
 
 /** A stored observation as the status function sees it. */
 export interface FireObservationRow {
+  id: string;
   type: string;
   parsed: unknown;
   createdAt: Date | string;

@@ -45,9 +45,10 @@ export async function loadFireWalkthrough(
       session: { inspectionId },
     },
     orderBy: { createdAt: "asc" },
-    select: { type: true, parsed: true, createdAt: true, sessionId: true },
+    select: { id: true, type: true, parsed: true, createdAt: true, sessionId: true },
   })) as Array<FireObservationRow & { sessionId: string }>;
-  const observations = rows.map(({ type, parsed, createdAt }) => ({
+  const observations = rows.map(({ id, type, parsed, createdAt }) => ({
+    id,
     type,
     parsed,
     createdAt,

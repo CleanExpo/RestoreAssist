@@ -2,8 +2,14 @@ import { FIRE_CHECKLIST_VERSION, FIRE_OBSERVATION_TYPES, type FireObservationRow
 import { FIRE_SECTION_IDS } from "../checklist";
 
 let clock = Date.parse("2026-11-11T09:00:00Z");
+let seq = 0;
 export function resetClock(): void {
   clock = Date.parse("2026-11-11T09:00:00Z");
+  seq = 0;
+}
+function nextId(): string {
+  seq += 1;
+  return `obs-${seq}`;
 }
 function tick(): Date {
   clock += 60_000;
@@ -12,6 +18,7 @@ function tick(): Date {
 
 export function entry(sectionId: string, note = "Synthetic note for testing"): FireObservationRow {
   return {
+    id: nextId(),
     type: FIRE_OBSERVATION_TYPES.entry,
     parsed: { checklistVersion: FIRE_CHECKLIST_VERSION, sectionId, note, routedBy: "router" },
     createdAt: tick(),
@@ -20,6 +27,7 @@ export function entry(sectionId: string, note = "Synthetic note for testing"): F
 
 export function na(sectionId: string, reason = "No gas connected to this property"): FireObservationRow {
   return {
+    id: nextId(),
     type: FIRE_OBSERVATION_TYPES.na,
     parsed: { checklistVersion: FIRE_CHECKLIST_VERSION, sectionId, reason, failedAttemptsBefore: 0 },
     createdAt: tick(),
@@ -28,6 +36,7 @@ export function na(sectionId: string, reason = "No gas connected to this propert
 
 export function notice(): FireObservationRow {
   return {
+    id: nextId(),
     type: FIRE_OBSERVATION_TYPES.notice,
     parsed: {
       checklistVersion: FIRE_CHECKLIST_VERSION,
@@ -39,9 +48,11 @@ export function notice(): FireObservationRow {
   };
 }
 
-export function signoff(coversThrough: Date | string): FireObservationRow {
-  const at = typeof coversThrough === "string" ? coversThrough : coversThrough.toISOString();
+/** A sign-off covering exactly the given section rows. */
+export function signoff(covered: FireObservationRow[]): FireObservationRow {
+  const at = lastAt(covered).toISOString();
   return {
+    id: nextId(),
     type: FIRE_OBSERVATION_TYPES.signoff,
     parsed: {
       checklistVersion: FIRE_CHECKLIST_VERSION,
@@ -49,6 +60,7 @@ export function signoff(coversThrough: Date | string): FireObservationRow {
       declarationAccepted: true,
       signerUserId: "user-tech-1",
       coversThrough: at,
+      coveredRowIds: covered.map((row) => row.id),
       sectionStates: {},
     },
     createdAt: tick(),

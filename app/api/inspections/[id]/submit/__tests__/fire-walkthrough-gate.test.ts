@@ -174,14 +174,17 @@ import { FIRE_SECTION_IDS } from "@/lib/voice/fire-smoke/checklist";
 
 const v = 1;
 let t = Date.parse("2026-11-11T09:00:00Z");
+let seq = 0;
 const at = () => new Date((t += 60_000));
-const entry = (sectionId: string) => ({
+const entry = (sectionId: string, createdAt: Date = at()) => ({
+  id: `obs-${(seq += 1)}`,
   sessionId: "vs-1",
   type: "fire_section_entry",
   parsed: { checklistVersion: v, sectionId, note: "Synthetic note", routedBy: "router" },
-  createdAt: at(),
+  createdAt,
 });
-const signoff = (coversThrough: Date) => ({
+const signoff = (covered: Array<{ id: string; createdAt: Date }>, createdAt: Date = at()) => ({
+  id: `obs-${(seq += 1)}`,
   sessionId: "vs-1",
   type: "fire_walkthrough_signoff",
   parsed: {
@@ -189,10 +192,11 @@ const signoff = (coversThrough: Date) => ({
     typedName: "Sam Example",
     declarationAccepted: true,
     signerUserId: "user-1",
-    coversThrough: coversThrough.toISOString(),
+    coversThrough: covered[covered.length - 1].createdAt.toISOString(),
+    coveredRowIds: covered.map((row) => row.id),
     sectionStates: {},
   },
-  createdAt: at(),
+  createdAt,
 });
 const passingMakeSafe = ALL_ACTIONS.map((action) => ({
   action,
@@ -228,11 +232,26 @@ describe("submit route — fire and smoke walkthrough gate", () => {
     expect(body.code).toBe("SECTIONS_OPEN");
     expect(body.openSectionIds).toContain("safety_brief");
     expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
+    // A refusal writes nothing: the gate runs before every submit side effect.
+    expect(mockPilotCreate).not.toHaveBeenCalled();
+    expect(mockMakeSafeFindMany).not.toHaveBeenCalled();
   });
 
   it("refuses a walkthrough changed after sign-off", async () => {
-    const rows = FIRE_SECTION_IDS.map(entry);
-    mockFireObsFindMany.mockResolvedValue([...rows, signoff(rows[rows.length - 1].createdAt), entry("contents")]);
+    const rows = FIRE_SECTION_IDS.map((id) => entry(id));
+    mockFireObsFindMany.mockResolvedValue([...rows, signoff(rows), entry("contents")]);
+    const { POST } = await import("../route");
+    const res = await POST(makeSubmitRequest(), params);
+    expect(res.status).toBe(422);
+    expect((await res.json()).code).toBe("CHANGED_AFTER_SIGNOFF");
+    expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses an uncovered edit stamped with the coversThrough millisecond", async () => {
+    const rows = FIRE_SECTION_IDS.map((id) => entry(id));
+    // The edit carries the same millisecond as coversThrough (the newest covered row).
+    const tie = rows[rows.length - 1].createdAt;
+    mockFireObsFindMany.mockResolvedValue([...rows, signoff(rows), entry("contents", tie)]);
     const { POST } = await import("../route");
     const res = await POST(makeSubmitRequest(), params);
     expect(res.status).toBe(422);
@@ -241,8 +260,8 @@ describe("submit route — fire and smoke walkthrough gate", () => {
   });
 
   it("lets a signed walkthrough through", async () => {
-    const rows = FIRE_SECTION_IDS.map(entry);
-    mockFireObsFindMany.mockResolvedValue([...rows, signoff(rows[rows.length - 1].createdAt)]);
+    const rows = FIRE_SECTION_IDS.map((id) => entry(id));
+    mockFireObsFindMany.mockResolvedValue([...rows, signoff(rows)]);
     const { POST } = await import("../route");
     const res = await POST(makeSubmitRequest(), params);
     expect(res.status).toBe(200);

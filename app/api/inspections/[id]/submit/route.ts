@@ -216,6 +216,19 @@ export async function POST(
         );
       }
 
+      // ── Fire and smoke Voice Copilot walkthrough gate ─────────────────────────
+      // A walkthrough that has started must be complete and signed by the
+      // technician. Keyed on the walkthrough, not claimType, which later
+      // assessment routes overwrite (lib/voice/fire-smoke/server.ts).
+      // Runs before every write below, so a refusal leaves no side effects.
+      const fireGate = await checkFireSubmitGate({
+        id,
+        claimType: inspection.claimType,
+      });
+      if (fireGate.blocked) {
+        return NextResponse.json(fireGate.body, { status: fireGate.status });
+      }
+
       // ── CLAIM-003 auto-detection ────────────────────────────────────────────
       // If the inspection was previously processed (status != DRAFT), this submission
       // represents a re-inspection event. Record it automatically so no admin action
@@ -264,18 +277,6 @@ export async function POST(
           },
           { status: 422 },
         );
-      }
-
-      // ── Fire and smoke Voice Copilot walkthrough gate ─────────────────────────
-      // A walkthrough that has started must be complete and signed by the
-      // technician. Keyed on the walkthrough, not claimType, which later
-      // assessment routes overwrite (lib/voice/fire-smoke/server.ts).
-      const fireGate = await checkFireSubmitGate({
-        id,
-        claimType: inspection.claimType,
-      });
-      if (fireGate.blocked) {
-        return NextResponse.json(fireGate.body, { status: fireGate.status });
       }
 
       // ── RA-1136b: Scope Variation compliance gate ──────────────────────────────
