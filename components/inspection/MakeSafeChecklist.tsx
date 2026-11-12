@@ -58,7 +58,11 @@ function listFrom(names: unknown): ActionList {
   if (
     Array.isArray(names) &&
     names.length > 0 &&
-    names.every((n) => typeof n === "string" && n in ACTION_LABELS)
+    names.every(
+      (n) =>
+        typeof n === "string" &&
+        Object.prototype.hasOwnProperty.call(ACTION_LABELS, n),
+    )
   ) {
     return names as MakeSafeActionName[];
   }
