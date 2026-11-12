@@ -52,6 +52,9 @@ export interface SidecarSource {
   panel: () => SidecarPanel | null | undefined;
   /** True when the form holds data for this part (for example a Quick Fill seed). */
   hasPendingData: () => boolean;
+  /** Whether the panel was on screen when Save Draft was pressed. A panel the
+   *  technician could see may hold edits nobody can confirm until it loads. */
+  wasOnScreen: boolean;
 }
 
 /**
@@ -65,8 +68,9 @@ export function sidecarPart(label: string, source: SidecarSource): DraftSavePart
     run: async () => {
       const panel = source.panel();
       if (panel && panel.isReady()) return panel.persist();
-      // No panel, or a panel still loading: it has nothing of the user's yet.
-      if (!source.hasPendingData()) return;
+      // Skip only what the technician could not have touched: no panel on
+      // screen at the press and no pending data (review round 5).
+      if (!source.wasOnScreen && !source.hasPendingData()) return;
       // Never write data the panel has not confirmed against the saved
       // record (RA-8330 review round 4): name the part instead.
       throw new Error(`${label} is not ready yet; press Save Draft again`);

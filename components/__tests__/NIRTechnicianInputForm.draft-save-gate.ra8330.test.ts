@@ -89,7 +89,7 @@ describe("Save Draft button", () => {
 describe("sidecarPart (review round 1)", () => {
   it("does not count a part with unsaved data and no panel as saved", async () => {
     const result = await saveDraftParts([
-      sidecarPart("claim assessment", { panel: () => null, hasPendingData: () => true }),
+      sidecarPart("claim assessment", { panel: () => null, hasPendingData: () => true, wasOnScreen: false }),
     ]);
     expect(result.ok).toBe(false);
     expect(result.failures[0].label).toBe("claim assessment");
@@ -97,7 +97,7 @@ describe("sidecarPart (review round 1)", () => {
 
   it("never writes pending data without a ready panel; names the part instead", async () => {
     const result = await saveDraftParts([
-      sidecarPart("make-safe checklist", { panel: () => null, hasPendingData: () => true }),
+      sidecarPart("make-safe checklist", { panel: () => null, hasPendingData: () => true, wasOnScreen: false }),
     ]);
     expect(result.ok).toBe(false);
     expect(result.failures[0].label).toBe("make-safe checklist");
@@ -109,6 +109,7 @@ describe("sidecarPart (review round 1)", () => {
     const part = sidecarPart("claim assessment", {
       panel: () => panel,
       hasPendingData: () => true,
+      wasOnScreen: false,
     });
     panel = {
       isReady: () => true,
@@ -123,7 +124,7 @@ describe("sidecarPart (review round 1)", () => {
 
   it("skips a part with no panel and nothing to save", async () => {
     const result = await saveDraftParts([
-      sidecarPart("claim assessment", { panel: () => null, hasPendingData: () => false }),
+      sidecarPart("claim assessment", { panel: () => null, hasPendingData: () => false, wasOnScreen: false }),
     ]);
     expect(result).toEqual({ ok: true, failures: [] });
   });
@@ -190,6 +191,7 @@ describe("a panel still loading is never saved through (review round 3)", () => 
           },
         }),
         hasPendingData: () => true,
+        wasOnScreen: false,
       }),
     ]);
     expect(result.ok).toBe(false);
@@ -201,6 +203,7 @@ describe("a panel still loading is never saved through (review round 3)", () => 
       sidecarPart("claim assessment", {
         panel: () => ({ isReady: () => false, persist: async () => {} }),
         hasPendingData: () => true,
+        wasOnScreen: false,
       }),
     ]);
     expect(result.ok).toBe(false);
@@ -239,5 +242,39 @@ describe("only confirmed, current data is ever written (review round 4)", () => 
     const src = readSource("components/inspection/NIRClaimAssessmentPanel.tsx");
     expect(src).toMatch(/if \(!isCurrent\(\)\) return;/);
     expect(src).toMatch(/if \(request !== complianceRequestRef\.current\) return;/);
+  });
+});
+
+describe("a panel the technician could see is never skipped (review round 5)", () => {
+  it("names a loading panel that was on screen even with no template", async () => {
+    const result = await saveDraftParts([
+      sidecarPart("claim assessment", {
+        panel: () => ({ isReady: () => false, persist: async () => {} }),
+        hasPendingData: () => false,
+        wasOnScreen: true,
+      }),
+    ]);
+    expect(result.ok).toBe(false);
+    expect(result.failures[0].label).toBe("claim assessment");
+  });
+
+  it("skips a panel that mounted during this save with nothing pending", async () => {
+    const result = await saveDraftParts([
+      sidecarPart("claim assessment", {
+        panel: () => ({ isReady: () => false, persist: async () => {} }),
+        hasPendingData: () => false,
+        wasOnScreen: false,
+      }),
+    ]);
+    expect(result).toEqual({ ok: true, failures: [] });
+  });
+
+  it("the button records which panels were on screen before anything else runs", () => {
+    const handler = saveDraftHandler();
+    const onScreen = handler.indexOf("const claimPanelWasOnScreen = claimAssessmentRef.current != null");
+    expect(onScreen).toBeGreaterThan(-1);
+    expect(onScreen).toBeLessThan(handler.indexOf("ensureInspectionExists("));
+    expect(handler).toContain("wasOnScreen: makeSafeWasOnScreen");
+    expect(handler).toContain("wasOnScreen: claimPanelWasOnScreen");
   });
 });

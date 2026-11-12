@@ -4404,6 +4404,9 @@ export default function NIRTechnicianInputForm({
             // Save draft (auto-create inspection and save data without requiring photos).
             // RA-8330: trackDraftSave owns the badge outcome; only `return true`
             // counts as saved, every other exit reports a failed save.
+            // Which side panels the technician could see at the press.
+            const makeSafeWasOnScreen = makeSafeChecklistRef.current != null;
+            const claimPanelWasOnScreen = claimAssessmentRef.current != null;
             try {
               setSaving(true);
               if (!claimType) {
@@ -4443,11 +4446,13 @@ export default function NIRTechnicianInputForm({
                   sidecarPart("make-safe checklist", {
                     panel: () => makeSafeChecklistRef.current,
                     hasPendingData: () => makeSafeSeed !== null,
+                    wasOnScreen: makeSafeWasOnScreen,
                   }),
                   sidecarPart("claim assessment", {
                     panel: () => claimAssessmentRef.current,
                     hasPendingData: () =>
                       Boolean(claimAssessmentSeed || complianceAssessmentSeed),
+                    wasOnScreen: claimPanelWasOnScreen,
                   }),
                 ];
                 if (floorPlanImageUrl) {
