@@ -18,7 +18,14 @@
  *   Rates    — as per NRPG_RATE_RANGES units ($/hr, $/day, $/m², $)
  */
 
-import { requireRate } from "@/lib/pricing/rate-not-set";
+import {
+  blockedPricing,
+  blockedRates,
+  TOTAL_NOT_AVAILABLE_NOTE,
+  type BlockedLineFields,
+  type BlockedPricing,
+  type BlockedRate,
+} from "@/lib/pricing/blocked-line";
 import { prisma } from "@/lib/prisma";
 import {
   resolveEffectivePricing,
@@ -61,6 +68,19 @@ export interface CostEstimateItem {
   warning?: "NO_RATE_CONFIGURED";
 }
 
+/**
+ * RA-8281 (B2): a line whose price-list rate the contractor has not set. It
+ * is shown with "Rate not set" and the national range when one exists. It has
+ * no rate and no amount, and it blocks the estimate's total.
+ */
+export interface BlockedCostEstimateItem
+  extends Omit<CostEstimateItem, "rate" | "subtotal" | "rateSource" | "warning">,
+    BlockedLineFields {
+  rate: null;
+  subtotal: null;
+  rateSource: "none";
+}
+
 /** Description prefix on a line whose item type has no configured rate. */
 export const NO_RATE_PREFIX = "No rate configured";
 
@@ -92,6 +112,61 @@ export interface CostEstimateResult {
   nrpgViolations: NRPGViolation[];
   /** Where rates were sourced from for this estimate */
   pricingSource: "company-config" | "nrpg-midpoint" | "mixed";
+}
+
+/**
+ * RA-8281 (B2): an estimate with at least one line whose rate is not set.
+ * Every line is listed; the blocked ones carry no rate and no amount, and no
+ * subtotal, contingency or total is given. It is never saved.
+ */
+export interface BlockedCostEstimate {
+  status: "blocked";
+  items: Array<CostEstimateItem | BlockedCostEstimateItem>;
+  subtotal: null;
+  contingency: null;
+  total: null;
+  totalNote: typeof TOTAL_NOT_AVAILABLE_NOTE;
+  /** Every unset price-list field a line needed, once each. */
+  missing: BlockedRate[];
+  currency: "AUD";
+}
+
+/** True for a line the contractor's price list cannot price yet. */
+export function isBlockedEstimateItem(
+  item: CostEstimateItem | BlockedCostEstimateItem,
+): item is BlockedCostEstimateItem {
+  return item.rate === null;
+}
+
+/** A blocked estimate in the shared blocked-pricing shape every screen shows. */
+export function blockedEstimatePricing(
+  estimate: BlockedCostEstimate,
+): BlockedPricing {
+  return blockedPricing(
+    estimate.items.map((item) =>
+      isBlockedEstimateItem(item)
+        ? {
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            rate: null,
+            subtotal: null,
+            pricingStatus: item.pricingStatus,
+            rateField: item.rateField,
+            pricingNote: item.pricingNote,
+            nationalRange: item.nationalRange,
+          }
+        : {
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            rate: item.rate,
+            subtotal: item.subtotal,
+            pricingStatus: "priced" as const,
+          },
+    ),
+    estimate.missing,
+  );
 }
 
 /** Subset of CompanyPricingConfig fields used by the estimation engine */
@@ -326,7 +401,7 @@ export async function estimateCosts(
   region?: string | null,
   pricingRates?: CompanyPricingRates | null,
   userId?: string | null,
-): Promise<CostEstimateResult> {
+): Promise<CostEstimateResult | BlockedCostEstimate> {
   // ── Load company pricing config ──────────────────────────────────────────
   let rates: CompanyPricingRates | null = pricingRates ?? null;
 
@@ -338,14 +413,15 @@ export async function estimateCosts(
 
   // ── Build estimate items ──────────────────────────────────────────────────
   // Every scope item yields a line; unknown types get a $0 warning line.
-  const items: CostEstimateItem[] = [];
+  const built: Array<CostEstimateItem | BlockedCostEstimateItem> = [];
   // Scope items that were actually priced, with their catalog item type.
   const pricedScopeItems: ScopeItemInput[] = [];
   const unpricedTypes: string[] = [];
 
   for (const scopeItem of scopeItems) {
     const item = buildEstimateItem(scopeItem, rates, pricingSourceTracker);
-    items.push(item);
+    built.push(item);
+    if (isBlockedEstimateItem(item)) continue;
     if (item.warning) {
       unpricedTypes.push(scopeItem.itemType);
     } else {
@@ -362,6 +438,33 @@ export async function estimateCosts(
       unpricedTypes,
     );
   }
+
+  // RA-8281 (B2): one blocked line blocks the whole estimate. No subtotal,
+  // contingency or total is worked out from the lines that could be priced.
+  const blockedItems = built.filter(isBlockedEstimateItem);
+  if (blockedItems.length > 0) {
+    const missing = new Map<string, BlockedRate>();
+    for (const b of blockedItems) {
+      if (!missing.has(b.rateField)) {
+        missing.set(b.rateField, {
+          field: b.rateField,
+          note: b.pricingNote,
+          nationalRange: b.nationalRange,
+        });
+      }
+    }
+    return {
+      status: "blocked",
+      items: built,
+      subtotal: null,
+      contingency: null,
+      total: null,
+      totalNote: TOTAL_NOT_AVAILABLE_NOTE,
+      missing: [...missing.values()],
+      currency: "AUD",
+    };
+  }
+  const items = built as CostEstimateItem[];
 
   // ── Aggregate ─────────────────────────────────────────────────────────────
   const subtotalDec = items.reduce(
@@ -435,7 +538,7 @@ function buildEstimateItem(
   scopeItem: ScopeItemInput,
   rates: CompanyPricingRates | null,
   pricingSourceTracker: Set<"company-config" | "nrpg-midpoint">,
-): CostEstimateItem {
+): CostEstimateItem | BlockedCostEstimateItem {
   const config =
     SCOPE_ITEM_NRPG_CONFIG[resolveScopeItemType(scopeItem.itemType)];
 
@@ -469,8 +572,30 @@ function buildEstimateItem(
 
   if (rates && config.nrpgField) {
     // RA-8281: the contractor has a price list, so their own rate is the only
-    // rate. An unset rate is never replaced by an NRPG midpoint or $0.
-    rate = requireRate(rates, config.nrpgField);
+    // rate. An unset rate is never replaced by an NRPG midpoint or $0: the
+    // line is shown blocked (B2), with the national range for reference.
+    const [unset] = blockedRates(rates, [config.nrpgField]);
+    if (unset) {
+      return {
+        category: config.category,
+        description:
+          scopeItem.description || getDefaultDescription(scopeItem.itemType),
+        quantity: resolveQuantity(scopeItem, config),
+        unit: config.unit,
+        rate: null,
+        subtotal: null,
+        nrpgField: config.nrpgField,
+        nrpgCompliant: true,
+        nrpgRange: unset.nationalRange,
+        rateSource: "none",
+        isEstimated: true,
+        pricingStatus: "rate_not_set",
+        rateField: unset.field,
+        pricingNote: unset.note,
+        nationalRange: unset.nationalRange,
+      };
+    }
+    rate = rates[config.nrpgField] as number;
     rateSource = "company-config";
   } else {
     rate = config.defaultRate;

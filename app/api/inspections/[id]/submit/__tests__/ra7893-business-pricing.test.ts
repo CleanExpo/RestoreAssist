@@ -247,6 +247,53 @@ describe("submit route — RA-7893 business pricing", () => {
     expect(statusesWritten()).not.toContain("ESTIMATED");
   });
 
+  // RA-8281 (B2): a blocked estimate (a price-list rate is not set) is not
+  // saved. The inspection stays SCOPED and the linked report is not synced.
+  it("saves nothing and stays SCOPED when the estimate is blocked by an unset rate", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("{}"));
+    mockInspectionFindUnique.mockResolvedValue({
+      ...inspection,
+      reportId: "report-1",
+    });
+    mockResolveInspectionRates.mockResolvedValue({
+      ok: true,
+      rates: { callOutFee: null },
+    });
+    mockEstimateCosts.mockResolvedValue({
+      status: "blocked",
+      items: [
+        {
+          description: "Call-out",
+          quantity: 1,
+          rate: null,
+          subtotal: null,
+          pricingStatus: "rate_not_set",
+          rateField: "callOutFee",
+        },
+      ],
+      subtotal: null,
+      contingency: null,
+      total: null,
+      totalNote: "Total not available: rate not set",
+      missing: [{ field: "callOutFee", note: "Rate not set.", nationalRange: null }],
+      currency: "AUD",
+    });
+    const { POST } = await import("../route");
+    const res = await POST(submit(), params);
+    expect(res.status).toBe(200);
+
+    expect(mockEstimateCosts).toHaveBeenCalledTimes(1);
+    expect(mockCostEstimateCreateMany).not.toHaveBeenCalled();
+    expect(statusesWritten()).toContain("SCOPED");
+    expect(statusesWritten()).not.toContain("ESTIMATED");
+    expect(
+      fetchSpy.mock.calls.filter(([url]) => String(url).includes("nir-sync")),
+    ).toHaveLength(0);
+    fetchSpy.mockRestore();
+  });
+
   describe("linked report sync", () => {
     const syncCalls = (spy: ReturnType<typeof vi.spyOn>) =>
       spy.mock.calls.filter(([url]) => String(url).includes("nir-sync"));

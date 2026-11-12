@@ -1,4 +1,3 @@
-import { RateNotSetError } from "@/lib/pricing/rate-not-set";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -17,6 +16,7 @@ import {
   estimateCosts,
   resolveInspectionRates,
 } from "@/lib/nir-cost-estimation";
+import { isBlockedResult } from "@/lib/pricing/blocked-line";
 import { buildEstimateLines } from "@/lib/estimate-lines";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
@@ -696,22 +696,23 @@ async function processInspectionComplete(
     );
     return { pricingRefused: true as const };
   }
-  let costEstimate: Awaited<ReturnType<typeof estimateCosts>>;
-  try {
-    costEstimate = await estimateCosts(
-      scopeItems,
-      buildingCodeRequirements?.state,
-      pricing.rates,
-      null,
+  const costEstimate = await estimateCosts(
+    scopeItems,
+    buildingCodeRequirements?.state,
+    pricing.rates,
+    null,
+  );
+  // RA-8281 (B2): a line whose price-list rate is not set blocks the
+  // estimate. Nothing is saved, so the inspection stays SCOPED, the same as
+  // unproven pricing. The blocked lines are shown when the contractor
+  // generates the estimate from the inspection page. Never estimated at $0.
+  if (isBlockedResult(costEstimate)) {
+    console.warn(
+      `[submit] ${inspectionId}: ${costEstimate.totalNote} (${costEstimate.missing
+        .map((m) => m.field)
+        .join(", ")})`,
     );
-  } catch (err) {
-    // RA-8281: an unset price-list rate leaves the inspection SCOPED with no
-    // estimate, the same as unproven pricing; it is never estimated at $0.
-    if (err instanceof RateNotSetError) {
-      console.warn(`[submit] ${inspectionId}: ${err.message}`);
-      return { pricingRefused: true as const };
-    }
-    throw err;
+    return { pricingRefused: true as const };
   }
 
   // Save cost estimates — rows built by the shared line helper (RA-7708).

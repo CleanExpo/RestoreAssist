@@ -9,6 +9,12 @@ import {
   Printer,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  readBlockedPricing,
+  type BlockedPricing,
+} from "@/lib/pricing/blocked-line";
+import { BlockedPricingNotice } from "@/components/pricing/BlockedPricingNotice";
 import VisualScopeOfWorksViewer from "./VisualScopeOfWorksViewer";
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer";
 import { jurisdictionLawLabels } from "@/lib/reports/viewer-compliance-prose";
@@ -24,6 +30,9 @@ export default function ScopeOfWorksViewer({
 }: ScopeOfWorksViewerProps) {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [blockedPricing, setBlockedPricing] = useState<BlockedPricing | null>(
+    null,
+  );
   const [report, setReport] = useState<any>(null);
   const [scopeDocument, setScopeDocument] = useState<string>("");
   const [scopeData, setScopeData] = useState<any>(null);
@@ -96,6 +105,7 @@ export default function ScopeOfWorksViewer({
 
   const handleGenerateScope = async () => {
     setGenerating(true);
+    setBlockedPricing(null);
     try {
       const response = await fetch("/api/reports/generate-scope-of-works", {
         method: "POST",
@@ -138,7 +148,13 @@ export default function ScopeOfWorksViewer({
         let errorMessage = "Failed to generate scope of works";
         try {
           const error = await response.json();
-          errorMessage = error.error || errorMessage;
+          // RA-8281 (B2): a rate that is not set is shown line by line.
+          const blocked = readBlockedPricing(error);
+          if (blocked) {
+            setBlockedPricing(blocked);
+            return;
+          }
+          errorMessage = apiErrorMessage(error) ?? errorMessage;
         } catch (e) {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
@@ -406,6 +422,10 @@ export default function ScopeOfWorksViewer({
           )}
         </div>
       </div>
+
+      {blockedPricing && (
+        <BlockedPricingNotice blocked={blockedPricing} title="Scope of works" />
+      )}
 
       {/* Generate Scope Options */}
       {!scopeDocument && (

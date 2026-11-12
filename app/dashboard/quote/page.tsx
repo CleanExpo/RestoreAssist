@@ -19,6 +19,11 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { quoteToInvoiceLineItems } from "@/lib/quotes/quote-calc";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  readBlockedPricing,
+  type BlockedPricing,
+} from "@/lib/pricing/blocked-line";
+import { BlockedPricingNotice } from "@/components/pricing/BlockedPricingNotice";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
@@ -159,6 +164,7 @@ export default function QuotePage() {
   const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [quoteResult, setQuoteResult] = useState<QuoteResponse | null>(null);
+  const [blockedQuote, setBlockedQuote] = useState<BlockedPricing | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [savingEstimate, setSavingEstimate] = useState(false);
   const [savingInvoice, setSavingInvoice] = useState(false);
@@ -191,6 +197,7 @@ export default function QuotePage() {
     if (!selectedJobType) return;
     setCalculating(true);
     setQuoteResult(null);
+    setBlockedQuote(null);
     setInvoiceError(null);
     try {
       const res = await fetch("/api/calculate", {
@@ -199,8 +206,14 @@ export default function QuotePage() {
         body: JSON.stringify({ jobType: selectedJobType, ...form }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error || "Calculation failed");
+        const err = await res.json().catch(() => null);
+        // RA-8281 (B2): a rate that is not set is shown line by line.
+        const blocked = readBlockedPricing(err);
+        if (blocked) {
+          setBlockedQuote(blocked);
+          return;
+        }
+        toast.error(apiErrorMessage(err) ?? "Calculation failed");
         return;
       }
       const data: QuoteResponse = await res.json();
@@ -217,6 +230,7 @@ export default function QuotePage() {
     setSelectedJobType(null);
     setForm(DEFAULT_FORM);
     setQuoteResult(null);
+    setBlockedQuote(null);
   };
 
   const handlePrint = () => {
@@ -604,6 +618,10 @@ export default function QuotePage() {
             {calculating ? "Calculating..." : "Calculate Quote"}
           </button>
         </div>
+      )}
+
+      {blockedQuote && !quoteResult && (
+        <BlockedPricingNotice blocked={blockedQuote} title="Quote" />
       )}
 
       {/* Step 3: Quote Result (Printable) */}

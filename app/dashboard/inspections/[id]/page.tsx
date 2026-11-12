@@ -4,6 +4,12 @@ import { useState, useEffect, use, useRef, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  readBlockedPricing,
+  type BlockedPricing,
+} from "@/lib/pricing/blocked-line";
+import { BlockedPricingNotice } from "@/components/pricing/BlockedPricingNotice";
 import {
   parseApiError,
   type ParsedApiError,
@@ -584,6 +590,7 @@ export default function InspectionDetailPage({
   });
   const [savingClass, setSavingClass] = useState(false);
   const [generatingCosts, setGeneratingCosts] = useState(false);
+  const [blockedCosts, setBlockedCosts] = useState<BlockedPricing | null>(null);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [photoCaptionDraft, setPhotoCaptionDraft] = useState("");
   const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
@@ -854,10 +861,13 @@ export default function InspectionDetailPage({
         body: JSON.stringify({ replace: true }),
       });
       const data = await res.json();
+      // RA-8281 (B2): a rate that is not set is shown line by line. Nothing
+      // was saved, so the saved estimate and the status stay as they are.
+      const blocked = readBlockedPricing(data);
+      setBlockedCosts(blocked);
+      if (blocked) return;
       if (!res.ok) {
-        throw new Error(
-          data.error?.message ?? data.error ?? "Failed to generate costs",
-        );
+        throw new Error(apiErrorMessage(data) ?? "Failed to generate costs");
       }
       setInspection((prev) =>
         prev
@@ -3597,6 +3607,14 @@ export default function InspectionDetailPage({
                   : "Generate from scope"}
               </button>
             </div>
+            {blockedCosts && (
+              <div className="mb-4">
+                <BlockedPricingNotice
+                  blocked={blockedCosts}
+                  title="Cost estimate"
+                />
+              </div>
+            )}
             {inspection.costEstimates.length > 0 ? (
               <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-slate-700/50">
                 <table className="w-full">
