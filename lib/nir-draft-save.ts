@@ -40,6 +40,33 @@ export async function saveDraftParts(
   return { ok: failures.length === 0, failures };
 }
 
+export interface SidecarSource {
+  /** The on-screen panel, read when the part runs (it may mount mid-save). */
+  panel: () => { persist: () => Promise<void> } | null | undefined;
+  /** True when the form holds data for this part (for example a Quick Fill seed). */
+  hasPendingData: () => boolean;
+  /** Saves the pending data without the panel, when a direct route exists. */
+  saveDirect?: () => Promise<void>;
+}
+
+/**
+ * One rule for every sidecar (RA-8330 review): a part with data to save is
+ * never counted as saved unless something actually wrote it. Only a part with
+ * no panel and no data is skipped, because there is nothing to save.
+ */
+export function sidecarPart(label: string, source: SidecarSource): DraftSavePart {
+  return {
+    label,
+    run: async () => {
+      const panel = source.panel();
+      if (panel) return panel.persist();
+      if (!source.hasPendingData()) return;
+      if (source.saveDirect) return source.saveDirect();
+      throw new Error(`${label} is not on screen yet; press Save Draft again`);
+    },
+  };
+}
+
 export function draftSaveFailureMessage(failures: readonly DraftSaveFailure[]): string {
   const names = failures.map((f) => f.label).join(", ");
   return `Draft not fully saved. These parts did not save: ${names}. Try Save Draft again.`;

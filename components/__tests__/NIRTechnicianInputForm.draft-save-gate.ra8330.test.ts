@@ -7,7 +7,11 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { draftSaveFailureMessage, saveDraftParts } from "@/lib/nir-draft-save";
+import {
+  draftSaveFailureMessage,
+  saveDraftParts,
+  sidecarPart,
+} from "@/lib/nir-draft-save";
 
 const formSource = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), "../NIRTechnicianInputForm.tsx"),
@@ -77,5 +81,72 @@ describe("Save Draft button", () => {
       ),
     );
     expect(helper).toContain("readiness()");
+  });
+});
+
+describe("sidecarPart (review round 1)", () => {
+  it("does not count a part with unsaved data and no panel as saved", async () => {
+    const result = await saveDraftParts([
+      sidecarPart("claim assessment", { panel: () => null, hasPendingData: () => true }),
+    ]);
+    expect(result.ok).toBe(false);
+    expect(result.failures[0].label).toBe("claim assessment");
+  });
+
+  it("saves pending data directly when the panel is not on screen", async () => {
+    const saved: string[] = [];
+    const result = await saveDraftParts([
+      sidecarPart("make-safe checklist", {
+        panel: () => null,
+        hasPendingData: () => true,
+        saveDirect: async () => {
+          saved.splice(saved.length, 0, "direct");
+        },
+      }),
+    ]);
+    expect(result.ok).toBe(true);
+    expect(saved).toEqual(["direct"]);
+  });
+
+  it("reads the panel when the part runs, not when it is built", async () => {
+    let panel: { persist: () => Promise<void> } | null = null;
+    const saved: string[] = [];
+    const part = sidecarPart("claim assessment", {
+      panel: () => panel,
+      hasPendingData: () => true,
+    });
+    panel = {
+      persist: async () => {
+        saved.splice(saved.length, 0, "panel");
+      },
+    };
+    const result = await saveDraftParts([part]);
+    expect(result.ok).toBe(true);
+    expect(saved).toEqual(["panel"]);
+  });
+
+  it("skips a part with no panel and nothing to save", async () => {
+    const result = await saveDraftParts([
+      sidecarPart("claim assessment", { panel: () => null, hasPendingData: () => false }),
+    ]);
+    expect(result).toEqual({ ok: true, failures: [] });
+  });
+});
+
+describe("Save Draft button (review round 1)", () => {
+  it("builds the make-safe and claim parts with sidecarPart", () => {
+    const handler = saveDraftHandler();
+    expect(handler).toMatch(/sidecarPart\("make-safe checklist"/);
+    expect(handler).toMatch(/sidecarPart\("claim assessment"/);
+    expect(handler).not.toMatch(/makeSafeChecklistRef\.current\?\.persist\(\)/);
+    expect(handler).not.toMatch(/run: persistClaimAssessment/);
+  });
+
+  it("tells the badge when the inspection could not be created", () => {
+    const handler = saveDraftHandler();
+    const failed = handler.indexOf('"Failed to create inspection. Please try again."');
+    expect(failed).toBeGreaterThan(-1);
+    const before = handler.slice(Math.max(0, failed - 200), failed);
+    expect(before).toContain("reportDraftSave(false)");
   });
 });

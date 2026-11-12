@@ -45,8 +45,10 @@ import { buildMoistureReadingDraftPayload } from "@/lib/forms/moisture-reading-d
 import {
   draftSaveFailureMessage,
   saveDraftParts,
+  sidecarPart,
   type DraftSavePart,
 } from "@/lib/nir-draft-save";
+import { persistMakeSafeChecklist as saveMakeSafeChecklistDirect } from "@/lib/compliance/make-safe-actions";
 import { reportDraftSave } from "@/lib/offline/draft-save-status";
 import {
   calculateClassificationPreview as computeClassificationPreview,
@@ -4423,6 +4425,7 @@ export default function NIRTechnicianInputForm({
                 inspectionId || (await ensureInspectionExists(false));
 
               if (!currentInspectionId) {
+                reportDraftSave(false);
                 toast.error("Failed to create inspection. Please try again.");
                 setSaving(false);
                 return;
@@ -4437,13 +4440,20 @@ export default function NIRTechnicianInputForm({
                     label: "inspection details",
                     run: () => saveDraftSnapshot(currentInspectionId),
                   },
-                  {
-                    label: "make-safe checklist",
-                    run: async () => {
-                      await makeSafeChecklistRef.current?.persist();
+                  sidecarPart("make-safe checklist", {
+                    panel: () => makeSafeChecklistRef.current,
+                    hasPendingData: () => makeSafeSeed !== null,
+                    saveDirect: async () => {
+                      if (makeSafeSeed) {
+                        await saveMakeSafeChecklistDirect(currentInspectionId, makeSafeSeed);
+                      }
                     },
-                  },
-                  { label: "claim assessment", run: persistClaimAssessment },
+                  }),
+                  sidecarPart("claim assessment", {
+                    panel: () => claimAssessmentRef.current,
+                    hasPendingData: () =>
+                      Boolean(claimAssessmentSeed || complianceAssessmentSeed),
+                  }),
                 ];
                 if (floorPlanImageUrl) {
                   parts.push({
