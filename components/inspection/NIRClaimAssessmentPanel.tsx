@@ -1522,8 +1522,12 @@ const NIRClaimAssessmentPanel = forwardRef<
   // RA-8330: the Quick Fill seed must survive the first load. A claim with no
   // saved record (404) starts from the seed, not an empty form.
   const assessmentSeedRef = useRef<Record<string, unknown> | null>(null);
+  // Ready only after a confirmed read (200 or 404). A failed read or a reply
+  // to an older request never marks the panel ready (review round 4).
   const assessmentLoadedRef = useRef(false);
   const complianceLoadedRef = useRef(false);
+  const assessmentRequestRef = useRef(0);
+  const complianceRequestRef = useRef(0);
 
   // ── Load assessment for a claim type ──────────────────────────────────────
 
@@ -1531,12 +1535,15 @@ const NIRClaimAssessmentPanel = forwardRef<
     async (type: NIRClaimType) => {
       const meta = CLAIM_TYPES.find((c) => c.type === type);
       if (!meta) return;
+      const request = ++assessmentRequestRef.current;
+      const isCurrent = () => request === assessmentRequestRef.current;
       assessmentLoadedRef.current = false;
       setLoading(true);
       try {
         const res = await fetch(
           `/api/inspections/${inspectionId}/${meta.route}`,
         );
+        if (!isCurrent()) return;
         if (res.ok) {
           const record = await res.json();
           if (record && type !== "CONTENTS") {
@@ -1555,17 +1562,19 @@ const NIRClaimAssessmentPanel = forwardRef<
           if (type === "CONTENTS" && Array.isArray(record?.items)) {
             setContentItems(record.items);
           }
-        } else {
-          // 404 = no record yet; start from the Quick Fill seed, if any
+          assessmentLoadedRef.current = true;
+        } else if (res.status === 404) {
+          // No record yet; start from the Quick Fill seed, if any
           setFormData({ ...(assessmentSeedRef.current ?? {}) });
           setGates({});
           if (type === "CONTENTS") setContentItems([]);
+          assessmentLoadedRef.current = true;
         }
+        // Any other status: the saved record is unknown, so stay not ready.
       } catch {
-        // Network error — continue with empty form
+        // Network error: saved record unknown, stay not ready.
       } finally {
-        assessmentLoadedRef.current = true;
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
     },
     [inspectionId],
@@ -1574,18 +1583,21 @@ const NIRClaimAssessmentPanel = forwardRef<
   // ── Load Australian Compliance ─────────────────────────────────────────────
 
   const loadCompliance = useCallback(async () => {
+    const request = ++complianceRequestRef.current;
     try {
       const res = await fetch(
         `/api/inspections/${inspectionId}/australian-compliance`,
       );
+      if (request !== complianceRequestRef.current) return;
       if (res.ok) {
         const record = await res.json();
         if (record) setComplianceData(record);
+        complianceLoadedRef.current = true;
+      } else if (res.status === 404) {
+        complianceLoadedRef.current = true;
       }
     } catch {
-      // ignore
-    } finally {
-      complianceLoadedRef.current = true;
+      // Saved record unknown: stay not ready.
     }
   }, [inspectionId]);
 

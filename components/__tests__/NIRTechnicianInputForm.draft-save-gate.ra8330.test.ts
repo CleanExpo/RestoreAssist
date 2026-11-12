@@ -95,19 +95,12 @@ describe("sidecarPart (review round 1)", () => {
     expect(result.failures[0].label).toBe("claim assessment");
   });
 
-  it("saves pending data directly when the panel is not on screen", async () => {
-    const saved: string[] = [];
+  it("never writes pending data without a ready panel; names the part instead", async () => {
     const result = await saveDraftParts([
-      sidecarPart("make-safe checklist", {
-        panel: () => null,
-        hasPendingData: () => true,
-        saveDirect: async () => {
-          saved.splice(saved.length, 0, "direct");
-        },
-      }),
+      sidecarPart("make-safe checklist", { panel: () => null, hasPendingData: () => true }),
     ]);
-    expect(result.ok).toBe(true);
-    expect(saved).toEqual(["direct"]);
+    expect(result.ok).toBe(false);
+    expect(result.failures[0].label).toBe("make-safe checklist");
   });
 
   it("reads the panel when the part runs, not when it is built", async () => {
@@ -186,7 +179,7 @@ const readSource = (rel: string) =>
   stripComments(readFileSync(join(repoRoot, rel), "utf8"));
 
 describe("a panel still loading is never saved through (review round 3)", () => {
-  it("saves pending data directly while the panel is still loading", async () => {
+  it("never saves through a panel that is still loading", async () => {
     const saved: string[] = [];
     const result = await saveDraftParts([
       sidecarPart("make-safe checklist", {
@@ -197,13 +190,10 @@ describe("a panel still loading is never saved through (review round 3)", () => 
           },
         }),
         hasPendingData: () => true,
-        saveDirect: async () => {
-          saved.splice(saved.length, 0, "seed");
-        },
       }),
     ]);
-    expect(result.ok).toBe(true);
-    expect(saved).toEqual(["seed"]);
+    expect(result.ok).toBe(false);
+    expect(saved).toEqual([]);
   });
 
   it("names a loading part with data and no direct route as not saved", async () => {
@@ -229,5 +219,25 @@ describe("a panel still loading is never saved through (review round 3)", () => 
     expect(src).toContain("setFormData({ ...(assessmentSeedRef.current ?? {}) })");
     expect(src).not.toMatch(/\} else \{\s*setFormData\(\{\}\);\s*setGates/);
     expect(src).toMatch(/persist: async \(\) => \{\s*if \(!\(assessmentLoadedRef\.current && complianceLoadedRef\.current\)\)/);
+  });
+});
+
+describe("only confirmed, current data is ever written (review round 4)", () => {
+  it("Save Draft has no direct template write", () => {
+    expect(stripComments(formSource)).not.toContain("saveMakeSafeChecklistDirect");
+    expect(readSource("lib/nir-draft-save.ts")).not.toContain("saveDirect");
+  });
+
+  it("the claim panel is ready only after a 200 or 404 read, never after a failed read", () => {
+    const src = readSource("components/inspection/NIRClaimAssessmentPanel.tsx");
+    expect(src).not.toMatch(/finally\s*\{\s*assessmentLoadedRef\.current = true/);
+    expect(src).not.toMatch(/finally\s*\{\s*complianceLoadedRef\.current = true/);
+    expect(src).toMatch(/else if \(res\.status === 404\) \{[\s\S]{0,300}assessmentLoadedRef\.current = true/);
+  });
+
+  it("a reply to an older claim panel request is ignored", () => {
+    const src = readSource("components/inspection/NIRClaimAssessmentPanel.tsx");
+    expect(src).toMatch(/if \(!isCurrent\(\)\) return;/);
+    expect(src).toMatch(/if \(request !== complianceRequestRef\.current\) return;/);
   });
 });

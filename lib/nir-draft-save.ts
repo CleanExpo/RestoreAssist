@@ -52,8 +52,6 @@ export interface SidecarSource {
   panel: () => SidecarPanel | null | undefined;
   /** True when the form holds data for this part (for example a Quick Fill seed). */
   hasPendingData: () => boolean;
-  /** Saves the pending data without the panel, when a direct route exists. */
-  saveDirect?: () => Promise<void>;
 }
 
 /**
@@ -69,7 +67,8 @@ export function sidecarPart(label: string, source: SidecarSource): DraftSavePart
       if (panel && panel.isReady()) return panel.persist();
       // No panel, or a panel still loading: it has nothing of the user's yet.
       if (!source.hasPendingData()) return;
-      if (source.saveDirect) return source.saveDirect();
+      // Never write data the panel has not confirmed against the saved
+      // record (RA-8330 review round 4): name the part instead.
       throw new Error(`${label} is not ready yet; press Save Draft again`);
     },
   };

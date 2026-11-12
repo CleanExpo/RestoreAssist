@@ -48,7 +48,6 @@ import {
   sidecarPart,
   type DraftSavePart,
 } from "@/lib/nir-draft-save";
-import { persistMakeSafeChecklist as saveMakeSafeChecklistDirect } from "@/lib/compliance/make-safe-actions";
 import { trackDraftSave } from "@/lib/offline/draft-save-status";
 import {
   calculateClassificationPreview as computeClassificationPreview,
@@ -4444,11 +4443,6 @@ export default function NIRTechnicianInputForm({
                   sidecarPart("make-safe checklist", {
                     panel: () => makeSafeChecklistRef.current,
                     hasPendingData: () => makeSafeSeed !== null,
-                    saveDirect: async () => {
-                      if (makeSafeSeed) {
-                        await saveMakeSafeChecklistDirect(currentInspectionId, makeSafeSeed);
-                      }
-                    },
                   }),
                   sidecarPart("claim assessment", {
                     panel: () => claimAssessmentRef.current,
