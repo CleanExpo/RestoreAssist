@@ -1,6 +1,7 @@
 import { RESET_CODE_TTL_MINUTES } from "@/lib/auth/recovery-policy";
 import { reportError } from "@/lib/observability";
 import { sanitiseEmailField } from "@/lib/email/sanitise-header";
+import { buildMarketingOptOut } from "@/lib/email/marketing-opt-out";
 import { BRAND } from "@/lib/brand";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import {
@@ -1358,6 +1359,8 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
     return null;
   }
   const fromEmail = getFromEmail();
+  // RA-8355: a sales email must carry a working opt-out. One owner builds it.
+  const optOut = buildMarketingOptOut();
 
   const html = `
     <!DOCTYPE html>
@@ -1396,18 +1399,34 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
 
           <div style="border-top: 1px solid #e2e8f0; padding-top: 25px; margin-top: 30px;">
             <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 0 0 12px 0;">
-              Not coming back? That's OK — reply to this email with any feedback and we'll stop sending these. No sales pitches, just curious.
+              Not coming back? That's OK. Reply to this email with any feedback, or unsubscribe using the details below.
             </p>
           </div>
         </div>
 
         <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
           <p style="margin: 5px 0;">This is a one-time win-back email from Restore Assist.</p>
+          ${optOut.htmlFooter}
           <p style="margin: 10px 0 0 0; color: #cbd5e1;">© ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
         </div>
       </body>
     </html>
   `;
+
+  const text = [
+    `Hi ${data.recipientName},`,
+    "",
+    `It's been ${data.daysSinceExpired} days since your RestoreAssist subscription ended. Your account, reports, and client data are all still safe.`,
+    "",
+    "If water-damage work crosses your desk again, come back in one click. Everything's where you left it.",
+    "",
+    `Restart my subscription: ${data.resubscribeUrl}`,
+    "",
+    "Not coming back? That's OK. Reply to this email with any feedback.",
+    "",
+    "This is a one-time win-back email from Restore Assist.",
+    optOut.textFooter,
+  ].join("\n");
 
   try {
     const result = await withEmailTimeout(
@@ -1416,6 +1435,9 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
         to: data.recipientEmail,
         subject: "We miss you at RestoreAssist",
         html,
+        text,
+        replyTo: optOut.replyTo,
+        headers: optOut.headers,
       }),
     );
     assertEmailSuccess(result, "winback");
