@@ -203,7 +203,7 @@ describe("POST generate-scope-of-works: a rate that is not set (RA-8281 B2)", ()
     expect(reportUpdate).not.toHaveBeenCalled();
   });
 
-  it("shows no range when the range table has none for the field", async () => {
+  it("answers the same whether or not the range table holds the field", async () => {
     hiddenRanges.add("administrationFee");
     withPriceList(priceList({ administrationFee: null }));
 

@@ -75,8 +75,8 @@ const put = (body: Record<string, unknown>) =>
   );
 
 beforeEach(() => {
-  writes.company.mockReset();
-  writes.organization.mockReset();
+  writes.company.mockReset().mockResolvedValue({ id: "pc1", customFields: null });
+  writes.organization.mockReset().mockResolvedValue({ id: "opc1" });
 });
 
 describe("PUT /api/pricing-config: a rate outside its national range", () => {
@@ -104,6 +104,34 @@ describe("PUT /api/pricing-config: a rate outside its national range", () => {
       // No figure: not in the message, not as a key, not anywhere.
       expect(Object.keys(body).sort()).toEqual(["error", "field"]);
       expectNoRangeFigure(text, field);
+    },
+  );
+});
+
+describe("PUT /api/pricing-config: where the refusal starts is unchanged", () => {
+  it.each(BASE_RATE_FIELDS.map((f) => [f]))(
+    "%s is saved at its min and its max, and refused one cent outside",
+    async (field) => {
+      const { min, max } = NRPG_RATE_RANGES[field];
+
+      for (const edge of [min, max]) {
+        writes.company.mockClear();
+        const res = await put({ ...inRangePriceList(), [field]: edge });
+        expect(res.status, `${field} at ${edge}`).toBe(200);
+        expect(writes.company).toHaveBeenCalledTimes(1);
+      }
+
+      for (const outside of [min - 0.01, max + 0.01]) {
+        writes.company.mockClear();
+        const res = await put({ ...inRangePriceList(), [field]: outside });
+        const text = await res.text();
+        expect(res.status, `${field} at ${outside}`).toBe(400);
+        expect(JSON.parse(text).field).toBe(field);
+        expect(writes.company).not.toHaveBeenCalled();
+        // One cent outside is the contractor's own figure, shown to the
+        // cent. The bound itself is still not in the answer.
+        expectNoRangeFigure(text, field);
+      }
     },
   );
 });

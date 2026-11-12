@@ -5,18 +5,31 @@
  * The min and max in lib/nrpg-rate-ranges.ts are NRPG's private reference
  * data. They may be read to check a value; they may never be shown.
  *
- * This guard produces every contractor-facing output that used to carry a
- * range (blocked lines, their notes, the blocked 422 body, the assessment
- * and NIR estimates, the fire scope, the stored equipment lines) for fields
- * whose range is known, and fails when a min or a max appears anywhere in
- * it. The pricing-config 400, the blocked-pricing screen and the document
- * routes are held by the same check (expectNoRangeFigure) in:
- *   - app/api/pricing-config/__tests__/range-refusal.ra8281.test.ts
- *   - components/__tests__/blocked-pricing-screens.test.tsx
- *   - the four route.blocked-line.test.ts files
+ * What is checked. Every module that reads the range file is named in
+ * ALLOWED_READERS below, and what each one gives a contractor is produced
+ * here for fields whose range is known, and fails when a min or a max
+ * appears anywhere in it:
+ *   - blocked rates, blocked lines, their notes and the blocked 422 body;
+ *   - the assessment estimate, unset and out of range;
+ *   - the NIR cost estimate, blocked, priced in range and priced out of
+ *     range;
+ *   - the fire scope, stored equipment lines, and both validation helpers.
+ * The same check (expectNoRangeFigure) holds the rest in:
+ *   - app/api/pricing-config/__tests__/range-refusal.ra8281.test.ts (the 400)
+ *   - components/__tests__/blocked-pricing-screens.test.tsx (the notice)
+ *   - components/__tests__/PricingConfiguration.save-error.test.tsx (the
+ *     settings screen's text)
+ *   - the four route.blocked-line.test.ts files (the document routes)
+ *
+ * What is not checked, on purpose. The figures a contractor types or is
+ * given as a starting price list are their own rates, not ranges, so input
+ * values and the `defaults` of GET /api/pricing-config are not compared with
+ * the ranges. Two starting figures do equal a range bound today (the mould
+ * remediation default and the antimicrobial baseline). Whether a new price
+ * list starts empty is RA-8281 B3, which removes them.
  *
  * The source scans at the end hold the two structural rules: only the named
- * validators import the range file, and no file a browser loads reaches it.
+ * modules import the range file, and no file a browser loads reaches it.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -45,7 +58,10 @@ import {
 } from "@/lib/pricing/rate-not-set";
 import { equipmentLineBlockedFields } from "@/lib/reports/stored-equipment-pricing";
 import { generateFireScope, readRate } from "@/lib/scope-fire";
-import { expectNoRangeFigure } from "@/lib/pricing/__tests__/no-range-figure";
+import {
+  expectNoRangeFigure,
+  figureToken,
+} from "@/lib/pricing/__tests__/no-range-figure";
 
 const RANGED_FIELDS = Object.keys(NRPG_RATE_RANGES);
 const AU = getGstTreatment("AU");
@@ -63,11 +79,41 @@ function safeQuantity(field: string): number {
 }
 
 describe("the guard itself", () => {
+  it("finds a figure however it is written, and no other number", () => {
+    for (const shown of [
+      "$100",
+      "100-350",
+      '{"min":100}',
+      "[100,350]",
+      "$100.00",
+      "100.0",
+      "(100.00 - 350.00)",
+      "100.",
+    ]) {
+      expect(figureToken(100).test(shown), shown).toBe(true);
+    }
+    for (const other of ["1100", "1000", "100.5", "100.05", "2100.50", "0.100"]) {
+      expect(figureToken(100).test(other), other).toBe(false);
+    }
+    for (const shown of ["1200", "1,200", "$1,200.00", "1200.0"]) {
+      expect(figureToken(1200).test(shown), shown).toBe(true);
+    }
+    for (const shown of ["1.5", "1.50", "x1.500"]) {
+      expect(figureToken(1.5).test(shown), shown).toBe(true);
+    }
+    for (const other of ["1.55", "11.5", "1.05"]) {
+      expect(figureToken(1.5).test(other), other).toBe(false);
+    }
+  });
+
   it("has ranges to check, and its check fails on a planted figure", () => {
     expect(RANGED_FIELDS.length).toBeGreaterThanOrEqual(BASE_RATE_FIELDS.length);
     const { min, max } = NRPG_RATE_RANGES.callOutFee;
     for (const leak of [
       `Rate not set (national range $${min}-$${max})`,
+      `outside the range ($${min.toFixed(2)} to $${max.toFixed(2)})`,
+      `no less than $${min.toFixed(2)}`,
+      `up to ${max.toLocaleString("en-AU", { minimumFractionDigits: 2 })}`,
       { field: "callOutFee", min },
       { field: "callOutFee", max },
       { nationalRange: null },
@@ -216,6 +262,48 @@ describe("the NIR cost estimate", () => {
   });
 });
 
+describe("the NIR cost estimate, priced", () => {
+  const field = "dehumidifierLGRDailyRate";
+  const scope = [
+    {
+      id: "s1",
+      itemType: "install_dehumidification",
+      description: "LGR dehumidifiers",
+      quantity: safeQuantity(field),
+      unit: "day",
+      specification: null,
+      justification: null,
+    },
+  ] as Parameters<typeof estimateCosts>[0];
+  const price = (rate: number) =>
+    estimateCosts(
+      scope,
+      null,
+      { [field]: rate } as Parameters<typeof estimateCosts>[2],
+      null,
+    );
+
+  it("carries no range figure on a line priced inside the range", async () => {
+    const { min, max } = NRPG_RATE_RANGES[field];
+    const estimate = await price(min + (max - min) / 4 + 0.13);
+    if (isBlockedResult(estimate)) throw new Error("expected a priced estimate");
+    expect(estimate.nrpgCompliant).toBe(true);
+    expect(estimate.items[0].rateSource).toBe("company-config");
+    expectNoRangeFigure(estimate, field);
+  });
+
+  it("flags a rate outside the range without stating the range", async () => {
+    for (const rate of Object.values(outsideRange(field))) {
+      const estimate = await price(rate);
+      if (isBlockedResult(estimate)) throw new Error("expected a priced estimate");
+      // The check still happens: only the figures are withheld.
+      expect(estimate.nrpgCompliant).toBe(false);
+      expect(estimate.nrpgViolations).toHaveLength(1);
+      expectNoRangeFigure(estimate, field);
+    }
+  });
+});
+
 describe("the fire scope", () => {
   it("shows no range figure on any line of an unpriced scope", () => {
     const items = generateFireScope({
@@ -239,7 +327,7 @@ describe("the fire scope", () => {
 
 const ROOT = resolve(__dirname, "../..");
 const RANGE_FILE = "lib/nrpg-rate-ranges.ts";
-const SOURCE_DIRS = ["app", "components", "lib"];
+const SOURCE_DIRS = ["app", "components", "lib", "hooks"];
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -247,7 +335,10 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
       continue;
     const path = join(dir, name);
     if (statSync(path).isDirectory()) sourceFiles(path, out);
-    else if (/\.(ts|tsx)$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name))
+    else if (
+      /\.(ts|tsx|js|jsx|mjs)$/.test(name) &&
+      !/\.(test|spec)\.[jt]sx?$/.test(name)
+    )
       out.push(path);
   }
   return out;
@@ -258,7 +349,7 @@ function runtimeImports(source: string): string[] {
   const found: string[] = [];
   const statement =
     /(?:^|\n)\s*(?:import|export)\s+(?!type\b)(?:[^"';]*?\sfrom\s*)?["']([^"']+)["']/g;
-  const dynamic = /\bimport\(\s*["']([^"']+)["']\s*\)/g;
+  const dynamic = /\b(?:import|require)\(\s*["']([^"']+)["']\s*\)/g;
   for (const pattern of [statement, dynamic]) {
     for (const match of source.matchAll(pattern)) found.push(match[1]);
   }
@@ -266,18 +357,20 @@ function runtimeImports(source: string): string[] {
 }
 
 function resolveImport(from: string, specifier: string): string | null {
-  const base = specifier.startsWith("@/")
-    ? join(ROOT, specifier.slice(2))
-    : specifier.startsWith(".")
-      ? resolve(dirname(from), specifier)
-      : null;
+  // The aliases of tsconfig.json and config/vitest.config.js.
+  const base = specifier.startsWith("@/content/")
+    ? join(ROOT, "data/content", specifier.slice("@/content/".length))
+    : specifier.startsWith("@/")
+      ? join(ROOT, specifier.slice(2))
+      : specifier.startsWith(".")
+        ? resolve(dirname(from), specifier)
+        : null;
   if (!base) return null;
+  const extensions = [".ts", ".tsx", ".js", ".jsx", ".mjs"];
   for (const candidate of [
     base,
-    `${base}.ts`,
-    `${base}.tsx`,
-    join(base, "index.ts"),
-    join(base, "index.tsx"),
+    ...extensions.map((ext) => `${base}${ext}`),
+    ...extensions.map((ext) => join(base, `index${ext}`)),
   ]) {
     if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
   }
@@ -289,10 +382,16 @@ const rel = (path: string) => relative(ROOT, path).replace(/\\/g, "/");
 
 describe("who may read the range file", () => {
   /**
-   * Each of these reads the ranges to check a value or a unit, and its
-   * output is held by the figure checks above. NRPG's own platform-admin
-   * views (app/api/admin/**) are out of scope for RA-8281 step 1. A new
-   * reader must be added here on purpose, with its output checked.
+   * The only modules that may read the range file. Five of them read it to
+   * check a value or a unit, and what each gives a contractor is held by
+   * the figure checks above and in the test files the header names. The
+   * sixth, lib/billing/rate-engine.ts, is not exercised here: it has no
+   * caller in app/, lib/ or components/ (lib/__tests__/
+   * blocked-line-source-scan.test.ts records that), it reads labels, units
+   * and a midpoint, and it never returns a min or a max. NRPG's own
+   * platform-admin views (app/api/admin/**) are out of scope for RA-8281
+   * step 1. A new reader must be added here on purpose, with its output
+   * checked.
    */
   const ALLOWED_READERS = [
     "app/api/pricing-config/route.ts",

@@ -6,17 +6,26 @@
  * so nothing a contractor can read (text, JSON body, screen, document,
  * assistant prompt) may hold either figure for the field in question.
  *
- * A figure is matched as a whole number token, so min 100 is found in
- * "$100", "100-350" and `"min":100`, and is not found inside 1100 or 100.5.
- * Callers keep their own fixture numbers (quantities, the contractor's
- * rates) clear of the field's min and max, so a match is always a leak.
+ * A figure is matched as a whole number, however it is written: min 100 is
+ * found in "$100", "100-350", `"min":100`, "$100.00" and "100.0", and max
+ * 1200 is also found as "1,200" and "1,200.00". It is not found inside 1100
+ * or 100.5, which are other numbers. A comma is never read as part of a
+ * number around the figure, so 100 is found in "[100,350]"; the cost is that
+ * it is also found in "1,100", which is the safe way to be wrong. Callers
+ * keep their own fixture numbers (quantities, the contractor's rates) clear
+ * of the field's min and max, so a match is always a leak.
  */
 import { expect } from "vitest";
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 
-function figureToken(figure: number): RegExp {
-  const text = String(figure).replace(".", "\\.");
-  return new RegExp(`(?<![\\d.])${text}(?!\\d|\\.\\d)`);
+export function figureToken(figure: number): RegExp {
+  const [whole, fraction] = String(figure).split(".");
+  // The whole part, plain or with thousands separators ("1200" or "1,200").
+  const grouped = Number(whole).toLocaleString("en-AU").replace(/,/g, ",?");
+  // A fraction may carry trailing zeros ("1.5" or "1.50"); a whole number may
+  // carry a zero fraction ("100", "100.0" or "100.00").
+  const tail = fraction ? `\\.${fraction}0*` : "(?:\\.0+)?";
+  return new RegExp(`(?<![\\d.])${grouped}${tail}(?!\\d|\\.\\d)`);
 }
 
 /** The text a contractor would receive: a string as is, anything else as JSON. */

@@ -197,7 +197,7 @@ describe("POST cost-estimates: a rate that is not set (RA-8281 B2)", () => {
     }
   });
 
-  it("shows no range when the range table has none for the field", async () => {
+  it("answers the same whether or not the range table holds the field", async () => {
     hiddenRanges.add("dehumidifierLGRDailyRate");
     inspectionRates.mockResolvedValue({
       ok: true,
