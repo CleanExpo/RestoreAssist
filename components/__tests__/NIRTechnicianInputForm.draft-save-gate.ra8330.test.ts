@@ -240,8 +240,10 @@ describe("only confirmed, current data is ever written (review round 4)", () => 
 
   it("a reply to an older claim panel request is ignored", () => {
     const src = readSource("components/inspection/NIRClaimAssessmentPanel.tsx");
-    expect(src).toMatch(/if \(!isCurrent\(\)\) return;/);
-    expect(src).toMatch(/if \(request !== complianceRequestRef\.current\) return;/);
+    // Round 7 moved the check into readIfCurrent, which also re-checks after
+    // the body is read (nir-panel-readiness.ra8330.test.tsx tests it).
+    expect(src).toMatch(/readIfCurrent\([\s\S]{0,200}isCurrent,\s*\);\s*if \(!res\) return;/);
+    expect(src).toMatch(/\(\) => request === complianceRequestRef\.current,\s*\);\s*if \(!res\) return;/);
   });
 });
 

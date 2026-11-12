@@ -195,6 +195,11 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
     window.addEventListener(DRAFT_SAVE_STATUS_EVENT, onDraftSave);
     return () => window.removeEventListener(DRAFT_SAVE_STATUS_EVENT, onDraftSave);
   }, []);
+
+  // A draft-save failure belongs to the account that made the save (RA-8330 round 7).
+  useEffect(() => {
+    setDraftSaveFailed(false);
+  }, [sessionUserId]);
   const statusReadVersion = useRef(0);
 
   const refreshStatus = useCallback(async () => {

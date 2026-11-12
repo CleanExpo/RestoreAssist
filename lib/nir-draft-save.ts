@@ -82,3 +82,27 @@ export function draftSaveFailureMessage(failures: readonly DraftSaveFailure[]): 
   const names = failures.map((f) => f.label).join(", ");
   return `Draft not fully saved. These parts did not save: ${names}. Try Save Draft again.`;
 }
+
+export interface CurrentRead {
+  ok: boolean;
+  status: number;
+  /** The parsed body of a 2xx reply; null for any other status. */
+  record: unknown;
+}
+
+/**
+ * RA-8330 (PR review round 7): the one way a side panel reads its saved record.
+ * Returns null when a newer request started while this one waited, either on
+ * the network or on the body, so a stale reply is never applied and never
+ * marks a panel ready. Callers must not read the raw Response themselves.
+ */
+export async function readIfCurrent(
+  load: () => Promise<Response>,
+  isCurrent: () => boolean,
+): Promise<CurrentRead | null> {
+  const res = await load();
+  if (!isCurrent()) return null;
+  const record: unknown = res.ok ? await res.json() : null;
+  if (!isCurrent()) return null;
+  return { ok: res.ok, status: res.status, record };
+}

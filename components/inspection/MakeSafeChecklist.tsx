@@ -89,10 +89,27 @@ interface MakeSafeChecklistProps {
   seed?: MakeSafeChecklistState | null;
 }
 
+/**
+ * RA-8330 (PR review round 7): one panel instance per inspection. A new
+ * inspectionId remounts the panel, so its state and readiness can never
+ * carry over from the previous inspection's checklist.
+ */
 export const MakeSafeChecklist = forwardRef<
   MakeSafeChecklistHandle,
   MakeSafeChecklistProps
->(function MakeSafeChecklist({ inspectionId, autoSave = false, seed = null }, ref) {
+>(function MakeSafeChecklist(props, ref) {
+  return (
+    <MakeSafeChecklistForInspection key={props.inspectionId} {...props} ref={ref} />
+  );
+});
+
+const MakeSafeChecklistForInspection = forwardRef<
+  MakeSafeChecklistHandle,
+  MakeSafeChecklistProps
+>(function MakeSafeChecklistForInspection(
+  { inspectionId, autoSave = false, seed = null },
+  ref,
+) {
   const endpoint = `/api/inspections/${inspectionId}/make-safe`;
 
   const { data, loading, error } = useFetch<{ data: MakeSafeRow[] }>(endpoint);

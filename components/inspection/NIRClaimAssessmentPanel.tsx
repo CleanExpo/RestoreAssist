@@ -24,6 +24,7 @@ import {
   useRef,
 } from "react";
 import toast from "react-hot-toast";
+import { readIfCurrent } from "@/lib/nir-draft-save";
 import {
   Droplets,
   Flame,
@@ -1540,12 +1541,14 @@ const NIRClaimAssessmentPanel = forwardRef<
       assessmentLoadedRef.current = false;
       setLoading(true);
       try {
-        const res = await fetch(
-          `/api/inspections/${inspectionId}/${meta.route}`,
+        // RA-8330 round 7: readIfCurrent re-checks after the body is read too.
+        const res = await readIfCurrent(
+          () => fetch(`/api/inspections/${inspectionId}/${meta.route}`),
+          isCurrent,
         );
-        if (!isCurrent()) return;
+        if (!res) return;
         if (res.ok) {
-          const record = await res.json();
+          const record = res.record as Record<string, unknown> | null;
           if (record && type !== "CONTENTS") {
             setFormData(record);
             if (type === "WATER") {
@@ -1585,12 +1588,13 @@ const NIRClaimAssessmentPanel = forwardRef<
   const loadCompliance = useCallback(async () => {
     const request = ++complianceRequestRef.current;
     try {
-      const res = await fetch(
-        `/api/inspections/${inspectionId}/australian-compliance`,
+      const res = await readIfCurrent(
+        () => fetch(`/api/inspections/${inspectionId}/australian-compliance`),
+        () => request === complianceRequestRef.current,
       );
-      if (request !== complianceRequestRef.current) return;
+      if (!res) return;
       if (res.ok) {
-        const record = await res.json();
+        const record = res.record as Record<string, unknown> | null;
         if (record) setComplianceData(record);
         complianceLoadedRef.current = true;
       } else if (res.status === 404) {
