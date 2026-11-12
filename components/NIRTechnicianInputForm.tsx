@@ -49,7 +49,7 @@ import {
   type DraftSavePart,
 } from "@/lib/nir-draft-save";
 import { persistMakeSafeChecklist as saveMakeSafeChecklistDirect } from "@/lib/compliance/make-safe-actions";
-import { reportDraftSave } from "@/lib/offline/draft-save-status";
+import { trackDraftSave } from "@/lib/offline/draft-save-status";
 import {
   calculateClassificationPreview as computeClassificationPreview,
   manualClassificationPayload,
@@ -4401,37 +4401,38 @@ export default function NIRTechnicianInputForm({
         )}
         <button
           type="button"
-          onClick={async () => {
-            // Save draft (auto-create inspection and save data without requiring photos)
+          onClick={() => trackDraftSave(async () => {
+            // Save draft (auto-create inspection and save data without requiring photos).
+            // RA-8330: trackDraftSave owns the badge outcome; only `return true`
+            // counts as saved, every other exit reports a failed save.
             try {
               setSaving(true);
               if (!claimType) {
                 toast.error("Please select a claim type first");
                 setSaving(false);
-                return;
+                return false;
               }
               if (!propertyAddress.trim() || !propertyPostcode.trim()) {
                 toast.error("Please enter property address and postcode first");
                 setSaving(false);
-                return;
+                return false;
               }
               if (hasPartialEnvironmentalData) {
                 toast.error(partialEnvironmentalMessage);
                 setSaving(false);
-                return;
+                return false;
               }
 
               let currentInspectionId =
                 inspectionId || (await ensureInspectionExists(false));
 
               if (!currentInspectionId) {
-                reportDraftSave(false);
                 toast.error("Failed to create inspection. Please try again.");
                 setSaving(false);
-                return;
+                return false;
               }
 
-              if (currentInspectionId) {
+              {
                 // RA-8330: a draft is unfinished work, so the submit-only
                 // make-safe readiness check must not block it. Each part
                 // saves on its own and every failure is named.
@@ -4475,23 +4476,21 @@ export default function NIRTechnicianInputForm({
                 }
 
                 const result = await saveDraftParts(parts);
-                reportDraftSave(result.ok);
                 if (!result.ok) {
                   toast.error(draftSaveFailureMessage(result.failures));
-                  return;
+                  return false;
                 }
 
                 toast.success("Draft saved.");
-              } else {
-                toast.error("Failed to save draft");
+                return true;
               }
             } catch (error: any) {
-              reportDraftSave(false);
               toast.error(error.message || "Failed to save draft");
+              return false;
             } finally {
               setSaving(false);
             }
-          }}
+          })}
           disabled={
             saving || deletingPhotoId !== null || !propertyAddress.trim() || !propertyPostcode.trim()
           }

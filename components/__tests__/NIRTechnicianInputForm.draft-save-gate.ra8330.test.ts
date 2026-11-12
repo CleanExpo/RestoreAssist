@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * RA-8330 (Ascora intake training, crease RC-A): Save Draft ran the make-safe
  * "ready to submit" check. An unfinished checklist threw before the draft
@@ -12,6 +13,7 @@ import {
   saveDraftParts,
   sidecarPart,
 } from "@/lib/nir-draft-save";
+import { DRAFT_SAVE_STATUS_EVENT, trackDraftSave } from "@/lib/offline/draft-save-status";
 
 const formSource = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), "../NIRTechnicianInputForm.tsx"),
@@ -25,7 +27,7 @@ function stripComments(code: string): string {
 function saveDraftHandler(): string {
   const label = formSource.indexOf('"Save Draft"}');
   expect(label).toBeGreaterThan(-1);
-  const start = formSource.lastIndexOf("onClick={async () => {", label);
+  const start = formSource.lastIndexOf("onClick={", label);
   expect(start).toBeGreaterThan(-1);
   return stripComments(formSource.slice(start, label));
 }
@@ -142,11 +144,38 @@ describe("Save Draft button (review round 1)", () => {
     expect(handler).not.toMatch(/run: persistClaimAssessment/);
   });
 
-  it("tells the badge when the inspection could not be created", () => {
+});
+
+describe("Save Draft badge outcome has one owner (review round 2)", () => {
+  it("the whole handler runs inside trackDraftSave", () => {
     const handler = saveDraftHandler();
-    const failed = handler.indexOf('"Failed to create inspection. Please try again."');
-    expect(failed).toBeGreaterThan(-1);
-    const before = handler.slice(Math.max(0, failed - 200), failed);
-    expect(before).toContain("reportDraftSave(false)");
+    expect(handler).toMatch(/^onClick=\{\(\) => trackDraftSave\(async \(\) => \{/);
+  });
+
+  it("the handler never reports the badge itself and has no exit without a value", () => {
+    const handler = saveDraftHandler();
+    expect(handler).not.toContain("reportDraftSave(");
+    expect(handler).not.toMatch(/\breturn\s*;/);
+  });
+
+  it("trackDraftSave reports a failed save for every exit except true", async () => {
+    const seen: boolean[] = [];
+    const listener = (e: Event) => {
+      seen.splice(seen.length, 0, (e as CustomEvent<{ ok: boolean }>).detail.ok);
+    };
+    window.addEventListener(DRAFT_SAVE_STATUS_EVENT, listener);
+    try {
+      expect(await trackDraftSave(async () => {})).toBe(false);
+      expect(await trackDraftSave(async () => false)).toBe(false);
+      expect(
+        await trackDraftSave(async () => {
+          throw new Error("HTTP 500");
+        }),
+      ).toBe(false);
+      expect(await trackDraftSave(async () => true)).toBe(true);
+    } finally {
+      window.removeEventListener(DRAFT_SAVE_STATUS_EVENT, listener);
+    }
+    expect(seen).toEqual([false, false, false, true]);
   });
 });
