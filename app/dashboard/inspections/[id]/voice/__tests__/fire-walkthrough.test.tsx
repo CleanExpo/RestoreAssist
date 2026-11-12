@@ -496,6 +496,39 @@ describe("filing answers", () => {
     expect(calls.at(-1)!.body).toMatchObject({ action: "file", sectionId: "site_access", routedBy: "technician_confirmed", transcript: "All good here" });
   });
 
+  describe("a typed yes or no is used once, then leaves the typing box (review round 1, RA-8321)", () => {
+    it.each([
+      ["Yes to the which-section question", "All good here", "Yes", "file"],
+      ["No to the which-section question", "All good here", "No", null],
+      ["Yes to the N/A question", "Not applicable, nobody else is on site", "Yes", "mark_na"],
+      ["No to the N/A question", "Not applicable, but the electrical wiring is live and damaged", "No", "file"],
+    ])("%s", async (_n, first, answer, expectedAction) => {
+      await renderScreen();
+      await acknowledgeAndFinishSpeaking();
+      await typeAnswer(first);
+      await screen.findByRole("group", { name: "Margot's question" });
+      await typeAnswer(answer);
+      if (expectedAction) await waitFor(() => expect(calls.at(-1)!.action).toBe(expectedAction));
+      else await screen.findByRole("group", { name: "Choose a section" });
+      await waitFor(() => expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue(""));
+      expect(screen.getByRole("button", { name: FIRE_COPY.typedSubmit })).toBeDisabled();
+      expect(calls.some((c) => c.body.transcript === answer || c.body.reason === answer)).toBe(false);
+    });
+
+    it("a spoken yes leaves other words in the typing box alone", async () => {
+      await renderScreen();
+      await acknowledgeAndFinishSpeaking();
+      act(() => FakeRecognition.live[0].hear("All good here"));
+      await screen.findByRole("group", { name: "Margot's question" });
+      fireEvent.change(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder }), { target: { value: "Roof is sagging" } });
+      act(() => lastUtterance().end());
+      await waitFor(() => expect(FakeRecognition.live).toHaveLength(1));
+      act(() => FakeRecognition.live[0].hear("Yes"));
+      await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1));
+      expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("Roof is sagging");
+    });
+  });
+
   it("No lets the technician choose the section", async () => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();

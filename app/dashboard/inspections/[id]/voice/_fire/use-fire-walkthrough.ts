@@ -317,6 +317,15 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
           talk(ask.say);
           return;
         }
+        // A bare yes or no is a command, used once. If it came from the
+        // typing box it leaves the box now: the save that follows carries the
+        // question's words, not these, so nothing else would clear it and a
+        // later Save answer would file "Yes" as an observation. Other words
+        // in the box (with a spoken answer) are left alone.
+        if (typedNow.current.trim() === words) {
+          typedNow.current = "";
+          setTyped("");
+        }
         if (ask.mode === "na") {
           if (answer === "yes") {
             const reason = ask.transcript;
