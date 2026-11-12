@@ -19,6 +19,13 @@ vi.mock("@/lib/prisma", () => ({
     inspection: {
       findUnique: vi.fn(),
     },
+    // RA-8327: make-safe rows are read through the list owner.
+    makeSafeAction: {
+      findMany: vi.fn(),
+    },
+    fireSmokeDamageAssessment: {
+      findFirst: vi.fn(async () => null),
+    },
   },
 }));
 
@@ -414,6 +421,18 @@ describe("flagWhsHazard", () => {
 // ─── 6. checkReportGaps ──────────────────────────────────────────────────────
 
 describe("checkReportGaps", () => {
+  beforeEach(() => {
+    const p = prisma as unknown as {
+      inspection: { findUnique: ReturnType<typeof vi.fn> };
+      makeSafeAction: { findMany: ReturnType<typeof vi.fn> };
+    };
+    p.makeSafeAction.findMany.mockImplementation(async () => {
+      const last = p.inspection.findUnique.mock.results.at(-1)?.value;
+      const insp = (await last) as { makeSafeActions?: unknown[] } | null | undefined;
+      return insp?.makeSafeActions ?? [];
+    });
+  });
+
   it("returns gaps array identifying missing readings, photos, classification and incomplete make-safe", async () => {
     mockPrisma.inspection.findUnique.mockResolvedValue({
       id: "insp-1",

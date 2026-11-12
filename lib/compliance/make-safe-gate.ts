@@ -4,16 +4,11 @@
 // Pure function — no side effects. Called by the inspection submit route
 // before transitioning status to SUBMITTED/COMPLETED.
 
-import { prisma } from "@/lib/prisma";
 import { MAKE_SAFE_ACTION_LABELS as LABELS } from "@/lib/compliance/make-safe-actions";
-import {
-  decideMakeSafeListForInspection,
-  MAKE_SAFE_DECISION_SELECT,
-} from "@/lib/compliance/make-safe-list";
+import { loadMakeSafeCompletion } from "@/lib/compliance/make-safe-list";
 import {
   makeSafeCompliance,
   MAKE_SAFE_NOT_ASSESSED_REASON,
-  type MakeSafeComplianceItem,
 } from "@/lib/compliance/make-safe-compliance";
 
 /** Labels live in make-safe-actions.ts; re-exported for existing importers. */
@@ -54,43 +49,15 @@ export async function checkMakeSafeGate(
   inspectionId: string,
   claimType?: string | null,
 ): Promise<MakeSafeGateResult> {
-  const rows = await prisma.makeSafeAction.findMany({
-    where: { inspectionId },
-    select: MAKE_SAFE_DECISION_SELECT,
-    take: 20,
-  });
-
-  const rowMap = new Map(rows.map((r) => [r.action, r]));
-  const { actions } = await decideMakeSafeListForInspection(
-    inspectionId,
+  // judgeMakeSafe owns the rule: the job's own list, a missing row is open,
+  // history rows never count.
+  const { items, open } = await loadMakeSafeCompletion(inspectionId, {
     claimType,
-    rows,
-  );
-
-  const blockers: Array<{ action: string; label: string }> = [];
-  const items: MakeSafeComplianceItem[] = [];
-
-  for (const action of actions) {
-    const row = rowMap.get(action);
-
-    if (!row) {
-      // Row never created — treat as applicable + incomplete
-      items.push({ applicable: true, completed: false });
-      blockers.push({
-        action,
-        label: MAKE_SAFE_ACTION_LABELS[action] ?? action,
-      });
-      continue;
-    }
-
-    items.push({ applicable: row.applicable, completed: row.completed });
-    if (row.applicable && !row.completed) {
-      blockers.push({
-        action,
-        label: MAKE_SAFE_ACTION_LABELS[action] ?? action,
-      });
-    }
-  }
+  });
+  const blockers = open.map(({ action }) => ({
+    action,
+    label: MAKE_SAFE_ACTION_LABELS[action] ?? action,
+  }));
 
   const status = makeSafeCompliance(items);
   if (status === "NOT_ASSESSED") {

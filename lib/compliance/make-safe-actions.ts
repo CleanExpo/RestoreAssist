@@ -152,6 +152,46 @@ export function decideMakeSafeList<R extends StoredMakeSafeRow>(input: {
   return { kind, actions: LISTS[kind], history };
 }
 
+/** One action on the job's list, as completion is judged. */
+export interface MakeSafeItem {
+  action: MakeSafeActionName;
+  applicable: boolean;
+  completed: boolean;
+  /** False when no row was ever saved; it then reads as open. */
+  stored: boolean;
+}
+
+export interface MakeSafeCompletion<R extends StoredMakeSafeRow = StoredMakeSafeRow>
+  extends MakeSafeListDecision<R> {
+  /** One item per action on the job's list, in list order. */
+  items: MakeSafeItem[];
+  /** Applicable items not completed, including actions with no row. */
+  open: MakeSafeItem[];
+}
+
+/**
+ * The one owner of "is make-safe complete". Every reader that judges
+ * completion (submit gate, stabilisation attestation, adjuster review, report
+ * gaps) reads this answer. Only the job's own list counts: a missing row is an
+ * open item, and history rows never block.
+ */
+export function judgeMakeSafe<R extends StoredMakeSafeRow>(input: {
+  claimType?: string | null;
+  hasFireAssessment?: boolean;
+  rows?: readonly R[];
+}): MakeSafeCompletion<R> {
+  const decision = decideMakeSafeList(input);
+  const byAction = new Map((input.rows ?? []).map((r) => [r.action, r]));
+  const items = decision.actions.map((action): MakeSafeItem => {
+    const row = byAction.get(action);
+    return row
+      ? { action, applicable: row.applicable, completed: row.completed, stored: true }
+      : { action, applicable: true, completed: false, stored: false };
+  });
+  const open = items.filter((i) => i.applicable && !i.completed);
+  return { ...decision, items, open };
+}
+
 /** True when the rows already hold a row unique to this list. */
 export function hasRowUniqueTo(
   kind: MakeSafeListKind,
