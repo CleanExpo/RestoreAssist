@@ -13,14 +13,14 @@
  * migration).
  */
 
-import { regulation } from "@/lib/compliance/regulatory-registry";
+import { ASBESTOS_PRESUMPTION_YEAR } from "@/lib/compliance/asbestos-era";
 
 /**
- * Buildings from before this year may contain asbestos. Read from the
- * regulatory registry (asbestos.presumption-year.au), never written here.
+ * Buildings from before this year may contain asbestos. The walkthrough is
+ * Victorian, so the Australian year. Read through asbestos-era.ts, the one
+ * owner of the registry entry (asbestos.presumption-year.au), never copied.
  */
-export const ASBESTOS_PRESUMPTION_ID = "asbestos.presumption-year.au";
-const asbestosBefore = regulation(ASBESTOS_PRESUMPTION_ID).value;
+const asbestosBefore = ASBESTOS_PRESUMPTION_YEAR.AU;
 
 export interface FireCitation {
   source: string;

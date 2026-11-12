@@ -166,12 +166,18 @@ const baseInspection = {
   photos: [],
 };
 
+// RA-8327: both make-safe lists, so the make-safe gate passes on a FIRE job
+// (fire list) and on an HVAC job (standard list); these tests are about the
+// walkthrough.
 const ALL_ACTIONS = [
   "power_isolated",
   "gas_isolated",
   "mould_containment",
   "water_stopped",
   "occupant_briefing",
+  "structure_safe",
+  "openings_secured",
+  "asbestos_presumed",
 ];
 
 import { FIRE_SECTION_IDS } from "@/lib/voice/fire-smoke/checklist";
