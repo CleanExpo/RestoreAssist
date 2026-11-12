@@ -109,12 +109,15 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
    * transient mode must never vanish with it). They go to the typing box, or
    * are shown in the problem line when the box holds something else.
    */
+  const setAside = useCallback((words: string) => {
+    setUnsaved((list) => (list.includes(words) ? list : [...list, words]));
+  }, []);
   const keepWords = useCallback(
     (words: string) => {
       if (offerWords(words)) return;
-      setUnsaved((list) => (list.includes(words) ? list : [...list, words]));
+      setAside(words);
     },
-    [offerWords],
+    [offerWords, setAside],
   );
 
   /**
@@ -216,16 +219,44 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
    * screen (N/A reason, "is this part of...?", the section picker). Changing
    * section by the technician ends them all, so a later Yes or answer can
    * never be applied to the section they left. Words that were never filed
-   * go back to the typing box, never lost.
+   * go back to the typing box (or, with "list", straight to the durable
+   * "Words not saved" list), never lost.
    */
-  const leaveSection = useCallback(() => {
-    const unfiled = ask?.transcript ?? picking;
-    setNaFor(null);
-    if (ask === null && picking === null) return;
-    setAsk(null);
-    setPicking(null);
-    if (unfiled) keepWords(unfiled);
-  }, [ask, keepWords, picking]);
+  const leaveSection = useCallback(
+    (keepIn: "box" | "list" = "box") => {
+      const unfiled = ask?.transcript ?? picking;
+      setNaFor(null);
+      if (ask === null && picking === null) return;
+      setAsk(null);
+      setPicking(null);
+      if (!unfiled) return;
+      if (keepIn === "box") keepWords(unfiled);
+      else setAside(unfiled);
+    },
+    [ask, keepWords, picking, setAside],
+  );
+
+  /**
+   * The one way the screen starts waiting for an N/A reason (RA-8321). While
+   * it waits, the typed box and the next spoken words become the reason, so
+   * nothing given before the question may be there: an open question's words
+   * and whatever is already in the box go to the durable "Words not saved"
+   * list, and the box starts empty. The reason is then only what the
+   * technician gives after being asked.
+   */
+  const askNaReason = useCallback(
+    (sectionId: string) => {
+      leaveSection("list");
+      const inBox = typedNow.current.trim();
+      if (inBox) setAside(inBox);
+      typedNow.current = "";
+      setTyped("");
+      setCurrentSectionId(sectionId);
+      setNaFor(sectionId);
+      talk(FIRE_COPY.naAskReason);
+    },
+    [leaveSection, setAside, talk],
+  );
 
   const handleOutcome = useCallback(
     (res: FireActionResponse, transcript: string) => {
@@ -407,12 +438,7 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
       leaveSection();
       moveTo(sectionId);
     }),
-    markNa: whenFree((sectionId: string) => {
-      leaveSection();
-      setCurrentSectionId(sectionId);
-      setNaFor(sectionId);
-      talk(FIRE_COPY.naAskReason);
-    }),
+    markNa: whenFree(askNaReason),
     nextSection: whenFree(nextSection),
     signOff: whenFree((name: string) => void signOff(name)),
   };

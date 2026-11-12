@@ -538,6 +538,57 @@ describe("filing answers", () => {
     expect(calls.at(-1)!.body).toMatchObject({ action: "mark_na", sectionId: "site_access", reason: "Not applicable, nobody else is on site" });
   });
 
+  describe("an N/A reason is only what was given after the question (RA-8321)", () => {
+    const observation = "Soot on the hallway ceiling and the smoke alarm is melted";
+    const reason = "No contents left in this room, it was cleared last week";
+
+    async function markContentsNa() {
+      fireEvent.click(document.querySelector<HTMLButtonElement>('[data-section-id="contents"] button')!);
+      fireEvent.click(await screen.findByRole("button", { name: "Mark this section N/A" }));
+      await waitFor(() => expect(screen.getByTestId("margot-says")).toHaveTextContent(FIRE_COPY.naAskReason));
+    }
+
+    it("words typed before Mark N/A are kept as words not saved, never filed as the reason", async () => {
+      await renderScreen();
+      await acknowledgeAndFinishSpeaking();
+      fireEvent.change(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder }), { target: { value: observation } });
+      await markContentsNa();
+
+      expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("");
+      expect(screen.getByRole("region", { name: "Words not saved" })).toHaveTextContent(FIRE_COPY.notSaved(observation));
+      expect(screen.getByRole("button", { name: FIRE_COPY.typedSubmit })).toBeDisabled();
+
+      fireEvent.change(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder }), { target: { value: reason } });
+      fireEvent.click(screen.getByRole("button", { name: FIRE_COPY.typedSubmit }));
+      await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_na")).toHaveLength(1));
+      const naCalls = calls.filter((c) => c.action === "mark_na");
+      expect(naCalls).toHaveLength(1);
+      expect(naCalls[0].body).toMatchObject({ sectionId: "contents", reason });
+      expect(calls.some((c) => JSON.stringify(c.body).includes(observation))).toBe(false);
+      expect(screen.getByRole("region", { name: "Words not saved" })).toHaveTextContent(FIRE_COPY.notSaved(observation));
+    });
+
+    it("the words of an open question are kept as words not saved, never filed as the reason", async () => {
+      await renderScreen();
+      await acknowledgeAndFinishSpeaking();
+      await typeAnswer("All good here");
+      await screen.findByRole("group", { name: "Margot's question" });
+      await markContentsNa();
+
+      expect(screen.queryByRole("group", { name: "Margot's question" })).toBeNull();
+      expect(screen.getByRole("textbox", { name: FIRE_COPY.typedPlaceholder })).toHaveValue("");
+      expect(screen.getByRole("region", { name: "Words not saved" })).toHaveTextContent(FIRE_COPY.notSaved("All good here"));
+
+      act(() => lastUtterance().end());
+      await waitFor(() => expect(FakeRecognition.live).toHaveLength(1));
+      act(() => FakeRecognition.live[0].hear(reason));
+      await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_na")).toHaveLength(1));
+      const naCalls = calls.filter((c) => c.action === "mark_na");
+      expect(naCalls).toHaveLength(1);
+      expect(naCalls[0].body).toMatchObject({ sectionId: "contents", reason });
+    });
+  });
+
   it.each([409, 408, 429])("a %i reply keeps the words and the retry key (K12)", async (status) => {
     await renderScreen();
     await acknowledgeAndFinishSpeaking();
