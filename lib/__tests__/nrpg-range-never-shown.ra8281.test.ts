@@ -379,8 +379,74 @@ function resolveImport(from: string, specifier: string): string | null {
   return null;
 }
 
+/**
+ * True when a file opens with the "use client" directive, after any leading
+ * comments and blank lines. It walks the text once (no pattern that can
+ * backtrack), and a comment that merely mentions the directive is skipped
+ * whole, so it is never read as the directive itself.
+ */
+function isClientFile(source: string): boolean {
+  let at = source.charCodeAt(0) === 0xfeff ? 1 : 0;
+  for (;;) {
+    while (at < source.length && /\s/.test(source[at])) at++;
+    if (source.startsWith("//", at)) {
+      const end = source.indexOf("\n", at);
+      if (end === -1) return false;
+      at = end + 1;
+    } else if (source.startsWith("/*", at)) {
+      const end = source.indexOf("*/", at + 2);
+      if (end === -1) return false;
+      at = end + 2;
+    } else {
+      break;
+    }
+  }
+  return (
+    source.startsWith('"use client"', at) ||
+    source.startsWith("'use client'", at)
+  );
+}
+
 const ALL_SOURCES = SOURCE_DIRS.flatMap((d) => sourceFiles(join(ROOT, d)));
 const rel = (path: string) => relative(ROOT, path).replace(/\\/g, "/");
+
+describe("which files count as browser files", () => {
+  it("reads the directive after comments, and nowhere else", () => {
+    for (const client of [
+      '"use client";\nimport x from "y";',
+      "'use client'\n",
+      '﻿"use client";',
+      '// header\n// more\n\n"use client";',
+      '/* block */\r\n\r\n// line\r\n"use client";',
+      '/**\n * doc\n */\n"use client";',
+    ]) {
+      expect(isClientFile(client), JSON.stringify(client)).toBe(true);
+    }
+    for (const server of [
+      'import x from "y";\n"use client";',
+      '// only for "use client" components\nimport x from "y";',
+      '/* never import from a "use client" file */\nexport const a = 1;',
+      '"use server";\n',
+      'const s = "use client";',
+      "// unterminated header",
+      "/* unterminated",
+      "",
+    ]) {
+      expect(isClientFile(server), JSON.stringify(server)).toBe(false);
+    }
+  });
+
+  it("stays fast on a long comment header", () => {
+    const header = Array.from(
+      { length: 5000 },
+      (_, i) => `// see https://example.com/${i} // and // more`,
+    ).join("\n");
+    const started = Date.now();
+    expect(isClientFile(`${header}\nexport const a = 1;`)).toBe(false);
+    expect(isClientFile(`${header}\n"use client";`)).toBe(true);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+});
 
 describe("who may read the range file", () => {
   /**
@@ -421,11 +487,17 @@ describe("who may read the range file", () => {
     // to the browser. If the range file is in that set, the figures are
     // readable in the page's scripts even when no screen prints them.
     const clientRoots = ALL_SOURCES.filter((file) =>
-      /^\s*(?:(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/)\s*)*["']use client["']/.test(
-        readFileSync(file, "utf8"),
-      ),
+      isClientFile(readFileSync(file, "utf8")),
     );
     expect(clientRoots.length).toBeGreaterThan(100);
+    // Files whose directive follows a comment header are client files too.
+    const roots = new Set(clientRoots.map(rel));
+    for (const commentLed of [
+      "components/capacitor/BillingGate.tsx",
+      "lib/oauth-native.ts",
+    ]) {
+      expect(roots.has(commentLed), commentLed).toBe(true);
+    }
 
     const cameFrom = new Map<string, string | null>();
     const queue: string[] = [];
