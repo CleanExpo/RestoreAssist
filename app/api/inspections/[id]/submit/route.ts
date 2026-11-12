@@ -270,8 +270,8 @@ export async function POST(
       // All applicable hazard-control actions must be completed before submission.
       // Seed N/A placeholders when intake never created rows (otherwise every
       // new-inspection submit 422s with five "missing" blockers).
-      await ensureMakeSafeSeeded(id);
-      const makeSafeResult = await checkMakeSafeGate(id);
+      await ensureMakeSafeSeeded(id, inspection.claimType ?? null);
+      const makeSafeResult = await checkMakeSafeGate(id, inspection.claimType);
       if (!makeSafeResult.canSubmit) {
         return NextResponse.json(
           {

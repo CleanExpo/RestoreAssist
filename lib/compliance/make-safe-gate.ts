@@ -5,20 +5,19 @@
 // before transitioning status to SUBMITTED/COMPLETED.
 
 import { prisma } from "@/lib/prisma";
-import { MAKE_SAFE_ACTIONS } from "@/lib/compliance/make-safe-actions";
+import {
+  MAKE_SAFE_ACTION_LABELS as LABELS,
+  makeSafeActionsFor,
+  makeSafeListKindFor,
+} from "@/lib/compliance/make-safe-actions";
 import {
   makeSafeCompliance,
   MAKE_SAFE_NOT_ASSESSED_REASON,
   type MakeSafeComplianceItem,
 } from "@/lib/compliance/make-safe-compliance";
 
-export const MAKE_SAFE_ACTION_LABELS: Record<string, string> = {
-  power_isolated: "Power isolated (electrical hazard)",
-  gas_isolated: "Gas supply isolated (gas leak hazard)",
-  mould_containment: "Mould containment barriers erected",
-  water_stopped: "Water source stopped/diverted",
-  occupant_briefing: "Occupant safety briefing documented",
-};
+/** Labels live in make-safe-actions.ts; re-exported for existing importers. */
+export const MAKE_SAFE_ACTION_LABELS: Record<string, string> = LABELS;
 
 export type MakeSafeGateResult = {
   canSubmit: boolean;
@@ -45,9 +44,16 @@ export { MAKE_SAFE_NOT_ASSESSED_REASON };
  * RA-7739: a checklist with nothing applicable (the untouched intake seed,
  * or every item marked N/A) is not an assessment and is refused. Submit is
  * allowed exactly when makeSafeCompliance() — the badge — reads PASS.
+ *
+ * RA-8327: the list checked is the job's list (makeSafeListKindFor). Fire
+ * jobs are checked against the fire list, every other job against the
+ * standard list exactly as before. Rows for the other list are ignored, never
+ * deleted. Pass the inspection's claimType; without it the stored rows name
+ * the list, and a job with none is checked against the standard list.
  */
 export async function checkMakeSafeGate(
   inspectionId: string,
+  claimType?: string | null,
 ): Promise<MakeSafeGateResult> {
   const rows = await prisma.makeSafeAction.findMany({
     where: { inspectionId },
@@ -56,11 +62,12 @@ export async function checkMakeSafeGate(
   });
 
   const rowMap = new Map(rows.map((r) => [r.action, r]));
+  const actions = makeSafeActionsFor(makeSafeListKindFor({ claimType, rows }));
 
   const blockers: Array<{ action: string; label: string }> = [];
   const items: MakeSafeComplianceItem[] = [];
 
-  for (const action of MAKE_SAFE_ACTIONS) {
+  for (const action of actions) {
     const row = rowMap.get(action);
 
     if (!row) {

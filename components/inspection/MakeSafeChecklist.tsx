@@ -10,6 +10,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useMemo,
   useState,
 } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
@@ -24,20 +25,12 @@ import {
 } from "@/lib/compliance/make-safe-compliance";
 import {
   MAKE_SAFE_ACTIONS,
+  MAKE_SAFE_ACTION_LABELS as ACTION_LABELS,
   type MakeSafeActionName,
+  type MakeSafeActionState,
   type MakeSafeChecklistState,
   persistMakeSafeChecklist,
 } from "@/lib/compliance/make-safe-actions";
-
-// ── Constants ──────────────────────────────────────────────────────────────
-
-const ACTION_LABELS: Record<MakeSafeActionName, string> = {
-  power_isolated: "Power isolated (electrical hazard)",
-  gas_isolated: "Gas supply isolated (gas leak hazard)",
-  mould_containment: "Mould containment barriers erected",
-  water_stopped: "Water source stopped/diverted",
-  occupant_briefing: "Occupant safety briefing documented",
-};
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -48,19 +41,38 @@ interface MakeSafeRow {
   notes: string | null;
 }
 
-function defaultState(): MakeSafeChecklistState {
-  return Object.fromEntries(
-    MAKE_SAFE_ACTIONS.map((a) => [
-      a,
-      { applicable: true, completed: false, notes: "" },
-    ]),
-  ) as MakeSafeChecklistState;
+type ActionList = readonly MakeSafeActionName[];
+
+const EMPTY_ROW: MakeSafeActionState = {
+  applicable: true,
+  completed: false,
+  notes: "",
+};
+
+/**
+ * RA-8327: the server names the job's list (fire or standard). A response
+ * without one, or naming an action this build has no label for, falls back
+ * to the standard list.
+ */
+function listFrom(names: unknown): ActionList {
+  if (
+    Array.isArray(names) &&
+    names.length > 0 &&
+    names.every((n) => typeof n === "string" && n in ACTION_LABELS)
+  ) {
+    return names as MakeSafeActionName[];
+  }
+  return MAKE_SAFE_ACTIONS;
 }
 
-function rowsToState(rows: MakeSafeRow[]): MakeSafeChecklistState {
-  const state = defaultState();
+function defaultState(list: ActionList): MakeSafeChecklistState {
+  return Object.fromEntries(list.map((a) => [a, { ...EMPTY_ROW }]));
+}
+
+function rowsToState(list: ActionList, rows: MakeSafeRow[]): MakeSafeChecklistState {
+  const state = defaultState(list);
   for (const row of rows) {
-    if (MAKE_SAFE_ACTIONS.includes(row.action as MakeSafeActionName)) {
+    if (list.includes(row.action as MakeSafeActionName)) {
       state[row.action as MakeSafeActionName] = {
         applicable: row.applicable,
         completed: row.completed,
@@ -69,6 +81,16 @@ function rowsToState(rows: MakeSafeRow[]): MakeSafeChecklistState {
     }
   }
   return state;
+}
+
+/** A quick-fill seed applies only when it is for this job's list. */
+function seedFits(list: ActionList, seed: MakeSafeChecklistState): boolean {
+  const keys = Object.keys(seed);
+  return keys.length === list.length && list.every((a) => seed[a] != null);
+}
+
+function rowOf(state: MakeSafeChecklistState, action: MakeSafeActionName) {
+  return state[action] ?? EMPTY_ROW;
 }
 
 export type MakeSafeChecklistHandle = {
@@ -92,38 +114,40 @@ export const MakeSafeChecklist = forwardRef<
 >(function MakeSafeChecklist({ inspectionId, autoSave = false, seed = null }, ref) {
   const endpoint = `/api/inspections/${inspectionId}/make-safe`;
 
-  const { data, loading, error } = useFetch<{ data: MakeSafeRow[] }>(endpoint);
+  const { data, loading, error } = useFetch<{
+    data: MakeSafeRow[];
+    actions?: string[];
+  }>(endpoint);
 
-  const [state, setState] = useState<MakeSafeChecklistState>(defaultState);
+  const list = useMemo(() => listFrom(data?.actions), [data]);
+  const listRef = useRef(list);
+  listRef.current = list;
+
+  const [state, setState] = useState<MakeSafeChecklistState>(() =>
+    defaultState(MAKE_SAFE_ACTIONS),
+  );
   const skipAutoSave = useRef(true);
   const stateRef = useRef(state);
   stateRef.current = state;
 
   const intakeSeedFromApi = (rows: MakeSafeRow[]) => {
-    const next = rowsToState(rows);
-    return MAKE_SAFE_ACTIONS.every((action) => !next[action].applicable);
+    const next = rowsToState(list, rows);
+    return list.every((action) => !rowOf(next, action).applicable);
   };
+  const usableSeed = seed && seedFits(list, seed) ? seed : null;
 
   // Hydrate from API on load
   useEffect(() => {
     if (data?.data) {
-      const fromApi = rowsToState(data.data);
-      if (seed && intakeSeedFromApi(data.data)) {
-        setState(seed);
+      const fromApi = rowsToState(list, data.data);
+      if (usableSeed && intakeSeedFromApi(data.data)) {
+        setState(usableSeed);
       } else {
         setState(fromApi);
       }
       skipAutoSave.current = true;
     }
-  }, [data, seed]);
-
-  useEffect(() => {
-    if (!seed || !data?.data) return;
-    if (intakeSeedFromApi(data.data)) {
-      setState(seed);
-      skipAutoSave.current = true;
-    }
-  }, [seed, data]);
+  }, [data, usableSeed, list]);
 
   useImperativeHandle(
     ref,
@@ -131,7 +155,7 @@ export const MakeSafeChecklist = forwardRef<
       persist: () => persistMakeSafeChecklist(inspectionId, stateRef.current),
       readiness: () => {
         const compliance = makeSafeCompliance(
-          MAKE_SAFE_ACTIONS.map((action) => stateRef.current[action]),
+          listRef.current.map((action) => rowOf(stateRef.current, action)),
         );
         if (compliance === "NOT_ASSESSED") {
           return { ok: false, message: MAKE_SAFE_NOT_ASSESSED_REASON };
@@ -146,6 +170,9 @@ export const MakeSafeChecklist = forwardRef<
         return { ok: true };
       },
       applySeed: (next) => {
+        // A preset written for the other list (e.g. a water quick-fill on a
+        // fire job) is not applied; the job keeps its own list.
+        if (!seedFits(listRef.current, next)) return;
         setState(next);
         skipAutoSave.current = true;
       },
@@ -172,20 +199,20 @@ export const MakeSafeChecklist = forwardRef<
 
   // RA-7713: all-N/A (the intake seed) is "Not assessed", never PASS.
   const compliance = makeSafeCompliance(
-    MAKE_SAFE_ACTIONS.map((a) => state[a]),
+    list.map((a) => rowOf(state, a)),
   );
   const complianceStatus = MAKE_SAFE_COMPLIANCE_LABEL[compliance];
 
   // ── Field handlers ───────────────────────────────────────────────────────
 
-  function setField<K extends keyof MakeSafeChecklistState[MakeSafeActionName]>(
+  function setField<K extends keyof MakeSafeActionState>(
     action: MakeSafeActionName,
     field: K,
-    value: MakeSafeChecklistState[MakeSafeActionName][K],
+    value: MakeSafeActionState[K],
   ) {
     setState((prev) => ({
       ...prev,
-      [action]: { ...prev[action], [field]: value },
+      [action]: { ...rowOf(prev, action), [field]: value },
     }));
   }
 
@@ -195,7 +222,7 @@ export const MakeSafeChecklist = forwardRef<
     return (
       <div className="rounded-lg border p-4 animate-pulse">
         <div className="h-6 bg-muted rounded w-48 mb-4" />
-        {MAKE_SAFE_ACTIONS.map((a) => (
+        {list.map((a) => (
           <div key={a} className="h-10 bg-muted rounded mb-2" />
         ))}
       </div>
@@ -244,8 +271,8 @@ export const MakeSafeChecklist = forwardRef<
 
       {/* Rows */}
       <div className="divide-y">
-        {MAKE_SAFE_ACTIONS.map((action) => {
-          const row = state[action];
+        {list.map((action) => {
+          const row = rowOf(state, action);
           const checkboxId = `make-safe-${action}`;
           const naId = `make-safe-na-${action}`;
           const notesId = `make-safe-notes-${action}`;
