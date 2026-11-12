@@ -27,6 +27,16 @@ const FIRE = [
   "asbestos_presumed",
 ];
 
+const STANDARD = [
+  "power_isolated",
+  "gas_isolated",
+  "mould_containment",
+  "water_stopped",
+  "occupant_briefing",
+];
+const SEED_NOTE =
+  "Seeded at intake — mark applicable items complete before relying on this for compliance.";
+
 function renderWith(payload: unknown) {
   useFetchMock.mockReturnValue({ data: payload, loading: false, error: null });
   render(<MakeSafeChecklist inspectionId="insp-1" />);
@@ -63,6 +73,70 @@ describe("MakeSafeChecklist list (RA-8327)", () => {
     });
     expect(screen.getByText(/mould containment/i)).toBeInTheDocument();
     expect(screen.queryByText(/structure safe to enter/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the other list's recorded rows read-only, outside the compliance count", () => {
+    renderWith({
+      data: [],
+      actions: STANDARD,
+      history: [
+        { action: "structure_safe", applicable: true, completed: true, notes: "Engineer cleared" },
+      ],
+    });
+    const history = screen.getByRole("region", { name: /earlier list/i });
+    expect(history).toHaveTextContent(/structure safe to enter/i);
+    expect(history).toHaveTextContent("Engineer cleared");
+    expect(history.querySelectorAll("button, input, textarea")).toHaveLength(0);
+    // The standard list has nothing recorded, so the history row does not make it PASS.
+    expect(screen.getByLabelText(/^Compliance status:/)).not.toHaveTextContent("PASS");
+  });
+
+  it("a quick-fill seed never overwrites a technician's note on an N/A row", () => {
+    const seed = Object.fromEntries(
+      STANDARD.map((a) => [a, { applicable: true, completed: true, notes: "preset" }]),
+    );
+    useFetchMock.mockReturnValue({
+      data: {
+        data: STANDARD.map((action) => ({
+          action,
+          applicable: false,
+          completed: false,
+          notes:
+            action === "water_stopped"
+              ? "Mains valve inaccessible; insurer notified"
+              : SEED_NOTE,
+        })),
+        actions: STANDARD,
+      },
+      loading: false,
+      error: null,
+    });
+    render(<MakeSafeChecklist inspectionId="insp-1" seed={seed} />);
+    expect(
+      screen.getByDisplayValue("Mains valve inaccessible; insurer notified"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Compliance status:/)).not.toHaveTextContent("PASS");
+  });
+
+  it("a quick-fill seed still applies over the untouched intake seed", () => {
+    const seed = Object.fromEntries(
+      STANDARD.map((a) => [a, { applicable: true, completed: true, notes: "preset" }]),
+    );
+    useFetchMock.mockReturnValue({
+      data: {
+        data: STANDARD.map((action) => ({
+          action,
+          applicable: false,
+          completed: false,
+          notes: SEED_NOTE,
+        })),
+        actions: STANDARD,
+      },
+      loading: false,
+      error: null,
+    });
+    render(<MakeSafeChecklist inspectionId="insp-1" seed={seed} />);
+    expect(screen.getByLabelText(/^Compliance status:/)).toHaveTextContent("PASS");
   });
 
   it("falls back to the standard list when the response names none", () => {

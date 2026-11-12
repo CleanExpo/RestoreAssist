@@ -206,10 +206,14 @@ const signoff = (covered: Array<{ id: string; createdAt: Date }>, createdAt: Dat
   },
   createdAt,
 });
+// A standard list recorded before the fire list existed (RA-8327), so a FIRE
+// job keeps gating on it and passes; these tests are about the walkthrough.
 const passingMakeSafe = ALL_ACTIONS.map((action) => ({
   action,
   applicable: action === "occupant_briefing",
   completed: action === "occupant_briefing",
+  notes: null,
+  createdAt: new Date("2026-10-01T00:00:00.000Z"),
 }));
 
 describe("submit route — fire and smoke walkthrough gate", () => {

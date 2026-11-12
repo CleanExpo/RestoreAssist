@@ -26,6 +26,7 @@ import {
 import {
   MAKE_SAFE_ACTIONS,
   MAKE_SAFE_ACTION_LABELS as ACTION_LABELS,
+  isIntakeSeed,
   type MakeSafeActionName,
   type MakeSafeActionState,
   type MakeSafeChecklistState,
@@ -87,6 +88,28 @@ function rowsToState(list: ActionList, rows: MakeSafeRow[]): MakeSafeChecklistSt
   return state;
 }
 
+/**
+ * True when the job's list is fully stored and still the untouched intake
+ * seed (isIntakeSeed owns the rule). Only then may a quick-fill replace it; a
+ * technician's note on an N/A row, or any row a person saved, is kept.
+ */
+function listIsIntakeSeed(list: ActionList, rows: MakeSafeRow[]): boolean {
+  const onList = rows.filter((r) => list.includes(r.action as MakeSafeActionName));
+  const have = new Set(onList.map((r) => r.action));
+  return list.every((a) => have.has(a)) && isIntakeSeed(onList);
+}
+
+/** Rows from the job's other list, named by the server as read-only history. */
+function historyFrom(rows: unknown): MakeSafeRow[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.filter(
+    (r): r is MakeSafeRow =>
+      r != null &&
+      typeof r === "object" &&
+      typeof (r as MakeSafeRow).action === "string",
+  );
+}
+
 /** A quick-fill seed applies only when it is for this job's list. */
 function seedFits(list: ActionList, seed: MakeSafeChecklistState): boolean {
   const keys = Object.keys(seed);
@@ -121,9 +144,11 @@ export const MakeSafeChecklist = forwardRef<
   const { data, loading, error } = useFetch<{
     data: MakeSafeRow[];
     actions?: string[];
+    history?: MakeSafeRow[];
   }>(endpoint);
 
   const list = useMemo(() => listFrom(data?.actions), [data]);
+  const history = useMemo(() => historyFrom(data?.history), [data]);
   const listRef = useRef(list);
   listRef.current = list;
 
@@ -134,17 +159,13 @@ export const MakeSafeChecklist = forwardRef<
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const intakeSeedFromApi = (rows: MakeSafeRow[]) => {
-    const next = rowsToState(list, rows);
-    return list.every((action) => !rowOf(next, action).applicable);
-  };
   const usableSeed = seed && seedFits(list, seed) ? seed : null;
 
   // Hydrate from API on load
   useEffect(() => {
     if (data?.data) {
       const fromApi = rowsToState(list, data.data);
-      if (usableSeed && intakeSeedFromApi(data.data)) {
+      if (usableSeed && listIsIntakeSeed(list, data.data)) {
         setState(usableSeed);
       } else {
         setState(fromApi);
@@ -350,6 +371,43 @@ export const MakeSafeChecklist = forwardRef<
           );
         })}
       </div>
+
+      {history.length > 0 && (
+        <section
+          aria-label="Recorded on the earlier list"
+          className="border-t bg-muted/40 p-4 space-y-2"
+        >
+          <h3 className="text-sm font-medium">Recorded on the earlier list</h3>
+          <p className="text-xs text-muted-foreground">
+            Kept as a record after the job type changed. Read-only; these items
+            do not count toward submit.
+          </p>
+          <ul className="space-y-1 text-sm">
+            {history.map((row) => (
+              <li key={row.action}>
+                <span>
+                  {Object.prototype.hasOwnProperty.call(ACTION_LABELS, row.action)
+                    ? ACTION_LABELS[row.action as MakeSafeActionName]
+                    : row.action}
+                </span>
+                {" — "}
+                <span className="text-muted-foreground">
+                  {!row.applicable
+                    ? "N/A"
+                    : row.completed
+                      ? "Completed"
+                      : "Not completed"}
+                </span>
+                {row.notes ? (
+                  <span className="block text-xs text-muted-foreground">
+                    {row.notes}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </section>
   );
 });

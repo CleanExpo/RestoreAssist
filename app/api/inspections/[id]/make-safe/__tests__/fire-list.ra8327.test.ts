@@ -39,6 +39,7 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: vi.fn(async () => null),
     },
     inspection: { findUnique: (...a: unknown[]) => findUnique(...a) },
+    fireSmokeDamageAssessment: { findFirst: vi.fn(async () => null) },
   },
 }));
 
@@ -86,6 +87,8 @@ describe("GET names the list", () => {
           applicable: false,
           completed: false,
           notes: action === "water_stopped" ? "Mains valve inaccessible" : null,
+          // Recorded before the fire list existed (RA-8327).
+          createdAt: new Date("2026-10-01T00:00:00.000Z"),
         }),
       ),
     );
@@ -93,6 +96,24 @@ describe("GET names the list", () => {
     const body = await res.json();
     expect(body.actions).toContain("water_stopped");
     expect(body.actions).not.toContain("structure_safe");
+  });
+
+  it("a job reclassified to water gates on the standard list and returns its fire rows as read-only history", async () => {
+    findUnique.mockResolvedValue({ claimType: "WATER" });
+    findMany.mockResolvedValue([
+      {
+        action: "structure_safe",
+        applicable: true,
+        completed: true,
+        notes: "Engineer cleared",
+        createdAt: new Date("2026-12-01T00:00:00.000Z"),
+      },
+    ]);
+    const res = (await GET(new NextRequest(url), ctx)) as NextResponse;
+    const body = await res.json();
+    expect(body.actions).toContain("water_stopped");
+    expect(body.actions).not.toContain("structure_safe");
+    expect(body.history.map((r: { action: string }) => r.action)).toEqual(["structure_safe"]);
   });
 
   it("returns the standard list for a water job", async () => {

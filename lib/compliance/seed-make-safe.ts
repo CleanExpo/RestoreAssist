@@ -7,17 +7,17 @@
  * all-N/A checklist is refused at submit ("not assessed"), so the technician
  * must mark and complete at least one applicable item before submitting.
  *
- * RA-8327: the rows seeded are the job's list (makeSafeListKindFor): the fire
+ * RA-8327: the rows seeded are the job's list (decideMakeSafeList): the fire
  * list on a fire job, the standard list otherwise. Existing rows are never
  * changed or removed.
  */
 
 import { prisma } from "@/lib/prisma";
+import { isIntakeSeed } from "@/lib/compliance/make-safe-actions";
 import {
-  hasRowUniqueTo,
-  makeSafeActionsFor,
-  makeSafeListKindFor,
-} from "@/lib/compliance/make-safe-actions";
+  decideMakeSafeListForInspection,
+  MAKE_SAFE_DECISION_SELECT,
+} from "@/lib/compliance/make-safe-list";
 import { MAKE_SAFE_SEED_NOTE as SEED_NOTE } from "@/lib/compliance/make-safe-compliance";
 
 function seedRows(inspectionId: string, actions: readonly string[]) {
@@ -31,11 +31,12 @@ function seedRows(inspectionId: string, actions: readonly string[]) {
 }
 
 /**
- * Idempotent. With no rows, seeds the job's list. With rows, and a claim type
- * given, adds the missing rows of the job's list only when the rows are the
- * other list's seed: a fire job that still holds the untouched standard
- * intake seed. Any other partly filled list is left as it is, so a missing
- * row still blocks submit exactly as before.
+ * Idempotent. With no rows, seeds the job's list. With rows, adds the missing
+ * rows of the job's list only while every stored row is still the untouched
+ * intake seed (isIntakeSeed): for example a fire job that holds only the
+ * standard seed because the claim type was set after intake. Once a person
+ * has recorded anything, nothing is added, so a missing row still blocks
+ * submit exactly as before.
  * Returns true when rows were created.
  */
 export async function ensureMakeSafeSeeded(
@@ -46,29 +47,32 @@ export async function ensureMakeSafeSeeded(
     where: { inspectionId },
   });
   if (existing === 0) {
-    const kind = makeSafeListKindFor({ claimType });
+    const { actions } = await decideMakeSafeListForInspection(
+      inspectionId,
+      claimType,
+      [],
+    );
     await prisma.makeSafeAction.createMany({
-      data: seedRows(inspectionId, makeSafeActionsFor(kind)),
+      data: seedRows(inspectionId, actions),
       skipDuplicates: true,
     });
     return true;
   }
-  if (claimType == null) return false;
 
   const rows = await prisma.makeSafeAction.findMany({
     where: { inspectionId },
-    select: { action: true, applicable: true, completed: true, notes: true },
+    select: MAKE_SAFE_DECISION_SELECT,
     take: 20,
   });
-  const kind = makeSafeListKindFor({ claimType, rows });
-  const other = kind === "fire" ? "standard" : "fire";
-  // Only the seed of the other list (left behind when the claim type changed
-  // before anything was recorded) is topped up. A partly filled list of this
-  // job's own kind is left alone, so its missing rows still block submit.
-  if (hasRowUniqueTo(kind, rows) || !hasRowUniqueTo(other, rows)) return false;
+  if (!isIntakeSeed(rows)) return false;
 
+  const { actions } = await decideMakeSafeListForInspection(
+    inspectionId,
+    claimType,
+    rows,
+  );
   const have = new Set(rows.map((r) => r.action));
-  const missing = makeSafeActionsFor(kind).filter((a) => !have.has(a));
+  const missing = actions.filter((a) => !have.has(a));
   if (missing.length === 0) return false;
   await prisma.makeSafeAction.createMany({
     data: seedRows(inspectionId, missing),

@@ -11,11 +11,11 @@ import {
   assertInspectionReadable,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
+import type { StoredMakeSafeRow } from "@/lib/compliance/make-safe-actions";
 import {
-  makeSafeActionsFor,
-  makeSafeListKindFor,
-  type StoredMakeSafeRow,
-} from "@/lib/compliance/make-safe-actions";
+  decideMakeSafeListForInspection,
+  MAKE_SAFE_DECISION_SELECT,
+} from "@/lib/compliance/make-safe-list";
 
 // RA-1136a: Make-Safe compliance gate
 // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
@@ -23,11 +23,12 @@ import {
 type RouteContext = { params: Promise<{ id: string }> };
 
 // RA-8327: the list this job is checked against (fire or standard), decided
-// the same way as the submit gate and the intake seed.
-async function jobActionList(
+// by the same owner as the submit gate and the intake seed. `history` is the
+// rows recorded on the other list: shown read-only, never accepted for write.
+async function jobActionList<R extends StoredMakeSafeRow>(
   inspectionId: string,
-  rows?: readonly StoredMakeSafeRow[],
-): Promise<readonly string[]> {
+  rows?: readonly R[],
+) {
   const [inspection, stored] = await Promise.all([
     prisma.inspection.findUnique({
       where: { id: inspectionId },
@@ -36,12 +37,14 @@ async function jobActionList(
     rows ??
       prisma.makeSafeAction.findMany({
         where: { inspectionId },
-        select: { action: true, applicable: true, completed: true, notes: true },
+        select: MAKE_SAFE_DECISION_SELECT,
         take: 20,
       }),
   ]);
-  return makeSafeActionsFor(
-    makeSafeListKindFor({ claimType: inspection?.claimType ?? null, rows: stored }),
+  return decideMakeSafeListForInspection(
+    inspectionId,
+    inspection?.claimType ?? null,
+    stored as readonly R[],
   );
 }
 
@@ -107,7 +110,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const rows = await prisma.makeSafeAction.findMany({
       where: { inspectionId: id },
       orderBy: { action: "asc" },
-      take: 10,
+      take: 20,
       select: {
         id: true,
         action: true,
@@ -121,9 +124,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       },
     });
 
-    // `actions` names the list the checklist draws; `data` is unchanged.
-    const actions = await jobActionList(id, rows);
-    return NextResponse.json({ data: rows, actions });
+    // `actions` names the list the checklist draws; `history` holds the rows
+    // recorded on the other list (read-only); `data` is unchanged.
+    const { actions, history } = await jobActionList(id, rows);
+    return NextResponse.json({ data: rows, actions, history });
   } catch (err) {
     return fromException(request, err, { stage: "make-safe-get" });
   }
@@ -159,7 +163,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         notes?: string;
       };
 
-      const allowed = await jobActionList(id);
+      const allowed: readonly string[] = (await jobActionList(id)).actions;
       if (!action || !allowed.includes(action)) {
         return apiError(request, {
           code: "VALIDATION",
@@ -258,7 +262,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     }
 
     // Validate all action names up-front before any DB writes
-    const allowed = await jobActionList(id);
+    const allowed: readonly string[] = (await jobActionList(id)).actions;
     const invalid = actions.filter((a) => !allowed.includes(a.action));
     if (invalid.length > 0) {
       return apiError(request, {

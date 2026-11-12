@@ -5,11 +5,11 @@
 // before transitioning status to SUBMITTED/COMPLETED.
 
 import { prisma } from "@/lib/prisma";
+import { MAKE_SAFE_ACTION_LABELS as LABELS } from "@/lib/compliance/make-safe-actions";
 import {
-  MAKE_SAFE_ACTION_LABELS as LABELS,
-  makeSafeActionsFor,
-  makeSafeListKindFor,
-} from "@/lib/compliance/make-safe-actions";
+  decideMakeSafeListForInspection,
+  MAKE_SAFE_DECISION_SELECT,
+} from "@/lib/compliance/make-safe-list";
 import {
   makeSafeCompliance,
   MAKE_SAFE_NOT_ASSESSED_REASON,
@@ -45,11 +45,10 @@ export { MAKE_SAFE_NOT_ASSESSED_REASON };
  * or every item marked N/A) is not an assessment and is refused. Submit is
  * allowed exactly when makeSafeCompliance() — the badge — reads PASS.
  *
- * RA-8327: the list checked is the job's list (makeSafeListKindFor). Fire
- * jobs are checked against the fire list, every other job against the
- * standard list exactly as before. Rows for the other list are ignored, never
- * deleted. Pass the inspection's claimType; without it the stored rows name
- * the list, and a job with none is checked against the standard list.
+ * RA-8327: the list checked is the job's list (decideMakeSafeList): the fire
+ * list on a fire job, the standard list on every other job exactly as before.
+ * Rows recorded on the other list are history; they never count here and are
+ * never deleted. Pass the inspection's claimType.
  */
 export async function checkMakeSafeGate(
   inspectionId: string,
@@ -57,12 +56,16 @@ export async function checkMakeSafeGate(
 ): Promise<MakeSafeGateResult> {
   const rows = await prisma.makeSafeAction.findMany({
     where: { inspectionId },
-    select: { action: true, applicable: true, completed: true, notes: true },
-    take: 10,
+    select: MAKE_SAFE_DECISION_SELECT,
+    take: 20,
   });
 
   const rowMap = new Map(rows.map((r) => [r.action, r]));
-  const actions = makeSafeActionsFor(makeSafeListKindFor({ claimType, rows }));
+  const { actions } = await decideMakeSafeListForInspection(
+    inspectionId,
+    claimType,
+    rows,
+  );
 
   const blockers: Array<{ action: string; label: string }> = [];
   const items: MakeSafeComplianceItem[] = [];

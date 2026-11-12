@@ -83,63 +83,101 @@ export function isMakeSafeActionOn(
   return (LISTS[kind] as readonly string[]).includes(action);
 }
 
-/** A stored row as the list decision needs it. Load `notes` with it. */
+/**
+ * When the fire list shipped (RA-8327). A fire job whose standard list was
+ * created before this moment, and recorded on, keeps gating on that list.
+ */
+export const FIRE_LIST_INTRODUCED_AT = new Date("2026-11-12T00:00:00.000Z");
+
+/** A stored row as the list decision needs it. Load `notes` and `createdAt`. */
 export interface StoredMakeSafeRow {
   action: string;
   applicable: boolean;
   completed: boolean;
   notes?: string | null;
+  createdAt?: Date | string | null;
 }
 
 /**
- * Has a person recorded anything on this row? Only the intake seed (N/A, not
- * completed, the seed note) is untouched. An N/A with a technician's note, or
- * an N/A a person saved with no note, is a record and must stay readable.
- * A row loaded without its notes counts on its flags alone.
+ * The one owner of "untouched intake seed" for a single row: N/A, not
+ * completed, carrying the seed note. Anything else is a person's record,
+ * including an N/A saved with no note or with a technician's note.
  */
-function isRecorded(row: StoredMakeSafeRow): boolean {
-  if (row.applicable || row.completed) return true;
-  return row.notes !== undefined && row.notes !== MAKE_SAFE_SEED_NOTE;
+export function isUntouchedSeedRow(row: StoredMakeSafeRow): boolean {
+  return (
+    !row.applicable && !row.completed && row.notes === MAKE_SAFE_SEED_NOTE
+  );
+}
+
+/** True when there are rows and every one is the untouched intake seed. */
+export function isIntakeSeed(rows: readonly StoredMakeSafeRow[]): boolean {
+  return rows.length > 0 && rows.every(isUntouchedSeedRow);
+}
+
+function createdBeforeFireList(row: StoredMakeSafeRow): boolean {
+  if (row.createdAt == null) return false; // unknown date: not legacy
+  const at = new Date(row.createdAt).getTime();
+  return Number.isFinite(at) && at < FIRE_LIST_INTRODUCED_AT.getTime();
 }
 
 /**
- * Which list this job is checked against.
- *
- * 1. A list the technician has recorded on keeps the job: a row unique to one
- *    list that is applicable or completed fixes that list, and so does any
- *    recorded row when only one list's rows are stored. This is what keeps
- *    live jobs reading the way they did (a fire job assessed on the standard
- *    list before RA-8327 stays on it), and keeps a recorded fire list when a
- *    later assessment route overwrites claimType.
- * 2. Otherwise the claim type decides: fire claims get the fire list.
- * 3. With no claim type, the seeded rows name the list; with none, standard.
- *
- * Only the untouched intake seed (every row N/A with the seed note) is not a
- * record, so it never pins a job to the wrong list; an N/A a person saved, with
- * or without a note, is a record (isRecorded).
+ * A fire job that already holds a standard list recorded before RA-8327:
+ * standard-only rows exist and are all dated before the fire list, no
+ * fire-only row exists, and a person has recorded at least one row. Unknown
+ * dates fail this, so the stricter fire list wins.
  */
-export function makeSafeListKindFor(input: {
+function holdsLegacyStandardList(rows: readonly StoredMakeSafeRow[]): boolean {
+  const standardOnly = rows.filter((r) => ONLY_ON.standard.has(r.action));
+  if (standardOnly.length === 0 || hasRowUniqueTo("fire", rows)) return false;
+  if (!standardOnly.every(createdBeforeFireList)) return false;
+  return rows.some((r) => !isUntouchedSeedRow(r));
+}
+
+/** No claim type recorded yet. Any recorded value, known or not, is not blank. */
+export function isBlankClaimType(claimType: string | null | undefined): boolean {
+  return claimType == null || claimType.trim() === "";
+}
+
+export interface MakeSafeListDecision<
+  R extends StoredMakeSafeRow = StoredMakeSafeRow,
+> {
+  kind: MakeSafeListKind;
+  /** The actions the gate checks and the checklist edits. */
+  actions: readonly MakeSafeActionName[];
+  /** Recorded rows unique to the other list: shown read-only, never counted. */
+  history: R[];
+}
+
+/**
+ * Which list this job is checked against. The one owner of the rule: the
+ * gate, the intake seed and the route all read its answer, and the checklist
+ * draws the list the route names.
+ *
+ * - The job's current claim type decides. A known non-fire claim (water,
+ *   mould, storm and so on) gates on the standard list; a fire claim gates on
+ *   the fire list. A blank claim type counts as fire when the job has a fire
+ *   assessment (the same rule the walkthrough uses), otherwise standard.
+ * - Exception: a fire job that already holds a standard list recorded before
+ *   RA-8327 keeps gating on it, so live jobs read as they did.
+ * - Rows recorded on the other list come back as history. They never count
+ *   toward the gate, so a reclassification never makes the gate easier.
+ */
+export function decideMakeSafeList<R extends StoredMakeSafeRow>(input: {
   claimType?: string | null;
-  rows?: readonly StoredMakeSafeRow[];
-}): MakeSafeListKind {
+  hasFireAssessment?: boolean;
+  rows?: readonly R[];
+}): MakeSafeListDecision<R> {
   const rows = input.rows ?? [];
-  const recorded = rows.filter(isRecorded);
-  if (recorded.some((r) => ONLY_ON.fire.has(r.action))) return "fire";
-  if (recorded.some((r) => ONLY_ON.standard.has(r.action))) return "standard";
-  if (recorded.length > 0) {
-    // Only shared actions (power, gas, occupants) recorded: the list seeded
-    // alongside them is the one the technician was working on.
-    const seededFire = hasRowUniqueTo("fire", rows);
-    const seededStandard = hasRowUniqueTo("standard", rows);
-    if (seededFire !== seededStandard) return seededFire ? "fire" : "standard";
-  }
-
-  const claim = normalizeClaimType(input.claimType);
-  if (claim === "FIRE_SMOKE") return "fire";
-  if (claim) return "standard";
-
-  if (rows.some((r) => ONLY_ON.fire.has(r.action))) return "fire";
-  return "standard";
+  const fireClaim =
+    normalizeClaimType(input.claimType) === "FIRE_SMOKE" ||
+    (isBlankClaimType(input.claimType) && input.hasFireAssessment === true);
+  const kind: MakeSafeListKind =
+    fireClaim && !holdsLegacyStandardList(rows) ? "fire" : "standard";
+  const other: MakeSafeListKind = kind === "fire" ? "standard" : "fire";
+  const history = rows.filter(
+    (r) => ONLY_ON[other].has(r.action) && !isUntouchedSeedRow(r),
+  );
+  return { kind, actions: LISTS[kind], history };
 }
 
 /** True when the rows already hold a row unique to this list. */
