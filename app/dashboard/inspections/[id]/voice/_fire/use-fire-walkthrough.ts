@@ -55,9 +55,12 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     typedNow.current = typed;
   }, [typed]);
   const handleTextRef = useRef<(text: string) => void>(() => {});
+  const holdBackRef = useRef<(words: string) => void>(() => {});
 
   const speech = useFireSpeech({
     onFinal: (t) => handleTextRef.current(t),
+    // Words from a mic that was already stopped (a save paused it mid-sentence).
+    onLate: (t) => holdBackRef.current(t),
     onBlocked: (reason) => setProblem(reason),
   });
 
@@ -85,6 +88,13 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   useEffect(() => {
     void openSession();
   }, [openSession]);
+
+  // Nothing heard can be filed without a session, so listening is off while
+  // there is none (the screen also disables the toggle until it is ready).
+  const { wanted: listeningWanted, setListeningWanted } = speech;
+  useEffect(() => {
+    if (sessionFailed && listeningWanted) setListeningWanted(false);
+  }, [listeningWanted, sessionFailed, setListeningWanted]);
 
   const refresh = useCallback(async () => {
     const res = await getFireWalkthrough(inspectionId);
@@ -119,6 +129,23 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
     },
     [offerWords, setAside],
   );
+
+  /**
+   * The one rule for words that arrive when they cannot be filed now (no voice
+   * session, a save in flight or held, the notice not yet accepted, or a mic
+   * already stopped). They are never dropped and never filed later on their
+   * own: they go to "Words not saved". Words already sitting in the typing box
+   * are already kept there, so they are not listed twice.
+   */
+  const holdBack = useCallback(
+    (text: string) => {
+      const words = text.trim();
+      if (!words || typedNow.current.trim() === words) return;
+      setAside(words);
+    },
+    [setAside],
+  );
+  holdBackRef.current = holdBack;
 
   /**
    * Delivers one frozen save (kind K12: its action, words and key never change
@@ -177,12 +204,13 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   const send = useCallback(
     async (action: FireAction, words?: string, onDone?: (res: FireActionResponse) => void): Promise<void> => {
       if (held.current) {
+        if (words !== undefined) holdBack(words);
         talk(FIRE_COPY.retryFirst);
         return;
       }
       await deliver({ action, words, onDone, key: newIdempotencyKey() });
     },
-    [deliver, talk],
+    [deliver, holdBack, talk],
   );
 
   const retry = useCallback(async () => {
@@ -299,7 +327,12 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
   const handleText = useCallback(
     async (text: string) => {
       const words = text.trim();
-      if (!words || !sessionId || saving || !view.status.noticeAcknowledged) return;
+      if (!words) return;
+      // No silent exit for real words (kind b): what cannot be filed now is kept.
+      if (!sessionId || saving || held.current || !view.status.noticeAcknowledged) {
+        holdBack(words);
+        return;
+      }
       // Only the section on screen can be the target of a pending N/A.
       if (naFor && naFor === currentSectionId) {
         await send({ action: "mark_na", sessionId, sectionId: naFor, reason: words, failedAttemptsBefore: 0 }, words, (res) =>
@@ -360,7 +393,7 @@ export function useFireWalkthrough(inspectionId: string, initial: FireWalkthroug
         (res) => handleOutcome(res, words),
       );
     },
-    [ask, currentSectionId, fileTo, handleOutcome, keepWords, naFor, picking, saving, send, sessionId, talk, view.status.noticeAcknowledged],
+    [ask, currentSectionId, fileTo, handleOutcome, holdBack, keepWords, naFor, picking, saving, send, sessionId, talk, view.status.noticeAcknowledged],
   );
   handleTextRef.current = (t) => void handleText(t);
 

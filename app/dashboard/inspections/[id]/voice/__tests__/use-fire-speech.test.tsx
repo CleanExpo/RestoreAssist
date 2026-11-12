@@ -131,6 +131,23 @@ describe("useFireSpeech: only the live recognition is heard (K4)", () => {
     expect(onFinal).not.toHaveBeenCalled();
     expect(FakeRecognition.starts).toBe(0);
   });
+
+  it("words from a stopped mic are handed over as late words, never filed and never lost (kind b, round 2)", () => {
+    const onFinal = vi.fn();
+    const onLate = vi.fn();
+    const hook = renderHook(() => useFireSpeech({ onFinal, onLate, onBlocked: () => {} }));
+    act(() => hook.result.current.setListeningWanted(true));
+    const rec = FakeRecognition.last!;
+    FakeRecognition.endOnStop = false;
+    act(() => hook.result.current.setBusy(true)); // a save pauses the mic mid-sentence
+    act(() => rec.onresult?.(finalResult("The ceiling in the hall is sagging")));
+    expect(onFinal).not.toHaveBeenCalled();
+    expect(onLate).toHaveBeenCalledWith("The ceiling in the hall is sagging");
+
+    hook.unmount();
+    act(() => rec.onresult?.(finalResult("Words after leaving the screen")));
+    expect(onLate).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("useFireSpeech: mic waits for Margot", () => {

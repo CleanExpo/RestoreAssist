@@ -12,8 +12,11 @@
  *   utterance ends, so she is not recorded as the technician.
  * - A final transcript that repeats Margot's last prompt is dropped (echo).
  * - Only the live recognition is heard (kind K4). Stopping detaches it first,
- *   so a result, end or error it delivers afterwards (the stop() contract
- *   allows a final result) does nothing: no save, no restart, no state.
+ *   so an end or error it delivers afterwards does nothing: no restart, no
+ *   state. A final result it delivers afterwards (the stop() contract allows
+ *   one) is the technician's words, so it is never filed but never dropped
+ *   either: it goes to onLate, which keeps it in "Words not saved". Only
+ *   leaving the screen drops it.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -54,10 +57,12 @@ export function isEcho(transcript: string, lastPrompt: string): boolean {
 
 export interface FireSpeechHandlers {
   onFinal: (transcript: string) => void;
+  /** Words from a mic that was already stopped: keep them, never file them. */
+  onLate?: (transcript: string) => void;
   onBlocked: (reason: string) => void;
 }
 
-export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
+export function useFireSpeech({ onFinal, onLate, onBlocked }: FireSpeechHandlers) {
   const [wanted, setWanted] = useState(false);
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -76,8 +81,8 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
   const disposedRef = useRef(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const restartRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const handlersRef = useRef({ onFinal, onBlocked });
-  handlersRef.current = { onFinal, onBlocked };
+  const handlersRef = useRef({ onFinal, onLate, onBlocked });
+  handlersRef.current = { onFinal, onLate, onBlocked };
 
   const startRecognition = useCallback(() => {
     const Ctor = recognitionCtor();
@@ -102,12 +107,14 @@ export function useFireSpeech({ onFinal, onBlocked }: FireSpeechHandlers) {
       restartRef.current = setTimeout(() => startRecognition(), 250);
     };
     rec.onresult = (event) => {
-      if (!live()) return;
+      // Leaving the screen drops late words (keeping them across screens is RA-8322).
+      if (disposedRef.current) return;
       const result = event.results[event.results.length - 1];
       if (!result?.isFinal) return;
       const transcript = result[0]?.transcript?.trim() ?? "";
       if (!transcript || isEcho(transcript, lastPromptRef.current)) return;
-      handlersRef.current.onFinal(transcript);
+      if (live()) handlersRef.current.onFinal(transcript);
+      else handlersRef.current.onLate?.(transcript);
     };
     rec.onerror = (event) => {
       if (!live()) return;

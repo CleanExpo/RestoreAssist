@@ -105,6 +105,8 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
             supported={w.speech.supported}
             wanted={w.speech.wanted}
             listening={w.speech.listening}
+            // Nothing heard can be filed without a voice session.
+            disabled={!w.sessionReady}
             onToggle={() => w.speech.setListeningWanted(!w.speech.wanted)}
           />
         )}
@@ -205,11 +207,13 @@ function ListeningToggle({
   supported,
   wanted,
   listening,
+  disabled,
   onToggle,
 }: {
   supported: boolean;
   wanted: boolean;
   listening: boolean;
+  disabled: boolean;
   onToggle: () => void;
 }) {
   if (!supported) {
@@ -223,6 +227,7 @@ function ListeningToggle({
     <div className="flex flex-col items-center gap-2 py-2">
       <button
         type="button"
+        disabled={disabled}
         onClick={onToggle}
         aria-pressed={wanted}
         aria-label={wanted ? FIRE_COPY.toggleOn : FIRE_COPY.toggleOff}

@@ -54,6 +54,10 @@ let refuseNextPost = false;
 let holdNextPost: number | null = null;
 let garbleNextPost = false;
 let malformedRefusalNextPost = false;
+/** How the voice session start answers: normally, with a server error, or never. */
+let sessionMode: "ok" | "fail" | "pending" = "ok";
+/** When set, the next save waits for this before it is answered. */
+let gateNextPost: Promise<void> | null = null;
 const replies = new Map<string, unknown>();
 
 async function snapshot(): Promise<FireWalkthroughResponse> {
@@ -64,11 +68,20 @@ async function snapshot(): Promise<FireWalkthroughResponse> {
 const fakeFetch = vi.fn(async (input: string, init?: RequestInit) => {
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-  if (input.endsWith("/voice/session")) return json({ session: { sessionId: "vs-1" } });
+  if (input.endsWith("/voice/session")) {
+    if (sessionMode === "pending") return new Promise<Response>(() => {});
+    if (sessionMode === "fail") return json({ error: "Session unavailable" }, 500);
+    return json({ session: { sessionId: "vs-1" } });
+  }
   if (init?.method !== "POST") return json(await snapshot());
   const body = JSON.parse(String(init.body));
   const key = new Headers(init.headers).get("Idempotency-Key");
   calls.push({ action: body.action, body, key });
+  if (gateNextPost) {
+    const gate = gateNextPost;
+    gateNextPost = null;
+    await gate;
+  }
   if (failNextPost) {
     failNextPost = false;
     throw new TypeError("Failed to fetch");
@@ -170,6 +183,8 @@ beforeEach(() => {
   holdNextPost = null;
   garbleNextPost = false;
   malformedRefusalNextPost = false;
+  sessionMode = "ok";
+  gateNextPost = null;
   replies.clear();
   spoken.length = 0;
   FakeRecognition.live = [];
@@ -777,8 +792,11 @@ describe("filing answers", () => {
       for (const input of ["setTyped", "submitTyped", "answerAsk", "pick", "cancelPick", "selectSection", "markNa", "nextSection", "signOff"]) {
         expect(ret, input).toMatch(new RegExp(`\\b${input}: whenFree\\(`));
       }
-      // A new save is refused while one is held; only retry re-sends it.
-      expect(hook).toMatch(/if \(held\.current\) \{\n\s+talk\(FIRE_COPY\.retryFirst\);\n\s+return;\n\s+\}\n\s+await deliver\(\{ action, words, onDone, key: newIdempotencyKey\(\) \}\)/);
+      // A new save is refused while one is held; only retry re-sends it. Its
+      // words are kept in Words not saved, never sent and never dropped (kind b).
+      expect(hook).toMatch(/if \(held\.current\) \{\n\s+if \(words !== undefined\) holdBack\(words\);\n\s+talk\(FIRE_COPY\.retryFirst\);\n\s+return;\n\s+\}\n\s+await deliver\(\{ action, words, onDone, key: newIdempotencyKey\(\) \}\)/);
+      // No silent exit for real words in handleText: every early exit keeps them.
+      expect(hook).toMatch(/if \(!words\) return;\n\s+\/\/ .*\n\s+if \(!sessionId \|\| saving \|\| held\.current \|\| !view\.status\.noticeAcknowledged\) \{\n\s+holdBack\(words\);\n\s+return;\n\s+\}/);
     });
   });
 
@@ -795,6 +813,55 @@ describe("filing answers", () => {
     const [first, retry] = calls.filter((c) => c.action === "capture");
     expect(retry.key).toBe(first.key);
     expect(retry.body).toEqual(first.body);
+  });
+});
+
+describe("words that cannot be filed right now are kept, never dropped (kind b, review round 2)", () => {
+  const acknowledged = () =>
+    runFireAction(db, { inspectionId: "insp-1", userId: "tech-1" }, { action: "acknowledge_notice", sessionId: "vs-1", spoken: false, recognitionMode: "typed" });
+
+  it("when the voice session cannot start, listening stays off and cannot be turned on", async () => {
+    await acknowledged();
+    sessionMode = "fail";
+    render(<FireWalkthrough inspectionId="insp-1" initial={await snapshot()} />);
+    await screen.findByText("Could not start the voice session. Check your signal.");
+    const toggle = screen.getByTestId("fire-listen-toggle");
+    expect(toggle).toBeDisabled();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(FakeRecognition.starts).toBe(0);
+  });
+
+  it("words heard before the voice session is ready go to Words not saved; nothing is filed", async () => {
+    await acknowledged();
+    sessionMode = "pending";
+    const initial = await snapshot();
+    const { result } = renderHook(() => useFireWalkthrough("insp-1", initial));
+    expect(result.current.sessionReady).toBe(false);
+    // The screen keeps the toggle disabled; this drives the engine directly to
+    // prove the hook's own rule holds for any path speech might take in.
+    act(() => result.current.speech.setListeningWanted(true));
+    await waitFor(() => expect(FakeRecognition.live).toHaveLength(1));
+    act(() => FakeRecognition.live[0].hear("Soot on the ceiling above the kitchen door"));
+    await waitFor(() => expect(result.current.unsaved).toContain("Soot on the ceiling above the kitchen door"));
+    expect(calls).toHaveLength(0);
+  });
+
+  it("words heard while an answer is saving go to Words not saved; nothing extra is filed", async () => {
+    await renderScreen();
+    await acknowledgeAndFinishSpeaking();
+    const rec = FakeRecognition.live[0];
+    let release: () => void = () => {};
+    gateNextPost = new Promise<void>((r) => (release = r));
+    await typeAnswer("Gas meter is off and power isolated at the board");
+    await waitFor(() => expect(fireCalls()).toContain("capture"));
+    act(() => rec.hear("The ceiling in the hall is sagging"));
+    release();
+    await waitFor(() => expect(rows.filter((r) => r.type === "fire_section_entry")).toHaveLength(1));
+    expect(await screen.findByRole("region", { name: "Words not saved" })).toHaveTextContent(
+      FIRE_COPY.notSaved("The ceiling in the hall is sagging"),
+    );
+    expect(calls.some((c) => JSON.stringify(c.body).includes("ceiling in the hall"))).toBe(false);
   });
 });
 
