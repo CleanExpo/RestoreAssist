@@ -57,7 +57,7 @@ export async function ensureMakeSafeSeeded(
 
   const rows = await prisma.makeSafeAction.findMany({
     where: { inspectionId },
-    select: { action: true, applicable: true, completed: true },
+    select: { action: true, applicable: true, completed: true, notes: true },
     take: 20,
   });
   const kind = makeSafeListKindFor({ claimType, rows });

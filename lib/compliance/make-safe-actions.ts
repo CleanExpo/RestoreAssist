@@ -1,5 +1,6 @@
 import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { ASBESTOS_PRESUMPTION_YEAR } from "@/lib/compliance/asbestos-era";
+import { MAKE_SAFE_SEED_NOTE } from "@/lib/compliance/make-safe-compliance";
 
 /**
  * The standard Stabilisation (make-safe) list: water, mould and every job
@@ -82,11 +83,23 @@ export function isMakeSafeActionOn(
   return (LISTS[kind] as readonly string[]).includes(action);
 }
 
-/** A stored row as the list decision needs it. */
+/** A stored row as the list decision needs it. Load `notes` with it. */
 export interface StoredMakeSafeRow {
   action: string;
   applicable: boolean;
   completed: boolean;
+  notes?: string | null;
+}
+
+/**
+ * Has a person recorded anything on this row? Only the intake seed (N/A, not
+ * completed, the seed note) is untouched. An N/A with a technician's note, or
+ * an N/A a person saved with no note, is a record and must stay readable.
+ * A row loaded without its notes counts on its flags alone.
+ */
+function isRecorded(row: StoredMakeSafeRow): boolean {
+  if (row.applicable || row.completed) return true;
+  return row.notes !== undefined && row.notes !== MAKE_SAFE_SEED_NOTE;
 }
 
 /**
@@ -101,15 +114,16 @@ export interface StoredMakeSafeRow {
  * 2. Otherwise the claim type decides: fire claims get the fire list.
  * 3. With no claim type, the seeded rows name the list; with none, standard.
  *
- * An all-N/A list is not a record (RA-7739 reads it as "not assessed"), so an
- * untouched intake seed never pins a job to the wrong list.
+ * Only the untouched intake seed (every row N/A with the seed note) is not a
+ * record, so it never pins a job to the wrong list; an N/A a person saved, with
+ * or without a note, is a record (isRecorded).
  */
 export function makeSafeListKindFor(input: {
   claimType?: string | null;
   rows?: readonly StoredMakeSafeRow[];
 }): MakeSafeListKind {
   const rows = input.rows ?? [];
-  const recorded = rows.filter((r) => r.applicable || r.completed);
+  const recorded = rows.filter(isRecorded);
   if (recorded.some((r) => ONLY_ON.fire.has(r.action))) return "fire";
   if (recorded.some((r) => ONLY_ON.standard.has(r.action))) return "standard";
   if (recorded.length > 0) {

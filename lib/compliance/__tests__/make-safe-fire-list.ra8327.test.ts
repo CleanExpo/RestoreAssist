@@ -46,7 +46,14 @@ const FIRE = [
   "asbestos_presumed",
 ];
 
-type Row = { action: string; applicable: boolean; completed: boolean };
+type Row = {
+  action: string;
+  applicable: boolean;
+  completed: boolean;
+  notes?: string | null;
+};
+const SEED_NOTE =
+  "Seeded at intake — mark applicable items complete before relying on this for compliance.";
 const row = (action: string, applicable = false, completed = false): Row => ({
   action,
   applicable,
@@ -121,6 +128,19 @@ describe("which list a job gets", () => {
     expect(api.makeSafeListKindFor({ claimType: "FIRE", rows })).toBe("standard");
   });
 
+  it("a live fire job with a technician note on an N/A standard row keeps the standard list", () => {
+    const rows = seedRows(STANDARD).map((r) => ({ ...r, notes: SEED_NOTE }));
+    rows[3] = { ...row("water_stopped"), notes: "Mains valve inaccessible; insurer notified" };
+    expect(api.makeSafeListKindFor({ claimType: "FIRE", rows })).toBe("standard");
+  });
+
+  it("a person's N/A with no note is a record too; only the intake seed note is not", () => {
+    const rows = seedRows(STANDARD).map((r) => ({ ...r, notes: SEED_NOTE }));
+    expect(api.makeSafeListKindFor({ claimType: "FIRE", rows })).toBe("fire");
+    rows[2] = { ...row("mould_containment"), notes: null };
+    expect(api.makeSafeListKindFor({ claimType: "FIRE", rows })).toBe("standard");
+  });
+
   it("an untouched standard seed on a fire claim moves to the fire list", () => {
     expect(
       api.makeSafeListKindFor({ claimType: "FIRE", rows: seedRows(STANDARD) }),
@@ -182,6 +202,16 @@ describe("submit gate", () => {
     expect(result.blockers.map((b) => b.action).sort()).toEqual([...STANDARD].sort());
   });
 
+  it("reads notes so a noted N/A standard row keeps a live fire job on its list", async () => {
+    const rows = seedRows(STANDARD).map((r) => ({ ...r, notes: SEED_NOTE }));
+    rows[3] = { ...row("water_stopped"), notes: "Mains valve inaccessible" };
+    rows[0] = { ...row("power_isolated", true, true), notes: null };
+    findMany.mockResolvedValueOnce(rows);
+    const result = await gate("insp-live", "FIRE");
+    expect(findMany.mock.calls[0][0]).toMatchObject({ select: { notes: true } });
+    expect(result).toEqual({ canSubmit: true, blockers: [] });
+  });
+
   it("a live fire job recorded on the standard list reads unchanged and passes", async () => {
     const rows = seedRows(STANDARD);
     rows[3] = row("water_stopped", true, true);
@@ -233,6 +263,23 @@ describe("intake seed", () => {
     findMany.mockResolvedValueOnce(rows);
     await expect(seed("insp-live", "FIRE")).resolves.toBe(false);
     expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it("leaves an all-N/A standard list carrying a technician note alone on a fire job", async () => {
+    count.mockResolvedValue(5);
+    const rows = seedRows(STANDARD).map((r) => ({ ...r, notes: SEED_NOTE }));
+    rows[3] = { ...row("water_stopped"), notes: "Mains valve inaccessible" };
+    findMany.mockResolvedValueOnce(rows);
+    await expect(seed("insp-live", "FIRE")).resolves.toBe(false);
+    expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it("the seed reads notes so it can tell a technician's N/A from the intake seed", async () => {
+    count.mockResolvedValue(5);
+    findMany.mockResolvedValueOnce(seedRows(STANDARD).map((r) => ({ ...r, notes: SEED_NOTE })));
+    createMany.mockResolvedValue({ count: 3 });
+    await seed("insp-fire", "FIRE");
+    expect(findMany.mock.calls[0][0]).toMatchObject({ select: { notes: true } });
   });
 
   it("leaves a recorded standard list alone on a live fire job", async () => {

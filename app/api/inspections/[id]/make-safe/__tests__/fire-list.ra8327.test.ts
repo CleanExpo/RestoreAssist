@@ -77,6 +77,24 @@ describe("GET names the list", () => {
     ]);
   });
 
+  it("keeps a live fire job on the standard list when a technician noted an N/A row", async () => {
+    findUnique.mockResolvedValue({ claimType: "FIRE" });
+    findMany.mockResolvedValue(
+      ["power_isolated", "gas_isolated", "mould_containment", "water_stopped", "occupant_briefing"].map(
+        (action) => ({
+          action,
+          applicable: false,
+          completed: false,
+          notes: action === "water_stopped" ? "Mains valve inaccessible" : null,
+        }),
+      ),
+    );
+    const res = (await GET(new NextRequest(url), ctx)) as NextResponse;
+    const body = await res.json();
+    expect(body.actions).toContain("water_stopped");
+    expect(body.actions).not.toContain("structure_safe");
+  });
+
   it("returns the standard list for a water job", async () => {
     findUnique.mockResolvedValue({ claimType: "WATER" });
     const res = (await GET(new NextRequest(url), ctx)) as NextResponse;

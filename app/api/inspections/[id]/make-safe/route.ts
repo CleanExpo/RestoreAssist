@@ -36,7 +36,7 @@ async function jobActionList(
     rows ??
       prisma.makeSafeAction.findMany({
         where: { inspectionId },
-        select: { action: true, applicable: true, completed: true },
+        select: { action: true, applicable: true, completed: true, notes: true },
         take: 20,
       }),
   ]);
