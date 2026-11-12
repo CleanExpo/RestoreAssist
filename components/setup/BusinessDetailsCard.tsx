@@ -10,6 +10,7 @@ import { normalizeNZBN, validateNZBN } from '@/lib/validation/nzbn-validator';
 import { DEFAULT_ORGANIZATION_TIMEZONE, ORGANIZATION_TIMEZONES } from '@/lib/locale/organization-locale';
 import { getGstTreatment } from '@/lib/gst-rules';
 import { abrHydrationUserMessage } from '@/lib/setup/abr-user-message';
+import { apiErrorMessage } from '@/lib/api-error-message';
 
 type SetupCountry = 'AU' | 'NZ';
 type ManualField = 'legalName' | 'abn' | 'nzbn' | 'state';
@@ -146,7 +147,7 @@ export function BusinessDetailsCard() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: 'Request failed' }));
-        setSubmitError(body.error ?? `Request failed (${res.status})`);
+        setSubmitError(apiErrorMessage(body) ?? `Request failed (${res.status})`);
         setSectionStatus('businessDetails', 'pending');
         setSectionStatus('branding', 'pending');
         setSectionStatus('pricing', 'pending');
