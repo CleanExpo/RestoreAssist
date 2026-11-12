@@ -10,6 +10,10 @@
 
 import type { EvidenceClass } from "@/lib/types/evidence";
 import { standardCite } from "@/lib/nir-standards-mapping";
+import { ASBESTOS_PRESUMPTION_YEAR } from "@/lib/compliance/asbestos-era";
+
+/** RA-8327: the asbestos years come from the registry, never a copy here. */
+const ASBESTOS_ERA = `before ${ASBESTOS_PRESUMPTION_YEAR.AU} in AU, ${ASBESTOS_PRESUMPTION_YEAR.NZ} in NZ`;
 
 /** Supported job types — maps to InspectionWorkflow.jobType */
 export const JOB_TYPES = [
@@ -404,7 +408,7 @@ const STEP_HAZMAT_ASSESSMENT: WorkflowStepDefinition = {
   stepKey: "hazmat_assessment",
   stepTitle: "Hazardous Materials Assessment",
   stepDescription:
-    "Identify potential hazardous materials: asbestos (buildings before 2004 in AU, 2000 in NZ), " +
+    `Identify potential hazardous materials: asbestos (buildings ${ASBESTOS_ERA}), ` +
     "lead paint, chemical contamination, biological hazards. " +
     "Do NOT disturb suspected asbestos — photograph and note location only. " +
     "Arrange licensed assessor if asbestos suspected. Record PPE worn.",
@@ -528,7 +532,7 @@ const WORKFLOW_WATER_DAMAGE: WorkflowTemplate = {
   ],
   riskEscalationTriggers: [
     "Category 3 water detected — upgrade contamination step to risk tier 3",
-    "Asbestos-era building (before 2004 in AU, 2000 in NZ) — add hazmat assessment step",
+    `Asbestos-era building (${ASBESTOS_ERA}) — add hazmat assessment step`,
     "Loss > 72 hours old — upgrade mould risk assessment",
   ],
 };

@@ -807,7 +807,7 @@ export async function POST(request: NextRequest) {
         const { ensureMakeSafeSeeded } = await import(
           "@/lib/compliance/seed-make-safe"
         );
-        await ensureMakeSafeSeeded(inspection.id);
+        await ensureMakeSafeSeeded(inspection.id, inspection.claimType ?? null);
       } catch (seedErr) {
         console.error("Error seeding make-safe rows (non-critical):", seedErr);
       }

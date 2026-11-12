@@ -10,6 +10,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useMemo,
   useState,
 } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
@@ -24,20 +25,13 @@ import {
 } from "@/lib/compliance/make-safe-compliance";
 import {
   MAKE_SAFE_ACTIONS,
+  MAKE_SAFE_ACTION_LABELS as ACTION_LABELS,
+  isIntakeSeed,
   type MakeSafeActionName,
+  type MakeSafeActionState,
   type MakeSafeChecklistState,
   persistMakeSafeChecklist,
 } from "@/lib/compliance/make-safe-actions";
-
-// ── Constants ──────────────────────────────────────────────────────────────
-
-const ACTION_LABELS: Record<MakeSafeActionName, string> = {
-  power_isolated: "Power isolated (electrical hazard)",
-  gas_isolated: "Gas supply isolated (gas leak hazard)",
-  mould_containment: "Mould containment barriers erected",
-  water_stopped: "Water source stopped/diverted",
-  occupant_briefing: "Occupant safety briefing documented",
-};
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -48,19 +42,42 @@ interface MakeSafeRow {
   notes: string | null;
 }
 
-function defaultState(): MakeSafeChecklistState {
-  return Object.fromEntries(
-    MAKE_SAFE_ACTIONS.map((a) => [
-      a,
-      { applicable: true, completed: false, notes: "" },
-    ]),
-  ) as MakeSafeChecklistState;
+type ActionList = readonly MakeSafeActionName[];
+
+const EMPTY_ROW: MakeSafeActionState = {
+  applicable: true,
+  completed: false,
+  notes: "",
+};
+
+/**
+ * RA-8327: the server names the job's list (fire or standard). A response
+ * without one, or naming an action this build has no label for, falls back
+ * to the standard list.
+ */
+function listFrom(names: unknown): ActionList {
+  if (
+    Array.isArray(names) &&
+    names.length > 0 &&
+    names.every(
+      (n) =>
+        typeof n === "string" &&
+        Object.prototype.hasOwnProperty.call(ACTION_LABELS, n),
+    )
+  ) {
+    return names as MakeSafeActionName[];
+  }
+  return MAKE_SAFE_ACTIONS;
 }
 
-function rowsToState(rows: MakeSafeRow[]): MakeSafeChecklistState {
-  const state = defaultState();
+function defaultState(list: ActionList): MakeSafeChecklistState {
+  return Object.fromEntries(list.map((a) => [a, { ...EMPTY_ROW }]));
+}
+
+function rowsToState(list: ActionList, rows: MakeSafeRow[]): MakeSafeChecklistState {
+  const state = defaultState(list);
   for (const row of rows) {
-    if (MAKE_SAFE_ACTIONS.includes(row.action as MakeSafeActionName)) {
+    if (list.includes(row.action as MakeSafeActionName)) {
       state[row.action as MakeSafeActionName] = {
         applicable: row.applicable,
         completed: row.completed,
@@ -69,6 +86,28 @@ function rowsToState(rows: MakeSafeRow[]): MakeSafeChecklistState {
     }
   }
   return state;
+}
+
+
+/** Rows from the job's other list, named by the server as read-only history. */
+function historyFrom(rows: unknown): MakeSafeRow[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.filter(
+    (r): r is MakeSafeRow =>
+      r != null &&
+      typeof r === "object" &&
+      typeof (r as MakeSafeRow).action === "string",
+  );
+}
+
+/** A quick-fill seed applies only when it is for this job's list. */
+function seedFits(list: ActionList, seed: MakeSafeChecklistState): boolean {
+  const keys = Object.keys(seed);
+  return keys.length === list.length && list.every((a) => seed[a] != null);
+}
+
+function rowOf(state: MakeSafeChecklistState, action: MakeSafeActionName) {
+  return state[action] ?? EMPTY_ROW;
 }
 
 export type MakeSafeChecklistHandle = {
@@ -112,40 +151,63 @@ const MakeSafeChecklistForInspection = forwardRef<
 ) {
   const endpoint = `/api/inspections/${inspectionId}/make-safe`;
 
-  const { data, loading, error } = useFetch<{ data: MakeSafeRow[] }>(endpoint);
+  const { data, loading, error } = useFetch<{
+    data: MakeSafeRow[];
+    actions?: string[];
+    history?: MakeSafeRow[];
+  }>(endpoint);
 
-  const [state, setState] = useState<MakeSafeChecklistState>(defaultState);
+  const list = useMemo(() => listFrom(data?.actions), [data]);
+  const history = useMemo(() => historyFrom(data?.history), [data]);
+  const listRef = useRef(list);
+  listRef.current = list;
+
+  const [state, setState] = useState<MakeSafeChecklistState>(() =>
+    defaultState(MAKE_SAFE_ACTIONS),
+  );
   const skipAutoSave = useRef(true);
   const stateRef = useRef(state);
   stateRef.current = state;
   const hydratedRef = useRef(false);
 
-  const intakeSeedFromApi = (rows: MakeSafeRow[]) => {
-    const next = rowsToState(rows);
-    return MAKE_SAFE_ACTIONS.every((action) => !next[action].applicable);
-  };
+  const usableSeed = seed && seedFits(list, seed) ? seed : null;
 
-  // Hydrate from API on load
+  /**
+   * RA-8327: the one place a preset (Quick Fill) is written to the checklist.
+   * The seed prop and the imperative applySeed both come here. A preset for
+   * the other list is ignored, and a preset applies only while the job's list
+   * in the current state (the last loaded rows plus local edits) is still the
+   * untouched intake seed, so it never replaces anything a person recorded,
+   * including a note on an N/A row or a preset chosen earlier.
+   */
+  function applyQuickFill(next: MakeSafeChecklistState) {
+    const onList = listRef.current;
+    if (!seedFits(onList, next)) return;
+    setState((prev) => {
+      // A missing row reads as an open applicable item, so it is never the seed.
+      const current = onList.map((action) => ({ action, ...rowOf(prev, action) }));
+      if (!isIntakeSeed(current)) return prev;
+      skipAutoSave.current = true;
+      return next;
+    });
+  }
+
+  // Hydrate from the stored rows on load.
   useEffect(() => {
     if (data?.data) {
-      const fromApi = rowsToState(data.data);
-      if (seed && intakeSeedFromApi(data.data)) {
-        setState(seed);
-      } else {
-        setState(fromApi);
-      }
+      const fromApi = rowsToState(list, data.data);
+      setState(fromApi);
       skipAutoSave.current = true;
       hydratedRef.current = true;
     }
-  }, [data, seed]);
+  }, [data, list]);
 
+  // A seed prop (Quick Fill) is offered once the stored rows are loaded.
   useEffect(() => {
-    if (!seed || !data?.data) return;
-    if (intakeSeedFromApi(data.data)) {
-      setState(seed);
-      skipAutoSave.current = true;
-    }
-  }, [seed, data]);
+    if (data?.data && usableSeed) applyQuickFill(usableSeed);
+    // applyQuickFill reads refs and the state updater only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, usableSeed]);
 
   useImperativeHandle(
     ref,
@@ -159,7 +221,7 @@ const MakeSafeChecklistForInspection = forwardRef<
       },
       readiness: () => {
         const compliance = makeSafeCompliance(
-          MAKE_SAFE_ACTIONS.map((action) => stateRef.current[action]),
+          listRef.current.map((action) => rowOf(stateRef.current, action)),
         );
         if (compliance === "NOT_ASSESSED") {
           return { ok: false, message: MAKE_SAFE_NOT_ASSESSED_REASON };
@@ -173,10 +235,7 @@ const MakeSafeChecklistForInspection = forwardRef<
         }
         return { ok: true };
       },
-      applySeed: (next) => {
-        setState(next);
-        skipAutoSave.current = true;
-      },
+      applySeed: (next) => applyQuickFill(next),
     }),
     [inspectionId],
   );
@@ -200,20 +259,20 @@ const MakeSafeChecklistForInspection = forwardRef<
 
   // RA-7713: all-N/A (the intake seed) is "Not assessed", never PASS.
   const compliance = makeSafeCompliance(
-    MAKE_SAFE_ACTIONS.map((a) => state[a]),
+    list.map((a) => rowOf(state, a)),
   );
   const complianceStatus = MAKE_SAFE_COMPLIANCE_LABEL[compliance];
 
   // ── Field handlers ───────────────────────────────────────────────────────
 
-  function setField<K extends keyof MakeSafeChecklistState[MakeSafeActionName]>(
+  function setField<K extends keyof MakeSafeActionState>(
     action: MakeSafeActionName,
     field: K,
-    value: MakeSafeChecklistState[MakeSafeActionName][K],
+    value: MakeSafeActionState[K],
   ) {
     setState((prev) => ({
       ...prev,
-      [action]: { ...prev[action], [field]: value },
+      [action]: { ...rowOf(prev, action), [field]: value },
     }));
   }
 
@@ -223,7 +282,7 @@ const MakeSafeChecklistForInspection = forwardRef<
     return (
       <div className="rounded-lg border p-4 animate-pulse">
         <div className="h-6 bg-muted rounded w-48 mb-4" />
-        {MAKE_SAFE_ACTIONS.map((a) => (
+        {list.map((a) => (
           <div key={a} className="h-10 bg-muted rounded mb-2" />
         ))}
       </div>
@@ -272,8 +331,8 @@ const MakeSafeChecklistForInspection = forwardRef<
 
       {/* Rows */}
       <div className="divide-y">
-        {MAKE_SAFE_ACTIONS.map((action) => {
-          const row = state[action];
+        {list.map((action) => {
+          const row = rowOf(state, action);
           const checkboxId = `make-safe-${action}`;
           const naId = `make-safe-na-${action}`;
           const notesId = `make-safe-notes-${action}`;
@@ -347,6 +406,43 @@ const MakeSafeChecklistForInspection = forwardRef<
           );
         })}
       </div>
+
+      {history.length > 0 && (
+        <section
+          aria-label="Recorded on the earlier list"
+          className="border-t bg-muted/40 p-4 space-y-2"
+        >
+          <h3 className="text-sm font-medium">Recorded on the earlier list</h3>
+          <p className="text-xs text-muted-foreground">
+            Kept as a record after the job type changed. Read-only; these items
+            do not count toward submit.
+          </p>
+          <ul className="space-y-1 text-sm">
+            {history.map((row) => (
+              <li key={row.action}>
+                <span>
+                  {Object.prototype.hasOwnProperty.call(ACTION_LABELS, row.action)
+                    ? ACTION_LABELS[row.action as MakeSafeActionName]
+                    : row.action}
+                </span>
+                {" — "}
+                <span className="text-muted-foreground">
+                  {!row.applicable
+                    ? "N/A"
+                    : row.completed
+                      ? "Completed"
+                      : "Not completed"}
+                </span>
+                {row.notes ? (
+                  <span className="block text-xs text-muted-foreground">
+                    {row.notes}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </section>
   );
 });
