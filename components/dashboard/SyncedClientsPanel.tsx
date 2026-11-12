@@ -29,6 +29,7 @@ import type {
   SyncedListPagination,
   SyncedListResponse,
 } from "@/lib/synced-data/types";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface SyncedClientsPanelProps {
   source: ExternalDataSource;
@@ -89,7 +90,7 @@ export function SyncedClientsPanel({
           total: 0,
           totalPages: 0,
         });
-        setError(body.error || body.message || "Failed to load synced clients");
+        setError(apiErrorMessage(body) ?? "Failed to load synced clients");
         return;
       }
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import { parseApiError } from "@/lib/client/parse-api-error";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface InboundJob {
   id: string;
@@ -66,7 +67,7 @@ export function InboundJobAlert() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body?.error ?? "Failed to accept inspection");
+        setError(apiErrorMessage(body) ?? "Failed to accept inspection");
         return;
       }
       // Optimistic remove

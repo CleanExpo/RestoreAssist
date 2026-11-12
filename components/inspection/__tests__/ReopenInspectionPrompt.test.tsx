@@ -113,4 +113,35 @@ describe("ReopenInspectionPrompt", () => {
     });
     expect(baseProps.onReopened).not.toHaveBeenCalled();
   });
+
+  // RA-8348: apiError() sends { error: { code, message, eventId } }. Rendering
+  // that object as a React child crashed the screen to the error boundary.
+  it("renders the message from an apiError envelope without crashing", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: {
+          code: "CONFLICT",
+          message: "Cannot reopen inspection in status DRAFT",
+          eventId: "evt_1",
+        },
+      }),
+    });
+
+    render(<ReopenInspectionPrompt {...baseProps} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Reopen job/i }));
+    fireEvent.change(await screen.findByLabelText(/Reason for reopening/i), {
+      target: { value: "Finance correction after invoice dispute" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Confirm reopen/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Cannot reopen inspection in status DRAFT",
+      );
+    });
+    expect(baseProps.onReopened).not.toHaveBeenCalled();
+  });
 });

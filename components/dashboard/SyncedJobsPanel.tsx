@@ -30,6 +30,7 @@ import type {
   SyncedListPagination,
   SyncedListResponse,
 } from "@/lib/synced-data/types";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const STATUS_TONES: Record<string, StatusTone> = {
   COMPLETED: "success",
@@ -98,7 +99,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
           total: 0,
           totalPages: 0,
         });
-        setError(body.error || body.message || "Failed to load synced jobs");
+        setError(apiErrorMessage(body) ?? "Failed to load synced jobs");
         return;
       }
 
