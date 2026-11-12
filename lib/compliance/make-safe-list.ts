@@ -2,8 +2,8 @@
  * RA-8327 — the server side of the make-safe list decision.
  *
  * decideMakeSafeList (make-safe-actions.ts) owns the rule. This file only
- * gathers what the rule needs from the database: the rows with their notes and
- * dates, and, when the claim type is blank, whether the job has a fire
+ * gathers what the rule needs from the database: the rows with their notes,
+ * and, when the claim type is blank, whether the job has a fire
  * assessment. The gate, the intake seed and the make-safe route all call it.
  */
 import { prisma } from "@/lib/prisma";
@@ -20,7 +20,6 @@ export const MAKE_SAFE_DECISION_SELECT = {
   applicable: true,
   completed: true,
   notes: true,
-  createdAt: true,
 } as const;
 
 /** True when the job has a fire and smoke damage assessment. */

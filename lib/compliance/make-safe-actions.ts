@@ -83,19 +83,12 @@ export function isMakeSafeActionOn(
   return (LISTS[kind] as readonly string[]).includes(action);
 }
 
-/**
- * When the fire list shipped (RA-8327). A fire job whose standard list was
- * created before this moment, and recorded on, keeps gating on that list.
- */
-export const FIRE_LIST_INTRODUCED_AT = new Date("2026-11-12T00:00:00.000Z");
-
-/** A stored row as the list decision needs it. Load `notes` and `createdAt`. */
+/** A stored row as the list decision needs it. Load `notes` with it. */
 export interface StoredMakeSafeRow {
   action: string;
   applicable: boolean;
   completed: boolean;
   notes?: string | null;
-  createdAt?: Date | string | null;
 }
 
 /**
@@ -112,25 +105,6 @@ export function isUntouchedSeedRow(row: StoredMakeSafeRow): boolean {
 /** True when there are rows and every one is the untouched intake seed. */
 export function isIntakeSeed(rows: readonly StoredMakeSafeRow[]): boolean {
   return rows.length > 0 && rows.every(isUntouchedSeedRow);
-}
-
-function createdBeforeFireList(row: StoredMakeSafeRow): boolean {
-  if (row.createdAt == null) return false; // unknown date: not legacy
-  const at = new Date(row.createdAt).getTime();
-  return Number.isFinite(at) && at < FIRE_LIST_INTRODUCED_AT.getTime();
-}
-
-/**
- * A fire job that already holds a standard list recorded before RA-8327:
- * standard-only rows exist and are all dated before the fire list, no
- * fire-only row exists, and a person has recorded at least one row. Unknown
- * dates fail this, so the stricter fire list wins.
- */
-function holdsLegacyStandardList(rows: readonly StoredMakeSafeRow[]): boolean {
-  const standardOnly = rows.filter((r) => ONLY_ON.standard.has(r.action));
-  if (standardOnly.length === 0 || hasRowUniqueTo("fire", rows)) return false;
-  if (!standardOnly.every(createdBeforeFireList)) return false;
-  return rows.some((r) => !isUntouchedSeedRow(r));
 }
 
 /** No claim type recorded yet. Any recorded value, known or not, is not blank. */
@@ -153,12 +127,11 @@ export interface MakeSafeListDecision<
  * gate, the intake seed and the route all read its answer, and the checklist
  * draws the list the route names.
  *
- * - The job's current claim type decides. A known non-fire claim (water,
- *   mould, storm and so on) gates on the standard list; a fire claim gates on
- *   the fire list. A blank claim type counts as fire when the job has a fire
- *   assessment (the same rule the walkthrough uses), otherwise standard.
- * - Exception: a fire job that already holds a standard list recorded before
- *   RA-8327 keeps gating on it, so live jobs read as they did.
+ * - Only the job's current claim type decides. A fire claim gates on the fire
+ *   list; every other recorded claim type (water, mould, storm and so on)
+ *   gates on the standard list. A blank claim type counts as fire when the job
+ *   has a fire assessment, otherwise standard. Stored rows and their dates
+ *   never change the list, so there is no exception to game.
  * - Rows recorded on the other list come back as history. They never count
  *   toward the gate, so a reclassification never makes the gate easier.
  */
@@ -171,8 +144,7 @@ export function decideMakeSafeList<R extends StoredMakeSafeRow>(input: {
   const fireClaim =
     normalizeClaimType(input.claimType) === "FIRE_SMOKE" ||
     (isBlankClaimType(input.claimType) && input.hasFireAssessment === true);
-  const kind: MakeSafeListKind =
-    fireClaim && !holdsLegacyStandardList(rows) ? "fire" : "standard";
+  const kind: MakeSafeListKind = fireClaim ? "fire" : "standard";
   const other: MakeSafeListKind = kind === "fire" ? "standard" : "fire";
   const history = rows.filter(
     (r) => ONLY_ON[other].has(r.action) && !isUntouchedSeedRow(r),

@@ -56,8 +56,8 @@ const FIRE = [
   "asbestos_presumed",
 ];
 
-/** Before the fire list existed, and after. */
-const LEGACY = new Date("2026-10-01T00:00:00.000Z");
+/** Row dates. The list rule must not depend on them (no legacy exception). */
+const OLD = new Date("2026-10-01T00:00:00.000Z");
 const RECENT = new Date("2026-12-01T00:00:00.000Z");
 
 type Row = {
@@ -181,35 +181,38 @@ describe("which list the gate checks", () => {
     expect(kindOf({ claimType: null, hasFireAssessment: false, rows: firedRows })).toBe("standard");
   });
 
-  it("a fire job holding a standard list recorded before RA-8327 keeps gating on it", () => {
+  it("a fire job holding a recorded standard list, however old, gates on the fire list", () => {
     const variants = [
-      withRow(seedRows(STANDARD, LEGACY), row("water_stopped", true, true)),
-      withRow(seedRows(STANDARD, LEGACY), row("occupant_briefing", true, true)),
-      withRow(seedRows(STANDARD, LEGACY), row("water_stopped", false, false, { notes: "Mains valve inaccessible" })),
+      withRow(seedRows(STANDARD, OLD), row("water_stopped", true, true)),
+      withRow(seedRows(STANDARD, OLD), row("occupant_briefing", true, true)),
+      withRow(seedRows(STANDARD, OLD), row("water_stopped", false, false, { notes: "Mains valve inaccessible" })),
+      withRow(seedRows(STANDARD, RECENT), row("water_stopped", true, true)),
     ];
     for (const rows of variants) {
       const decision = api.decideMakeSafeList({ claimType: "FIRE", rows });
-      expect(decision.kind).toBe("standard");
-      expect(decision.history).toEqual([]);
+      expect(decision.kind).toBe("fire");
+      expect(decision.actions).toEqual(FIRE);
     }
   });
 
-  it("a standard list recorded after RA-8327 on a fire job does not lower the gate (reclassified to fire)", () => {
-    const rows = withRow(seedRows(STANDARD, RECENT), row("water_stopped", true, true));
-    const decision = api.decideMakeSafeList({ claimType: "FIRE", rows });
-    expect(decision.kind).toBe("fire");
-    expect(decision.history.map((r) => r.action)).toEqual(["water_stopped"]);
+  it("a fire job's recorded standard-only rows come back as read-only history", () => {
+    const rows = withRow(seedRows(STANDARD, OLD), row("water_stopped", true, true));
+    expect(api.decideMakeSafeList({ claimType: "FIRE", rows }).history.map((r) => r.action)).toEqual([
+      "water_stopped",
+    ]);
   });
 
-  it("when the row dates are unknown, the stricter fire list wins", () => {
-    const rows = withRow(seedRows(STANDARD), row("water_stopped", true, true)).map(
-      ({ createdAt: _c, ...r }) => r,
-    );
-    expect(kindOf({ claimType: "FIRE", rows })).toBe("fire");
+  it("the gate list depends only on the claim type, never on the row dates", () => {
+    const rows = withRow(seedRows(STANDARD), row("water_stopped", true, true));
+    const undated = rows.map(({ createdAt: _c, ...r }) => r);
+    for (const claimType of ["FIRE", "WATER", null]) {
+      expect(kindOf({ claimType, rows })).toBe(kindOf({ claimType, rows: undated }));
+    }
+    expect("FIRE_LIST_INTRODUCED_AT" in actions).toBe(false);
   });
 
-  it("an untouched legacy standard seed on a fire job moves to the fire list", () => {
-    expect(kindOf({ claimType: "FIRE", rows: seedRows(STANDARD, LEGACY) })).toBe("fire");
+  it("an untouched standard seed on a fire job moves to the fire list", () => {
+    expect(kindOf({ claimType: "FIRE", rows: seedRows(STANDARD, OLD) })).toBe("fire");
   });
 });
 
@@ -258,11 +261,30 @@ describe("submit gate", () => {
     expect(result.blockers.map((b) => b.action).sort()).toEqual([...STANDARD].sort());
   });
 
-  it("a live fire job recorded on the standard list before RA-8327 reads unchanged and passes", async () => {
+  it("a fire job holding a complete standard list recorded before today must still complete structure, openings and asbestos", async () => {
     findMany.mockResolvedValueOnce(
-      withRow(seedRows(STANDARD, LEGACY), row("water_stopped", true, true)),
+      STANDARD.map((a) => row(a, true, true, { createdAt: OLD })),
     );
-    expect(await gate("insp-live", "FIRE")).toEqual({ canSubmit: true, blockers: [] });
+    const result = await gate("insp-live", "FIRE");
+    expect(result.canSubmit).toBe(false);
+    expect(result.blockers.map((b) => b.action).sort()).toEqual(
+      ["asbestos_presumed", "openings_secured", "structure_safe"],
+    );
+  });
+
+  it("two old standard-only rows plus three shared rows completed later cannot submit a fire job", async () => {
+    findMany.mockResolvedValueOnce([
+      row("mould_containment", true, true, { createdAt: OLD }),
+      row("water_stopped", true, true, { createdAt: OLD }),
+      row("power_isolated", true, true, { createdAt: RECENT }),
+      row("gas_isolated", true, true, { createdAt: RECENT }),
+      row("occupant_briefing", true, true, { createdAt: RECENT }),
+    ]);
+    const result = await gate("insp-codex", "FIRE");
+    expect(result.canSubmit).toBe(false);
+    expect(result.blockers.map((b) => b.action).sort()).toEqual(
+      ["asbestos_presumed", "openings_secured", "structure_safe"],
+    );
   });
 
   it("a job reclassified to fire after RA-8327 is held to the fire list", async () => {
@@ -283,11 +305,11 @@ describe("submit gate", () => {
     expect(result.blockers.map((b) => b.action).sort()).toEqual([...FIRE].sort());
   });
 
-  it("loads notes and row dates for the decision", async () => {
+  it("loads notes for the decision", async () => {
     findMany.mockResolvedValueOnce([]);
     await gate("insp-fire", "FIRE");
     expect(findMany.mock.calls[0][0]).toMatchObject({
-      select: { notes: true, createdAt: true },
+      select: { notes: true },
     });
   });
 });
@@ -326,7 +348,7 @@ describe("intake seed", () => {
 
   it("adds the missing fire rows when a fire job holds only the untouched standard seed", async () => {
     count.mockResolvedValue(5);
-    findMany.mockResolvedValueOnce(seedRows(STANDARD, LEGACY));
+    findMany.mockResolvedValueOnce(seedRows(STANDARD, OLD));
     createMany.mockResolvedValue({ count: 3 });
     await expect(seed("insp-fire", "FIRE")).resolves.toBe(true);
     expect(seededActions().sort()).toEqual(
@@ -335,10 +357,10 @@ describe("intake seed", () => {
     expect(createMany.mock.calls[0][0]).toMatchObject({ skipDuplicates: true });
   });
 
-  it("leaves a legacy recorded standard list alone on a fire job", async () => {
+  it("never adds rows beside a recorded standard list on a fire job, so the missing fire rows still block", async () => {
     count.mockResolvedValue(5);
     findMany.mockResolvedValueOnce(
-      withRow(seedRows(STANDARD, LEGACY), row("water_stopped", false, false, { notes: "Mains valve inaccessible" })),
+      withRow(seedRows(STANDARD, OLD), row("water_stopped", false, false, { notes: "Mains valve inaccessible" })),
     );
     await expect(seed("insp-live", "FIRE")).resolves.toBe(false);
     expect(createMany).not.toHaveBeenCalled();
@@ -353,13 +375,13 @@ describe("intake seed", () => {
     expect(createMany).not.toHaveBeenCalled();
   });
 
-  it("loads notes and row dates for the decision", async () => {
+  it("loads notes for the decision", async () => {
     count.mockResolvedValue(5);
     findMany.mockResolvedValueOnce(seedRows(STANDARD));
     createMany.mockResolvedValue({ count: 3 });
     await seed("insp-fire", "FIRE");
     expect(findMany.mock.calls[0][0]).toMatchObject({
-      select: { notes: true, createdAt: true },
+      select: { notes: true },
     });
   });
 });

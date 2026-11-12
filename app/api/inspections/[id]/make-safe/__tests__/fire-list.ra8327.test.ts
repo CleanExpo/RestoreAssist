@@ -78,7 +78,7 @@ describe("GET names the list", () => {
     ]);
   });
 
-  it("keeps a live fire job on the standard list when a technician noted an N/A row", async () => {
+  it("gives a fire job with an old recorded standard list the fire list, and keeps the noted N/A row readable as history", async () => {
     findUnique.mockResolvedValue({ claimType: "FIRE" });
     findMany.mockResolvedValue(
       ["power_isolated", "gas_isolated", "mould_containment", "water_stopped", "occupant_briefing"].map(
@@ -87,15 +87,16 @@ describe("GET names the list", () => {
           applicable: false,
           completed: false,
           notes: action === "water_stopped" ? "Mains valve inaccessible" : null,
-          // Recorded before the fire list existed (RA-8327).
           createdAt: new Date("2026-10-01T00:00:00.000Z"),
         }),
       ),
     );
     const res = (await GET(new NextRequest(url), ctx)) as NextResponse;
     const body = await res.json();
-    expect(body.actions).toContain("water_stopped");
-    expect(body.actions).not.toContain("structure_safe");
+    expect(body.actions).toContain("structure_safe");
+    expect(body.actions).not.toContain("water_stopped");
+    const noted = body.history.find((r: { action: string }) => r.action === "water_stopped");
+    expect(noted?.notes).toBe("Mains valve inaccessible");
   });
 
   it("a job reclassified to water gates on the standard list and returns its fire rows as read-only history", async () => {

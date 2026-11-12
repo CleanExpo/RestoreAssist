@@ -88,16 +88,6 @@ function rowsToState(list: ActionList, rows: MakeSafeRow[]): MakeSafeChecklistSt
   return state;
 }
 
-/**
- * True when the job's list is fully stored and still the untouched intake
- * seed (isIntakeSeed owns the rule). Only then may a quick-fill replace it; a
- * technician's note on an N/A row, or any row a person saved, is kept.
- */
-function listIsIntakeSeed(list: ActionList, rows: MakeSafeRow[]): boolean {
-  const onList = rows.filter((r) => list.includes(r.action as MakeSafeActionName));
-  const have = new Set(onList.map((r) => r.action));
-  return list.every((a) => have.has(a)) && isIntakeSeed(onList);
-}
 
 /** Rows from the job's other list, named by the server as read-only history. */
 function historyFrom(rows: unknown): MakeSafeRow[] {
@@ -161,18 +151,41 @@ export const MakeSafeChecklist = forwardRef<
 
   const usableSeed = seed && seedFits(list, seed) ? seed : null;
 
-  // Hydrate from API on load
+  /**
+   * RA-8327: the one place a preset (Quick Fill) is written to the checklist.
+   * The seed prop and the imperative applySeed both come here. A preset for
+   * the other list is ignored, and a preset applies only while the job's list
+   * in the current state (the last loaded rows plus local edits) is still the
+   * untouched intake seed, so it never replaces anything a person recorded,
+   * including a note on an N/A row or a preset chosen earlier.
+   */
+  function applyQuickFill(next: MakeSafeChecklistState) {
+    const onList = listRef.current;
+    if (!seedFits(onList, next)) return;
+    setState((prev) => {
+      // A missing row reads as an open applicable item, so it is never the seed.
+      const current = onList.map((action) => ({ action, ...rowOf(prev, action) }));
+      if (!isIntakeSeed(current)) return prev;
+      skipAutoSave.current = true;
+      return next;
+    });
+  }
+
+  // Hydrate from the stored rows on load.
   useEffect(() => {
     if (data?.data) {
       const fromApi = rowsToState(list, data.data);
-      if (usableSeed && listIsIntakeSeed(list, data.data)) {
-        setState(usableSeed);
-      } else {
-        setState(fromApi);
-      }
+      setState(fromApi);
       skipAutoSave.current = true;
     }
-  }, [data, usableSeed, list]);
+  }, [data, list]);
+
+  // A seed prop (Quick Fill) is offered once the stored rows are loaded.
+  useEffect(() => {
+    if (data?.data && usableSeed) applyQuickFill(usableSeed);
+    // applyQuickFill reads refs and the state updater only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, usableSeed]);
 
   useImperativeHandle(
     ref,
@@ -194,13 +207,7 @@ export const MakeSafeChecklist = forwardRef<
         }
         return { ok: true };
       },
-      applySeed: (next) => {
-        // A preset written for the other list (e.g. a water quick-fill on a
-        // fire job) is not applied; the job keeps its own list.
-        if (!seedFits(listRef.current, next)) return;
-        setState(next);
-        skipAutoSave.current = true;
-      },
+      applySeed: (next) => applyQuickFill(next),
     }),
     [inspectionId],
   );
