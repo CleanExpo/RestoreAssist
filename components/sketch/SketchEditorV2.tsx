@@ -2203,6 +2203,24 @@ export function SketchEditorV2({
     [floorsData, activeIdx, scheduleSave],
   );
 
+  // ── RA-8325: send LiDAR custody receipts that have not reached the server ─
+  const syncRoomPlanReceipts = useCallback(async (forInspectionId: string) => {
+    try {
+      const { flushRoomPlanServerReceipts } =
+        await import("@/lib/sketch/roomplan-custody-queue");
+      const { rejected } = await flushRoomPlanServerReceipts(forInspectionId);
+      if (rejected.length > 0) {
+        toast.error(
+          rejected.length === 1
+            ? `A LiDAR scan was saved on this device but the server refused its custody record: ${rejected[0].message}`
+            : `${rejected.length} LiDAR scans were saved on this device but the server refused their custody records: ${rejected[0].message}`,
+        );
+      }
+    } catch {
+      // Custody queue optional — ignore if IDB blocked.
+    }
+  }, []);
+
   // ── RA-7091: Scan room (LiDAR) via native RoomPlan ───────
   const handleScanRoom = useCallback(async () => {
     if (!inspectionId) {
@@ -2230,19 +2248,11 @@ export function SketchEditorV2({
         });
         custodyId = entry.id;
 
-        // Best-effort server custody (hash of stored JSON bytes). Offline /
-        // unsigned — never blocks the technician; local IDB remains SSOT until
-        // connectivity returns.
-        void fetch(`/api/inspections/${inspectionId}/roomplan-custody`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            capturedRoom: captured,
-            clientSha256: entry.contentSha256,
-            clientCustodyId: entry.id,
-            floorNumber,
-          }),
-        }).catch(() => {});
+        // Server custody receipt (hash of stored JSON bytes). Never blocks the
+        // technician: if this send fails the entry stays `pending` in IDB and
+        // is re-sent when the sketch loads or the browser comes back online
+        // (RA-8325).
+        void syncRoomPlanReceipts(inspectionId);
       } catch {
         // IDB unavailable — continue with in-memory ingest; do not block the tech.
       }
@@ -2277,7 +2287,16 @@ export function SketchEditorV2({
     } finally {
       setScanInFlight(false);
     }
-  }, [inspectionId, activeFloor, applyCapturedRoomToFloor]);
+  }, [inspectionId, activeFloor, applyCapturedRoomToFloor, syncRoomPlanReceipts]);
+
+  // ── RA-8325: re-send LiDAR custody receipts on load and on reconnect ─
+  useEffect(() => {
+    if (!inspectionId || readonly) return;
+    void syncRoomPlanReceipts(inspectionId);
+    const onOnline = () => void syncRoomPlanReceipts(inspectionId);
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [inspectionId, readonly, syncRoomPlanReceipts]);
 
   // ── RA-7091: re-ingest pending offline RoomPlan captures ─
   useEffect(() => {

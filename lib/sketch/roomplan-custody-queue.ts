@@ -6,10 +6,14 @@
  * crash or offline gap cannot lose the only copy of the LiDAR geometry.
  *
  * Integrity: SHA-256 is computed over UTF-8 bytes of stable JSON for the
- * CapturedRoom payload — never over a Data URL string. After ingest, the
- * editor also POSTs the same payload to `/api/inspections/.../roomplan-custody`
- * so the server persists a receipt whose hash is over the exact stored bytes
- * (RA-7090 bridge). Ed25519 tamper-evident claims still require a signed
+ * CapturedRoom payload — never over a Data URL string. The editor also POSTs
+ * the same payload to `/api/inspections/.../roomplan-custody` so the server
+ * persists a receipt whose hash is over the exact stored bytes (RA-7090
+ * bridge). That receipt has its own state (`serverReceipt`), separate from the
+ * canvas `status`: `flushRoomPlanServerReceipts` sends every entry not yet
+ * `sent` right after a scan, when the sketch loads and when the browser comes
+ * back online, until the server accepts it (2xx) or refuses it for good
+ * (`rejected`, RA-8325). Ed25519 tamper-evident claims still require a signed
  * EvidenceItem; this queue alone is custody-of-bytes.
  *
  * Browser-only (IndexedDB). Tests inject an in-memory store.
@@ -26,6 +30,13 @@ export type RoomPlanCustodyStatus =
   | "ingested"
   | "failed";
 
+/**
+ * Server custody receipt state (RA-8325), independent of the canvas `status`.
+ * Entries written before RA-8325 have no value and are treated as `pending`;
+ * the route answers a repeat with its existing receipt, so a resend is safe.
+ */
+export type RoomPlanServerReceiptState = "pending" | "sent" | "rejected";
+
 export interface RoomPlanCustodyEntry {
   id: string;
   inspectionId: string;
@@ -37,6 +48,9 @@ export interface RoomPlanCustodyEntry {
   capturedAt: string;
   status: RoomPlanCustodyStatus;
   lastError?: string;
+  serverReceipt?: RoomPlanServerReceiptState;
+  /** Server message when `serverReceipt` is `rejected`. */
+  serverReceiptError?: string;
 }
 
 export interface RoomPlanCustodyStore {
@@ -46,7 +60,14 @@ export interface RoomPlanCustodyStore {
   update(
     id: string,
     patch: Partial<
-      Pick<RoomPlanCustodyEntry, "status" | "lastError" | "capturedRoom">
+      Pick<
+        RoomPlanCustodyEntry,
+        | "status"
+        | "lastError"
+        | "capturedRoom"
+        | "serverReceipt"
+        | "serverReceiptError"
+      >
     >,
   ): Promise<void>;
   delete(id: string): Promise<void>;
@@ -232,6 +253,7 @@ export async function enqueueRoomPlanCapture(opts: {
     contentSha256,
     capturedAt: new Date().toISOString(),
     status: "pending_ingest",
+    serverReceipt: "pending",
   };
   await getStore().put(entry);
   return entry;
@@ -272,4 +294,114 @@ export async function verifyRoomPlanCustodyIntegrity(
   if (!entry) return false;
   const digest = await hashCapturedRoomJson(entry.capturedRoom);
   return digest === entry.contentSha256;
+}
+
+// ─── Server receipt replay (RA-8325) ──────────────────────────────────────────
+
+/**
+ * 4xx answers that can succeed on a later attempt: expired session, timeout,
+ * too early, rate limit. Every other 4xx (for example a hash mismatch) will
+ * never succeed and is marked `rejected` so it is not retried forever.
+ */
+const RETRYABLE_4XX = new Set([401, 408, 425, 429]);
+
+export interface RoomPlanReceiptFlushResult {
+  sent: number;
+  /** Entries the server refused for good during this flush. */
+  rejected: Array<{ id: string; message: string }>;
+}
+
+type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
+
+const _flushChains = new Map<string, Promise<unknown>>();
+
+async function readServerMessage(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as { error?: { message?: unknown } };
+    const message = body?.error?.message;
+    if (typeof message === "string" && message.trim()) return message;
+  } catch {
+    // Non-JSON body — fall through to the status line.
+  }
+  return `Server refused the receipt (HTTP ${res.status})`;
+}
+
+async function runReceiptFlush(
+  inspectionId: string,
+  fetchImpl: FetchLike,
+): Promise<RoomPlanReceiptFlushResult> {
+  const result: RoomPlanReceiptFlushResult = { sent: 0, rejected: [] };
+  const store = getStore();
+  const entries = (await store.listByInspection(inspectionId)).filter(
+    (e) => e.serverReceipt !== "sent" && e.serverReceipt !== "rejected",
+  );
+  for (const entry of entries) {
+    let res: Response;
+    try {
+      res = await fetchImpl(
+        `/api/inspections/${encodeURIComponent(inspectionId)}/roomplan-custody`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            capturedRoom: entry.capturedRoom,
+            clientSha256: entry.contentSha256,
+            clientCustodyId: entry.id,
+            floorNumber: entry.floorNumber,
+          }),
+        },
+      );
+    } catch {
+      // Offline or network drop: stay pending; the next load or `online`
+      // event sends it. Later entries would fail the same way.
+      break;
+    }
+    if (res.ok) {
+      await store.update(entry.id, {
+        serverReceipt: "sent",
+        serverReceiptError: undefined,
+      });
+      result.sent++;
+      continue;
+    }
+    if (res.status >= 400 && res.status < 500 && !RETRYABLE_4XX.has(res.status)) {
+      const message = await readServerMessage(res);
+      await store.update(entry.id, {
+        serverReceipt: "rejected",
+        serverReceiptError: message,
+      });
+      result.rejected.push({ id: entry.id, message });
+      continue;
+    }
+    // 5xx or a retryable 4xx: leave pending for the next trigger.
+  }
+  return result;
+}
+
+/**
+ * Send the server custody receipt for every entry of this inspection whose
+ * receipt is not yet `sent` or `rejected`. A 2xx (including the route's
+ * duplicate answer) marks it `sent`; a permanent 4xx marks it `rejected` with
+ * the server message; anything else leaves it `pending`.
+ *
+ * Calls for the same inspection run one after another, so a load and an
+ * `online` event that fire together cannot send the same receipt twice.
+ */
+export function flushRoomPlanServerReceipts(
+  inspectionId: string,
+  fetchImpl: FetchLike = (input, init) => fetch(input, init),
+): Promise<RoomPlanReceiptFlushResult> {
+  const previous = _flushChains.get(inspectionId) ?? Promise.resolve();
+  const run = previous
+    .catch(() => undefined)
+    .then(() => runReceiptFlush(inspectionId, fetchImpl));
+  _flushChains.set(inspectionId, run);
+  void run
+    .catch(() => undefined)
+    .then(() => {
+      if (_flushChains.get(inspectionId) === run) {
+        _flushChains.delete(inspectionId);
+      }
+    });
+  return run;
 }
