@@ -35,7 +35,6 @@ vi.mock("@/lib/nrpg-rate-ranges", async (original) => {
   };
 });
 
-import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import {
   blockedParts,
   expectNoRangeFigure,

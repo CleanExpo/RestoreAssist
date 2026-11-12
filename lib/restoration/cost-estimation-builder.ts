@@ -498,8 +498,8 @@ export function buildCostEstimationData(data: {
   const totalIncGST = subtotal === null || gst === null ? null : subtotal + gst;
 
   // RA-8281 (B2): what blocks this document, if anything. Unset price-list
-  // rates carry their national range; an equipment line that cannot be read
-  // carries its note only.
+  // rates name their field; an equipment line that cannot be read carries
+  // its note only. Neither carries a national range figure.
   const missing = documentMissing(P.missing(), equipmentBlocked);
 
   // Industry comparison

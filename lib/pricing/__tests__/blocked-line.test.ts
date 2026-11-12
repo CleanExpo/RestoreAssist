@@ -30,7 +30,6 @@ import {
 import { blockedPricingResponse } from "@/lib/pricing/blocked-line-response";
 
 const CALL_OUT = NRPG_RATE_RANGES.callOutFee;
-const LABOUR = NRPG_RATE_RANGES.labourerNormalHours;
 
 describe("blockedRates", () => {
   it("names an unset field with its note, and never the national range", () => {
