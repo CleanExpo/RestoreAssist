@@ -26,7 +26,9 @@
  * values and the `defaults` of GET /api/pricing-config are not compared with
  * the ranges. Two starting figures do equal a range bound today (the mould
  * remediation default and the antimicrobial baseline). Whether a new price
- * list starts empty is RA-8281 B3, which removes them.
+ * list starts empty is RA-8281 B3, which removes them. For the same reason
+ * the NIR estimate of a business with no price list at all, which is still
+ * priced at a midpoint, is left to B3: it is neither a min nor a max.
  *
  * The source scans at the end hold the two structural rules: only the named
  * modules import the range file, and no file a browser loads reaches it.
@@ -419,7 +421,7 @@ describe("who may read the range file", () => {
     // to the browser. If the range file is in that set, the figures are
     // readable in the page's scripts even when no screen prints them.
     const clientRoots = ALL_SOURCES.filter((file) =>
-      /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/.test(
+      /^\s*(?:(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/)\s*)*["']use client["']/.test(
         readFileSync(file, "utf8"),
       ),
     );
