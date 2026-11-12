@@ -115,11 +115,8 @@ describe("the make-safe checklist is one instance per inspection", () => {
   });
 });
 
-describe("the sync badge forgets a failed draft save when the account changes", () => {
-  it("resets draftSaveFailed whenever the signed-in user changes", () => {
-    const src = readSource("components/nir-offline-provider.tsx");
-    expect(src).toMatch(
-      /useEffect\(\(\) => \{\s*setDraftSaveFailed\(false\);\s*\}, \[sessionUserId\]\)/,
-    );
-  });
-});
+// The badge forgetting a failed draft save on an account change is tested by
+// rendering the provider in nir-offline-provider.draft-save.ra8330.test.tsx:
+// a different account or a sign-out clears it, a same-account session refresh
+// keeps it. A source-text match here pinned the old reset, which also cleared
+// the failure on every "loading" refresh.

@@ -197,9 +197,22 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
   }, []);
 
   // A draft-save failure belongs to the account that made the save (RA-8330 round 7).
+  // Clear it only on a real sign-out or a switch to a different account. A
+  // next-auth refresh sets the status to "loading", which briefly makes
+  // sessionUserId null for the same account; that must not clear the failure.
+  const draftSaveAccount = useRef<string | null>(null);
   useEffect(() => {
-    setDraftSaveFailed(false);
-  }, [sessionUserId]);
+    if (sessionStatus === "unauthenticated") {
+      draftSaveAccount.current = null;
+      setDraftSaveFailed(false);
+      return;
+    }
+    if (!sessionUserId) return;
+    if (draftSaveAccount.current !== null && draftSaveAccount.current !== sessionUserId) {
+      setDraftSaveFailed(false);
+    }
+    draftSaveAccount.current = sessionUserId;
+  }, [sessionStatus, sessionUserId]);
   const statusReadVersion = useRef(0);
 
   const refreshStatus = useCallback(async () => {
