@@ -74,6 +74,9 @@ function rowsToState(rows: MakeSafeRow[]): MakeSafeChecklistState {
 export type MakeSafeChecklistHandle = {
   /** Persist current checklist selections to the inspection (no toast). */
   persist: () => Promise<void>;
+  /** RA-8330: true once the saved checklist has loaded. Before that the panel
+   *  holds the default state, so persist() refuses rather than overwrite. */
+  isReady: () => boolean;
   readiness: () => { ok: true } | { ok: false; message: string };
   applySeed: (seed: MakeSafeChecklistState) => void;
 };
@@ -98,6 +101,7 @@ export const MakeSafeChecklist = forwardRef<
   const skipAutoSave = useRef(true);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const hydratedRef = useRef(false);
 
   const intakeSeedFromApi = (rows: MakeSafeRow[]) => {
     const next = rowsToState(rows);
@@ -114,6 +118,7 @@ export const MakeSafeChecklist = forwardRef<
         setState(fromApi);
       }
       skipAutoSave.current = true;
+      hydratedRef.current = true;
     }
   }, [data, seed]);
 
@@ -128,7 +133,13 @@ export const MakeSafeChecklist = forwardRef<
   useImperativeHandle(
     ref,
     () => ({
-      persist: () => persistMakeSafeChecklist(inspectionId, stateRef.current),
+      isReady: () => hydratedRef.current,
+      persist: async () => {
+        if (!hydratedRef.current) {
+          throw new Error("Make-safe checklist is still loading");
+        }
+        await persistMakeSafeChecklist(inspectionId, stateRef.current);
+      },
       readiness: () => {
         const compliance = makeSafeCompliance(
           MAKE_SAFE_ACTIONS.map((action) => stateRef.current[action]),

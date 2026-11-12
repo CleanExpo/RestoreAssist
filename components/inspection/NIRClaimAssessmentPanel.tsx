@@ -81,6 +81,9 @@ export type NIRClaimAssessmentPanelHandle = {
   persistAssessment: () => Promise<void>;
   persistCompliance: () => Promise<void>;
   persist: () => Promise<void>;
+  /** RA-8330: true once the saved assessment and compliance records have
+   *  loaded. Before that, persist() refuses rather than save a half-loaded form. */
+  isReady: () => boolean;
   applyQuickFillSeed: (seed: {
     assessment?: Record<string, unknown>;
     compliance?: Record<string, unknown>;
@@ -1516,6 +1519,11 @@ const NIRClaimAssessmentPanel = forwardRef<
   const [saving, setSaving] = useState(false);
   const [savingCompliance, setSavingCompliance] = useState(false);
   const [gates, setGates] = useState<Record<string, boolean>>({});
+  // RA-8330: the Quick Fill seed must survive the first load. A claim with no
+  // saved record (404) starts from the seed, not an empty form.
+  const assessmentSeedRef = useRef<Record<string, unknown> | null>(null);
+  const assessmentLoadedRef = useRef(false);
+  const complianceLoadedRef = useRef(false);
 
   // ── Load assessment for a claim type ──────────────────────────────────────
 
@@ -1523,6 +1531,7 @@ const NIRClaimAssessmentPanel = forwardRef<
     async (type: NIRClaimType) => {
       const meta = CLAIM_TYPES.find((c) => c.type === type);
       if (!meta) return;
+      assessmentLoadedRef.current = false;
       setLoading(true);
       try {
         const res = await fetch(
@@ -1547,14 +1556,15 @@ const NIRClaimAssessmentPanel = forwardRef<
             setContentItems(record.items);
           }
         } else {
-          // 404 = no record yet; reset form
-          setFormData({});
+          // 404 = no record yet; start from the Quick Fill seed, if any
+          setFormData({ ...(assessmentSeedRef.current ?? {}) });
           setGates({});
           if (type === "CONTENTS") setContentItems([]);
         }
       } catch {
         // Network error — continue with empty form
       } finally {
+        assessmentLoadedRef.current = true;
         setLoading(false);
       }
     },
@@ -1574,6 +1584,8 @@ const NIRClaimAssessmentPanel = forwardRef<
       }
     } catch {
       // ignore
+    } finally {
+      complianceLoadedRef.current = true;
     }
   }, [inspectionId]);
 
@@ -1582,12 +1594,16 @@ const NIRClaimAssessmentPanel = forwardRef<
     if (type) {
       setSelectedType(type);
       loadAssessment(type);
+    } else {
+      assessmentLoadedRef.current = true;
     }
+    complianceLoadedRef.current = false;
     loadCompliance();
   }, [lockedClaimType, initialClaimType, loadAssessment, loadCompliance]);
 
   useEffect(() => {
     if (assessmentSeed && Object.keys(assessmentSeed).length > 0) {
+      assessmentSeedRef.current = assessmentSeed;
       setFormData((prev) => ({ ...prev, ...assessmentSeed }));
       if (lockedClaimType === "WATER" || selectedType === "WATER") {
         const c = waterChoice(assessmentSeed);
@@ -1611,6 +1627,8 @@ const NIRClaimAssessmentPanel = forwardRef<
     setSelectedType(type);
     setFormData({});
     setGates({});
+    // A seed belongs to the claim type it was made for.
+    assessmentSeedRef.current = null;
     loadAssessment(type);
     onClaimTypeChange?.(type);
   };
@@ -1713,12 +1731,17 @@ const NIRClaimAssessmentPanel = forwardRef<
     () => ({
       persistAssessment: () => persistAssessment({ silent: true }),
       persistCompliance: () => persistCompliance({ silent: true }),
+      isReady: () => assessmentLoadedRef.current && complianceLoadedRef.current,
       persist: async () => {
+        if (!(assessmentLoadedRef.current && complianceLoadedRef.current)) {
+          throw new Error("Claim assessment is still loading");
+        }
         await persistAssessment({ silent: true });
         await persistCompliance({ silent: true });
       },
       applyQuickFillSeed: (seed) => {
         if (seed.assessment) {
+          assessmentSeedRef.current = seed.assessment;
           setFormData((prev) => ({ ...prev, ...seed.assessment }));
           if (selectedTypeRef.current === "WATER") {
             const c = waterChoice(seed.assessment);

@@ -111,13 +111,14 @@ describe("sidecarPart (review round 1)", () => {
   });
 
   it("reads the panel when the part runs, not when it is built", async () => {
-    let panel: { persist: () => Promise<void> } | null = null;
+    let panel: { persist: () => Promise<void>; isReady: () => boolean } | null = null;
     const saved: string[] = [];
     const part = sidecarPart("claim assessment", {
       panel: () => panel,
       hasPendingData: () => true,
     });
     panel = {
+      isReady: () => true,
       persist: async () => {
         saved.splice(saved.length, 0, "panel");
       },
@@ -177,5 +178,56 @@ describe("Save Draft badge outcome has one owner (review round 2)", () => {
       window.removeEventListener(DRAFT_SAVE_STATUS_EVENT, listener);
     }
     expect(seen).toEqual([false, false, false, true]);
+  });
+});
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
+const readSource = (rel: string) =>
+  stripComments(readFileSync(join(repoRoot, rel), "utf8"));
+
+describe("a panel still loading is never saved through (review round 3)", () => {
+  it("saves pending data directly while the panel is still loading", async () => {
+    const saved: string[] = [];
+    const result = await saveDraftParts([
+      sidecarPart("make-safe checklist", {
+        panel: () => ({
+          isReady: () => false,
+          persist: async () => {
+            saved.splice(saved.length, 0, "panel-defaults");
+          },
+        }),
+        hasPendingData: () => true,
+        saveDirect: async () => {
+          saved.splice(saved.length, 0, "seed");
+        },
+      }),
+    ]);
+    expect(result.ok).toBe(true);
+    expect(saved).toEqual(["seed"]);
+  });
+
+  it("names a loading part with data and no direct route as not saved", async () => {
+    const result = await saveDraftParts([
+      sidecarPart("claim assessment", {
+        panel: () => ({ isReady: () => false, persist: async () => {} }),
+        hasPendingData: () => true,
+      }),
+    ]);
+    expect(result.ok).toBe(false);
+    expect(result.failures[0].label).toBe("claim assessment");
+  });
+
+  it("the make-safe panel refuses to save before its checklist has loaded", () => {
+    const src = readSource("components/inspection/MakeSafeChecklist.tsx");
+    expect(src).toMatch(/isReady: \(\) => hydratedRef\.current/);
+    expect(src).toMatch(/persist: async \(\) => \{\s*if \(!hydratedRef\.current\)\s*\{\s*throw/);
+    expect(src).not.toMatch(/persist: \(\) => persistMakeSafeChecklist\(/);
+  });
+
+  it("the claim panel keeps the Quick Fill seed when no record is saved yet, and refuses early saves", () => {
+    const src = readSource("components/inspection/NIRClaimAssessmentPanel.tsx");
+    expect(src).toContain("setFormData({ ...(assessmentSeedRef.current ?? {}) })");
+    expect(src).not.toMatch(/\} else \{\s*setFormData\(\{\}\);\s*setGates/);
+    expect(src).toMatch(/persist: async \(\) => \{\s*if \(!\(assessmentLoadedRef\.current && complianceLoadedRef\.current\)\)/);
   });
 });
