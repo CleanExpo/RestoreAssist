@@ -3,7 +3,6 @@ import {
   getEffectiveSubscription,
   getOrganizationOwner,
 } from "@/lib/organization-credits";
-import { apiErrorMessage } from "@/lib/api-error-message";
 
 // In-memory rate limiting store
 // Structure: Map<userId, { count: number, resetTime: number }>
@@ -251,8 +250,10 @@ export function aggregateErrors(
   // Remove duplicates and format
   const seen = new Set<string>();
 
-  return errors.filter((err) => {
-    const key = `${err.reportId}:${apiErrorMessage(err.error)}`;
+  // `error` here is already a plain message string, not an API body, so it is
+  // keyed exactly as given (RA-8348 review: trimming merged distinct errors).
+  return errors.filter(({ reportId, error }) => {
+    const key = `${reportId}:${error}`;
     if (seen.has(key)) {
       return false;
     }
