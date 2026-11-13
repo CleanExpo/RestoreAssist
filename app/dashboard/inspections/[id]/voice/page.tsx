@@ -29,13 +29,55 @@ import type {
   VoiceCopilotMode,
 } from "@/lib/voice/types";
 import { cn } from "@/lib/utils";
+import type { FireWalkthroughResponse } from "@/lib/voice/fire-smoke/schema";
+import { FireWalkthrough } from "./_fire/FireWalkthrough";
+import { getFireWalkthrough } from "./_fire/fire-client";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+/**
+ * Fire and smoke claims get the guided make-safe walkthrough; every other
+ * job keeps the water-damage copilot below. A failed applicability read is
+ * shown as an error, never treated as "not a fire job".
+ */
 export default function VoiceSessionPage({ params }: PageProps) {
   const { id: inspectionId } = use(params);
+  const [fire, setFire] = useState<FireWalkthroughResponse | null>(null);
+  const [checked, setChecked] = useState<"loading" | "ready" | "failed">("loading");
+
+  const check = useCallback(async () => {
+    setChecked("loading");
+    const result = await getFireWalkthrough(inspectionId);
+    if (!result.ok) {
+      setChecked("failed");
+      return;
+    }
+    setFire(result.data);
+    setChecked("ready");
+  }, [inspectionId]);
+
+  useEffect(() => {
+    void check();
+  }, [check]);
+
+  if (checked === "loading") {
+    return <div className="flex h-screen items-center justify-center bg-brand-canvas text-sm text-white/60">Loading</div>;
+  }
+  if (checked === "failed") {
+    return (
+      <div role="alert" className="flex h-screen flex-col items-center justify-center gap-3 bg-brand-canvas px-6 text-center text-sm text-white/80">
+        <p>Could not load this job's voice checklist. Check your signal and try again.</p>
+        <Button onClick={() => void check()} className="min-h-12 bg-brand-navy text-white">Try again</Button>
+      </div>
+    );
+  }
+  if (fire?.applicable) return <FireWalkthrough inspectionId={inspectionId} initial={fire} />;
+  return <WaterVoiceSession inspectionId={inspectionId} />;
+}
+
+function WaterVoiceSession({ inspectionId }: { inspectionId: string }) {
   const router = useRouter();
 
   const [mode, setMode] = useState<VoiceCopilotMode>("assisted");

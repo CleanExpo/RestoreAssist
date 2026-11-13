@@ -2,14 +2,14 @@
  * RA-8281 (B2): how every screen shows a blocked pricing result.
  *
  * Each line of the estimate, quote or document is listed. A line whose
- * price-list rate is not set reads "Rate not set" with the national range
- * when one exists, and has no amount. The total reads "Total not available:
- * rate not set". No amount is ever worked out from the range.
+ * price-list rate is not set reads "Rate not set" and has no amount. The
+ * total reads "Total not available: rate not set". No NRPG range figure is
+ * ever shown here (founder rule, 2026-11-12).
  */
 import Link from "next/link";
 import { RAIcon } from "@/components/brand/RAIcon";
 import {
-  rateNotSetText,
+  RATE_NOT_SET_LABEL,
   type BlockedPricing,
   type BlockedPricingLine,
 } from "@/lib/pricing/blocked-line";
@@ -27,7 +27,7 @@ function quantity(line: BlockedPricingLine): string {
 
 function rateCell(line: BlockedPricingLine): string {
   if (line.pricingStatus === "rate_not_set") {
-    return rateNotSetText(line.nationalRange);
+    return RATE_NOT_SET_LABEL;
   }
   if (line.pricingStatus === "unusable_line") {
     return line.pricingNote ?? "Cannot be priced";

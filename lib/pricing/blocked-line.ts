@@ -3,25 +3,23 @@
  *
  * A line priced from the contractor's price list reads one or more rate
  * fields. When a field is not set, the line is still shown, as a blocked
- * line: "Rate not set" plus the NRPG national range for that field when
- * lib/nrpg-rate-ranges.ts has one, and no range when it does not. The
- * engine's total is then blocked ("Total not available: rate not set"). It is
- * never a partial sum presented as complete.
+ * line: "Rate not set" plus which price-list field to set. The engine's total
+ * is then blocked ("Total not available: rate not set"). It is never a
+ * partial sum presented as complete.
  *
  * Rules held here, once, for every engine:
  *   - an unset rate never becomes $0, a midpoint, a cached figure or a value
- *     taken from the national range. The range is shown for reference only;
- *     no amount is ever computed from it;
+ *     taken from the NRPG national range;
  *   - a figure that needs an unset rate is null, and null spreads to every
  *     sum that includes it (sumOrBlocked);
- *   - the range comes only from lib/nrpg-rate-ranges.ts. A field with no
- *     range there (the fire fields today) shows "Rate not set" and nothing
- *     else.
+ *   - a blocked line never carries or shows a national range figure. The
+ *     NRPG ranges are NRPG's private reference data (founder rule,
+ *     2026-11-12: "We don't show our guideline or price"), so this file and
+ *     everything it imports stay clear of lib/nrpg-rate-ranges.ts.
  *
  * This file is safe to import from client components: it has no server-only
  * imports. The HTTP response lives in blocked-line-response.ts.
  */
-import { getFieldRange } from "@/lib/nrpg-rate-ranges";
 import { unsetRates } from "@/lib/pricing/rate-not-set";
 
 /** What is shown in place of a rate or an amount that is not available. */
@@ -30,21 +28,11 @@ export const RATE_NOT_SET_LABEL = "Rate not set";
 /** What is shown in place of a total when any of its lines is blocked. */
 export const TOTAL_NOT_AVAILABLE_NOTE = "Total not available: rate not set";
 
-/** The NRPG national range for a field, for display only. */
-export interface NationalRange {
-  min: number;
-  max: number;
-  /** As recorded in lib/nrpg-rate-ranges.ts, e.g. "$/hr". */
-  unit: string;
-}
-
 /** One price-list field the contractor has not set. */
 export interface BlockedRate {
   field: string;
-  /** "Rate not set. Set <field> in your price list (national range ...)." */
+  /** "Rate not set. Set <field> in your price list." */
   note: string;
-  /** null: lib/nrpg-rate-ranges.ts has no range for this field. */
-  nationalRange: NationalRange | null;
 }
 
 /** The fields a blocked line carries. A priced line carries none of them. */
@@ -54,8 +42,6 @@ export interface BlockedLineFields {
   rateField: string;
   /** Every unset field's note, joined. */
   pricingNote: string;
-  /** The national range of `rateField`, or null when there is none. */
-  nationalRange: NationalRange | null;
 }
 
 /** One line of a blocked engine result, as every screen shows it. */
@@ -70,12 +56,11 @@ export interface BlockedPricingLine {
   /**
    * unusable_line: a saved equipment line that cannot be read or priced
    * exactly (no equipment type, no valid quantity, or an amount too large).
-   * It has no rate field, so it shows its note and no range.
+   * It has no rate field, so it shows its note.
    */
   pricingStatus: "priced" | "rate_not_set" | "unusable_line";
   rateField?: string;
   pricingNote?: string;
-  nationalRange?: NationalRange | null;
 }
 
 /** An engine result whose total cannot be given. */
@@ -92,28 +77,8 @@ export interface BlockedPricing {
 /** A price list, or none at all (every rate then reads as not set). */
 type PriceList = object | null | undefined;
 
-/** "national range $60-$170 per hr", from the recorded range only. */
-export function nationalRangeText(range: NationalRange): string {
-  const per = range.unit.startsWith("$/")
-    ? ` per ${range.unit.slice(2)}`
-    : range.unit === "$"
-      ? ""
-      : ` ${range.unit}`;
-  return `national range $${range.min}-$${range.max}${per}`;
-}
-
-/** The recorded national range for a field, or null when there is none. */
-export function nationalRangeFor(field: string): NationalRange | null {
-  return rangeOf(field);
-}
-
-function rangeOf(field: string): NationalRange | null {
-  const range = getFieldRange(field);
-  return range ? { min: range.min, max: range.max, unit: range.unit } : null;
-}
-
 /**
- * The unset fields among `fields`, each with its note and national range.
+ * The unset fields among `fields`, each with its note.
  * Whether a rate counts as set is decided by unsetRates (rate-not-set.ts),
  * the same rule B1's readers use.
  */
@@ -124,7 +89,6 @@ export function blockedRates(
   return unsetRates(config, fields).map((u) => ({
     field: u.field,
     note: u.note,
-    nationalRange: rangeOf(u.field),
   }));
 }
 
@@ -133,7 +97,6 @@ function lineFields(blocked: readonly BlockedRate[]): BlockedLineFields {
     pricingStatus: "rate_not_set",
     rateField: blocked[0].field,
     pricingNote: blocked.map((b) => b.note).join(" "),
-    nationalRange: blocked[0].nationalRange,
   };
 }
 
@@ -240,11 +203,4 @@ export function readBlockedPricing(body: unknown): BlockedPricing | null {
     Array.isArray(blocked.missing)
     ? (blocked as BlockedPricing)
     : null;
-}
-
-/** What a rate cell shows: the label, with the national range when one exists. */
-export function rateNotSetText(nationalRange?: NationalRange | null): string {
-  return nationalRange
-    ? `${RATE_NOT_SET_LABEL} (${nationalRangeText(nationalRange)})`
-    : RATE_NOT_SET_LABEL;
 }

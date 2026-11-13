@@ -43,6 +43,13 @@ import {
 } from "@/lib/forms/room-identity";
 import { buildMoistureReadingDraftPayload } from "@/lib/forms/moisture-reading-draft-payload";
 import {
+  draftSaveFailureMessage,
+  saveDraftParts,
+  sidecarPart,
+  type DraftSavePart,
+} from "@/lib/nir-draft-save";
+import { trackDraftSave } from "@/lib/offline/draft-save-status";
+import {
   calculateClassificationPreview as computeClassificationPreview,
   manualClassificationPayload,
   resumedManualClassification,
@@ -4393,24 +4400,29 @@ export default function NIRTechnicianInputForm({
         )}
         <button
           type="button"
-          onClick={async () => {
-            // Save draft (auto-create inspection and save data without requiring photos)
+          onClick={() => trackDraftSave(async () => {
+            // Save draft (auto-create inspection and save data without requiring photos).
+            // RA-8330: trackDraftSave owns the badge outcome; only `return true`
+            // counts as saved, every other exit reports a failed save.
+            // Which side panels the technician could see at the press.
+            const makeSafeWasOnScreen = makeSafeChecklistRef.current != null;
+            const claimPanelWasOnScreen = claimAssessmentRef.current != null;
             try {
               setSaving(true);
               if (!claimType) {
                 toast.error("Please select a claim type first");
                 setSaving(false);
-                return;
+                return false;
               }
               if (!propertyAddress.trim() || !propertyPostcode.trim()) {
                 toast.error("Please enter property address and postcode first");
                 setSaving(false);
-                return;
+                return false;
               }
               if (hasPartialEnvironmentalData) {
                 toast.error(partialEnvironmentalMessage);
                 setSaving(false);
-                return;
+                return false;
               }
 
               let currentInspectionId =
@@ -4419,37 +4431,65 @@ export default function NIRTechnicianInputForm({
               if (!currentInspectionId) {
                 toast.error("Failed to create inspection. Please try again.");
                 setSaving(false);
-                return;
+                return false;
               }
 
-              if (currentInspectionId) {
-                await persistInspectionSidecars();
-                await saveDraftSnapshot(currentInspectionId);
-
+              {
+                // RA-8330: a draft is unfinished work, so the submit-only
+                // make-safe readiness check must not block it. Each part
+                // saves on its own and every failure is named.
+                const parts: DraftSavePart[] = [
+                  {
+                    label: "inspection details",
+                    run: () => saveDraftSnapshot(currentInspectionId),
+                  },
+                  sidecarPart("make-safe checklist", {
+                    panel: () => makeSafeChecklistRef.current,
+                    hasPendingData: () => makeSafeSeed !== null,
+                    wasOnScreen: makeSafeWasOnScreen,
+                  }),
+                  sidecarPart("claim assessment", {
+                    panel: () => claimAssessmentRef.current,
+                    hasPendingData: () =>
+                      Boolean(claimAssessmentSeed || complianceAssessmentSeed),
+                    wasOnScreen: claimPanelWasOnScreen,
+                  }),
+                ];
                 if (floorPlanImageUrl) {
-                  const floorPlanResponse = await fetch(
-                    `/api/inspections/${currentInspectionId}/floor-plan`,
-                    {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ imageUrl: floorPlanImageUrl }),
+                  parts.push({
+                    label: "floor plan",
+                    run: async () => {
+                      const floorPlanResponse = await fetch(
+                        `/api/inspections/${currentInspectionId}/floor-plan`,
+                        {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ imageUrl: floorPlanImageUrl }),
+                        },
+                      );
+                      if (!floorPlanResponse.ok) {
+                        throw new Error("Failed to save floor plan");
+                      }
                     },
-                  );
-                  if (!floorPlanResponse.ok) {
-                    throw new Error("Failed to save floor plan");
-                  }
+                  });
+                }
+
+                const result = await saveDraftParts(parts);
+                if (!result.ok) {
+                  toast.error(draftSaveFailureMessage(result.failures));
+                  return false;
                 }
 
                 toast.success("Draft saved.");
-              } else {
-                toast.error("Failed to save draft");
+                return true;
               }
             } catch (error: any) {
               toast.error(error.message || "Failed to save draft");
+              return false;
             } finally {
               setSaving(false);
             }
-          }}
+          })}
           disabled={
             saving || deletingPhotoId !== null || !propertyAddress.trim() || !propertyPostcode.trim()
           }

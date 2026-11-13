@@ -8,7 +8,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const { mockFindMany } = vi.hoisted(() => ({ mockFindMany: vi.fn() }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { makeSafeAction: { findMany: mockFindMany } },
+  prisma: {
+    makeSafeAction: { findMany: mockFindMany },
+    // RA-8327: a blank claim type asks whether the job has a fire assessment.
+    fireSmokeDamageAssessment: { findFirst: vi.fn(async () => null) },
+  },
 }));
 
 vi.mock("@/app/api/inspections/[id]/make-safe/route", () => ({

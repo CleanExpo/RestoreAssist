@@ -14,6 +14,8 @@ vi.mock("@/lib/prisma", () => ({
     makeSafeAction: {
       findMany: mockFindMany,
     },
+    // RA-8327: a blank claim type asks whether the job has a fire assessment.
+    fireSmokeDamageAssessment: { findFirst: vi.fn(async () => null) },
   },
 }));
 

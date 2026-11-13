@@ -130,7 +130,7 @@ const FIELD_PRICED: {
 describe.each(FIELD_PRICED)(
   "$name domain prices from the contractor's price list",
   ({ domain, options, field }) => {
-    it(`an unset ${field} reads "rate not set" with its national range and blocks the total`, async () => {
+    it(`an unset ${field} reads "rate not set" with no national range and blocks the total`, async () => {
       const est = await estimateFor(domain, options, {
         ...FULL_PRICE_LIST,
         [field]: null,
@@ -141,7 +141,7 @@ describe.each(FIELD_PRICED)(
         expect(l.rate).toBeNull();
         expect(l.lineTotalExGst).toBeNull();
         expect(l.pricingNote).toContain(field);
-        expect(l.pricingNote).toMatch(/national range \$\d/);
+        expect(l.pricingNote).not.toMatch(/national range|\$\d/);
       }
       expect(est.totals.status).toBe("blocked");
       expect(est.totals.subtotalExGst).toBeNull();
