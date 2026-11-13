@@ -9,6 +9,7 @@ import {
   createMemoryRoomPlanCustodyStore,
   enqueueRoomPlanCapture,
   flushRoomPlanServerReceipts,
+  RECEIPT_POST_TIMEOUT_MS,
   getRoomPlanCapture,
   markRoomPlanCaptureIngested,
 } from "../roomplan-custody-queue";
@@ -167,5 +168,45 @@ describe("RoomPlan server receipt replay (RA-8325)", () => {
       flushRoomPlanServerReceipts("insp-6", online),
     ]);
     expect(online).toHaveBeenCalledTimes(1);
+  });
+  it("a receipt POST that hangs is aborted after 30 seconds, stays pending, and does not stall the next flush", async () => {
+    vi.useFakeTimers();
+    try {
+      const entry = await enqueueRoomPlanCapture({
+        inspectionId: "insp-7",
+        floorNumber: 0,
+        capturedRoom: ROOM,
+      });
+      expect(RECEIPT_POST_TIMEOUT_MS).toBe(30_000);
+
+      let seen: AbortSignal | undefined;
+      const hung = vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            seen = init?.signal ?? undefined;
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("aborted", "AbortError")),
+            );
+          }),
+      );
+      const first = flushRoomPlanServerReceipts("insp-7", hung);
+      await vi.advanceTimersByTimeAsync(RECEIPT_POST_TIMEOUT_MS - 1);
+      expect(seen?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(seen?.aborted).toBe(true);
+      expect(await first).toEqual({ sent: 0, rejected: [] });
+      expect((await getRoomPlanCapture(entry.id))?.serverReceipt).toBe(
+        "pending",
+      );
+
+      // The chain is free again: the next flush runs and succeeds.
+      const ok = vi.fn(async () => jsonResponse(201, {}));
+      const second = await flushRoomPlanServerReceipts("insp-7", ok);
+      expect(second.sent).toBe(1);
+      // No leftover timer from the finished requests.
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

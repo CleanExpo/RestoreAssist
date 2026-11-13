@@ -25,10 +25,7 @@ const DB_NAME = "roomplan-custody";
 const DB_VERSION = 1;
 const STORE = "captures";
 
-export type RoomPlanCustodyStatus =
-  | "pending_ingest"
-  | "ingested"
-  | "failed";
+export type RoomPlanCustodyStatus = "pending_ingest" | "ingested" | "failed";
 
 /**
  * Server custody receipt state (RA-8325), independent of the canvas `status`.
@@ -196,15 +193,31 @@ function idbStore(): RoomPlanCustodyStore {
         const req = idx.getAll(inspectionId);
         req.onsuccess = () => {
           const rows = (req.result as RoomPlanCustodyEntry[]) ?? [];
-          resolve(rows.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)));
+          resolve(
+            rows.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
+          );
         };
         req.onerror = () => reject(req.error ?? new Error("IDB list failed"));
       });
     },
     async update(id, patch) {
-      const cur = await this.get(id);
-      if (!cur) return;
-      await this.put({ ...cur, ...patch });
+      // Read and write inside ONE readwrite transaction. Two transactions
+      // (get, then put) let a receipt patch and an ingest patch overwrite
+      // each other with stale data.
+      const db = await openDb();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        const os = tx.objectStore(STORE);
+        const req = os.get(id);
+        req.onsuccess = () => {
+          const cur = req.result as RoomPlanCustodyEntry | undefined;
+          if (cur) os.put({ ...cur, ...patch });
+        };
+        req.onerror = () => reject(req.error ?? new Error("IDB update failed"));
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error ?? new Error("IDB update failed"));
+        tx.onabort = () => reject(tx.error ?? new Error("IDB update aborted"));
+      });
     },
     async delete(id) {
       const db = await openDb();
@@ -274,7 +287,9 @@ export async function listPendingRoomPlanCaptures(
   inspectionId: string,
 ): Promise<RoomPlanCustodyEntry[]> {
   const all = await getStore().listByInspection(inspectionId);
-  return all.filter((e) => e.status === "pending_ingest" || e.status === "failed");
+  return all.filter(
+    (e) => e.status === "pending_ingest" || e.status === "failed",
+  );
 }
 
 export async function getRoomPlanCapture(
@@ -303,6 +318,9 @@ export async function verifyRoomPlanCustodyIntegrity(
  * too early, rate limit. Every other 4xx (for example a hash mismatch) will
  * never succeed and is marked `rejected` so it is not retried forever.
  */
+/** Abort a receipt POST that gets no answer after this long. */
+export const RECEIPT_POST_TIMEOUT_MS = 30_000;
+
 const RETRYABLE_4XX = new Set([401, 408, 425, 429]);
 
 export interface RoomPlanReceiptFlushResult {
@@ -337,12 +355,16 @@ async function runReceiptFlush(
   );
   for (const entry of entries) {
     let res: Response;
+    // A hung request must not stall later flushes for this inspection.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), RECEIPT_POST_TIMEOUT_MS);
     try {
       res = await fetchImpl(
         `/api/inspections/${encodeURIComponent(inspectionId)}/roomplan-custody`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             capturedRoom: entry.capturedRoom,
             clientSha256: entry.contentSha256,
@@ -352,9 +374,11 @@ async function runReceiptFlush(
         },
       );
     } catch {
-      // Offline or network drop: stay pending; the next load or `online`
-      // event sends it. Later entries would fail the same way.
+      // Offline, network drop or timeout: stay pending; the next load or
+      // `online` event sends it. Later entries would fail the same way.
       break;
+    } finally {
+      clearTimeout(timer);
     }
     if (res.ok) {
       await store.update(entry.id, {
@@ -364,7 +388,11 @@ async function runReceiptFlush(
       result.sent++;
       continue;
     }
-    if (res.status >= 400 && res.status < 500 && !RETRYABLE_4XX.has(res.status)) {
+    if (
+      res.status >= 400 &&
+      res.status < 500 &&
+      !RETRYABLE_4XX.has(res.status)
+    ) {
       const message = await readServerMessage(res);
       await store.update(entry.id, {
         serverReceipt: "rejected",
