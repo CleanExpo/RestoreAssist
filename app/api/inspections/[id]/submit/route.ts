@@ -20,6 +20,10 @@ import { isBlockedResult } from "@/lib/pricing/blocked-line";
 import { buildEstimateLines } from "@/lib/estimate-lines";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
+import {
+  checkFireSubmitGate,
+  claimSubmitWithFireGate,
+} from "@/lib/voice/fire-smoke/server";
 import { ensureMakeSafeSeeded } from "@/lib/compliance/seed-make-safe";
 import { checkScopeVariationGate } from "@/lib/compliance/scope-variation-gate";
 import { checkNzMoistureGate } from "@/lib/compliance/nz-moisture-gate";
@@ -215,6 +219,21 @@ export async function POST(
         );
       }
 
+      // ── Fire and smoke Voice Copilot walkthrough gate ─────────────────────────
+      // A walkthrough that has started must be complete and signed by the
+      // technician. Keyed on the walkthrough, not claimType, which later
+      // assessment routes overwrite (lib/voice/fire-smoke/server.ts).
+      // Runs before every write below, so a refusal leaves no side effects.
+      const fireGate = await checkFireSubmitGate({
+        id,
+        claimType: inspection.claimType,
+        propertyCountry: inspection.propertyCountry,
+        propertyPostcode: inspection.propertyPostcode,
+      });
+      if (fireGate.blocked) {
+        return NextResponse.json(fireGate.body, { status: fireGate.status });
+      }
+
       // ── CLAIM-003 auto-detection ────────────────────────────────────────────
       // If the inspection was previously processed (status != DRAFT), this submission
       // represents a re-inspection event. Record it automatically so no admin action
@@ -251,8 +270,8 @@ export async function POST(
       // All applicable hazard-control actions must be completed before submission.
       // Seed N/A placeholders when intake never created rows (otherwise every
       // new-inspection submit 422s with five "missing" blockers).
-      await ensureMakeSafeSeeded(id);
-      const makeSafeResult = await checkMakeSafeGate(id);
+      await ensureMakeSafeSeeded(id, inspection.claimType ?? null);
+      const makeSafeResult = await checkMakeSafeGate(id, inspection.claimType);
       if (!makeSafeResult.canSubmit) {
         return NextResponse.json(
           {
@@ -315,14 +334,32 @@ export async function POST(
       // OR admin. Status-DRAFT predicate still serialises submits.
       // `updatedAt` pins the row submit validated above: a draft save that
       // committed in between bumps it, so stale children cannot be submitted.
-      const submitGuard = await prisma.inspection.updateMany({
-        where: {
-          ...tenancy.data.inspectionManyWhere,
-          status: "DRAFT",
-          updatedAt: inspection.updatedAt,
+      // The fire gate is read again inside the claim's transaction, after
+      // the claim holds the row lock that every fire write also takes, so a
+      // fire edit cannot slip in between the gate and the claim.
+      const submitGuard = await claimSubmitWithFireGate(
+        prisma,
+        {
+          id,
+          claimType: inspection.claimType,
+          propertyCountry: inspection.propertyCountry,
+          propertyPostcode: inspection.propertyPostcode,
         },
-        data: { status: "SUBMITTED", submittedAt: new Date() },
-      });
+        (tx) =>
+          tx.inspection.updateMany({
+            where: {
+              ...tenancy.data.inspectionManyWhere,
+              status: "DRAFT",
+              updatedAt: inspection.updatedAt,
+            },
+            data: { status: "SUBMITTED", submittedAt: new Date() },
+          }),
+      );
+      if (submitGuard.fireBlock) {
+        return NextResponse.json(submitGuard.fireBlock.body, {
+          status: submitGuard.fireBlock.status ?? 422,
+        });
+      }
       // P1 #11.1 — fire-and-forget next-action nudge (CLAUDE.md rule #13).
       if (submitGuard.count > 0) {
         void onNextAction(id, InspectionStatus.SUBMITTED).catch((err) =>

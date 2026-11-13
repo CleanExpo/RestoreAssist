@@ -72,6 +72,8 @@ const h = vi.hoisted(() => {
     organization: { findFirst: fn(), update: fn() },
     invoiceTemplate: { updateMany: fn() },
     idempotencyRecord: { findUnique: fn(), updateMany: fn() },
+    // The submit route reads the fire and smoke walkthrough for every claim.
+    voiceCopilotObservation: { findMany: fn() },
     $transaction: vi.fn(),
   };
 
@@ -339,6 +341,8 @@ beforeEach(() => {
   // The faked withIdempotency above always grants the reservation, so the
   // route's in-transaction completion of that reservation succeeds.
   h.db.idempotencyRecord.updateMany.mockResolvedValue({ count: 1 });
+  // No walkthrough on these water jobs: the real fire gate runs and lets them through.
+  h.db.voiceCopilotObservation.findMany.mockResolvedValue([]);
   h.db.report.create.mockImplementation(async () => ({
     id: newId("report"),
     user: { name: "Tester", email: "t@example.com" },
