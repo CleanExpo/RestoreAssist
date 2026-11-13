@@ -333,13 +333,25 @@ type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 const _flushChains = new Map<string, Promise<unknown>>();
 
-async function readServerMessage(res: Response): Promise<string> {
+/**
+ * The server's message for a refused receipt. Returns null when the body could
+ * not be read to the end (timeout, dropped connection): that answer is
+ * incomplete, so the caller leaves the receipt pending instead of rejecting
+ * it for good. A complete body that is not JSON still gets the status line.
+ */
+async function readServerMessage(res: Response): Promise<string | null> {
+  let text: string;
   try {
-    const body = (await res.json()) as { error?: { message?: unknown } };
+    text = await res.text();
+  } catch {
+    return null;
+  }
+  try {
+    const body = JSON.parse(text) as { error?: { message?: unknown } };
     const message = body?.error?.message;
     if (typeof message === "string" && message.trim()) return message;
   } catch {
-    // Non-JSON body — fall through to the status line.
+    // Non-JSON body: fall through to the status line.
   }
   return `Server refused the receipt (HTTP ${res.status})`;
 }
@@ -393,6 +405,8 @@ async function runReceiptFlush(
         !RETRYABLE_4XX.has(res.status)
       ) {
         const message = await readServerMessage(res);
+        // Incomplete answer: stay pending and try again on the next trigger.
+        if (message === null) continue;
         await store.update(entry.id, {
           serverReceipt: "rejected",
           serverReceiptError: message,

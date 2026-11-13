@@ -209,7 +209,7 @@ describe("RoomPlan server receipt replay (RA-8325)", () => {
       vi.useRealTimers();
     }
   });
-  it("an error answer whose body never finishes is still cut off by the 30 second deadline", async () => {
+  it("an error answer whose body never finishes is cut off by the 30 second deadline and stays pending for retry", async () => {
     vi.useFakeTimers();
     try {
       const entry = await enqueueRoomPlanCapture({
@@ -232,15 +232,18 @@ describe("RoomPlan server receipt replay (RA-8325)", () => {
       });
       const first = flushRoomPlanServerReceipts("insp-8", stalledBody);
       await vi.advanceTimersByTimeAsync(RECEIPT_POST_TIMEOUT_MS);
-      const res = await first;
-      expect(res.rejected).toHaveLength(1);
-      expect(res.rejected[0].id).toBe(entry.id);
+      expect(await first).toEqual({ sent: 0, rejected: [] });
+      // An incomplete answer is not a verdict: the receipt stays pending.
+      expect((await getRoomPlanCapture(entry.id))?.serverReceipt).toBe(
+        "pending",
+      );
 
-      // The chain is free again for the next flush.
+      // The chain is free again and the retry succeeds.
       const next = await flushRoomPlanServerReceipts("insp-8", async () =>
         jsonResponse(201, {}),
       );
-      expect(next).toEqual({ sent: 0, rejected: [] });
+      expect(next).toEqual({ sent: 1, rejected: [] });
+      expect((await getRoomPlanCapture(entry.id))?.serverReceipt).toBe("sent");
       expect(vi.getTimerCount()).toBe(0);
     } finally {
       vi.useRealTimers();
