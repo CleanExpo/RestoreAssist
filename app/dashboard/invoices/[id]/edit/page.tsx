@@ -17,6 +17,7 @@ import {
   DEFAULT_GST_TREATMENT,
   getGstTreatmentForCurrency,
 } from "@/lib/gst-rules";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Client {
   id: string;
@@ -140,7 +141,7 @@ export default function EditInvoicePage({
         const res = await fetch(`/api/invoices/${invoiceId}`);
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          setFetchError(err.error || "Invoice not found");
+          setFetchError(apiErrorMessage(err) || "Invoice not found");
           return;
         }
         const data = await res.json();

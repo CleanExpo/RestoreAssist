@@ -48,6 +48,7 @@ import {
   ListPagination,
 } from "@/components/dashboard/ListPagination";
 import type { DataSource } from "@/lib/synced-data/types";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const REPORT_STATUS_TONES: Record<string, StatusTone> = {
   COMPLETED: "success",
@@ -273,7 +274,7 @@ export default function ReportsPage() {
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || `Server error ${response.status}`);
+        throw new Error(apiErrorMessage(err) || `Server error ${response.status}`);
       }
 
       const blob = await response.blob();

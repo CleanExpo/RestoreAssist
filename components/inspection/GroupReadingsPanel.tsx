@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export type MoistureReadingLite = {
   id: string;
@@ -77,7 +78,7 @@ export function GroupReadingsPanel({
       );
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error || "Grouping failed");
+        throw new Error(apiErrorMessage(data) || "Grouping failed");
       }
       const payload = data as GroupResponse;
       setGroups(
@@ -154,7 +155,7 @@ export function GroupReadingsPanel({
       );
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error || "Apply failed");
+        throw new Error(apiErrorMessage(data) || "Apply failed");
       }
       toast.success(
         `Grouped ${data.updated ?? 0} reading(s) into ${assignments.length} area(s)`,

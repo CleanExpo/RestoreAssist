@@ -56,6 +56,7 @@ import {
   simpleDashboardHeroShine,
 } from "@/lib/dashboard/simple-dashboard-theme";
 import { formatAttendanceDateEnAu } from "@/lib/inspections/format-attendance-date";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "text-white/50",
@@ -191,9 +192,7 @@ export default function FieldDashboardPage() {
         const body = await res.json().catch(() => ({}));
         throw Object.assign(
           new Error(
-            typeof body.error === "string"
-              ? body.error
-              : "Failed to load jobs",
+            apiErrorMessage(body) ?? "Failed to load jobs",
           ),
           { httpStatus: res.status, isHttpError: true },
         );

@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const REOPENABLE_STATUSES = new Set(["CLOSED", "ARCHIVED"]);
 const MIN_REASON_LENGTH = 10;
@@ -61,10 +62,8 @@ export default function ReopenInspectionPrompt({
         body: JSON.stringify({ reason: reason.trim() }),
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        setError(body.error ?? "Couldn't reopen this inspection.");
+        const body: unknown = await res.json().catch(() => ({}));
+        setError(apiErrorMessage(body) ?? "Couldn't reopen this inspection.");
         return;
       }
       setDialogOpen(false);

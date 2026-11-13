@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // --- Types ---
 
@@ -258,7 +259,7 @@ export default function ReportVersionHistoryPage({
         const histRes = await fetch(`/api/reports/${id}/version-history`);
         if (!histRes.ok) {
           const body = await histRes.json().catch(() => ({}));
-          throw new Error(body.error || "Failed to fetch version history");
+          throw new Error(apiErrorMessage(body) || "Failed to fetch version history");
         }
         const histData: VersionHistoryResponse = await histRes.json();
         // Sort descending so newest is first

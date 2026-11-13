@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface BulkOperationModalProps {
   operationType:
@@ -116,7 +117,7 @@ export function BulkOperationModal({
       });
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || data.error || "Duplication failed");
+        throw new Error(data.message || apiErrorMessage(data) || "Duplication failed");
       setSuccess(true);
       toast.success(
         `Successfully duplicated ${data.duplicated || selectedCount} report(s)`,
@@ -145,7 +146,7 @@ export function BulkOperationModal({
       });
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || data.error || "Status update failed");
+        throw new Error(data.message || apiErrorMessage(data) || "Status update failed");
       setSuccess(true);
       toast.success(
         `Successfully updated ${data.updated || selectedCount} report(s)`,
@@ -174,7 +175,7 @@ export function BulkOperationModal({
       });
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.message || data.error || "Delete failed");
+        throw new Error(data.message || apiErrorMessage(data) || "Delete failed");
       setSuccess(true);
       toast.success(
         `Successfully deleted ${data.deletedCount || selectedCount} report(s)`,
@@ -232,7 +233,7 @@ export function BulkOperationModal({
           const errorMessage = `Excel reports not found for ${missingCount} of ${listData.totalSelected || selectedIds.length} selected report(s).\n\nPlease generate Excel reports individually for these reports first:\n\n${missingList}${moreText}\n\nYou can generate Excel reports by opening each report and clicking "Generate Excel Report".`;
           throw new Error(errorMessage);
         }
-        throw new Error(listData.message || listData.error || "Export failed");
+        throw new Error(listData.message || apiErrorMessage(listData) || "Export failed");
       }
 
       if (!listData.reports || listData.reports.length === 0) {
@@ -280,7 +281,7 @@ export function BulkOperationModal({
 
       if (!zipResponse.ok) {
         const error = await zipResponse.json();
-        throw new Error(error.message || error.error || "Zip download failed");
+        throw new Error(error.message || apiErrorMessage(error) || "Zip download failed");
       }
 
       // Verify this is still the active download session
@@ -399,7 +400,7 @@ export function BulkOperationModal({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || error.error || "Zip download failed");
+        throw new Error(error.message || apiErrorMessage(error) || "Zip download failed");
       }
 
       // Prevent double download

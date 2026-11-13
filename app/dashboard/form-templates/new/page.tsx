@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const FORM_TYPES = [
   { value: "INITIAL_ASSESSMENT", label: "Initial Assessment" },
@@ -63,7 +64,7 @@ export default function NewFormTemplatePage() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to create template");
+        throw new Error(apiErrorMessage(data) || "Failed to create template");
       }
 
       toast.success("Template created successfully");

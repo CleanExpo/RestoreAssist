@@ -3,6 +3,7 @@ import {
   getEffectiveSubscription,
   getOrganizationOwner,
 } from "@/lib/organization-credits";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // In-memory rate limiting store
 // Structure: Map<userId, { count: number, resetTime: number }>
@@ -251,7 +252,7 @@ export function aggregateErrors(
   const seen = new Set<string>();
 
   return errors.filter((err) => {
-    const key = `${err.reportId}:${err.error}`;
+    const key = `${err.reportId}:${apiErrorMessage(err.error)}`;
     if (seen.has(key)) {
       return false;
     }

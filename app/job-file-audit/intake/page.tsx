@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const EMPTY_FORM = {
   name: "",
@@ -57,7 +58,7 @@ export default function JobFileAuditIntakePage() {
       if (!response.ok) {
         const firstIssue = data.issues?.[0]?.message;
         throw new Error(
-          firstIssue || data.message || data.error || "Unable to submit intake.",
+          firstIssue || data.message || apiErrorMessage(data) || "Unable to submit intake.",
         );
       }
 

@@ -24,6 +24,7 @@ import {
   Cloud,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 declare global {
   interface Window {
@@ -208,7 +209,7 @@ export function GoogleDriveFolderPicker({
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to load folders");
+        throw new Error(apiErrorMessage(err) || "Failed to load folders");
       }
 
       const data = await response.json();

@@ -12,6 +12,7 @@ import {
   SETUP_AI_KEY_OPTIONAL_HINT,
   SETUP_AI_KEY_OPTIONAL_TITLE,
 } from '@/lib/signup-pricing-honesty';
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // Inline SVG marks (Phill Rule 1: no generic icon-library imports). Matches the
 // inline-<svg> pattern used by the sibling VideoExplainer card.
@@ -226,7 +227,7 @@ export function AiKeyCard({
         } | null;
         setErrorMessage(
           validateJson?.message ??
-            validateJson?.error ??
+            apiErrorMessage(validateJson) ??
             'Key saved but validation failed — check the key and try again.',
         );
         setCardState('error');

@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { paymentAmountToDollars } from "@/lib/invoices/payment-amount";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -130,9 +131,7 @@ export default function PaymentRegisterPage() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(
-          typeof body.error === "string"
-            ? body.error
-            : "Failed to load payments",
+          apiErrorMessage(body) ?? "Failed to load payments",
         );
       }
       const data = await res.json();

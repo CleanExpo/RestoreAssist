@@ -114,7 +114,7 @@ function SignupForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create account");
+        throw new Error(apiErrorMessage(data) || "Failed to create account");
       }
 
       toast.success("Account created successfully!");

@@ -10,6 +10,7 @@ import {
   validateConnectionString,
   hostFromConnectionString,
 } from "@/lib/tenant/onboarding-helpers";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 /**
  * DatabaseCard — cutover onboarding, gate G1 (guided flow).
@@ -54,7 +55,7 @@ export function DatabaseCard() {
         return;
       }
       const json = await res.json().catch(() => ({}));
-      setError(json.error ?? "Could not connect your database.");
+      setError(apiErrorMessage(json) ?? "Could not connect your database.");
       setPhase("error");
     } catch {
       setError("Request failed — check your connection and try again.");

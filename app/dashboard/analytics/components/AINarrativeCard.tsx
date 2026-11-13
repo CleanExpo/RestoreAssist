@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export type NarrativePeriod = "month" | "quarter" | "year";
 
@@ -47,7 +48,7 @@ export default function AINarrativeCard({
       const res = await fetch(url);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `Request failed (${res.status})`);
+        throw new Error(apiErrorMessage(body) || `Request failed (${res.status})`);
       }
       const data: NarrativeResponse = await res.json();
       setNarrative(data.narrative);

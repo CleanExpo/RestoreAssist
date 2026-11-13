@@ -15,6 +15,7 @@ import {
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { isConfirmedEmpty } from "@/lib/client/load-state";
 import { ContractorsBackLink } from "../ContractorsBackLink";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Review {
   id: string;
@@ -132,7 +133,7 @@ export default function ContractorReviewsPage() {
         const data = await res.json();
         setMessage({
           type: "error",
-          text: data.error || "Failed to submit response",
+          text: apiErrorMessage(data) || "Failed to submit response",
         });
       }
     } catch (error) {
@@ -178,7 +179,7 @@ export default function ContractorReviewsPage() {
         const data = await res.json();
         setMessage({
           type: "error",
-          text: data.error || "Failed to submit dispute",
+          text: apiErrorMessage(data) || "Failed to submit dispute",
         });
       }
     } catch (error) {

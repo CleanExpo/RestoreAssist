@@ -1774,7 +1774,7 @@ export default function NIRTechnicianInputForm({
           : "";
         throw new Error(
           [
-            error?.error || "Submission could not be completed",
+            apiErrorMessage(error) || "Submission could not be completed",
             missingLabels,
             blockers,
           ]
@@ -3244,7 +3244,7 @@ export default function NIRTechnicianInputForm({
 
               if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.error || "Failed to upload floor plan");
+                throw new Error(apiErrorMessage(error) || "Failed to upload floor plan");
               }
 
               const data = await response.json();

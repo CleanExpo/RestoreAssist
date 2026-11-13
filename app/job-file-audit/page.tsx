@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type AuditPackage = "single" | "three";
 
@@ -42,7 +43,7 @@ export default function JobFileAuditPage() {
       };
       if (!response.ok || !data.url) {
         throw new Error(
-          data.message || data.error || "Unable to start secure checkout.",
+          data.message || apiErrorMessage(data) || "Unable to start secure checkout.",
         );
       }
       window.location.assign(data.url);

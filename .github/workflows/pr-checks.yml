@@ -171,6 +171,12 @@ jobs:
       - name: AU/NZ GST single-source guard
         run: npm run check:gst-callers
 
+      # RA-8348: client code must read API error bodies through
+      # apiErrorMessage(); a raw body.error reaching new Error(), a state
+      # setter or a template literal crashes React or prints [object Object].
+      - name: API error sink guard
+        run: npm run check:api-error-sinks
+
       # Branded-icon guard (RA-icon-system). Ratchet mode: fails if a PR adds
       # generic Unicode emojis beyond the recorded baseline
       # (scripts/emoji-baseline.json). Use [ra:*] tokens instead — see

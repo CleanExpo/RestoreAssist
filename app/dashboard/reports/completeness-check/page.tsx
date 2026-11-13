@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { EmptyState } from "@/components/EmptyState";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Report {
   id: string;
@@ -304,7 +305,7 @@ export default function CompletenessCheckPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error ?? "Check failed");
+        throw new Error(apiErrorMessage(err) ?? "Check failed");
       }
       const data: CompletenessResult = await res.json();
       setResult(data);

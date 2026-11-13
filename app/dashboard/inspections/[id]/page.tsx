@@ -815,7 +815,7 @@ export default function InspectionDetailPage({
     const data = await res.json();
     if (!res.ok) {
       throw new Error(
-        data.error?.message ?? data.error ?? "Failed to save classification",
+        data.error?.message ?? apiErrorMessage(data) ?? "Failed to save classification",
       );
     }
     setInspection((prev) =>
@@ -921,7 +921,7 @@ export default function InspectionDetailPage({
       const data = await res.json();
       if (!res.ok) {
         throw new Error(
-          data.error?.message ?? data.error ?? "Failed to update area",
+          data.error?.message ?? apiErrorMessage(data) ?? "Failed to update area",
         );
       }
       setAffectedAreas((prev) =>
@@ -1014,7 +1014,7 @@ export default function InspectionDetailPage({
         body: JSON.stringify({ checklistId: selectedChecklistId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to apply checklist");
+      if (!res.ok) throw new Error(apiErrorMessage(data) || "Failed to apply checklist");
       toast.success(
         `Added ${data.added} scope item${data.added !== 1 ? "s" : ""}${data.skipped > 0 ? ` (${data.skipped} already existed)` : ""}`,
       );
@@ -1053,7 +1053,7 @@ export default function InspectionDetailPage({
         },
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(apiErrorMessage(data));
       setEnvData(data.environmentalData);
       setShowEnvForm(false);
       toast.success("Environmental data saved");
@@ -1082,7 +1082,7 @@ export default function InspectionDetailPage({
         body: JSON.stringify({ ...moistureForm, sketchRoomId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(apiErrorMessage(data));
       setMoistureReadings((prev) => [...prev, data.moistureReading]);
       setMoistureForm({
         location: "",

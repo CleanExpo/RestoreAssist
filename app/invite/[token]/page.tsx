@@ -107,7 +107,7 @@ export default function InviteAcceptPage() {
     if (!file) return;
     const result = validateHeadshotFile(file);
     if (!result.ok) {
-      setGoogleExtrasError(result.error);
+      setGoogleExtrasError(apiErrorMessage(result));
       return;
     }
     const dataUrl = await squareCropToDataUrl(file);
