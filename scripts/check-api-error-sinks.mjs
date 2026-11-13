@@ -37,8 +37,14 @@
  *   - setters not named `set...`; callees chosen at run time (`f[key](...)`,
  *     `(a || setError)(...)`, `getSetter()(...)`); indirect calls such as
  *     `setError.call(null, body.error)`;
- *   - `.error` rendered as a JSX child (`{data.error}`): telling an API body
- *     from component state there needs type information.
+ *   - `.error` rendered as a JSX child (`{data.error}`), passed to toast or a
+ *     logger (`toast.error(result.error)`), or thrown (`throw body.error`):
+ *     telling an API body from a typed string there needs type information,
+ *     which a syntax-only check does not have. On this tree such values are
+ *     typed strings or component state (for example `result.error: string`
+ *     from lib/sketch/seed-estimate-from-sketch.ts).
+ *   - a key bound to a named constant (`const K = "error"; body[K]`), the
+ *     alias limit above.
  *
  * Scope: app/, components/, hooks/, lib/ excluding app/api/, tests and
  * __tests__ directories. There is no allow-list of files or sites: route the
@@ -116,9 +122,38 @@ const unwrap = (n) => {
  */
 function staticMemberName(n) {
   if (ts.isPropertyAccessExpression(n)) return n.name.text;
-  if (ts.isElementAccessExpression(n)) {
-    const a = n.argumentExpression;
-    if (a && (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a))) return a.text;
+  if (ts.isElementAccessExpression(n)) return staticString(n.argumentExpression);
+  return undefined;
+}
+
+/**
+ * The one owner of "this expression is a string fixed in the syntax": a
+ * string or template literal, seen through transparent wrappers, the last
+ * operand of a comma, `a + b` of two fixed strings, and a template whose
+ * every substitution is a fixed string. A name bound to a constant
+ * (`const K = "error"`) is not followed (the alias limit).
+ */
+function staticString(e) {
+  if (!e) return undefined;
+  e = unwrap(e);
+  if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return e.text;
+  if (ts.isBinaryExpression(e)) {
+    if (e.operatorToken.kind === ts.SyntaxKind.CommaToken) return staticString(e.right);
+    if (e.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+      const l = staticString(e.left);
+      const r = staticString(e.right);
+      return l !== undefined && r !== undefined ? l + r : undefined;
+    }
+    return undefined;
+  }
+  if (ts.isTemplateExpression(e)) {
+    let s = e.head.text;
+    for (const span of e.templateSpans) {
+      const v = staticString(span.expression);
+      if (v === undefined) return undefined;
+      s += v + span.literal.text;
+    }
+    return s;
   }
   return undefined;
 }

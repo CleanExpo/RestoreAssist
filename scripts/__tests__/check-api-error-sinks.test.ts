@@ -47,6 +47,14 @@ describe("check-api-error-sinks guard", () => {
       // Calling Error without `new` builds the same Error.
       ["Error(body.error)", "new Error("],
       ['globalThis["Error"](body.error)', "new Error("],
+      // A key fixed in the syntax is one string however it is written.
+      ['props[("setError")](body.error)', "setError("],
+      ['props[("setError" satisfies string)](body.error)', "setError("],
+      ['props["set" + "Error"](body.error)', "setError("],
+      ['setError(body["error" as const])', "setError("],
+      ["setError(body[`err${'or'}`])", "setError("],
+      ['setError(body[(0, "error")])', "setError("],
+      ['new globalThis["Error" as const](body.error)', "new Error("],
     ])("%s", (src, kind) => {
       expect(kinds(src)).toEqual([kind]);
     });
@@ -75,6 +83,8 @@ describe("check-api-error-sinks guard", () => {
       "setError((body.error satisfies unknown as { message: string })!.message)",
       'setError(body["error"]["message"])',
       "setError((0, apiErrorMessage)(body.error) ?? 'x')",
+      'setError(body[("error" as const)]["message"])',
+      "setError(body[key])",
     ])("%s", (src) => {
       expect(kinds(src)).toEqual([]);
     });
