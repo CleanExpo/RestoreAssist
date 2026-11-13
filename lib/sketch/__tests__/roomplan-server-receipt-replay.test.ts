@@ -284,4 +284,31 @@ describe("RoomPlan server receipt replay (RA-8325)", () => {
       vi.useRealTimers();
     }
   });
+  it("a failing first POST does not starve the later queued receipts", async () => {
+    const first = await enqueueRoomPlanCapture({
+      inspectionId: "insp-10",
+      floorNumber: 0,
+      capturedRoom: ROOM,
+    });
+    // Distinct capture time so the order is first, then second.
+    await new Promise((r) => setTimeout(r, 5));
+    const second = await enqueueRoomPlanCapture({
+      inspectionId: "insp-10",
+      floorNumber: 1,
+      capturedRoom: ROOM,
+    });
+    const seen: string[] = [];
+    const flaky = async (_url: string, init?: RequestInit) => {
+      const id = JSON.parse(String(init?.body)).clientCustodyId as string;
+      seen.push(id);
+      if (id === first.id) throw new TypeError("Failed to fetch");
+      return jsonResponse(201, {});
+    };
+    for (let i = 0; i < 2; i++) {
+      await flushRoomPlanServerReceipts("insp-10", flaky);
+    }
+    expect(seen.filter((id) => id === second.id)).toHaveLength(1);
+    expect((await getRoomPlanCapture(second.id))?.serverReceipt).toBe("sent");
+    expect((await getRoomPlanCapture(first.id))?.serverReceipt).toBe("pending");
+  });
 });

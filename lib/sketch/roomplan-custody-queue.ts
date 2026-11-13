@@ -401,9 +401,10 @@ async function runReceiptFlush(
           },
         );
       } catch {
-        // Offline, network drop or timeout: stay pending; the next load or
-        // `online` event sends it. Later entries would fail the same way.
-        break;
+        // Offline, network drop or timeout: this entry stays pending and the
+        // next load or `online` event retries it. Carry on with the later
+        // entries so one entry that keeps failing cannot starve them.
+        continue;
       }
       const verdict = await classifyReceiptResponse(res);
       if (verdict.kind === "sent") {
