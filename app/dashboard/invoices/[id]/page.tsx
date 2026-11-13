@@ -37,6 +37,7 @@ import {
   type ParsedApiError,
 } from "@/lib/client/parse-api-error";
 import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface LineItem {
   id: string;
@@ -412,7 +413,7 @@ export default function InvoiceDetailPage({
       const res = await fetch(`/api/invoices/${invoiceId}/pdf`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Failed to generate PDF (${res.status})`);
+        throw new Error(apiErrorMessage(err) || `Failed to generate PDF (${res.status})`);
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

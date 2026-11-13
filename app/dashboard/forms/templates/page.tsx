@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -172,7 +173,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error ?? `Server error ${res.status}`);
+        throw new Error(apiErrorMessage(data) ?? `Server error ${res.status}`);
       }
       const data = await res.json();
       onCreated(data.template ?? data);

@@ -30,6 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/EmptyState";
 import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -197,7 +198,7 @@ export default function ClientPortalPage({
         body: JSON.stringify({ clientId, message: message.trim() || null }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to send invitation");
+      if (!res.ok) throw new Error(apiErrorMessage(data) || "Failed to send invitation");
       toast.success("Invitation sent!");
       setMessage("");
       fetchInvitations();
@@ -215,7 +216,7 @@ export default function ClientPortalPage({
         method: "POST",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to resend invitation");
+      if (!res.ok) throw new Error(apiErrorMessage(data) || "Failed to resend invitation");
       toast.success("Invitation resent!");
       fetchInvitations();
     } catch (err: any) {
@@ -238,7 +239,7 @@ export default function ClientPortalPage({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(
-          data?.error?.message ?? data.error ?? "Failed to revoke invitation",
+          data?.error?.message ?? apiErrorMessage(data) ?? "Failed to revoke invitation",
         );
       }
       toast.success("Invitation revoked");

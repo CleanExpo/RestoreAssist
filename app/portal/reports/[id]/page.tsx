@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Report {
   id: string;
@@ -192,7 +193,7 @@ export default function PortalReportDetail({
           window.open(data.url, "_blank");
           return;
         }
-        throw new Error(data.error || "Download failed");
+        throw new Error(apiErrorMessage(data) || "Download failed");
       }
 
       const blob = await res.blob();

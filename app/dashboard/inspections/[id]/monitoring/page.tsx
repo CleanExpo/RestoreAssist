@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ── Types (mirrors API response) ─────────────────────────────────────────────
 
@@ -143,7 +144,7 @@ export default function MonitoringPage({
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           setError(
-            (data as { error?: string }).error ??
+            apiErrorMessage(data) ??
               "Failed to load monitoring report",
           );
           return;

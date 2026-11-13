@@ -1,3 +1,4 @@
+import { apiErrorMessage } from "@/lib/api-error-message";
 /**
  * RA-2975 — Firecrawl scraping provider adapter.
  *
@@ -58,7 +59,7 @@ export async function fetchViaFirecrawl(
 
   const data = (await res.json()) as FirecrawlResponse;
   if (data.success === false) {
-    throw new Error(`Firecrawl error: ${data.error ?? "unknown"}`);
+    throw new Error(`Firecrawl error: ${apiErrorMessage(data) ?? "unknown"}`);
   }
 
   const html = data.data?.html ?? data.data?.rawHtml ?? "";

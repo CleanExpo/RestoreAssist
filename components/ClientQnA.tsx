@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { MessageCircle, Send, User, Bot, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Message {
   role: "client" | "system";
@@ -88,7 +89,7 @@ export default function ClientQnA({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to generate question");
+        throw new Error(apiErrorMessage(error) || "Failed to generate question");
       }
 
       const data = await response.json();

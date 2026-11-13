@@ -9,6 +9,7 @@ import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 import { dollarsToCents, lineAmountsCents } from "@/lib/invoices/calc";
 import { LineExIncPrices } from "@/components/invoices/LineExIncPrices";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const FREQUENCIES = [
   { value: "WEEKLY", label: "Weekly" },
@@ -167,7 +168,7 @@ export default function NewRecurringInvoicePage() {
       });
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to create recurring invoice");
+        throw new Error(apiErrorMessage(data) || "Failed to create recurring invoice");
       }
       toast.success("Recurring invoice created");
       router.push("/dashboard/invoices/recurring");

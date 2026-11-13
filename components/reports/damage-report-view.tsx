@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { isCapacitorIOS, shareBlobNatively } from "@/lib/capacitor";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface ReportViewData {
   id: string;
@@ -160,7 +161,7 @@ export function DamageReportView({
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(
-          body.error ?? `PDF generation failed (HTTP ${res.status})`,
+          apiErrorMessage(body) ?? `PDF generation failed (HTTP ${res.status})`,
         );
       }
       const blob = await res.blob();

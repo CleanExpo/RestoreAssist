@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -322,7 +323,7 @@ function BetaSignupCard() {
       const data = await res.json();
       if (!res.ok) {
         throw new Error(
-          data.error || "Something went wrong. Please try again.",
+          apiErrorMessage(data) || "Something went wrong. Please try again.",
         );
       }
       setSubmitted(true);

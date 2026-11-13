@@ -182,7 +182,7 @@ export default function ReportDetailPage({
         method: "POST",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to generate link");
+      if (!res.ok) throw new Error(apiErrorMessage(data) ?? "Failed to generate link");
       await navigator.clipboard.writeText(data.url);
       setInsurerLinkCopied(true);
       toast.success(

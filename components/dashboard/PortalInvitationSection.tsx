@@ -11,6 +11,7 @@ import {
   Key,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface PortalInvitationSectionProps {
   clientId: string;
@@ -74,7 +75,7 @@ export default function PortalInvitationSection({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send invitation");
+        throw new Error(apiErrorMessage(data) || "Failed to send invitation");
       }
 
       toast.success("Portal invitation sent successfully!");

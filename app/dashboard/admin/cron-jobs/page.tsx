@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface CronJob {
   id: string;
@@ -100,7 +101,7 @@ export default function CronJobsPage() {
           ...prev,
           [jobId]: {
             status: "error",
-            message: data.error ?? `HTTP ${data.status}`,
+            message: apiErrorMessage(data) ?? `HTTP ${data.status}`,
           },
         }));
       }

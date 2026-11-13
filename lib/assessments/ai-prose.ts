@@ -24,6 +24,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { resolveWorkspaceAiKey } from "@/lib/ai/resolve-workspace-ai-key";
 import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";
 import type { ReportSection, AssessmentDomain } from "./types";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const PROSE_MODEL = "claude-haiku-4-5-20251001";
 // Estimate the worst-case spend per assessment generation. Used by the
@@ -131,7 +132,7 @@ export async function enhanceReportProse(
       return {
         sections: original,
         enhanced: false,
-        degradedReason: `BUDGET_EXCEEDED: ${budget.error}`,
+        degradedReason: `BUDGET_EXCEEDED: ${apiErrorMessage(budget.error)}`,
         costUsd: null,
         latencyMs: null,
         modelUsed: null,
