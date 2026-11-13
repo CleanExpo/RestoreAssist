@@ -127,6 +127,21 @@ export default function PrivacyPage() {
               </a>{" "}
               instead.
             </p>
+
+            <h3 className="font-medium text-[#0B1F3A] mt-4 mb-2">
+              2.7 On-site voice checklists
+            </h3>
+            <p>
+              Technicians can answer an on-site checklist, such as the fire and
+              smoke make-safe walkthrough, by speaking. Speech is turned into
+              text by the technician&apos;s own browser, which may send the
+              audio to the company that makes it for that purpose (for example
+              Google for Chrome, Apple for Safari and Microsoft for Edge).
+              RestoreAssist receives only the resulting text,
+              which is stored in the job file as part of the inspection record.
+              The checklist tells the technician this before the microphone is
+              used, and every answer can be typed instead.
+            </p>
           </section>
 
           <section>

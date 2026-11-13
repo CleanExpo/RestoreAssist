@@ -99,7 +99,7 @@ describe("POST /api/calculate", () => {
     expect(String(json.pricingNote)).toMatch(/Cost Libraries/i);
   });
 
-  it("RA-8281: refuses a price list with an unset rate and names it, never prices it at $0", async () => {
+  it("RA-8281: an unset rate the quote uses blocks it and is named, never priced at $0", async () => {
     const { BASE_RATE_FIELDS } = await import("@/lib/pricing/rate-not-set");
     const full = Object.fromEntries(BASE_RATE_FIELDS.map((f) => [f, 70]));
     vi.mocked(resolveEffectivePricing).mockResolvedValueOnce({
@@ -109,10 +109,11 @@ describe("POST /api/calculate", () => {
     const res = await POST(calcReq({ ...validBody, includeCallOut: true }));
     expect(res.status).toBe(422);
     const json = await res.json();
-    expect(json.code).toBe("RATE_NOT_SET");
-    expect(json.missing.map((m: { field: string }) => m.field)).toEqual([
-      "callOutFee",
-    ]);
+    // B2: the answer is the shared blocked-pricing body (route.blocked-line.test.ts).
+    expect(json.error.code).toBe("RATE_NOT_SET");
+    expect(
+      json.blocked.missing.map((m: { field: string }) => m.field),
+    ).toEqual(["callOutFee"]);
   });
 
   it("RA-8281 control: a complete price list prices at the contractor's rates", async () => {

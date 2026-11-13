@@ -16,10 +16,11 @@ import {
 } from "@/lib/quotes/quote-calc";
 import { lineTotal } from "@/lib/estimate-lines";
 import {
-  BASE_RATE_FIELDS,
-  requireRate,
-  unsetRates,
-} from "@/lib/pricing/rate-not-set";
+  blockedPricing,
+  priceListReader,
+  type BlockedLineFields,
+} from "@/lib/pricing/blocked-line";
+import { blockedPricingResponse } from "@/lib/pricing/blocked-line-response";
 import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
 
@@ -79,6 +80,15 @@ interface QuoteLineItem {
   subtotal: number;
 }
 
+/** RA-8281 (B2): a quote line whose price-list rate is not set. */
+interface BlockedQuoteLineItem extends BlockedLineFields {
+  description: string;
+  qty: number;
+  unit: string;
+  rate: null;
+  subtotal: null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -129,32 +139,6 @@ export async function POST(request: NextRequest) {
     const config = await resolveEffectivePricing(prisma, session.user.id, {
       legacyUserId: effective.id,
     });
-    // RA-8281: a rate the contractor has not set is never priced at $0 or at a
-    // default. Until this route can show a blocked line (B2), an incomplete
-    // price list refuses the quote and names every unset rate.
-    if (config) {
-      const unset = unsetRates(config, BASE_RATE_FIELDS);
-      if (unset.length > 0) {
-        return NextResponse.json(
-          {
-            error: "Your price list has rates that are not set",
-            code: "RATE_NOT_SET",
-            missing: unset,
-          },
-          { status: 422 },
-        );
-      }
-    }
-    const storedRates: Record<string, number> = config
-      ? Object.fromEntries(
-          BASE_RATE_FIELDS.map((f) => [f, requireRate(config, f)]),
-        )
-      : getDefaultRates();
-    // Price on whole-cent rates: the invoice draft can only carry cents.
-    const rates: Record<string, number> = Object.fromEntries(
-      Object.entries(storedRates).map(([k, v]) => [k, wholeCentRate(v)]),
-    );
-
     // Fetch contractor business info
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -174,26 +158,55 @@ export async function POST(request: NextRequest) {
     // Look up restoration invoice type for standards/labels
     const invoiceType = getRestorationInvoiceTypeById(input.jobType);
 
-    // Build line items
-    const lineItems: QuoteLineItem[] = [];
-
-    // Call-out fee
-    if (input.includeCallOut) {
-      lineItems.push({
-        description:
-          "Call-Out Fee — Emergency response and initial site attendance",
-        qty: 1,
-        unit: "EA",
-        rate: rates.callOutFee,
-        subtotal: rates.callOutFee,
+    // Build line items.
+    // RA-8281 (B2): with a price list, every line reads its own rate through
+    // the shared reader. A rate the contractor has not set makes that line a
+    // blocked line (no rate, no amount); it is never priced at $0, at a
+    // default or at another field's rate. Only the lines on this quote can
+    // block it: an unset rate the quote does not use is not reported.
+    // Price on whole-cent rates: the invoice draft can only carry cents.
+    const reader = priceListReader(config);
+    const defaults: Record<string, number> = getDefaultRates();
+    const builtLines: Array<QuoteLineItem | BlockedQuoteLineItem> = [];
+    const addLine = (
+      description: string,
+      qty: number,
+      unit: string,
+      field: string,
+    ) => {
+      const rate = config
+        ? reader.calc([field], (r) => wholeCentRate(r))
+        : wholeCentRate(defaults[field]);
+      if (rate === null) {
+        builtLines.push({
+          description,
+          qty,
+          unit,
+          rate: null,
+          subtotal: null,
+          ...(reader.lineFields([field]) as BlockedLineFields),
+        });
+        return;
+      }
+      builtLines.push({
+        description,
+        qty,
+        unit,
+        rate,
+        subtotal: lineTotal(qty, rate),
       });
+    };
+
+    if (input.includeCallOut) {
+      addLine(
+        "Call-Out Fee — Emergency response and initial site attendance",
+        1,
+        "EA",
+        "callOutFee",
+      );
     }
 
-    // Labour
     if (input.labourHours > 0) {
-      const labourRateKey = `${input.labourTier}${input.labourPeriod}`;
-      const labourRate =
-        rates[labourRateKey] ?? rates.qualifiedTechnicianNormalHours;
       const tierLabels: Record<string, string> = {
         masterQualified: "Master Qualified Technician",
         qualifiedTechnician: "Qualified Technician",
@@ -204,162 +217,138 @@ export async function POST(request: NextRequest) {
         Saturday: "Saturday",
         Sunday: "Sunday",
       };
-      lineItems.push({
-        description: `Labour — ${tierLabels[input.labourTier]} (${periodLabels[input.labourPeriod]})`,
-        qty: input.labourHours,
-        unit: "hr",
-        rate: labourRate,
-        subtotal: lineTotal(input.labourHours, labourRate),
-      });
+      // The tier and period are validated enums, so this names one of the
+      // nine labour fields. There is no fallback to another tier's rate.
+      addLine(
+        `Labour — ${tierLabels[input.labourTier]} (${periodLabels[input.labourPeriod]})`,
+        input.labourHours,
+        "hr",
+        `${input.labourTier}${input.labourPeriod}`,
+      );
     }
 
-    // Equipment — Air Movers (Axial)
-    if (input.airMoversAxial > 0) {
-      const totalUnitDays = input.airMoversAxial * input.dryingDays;
-      lineItems.push({
-        description: `Air Movers (Axial) — ${input.airMoversAxial} units x ${input.dryingDays} days`,
-        qty: totalUnitDays,
-        unit: "unit-day",
-        rate: rates.airMoverAxialDailyRate,
-        subtotal:
-          lineTotal(totalUnitDays, rates.airMoverAxialDailyRate),
-      });
+    const unitDayLines: Array<[string, number, string]> = [
+      ["Air Movers (Axial)", input.airMoversAxial, "airMoverAxialDailyRate"],
+      [
+        "Air Movers (Centrifugal)",
+        input.airMoversCentrifugal,
+        "airMoverCentrifugalDailyRate",
+      ],
+      [
+        "Dehumidifiers (LGR)",
+        input.dehumidifiersLGR,
+        "dehumidifierLGRDailyRate",
+      ],
+      [
+        "Dehumidifiers (Desiccant)",
+        input.dehumidifiersDesiccant,
+        "dehumidifierDesiccantDailyRate",
+      ],
+      [
+        "Air Filtration Devices (Large)",
+        input.afdUnitsLarge,
+        "afdUnitLargeDailyRate",
+      ],
+    ];
+    for (const [label, units, field] of unitDayLines) {
+      if (units > 0) {
+        addLine(
+          `${label} — ${units} units x ${input.dryingDays} days`,
+          units * input.dryingDays,
+          "unit-day",
+          field,
+        );
+      }
     }
 
-    // Equipment — Air Movers (Centrifugal)
-    if (input.airMoversCentrifugal > 0) {
-      const totalUnitDays = input.airMoversCentrifugal * input.dryingDays;
-      lineItems.push({
-        description: `Air Movers (Centrifugal) — ${input.airMoversCentrifugal} units x ${input.dryingDays} days`,
-        qty: totalUnitDays,
-        unit: "unit-day",
-        rate: rates.airMoverCentrifugalDailyRate,
-        subtotal:
-          lineTotal(totalUnitDays, rates.airMoverCentrifugalDailyRate),
-      });
-    }
-
-    // Equipment — Dehumidifiers (LGR)
-    if (input.dehumidifiersLGR > 0) {
-      const totalUnitDays = input.dehumidifiersLGR * input.dryingDays;
-      lineItems.push({
-        description: `Dehumidifiers (LGR) — ${input.dehumidifiersLGR} units x ${input.dryingDays} days`,
-        qty: totalUnitDays,
-        unit: "unit-day",
-        rate: rates.dehumidifierLGRDailyRate,
-        subtotal:
-          lineTotal(totalUnitDays, rates.dehumidifierLGRDailyRate),
-      });
-    }
-
-    // Equipment — Dehumidifiers (Desiccant)
-    if (input.dehumidifiersDesiccant > 0) {
-      const totalUnitDays = input.dehumidifiersDesiccant * input.dryingDays;
-      lineItems.push({
-        description: `Dehumidifiers (Desiccant) — ${input.dehumidifiersDesiccant} units x ${input.dryingDays} days`,
-        qty: totalUnitDays,
-        unit: "unit-day",
-        rate: rates.dehumidifierDesiccantDailyRate,
-        subtotal:
-          lineTotal(totalUnitDays, rates.dehumidifierDesiccantDailyRate),
-      });
-    }
-
-    // Equipment — AFD Units (Large)
-    if (input.afdUnitsLarge > 0) {
-      const totalUnitDays = input.afdUnitsLarge * input.dryingDays;
-      lineItems.push({
-        description: `Air Filtration Devices (Large) — ${input.afdUnitsLarge} units x ${input.dryingDays} days`,
-        qty: totalUnitDays,
-        unit: "unit-day",
-        rate: rates.afdUnitLargeDailyRate,
-        subtotal:
-          lineTotal(totalUnitDays, rates.afdUnitLargeDailyRate),
-      });
-    }
-
-    // Extraction — Truck-Mounted
     if (input.extractionTruckMountedHours > 0) {
-      lineItems.push({
-        description: "Water Extraction — Truck-Mounted Equipment",
-        qty: input.extractionTruckMountedHours,
-        unit: "hr",
-        rate: rates.extractionTruckMountedHourlyRate,
-        subtotal:
-          lineTotal(
-            input.extractionTruckMountedHours,
-            rates.extractionTruckMountedHourlyRate,
-          ),
-      });
+      addLine(
+        "Water Extraction — Truck-Mounted Equipment",
+        input.extractionTruckMountedHours,
+        "hr",
+        "extractionTruckMountedHourlyRate",
+      );
     }
 
-    // Extraction — Electric/Portable
     if (input.extractionElectricHours > 0) {
-      lineItems.push({
-        description: "Water Extraction — Electric/Portable Equipment",
-        qty: input.extractionElectricHours,
-        unit: "hr",
-        rate: rates.extractionElectricHourlyRate,
-        subtotal:
-          lineTotal(
-            input.extractionElectricHours,
-            rates.extractionElectricHourlyRate,
-          ),
-      });
+      addLine(
+        "Water Extraction — Electric/Portable Equipment",
+        input.extractionElectricHours,
+        "hr",
+        "extractionElectricHourlyRate",
+      );
     }
 
-    // Injection Drying System
     if (input.injectionDryingDays > 0) {
-      lineItems.push({
-        description: `Injection Drying System — ${input.injectionDryingDays} days`,
-        qty: input.injectionDryingDays,
-        unit: "day",
-        rate: rates.injectionDryingSystemDailyRate,
-        subtotal:
-          lineTotal(
-            input.injectionDryingDays,
-            rates.injectionDryingSystemDailyRate,
-          ),
-      });
+      addLine(
+        `Injection Drying System — ${input.injectionDryingDays} days`,
+        input.injectionDryingDays,
+        "day",
+        "injectionDryingSystemDailyRate",
+      );
     }
 
     // Chemical treatment (job-type specific)
     const chemicalField = JOB_TYPE_CHEMICAL_FIELD[input.jobType];
     const chemicalLabel = JOB_TYPE_CHEMICAL_LABEL[input.jobType];
     if (chemicalField && input.affectedAreaM2 > 0) {
-      const chemicalRate = rates[chemicalField];
-      lineItems.push({
-        description: `${chemicalLabel} — ${input.affectedAreaM2} m² affected area`,
-        qty: input.affectedAreaM2,
-        unit: "m²",
-        rate: chemicalRate,
-        subtotal: lineTotal(input.affectedAreaM2, chemicalRate),
-      });
+      addLine(
+        `${chemicalLabel} — ${input.affectedAreaM2} m² affected area`,
+        input.affectedAreaM2,
+        "m²",
+        chemicalField,
+      );
     }
 
-    // Thermal camera assessment
     if (input.includeThermalCamera) {
-      lineItems.push({
-        description:
-          "Thermal Camera Assessment — Infrared moisture detection and documentation",
-        qty: 1,
-        unit: "EA",
-        rate: rates.thermalCameraUseCostPerAssessment,
-        subtotal: rates.thermalCameraUseCostPerAssessment,
-      });
+      addLine(
+        "Thermal Camera Assessment — Infrared moisture detection and documentation",
+        1,
+        "EA",
+        "thermalCameraUseCostPerAssessment",
+      );
     }
 
-    // Administration fee
     if (input.includeAdminFee) {
-      lineItems.push({
-        description:
-          "Administration Fee — Documentation, reporting, and project coordination",
-        qty: 1,
-        unit: "EA",
-        rate: rates.administrationFee,
-        subtotal: rates.administrationFee,
-      });
+      addLine(
+        "Administration Fee — Documentation, reporting, and project coordination",
+        1,
+        "EA",
+        "administrationFee",
+      );
     }
+
+    // RA-8281 (B2): one blocked line blocks the quote. Every line is shown;
+    // no subtotal, minimum charge, GST or total is worked out.
+    if (builtLines.some((line) => line.rate === null)) {
+      return blockedPricingResponse(
+        blockedPricing(
+          builtLines.map((line) =>
+            line.rate === null
+              ? {
+                  description: line.description,
+                  quantity: line.qty,
+                  unit: line.unit,
+                  rate: null,
+                  subtotal: null,
+                  pricingStatus: line.pricingStatus,
+                  rateField: line.rateField,
+                  pricingNote: line.pricingNote,
+                }
+              : {
+                  description: line.description,
+                  quantity: line.qty,
+                  unit: line.unit,
+                  rate: line.rate,
+                  subtotal: line.subtotal,
+                  pricingStatus: "priced" as const,
+                },
+          ),
+          reader.missing(),
+        ),
+      );
+    }
+    const lineItems = builtLines as QuoteLineItem[];
 
     // Calculate totals (min charge + GST via shared helpers)
     const lineSubtotal = lineItems.reduce((sum, item) => sum + item.subtotal, 0);

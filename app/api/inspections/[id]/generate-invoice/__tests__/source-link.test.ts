@@ -136,7 +136,8 @@ beforeEach(() => {
   $transaction.mockImplementation(async (cb: any) =>
     cb({
       invoiceSequence: { upsert: txSequenceUpsert },
-      $queryRaw: vi.fn().mockResolvedValue([]),
+      // RA-8273: the row lock returns the locked status row.
+      $queryRaw: vi.fn().mockResolvedValue([{ status: "DRAFT" }]),
       invoiceLineItem: { deleteMany: vi.fn() },
       invoice: {
         findFirst: txInvoiceFindFirst,

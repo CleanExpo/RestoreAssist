@@ -32,13 +32,18 @@ describe("requireRate", () => {
     },
   );
 
-  it("names the national range when NRPG has one", () => {
-    expect(() =>
+  it("names the field, and never the national range, when NRPG has one", () => {
+    try {
       requireRate(
         { dehumidifierLGRDailyRate: null },
         "dehumidifierLGRDailyRate",
-      ),
-    ).toThrow(/Rate not set.*national range \$\d/);
+      );
+      expect.unreachable();
+    } catch (e) {
+      expect((e as Error).message).toBe(
+        "Rate not set. Set dehumidifierLGRDailyRate in your price list.",
+      );
+    }
   });
 
   it("names no range for a field NRPG has no range for", () => {
@@ -107,18 +112,49 @@ describe("NIR estimateCosts", () => {
   ];
   const full = Object.fromEntries(BASE_RATE_FIELDS.map((f) => [f, 60]));
 
-  it("an unset rate on a price list throws RateNotSetError, never a midpoint or $0", async () => {
-    await expect(
-      estimateCosts(scope, null, {
-        ...full,
-        dehumidifierLGRDailyRate: null,
-      } as never),
-    ).rejects.toBeInstanceOf(RateNotSetError);
+  // RA-8281 (B2): the estimate is no longer refused by a throw. The line is
+  // blocked and no total is given.
+  it("an unset rate on a price list is a blocked line with no total, never a midpoint or $0", async () => {
+    const est = await estimateCosts(scope, null, {
+      ...full,
+      dehumidifierLGRDailyRate: null,
+    } as never);
+    expect(est.status).toBe("blocked");
+    expect(est.items[0]).toMatchObject({
+      rate: null,
+      subtotal: null,
+      rateField: "dehumidifierLGRDailyRate",
+    });
+    expect(est).toMatchObject({ subtotal: null, contingency: null, total: null });
   });
 
   it("control: a set rate prices at the contractor's own rate", async () => {
     const est = await estimateCosts(scope, null, full as never);
     expect(est.items[0].rate).toBe(60);
+  });
+
+  // RA-8281 (B2) review round 1: blocked lines must not change what a fully
+  // priced estimate looks like. Its keys, and its lines' keys, are the ones
+  // it had before blocked lines existed: no status, no blocked-line fields.
+  it("a fully priced estimate keeps its pre-B2 shape: no status key, no blocked-line fields", async () => {
+    const est = await estimateCosts(scope, null, full as never);
+    expect(Object.keys(est).sort()).toEqual([
+      "breakdown",
+      "contingency",
+      "contingencyPercentage",
+      "currency",
+      "items",
+      "nrpgCompliant",
+      "nrpgViolations",
+      "pricingSource",
+      "subtotal",
+      "total",
+    ]);
+    for (const item of est.items) {
+      for (const key of ["pricingStatus", "rateField", "pricingNote", "nationalRange"]) {
+        expect(item).not.toHaveProperty(key);
+      }
+    }
   });
 });
 
@@ -148,6 +184,13 @@ export const RATE_READERS = [
   "lib/billing/rate-engine.ts",
   "lib/pricing/org-pricing.ts",
   "lib/pricing/rate-not-set.ts",
+  // RA-8281 B2: the shared blocked-line rule and the screens that show it.
+  "lib/pricing/blocked-line.ts",
+  "lib/pricing/blocked-line-response.ts",
+  "components/pricing/BlockedPricingNotice.tsx",
+  "components/CostEstimationViewer.tsx",
+  "components/ScopeOfWorksViewer.tsx",
+  "app/dashboard/quote/page.tsx",
   "lib/restoration/cost-estimation-builder.ts",
   "lib/restoration/scope-of-works-builder.ts",
   "lib/scope-mould.ts",
@@ -753,47 +796,49 @@ describe("each changed reader blocks an unset rate (RA-8281 B1)", () => {
     expect(ok?.value).toBe(70);
   });
 
-  it("the cost-estimation report builder refuses an unset rate", async () => {
+  // RA-8281 (B2): the builders no longer refuse by a throw. The document
+  // comes back blocked: the line has no amount and there is no total.
+  it("the cost-estimation report builder blocks an unset rate", async () => {
     const { buildCostEstimationData, COST_ESTIMATION_RATE_FIELDS } =
       await import("@/lib/restoration/cost-estimation-builder");
     const { getGstTreatment } = await import("@/lib/gst-rules");
     const pricingConfig = Object.fromEntries(
       COST_ESTIMATION_RATE_FIELDS.map((f) => [f, 70]),
     );
-    pricingConfig[COST_ESTIMATION_RATE_FIELDS[0]] = null as never;
-    expect(() =>
-      buildCostEstimationData({
-        report: { id: "r", reportNumber: "RA-1", inspection: null },
-        analysis: null,
-        tier1: null,
-        tier2: null,
-        tier3: null,
-        pricingConfig,
-        stateInfo: null,
-        scopeData: null,
-        gstTreatment: getGstTreatment("AU"),
-      }),
-    ).toThrow(RateNotSetError);
+    pricingConfig.administrationFee = null as never;
+    const data: any = buildCostEstimationData({
+      report: { id: "r", reportNumber: "RA-1", inspection: null },
+      analysis: null,
+      tier1: null,
+      tier2: null,
+      tier3: null,
+      pricingConfig,
+      stateInfo: null,
+      scopeData: null,
+      gstTreatment: getGstTreatment("AU"),
+    });
+    expectBlockedOn(data.blockedPricing, "administrationFee");
+    expect(data.totals.subtotal).toBeNull();
+    expect(data.totals.totalIncGST).toBeNull();
   });
 
-  it("the scope-of-works report builder refuses an unset rate", async () => {
+  it("the scope-of-works report builder blocks an unset rate", async () => {
     const { buildScopeOfWorksData, SCOPE_OF_WORKS_RATE_FIELDS } =
       await import("@/lib/restoration/scope-of-works-builder");
     const pricingConfig = Object.fromEntries(
       SCOPE_OF_WORKS_RATE_FIELDS.map((f) => [f, 70]),
     );
-    pricingConfig[SCOPE_OF_WORKS_RATE_FIELDS[0]] = null as never;
-    expect(() =>
-      buildScopeOfWorksData({
-        report: { id: "r", reportNumber: "RA-1", inspection: null },
-        analysis: null,
-        tier1: null,
-        tier2: null,
-        tier3: null,
-        pricingConfig,
-        stateInfo: null,
-      }),
-    ).toThrow(RateNotSetError);
+    pricingConfig.administrationFee = null as never;
+    const data: any = buildScopeOfWorksData({
+      report: { id: "r", reportNumber: "RA-1", inspection: null },
+      analysis: null,
+      tier1: null,
+      tier2: null,
+      tier3: null,
+      pricingConfig,
+      stateInfo: null,
+    });
+    expectBlockedOn(data.blockedPricing, "administrationFee");
   });
 
   it("the equipment screen reads an unset rate as null, a set one as itself", async () => {
@@ -832,7 +877,7 @@ describe("a cached equipment rate never bypasses the current price list (RA-8281
     );
   });
 
-  it("the cost report refuses cached equipment whose rate is now unset", async () => {
+  it("the cost report blocks cached equipment whose rate is now unset", async () => {
     const { buildCostEstimationData, COST_ESTIMATION_RATE_FIELDS } =
       await import("@/lib/restoration/cost-estimation-builder");
     const { getGstTreatment } = await import("@/lib/gst-rules");
@@ -840,23 +885,22 @@ describe("a cached equipment rate never bypasses the current price list (RA-8281
       COST_ESTIMATION_RATE_FIELDS.map((f) => [f, 70]),
     );
     pricingConfig.dehumidifierLGRDailyRate = null;
-    expect(() =>
-      buildCostEstimationData({
-        report: { id: "r", reportNumber: "RA-1", inspection: null },
-        analysis: null,
-        tier1: null,
-        tier2: null,
-        tier3: null,
-        pricingConfig,
-        stateInfo: null,
-        scopeData: null,
-        equipmentSelection: LGR,
-        gstTreatment: getGstTreatment("AU"),
-      }),
-    ).toThrow(RateNotSetError);
+    const data: any = buildCostEstimationData({
+      report: { id: "r", reportNumber: "RA-1", inspection: null },
+      analysis: null,
+      tier1: null,
+      tier2: null,
+      tier3: null,
+      pricingConfig,
+      stateInfo: null,
+      scopeData: null,
+      equipmentSelection: LGR,
+      gstTreatment: getGstTreatment("AU"),
+    });
+    expectBlockedOn(data.blockedPricing, "dehumidifierLGRDailyRate");
   });
 
-  it("the scope of works refuses cached equipment whose rate is now unset", async () => {
+  it("the scope of works blocks cached equipment whose rate is now unset", async () => {
     const { buildScopeOfWorksData, SCOPE_OF_WORKS_RATE_FIELDS } =
       await import("@/lib/restoration/scope-of-works-builder");
     const pricingConfig: Record<string, number | null> = Object.fromEntries(
@@ -865,22 +909,38 @@ describe("a cached equipment rate never bypasses the current price list (RA-8281
     // Desiccant is not in SCOPE_OF_WORKS_RATE_FIELDS, so only the equipment
     // path can catch it.
     pricingConfig.dehumidifierDesiccantDailyRate = null;
-    expect(() =>
-      buildScopeOfWorksData({
-        report: { id: "r", reportNumber: "RA-1", inspection: null },
-        analysis: null,
-        tier1: null,
-        tier2: null,
-        tier3: null,
-        pricingConfig,
-        stateInfo: null,
-        equipmentSelection: [
-          { groupId: "desiccant-20", quantity: 1, dailyRate: 61 },
-        ],
-      }),
-    ).toThrow(RateNotSetError);
+    const data: any = buildScopeOfWorksData({
+      report: { id: "r", reportNumber: "RA-1", inspection: null },
+      analysis: null,
+      tier1: null,
+      tier2: null,
+      tier3: null,
+      pricingConfig,
+      stateInfo: null,
+      equipmentSelection: [
+        { groupId: "desiccant-20", quantity: 1, dailyRate: 61 },
+      ],
+    });
+    expectBlockedOn(data.blockedPricing, "dehumidifierDesiccantDailyRate");
   });
 });
+
+/**
+ * RA-8281 (B2): a blocked document. The unset field is named, at least one
+ * line is blocked with no rate and no amount, no blocked line carries a
+ * number, and there is no total.
+ */
+function expectBlockedOn(blocked: any, field: string) {
+  expect(blocked).toMatchObject({ status: "blocked", total: null });
+  expect(blocked.missing.map((m: { field: string }) => m.field)).toContain(
+    field,
+  );
+  const lines = blocked.lines.filter(
+    (l: { pricingStatus: string }) => l.pricingStatus !== "priced",
+  );
+  expect(lines.length).toBeGreaterThan(0);
+  for (const line of lines) expect(line.subtotal).toBeNull();
+}
 
 // RA-8281 B1 review (CodeRabbit on #2533): with no price list loaded (still
 // loading, or the fetch failed) and no cached rate, the equipment rate fell

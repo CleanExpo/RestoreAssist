@@ -21,6 +21,39 @@ export function rateInputValue(rate: number | null | undefined): number | "" {
 const SAVE_FAILED = "Failed to save pricing configuration";
 
 /**
+ * Plain names for the 23 base rates the price-list save requires. They are
+ * held here, without figures, so the settings screen never imports
+ * lib/nrpg-rate-ranges.ts: that file carries NRPG's private range figures
+ * and must not reach the browser (founder rule, 2026-11-12). A test keeps
+ * these in step with the labels recorded there.
+ */
+export const BASE_RATE_LABELS: Record<string, string> = {
+  masterQualifiedNormalHours: "Master Tech — Normal Hours",
+  masterQualifiedSaturday: "Master Tech — Saturday",
+  masterQualifiedSunday: "Master Tech — Sunday",
+  qualifiedTechnicianNormalHours: "Qualified Tech — Normal Hours",
+  qualifiedTechnicianSaturday: "Qualified Tech — Saturday",
+  qualifiedTechnicianSunday: "Qualified Tech — Sunday",
+  labourerNormalHours: "Labourer — Normal Hours",
+  labourerSaturday: "Labourer — Saturday",
+  labourerSunday: "Labourer — Sunday",
+  airMoverAxialDailyRate: "Air Mover (Axial)",
+  airMoverCentrifugalDailyRate: "Air Mover (Centrifugal)",
+  dehumidifierLGRDailyRate: "Dehumidifier (LGR)",
+  dehumidifierDesiccantDailyRate: "Dehumidifier (Desiccant)",
+  afdUnitLargeDailyRate: "AFD Unit (Large)",
+  extractionTruckMountedHourlyRate: "Extraction (Truck-Mounted)",
+  extractionElectricHourlyRate: "Extraction (Electric)",
+  injectionDryingSystemDailyRate: "Injection Drying System",
+  antimicrobialTreatmentRate: "Antimicrobial Treatment",
+  mouldRemediationTreatmentRate: "Mould Remediation Treatment",
+  biohazardTreatmentRate: "Biohazard Treatment",
+  administrationFee: "Administration Fee",
+  callOutFee: "Call-Out Fee",
+  thermalCameraUseCostPerAssessment: "Thermal Camera Assessment",
+};
+
+/**
  * The text to show when the price-list save is refused (RA-8281 review round
  * 2). The route answers with either the structured envelope
  * `{ error: { code, message } }` or a flat `{ error: "...", field }` (the NRPG
@@ -29,7 +62,8 @@ const SAVE_FAILED = "Failed to save pricing configuration";
  */
 export function pricingSaveErrorText(
   body: unknown,
-  labelFor: (field: string) => string | undefined = () => undefined,
+  labelFor: (field: string) => string | undefined = (f) =>
+    BASE_RATE_LABELS[f],
 ): string {
   const err = (body as { error?: unknown } | null)?.error;
   const message =

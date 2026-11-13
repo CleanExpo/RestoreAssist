@@ -27,8 +27,16 @@ import {
 } from "@/lib/equipment-matrix";
 import { RateNotSetError, type UnsetRate } from "@/lib/pricing/rate-not-set";
 
-/** What a report shows in place of a money figure it cannot compute. */
-export const RATE_NOT_SET_LABEL = "Rate not set";
+import {
+  RATE_NOT_SET_LABEL,
+  type BlockedLineFields,
+} from "@/lib/pricing/blocked-line";
+
+/**
+ * What a report shows in place of a money figure it cannot compute. Owned by
+ * lib/pricing/blocked-line.ts (RA-8281 B2); re-exported for B1's readers.
+ */
+export { RATE_NOT_SET_LABEL };
 
 /**
  * What a consumer holds before it is read: the database column (a JSON
@@ -58,6 +66,11 @@ export interface PricedEquipmentLine extends StoredEquipmentLine {
   total: number | null;
   /** "Rate not set. Set <field> ..." when the rate is not set, else null. */
   note: string | null;
+  /**
+   * RA-8281 (B2): the price-list field this line needs and the contractor has
+   * not set, as the rate reader reported it. Present only on such a line.
+   */
+  rateField?: string;
 }
 
 export interface PricedEquipment {
@@ -390,6 +403,7 @@ function priceRawLines(
       }
       let dailyRate: number | null;
       let note: string | null = null;
+      let rateField: string | undefined;
       try {
         dailyRate = selectionDailyRate(
           { groupId: read.groupId },
@@ -399,6 +413,7 @@ function priceRawLines(
         if (!(err instanceof RateNotSetError)) throw err;
         dailyRate = null;
         note = err.message;
+        rateField = err.unset[0]?.field;
         for (const u of err.unset) unset.set(u.field, u);
       }
       if (dailyRate !== null) {
@@ -421,6 +436,7 @@ function priceRawLines(
         dailyTotal: null,
         total: null,
         note,
+        ...(rateField !== undefined ? { rateField } : {}),
       };
     },
   );
@@ -462,6 +478,34 @@ export function assertEquipmentPriced(priced: PricedEquipment): void {
 }
 
 /** "$45.00", or "Rate not set" for a figure that could not be computed. */
+/**
+ * RA-8281 (B2): what a document line carries for an equipment line that has
+ * no amount, so the line is shown blocked instead of refusing the document.
+ * Nothing for a priced line. A rate the price list leaves unset names its
+ * field; a line that cannot be read, or whose amount
+ * is not exact, carries its note only.
+ */
+export function equipmentLineBlockedFields(
+  line: PricedEquipmentLine,
+):
+  | BlockedLineFields
+  | { pricingStatus: "unusable_line"; pricingNote: string }
+  | {} {
+  if (line.total !== null) return {};
+  const field = line.rateField;
+  if (field === undefined) {
+    return {
+      pricingStatus: "unusable_line",
+      pricingNote: line.note ?? MALFORMED_LINE_NOTE,
+    };
+  }
+  return {
+    pricingStatus: "rate_not_set",
+    rateField: field,
+    pricingNote: line.note ?? `${RATE_NOT_SET_LABEL}.`,
+  };
+}
+
 export function moneyOrRateNotSet(value: number | null): string {
   return value === null ? RATE_NOT_SET_LABEL : `$${value.toFixed(2)}`;
 }
