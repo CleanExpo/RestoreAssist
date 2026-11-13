@@ -30,9 +30,15 @@
  * side of a comparison, the left side of `&&`, the condition of `?:`, or the
  * condition of an if/while/do/for/switch statement.
  *
- * Known limits: a value copied to another name first (`const e = body.error;
- * setError(e)`), setters not named `set...`, and indirect calls such as
- * `setError.call(null, body.error)` are not followed.
+ * Known limits (outside this guard's scope, stated so they are not mistaken
+ * for coverage):
+ *   - a value copied to another name first (`const e = body.error; setError(e)`)
+ *     or destructured (`const { error } = body`);
+ *   - setters not named `set...`; callees chosen at run time (`f[key](...)`,
+ *     `(a || setError)(...)`, `getSetter()(...)`); indirect calls such as
+ *     `setError.call(null, body.error)`;
+ *   - `.error` rendered as a JSX child (`{data.error}`): telling an API body
+ *     from component state there needs type information.
  *
  * Scope: app/, components/, hooks/, lib/ excluding app/api/, tests and
  * __tests__ directories. There is no allow-list of files or sites: route the
@@ -104,15 +110,30 @@ const unwrap = (n) => {
 };
 
 /**
+ * The one owner of "what member does this name": `x.name`, `x?.name`,
+ * `x["name"]` and `` x[`name`] `` all give "name". Used for the `.error` read
+ * and for callee names alike.
+ */
+function staticMemberName(n) {
+  if (ts.isPropertyAccessExpression(n)) return n.name.text;
+  if (ts.isElementAccessExpression(n)) {
+    const a = n.argumentExpression;
+    if (a && (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a))) return a.text;
+  }
+  return undefined;
+}
+
+/**
  * The one owner of "what is this call or `new` named". Looks through
- * transparent wrappers. A bare name always counts; `obj.name` counts only when
- * `member` is true (sinks are matched broadly, safe calls strictly).
+ * transparent wrappers and takes the last operand of a comma expression
+ * (`(0, f)(x)` calls f). A bare name always counts; a member name counts only
+ * when `member` is true (sinks are matched broadly, safe calls strictly).
  */
 function calleeName(expr, { member }) {
-  const n = unwrap(expr);
+  let n = unwrap(expr);
+  while (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.CommaToken) n = unwrap(n.right);
   if (ts.isIdentifier(n)) return n.text;
-  if (member && ts.isPropertyAccessExpression(n)) return n.name.text;
-  return undefined;
+  return member ? staticMemberName(n) : undefined;
 }
 
 /** Leftmost identifier of a.b?.c["d"] chains, or undefined. */
@@ -126,14 +147,7 @@ function rootName(expr) {
   }
 }
 
-function isErrorRead(node) {
-  if (ts.isPropertyAccessExpression(node)) return node.name.text === "error";
-  if (ts.isElementAccessExpression(node)) {
-    const a = node.argumentExpression;
-    return !!a && (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a)) && a.text === "error";
-  }
-  return false;
-}
+const isErrorRead = (node) => staticMemberName(node) === "error";
 
 /** The read's value is used as it is (not read further, not called). */
 function isRawRead(node) {
@@ -182,6 +196,8 @@ function sinkOf(parent, child) {
   }
   if (ts.isCallExpression(parent) && parent.arguments.includes(child)) {
     const name = calleeName(parent.expression, { member: true });
+    // Error(x) without `new` builds the same Error.
+    if (name === "Error") return "new Error(";
     if (name && /^set[A-Z]/.test(name)) return `${name}(`;
   }
   if (ts.isTemplateSpan(parent) && parent.expression === child) return "template literal";

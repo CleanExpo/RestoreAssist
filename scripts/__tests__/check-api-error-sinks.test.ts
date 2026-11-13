@@ -36,6 +36,17 @@ describe("check-api-error-sinks guard", () => {
       ["setError((body.error as string))", "setError("],
       ["setError(body.error satisfies unknown)", "setError("],
       ["setError((body.error)!)", "setError("],
+      // A member name is read by one rule for the read and for the callee: x.name and x["name"].
+      ['props["setError"](body.error)', "setError("],
+      ['props?.["setError"](body.error)', "setError("],
+      ["props[`setError`](body.error)", "setError("],
+      ['new globalThis["Error"](body.error)', "new Error("],
+      // A comma expression's value is its last operand.
+      ["(0, setError)(body.error)", "setError("],
+      ["(0, props.setError)(body.error)", "setError("],
+      // Calling Error without `new` builds the same Error.
+      ["Error(body.error)", "new Error("],
+      ['globalThis["Error"](body.error)', "new Error("],
     ])("%s", (src, kind) => {
       expect(kinds(src)).toEqual([kind]);
     });
@@ -62,6 +73,8 @@ describe("check-api-error-sinks guard", () => {
       "setHasError((Boolean)(body.error))",
       "setError((body.error as { message: string }).message)",
       "setError((body.error satisfies unknown as { message: string })!.message)",
+      'setError(body["error"]["message"])',
+      "setError((0, apiErrorMessage)(body.error) ?? 'x')",
     ])("%s", (src) => {
       expect(kinds(src)).toEqual([]);
     });
