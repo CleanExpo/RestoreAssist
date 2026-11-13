@@ -447,7 +447,7 @@ export default function ClaimsAnalysisPage() {
                   updated.fileStatuses[event.index] = {
                     name: event.file,
                     status: "failed",
-                    error: apiErrorMessage(event.error),
+                    error: apiErrorMessage(event.error) ?? undefined,
                   };
                 }
                 return updated;

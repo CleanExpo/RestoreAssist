@@ -1053,7 +1053,7 @@ export default function InspectionDetailPage({
         },
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(apiErrorMessage(data));
+      if (!res.ok) throw new Error(apiErrorMessage(data) ?? "Failed to save environmental data");
       setEnvData(data.environmentalData);
       setShowEnvForm(false);
       toast.success("Environmental data saved");
@@ -1082,7 +1082,7 @@ export default function InspectionDetailPage({
         body: JSON.stringify({ ...moistureForm, sketchRoomId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(apiErrorMessage(data));
+      if (!res.ok) throw new Error(apiErrorMessage(data) ?? "Failed to save moisture reading");
       setMoistureReadings((prev) => [...prev, data.moistureReading]);
       setMoistureForm({
         location: "",
