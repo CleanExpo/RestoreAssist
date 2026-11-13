@@ -35,7 +35,12 @@ describe('PricingCard save feedback (RA-8087)', () => {
     }) as never;
     readyCard();
     editAdminFee('250');
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save the rate');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Could not save the rate');
+    const input = screen.getByLabelText(/admin fee/i);
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveAttribute('aria-describedby', alert.id);
+    expect(alert.id).not.toBe('');
   });
 
   it('names the status when a failed save has no readable message', async () => {
@@ -48,7 +53,9 @@ describe('PricingCard save feedback (RA-8087)', () => {
     }) as never;
     readyCard();
     editAdminFee('250');
-    expect(await screen.findByRole('alert')).toHaveTextContent(/not saved/i);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/not saved/i);
+    expect(alert).toHaveTextContent(/409/);
   });
 
   it('shows an error on the row when the network request rejects', async () => {
@@ -57,7 +64,9 @@ describe('PricingCard save feedback (RA-8087)', () => {
     global.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch')) as never;
     readyCard();
     editAdminFee('250');
-    expect(await screen.findByRole('alert')).toHaveTextContent(/not saved/i);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/not saved/i);
+    expect(alert).toHaveTextContent(/check your connection/i);
     await new Promise((r) => setTimeout(r, 20));
     process.off('unhandledRejection', unhandled);
     expect(unhandled).not.toHaveBeenCalled();
