@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useSetupStore } from './store';
 import { parseRateInput } from '@/lib/pricing/rate-input';
+import { apiErrorMessage } from '@/lib/api-error-message';
 
 interface RateRow {
   key: string;
@@ -50,12 +51,30 @@ const ALL_ROWS: RateRow[] = [
   { key: 'projectManagementPercent',         label: 'Project mgmt',                   suffix: '%' },
 ];
 
-async function patchPricing(key: string, value: number): Promise<void> {
-  await fetch('/api/setup/pricing', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ [key]: value }),
-  });
+// RA-8087: the save result is read, never assumed. A refused or failed save
+// returns its message so the row can say it was not saved.
+async function patchPricing(
+  key: string,
+  value: number,
+): Promise<{ ok: boolean; error?: string }> {
+  let res: Response;
+  try {
+    res = await fetch('/api/setup/pricing', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: value }),
+    });
+  } catch {
+    return { ok: false, error: 'Rate not saved. Check your connection and try again.' };
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    return {
+      ok: false,
+      error: apiErrorMessage(body) ?? `Rate not saved (request failed with status ${res.status}).`,
+    };
+  }
+  return { ok: true };
 }
 
 export function PricingCard() {
@@ -64,6 +83,15 @@ export function PricingCard() {
   const [expanded, setExpanded] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const setRowError = (key: string, message: string | null) =>
+    setErrors((p) => {
+      const next = { ...p };
+      if (message) next[key] = message;
+      else delete next[key];
+      return next;
+    });
 
   // Populate values from the org's hydrated pricingConfig once available.
   useEffect(() => {
@@ -79,11 +107,21 @@ export function PricingCard() {
 
   const handleBlur = async (key: string, raw: string) => {
     // RA-8281: a blank input is an unset rate; never save it as 0.
+    // RA-8087: say so instead of leaving a value on screen that was never sent.
     const n = parseRateInput(raw);
-    if (n === null) return;
+    if (n === null) {
+      setRowError(
+        key,
+        raw.trim() === ''
+          ? 'A blank rate is not saved. Enter your rate.'
+          : 'Enter a number of 0 or more. This rate was not saved.',
+      );
+      return;
+    }
     setSaving((p) => ({ ...p, [key]: true }));
     try {
-      await patchPricing(key, n);
+      const result = await patchPricing(key, n);
+      setRowError(key, result.ok ? null : (result.error ?? 'Rate not saved.'));
     } finally {
       setSaving((p) => ({ ...p, [key]: false }));
     }
@@ -138,10 +176,21 @@ export function PricingCard() {
                         onBlur={(e) => void handleBlur(row.key, e.target.value)}
                         className="w-24 rounded-md border border-border bg-background px-2 py-1 text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                         aria-label={row.label}
+                        aria-invalid={errors[row.key] ? true : undefined}
+                        aria-describedby={errors[row.key] ? `pricing-error-${row.key}` : undefined}
                       />
                       <span className="text-muted-foreground text-xs ml-1">{row.suffix}</span>
                       {saving[row.key] && (
                         <span className="text-xs text-muted-foreground ml-2">saving…</span>
+                      )}
+                      {errors[row.key] && (
+                        <p
+                          id={`pricing-error-${row.key}`}
+                          role="alert"
+                          className="mt-1 text-xs text-destructive"
+                        >
+                          {errors[row.key]}
+                        </p>
                       )}
                     </td>
                   </tr>
