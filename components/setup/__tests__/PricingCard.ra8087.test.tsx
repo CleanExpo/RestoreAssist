@@ -77,6 +77,59 @@ describe('PricingCard save feedback (RA-8087)', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  // Codex review of d0173211: a slower, older reply must never decide the row.
+  function deferred() {
+    let resolve!: (v: unknown) => void;
+    const promise = new Promise((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+  const failed = { ok: false, status: 500, json: async () => ({ error: { code: 'INTERNAL', message: 'Could not save the rate' } }) };
+  const saved = { ok: true, status: 200, json: async () => ({ data: {} }) };
+
+  it('keeps a newer failure when an older save succeeds later', async () => {
+    const first = deferred();
+    const second = deferred();
+    global.fetch = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise) as never;
+    readyCard();
+    editAdminFee('250');
+    editAdminFee('260');
+    second.resolve(failed);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save the rate');
+    first.resolve(saved);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not save the rate');
+    expect(screen.queryByText(/saving/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps a newer success when an older save fails later', async () => {
+    const first = deferred();
+    const second = deferred();
+    global.fetch = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise) as never;
+    readyCard();
+    editAdminFee('250');
+    editAdminFee('260');
+    second.resolve(saved);
+    await new Promise((r) => setTimeout(r, 20));
+    first.resolve(failed);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('keeps the blank-rate message when an earlier save succeeds afterwards', async () => {
+    const first = deferred();
+    global.fetch = vi.fn().mockReturnValueOnce(first.promise) as never;
+    readyCard();
+    editAdminFee('250');
+    editAdminFee('');
+    expect(await screen.findByRole('alert')).toHaveTextContent(/blank rate is not saved/i);
+    first.resolve(saved);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByRole('alert')).toHaveTextContent(/blank rate is not saved/i);
+    expect(screen.queryByText(/saving/i)).not.toBeInTheDocument();
+  });
+
   it('clears the row error once the rate saves', async () => {
     global.fetch = vi
       .fn()

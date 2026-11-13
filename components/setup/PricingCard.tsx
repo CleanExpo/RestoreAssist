@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useSetupStore } from './store';
@@ -84,6 +84,9 @@ export function PricingCard() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Each edit of a row gets a revision; only the latest edit may set that
+  // row's message or saving state, so a slower older reply never decides it.
+  const revisions = useRef<Record<string, number>>({});
 
   const setRowError = (key: string, message: string | null) =>
     setErrors((p) => {
@@ -108,8 +111,11 @@ export function PricingCard() {
   const handleBlur = async (key: string, raw: string) => {
     // RA-8281: a blank input is an unset rate; never save it as 0.
     // RA-8087: say so instead of leaving a value on screen that was never sent.
+    const revision = (revisions.current[key] ?? 0) + 1;
+    revisions.current[key] = revision;
     const n = parseRateInput(raw);
     if (n === null) {
+      setSaving((p) => ({ ...p, [key]: false }));
       setRowError(
         key,
         raw.trim() === ''
@@ -119,12 +125,10 @@ export function PricingCard() {
       return;
     }
     setSaving((p) => ({ ...p, [key]: true }));
-    try {
-      const result = await patchPricing(key, n);
-      setRowError(key, result.ok ? null : (result.error ?? 'Rate not saved.'));
-    } finally {
-      setSaving((p) => ({ ...p, [key]: false }));
-    }
+    const result = await patchPricing(key, n);
+    if (revisions.current[key] !== revision) return;
+    setSaving((p) => ({ ...p, [key]: false }));
+    setRowError(key, result.ok ? null : (result.error ?? 'Rate not saved.'));
   };
 
   const rows = expanded ? ALL_ROWS : COMPACT_ROWS;
