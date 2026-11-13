@@ -108,6 +108,15 @@ export function PricingCard() {
     }
   }, [org?.pricingConfig]);
 
+  // Typing a new value makes any save still in flight for this row stale: its
+  // reply is about a value no longer on screen, so it must not set the message.
+  // The blur that follows every edit sends the new value and decides the row.
+  const handleChange = (key: string, raw: string) => {
+    revisions.current[key] = (revisions.current[key] ?? 0) + 1;
+    setValues((p) => ({ ...p, [key]: raw }));
+    setSaving((p) => (p[key] ? { ...p, [key]: false } : p));
+  };
+
   const handleBlur = async (key: string, raw: string) => {
     // RA-8281: a blank input is an unset rate; never save it as 0.
     // RA-8087: say so instead of leaving a value on screen that was never sent.
@@ -174,9 +183,7 @@ export function PricingCard() {
                         min="0"
                         step="any"
                         value={values[row.key] ?? ''}
-                        onChange={(e) =>
-                          setValues((p) => ({ ...p, [row.key]: e.target.value }))
-                        }
+                        onChange={(e) => handleChange(row.key, e.target.value)}
                         onBlur={(e) => void handleBlur(row.key, e.target.value)}
                         className="w-24 rounded-md border border-border bg-background px-2 py-1 text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                         aria-label={row.label}

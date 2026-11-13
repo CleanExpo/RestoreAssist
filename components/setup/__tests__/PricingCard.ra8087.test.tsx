@@ -139,6 +139,28 @@ describe('PricingCard save feedback (RA-8087)', () => {
     expect(screen.queryByText(/saving/i)).not.toBeInTheDocument();
   });
 
+  // CodeRabbit on PR 2545: a reply for a value the user has since changed must not decide the row.
+  it('ignores an older reply once the rate is typed over, then the next save decides', async () => {
+    const first = deferred();
+    const second = deferred();
+    global.fetch = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise) as never;
+    readyCard();
+    editAdminFee('250');
+    const input = screen.getByLabelText(/admin fee/i);
+    fireEvent.change(input, { target: { value: '260' } });
+    first.resolve(failed);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText(/saving/i)).not.toBeInTheDocument();
+    fireEvent.blur(input);
+    second.resolve(failed);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save the rate');
+    expect(global.fetch).toHaveBeenLastCalledWith(
+      '/api/setup/pricing',
+      expect.objectContaining({ body: JSON.stringify({ administrationFee: 260 }) }),
+    );
+  });
+
   it('clears the row error once the rate saves', async () => {
     global.fetch = vi
       .fn()
