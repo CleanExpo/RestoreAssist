@@ -359,49 +359,52 @@ async function runReceiptFlush(
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), RECEIPT_POST_TIMEOUT_MS);
     try {
-      res = await fetchImpl(
-        `/api/inspections/${encodeURIComponent(inspectionId)}/roomplan-custody`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
-            capturedRoom: entry.capturedRoom,
-            clientSha256: entry.contentSha256,
-            clientCustodyId: entry.id,
-            floorNumber: entry.floorNumber,
-          }),
-        },
-      );
-    } catch {
-      // Offline, network drop or timeout: stay pending; the next load or
-      // `online` event sends it. Later entries would fail the same way.
-      break;
+      try {
+        res = await fetchImpl(
+          `/api/inspections/${encodeURIComponent(inspectionId)}/roomplan-custody`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              capturedRoom: entry.capturedRoom,
+              clientSha256: entry.contentSha256,
+              clientCustodyId: entry.id,
+              floorNumber: entry.floorNumber,
+            }),
+          },
+        );
+      } catch {
+        // Offline, network drop or timeout: stay pending; the next load or
+        // `online` event sends it. Later entries would fail the same way.
+        break;
+      }
+      if (res.ok) {
+        await store.update(entry.id, {
+          serverReceipt: "sent",
+          serverReceiptError: undefined,
+        });
+        result.sent++;
+        continue;
+      }
+      if (
+        res.status >= 400 &&
+        res.status < 500 &&
+        !RETRYABLE_4XX.has(res.status)
+      ) {
+        const message = await readServerMessage(res);
+        await store.update(entry.id, {
+          serverReceipt: "rejected",
+          serverReceiptError: message,
+        });
+        result.rejected.push({ id: entry.id, message });
+        continue;
+      }
+      // 5xx or a retryable 4xx: leave pending for the next trigger.
     } finally {
+      // The deadline covers reading an error body too, not only the headers.
       clearTimeout(timer);
     }
-    if (res.ok) {
-      await store.update(entry.id, {
-        serverReceipt: "sent",
-        serverReceiptError: undefined,
-      });
-      result.sent++;
-      continue;
-    }
-    if (
-      res.status >= 400 &&
-      res.status < 500 &&
-      !RETRYABLE_4XX.has(res.status)
-    ) {
-      const message = await readServerMessage(res);
-      await store.update(entry.id, {
-        serverReceipt: "rejected",
-        serverReceiptError: message,
-      });
-      result.rejected.push({ id: entry.id, message });
-      continue;
-    }
-    // 5xx or a retryable 4xx: leave pending for the next trigger.
   }
   return result;
 }

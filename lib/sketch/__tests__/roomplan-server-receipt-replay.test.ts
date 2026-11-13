@@ -209,4 +209,41 @@ describe("RoomPlan server receipt replay (RA-8325)", () => {
       vi.useRealTimers();
     }
   });
+  it("an error answer whose body never finishes is still cut off by the 30 second deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const entry = await enqueueRoomPlanCapture({
+        inspectionId: "insp-8",
+        floorNumber: 0,
+        capturedRoom: ROOM,
+      });
+      // Headers arrive at once; the body stalls until the request is aborted,
+      // the way a real fetch body behaves.
+      const stalledBody = vi.fn((_url: string, init?: RequestInit) => {
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("{"));
+            init?.signal?.addEventListener("abort", () =>
+              controller.error(new DOMException("aborted", "AbortError")),
+            );
+          },
+        });
+        return Promise.resolve(new Response(body, { status: 400 }));
+      });
+      const first = flushRoomPlanServerReceipts("insp-8", stalledBody);
+      await vi.advanceTimersByTimeAsync(RECEIPT_POST_TIMEOUT_MS);
+      const res = await first;
+      expect(res.rejected).toHaveLength(1);
+      expect(res.rejected[0].id).toBe(entry.id);
+
+      // The chain is free again for the next flush.
+      const next = await flushRoomPlanServerReceipts("insp-8", async () =>
+        jsonResponse(201, {}),
+      );
+      expect(next).toEqual({ sent: 0, rejected: [] });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
