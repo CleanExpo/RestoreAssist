@@ -15,7 +15,8 @@ vi.mock("@/lib/prisma", () => ({
     $transaction: vi.fn(async (cb: any) =>
       cb({
         // D-025 row lock; its effect is proven in the DB integration test.
-        $queryRaw: vi.fn().mockResolvedValue([]),
+        // RA-8273: the row lock now returns the locked status row.
+        $queryRaw: vi.fn().mockResolvedValue([{ status: "DRAFT" }]),
         invoiceLineItem: { deleteMany: txLineItemDeleteMany },
         invoice: { update: txInvoiceUpdate },
         invoiceAuditLog: { create: txAuditCreate },
