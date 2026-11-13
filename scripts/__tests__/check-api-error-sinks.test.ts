@@ -20,6 +20,11 @@ describe("check-api-error-sinks guard", () => {
       ["setError(flag ? body.error : 'x')", "setError("],
       ["setState((p) => ({ ...p, message: body.error }))", "setState("],
       ["setError(String(body.error))", "setError("],
+      // A safe operation outside the sink does not undo what the sink received.
+      ["void setError(body.error)", "setError("],
+      ["Boolean(setError(body.error))", "setError("],
+      ["if (setError(body.error)) {}", "setError("],
+      ["!new Error(body.error)", "new Error("],
     ])("%s", (src, kind) => {
       expect(kinds(src)).toEqual([kind]);
     });

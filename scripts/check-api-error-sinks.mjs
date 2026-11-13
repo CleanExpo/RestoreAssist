@@ -22,7 +22,7 @@
  *   1. the arguments of `new Error(...)`
  *   2. the arguments of a state setter `set[A-Z]...(...)`
  *   3. a `${...}` template-literal interpolation
- * unless, between the read and that sink, it passes through a position that
+ * unless, between the read and the first such sink, it passes through a position that
  * cannot carry the object itself (the allow-list in isSafeStep): an argument of
  * apiErrorMessage() or Boolean(), the operand of `!`, `typeof` or `void`, either
  * side of a comparison, the left side of `&&`, the condition of `?:`, or the
@@ -164,22 +164,22 @@ function sinkOf(parent, child) {
 }
 
 /**
- * Walk from the read towards the root. The first safe step clears the read;
- * otherwise every sink passed on the way is a finding (a read inside a
- * template inside a setter argument reaches both).
+ * Walk from the read towards the root and stop at the first sink: that sink
+ * has received the object, and nothing outside it can undo that
+ * (`void setError(body.error)` still sets the object). A safe step clears the
+ * read only when it comes before any sink.
  */
-function sinksReached(read) {
-  const kinds = [];
+function sinkReached(read) {
   let child = read;
   let parent = read.parent;
   while (parent) {
-    if (isSafeStep(parent, child)) return [];
+    if (isSafeStep(parent, child)) return undefined;
     const kind = sinkOf(parent, child);
-    if (kind) kinds.push(kind);
+    if (kind) return kind;
     child = parent;
     parent = parent.parent;
   }
-  return kinds;
+  return undefined;
 }
 
 export function findSinks(src, fileName = "file.tsx") {
@@ -190,9 +190,8 @@ export function findSinks(src, fileName = "file.tsx") {
       const start = node.getStart(sf);
       const line = sf.getLineAndCharacterOfPosition(start).line + 1;
       const text = node.getText(sf);
-      const kinds = sinksReached(node);
-      // One finding per read: the innermost sink is the one to fix.
-      if (kinds.length > 0) found.push({ kind: kinds[0], index: start, line, text });
+      const kind = sinkReached(node);
+      if (kind) found.push({ kind, index: start, line, text });
     }
     ts.forEachChild(node, visit);
   };
