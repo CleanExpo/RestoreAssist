@@ -9,6 +9,7 @@
 import {
   fromNormalizedMoistureMapPoint,
 } from "@/lib/nir-moisture-map-coordinates";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export interface MapPosition {
   mapX: number;
@@ -61,10 +62,7 @@ export async function saveReadingPlacement(
     const body = (await res.json().catch(() => ({}))) as {
       error?: string | { message?: string };
     };
-    const message =
-      typeof body.error === "string"
-        ? body.error
-        : (body.error?.message ?? `HTTP ${res.status}`);
+    const message = apiErrorMessage(body.error) ?? `HTTP ${res.status}`;
     throw new Error(message);
   }
 }

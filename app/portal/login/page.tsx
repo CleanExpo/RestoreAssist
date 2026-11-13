@@ -14,6 +14,7 @@ import {
   clientPortalPanelPadding,
   clientPortalPrimaryLink,
 } from "@/lib/portal/client-portal-theme";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export default function PortalLoginPage() {
   const router = useRouter();
@@ -36,7 +37,8 @@ export default function PortalLoginPage() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok || !data.token) {
-        const message = data?.error ?? "Invalid email or password";
+        const message =
+          apiErrorMessage(data?.error) ?? "Invalid email or password";
         setError(message);
         toast.error(message);
         return;

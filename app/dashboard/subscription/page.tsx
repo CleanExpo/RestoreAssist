@@ -188,9 +188,7 @@ function SubscriptionPageContent() {
       } else {
         const body = await response.json().catch(() => ({}));
         const message =
-          typeof body.error === "string"
-            ? body.error
-            : "Failed to load subscription";
+          apiErrorMessage(body.error) ?? "Failed to load subscription";
         setLoadError(message);
         setLoadSucceeded(false);
         if (forceRefresh) {

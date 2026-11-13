@@ -313,7 +313,7 @@ export default function ClaimsAnalysisPage() {
         }
       } else {
         // Show detailed error message
-        const errorMsg = data.error || "Failed to fetch files";
+        const errorMsg = apiErrorMessage(data.error) ?? "Failed to fetch files";
         const details = data.details || "";
         const serviceAccountEmail = data.serviceAccountEmail;
 
@@ -386,10 +386,7 @@ export default function ClaimsAnalysisPage() {
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         // apiError responses carry { error: { code, message } }.
-        const apiMessage =
-          typeof errData.error === "string"
-            ? errData.error
-            : errData.error?.message;
+        const apiMessage = apiErrorMessage(errData.error);
         throw new Error(apiMessage || "Failed to perform analysis");
       }
 

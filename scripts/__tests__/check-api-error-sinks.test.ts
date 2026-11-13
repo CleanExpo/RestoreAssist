@@ -90,6 +90,60 @@ describe("check-api-error-sinks guard", () => {
     });
   });
 
+  // RA-8367: a read copied to a name, or destructured, is followed to its uses.
+  describe("follows a copied or destructured read to a sink", () => {
+    it.each([
+      ["const m = data.error; setError(m);", "setError("],
+      ['const m = data.error ?? "Failed"; setError(m);', "setError("],
+      ['const m = data.error || "Failed"; toast.error(m); setError(m);', "setError("],
+      ['const m = data.error || "Failed"; throw new Error(m);', "new Error("],
+      ['const m = data.error || "Failed"; toast.error(`${m}: x`);', "template literal"],
+      ["const { error } = body; setError(error);", "setError("],
+      ['const { error = "Failed" } = body; setError(error);', "setError("],
+      ["const { error: e } = body; throw new Error(e);", "new Error("],
+      ['const { "error": e } = body; setError(e);', "setError("],
+      ["const { data: { error } } = res; setError(error);", "setError("],
+      // A copy of a copy is still the object.
+      ["const a = body.error; const b = a; setError(b);", "setError("],
+      // A copy put in an object that reaches a setter is still the object.
+      ["const message = body.error; setState({ message });", "setState("],
+      ["const m = body.error; setPermissionError({ message: m, x: 1 });", "setPermissionError("],
+      // Inside a nested function in the same scope.
+      ["const m = body.error; const f = () => setError(m);", "setError("],
+    ])("%s", (src, kind) => {
+      expect(kinds(src)).toEqual([kind]);
+    });
+
+    it("reports the copy at the line of the read and names the copy", () => {
+      const f = findSinks('const m =\n  data.error ?? "x";\nsetError(m);', "x.ts");
+      expect(f).toHaveLength(1);
+      expect(f[0].line).toBe(2);
+      expect(f[0].via).toBe("m");
+    });
+  });
+
+  describe("does not report a copy that never reaches a sink as the object", () => {
+    it.each([
+      'const m = apiErrorMessage(body) ?? "x"; setError(m);',
+      "const e = body.error; setMsg(e.message);",
+      "const e = body.error; setHasError(Boolean(e));",
+      "const e = body.error; if (e) setMsg('failed');",
+      "const e = body.error; setFailed(e !== undefined);",
+      "const e = body.error; toast.error(apiErrorMessage(e) ?? 'x');",
+      "const m = body.error; console.error(m);",
+      "const { error } = console; setX(error);",
+      "function C({ error }: { error: string }) { setMsg(error); }",
+      "const { data } = body; setData(data);",
+      "const { errors } = body; setErrors(errors);",
+      // Same name in another function's scope is not the copy.
+      "function a() { const m = body.error; log(m); }\nfunction b(m: string) { setError(m); }",
+      "const m = body.error; const o = { m: 1 }; setX(o.m);",
+      "const a = body.error; const b = a; console.log(b);",
+    ])("%s", (src) => {
+      expect(kinds(src)).toEqual([]);
+    });
+  });
+
   it("reports the line of the read", () => {
     const f = findSinks("const a = 1;\n\nsetError(\n  body.error,\n);", "x.ts");
     expect(f).toHaveLength(1);

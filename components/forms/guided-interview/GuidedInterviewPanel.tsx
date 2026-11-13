@@ -26,6 +26,7 @@ import { ProgressRing } from "./ProgressRing";
 import { BottomActionBar } from "./BottomActionBar";
 import { AISuggestedQuestion } from "./AISuggestedQuestion";
 import type { Question } from "@/lib/interview";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 /**
  * Interview state management
@@ -275,7 +276,9 @@ export function GuidedInterviewPanel({
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage =
-          errorData.error || errorData.details || response.statusText;
+          apiErrorMessage(errorData.error) ||
+          errorData.details ||
+          response.statusText;
         console.error("[INIT_INTERVIEW] API error:", {
           status: response.status,
           error: errorMessage,

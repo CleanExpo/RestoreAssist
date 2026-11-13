@@ -21,6 +21,7 @@ import {
   Eye,
   Edit3,
 } from "lucide-react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ━━━ Types ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -559,9 +560,7 @@ export default function ContentsManifestPage({
       if (!manifestRes.ok) {
         const err = await manifestRes.json().catch(() => ({}));
         const message =
-          typeof err.error === "string"
-            ? err.error
-            : err.error?.message ?? "Manifest generation failed";
+          apiErrorMessage(err.error) ?? "Manifest generation failed";
         throw new Error(message);
       }
 

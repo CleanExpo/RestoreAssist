@@ -30,10 +30,19 @@
  * side of a comparison, the left side of `&&`, the condition of `?:`, or the
  * condition of an if/while/do/for/switch statement.
  *
+ * RA-8367: a read copied to a name is followed. When the read's walk reaches
+ * the initializer of `const x = ...` (through `??`, `||`, `?:` and the like),
+ * or `error` is destructured from a variable (`const { error } = body`,
+ * `{ error: e }`), every use of that name in the declaring scope is walked the
+ * same way, so `const m = data.error ?? "x"; setError(m)` is reported at the
+ * read. Copies of copies are followed too.
+ *
  * Known limits (outside this guard's scope, stated so they are not mistaken
  * for coverage):
- *   - a value copied to another name first (`const e = body.error; setError(e)`)
- *     or destructured (`const { error } = body`);
+ *   - a value assigned later (`let e; e = body.error`), stored in an object or
+ *     array first, passed through a function parameter, or destructured in a
+ *     parameter list; uses are matched by name within the declaring block, so
+ *     an inner variable of the same name counts as the copy;
  *   - setters not named `set...`; callees chosen at run time (`f[key](...)`,
  *     `(a || setError)(...)`, `getSetter()(...)`); indirect calls such as
  *     `setError.call(null, body.error)`;
@@ -43,8 +52,7 @@
  *     which a syntax-only check does not have. On this tree such values are
  *     typed strings or component state (for example `result.error: string`
  *     from lib/sketch/seed-estimate-from-sketch.ts).
- *   - a key bound to a named constant (`const K = "error"; body[K]`), the
- *     alias limit above.
+ *   - a key bound to a named constant (`const K = "error"; body[K]`).
  *
  * Scope: app/, components/, hooks/, lib/ excluding app/api/, tests and
  * __tests__ directories. There is no allow-list of files or sites: route the
@@ -188,6 +196,11 @@ const isErrorRead = (node) => staticMemberName(node) === "error";
 function isRawRead(node) {
   if (!isErrorRead(node)) return false;
   if (NON_BODY.has(rootName(node.expression) ?? "")) return false;
+  return usedAsIs(node);
+}
+
+/** `node`'s value is used as it is: not read further and not called. */
+function usedAsIs(node) {
   let p = node.parent;
   let child = node;
   while (p && isTransparent(p)) {
@@ -245,29 +258,107 @@ function sinkOf(parent, child) {
  * (`void setError(body.error)` still sets the object). A safe step clears the
  * read only when it comes before any sink.
  */
-function sinkReached(read) {
+function sinkReached(read, seen = new Set()) {
   let child = read;
   let parent = read.parent;
   while (parent) {
     if (isSafeStep(parent, child)) return undefined;
     const kind = sinkOf(parent, child);
-    if (kind) return kind;
+    if (kind) return { kind };
+    // RA-8367: the value is copied to a name; follow every use of that name.
+    if (ts.isVariableDeclaration(parent) && parent.initializer === child) {
+      return ts.isIdentifier(parent.name) ? aliasSink(parent.name, seen) : undefined;
+    }
     child = parent;
     parent = parent.parent;
   }
   return undefined;
 }
 
+/** The node a declared name is visible in (its nearest enclosing scope). */
+function declaringScope(nameNode) {
+  let n = nameNode.parent;
+  while (
+    n &&
+    !ts.isBlock(n) &&
+    !ts.isSourceFile(n) &&
+    !ts.isModuleBlock(n) &&
+    !ts.isCaseClause(n) &&
+    !ts.isDefaultClause(n) &&
+    !ts.isFunctionLike(n)
+  ) {
+    n = n.parent;
+  }
+  return n;
+}
+
+/** `id` names a value here (a use), not a declaration, member name or key. */
+function isValueUse(id) {
+  const p = id.parent;
+  if (!p) return false;
+  if (ts.isPropertyAccessExpression(p)) return p.expression === id;
+  if (ts.isShorthandPropertyAssignment(p)) return true;
+  if (ts.isBindingElement(p)) return p.initializer === id;
+  if (ts.isQualifiedName(p) || ts.isTypeReferenceNode(p)) return false;
+  if (ts.isImportSpecifier(p) || ts.isExportSpecifier(p)) return false;
+  if (ts.isLabeledStatement(p) || ts.isBreakOrContinueStatement(p)) return false;
+  if ("name" in p && p.name === id) return false;
+  return true;
+}
+
+/**
+ * The sink any use of the copied name reaches, if any. `seen` stops a copy
+ * cycle (`a` copied from `b` copied from `a`) from looping.
+ */
+function aliasSink(nameNode, seen) {
+  if (seen.has(nameNode)) return undefined;
+  seen.add(nameNode);
+  const name = nameNode.text;
+  const scope = declaringScope(nameNode);
+  let hit;
+  const visit = (n) => {
+    if (hit) return;
+    if (ts.isIdentifier(n) && n !== nameNode && n.text === name && isValueUse(n) && usedAsIs(n)) {
+      const r = sinkReached(n, seen);
+      if (r) hit = { kind: r.kind, via: r.via ?? name };
+    }
+    ts.forEachChild(n, visit);
+  };
+  if (scope) ts.forEachChild(scope, visit);
+  return hit;
+}
+
+/** `const { error } = x` or `const { error: e } = x`: the bound name, if any. */
+function errorBinding(node) {
+  if (!ts.isBindingElement(node) || !ts.isIdentifier(node.name)) return undefined;
+  if (!ts.isObjectBindingPattern(node.parent)) return undefined;
+  const key = node.propertyName
+    ? ts.isIdentifier(node.propertyName)
+      ? node.propertyName.text
+      : staticString(node.propertyName)
+    : node.name.text;
+  if (key !== "error") return undefined;
+  // A destructured variable only, not a parameter list (component props).
+  let decl = node.parent;
+  while (decl && (ts.isObjectBindingPattern(decl) || ts.isArrayBindingPattern(decl) || ts.isBindingElement(decl))) {
+    decl = decl.parent;
+  }
+  if (!decl || !ts.isVariableDeclaration(decl) || !decl.initializer) return undefined;
+  if (NON_BODY.has(rootName(decl.initializer) ?? "")) return undefined;
+  return node.name;
+}
+
 export function findSinks(src, fileName = "file.tsx") {
   const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, scriptKind(fileName));
   const found = [];
   const visit = (node) => {
-    if (isRawRead(node)) {
+    const binding = errorBinding(node);
+    if (binding || isRawRead(node)) {
       const start = node.getStart(sf);
       const line = sf.getLineAndCharacterOfPosition(start).line + 1;
       const text = node.getText(sf);
-      const kind = sinkReached(node);
-      if (kind) found.push({ kind, index: start, line, text });
+      const r = binding ? aliasSink(binding, new Set()) : sinkReached(node);
+      if (r) found.push({ kind: r.kind, index: start, line, text, ...(r.via ? { via: r.via } : {}) });
     }
     ts.forEachChild(node, visit);
   };
@@ -280,7 +371,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   for (const dir of SCAN_DIRS) {
     for (const { full, rel } of walk(join(ROOT, dir))) {
       for (const f of findSinks(readFileSync(full, "utf8"), full)) {
-        violations.push(`${rel}:${f.line}  ${f.text} -> ${f.kind}`);
+        violations.push(`${rel}:${f.line}  ${f.text} -> ${f.via ? `${f.via} -> ` : ""}${f.kind}`);
       }
     }
   }

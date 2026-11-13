@@ -303,9 +303,7 @@ export function VoiceNoteButton({
           return;
         }
         const msg =
-          typeof body.error === "string"
-            ? body.error
-            : body.error?.message || "Active subscription required";
+          apiErrorMessage(body.error) || "Active subscription required";
         throw new Error(msg);
       }
 

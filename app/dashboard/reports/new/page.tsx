@@ -33,6 +33,7 @@ import {
   UPLOAD_PDF_TRIAL_TOAST,
 } from "@/lib/reports/upload-pdf-copy";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export default function NewReportPage() {
   const router = useRouter();
@@ -121,9 +122,8 @@ export default function NewReportPage() {
       } else {
         const body = await canCreateResponse.json().catch(() => ({}));
         const message =
-          typeof body.error === "string"
-            ? body.error
-            : "Could not verify credits. Please try again.";
+          apiErrorMessage(body.error) ??
+          "Could not verify credits. Please try again.";
         setCreditsCheckError(message);
         setCanCreateReport(false);
         setHasCheckedCredits(true);

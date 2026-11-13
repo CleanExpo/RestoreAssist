@@ -17,6 +17,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SignaturePad from "./SignaturePad";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export interface LegalAction {
   key: string;
@@ -89,14 +90,8 @@ export default function ClaimActions({
       );
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        const err = (json as { error?: unknown }).error;
         const msg =
-          (typeof err === "string" && err) ||
-          (err &&
-          typeof err === "object" &&
-          typeof (err as { message?: unknown }).message === "string"
-            ? ((err as { message: string }).message)
-            : null) ||
+          apiErrorMessage((json as { error?: unknown }).error) ||
           `Transition failed (${resp.status})`;
         setError(msg);
         return null;

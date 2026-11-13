@@ -12,6 +12,7 @@ import {
   ArrowRight,
   ArrowLeft,
 } from "lucide-react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -84,9 +85,7 @@ export function PropertyDataSetupWizard({
           error?: { message?: string } | string;
         };
         const msg =
-          typeof body.error === "string"
-            ? body.error
-            : (body.error?.message ?? `Scrape returned ${r.status}`);
+          apiErrorMessage(body.error) ?? `Scrape returned ${r.status}`;
         setTestResult("fail");
         setTestError(msg);
         return;

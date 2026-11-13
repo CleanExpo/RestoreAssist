@@ -15,6 +15,7 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const source = readFileSync(
   fileURLToPath(new URL("../page.tsx", import.meta.url)),
@@ -88,6 +89,8 @@ async function run(opts: Options = {}) {
     "abortControllerRef",
     "fetch",
     "setShowNewAnalysisForm",
+    // RA-8367: the page imports the real envelope reader; pass the same one.
+    "apiErrorMessage",
   ];
   const startAnalysis = new Function(...names, compiled)(
     "folder-1",
@@ -104,6 +107,7 @@ async function run(opts: Options = {}) {
     abortControllerRef,
     fetchMock,
     noop,
+    apiErrorMessage,
   ) as () => Promise<void>;
   await startAnalysis();
   return { errors, successes, processing, sent, reader, reads, abortControllerRef, fetchMock };

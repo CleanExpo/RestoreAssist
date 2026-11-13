@@ -417,4 +417,27 @@ describe("MeterPhotoCapture — offline queue (RA-7604)", () => {
     ).not.toBeInTheDocument();
     await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
   });
+
+  // RA-8367: the moisture route replies through apiError(), so `error` is an
+  // object. Rendering it raw crashes the form ("Objects are not valid as a
+  // React child"); the plain-string 4xx case above cannot catch that.
+  it("renders the apiError envelope as a string — an error object must not crash the form", async () => {
+    const toast = (await import("react-hot-toast")).default;
+    await reachConfirmForm();
+    operationFetch.mockResolvedValueOnce(
+      jsonResponse(400, {
+        error: { code: "VALIDATION", message: "Location is required" },
+      }),
+    );
+    confirmAndSave();
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Location is required",
+      ),
+    );
+    expect(toast.error).toHaveBeenCalledWith("Location is required");
+    expect(screen.queryByText(/\[object Object\]/i)).not.toBeInTheDocument();
+    await expect(getPendingEntries(INSPECTION_ID)).resolves.toHaveLength(0);
+  });
 });

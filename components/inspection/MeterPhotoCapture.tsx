@@ -431,10 +431,8 @@ function MoistureConfirm({
         onSaved();
       } else {
         void fireHaptic("warning");
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        const message = data.error ?? "Failed to save reading";
+        const data: unknown = await res.json().catch(() => ({}));
+        const message = apiErrorMessage(data) ?? "Failed to save reading";
         setError(message);
         toast.error(message);
       }
