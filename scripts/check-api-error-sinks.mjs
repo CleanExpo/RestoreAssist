@@ -10,22 +10,37 @@
  * into a template literal does the same. The one reader that handles every
  * envelope shape is `apiErrorMessage()` in lib/api-error-message.ts.
  *
- * A "raw read" is `<ident>.error` that is not followed by `.` or `?.` (a
- * property access such as `data.error.message` is a different, typed read).
- * It is a violation when it appears:
- *   1. inside the arguments of `new Error(`
- *   2. inside the arguments of a state setter `set[A-Z]...(`
- *   3. inside a `${...}` template-literal interpolation
+ * The guard parses each file with the TypeScript compiler, so strings,
+ * comments and regular expressions can neither hide a sink nor fake one.
+ *
+ * A "raw read" is `<ident>.error` or `<ident>["error"]` whose value is used
+ * as it is: not followed by a further property access, element access or call
+ * (`data.error.message` is a different, typed read), and not on a logging
+ * receiver (`console.error`, `toast.error`, ...).
+ *
+ * It is a violation when it sits inside:
+ *   1. the arguments of `new Error(...)`
+ *   2. the arguments of a state setter `set[A-Z]...(...)`
+ *   3. a `${...}` template-literal interpolation
+ * unless, between the read and that sink, it passes through a position that
+ * cannot carry the object itself (the allow-list in isSafeStep): an argument of
+ * apiErrorMessage() or Boolean(), the operand of `!`, `typeof` or `void`, either
+ * side of a comparison, the left side of `&&`, the condition of `?:`, or the
+ * condition of an if/while/do/for/switch statement.
+ *
+ * Known limits: a value copied to another name first (`const e = body.error;
+ * setError(e)`) and setters not named `set...` are not followed.
  *
  * Scope: app/, components/, hooks/, lib/ excluding app/api/, tests and
- * __tests__ directories. There is no allow-list: route the value through
- * apiErrorMessage() instead, which also accepts a plain string.
+ * __tests__ directories. There is no allow-list of files or sites: route the
+ * value through apiErrorMessage() instead, which also accepts a plain string.
  *
  * Usage: node scripts/check-api-error-sinks.mjs
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 const ROOT = join(fileURLToPath(import.meta.url), "..", "..");
 const SCAN_DIRS = ["app", "components", "hooks", "lib"];
@@ -35,10 +50,20 @@ const SKIP_FILE = /\.(test|spec)\.[jt]sx?$|\.d\.ts$/;
 
 // Receivers whose `.error` is a logging method, not an API body.
 const NON_BODY = new Set(["console", "toast", "logger", "log", "Sentry", "sonner"]);
-
-// `<ident>(.<prop>)*.error` not followed by `.`, `?.` or a call.
-const RAW_ERROR =
-  /(?<![\w$.])([A-Za-z_$][\w$]*)(?:\??\.[A-Za-z_$][\w$]*)*\??\.error\b(?!\s*(?:\?\.|\.|\())/g;
+// Calls whose result cannot be the object passed in.
+const NEUTRAL_CALLS = new Set(["apiErrorMessage", "Boolean"]);
+const COMPARISON = new Set([
+  ts.SyntaxKind.EqualsEqualsToken,
+  ts.SyntaxKind.EqualsEqualsEqualsToken,
+  ts.SyntaxKind.ExclamationEqualsToken,
+  ts.SyntaxKind.ExclamationEqualsEqualsToken,
+  ts.SyntaxKind.LessThanToken,
+  ts.SyntaxKind.LessThanEqualsToken,
+  ts.SyntaxKind.GreaterThanToken,
+  ts.SyntaxKind.GreaterThanEqualsToken,
+  ts.SyntaxKind.InstanceOfKeyword,
+  ts.SyntaxKind.InKeyword,
+]);
 
 function* walk(dir) {
   for (const name of readdirSync(dir)) {
@@ -51,77 +76,135 @@ function* walk(dir) {
   }
 }
 
-/** Index range between the parenthesis opening at `open` and its match. */
-function balanced(src, open) {
-  let depth = 0;
-  for (let i = open; i < src.length; i++) {
-    const c = src[i];
-    if (c === "(") depth++;
-    else if (c === ")" && --depth === 0) return { start: open + 1, end: i };
-  }
-  return { start: open + 1, end: src.length };
+function scriptKind(fileName) {
+  if (/\.tsx$/.test(fileName)) return ts.ScriptKind.TSX;
+  if (/\.jsx$/.test(fileName)) return ts.ScriptKind.JSX;
+  if (/\.(js|mjs)$/.test(fileName)) return ts.ScriptKind.JS;
+  return ts.ScriptKind.TS;
 }
 
-/** Blank out apiErrorMessage(...) calls: reading through it is the fix. */
-function maskSafeReads(text) {
-  let out = text;
+const unwrap = (n) => {
+  while (ts.isParenthesizedExpression(n) || ts.isNonNullExpression(n) || ts.isAsExpression(n)) n = n.expression;
+  return n;
+};
+
+/** Leftmost identifier of a.b?.c["d"] chains, or undefined. */
+function rootName(expr) {
+  let n = expr;
   for (;;) {
-    const m = /\bapiErrorMessage\s*\(/.exec(out);
-    if (!m) return out;
-    const { end } = balanced(out, m.index + m[0].length - 1);
-    out = out.slice(0, m.index) + " ".repeat(end + 1 - m.index) + out.slice(end + 1);
+    n = unwrap(n);
+    if (ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n)) n = n.expression;
+    else if (ts.isCallExpression(n)) n = n.expression;
+    else return ts.isIdentifier(n) ? n.text : undefined;
   }
 }
 
-function rawErrorsIn(text) {
-  const hits = [];
-  for (const m of maskSafeReads(text).matchAll(RAW_ERROR)) {
-    if (NON_BODY.has(m[1])) continue;
-    hits.push({ index: m.index, text: m[0] });
+function isErrorRead(node) {
+  if (ts.isPropertyAccessExpression(node)) return node.name.text === "error";
+  if (ts.isElementAccessExpression(node)) {
+    const a = node.argumentExpression;
+    return !!a && (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a)) && a.text === "error";
   }
-  return hits;
+  return false;
 }
 
-export function findSinks(src) {
+/** The read's value is used as it is (not read further, not called). */
+function isRawRead(node) {
+  if (!isErrorRead(node)) return false;
+  if (NON_BODY.has(rootName(node.expression) ?? "")) return false;
+  let p = node.parent;
+  let child = node;
+  while (p && (ts.isParenthesizedExpression(p) || ts.isNonNullExpression(p))) {
+    child = p;
+    p = p.parent;
+  }
+  if ((ts.isPropertyAccessExpression(p) || ts.isElementAccessExpression(p)) && p.expression === child) return false;
+  if (ts.isCallExpression(p) && p.expression === child) return false;
+  return true;
+}
+
+/** `child` sits in a position of `parent` that cannot pass the object on. */
+function isSafeStep(parent, child) {
+  if (ts.isCallExpression(parent) && parent.arguments.includes(child)) {
+    const callee = unwrap(parent.expression);
+    return ts.isIdentifier(callee) && NEUTRAL_CALLS.has(callee.text);
+  }
+  if (ts.isPrefixUnaryExpression(parent)) return parent.operator === ts.SyntaxKind.ExclamationToken;
+  if (ts.isTypeOfExpression(parent) || ts.isVoidExpression(parent)) return true;
+  if (ts.isBinaryExpression(parent)) {
+    if (COMPARISON.has(parent.operatorToken.kind)) return true;
+    if (parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return parent.left === child;
+    return false;
+  }
+  if (ts.isConditionalExpression(parent)) return parent.condition === child;
+  if (
+    ts.isIfStatement(parent) ||
+    ts.isWhileStatement(parent) ||
+    ts.isDoStatement(parent) ||
+    ts.isSwitchStatement(parent)
+  ) {
+    return parent.expression === child;
+  }
+  if (ts.isForStatement(parent)) return parent.condition === child;
+  return false;
+}
+
+/** The sink this node is the argument or interpolation of, if any. */
+function sinkOf(parent, child) {
+  if (ts.isNewExpression(parent) && parent.arguments?.includes(child)) {
+    const callee = unwrap(parent.expression);
+    if (ts.isIdentifier(callee) && callee.text === "Error") return "new Error(";
+  }
+  if (ts.isCallExpression(parent) && parent.arguments.includes(child)) {
+    const callee = parent.expression;
+    if (ts.isIdentifier(callee) && /^set[A-Z]/.test(callee.text)) return `${callee.text}(`;
+  }
+  if (ts.isTemplateSpan(parent) && parent.expression === child) return "template literal";
+  return undefined;
+}
+
+/**
+ * Walk from the read towards the root. The first safe step clears the read;
+ * otherwise every sink passed on the way is a finding (a read inside a
+ * template inside a setter argument reaches both).
+ */
+function sinksReached(read) {
+  const kinds = [];
+  let child = read;
+  let parent = read.parent;
+  while (parent) {
+    if (isSafeStep(parent, child)) return [];
+    const kind = sinkOf(parent, child);
+    if (kind) kinds.push(kind);
+    child = parent;
+    parent = parent.parent;
+  }
+  return kinds;
+}
+
+export function findSinks(src, fileName = "file.tsx") {
+  const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, scriptKind(fileName));
   const found = [];
-  const lineOf = (i) => src.slice(0, i).split("\n").length;
-  const add = (kind, from, hits) => {
-    for (const h of hits) found.push({ kind, index: from + h.index, line: lineOf(from + h.index), text: h.text });
-  };
-
-  for (const m of src.matchAll(/\bnew\s+Error\s*\(/g)) {
-    const { start, end } = balanced(src, m.index + m[0].length - 1);
-    add("new Error(", start, rawErrorsIn(src.slice(start, end)));
-  }
-  for (const m of src.matchAll(/(?<![\w$.])(set[A-Z]\w*)\s*\(/g)) {
-    const { start, end } = balanced(src, m.index + m[0].length - 1);
-    add(`${m[1]}(`, start, rawErrorsIn(src.slice(start, end)));
-  }
-  for (const m of src.matchAll(/\$\{/g)) {
-    let depth = 1;
-    let i = m.index + 2;
-    for (; i < src.length && depth > 0; i++) {
-      if (src[i] === "{") depth++;
-      else if (src[i] === "}") depth--;
+  const visit = (node) => {
+    if (isRawRead(node)) {
+      const start = node.getStart(sf);
+      const line = sf.getLineAndCharacterOfPosition(start).line + 1;
+      const text = node.getText(sf);
+      const kinds = sinksReached(node);
+      // One finding per read: the innermost sink is the one to fix.
+      if (kinds.length > 0) found.push({ kind: kinds[0], index: start, line, text });
     }
-    const start = m.index + 2;
-    add("template literal", start, rawErrorsIn(src.slice(start, i - 1)));
-  }
-
-  const seen = new Set();
-  return found.filter((f) => {
-    const key = `${f.line}:${f.text}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return found;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const violations = [];
   for (const dir of SCAN_DIRS) {
     for (const { full, rel } of walk(join(ROOT, dir))) {
-      for (const f of findSinks(readFileSync(full, "utf8"))) {
+      for (const f of findSinks(readFileSync(full, "utf8"), full)) {
         violations.push(`${rel}:${f.line}  ${f.text} -> ${f.kind}`);
       }
     }
