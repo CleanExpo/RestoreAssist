@@ -25,6 +25,17 @@ describe("check-api-error-sinks guard", () => {
       ["Boolean(setError(body.error))", "setError("],
       ["if (setError(body.error)) {}", "setError("],
       ["!new Error(body.error)", "new Error("],
+      // Wrappers that do not change the value are transparent, on the callee and on the read.
+      ["(setError)(body.error)", "setError("],
+      ["(setError!)(body.error)", "setError("],
+      ["props.setError(body.error)", "setError("],
+      ["this.setError(body.error)", "setError("],
+      ["setError?.(body.error)", "setError("],
+      ["new (Error)(body.error)", "new Error("],
+      ["new globalThis.Error(body.error)", "new Error("],
+      ["setError((body.error as string))", "setError("],
+      ["setError(body.error satisfies unknown)", "setError("],
+      ["setError((body.error)!)", "setError("],
     ])("%s", (src, kind) => {
       expect(kinds(src)).toEqual([kind]);
     });
@@ -47,6 +58,10 @@ describe("check-api-error-sinks guard", () => {
       "// setError(body.error)",
       "setItems((p) => p.filter((i) => i.id !== body.error))",
       "setMsg(() => { if (body.error) return 'failed'; return null; })",
+      "setError((apiErrorMessage)(body.error) ?? 'x')",
+      "setHasError((Boolean)(body.error))",
+      "setError((body.error as { message: string }).message)",
+      "setError((body.error satisfies unknown as { message: string })!.message)",
     ])("%s", (src) => {
       expect(kinds(src)).toEqual([]);
     });
@@ -57,6 +72,11 @@ describe("check-api-error-sinks guard", () => {
     expect(f).toHaveLength(1);
     expect(f[0].line).toBe(4);
     expect(f[0].text).toBe("body.error");
+  });
+
+  it("treats an angle-bracket type assertion in .ts as transparent", () => {
+    expect(findSinks("setError(<string>body.error);", "x.ts").map((f: { kind: string }) => f.kind)).toEqual(["setError("]);
+    expect(findSinks("setError((<{ message: string }>body.error).message);", "x.ts")).toEqual([]);
   });
 
   it("parses .ts generics that a .tsx parse would misread", () => {

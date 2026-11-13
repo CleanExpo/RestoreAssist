@@ -19,9 +19,11 @@
  * receiver (`console.error`, `toast.error`, ...).
  *
  * It is a violation when it sits inside:
- *   1. the arguments of `new Error(...)`
- *   2. the arguments of a state setter `set[A-Z]...(...)`
+ *   1. the arguments of `new Error(...)` (also `new x.Error(...)`)
+ *   2. the arguments of a state setter `set[A-Z]...(...)` (also `x.setFoo(...)`)
  *   3. a `${...}` template-literal interpolation
+ * Brackets, `!`, `as`, `satisfies` and `<T>` are looked through everywhere
+ * (isTransparent), and every call is named by calleeName.
  * unless, between the read and the first such sink, it passes through a position that
  * cannot carry the object itself (the allow-list in isSafeStep): an argument of
  * apiErrorMessage() or Boolean(), the operand of `!`, `typeof` or `void`, either
@@ -29,7 +31,8 @@
  * condition of an if/while/do/for/switch statement.
  *
  * Known limits: a value copied to another name first (`const e = body.error;
- * setError(e)`) and setters not named `set...` are not followed.
+ * setError(e)`), setters not named `set...`, and indirect calls such as
+ * `setError.call(null, body.error)` are not followed.
  *
  * Scope: app/, components/, hooks/, lib/ excluding app/api/, tests and
  * __tests__ directories. There is no allow-list of files or sites: route the
@@ -83,10 +86,34 @@ function scriptKind(fileName) {
   return ts.ScriptKind.TS;
 }
 
+/**
+ * The one owner of "this wrapper does not change the value": brackets, `x!`,
+ * `x as T`, `x satisfies T` and `<T>x`. Every check that looks through a
+ * wrapper calls this; none lists wrappers itself.
+ */
+const isTransparent = (n) =>
+  ts.isParenthesizedExpression(n) ||
+  ts.isNonNullExpression(n) ||
+  ts.isAsExpression(n) ||
+  ts.isSatisfiesExpression(n) ||
+  ts.isTypeAssertionExpression(n);
+
 const unwrap = (n) => {
-  while (ts.isParenthesizedExpression(n) || ts.isNonNullExpression(n) || ts.isAsExpression(n)) n = n.expression;
+  while (isTransparent(n)) n = n.expression;
   return n;
 };
+
+/**
+ * The one owner of "what is this call or `new` named". Looks through
+ * transparent wrappers. A bare name always counts; `obj.name` counts only when
+ * `member` is true (sinks are matched broadly, safe calls strictly).
+ */
+function calleeName(expr, { member }) {
+  const n = unwrap(expr);
+  if (ts.isIdentifier(n)) return n.text;
+  if (member && ts.isPropertyAccessExpression(n)) return n.name.text;
+  return undefined;
+}
 
 /** Leftmost identifier of a.b?.c["d"] chains, or undefined. */
 function rootName(expr) {
@@ -114,7 +141,7 @@ function isRawRead(node) {
   if (NON_BODY.has(rootName(node.expression) ?? "")) return false;
   let p = node.parent;
   let child = node;
-  while (p && (ts.isParenthesizedExpression(p) || ts.isNonNullExpression(p))) {
+  while (p && isTransparent(p)) {
     child = p;
     p = p.parent;
   }
@@ -126,8 +153,7 @@ function isRawRead(node) {
 /** `child` sits in a position of `parent` that cannot pass the object on. */
 function isSafeStep(parent, child) {
   if (ts.isCallExpression(parent) && parent.arguments.includes(child)) {
-    const callee = unwrap(parent.expression);
-    return ts.isIdentifier(callee) && NEUTRAL_CALLS.has(callee.text);
+    return NEUTRAL_CALLS.has(calleeName(parent.expression, { member: false }) ?? "");
   }
   if (ts.isPrefixUnaryExpression(parent)) return parent.operator === ts.SyntaxKind.ExclamationToken;
   if (ts.isTypeOfExpression(parent) || ts.isVoidExpression(parent)) return true;
@@ -152,12 +178,11 @@ function isSafeStep(parent, child) {
 /** The sink this node is the argument or interpolation of, if any. */
 function sinkOf(parent, child) {
   if (ts.isNewExpression(parent) && parent.arguments?.includes(child)) {
-    const callee = unwrap(parent.expression);
-    if (ts.isIdentifier(callee) && callee.text === "Error") return "new Error(";
+    if (calleeName(parent.expression, { member: true }) === "Error") return "new Error(";
   }
   if (ts.isCallExpression(parent) && parent.arguments.includes(child)) {
-    const callee = parent.expression;
-    if (ts.isIdentifier(callee) && /^set[A-Z]/.test(callee.text)) return `${callee.text}(`;
+    const name = calleeName(parent.expression, { member: true });
+    if (name && /^set[A-Z]/.test(name)) return `${name}(`;
   }
   if (ts.isTemplateSpan(parent) && parent.expression === child) return "template literal";
   return undefined;
