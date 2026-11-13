@@ -371,7 +371,7 @@ describe("RA-8275 — prices come from the contractor's own price list", () => {
     expect(fee?.rate).toBeNull();
     expect(fee?.pricingStatus).toBe("rate_not_set");
     expect(fee?.pricingNote).toBe(
-      "Rate not set. Set callOutFee in your price list (national range $100-$350).",
+      "Rate not set. Set callOutFee in your price list.",
     );
   });
 

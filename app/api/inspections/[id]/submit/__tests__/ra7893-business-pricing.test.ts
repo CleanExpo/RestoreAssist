@@ -283,7 +283,7 @@ describe("submit route — RA-7893 business pricing", () => {
       contingency: null,
       total: null,
       totalNote: "Total not available: rate not set",
-      missing: [{ field: "callOutFee", note: "Rate not set.", nationalRange: null }],
+      missing: [{ field: "callOutFee", note: "Rate not set." }],
       currency: "AUD",
     });
     const { POST } = await import("../route");

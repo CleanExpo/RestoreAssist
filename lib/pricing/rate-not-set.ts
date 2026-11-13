@@ -6,8 +6,6 @@
  * default. Readers that cannot yet show a blocked line throw RateNotSetError
  * (or refuse the whole request) instead of producing a number.
  */
-import { readRate } from "@/lib/scope-fire";
-
 /** The 23 base rate columns that became nullable in RA-8281. */
 export const BASE_RATE_FIELDS = [
   "masterQualifiedNormalHours",
@@ -39,7 +37,7 @@ export type BaseRateField = (typeof BASE_RATE_FIELDS)[number];
 
 export interface UnsetRate {
   field: string;
-  /** "Rate not set. Set <field> ... (national range $X-$Y)." — no range when NRPG has none. */
+  /** "Rate not set. Set <field> in your price list." Never a range figure. */
   note: string;
 }
 
@@ -51,11 +49,13 @@ function isSet(value: unknown): value is number {
 /** A price list, or none at all (every rate then reads as unset). */
 type PriceList = object | null | undefined;
 
-function unsetNote(config: PriceList, field: string): string {
-  const read = readRate(config ?? {}, field);
-  return read.status === "priced" || read.status === "rate_out_of_range"
-    ? `Rate not set. Set ${field} in your price list.`
-    : read.note;
+/**
+ * What every unset rate reads, on every surface. It names the price-list
+ * field and nothing else: the NRPG national range is never shown to a
+ * contractor (founder rule, 2026-11-12), so this file does not read it.
+ */
+export function rateNotSetNote(field: string): string {
+  return `Rate not set. Set ${field} in your price list.`;
 }
 
 export class RateNotSetError extends Error {
@@ -75,14 +75,14 @@ export function unsetRates(
   const row = (config ?? {}) as Record<string, unknown>;
   return fields
     .filter((f) => !isSet(row[f]))
-    .map((f) => ({ field: f, note: unsetNote(config, f) }));
+    .map((f) => ({ field: f, note: rateNotSetNote(f) }));
 }
 
 /** The rate for `field`, or a RateNotSetError. Never 0, never a default. */
 export function requireRate(config: PriceList, field: string): number {
   const value = ((config ?? {}) as Record<string, unknown>)[field];
   if (isSet(value)) return value;
-  throw new RateNotSetError([{ field, note: unsetNote(config, field) }]);
+  throw new RateNotSetError([{ field, note: rateNotSetNote(field) }]);
 }
 
 /** Throws RateNotSetError when any of `fields` is unset. */

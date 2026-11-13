@@ -21,9 +21,7 @@ import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import {
   blockedPricing,
   blockedRates,
-  nationalRangeText,
   priceListReader,
-  rateNotSetText,
   readBlockedPricing,
   RATE_NOT_SET_LABEL,
   sumOrBlocked,
@@ -32,19 +30,13 @@ import {
 import { blockedPricingResponse } from "@/lib/pricing/blocked-line-response";
 
 const CALL_OUT = NRPG_RATE_RANGES.callOutFee;
-const LABOUR = NRPG_RATE_RANGES.labourerNormalHours;
 
 describe("blockedRates", () => {
-  it("names an unset field with its note and the recorded national range", () => {
+  it("names an unset field with its note, and never the national range", () => {
     expect(blockedRates({ callOutFee: null }, ["callOutFee"])).toEqual([
       {
         field: "callOutFee",
-        note: `Rate not set. Set callOutFee in your price list (national range $${CALL_OUT.min}-$${CALL_OUT.max}).`,
-        nationalRange: {
-          min: CALL_OUT.min,
-          max: CALL_OUT.max,
-          unit: CALL_OUT.unit,
-        },
+        note: `Rate not set. Set callOutFee in your price list.`,
       },
     ]);
   });
@@ -56,7 +48,6 @@ describe("blockedRates", () => {
       {
         field: "rateFireDebrisRemoval",
         note: "Rate not set. Set rateFireDebrisRemoval in your price list.",
-        nationalRange: null,
       },
     ]);
   });
@@ -103,12 +94,7 @@ describe("priceListReader", () => {
     expect(reader.lineFields(["callOutFee"])).toEqual({
       pricingStatus: "rate_not_set",
       rateField: "callOutFee",
-      pricingNote: `Rate not set. Set callOutFee in your price list (national range $${CALL_OUT.min}-$${CALL_OUT.max}).`,
-      nationalRange: {
-        min: CALL_OUT.min,
-        max: CALL_OUT.max,
-        unit: CALL_OUT.unit,
-      },
+      pricingNote: `Rate not set. Set callOutFee in your price list.`,
     });
   });
 
@@ -117,7 +103,6 @@ describe("priceListReader", () => {
     const fields = reader.lineFields(["labourerNormalHours", "callOutFee"]);
     expect(fields).toMatchObject({
       rateField: "labourerNormalHours",
-      nationalRange: { min: LABOUR.min, max: LABOUR.max, unit: LABOUR.unit },
     });
     expect((fields as { pricingNote: string }).pricingNote).toContain(
       "Set labourerNormalHours",
@@ -170,18 +155,33 @@ describe("sumOrBlocked", () => {
 });
 
 describe("what a blocked result shows", () => {
-  it("the rate cell reads 'Rate not set' with the range when one exists", () => {
-    expect(rateNotSetText({ min: 60, max: 170, unit: "$/hr" })).toBe(
-      "Rate not set (national range $60-$170 per hr)",
-    );
-    expect(rateNotSetText(null)).toBe(RATE_NOT_SET_LABEL);
-    expect(rateNotSetText()).toBe("Rate not set");
+  it("the rate cell reads 'Rate not set' and nothing else", () => {
+    expect(RATE_NOT_SET_LABEL).toBe("Rate not set");
   });
 
-  it("a flat fee range has no unit suffix", () => {
-    expect(nationalRangeText({ min: 50, max: 400, unit: "$" })).toBe(
-      "national range $50-$400",
-    );
+  it("no helper that formats or returns the national range is exported", async () => {
+    // RA-8281 step 1: the range-formatting path was deleted, not hidden.
+    const owner = await import("@/lib/pricing/blocked-line");
+    for (const gone of [
+      "nationalRangeText",
+      "nationalRangeFor",
+      "rateNotSetText",
+    ]) {
+      expect(owner).not.toHaveProperty(gone);
+    }
+  });
+
+  it("a blocked field and a blocked line carry no range for a field that has one", () => {
+    const [rate] = blockedRates({ callOutFee: null }, ["callOutFee"]);
+    const fields = priceListReader({ callOutFee: null }).lineFields([
+      "callOutFee",
+    ]);
+    for (const out of [rate, fields]) {
+      const text = JSON.stringify(out);
+      expect(out).not.toHaveProperty("nationalRange");
+      expect(text).not.toContain(String(CALL_OUT.min));
+      expect(text).not.toContain(String(CALL_OUT.max));
+    }
   });
 
   it("the total is null with the standard note", () => {
