@@ -333,19 +333,12 @@ type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 const _flushChains = new Map<string, Promise<unknown>>();
 
-/**
- * The server's message for a refused receipt. Returns null when the body could
- * not be read to the end (timeout, dropped connection): that answer is
- * incomplete, so the caller leaves the receipt pending instead of rejecting
- * it for good. A complete body that is not JSON still gets the status line.
- */
-async function readServerMessage(res: Response): Promise<string | null> {
-  let text: string;
-  try {
-    text = await res.text();
-  } catch {
-    return null;
-  }
+type ReceiptVerdict =
+  | { kind: "sent" }
+  | { kind: "rejected"; message: string }
+  | { kind: "pending" };
+
+function refusalMessage(text: string, status: number): string {
   try {
     const body = JSON.parse(text) as { error?: { message?: unknown } };
     const message = body?.error?.message;
@@ -353,7 +346,28 @@ async function readServerMessage(res: Response): Promise<string | null> {
   } catch {
     // Non-JSON body: fall through to the status line.
   }
-  return `Server refused the receipt (HTTP ${res.status})`;
+  return `Server refused the receipt (HTTP ${status})`;
+}
+
+/**
+ * The ONE place that turns a server answer into a verdict. The body is read
+ * to the end first, for every status: headers alone are not an answer. If the
+ * read fails or is cut off by the deadline, the verdict is `pending` so the
+ * next trigger retries. No other code may decide sent or rejected.
+ */
+async function classifyReceiptResponse(res: Response): Promise<ReceiptVerdict> {
+  let text: string;
+  try {
+    text = await res.text();
+  } catch {
+    return { kind: "pending" };
+  }
+  if (res.ok) return { kind: "sent" };
+  if (res.status >= 400 && res.status < 500 && !RETRYABLE_4XX.has(res.status)) {
+    return { kind: "rejected", message: refusalMessage(text, res.status) };
+  }
+  // 5xx or a retryable 4xx: leave pending for the next trigger.
+  return { kind: "pending" };
 }
 
 async function runReceiptFlush(
@@ -391,30 +405,20 @@ async function runReceiptFlush(
         // `online` event sends it. Later entries would fail the same way.
         break;
       }
-      if (res.ok) {
+      const verdict = await classifyReceiptResponse(res);
+      if (verdict.kind === "sent") {
         await store.update(entry.id, {
           serverReceipt: "sent",
           serverReceiptError: undefined,
         });
         result.sent++;
-        continue;
-      }
-      if (
-        res.status >= 400 &&
-        res.status < 500 &&
-        !RETRYABLE_4XX.has(res.status)
-      ) {
-        const message = await readServerMessage(res);
-        // Incomplete answer: stay pending and try again on the next trigger.
-        if (message === null) continue;
+      } else if (verdict.kind === "rejected") {
         await store.update(entry.id, {
           serverReceipt: "rejected",
-          serverReceiptError: message,
+          serverReceiptError: verdict.message,
         });
-        result.rejected.push({ id: entry.id, message });
-        continue;
+        result.rejected.push({ id: entry.id, message: verdict.message });
       }
-      // 5xx or a retryable 4xx: leave pending for the next trigger.
     } finally {
       // The deadline covers reading an error body too, not only the headers.
       clearTimeout(timer);

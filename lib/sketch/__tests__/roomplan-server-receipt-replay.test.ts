@@ -249,4 +249,39 @@ describe("RoomPlan server receipt replay (RA-8325)", () => {
       vi.useRealTimers();
     }
   });
+  it("a 2xx answer whose body never finishes is not a receipt: it stays pending and a retry sends it", async () => {
+    vi.useFakeTimers();
+    try {
+      const entry = await enqueueRoomPlanCapture({
+        inspectionId: "insp-9",
+        floorNumber: 0,
+        capturedRoom: ROOM,
+      });
+      const stalled201 = (_url: string, init?: RequestInit) => {
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("{"));
+            init?.signal?.addEventListener("abort", () =>
+              controller.error(new DOMException("aborted", "AbortError")),
+            );
+          },
+        });
+        return Promise.resolve(new Response(body, { status: 201 }));
+      };
+      const first = flushRoomPlanServerReceipts("insp-9", stalled201);
+      await vi.advanceTimersByTimeAsync(RECEIPT_POST_TIMEOUT_MS);
+      expect(await first).toEqual({ sent: 0, rejected: [] });
+      expect((await getRoomPlanCapture(entry.id))?.serverReceipt).toBe(
+        "pending",
+      );
+
+      const retry = await flushRoomPlanServerReceipts("insp-9", async () =>
+        jsonResponse(201, {}),
+      );
+      expect(retry).toEqual({ sent: 1, rejected: [] });
+      expect((await getRoomPlanCapture(entry.id))?.serverReceipt).toBe("sent");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
