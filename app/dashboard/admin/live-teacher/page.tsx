@@ -247,7 +247,7 @@ export default function LiveTeacherGateMetricsDashboard() {
 
   if (error) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-12 text-center space-y-3">
+      <div className="max-w-9xl mx-auto px-4 py-12 text-center space-y-3">
         <p className="text-sm font-medium text-neutral-800 dark:text-slate-200">
           Could not load gate metrics
         </p>
@@ -295,7 +295,7 @@ export default function LiveTeacherGateMetricsDashboard() {
   const go = allPass && cohort.sessions >= COHORT_MIN_SESSIONS;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <div className="max-w-9xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <div>
         <div className="flex items-center gap-2 mb-1">

@@ -41,6 +41,9 @@ import {
   ListPagination,
 } from "@/components/dashboard/ListPagination";
 import type { DataSource } from "@/lib/synced-data/types";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 // RA-1204 — Relative-time formatter for the "Last report: 3 days ago"
 // preview under each client name. Uses Intl.RelativeTimeFormat (native,
@@ -278,7 +281,10 @@ export default function ClientsPage() {
       if (response.ok) {
         const updatedClient = await response.json();
         setClients(
-          clients.map((c) => (c.id === selectedClient.id ? updatedClient : c)),
+          // The edit response has no figures, so the listed ones stay.
+          clients.map((c) =>
+            c.id === selectedClient.id ? { ...c, ...updatedClient } : c,
+          ),
         );
         setShowEditModal(false);
         setSelectedClient(null);
@@ -432,23 +438,33 @@ export default function ClientsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1
-            className={cn(
-              "text-3xl font-semibold mb-2",
-              "text-neutral-900 dark:text-white",
-            )}
-          >
-            Clients
-          </h1>
-          <p className={cn("text-neutral-600 dark:text-slate-400")}>
-            Manage your restoration clients
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap justify-end">
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow="Simple workspace"
+        title="Clients"
+        description="People and businesses you work for — linked to reports, jobs, and invoices."
+        icon={<Users className="h-7 w-7 text-cyan-500" aria-hidden />}
+        primaryAction={
+          dataSource === "native" ? (
+            <button
+              type="button"
+              onClick={() => {
+                form.reset(CLIENT_FORM_DEFAULTS);
+                setShowAddModal(true);
+              }}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-2 font-medium text-white transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/50 sm:w-auto"
+            >
+              <Plus size={20} aria-hidden />
+              Add client
+            </button>
+          ) : null
+        }
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/clients",
+        })}
+      />
+
+      <div className="flex items-center justify-end gap-3 flex-wrap">
           <DataSourceSwitcher
             id="clients-data-source"
             value={dataSource}
@@ -493,22 +509,6 @@ export default function ClientsPage() {
               </button>
             </div>
           )}
-          {dataSource === "native" && (
-            <button
-              onClick={() => {
-                form.reset(CLIENT_FORM_DEFAULTS);
-                setShowAddModal(true);
-              }}
-              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group"
-            >
-              <Plus
-                size={20}
-                className="transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110"
-              />
-              <span>Add Client</span>
-            </button>
-          )}
-        </div>
       </div>
 
       {dataSource === "native" && loadError && (
@@ -591,6 +591,12 @@ export default function ClientsPage() {
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
         </div>
+      ) : loadError && clients.length === 0 ? (
+        // RA-8084: a failed load with nothing held is unknown, not empty. The
+        // banner above carries Retry; never invite the user to add a "first" client.
+        <p className="py-12 text-center text-sm text-neutral-600 dark:text-slate-400">
+          Your client list could not be loaded.
+        </p>
       ) : (
         <>
           {/* Clients Table */}
@@ -713,7 +719,8 @@ export default function ClientsPage() {
                           $
                           {client.totalRevenue
                             ? client.totalRevenue.toLocaleString()
-                            : "0"}
+                            : "0"}{" "}
+                          invoiced
                         </span>
                         <span className="text-neutral-500 dark:text-slate-500 truncate">
                           {client.lastJob || "No jobs yet"}
@@ -781,7 +788,7 @@ export default function ClientsPage() {
                         "text-neutral-700 dark:text-slate-400",
                       )}
                     >
-                      Total Revenue
+                      Invoiced
                     </th>
                     <th
                       className={cn(
@@ -1043,6 +1050,6 @@ export default function ClientsPage() {
           }
         }}
       />
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }

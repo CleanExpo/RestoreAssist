@@ -5,6 +5,7 @@ const mockGetServerSession = vi.fn();
 const mockFindFirst = vi.fn();
 const mockEstimateCosts = vi.fn();
 const mockTransaction = vi.fn();
+const mockResolveInspectionRates = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => mockGetServerSession(...a),
@@ -12,6 +13,7 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/nir-cost-estimation", () => ({
   estimateCosts: (...a: unknown[]) => mockEstimateCosts(...a),
+  resolveInspectionRates: (...a: unknown[]) => mockResolveInspectionRates(...a),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -29,6 +31,7 @@ describe("cost-estimates POST", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue({ user: { id: "u1" } });
+    mockResolveInspectionRates.mockResolvedValue({ ok: true, rates: null });
   });
 
   it("rejects when no selected scope items", async () => {
@@ -124,5 +127,62 @@ describe("cost-estimates POST", () => {
     const json = await res.json();
     expect(json.costEstimates).toHaveLength(1);
     expect(json.summary.total).toBe(88);
+  });
+
+  describe("RA-7893 business pricing", () => {
+    const createdAt = new Date("2026-09-01T00:00:00Z");
+    const scoped = {
+      id: "i1",
+      status: "SCOPED",
+      propertyPostcode: "4000",
+      createdAt,
+      scopeItems: [
+        {
+          id: "s1",
+          itemType: "install_air_movers",
+          description: "Air movers",
+          quantity: 2,
+          unit: "day",
+          specification: null,
+          justification: null,
+        },
+      ],
+    };
+    const post = () =>
+      POST(
+        new NextRequest(
+          "http://localhost:3001/api/inspections/i1/cost-estimates",
+          { method: "POST", body: JSON.stringify({}) },
+        ),
+        { params: Promise.resolve({ id: "i1" }) },
+      );
+
+    it("prices at the business's rates, resolved from the creator and creation time", async () => {
+      const businessRates = { callOutFee: 150 };
+      mockFindFirst.mockResolvedValue(scoped);
+      mockResolveInspectionRates.mockResolvedValue({
+        ok: true,
+        rates: businessRates,
+      });
+      mockEstimateCosts.mockResolvedValue({ items: [{ warning: "x" }] });
+
+      await post();
+
+      expect(mockResolveInspectionRates).toHaveBeenCalledWith("u1", createdAt);
+      const [, , rates, userId] = mockEstimateCosts.mock.calls[0];
+      expect(rates).toBe(businessRates);
+      expect(userId).toBeNull();
+    });
+
+    it("refuses with 403 and prices nothing when the business cannot be proven", async () => {
+      mockFindFirst.mockResolvedValue(scoped);
+      mockResolveInspectionRates.mockResolvedValue({ ok: false });
+
+      const res = await post();
+
+      expect(res.status).toBe(403);
+      expect(mockEstimateCosts).not.toHaveBeenCalled();
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
   });
 });

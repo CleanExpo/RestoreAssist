@@ -14,7 +14,7 @@ export default function CredentialsPage() {
   }, [searchParams]);
 
   return (
-    <div className="container mx-auto p-6 max-w-2xl">
+    <div className="container mx-auto p-6 max-w-9xl">
       <h1 className="text-xl font-semibold mb-4">Your credentials</h1>
       <p className="text-sm text-muted-foreground mb-6">
         IICRC certificate, WHS White Card, and state licence are verified at every attestation moment per rule 28. You can pre-fill them here.

@@ -6,13 +6,16 @@ import {
   getStoredClientSession,
   portalFetch,
 } from "@/lib/portal/client-session";
-import PortalNav from "@/components/portal/PortalNav";
+import { ClientPortalAccountLayout } from "@/components/portal/ClientPortalAccountLayout";
+import {
+  clientPortalPanelPadding,
+  clientPortalPrimaryLink,
+} from "@/lib/portal/client-portal-theme";
 import {
   ArrowLeft,
   FileText,
   MapPin,
   Calendar,
-  DollarSign,
   CheckCircle,
   XCircle,
   Clock,
@@ -39,7 +42,6 @@ interface Report {
   status: string;
   propertyAddress: string;
   hazardType: string;
-  totalCost: number | null;
   createdAt: string;
   updatedAt: string;
   completionDate: string | null;
@@ -63,7 +65,6 @@ interface Report {
     requestedAt: string;
     respondedAt: string | null;
     clientComments: string | null;
-    amount: number | null;
   }>;
 }
 
@@ -144,7 +145,6 @@ export default function PortalReportDetail({
             approvalType,
             status: approvalStatus,
             clientComments: comments || null,
-            amount: report?.totalCost || null,
           }),
         },
       );
@@ -240,34 +240,28 @@ export default function PortalReportDetail({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand-cloud">
-        <PortalNav />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-bronze mx-auto mb-4"></div>
-            <p className="text-brand-slate">Loading report...</p>
-          </div>
+      <ClientPortalAccountLayout>
+        <div className="py-16 text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-cyan-500/30 border-t-cyan-400" />
+          <p className="text-slate-400">Loading report…</p>
         </div>
-      </div>
+      </ClientPortalAccountLayout>
     );
   }
 
   if (!report) {
     return (
-      <div className="min-h-screen bg-brand-cloud">
-        <PortalNav />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center">
-            <p className="text-brand-slate">Report not found</p>
-            <Link
-              href="/portal"
-              className="text-brand-bronze hover:underline mt-4 inline-block"
-            >
-              Return to Dashboard
-            </Link>
-          </div>
+      <ClientPortalAccountLayout>
+        <div className="py-16 text-center">
+          <p className="text-slate-400">Report not found</p>
+          <Link
+            href="/portal"
+            className="mt-4 inline-block text-cyan-400/90 hover:underline"
+          >
+            Back to reports
+          </Link>
         </div>
-      </div>
+      </ClientPortalAccountLayout>
     );
   }
 
@@ -280,21 +274,18 @@ export default function PortalReportDetail({
     report.user.businessName || report.user.name || "Your Contractor";
 
   return (
-    <div className="min-h-screen bg-brand-cloud">
-      <PortalNav />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <ClientPortalAccountLayout>
         <Link
           href="/portal"
-          className="inline-flex min-h-11 items-center gap-2 text-brand-cta hover:underline mb-6"
+          className="mb-6 inline-flex min-h-11 items-center gap-2 text-cyan-400/90 hover:underline"
         >
           <ArrowLeft size={18} />
           Back to Reports
         </Link>
 
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className={`${clientPortalPanelPadding} mb-6`}>
           <div className="flex items-start justify-between mb-4">
-            <h1 className="text-3xl font-bold text-brand-navy">
+            <h1 className="text-3xl font-bold text-white">
               {report.title}
             </h1>
             <div className="flex items-center gap-3">
@@ -326,54 +317,40 @@ export default function PortalReportDetail({
           </div>
 
           {report.description && (
-            <p className="text-brand-slate mb-6">{report.description}</p>
+            <p className="mb-6 text-slate-400">{report.description}</p>
           )}
 
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="flex items-start gap-3">
-                <MapPin className="text-brand-bronze mt-1" size={20} />
+                <MapPin className="mt-1 text-cyan-400/80" size={20} />
                 <div>
-                  <p className="text-sm font-medium text-brand-navy">
+                  <p className="text-sm font-medium text-slate-300">
                     Property Address
                   </p>
-                  <p className="text-brand-slate">{report.propertyAddress}</p>
+                  <p className="text-slate-400">{report.propertyAddress}</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
-                <FileText className="text-brand-bronze mt-1" size={20} />
+                <FileText className="mt-1 text-cyan-400/80" size={20} />
                 <div>
-                  <p className="text-sm font-medium text-brand-navy">
+                  <p className="text-sm font-medium text-slate-300">
                     Hazard Type
                   </p>
-                  <p className="text-brand-slate">{report.hazardType}</p>
+                  <p className="text-slate-400">{report.hazardType}</p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-4">
-              {report.totalCost && (
-                <div className="flex items-start gap-3">
-                  <DollarSign className="text-brand-bronze mt-1" size={20} />
-                  <div>
-                    <p className="text-sm font-medium text-brand-navy">
-                      Estimated Cost
-                    </p>
-                    <p className="text-2xl font-bold text-brand-navy">
-                      ${report.totalCost.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              )}
-
               <div className="flex items-start gap-3">
-                <Calendar className="text-brand-bronze mt-1" size={20} />
+                <Calendar className="mt-1 text-cyan-400/80" size={20} />
                 <div>
-                  <p className="text-sm font-medium text-brand-navy">
+                  <p className="text-sm font-medium text-slate-300">
                     Report Created
                   </p>
-                  <p className="text-brand-slate">
+                  <p className="text-slate-400">
                     {new Date(report.createdAt).toLocaleDateString("en-AU", {
                       year: "numeric",
                       month: "long",
@@ -385,12 +362,12 @@ export default function PortalReportDetail({
 
               {report.completionDate && (
                 <div className="flex items-start gap-3">
-                  <CheckCircle className="text-brand-bronze mt-1" size={20} />
+                  <CheckCircle className="mt-1 text-cyan-400/80" size={20} />
                   <div>
-                    <p className="text-sm font-medium text-brand-navy">
+                    <p className="text-sm font-medium text-slate-300">
                       Completion Date
                     </p>
-                    <p className="text-brand-slate">
+                    <p className="text-slate-400">
                       {new Date(report.completionDate).toLocaleDateString(
                         "en-AU",
                         {
@@ -408,16 +385,16 @@ export default function PortalReportDetail({
         </div>
 
         {/* Approval Section */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-bold text-brand-navy mb-4">
+        <div className={`${clientPortalPanelPadding} mb-6`}>
+          <h2 className="mb-4 text-xl font-bold text-white">
             Approvals Required
           </h2>
 
           <div className="space-y-4">
             {/* Scope of Work Approval */}
-            <div className="border border-brand-slate/20 rounded-lg p-4">
+            <div className="rounded-lg border border-white/10 bg-slate-950/30 p-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-brand-navy">Scope of Work</h3>
+                <h3 className="font-semibold text-white/90">Scope of Work</h3>
                 {scopeApproval ? (
                   <div
                     className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(scopeApproval.status).bg} ${getStatusBadge(scopeApproval.status).text}`}
@@ -435,17 +412,17 @@ export default function PortalReportDetail({
                 ) : (
                   <button
                     onClick={() => handleApprovalClick("SCOPE_OF_WORK")}
-                    className="min-h-11 px-4 py-2 bg-brand-cta text-white rounded-lg text-sm font-medium hover:bg-brand-cta-hover transition-colors"
+                    className={`${clientPortalPrimaryLink} !min-h-10 text-sm`}
                   >
                     Review & Approve
                   </button>
                 )}
               </div>
-              <p className="text-sm text-brand-slate">
+              <p className="text-sm text-slate-400">
                 Review and approve the proposed scope of work for this
                 restoration project.
               </p>
-              <p className="mt-2 text-xs text-brand-slate">
+              <p className="mt-2 text-xs text-slate-500">
                 This client copy excludes reviewer-only classifications and raw readings.
               </p>
               {report.scopeOfWorksDocument ? (
@@ -476,9 +453,9 @@ export default function PortalReportDetail({
             </div>
 
             {/* Cost Estimate Approval */}
-            <div className="border border-brand-slate/20 rounded-lg p-4">
+            <div className="rounded-lg border border-white/10 bg-slate-950/30 p-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-brand-navy">Cost Estimate</h3>
+                <h3 className="font-semibold text-white/90">Cost Estimate</h3>
                 {costApproval ? (
                   <div
                     className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(costApproval.status).bg} ${getStatusBadge(costApproval.status).text}`}
@@ -496,16 +473,17 @@ export default function PortalReportDetail({
                 ) : (
                   <button
                     onClick={() => handleApprovalClick("COST_ESTIMATE")}
-                    className="min-h-11 px-4 py-2 bg-brand-cta text-white rounded-lg text-sm font-medium hover:bg-brand-cta-hover transition-colors"
+                    className={`${clientPortalPrimaryLink} !min-h-10 text-sm`}
                   >
                     Review & Approve
                   </button>
                 )}
               </div>
-              <p className="text-sm text-brand-slate">
-                Review and approve the cost estimate for the restoration work.
+              <p className="text-sm text-slate-400">
+                Review whether you agree to proceed — dollar amounts are shared
+                separately by your restorer or insurer, not in this portal view.
               </p>
-              <p className="mt-2 text-xs text-brand-slate">
+              <p className="mt-2 text-xs text-slate-500">
                 Ask your contractor for the separate technical evidence report if your insurer needs it.
               </p>
               {report.costEstimationDocument ? (
@@ -538,13 +516,14 @@ export default function PortalReportDetail({
         </div>
 
         {/* Contractor Info */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-brand-navy mb-4">
+        <div className={clientPortalPanelPadding}>
+          <h2 className="mb-4 text-xl font-bold text-white">
             Contractor Information
           </h2>
-          <div className="space-y-2">
+          <div className="space-y-2 text-slate-300">
             <p>
-              <span className="font-medium">Company:</span> {contractorName}
+              <span className="font-medium text-slate-400">Company:</span>{" "}
+              {contractorName}
             </p>
             {report.user.businessEmail && (
               <p>
@@ -560,7 +539,6 @@ export default function PortalReportDetail({
             )}
           </div>
         </div>
-      </div>
 
       <Dialog
         open={showApprovalModal && approvalType !== null}
@@ -633,6 +611,6 @@ export default function PortalReportDetail({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </ClientPortalAccountLayout>
   );
 }

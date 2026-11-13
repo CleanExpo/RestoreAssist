@@ -1,6 +1,25 @@
-import { getEquipmentGroupById, getEquipmentDailyRate } from "@/lib/equipment-matrix";
+import {
+  blockedPricing,
+  type BlockedPricingLine,
+  nationalRangeFor,
+  priceListReader,
+  sumOrBlocked,
+} from "@/lib/pricing/blocked-line";
+import { billableDailyRate } from "@/lib/equipment-matrix";
+import { chemicalTreatmentKind } from "@/lib/restoration/chemical-treatment";
+import {
+  AMOUNT_TOO_LARGE_NOTE,
+  equipmentLineAmount,
+  equipmentLineBlockedFields,
+  priceStoredEquipment,
+  readStoredEquipment,
+  UNUSABLE_LINE_LABEL,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
+import { documentMissing } from "@/lib/restoration/cost-estimation-builder";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
+import { extractWaterCategory } from "@/lib/reports/extract-report-data";
 /**
  * Exported for test. buildScopeOfWorksData is the pure builder that decides,
  * among much else, the mould flag handed to the safety reconciler --
@@ -8,6 +27,24 @@ import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
  * report for the same job. Reaching it through POST would mean mocking an
  * AI call and a credit ledger to assert a boolean.
  */
+/** RA-8281: every price-list rate this builder reads. An unset one blocks the document. */
+export const SCOPE_OF_WORKS_RATE_FIELDS = [
+  "administrationFee",
+  "afdUnitLargeDailyRate",
+  "airMoverAxialDailyRate",
+  "antimicrobialTreatmentRate",
+  "biohazardTreatmentRate",
+  "callOutFee",
+  "dehumidifierLGRDailyRate",
+  "extractionTruckMountedHourlyRate",
+  "injectionDryingSystemDailyRate",
+  "labourerNormalHours",
+  "masterQualifiedNormalHours",
+  "mouldRemediationTreatmentRate",
+  "qualifiedTechnicianNormalHours",
+  "thermalCameraUseCostPerAssessment",
+] as const;
+
 export function buildScopeOfWorksData(data: {
   report: any;
   analysis: any;
@@ -16,7 +53,8 @@ export function buildScopeOfWorksData(data: {
   tier3: any;
   pricingConfig: any;
   stateInfo: any;
-  equipmentSelection?: any[];
+  /** Opaque: only stored-equipment-pricing.ts reads inside it. */
+  equipmentSelection?: StoredEquipmentSelections;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
 }) {
@@ -28,58 +66,13 @@ export function buildScopeOfWorksData(data: {
     tier3,
     pricingConfig,
     stateInfo,
-    equipmentSelection = [],
+    equipmentSelection,
     psychrometricAssessment,
     scopeAreas = [],
   } = data;
-
   if (!pricingConfig) {
     throw new Error("Pricing configuration is required");
   }
-
-  const ensureNumber = (value: any): number => {
-    if (value === null || value === undefined || value === "") {
-      return 0;
-    }
-    const num = typeof value === "string" ? parseFloat(value) : Number(value);
-    if (isNaN(num)) {
-      return 0;
-    }
-    return num;
-  };
-
-  const rates = {
-    masterQualifiedNormalHours: ensureNumber(
-      pricingConfig.masterQualifiedNormalHours,
-    ),
-    qualifiedTechnicianNormalHours: ensureNumber(
-      pricingConfig.qualifiedTechnicianNormalHours,
-    ),
-    labourerNormalHours: ensureNumber(pricingConfig.labourerNormalHours),
-    airMoverAxialDailyRate: ensureNumber(pricingConfig.airMoverAxialDailyRate),
-    dehumidifierLGRDailyRate: ensureNumber(
-      pricingConfig.dehumidifierLGRDailyRate,
-    ),
-    afdUnitLargeDailyRate: ensureNumber(pricingConfig.afdUnitLargeDailyRate),
-    extractionTruckMountedHourlyRate: ensureNumber(
-      pricingConfig.extractionTruckMountedHourlyRate,
-    ),
-    injectionDryingSystemDailyRate: ensureNumber(
-      pricingConfig.injectionDryingSystemDailyRate,
-    ),
-    thermalCameraUseCostPerAssessment: ensureNumber(
-      pricingConfig.thermalCameraUseCostPerAssessment,
-    ),
-    antimicrobialTreatmentRate: ensureNumber(
-      pricingConfig.antimicrobialTreatmentRate,
-    ),
-    mouldRemediationTreatmentRate: ensureNumber(
-      pricingConfig.mouldRemediationTreatmentRate,
-    ),
-    biohazardTreatmentRate: ensureNumber(pricingConfig.biohazardTreatmentRate),
-    callOutFee: ensureNumber(pricingConfig.callOutFee),
-    administrationFee: ensureNumber(pricingConfig.administrationFee),
-  };
 
   // Extract key information
   const waterCategory = tier1?.T1_Q3_waterSource
@@ -139,28 +132,25 @@ export function buildScopeOfWorksData(data: {
           ? parseFloat(String(report.affectedArea))
           : 0;
 
-  // Use actual equipment selection data if available, otherwise use 0 (no defaults)
-  const equipmentSelections = Array.isArray(equipmentSelection)
-    ? equipmentSelection
-    : [];
+  // RA-8281 B1 round 13: the stored selection is read only through
+  // stored-equipment-pricing.ts. Unit counts come from its validated lines.
+  const storedEquipmentLines = readStoredEquipment(equipmentSelection);
 
   // Calculate equipment quantities from actual selections
   let airMoversQty = 0;
   let dehumidifiersQty = 0;
   let afdQty = 0;
 
-  equipmentSelections.forEach((sel: any) => {
-    if (sel.groupId && sel.quantity) {
-      if (sel.groupId.startsWith("airmover-")) {
-        airMoversQty += sel.quantity || 0;
-      } else if (
-        sel.groupId.startsWith("lgr-") ||
-        sel.groupId.startsWith("desiccant-")
-      ) {
-        dehumidifiersQty += sel.quantity || 0;
-      } else if (sel.groupId.includes("afd")) {
-        afdQty += sel.quantity || 0;
-      }
+  storedEquipmentLines.forEach((line) => {
+    if (line.groupId.startsWith("airmover-")) {
+      airMoversQty += line.quantity;
+    } else if (
+      line.groupId.startsWith("lgr-") ||
+      line.groupId.startsWith("desiccant-")
+    ) {
+      dehumidifiersQty += line.quantity;
+    } else if (line.groupId.includes("afd")) {
+      afdQty += line.quantity;
     }
   });
 
@@ -183,23 +173,72 @@ export function buildScopeOfWorksData(data: {
       ? Math.max(2, Math.min(8, Math.ceil(affectedAreaSqm / 25)))
       : 4);
 
-  // Build line items
-  const lineItems = [
+  // RA-8281 B1 round 13: equipment is priced from the current price list by
+  // the one reader. B2: an unset rate, or an equipment line that cannot be
+  // read, makes the line that needs it a blocked line (no rate, no amount).
+  // It is never a $0 line and never left out.
+  const pricedEquipment = priceStoredEquipment(
+    equipmentSelection,
+    pricingConfig,
+    dryingDuration,
+  );
+  const equipmentBlocked =
+    pricedEquipment.total === null ? pricedEquipment : null;
+
+  // RA-8281 (B2): every rate is read through the shared price-list reader. No
+  // rate is multiplied directly (null * n === 0 in JS): a figure that needs
+  // an unset rate is null.
+  const P = priceListReader(pricingConfig);
+  const MASTER = "masterQualifiedNormalHours";
+  const QUALIFIED = "qualifiedTechnicianNormalHours";
+  const LABOURER = "labourerNormalHours";
+  const THERMAL = "thermalCameraUseCostPerAssessment";
+  const INJECTION = "injectionDryingSystemDailyRate";
+  const rate = (field: string) => P.calc([field], (r) => r);
+  /** The blocked-line fields for a line that reads `fields` (and equipment). */
+  const blockedBy = (fields: string[], withEquipment = false) => {
+    const byRate = P.lineFields(fields);
+    if (!withEquipment || !equipmentBlocked) return byRate;
+    const equipmentNote = equipmentBlocked.problems.join(" ");
+    if ("pricingStatus" in byRate) {
+      return {
+        ...byRate,
+        pricingNote: `${byRate.pricingNote} ${equipmentNote}`.trim(),
+      };
+    }
+    const [unset] = equipmentBlocked.unset;
+    return unset
+      ? {
+          pricingStatus: "rate_not_set" as const,
+          rateField: unset.field,
+          pricingNote: equipmentNote,
+          nationalRange: nationalRangeFor(unset.field),
+        }
+      : { pricingStatus: "unusable_line" as const, pricingNote: equipmentNote };
+  };
+  const assessmentCount = dryingDuration >= 7 ? 3 : dryingDuration >= 4 ? 2 : 1;
+
+  const lineItems: any[] = [
     {
       id: "RW_1",
       description: "Emergency Call-Out & Site Assessment",
       qty: 1,
       unit: "Call-out",
-      rate: rates.callOutFee,
-      subtotal: rates.callOutFee,
+      rate: rate("callOutFee"),
+      subtotal: rate("callOutFee"),
+      ...blockedBy(["callOutFee"]),
     },
     {
       id: "RW_2",
       description: "Standing Water Extraction (Truck-Mounted Unit)",
       qty: extractionHours,
       unit: "Hour",
-      rate: rates.extractionTruckMountedHourlyRate,
-      subtotal: extractionHours * rates.extractionTruckMountedHourlyRate,
+      rate: rate("extractionTruckMountedHourlyRate"),
+      subtotal: P.calc(
+        ["extractionTruckMountedHourlyRate"],
+        (r) => extractionHours * r,
+      ),
+      ...blockedBy(["extractionTruckMountedHourlyRate"]),
     },
     {
       id: "RW_3",
@@ -207,75 +246,61 @@ export function buildScopeOfWorksData(data: {
       qty: 1,
       unit: "Setup",
       labour: {
-        masterQualified: { hours: 4, rate: rates.masterQualifiedNormalHours },
-        qualified: { hours: 6, rate: rates.qualifiedTechnicianNormalHours },
+        masterQualified: { hours: 4, rate: rate(MASTER) },
+        qualified: { hours: 6, rate: rate(QUALIFIED) },
       },
-      equipment:
-        equipmentSelections.length > 0
-          ? equipmentSelections.reduce((acc: any, sel: any) => {
-              if (sel.quantity > 0) {
-                const group = getEquipmentGroupById(sel.groupId);
-                const dailyRate =
-                  sel.dailyRate ||
-                  getEquipmentDailyRate(sel.groupId, pricingConfig);
-                const key = sel.groupId.startsWith("lgr-")
-                  ? "lgr"
-                  : sel.groupId.startsWith("desiccant-")
-                    ? "desiccant"
-                    : sel.groupId.startsWith("airmover-")
-                      ? "airMovers"
-                      : sel.groupId.startsWith("heat-")
-                        ? "heat"
-                        : sel.groupId.includes("afd")
-                          ? "afd"
-                          : "other";
+      equipment: pricedEquipment.lines.reduce((acc: any, line) => {
+        // A usable line of zero units adds nothing. A line with no amount
+        // (it cannot be read, or its rate is not set, whatever its
+        // quantity) blocks the subtotal, so it is always listed.
+        if (line.quantity > 0 || line.total === null) {
+          const key = !line.usable
+            ? "other"
+            : line.groupId.startsWith("lgr-")
+              ? "lgr"
+              : line.groupId.startsWith("desiccant-")
+                ? "desiccant"
+                : line.groupId.startsWith("airmover-")
+                  ? "airMovers"
+                  : line.groupId.startsWith("heat-")
+                    ? "heat"
+                    : line.groupId.includes("afd")
+                      ? "afd"
+                      : "other";
 
-                if (!acc[key]) {
-                  acc[key] = {
-                    qty: 0,
-                    days: dryingDuration,
-                    rate: dailyRate,
-                    items: [],
-                  };
-                }
-                acc[key].qty += sel.quantity;
-                acc[key].items.push({
-                  groupId: sel.groupId,
-                  name: group?.name || sel.groupId,
-                  quantity: sel.quantity,
-                  dailyRate: dailyRate,
-                });
-              }
-              return acc;
-            }, {})
-          : {},
-      subtotal:
-        equipmentSelections.length > 0
-          ? (() => {
-              const labour =
-                4 * rates.masterQualifiedNormalHours +
-                6 * rates.qualifiedTechnicianNormalHours;
-              const equipmentCost = equipmentSelections.reduce(
-                (total: number, sel: any) => {
-                  if (sel.quantity > 0) {
-                    const dailyRate =
-                      sel.dailyRate ||
-                      getEquipmentDailyRate(sel.groupId, pricingConfig);
-                    return total + dailyRate * sel.quantity * dryingDuration;
-                  }
-                  return total;
-                },
-                0,
-              );
-              return labour + equipmentCost;
-            })()
-          : 4 * rates.masterQualifiedNormalHours +
-            6 * rates.qualifiedTechnicianNormalHours,
+          // No rate on the group: its lines can carry different rates (axial
+          // and centrifugal air movers), so one rate times the group's unit
+          // count would disagree with the subtotal. Each line keeps its own
+          // rate and the amount the one reader made for it.
+          if (!acc[key]) {
+            acc[key] = {
+              qty: 0,
+              days: dryingDuration,
+              items: [],
+            };
+          }
+          acc[key].qty += line.quantity;
+          acc[key].items.push({
+            groupId: line.groupId,
+            name: line.usable ? line.name : UNUSABLE_LINE_LABEL,
+            quantity: line.quantity,
+            dailyRate: line.dailyRate,
+            total: line.total,
+            ...equipmentLineBlockedFields(line),
+          });
+        }
+        return acc;
+      }, {}),
+      subtotal: sumOrBlocked([
+        P.calc([MASTER, QUALIFIED], (m, q) => 4 * m + 6 * q),
+        pricedEquipment.total,
+      ]),
+      ...blockedBy([MASTER, QUALIFIED], true),
     },
     {
       id: "RW_4",
       description: "Moisture Assessment & Thermal Imaging",
-      qty: dryingDuration >= 7 ? 3 : dryingDuration >= 4 ? 2 : 1, // Standard: 3 assessments for 7+ days, 2 for 4-6 days, 1 for shorter
+      qty: assessmentCount, // Standard: 3 assessments for 7+ days, 2 for 4-6 days, 1 for shorter
       unit:
         dryingDuration >= 7
           ? "Assessment (Days 0, 3, 7)"
@@ -283,25 +308,16 @@ export function buildScopeOfWorksData(data: {
             ? "Assessment (Days 0, Final)"
             : "Assessment (Day 0)",
       labour: {
-        masterQualified: {
-          hours: dryingDuration >= 7 ? 3 : dryingDuration >= 4 ? 2 : 1,
-          rate: rates.masterQualifiedNormalHours,
-        },
+        masterQualified: { hours: assessmentCount, rate: rate(MASTER) },
       },
       equipment: {
-        thermalCamera: {
-          qty: dryingDuration >= 7 ? 3 : dryingDuration >= 4 ? 2 : 1,
-          rate: rates.thermalCameraUseCostPerAssessment,
-        },
+        thermalCamera: { qty: assessmentCount, rate: rate(THERMAL) },
       },
-      subtotal: (() => {
-        const assessmentCount =
-          dryingDuration >= 7 ? 3 : dryingDuration >= 4 ? 2 : 1;
-        return (
-          assessmentCount * rates.masterQualifiedNormalHours +
-          assessmentCount * rates.thermalCameraUseCostPerAssessment
-        );
-      })(),
+      subtotal: P.calc(
+        [MASTER, THERMAL],
+        (m, t) => assessmentCount * m + assessmentCount * t,
+      ),
+      ...blockedBy([MASTER, THERMAL]),
     },
     {
       id: "RW_5",
@@ -309,41 +325,50 @@ export function buildScopeOfWorksData(data: {
       qty: dryingDuration,
       unit: "Day",
       labour: {
-        qualified: {
-          hours: dryingDuration,
-          rate: rates.qualifiedTechnicianNormalHours,
-        },
+        qualified: { hours: dryingDuration, rate: rate(QUALIFIED) },
       },
-      subtotal: dryingDuration * rates.qualifiedTechnicianNormalHours,
+      subtotal: P.calc([QUALIFIED], (q) => dryingDuration * q),
+      ...blockedBy([QUALIFIED]),
     },
   ];
 
-  // Add Class 4 drying if needed
+  // Add RW_6 only if Class 4 drying is needed
   if (needsClass4 && hasYellowTongue) {
+    // The billable rate (to the whole cent), as for every equipment line.
+    const injectionRate = P.calc([INJECTION], (r) => billableDailyRate(r));
+    // A whole-cent amount; a figure that is not an exact amount is refused,
+    // never shown as $0. null: the injection rate is not set.
+    const injectionTotal = P.calc([INJECTION], (r) => {
+      const amount = equipmentLineAmount(billableDailyRate(r), 1, dryingDuration);
+      if (amount === null) throw new RangeError(AMOUNT_TOO_LARGE_NOTE);
+      return amount;
+    });
     lineItems.push({
       id: "RW_6",
       description: "Drying Protocol — Yellow Tongue Sandwich Drying",
       qty: 1,
       unit: "Application",
       labour: {
-        masterQualified: { hours: 12, rate: rates.masterQualifiedNormalHours },
-        qualified: { hours: 8, rate: rates.qualifiedTechnicianNormalHours },
+        masterQualified: { hours: 12, rate: rate(MASTER) },
+        qualified: { hours: 8, rate: rate(QUALIFIED) },
       },
       equipment: {
         injectionSystem: {
           qty: 1,
           days: dryingDuration,
-          rate: rates.injectionDryingSystemDailyRate,
+          rate: injectionRate,
+          total: injectionTotal,
         },
       },
       subtotal:
-        12 * rates.masterQualifiedNormalHours +
-        8 * rates.qualifiedTechnicianNormalHours +
-        dryingDuration * rates.injectionDryingSystemDailyRate,
+        injectionTotal === null
+          ? null
+          : P.calc([MASTER, QUALIFIED], (m, q) => 12 * m + 8 * q + injectionTotal),
+      ...blockedBy([MASTER, QUALIFIED, INJECTION]),
     });
   }
 
-  // Chemical treatment - use actual data from tier3, analysis, or report
+  // Add RW_7 - Chemical treatment (use actual selection or determine from context)
   const chemicalType =
     tier3?.T3_Q3_chemicalTreatment ||
     analysis?.chemicalTreatment ||
@@ -352,57 +377,117 @@ export function buildScopeOfWorksData(data: {
       : hasBiohazard
         ? "Biohazard treatment"
         : "Standard antimicrobial treatment");
-  let chemicalRate = rates.antimicrobialTreatmentRate;
-  if (chemicalType.includes("mould")) {
-    chemicalRate = rates.mouldRemediationTreatmentRate;
-  } else if (chemicalType.includes("Biohazard") || hasBiohazard) {
-    chemicalRate = rates.biohazardTreatmentRate;
+  // Read by the one shared classifier, without regard to capitals: the
+  // default above is "Mould remediation treatment", and a mould treatment
+  // is priced from the mould rate.
+  const chemicalKind = chemicalTreatmentKind(chemicalType);
+  let chemicalField = "antimicrobialTreatmentRate";
+  if (chemicalKind === "mould") {
+    chemicalField = "mouldRemediationTreatmentRate";
+  } else if (chemicalKind === "biohazard" || hasBiohazard) {
+    chemicalField = "biohazardTreatmentRate";
   }
+  // The treatment whose rate RW_7 reads. A blocked result names it, so the
+  // contractor sets the right rate; the document's own line keeps its wording.
+  const chemicalTreatmentName =
+    chemicalField === "mouldRemediationTreatmentRate"
+      ? "Mould remediation treatment"
+      : chemicalField === "biohazardTreatmentRate"
+        ? "Biohazard treatment"
+        : "Antimicrobial treatment";
 
   lineItems.push({
     id: "RW_7",
     description: "Antimicrobial Chemical Treatment",
     qty: affectedAreaSqm,
     unit: "Sqm",
-    rate: chemicalRate,
-    subtotal: affectedAreaSqm * chemicalRate,
+    rate: rate(chemicalField),
+    subtotal: P.calc([chemicalField], (r) => affectedAreaSqm * r),
+    ...blockedBy([chemicalField]),
   });
 
-  // Equipment collection
   lineItems.push({
     id: "RW_8",
     description: "Equipment Collection & Site Cleanup",
     qty: 1,
     unit: "Removal",
     labour: {
-      qualified: { hours: 2, rate: rates.qualifiedTechnicianNormalHours },
-      labourer: { hours: 2, rate: rates.labourerNormalHours },
+      qualified: { hours: 2, rate: rate(QUALIFIED) },
+      labourer: { hours: 2, rate: rate(LABOURER) },
     },
-    subtotal:
-      2 * rates.qualifiedTechnicianNormalHours + 2 * rates.labourerNormalHours,
-  } as any);
+    subtotal: P.calc([QUALIFIED, LABOURER], (q, l) => 2 * q + 2 * l),
+    ...blockedBy([QUALIFIED, LABOURER]),
+  });
 
-  // Final certification
   lineItems.push({
     id: "RW_9",
     description: "Final Drying Certification & Report",
     qty: 1,
     unit: "Certification",
     labour: {
-      masterQualified: { hours: 2, rate: rates.masterQualifiedNormalHours },
+      masterQualified: { hours: 2, rate: rate(MASTER) },
     },
-    subtotal: 2 * rates.masterQualifiedNormalHours,
-  } as any);
+    subtotal: P.calc([MASTER], (m) => 2 * m),
+    ...blockedBy([MASTER]),
+  });
 
-  // Administration fee
   lineItems.push({
     id: "RW_10",
     description: "Administration & Documentation Fee",
     qty: 1,
     unit: "Claim",
-    rate: rates.administrationFee,
-    subtotal: rates.administrationFee,
+    rate: rate("administrationFee"),
+    subtotal: rate("administrationFee"),
+    ...blockedBy(["administrationFee"]),
   });
+
+  // RA-8281 (B2): present only when a line is blocked. A blocked document is
+  // shown to the contractor and never saved.
+  const blocked = lineItems.some((item) => item.subtotal === null)
+    ? blockedPricing(
+        lineItems.flatMap((item): BlockedPricingLine[] => [
+          {
+            description: `${item.id}: ${
+              item.id === "RW_7" ? chemicalTreatmentName : item.description
+            }`,
+            quantity: item.qty,
+            unit: item.unit,
+            // RW_5 is one rate times its days, so the notice shows that rate.
+            rate:
+              item.rate ??
+              (item.id === "RW_5" ? item.labour.qualified.rate : null),
+            subtotal: item.subtotal,
+            pricingStatus: item.pricingStatus ?? "priced",
+            rateField: item.rateField,
+            pricingNote: item.pricingNote,
+            nationalRange: item.nationalRange,
+          },
+          // RW_3 carries the equipment. Each equipment line is listed under
+          // it with its own status, so two causes on one document (an unset
+          // rate and a saved line that cannot be read) are both shown: the
+          // RW_3 line alone can name only one of them.
+          ...(item.id === "RW_3"
+            ? Object.values(item.equipment as Record<string, any>).flatMap(
+                (group) =>
+                  group.items.map(
+                    (line: any): BlockedPricingLine => ({
+                      description: `${item.id} equipment: ${line.name}`,
+                      quantity: line.quantity,
+                      unit: `unit × ${dryingDuration} days`,
+                      rate: line.dailyRate,
+                      subtotal: line.total,
+                      pricingStatus: line.pricingStatus ?? "priced",
+                      rateField: line.rateField,
+                      pricingNote: line.pricingNote,
+                      nationalRange: line.nationalRange,
+                    }),
+                  ),
+              )
+            : []),
+        ]),
+        documentMissing(P.missing(), equipmentBlocked),
+      )
+    : null;
 
   // Licensed trades
   const licensedTrades = [];
@@ -492,7 +577,12 @@ export function buildScopeOfWorksData(data: {
     // `affectedAreaM2` takes precedence only when it is > 0, so a job with real
     // scope rows is unaffected.
     affectedAreaM2: affectedAreaSqm > 0 ? affectedAreaSqm : undefined,
-    equipmentSelection,
+    // The validated lines, not the raw stored value. `type` carries the
+    // equipment group id so the air-mover gate sees stored selections.
+    equipmentSelection: storedEquipmentLines.map((line) => ({
+      type: line.groupId,
+      quantity: line.quantity,
+    })),
     waterCategory,
     mouldActive: mouldActiveForSafety,
     hazards,
@@ -520,19 +610,7 @@ export function buildScopeOfWorksData(data: {
     hasClass4Drying: needsClass4,
     hazards: hazards.filter((h: string) => h !== "None identified"),
     safety,
+    ...(blocked ? { blockedPricing: blocked } : {}),
   };
 }
 
-function extractWaterCategory(waterSource: string): string {
-  if (!waterSource) return "Category 1";
-  if (waterSource.includes("Category 2") || waterSource.includes("grey water"))
-    return "Category 2";
-  if (
-    waterSource.includes("Category 3") ||
-    waterSource.includes("contaminated") ||
-    waterSource.includes("Sewage") ||
-    waterSource.includes("biohazard")
-  )
-    return "Category 3";
-  return "Category 1";
-}

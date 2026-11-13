@@ -10,6 +10,8 @@ export interface InspectionReportData {
     inspectionNumber: string;
     status: string;
     propertyAddress: string;
+    /** Site attendance; never substitute job createdAt. */
+    inspectionDate?: string | null;
     createdAt: string;
     completedAt?: string | null;
     technician?: { name: string; licenceNumber?: string | null } | null;
@@ -163,7 +165,11 @@ function buildReportHtml(data: InspectionReportData): string {
   </div>
   <div style="text-align:right;font-size:10px;opacity:0.9;line-height:1.6;">
     <div style="font-size:14px;font-weight:700;">${inspection.inspectionNumber}</div>
-    <div>${fmt(inspection.createdAt)}</div>
+    <div>${
+      inspection.inspectionDate
+        ? fmt(inspection.inspectionDate)
+        : "Attendance not recorded"
+    }</div>
     <div>${inspection.propertyAddress}</div>
     ${inspection.technician ? `<div>Technician: ${inspection.technician.name}${inspection.technician.licenceNumber ? ` (Lic: ${inspection.technician.licenceNumber})` : ""}</div>` : ""}
   </div>

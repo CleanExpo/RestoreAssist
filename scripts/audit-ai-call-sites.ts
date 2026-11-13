@@ -297,9 +297,17 @@ const AI_PROVIDER_KEY_ENV_PATTERN =
  * key AND shows one of these is assumed to be using it only as a last-resort
  * fallback path that is itself gated elsewhere (e.g. behind a feature flag) —
  * a route with NEITHER marker is spending the platform's own key outright.
+ *
+ * RA-8001: calling resolveWorkspaceAiKey is NOT proof of BYOK. It hands a
+ * funded trial the platform key (D-022), so it is a platform-key signal of its
+ * own (PLATFORM_KEY_RESOLVER_MARKERS). BYOK-only evidence is a callAI call
+ * under the byok-only key policy, or an explicit check of the resolved key's
+ * source against "byok".
  */
 const BYOK_MARKERS = [
-  "resolveWorkspaceAiKey(",
+  'keyPolicy: "byok-only"',
+  'source === "byok"',
+  'source !== "byok"',
   "resolveWorkspaceElevenLabsKey(",
   "byokDispatch(",
   "workspace-byok-dispatch",
@@ -321,6 +329,15 @@ const PLATFORM_KEY_HELPER_MARKERS = [
   "selectAnthropicApiKey(",
   "getAnthropicApiKey(",
 ];
+
+/**
+ * RA-8001: the workspace key resolver, which returns the platform key for a
+ * funded trial. A route that calls it without BYOK-only evidence is a
+ * platform surface and must be named in the baseline's
+ * `platformAllowedSurfaces` register, with its reason. Matched in the route's
+ * own text only; it does not seed the import-graph closures.
+ */
+const PLATFORM_KEY_RESOLVER_MARKERS = ["resolveWorkspaceAiKey("];
 
 /**
  * RA-6921 (P0) / RA-6932 / RA-6965 — detect a `app/**` route handler that
@@ -345,6 +362,7 @@ function hasPlatformKeyFallback(
   const readsEnvKey =
     PLATFORM_KEY_ENV_PATTERN.test(content) ||
     PLATFORM_KEY_HELPER_MARKERS.some((marker) => content.includes(marker)) ||
+    PLATFORM_KEY_RESOLVER_MARKERS.some((marker) => content.includes(marker)) ||
     libDelegated;
   if (!readsEnvKey) return false;
   return !BYOK_MARKERS.some((marker) => content.includes(marker));
@@ -1086,6 +1104,9 @@ export function auditAiCallSite(
     // helper is likewise an AI surface — the helper falls back to the platform
     // ANTHROPIC_API_KEY, so the leak is invisible in the route's own text.
     content.includes("getAnthropicApiKey(") ||
+    // RA-8001: so is a route that calls the workspace key resolver, which can
+    // hand back the platform key.
+    PLATFORM_KEY_RESOLVER_MARKERS.some((marker) => content.includes(marker)) ||
     // RA-6965 — a route that delegates key resolution to a lib helper which
     // (transitively) falls back to the platform key is an AI surface even when
     // NOTHING in its own text names a provider/key. Without this, removing the
@@ -1283,8 +1304,10 @@ const PLATFORM_KEY_FALLBACK_BASELINE_PATH = path.join(
  * RA-6921 (P0) platform-key-fallback register — `pendingMigration` is a
  * ratchet baseline (routes still owed a move to workspace BYOK);
  * `platformInternalExceptions` are staff-only/webhook routes intentionally
- * left on the platform key forever. Both suppress the gate; only
- * `pendingMigration` should ever shrink toward zero.
+ * left on the platform key forever. RA-8001: `platformAllowedSurfaces` are
+ * customer routes allowed the funded-trial platform key, each with its reason
+ * (ratchet: never add one without a reason). All three suppress the gate;
+ * `pendingMigration` and `platformAllowedSurfaces` should shrink.
  */
 export function readPlatformKeyFallbackBaseline(): string[] {
   if (!existsSync(PLATFORM_KEY_FALLBACK_BASELINE_PATH)) return [];
@@ -1295,12 +1318,13 @@ export function readPlatformKeyFallbackBaseline(): string[] {
     const pending = Array.isArray(raw.pendingMigration)
       ? raw.pendingMigration
       : [];
-    const exceptions =
-      raw.platformInternalExceptions &&
-      typeof raw.platformInternalExceptions === "object"
-        ? Object.keys(raw.platformInternalExceptions)
-        : [];
-    return [...pending, ...exceptions];
+    const registerKeys = (register: unknown): string[] =>
+      register && typeof register === "object" ? Object.keys(register) : [];
+    return [
+      ...pending,
+      ...registerKeys(raw.platformInternalExceptions),
+      ...registerKeys(raw.platformAllowedSurfaces),
+    ];
   } catch {
     return [];
   }
@@ -1329,7 +1353,8 @@ if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
     if (netNew.length > 0) {
       console.error(
         `AI guardrail audit failed: ${netNew.length} NEW platform-key-fallback route(s) ` +
-          `(RA-6921 P0 — must resolve BYOK via resolveWorkspaceAiKey, not process.env):\n` +
+          `(RA-6921 P0 / RA-8001 — show BYOK-only evidence, or name the route with its reason ` +
+          `in platformAllowedSurfaces of scripts/ai-platform-key-fallback-baseline.json):\n` +
           netNew.map((file) => `  - ${file}`).join("\n"),
       );
       failed = true;

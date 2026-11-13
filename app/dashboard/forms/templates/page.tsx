@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import {
   Plus,
   Search,
@@ -185,7 +186,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
   }
 
   return (
-    <form
+    <form method="post"
       onSubmit={handleSubmit}
       className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-5 space-y-4"
     >
@@ -367,6 +368,7 @@ export default function FormTemplatesPage() {
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // UI state
   const [search, setSearch] = useState("");
@@ -403,7 +405,7 @@ export default function FormTemplatesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   // ── Derived lists ──────────────────────────────────────────────────────────
 
@@ -474,7 +476,7 @@ export default function FormTemplatesPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="px-6 py-8 max-w-6xl mx-auto space-y-6">
+    <div className="px-6 py-8 max-w-9xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
         <div className="flex items-center gap-3">
@@ -562,6 +564,13 @@ export default function FormTemplatesPage() {
       {error && (
         <div className="rounded-md border border-destructive-subtle-foreground/30 bg-destructive-subtle px-4 py-3 text-sm text-destructive-subtle-foreground">
           {error}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => setReloadKey((k) => k + 1)}
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -600,7 +609,10 @@ export default function FormTemplatesPage() {
                 >
                   <div className="flex flex-col items-center gap-3">
                     <FileText className="h-8 w-8 text-slate-300 dark:text-slate-600" />
-                    {templates.length === 0 ? (
+                    {templates.length === 0 && !isConfirmedEmpty(error, 0) ? (
+                      // RA-8084: a failed load is unknown, not empty.
+                      <span>Templates could not be loaded.</span>
+                    ) : templates.length === 0 ? (
                       <span>
                         No form templates yet. Create a custom template for your
                         inspection forms.
@@ -608,7 +620,7 @@ export default function FormTemplatesPage() {
                     ) : (
                       <span>No templates match your current filters.</span>
                     )}
-                    {templates.length === 0 && (
+                    {templates.length === 0 && isConfirmedEmpty(error, 0) && (
                       <Button
                         size="sm"
                         variant="outline"

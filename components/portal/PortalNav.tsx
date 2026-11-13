@@ -24,17 +24,15 @@ export default function PortalNav() {
   };
 
   return (
-    <nav className="bg-white border-b border-brand-slate/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <nav className="border-b border-white/10 bg-slate-950/90 backdrop-blur-md">
+      <div className="mx-auto max-w-9xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
             <Image src="/logo.png" alt="RestoreAssist" width={40} height={40} />
             <div>
-              <h1 className="text-lg font-bold text-brand-navy">
-                Client Portal
-              </h1>
+              <h1 className="text-lg font-bold text-white">Client Portal</h1>
               {clientName && (
-                <p className="text-xs text-brand-slate">{clientName}</p>
+                <p className="text-xs text-slate-400">{clientName}</p>
               )}
             </div>
           </div>
@@ -42,20 +40,20 @@ export default function PortalNav() {
           <div className="flex items-center gap-4">
             <Link
               href="/portal"
-              className="flex items-center gap-2 px-3 py-3 min-h-[44px] text-sm text-brand-slate hover:text-brand-navy transition-colors"
+              className="flex min-h-[44px] items-center gap-2 px-3 py-3 text-sm text-slate-300 transition-colors hover:text-white"
             >
               <FileText size={18} />
               <span className="hidden sm:inline">My Reports</span>
             </Link>
             <Link
               href="/portal/help"
-              className="px-3 py-3 min-h-[44px] text-sm text-brand-slate hover:text-brand-navy transition-colors"
+              className="min-h-[44px] px-3 py-3 text-sm text-slate-300 transition-colors hover:text-white"
             >
               Help
             </Link>
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-2 px-3 py-3 min-h-[44px] text-sm text-brand-slate hover:text-brand-navy transition-colors"
+              className="flex min-h-[44px] items-center gap-2 px-3 py-3 text-sm text-slate-300 transition-colors hover:text-white"
             >
               <LogOut size={18} />
               <span className="hidden sm:inline">Sign Out</span>

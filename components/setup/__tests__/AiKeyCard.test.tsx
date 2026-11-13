@@ -61,6 +61,7 @@ describe('AiKeyCard', () => {
     render(<AiKeyCard />);
     expect(screen.getByRole('button', { name: /anthropic/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /openai/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /meta \(llama\)/i })).toBeInTheDocument();
   });
 
   it('shows success state after filling key and clicking save', async () => {

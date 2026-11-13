@@ -16,7 +16,11 @@ import {
   Loader2,
 } from "lucide-react";
 import { prepareUnderlayFile } from "@/lib/sketch/prepare-underlay-file";
-import { commitUnderlayImport } from "@/lib/sketch/commit-underlay-import";
+import {
+  commitUnderlayImport,
+  type UnderlayOriginalSource,
+} from "@/lib/sketch/commit-underlay-import";
+import type { UnderlayReferenceBinding } from "@/lib/sketch/reference-room-import";
 import {
   evaluateUnderlayAttestation,
   UNDERLAY_RIGHTS_STATEMENT,
@@ -31,7 +35,11 @@ export interface SketchStartOverlayProps {
   /** Fallback: open the underlay panel file picker (used when studio apply is unavailable). */
   onImportUnderlay?: () => void;
   /** Full studio upload: persist + apply without leaving the chooser. */
-  onApplyUnderlay?: (imageUrl: string, opacity: number) => void;
+  onApplyUnderlay?: (
+    imageUrl: string,
+    opacity: number,
+    reference?: UnderlayReferenceBinding,
+  ) => void;
   inspectionId?: string;
   floorNumber?: number;
   onPlaceMoisture: () => void;
@@ -56,6 +64,12 @@ export function SketchStartOverlay({
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  // RA-8236: `preview` is the unmarked raster that is uploaded; this is the
+  // watermarked copy shown on screen.
+  const [markedPreview, setMarkedPreview] = useState<string | null>(null);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+  const [uploadOriginal, setUploadOriginal] =
+    useState<UnderlayOriginalSource | null>(null);
   const [opacity, setOpacity] = useState(0.35);
   const [holdsRights, setHoldsRights] = useState(false);
   const [compliesTerms, setCompliesTerms] = useState(false);
@@ -67,6 +81,9 @@ export function SketchStartOverlay({
 
   const resetReview = useCallback(() => {
     setPreview(null);
+    setMarkedPreview(null);
+    setUploadNotice(null);
+    setUploadOriginal(null);
     setHoldsRights(false);
     setCompliesTerms(false);
     setError(null);
@@ -84,6 +101,9 @@ export function SketchStartOverlay({
       return;
     }
     setPreview(result.dataUrl);
+    setMarkedPreview(result.previewUrl);
+    setUploadNotice(result.notice ?? null);
+    setUploadOriginal(result.original);
     setHoldsRights(false);
     setCompliesTerms(false);
   }, []);
@@ -112,13 +132,14 @@ export function SketchStartOverlay({
       holdsRights,
       compliesWithSourceTerms: compliesTerms,
       source: "upload",
+      original: uploadOriginal ?? undefined,
     });
     setApplying(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    onApplyUnderlay(result.imageUrl, opacity);
+    onApplyUnderlay(result.imageUrl, opacity, result.reference);
     resetReview();
   }, [
     preview,
@@ -128,6 +149,7 @@ export function SketchStartOverlay({
     inspectionId,
     holdsRights,
     compliesTerms,
+    uploadOriginal,
     opacity,
     resetReview,
   ]);
@@ -165,12 +187,15 @@ export function SketchStartOverlay({
             <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black/40">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={preview}
+                src={markedPreview ?? preview}
                 alt="Uploaded floor plan preview"
                 className="mx-auto max-h-56 w-full object-contain"
                 style={{ opacity }}
               />
             </div>
+            {uploadNotice && (
+              <p className="text-xs text-white/60">{uploadNotice}</p>
+            )}
 
             <div className="space-y-1">
               <div className="flex justify-between items-center">

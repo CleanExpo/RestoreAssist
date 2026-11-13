@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { CLIENT_NOTES_MAX_LENGTH } from "@/lib/clients/notes";
+import { PULSE_OPT_OUT_STAFF_NOTE } from "@/lib/pulse/pulse-inspection-ui-copy";
 
 interface ClientFormData {
   name: string;
@@ -16,6 +17,7 @@ interface ClientFormData {
   contactPerson: string;
   address: string;
   notes: string;
+  pulseOptOut: boolean;
   status: string;
 }
 
@@ -31,6 +33,7 @@ export default function ClientEditPage() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
+  const [savedOptOut, setSavedOptOut] = useState(false);
 
   const [form, setForm] = useState<ClientFormData>({
     name: "",
@@ -40,6 +43,7 @@ export default function ClientEditPage() {
     contactPerson: "",
     address: "",
     notes: "",
+    pulseOptOut: false,
     status: "ACTIVE",
   });
 
@@ -58,6 +62,7 @@ export default function ClientEditPage() {
         return;
       }
       const data = await response.json();
+      setSavedOptOut(data.pulseOptOut === true);
       setClientName(data.name ?? "");
       setForm({
         name: data.name ?? "",
@@ -67,6 +72,7 @@ export default function ClientEditPage() {
         contactPerson: data.contactPerson ?? "",
         address: data.address ?? "",
         notes: data.notes ?? "",
+        pulseOptOut: data.pulseOptOut === true,
         status: data.status ?? "ACTIVE",
       });
     } catch (err) {
@@ -155,7 +161,7 @@ export default function ClientEditPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-9xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link
@@ -172,7 +178,7 @@ export default function ClientEditPage() {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit}>
+      <form method="post" onSubmit={handleSubmit}>
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-5">
           {/* Name */}
           <div className="space-y-1.5">
@@ -333,6 +339,33 @@ export default function ClientEditPage() {
             <p className="text-xs text-slate-400">
               {form.notes.length.toLocaleString("en-AU")} / {CLIENT_NOTES_MAX_LENGTH.toLocaleString("en-AU")} characters
             </p>
+          </div>
+
+          {/* Automated email opt-out */}
+          <div className="flex items-start gap-3">
+            <input
+              id="pulseOptOut"
+              type="checkbox"
+              checked={form.pulseOptOut}
+              disabled={savedOptOut}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, pulseOptOut: e.target.checked }))
+              }
+              className="mt-0.5 h-4 w-4 accent-cyan-500"
+            />
+            <div>
+              <label
+                htmlFor="pulseOptOut"
+                className="block text-sm font-medium text-slate-300"
+              >
+                Client asked to stop automated job updates
+              </label>
+              <p className="text-xs text-slate-400">
+                {savedOptOut
+                  ? PULSE_OPT_OUT_STAFF_NOTE
+                  : "Once saved, this cannot be undone from this screen."}
+              </p>
+            </div>
           </div>
 
           {/* Save error */}

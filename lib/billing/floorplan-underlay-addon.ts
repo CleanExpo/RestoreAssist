@@ -1,11 +1,20 @@
 /**
  * RA-6922 — Floor Plan Underlay recurring add-on (SSOT).
  *
- * Layer 2 of the internet-floorplan-overlay gate. A recurring $9.95/month AUD
+ * Layer 2 of the internet-floorplan-overlay gate. A recurring $11/month AUD
  * subscription add-on whose active `FeatureEntitlement` (sku FLOORPLAN_UNDERLAY)
  * unlocks the floor-plan underlay scrape (`app/api/properties/scrape`). Priced
  * inline via Stripe `price_data` at checkout, so NO pre-created Stripe product
- * or price is required. Other recurring add-ons remain $11/mo.
+ * or price is required. Every recurring add-on is $11/mo, which is also what
+ * `docs/specs/byok-monetisation-spec.md` §2 specifies. This add-on shipped at
+ * $9.95 under RA-6922 -- the spec never sanctioned that -- and the odd one out
+ * made the marketing claim "add-ons are $11/month each" false. Founder decision
+ * 06/10/2026 was to level it up rather than qualify the copy.
+ *
+ * IMPORTANT for anyone reconciling revenue: because Stripe prices inline at
+ * checkout, subscriptions taken out before 06/10/2026 keep billing $9.95 until
+ * they are cancelled and re-taken. There is no proration or migration in this
+ * path, so expect a legacy $9.95 cohort alongside new $11 subscriptions.
  *
  * Shared by:
  *   - app/api/addons/checkout/route.ts  (builds the subscription checkout)
@@ -27,7 +36,7 @@ export const FLOORPLAN_ADDON_SUBSCRIPTION_TYPE = "floorplan_underlay_addon" as c
 
 /**
  * Recurring price for the add-on. GST-inclusive (AU convention) so Stripe Tax
- * breaks out the 10% GST component rather than adding it on top of $9.95.
+ * breaks out the 10% GST component rather than adding it on top of the amount.
  */
 export const FLOORPLAN_UNDERLAY_ADDON = {
   sku: FLOORPLAN_UNDERLAY_SKU,
@@ -35,7 +44,7 @@ export const FLOORPLAN_UNDERLAY_ADDON = {
   description:
     "Fetch and trace property floor plans from REA, Domain, and OnTheHouse.",
   /** Dollars, AUD, GST-inclusive. */
-  amount: 9.95,
+  amount: 11.0,
   currency: "AUD",
   interval: "month",
 } as const;

@@ -171,7 +171,7 @@ export default function NewInspectionPage() {
   return (
     <div
       className={cn(
-        "space-y-6 w-full max-w-[1600px] mx-auto",
+        "space-y-6 w-full max-w-9xl mx-auto",
         "text-neutral-900 dark:text-neutral-100",
         "bg-white dark:bg-transparent",
       )}

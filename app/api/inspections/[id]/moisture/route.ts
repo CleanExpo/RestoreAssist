@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notifyClientDryingChange } from "@/lib/pulse/notify-client-change";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +9,13 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { assertInspectionCapturable } from "@/lib/auth/assert-tenancy";
+
+function parseMoistureFlag(value: unknown): boolean {
+  if (value === true || value === "true" || value === 1 || value === "1") {
+    return true;
+  }
+  return false;
+}
 
 // POST - Add moisture reading
 export async function POST(
@@ -137,6 +145,8 @@ export async function POST(
           source: ["ble", "cloud", "ocr", "manual"].includes(body.source)
             ? body.source
             : "manual",
+          isBaseline: parseMoistureFlag(body.isBaseline),
+          isMonitoringPoint: parseMoistureFlag(body.isMonitoringPoint),
         };
 
         const rawSketchRoomId =
@@ -198,9 +208,13 @@ export async function POST(
               location: moistureReading.location,
               surfaceType: moistureReading.surfaceType,
               moistureLevel: moistureReading.moistureLevel,
+              isBaseline: moistureReading.isBaseline,
+              isMonitoringPoint: moistureReading.isMonitoringPoint,
             }),
           },
         });
+
+        void notifyClientDryingChange(id);
 
         return NextResponse.json({ moistureReading }, { status: 201 });
       } catch (error) {

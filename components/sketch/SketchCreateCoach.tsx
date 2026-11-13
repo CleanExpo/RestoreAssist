@@ -34,54 +34,57 @@ export function SketchCreateCoach({
   return (
     <div
       className={cn(
-        "absolute inset-0 z-9 flex items-center justify-center pointer-events-none",
+        "absolute bottom-4 left-4 right-4 sm:right-auto z-[9] pointer-events-none",
         className,
       )}
       role="status"
       aria-label="Draw first room"
     >
-      <div className="pointer-events-auto mx-4 max-w-sm w-full rounded-2xl border border-white/12 bg-[#0E1518]/88 backdrop-blur-md px-4 py-3.5 shadow-xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#C5E063]">
-          Draw from scratch
-        </p>
-        <p className="mt-1 text-sm font-medium text-white">
-          Tap the canvas to place a 3.86 × 3.86 m room
-        </p>
-        <p className="mt-0.5 text-[12px] text-white/50">
-          Drag a diagonal for a custom size. Type exact length and width after
-          the room is selected.
-        </p>
-
-        {onTemplateKindChange && (
-          <div
-            className="mt-3 flex gap-1.5"
-            role="group"
-            aria-label="Room template"
-          >
-            {TEMPLATES.map(({ kind, label }) => (
-              <button
-                key={kind}
-                type="button"
-                aria-pressed={templateKind === kind}
-                onClick={() => onTemplateKindChange(kind)}
-                className={cn(
-                  "flex-1 min-h-10 rounded-lg border text-[12px] font-semibold",
-                  templateKind === kind
-                    ? "border-[#C5E063] bg-[#C5E063]/15 text-[#C5E063]"
-                    : "border-white/12 text-white/65 hover:bg-white/5",
-                )}
-              >
-                {label}
-              </button>
-            ))}
+      <div className="pointer-events-auto max-w-lg w-full rounded-xl border border-white/12 bg-[#0E1518]/92 backdrop-blur-md px-4 py-3 shadow-xl">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-300/90">
+              Draw from scratch
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-white leading-snug">
+              Tap the canvas to place a 3.86 × 3.86 m room
+            </p>
+            <p className="mt-0.5 text-[11px] text-white/45 leading-snug hidden sm:block">
+              Drag a diagonal for custom size · edit L×W after selecting the room
+            </p>
           </div>
-        )}
+
+          {onTemplateKindChange && (
+            <div
+              className="flex gap-1.5 shrink-0"
+              role="group"
+              aria-label="Room template"
+            >
+              {TEMPLATES.map(({ kind, label }) => (
+                <button
+                  key={kind}
+                  type="button"
+                  aria-pressed={templateKind === kind}
+                  onClick={() => onTemplateKindChange(kind)}
+                  className={cn(
+                    "min-h-9 min-w-[4.5rem] rounded-lg border px-2 text-[11px] font-semibold",
+                    templateKind === kind
+                      ? "border-cyan-400/70 bg-cyan-500/15 text-cyan-100"
+                      : "border-white/12 text-white/65 hover:bg-white/5",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {onDismiss && (
           <button
             type="button"
             onClick={onDismiss}
-            className="mt-2 w-full min-h-9 text-[12px] text-white/40 hover:text-white/70"
+            className="mt-2 text-[11px] text-white/40 hover:text-white/70"
           >
             Hide this tip
           </button>

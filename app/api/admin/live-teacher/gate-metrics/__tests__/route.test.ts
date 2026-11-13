@@ -9,9 +9,14 @@ vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
 const mockVerifyAdmin = vi.fn();
-vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminFromDb: (...args: unknown[]) => mockVerifyAdmin(...args),
-}));
+vi.mock("@/lib/admin-auth", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/admin-auth")>("@/lib/admin-auth");
+  return {
+    adminUserScope: actual.adminUserScope,
+    verifyAdminFromDb: (...args: unknown[]) => mockVerifyAdmin(...args),
+  };
+});
 
 const mockSessionGroupBy = vi.fn();
 const mockSessionCount = vi.fn();
@@ -238,5 +243,33 @@ describe("GET /api/admin/live-teacher/gate-metrics", () => {
     expect(mockReportFindMany.mock.calls[0][0].where.user.organizationId).toBe(
       orgId,
     );
+  });
+
+  it("scopes an org-less admin to their own rows, never every org-less firm [ra-8043b]", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "solo1", role: "ADMIN" },
+    } as never);
+    mockVerifyAdmin.mockResolvedValue({
+      user: { id: "solo1", role: "ADMIN", organizationId: null },
+    });
+    mockSessionGroupBy.mockResolvedValue([]);
+    mockSessionCount.mockResolvedValue(0);
+    mockUtteranceFindMany.mockResolvedValue([]);
+    mockChunkFindMany.mockResolvedValue([]);
+    mockReportFindMany.mockResolvedValue([]);
+
+    const { GET } = await import("../route");
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+
+    const own = { user: { id: "solo1" } };
+    expect(mockSessionGroupBy.mock.calls[0][0].where.inspection).toEqual(own);
+    expect(mockSessionCount.mock.calls[0][0].where.inspection).toEqual(own);
+    expect(
+      mockUtteranceFindMany.mock.calls[0][0].where.session.inspection,
+    ).toEqual(own);
+    expect(mockReportFindMany.mock.calls[0][0].where.user).toEqual({
+      id: "solo1",
+    });
   });
 });

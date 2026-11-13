@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { useState, useEffect } from "react";
 import {
   Check,
@@ -24,6 +25,10 @@ import { notifyError } from "@/lib/notify";
 import { CancelSubscriptionDialog } from "@/components/billing/CancelSubscriptionDialog";
 import BillingGate from "@/components/capacitor/BillingGate";
 import Link from "next/link";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
+import { PaidPlanFeatureNotice } from "@/components/billing/PaidPlanFeatureNotice";
 
 interface Subscription {
   id: string;
@@ -265,7 +270,10 @@ function SubscriptionPageContent() {
         toast.success("Subscription reactivated successfully");
         fetchSubscription();
       } else {
-        toast.error("Failed to reactivate subscription");
+        const data = await response.json().catch(() => null);
+        toast.error(
+          apiErrorMessage(data) ?? "Failed to reactivate subscription",
+        );
       }
     } catch (error) {
       console.error("Error reactivating subscription:", error);
@@ -305,7 +313,9 @@ function SubscriptionPageContent() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create checkout session");
+        throw new Error(
+          apiErrorMessage(errorData) ?? "Failed to create checkout session",
+        );
       }
 
       const { sessionId, url } = await response.json();
@@ -341,7 +351,7 @@ function SubscriptionPageContent() {
     // RA-1212 — skeleton mirrors the final layout so slow connections
     // don't see a blank page after clicking Login → Subscription.
     return (
-      <div className="space-y-6">
+      <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <Skeleton className="h-9 w-40" />
@@ -355,44 +365,54 @@ function SubscriptionPageContent() {
           <Skeleton className="h-72 w-full rounded-xl" />
           <Skeleton className="h-72 w-full rounded-xl" />
         </div>
-      </div>
+      </SimpleDashboardPageFrame>
     );
   }
 
   return (
     <BillingGate>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold mb-2">Subscription</h1>
-            <p className="text-slate-400">
-              Manage your subscription and billing
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => fetchSubscription(true)}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-              />
-              {refreshing ? "Refreshing..." : "Refresh"}
-            </button>
-            <button
-              onClick={checkSubscription}
-              disabled={checking}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <CheckCircle
-                className={`w-4 h-4 ${checking ? "animate-spin" : ""}`}
-              />
-              {checking ? "Checking..." : "Check Subscription"}
-            </button>
-          </div>
-        </div>
+      <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
+        <DashboardListPageHeader
+          eyebrow="Simple workspace"
+          title="Account & Billing"
+          description="Manage your subscription, payment method, and plan allowances."
+          icon={<CreditCard className="h-7 w-7 text-cyan-500" aria-hidden />}
+          secondaryLinks={workspaceHubLinks({
+            omitHref: "/dashboard/subscription",
+          })}
+          primaryAction={
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => fetchSubscription(true)}
+                disabled={refreshing}
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-neutral-200 px-4 py-2 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:hover:bg-slate-700/50 sm:flex-none"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                  aria-hidden
+                />
+                {refreshing ? "Refreshing…" : "Refresh"}
+              </button>
+              <button
+                type="button"
+                onClick={checkSubscription}
+                disabled={checking}
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+              >
+                <CheckCircle
+                  className={`h-4 w-4 ${checking ? "animate-spin" : ""}`}
+                  aria-hidden
+                />
+                {checking ? "Checking…" : "Check subscription"}
+              </button>
+            </div>
+          }
+        />
+
+        <PaidPlanFeatureNotice
+          subscriptionStatus={userStatus?.subscriptionStatus}
+        />
 
         {loadError && (
           <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
@@ -687,7 +707,7 @@ function SubscriptionPageContent() {
             })()}
 
             {/* Pricing Cards */}
-            <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <div className="grid md:grid-cols-3 gap-6 max-w-9xl mx-auto">
               {Object.entries(PRICING_CONFIG.pricing).map(([key, plan]) => (
                 <div
                   key={key}
@@ -790,7 +810,7 @@ function SubscriptionPageContent() {
             </div>
 
             {/* Features Comparison */}
-            <div className="mt-12 max-w-4xl mx-auto">
+            <div className="mt-12 max-w-9xl mx-auto">
               <h3 className="text-2xl font-bold text-white text-center mb-6">
                 All Plans Include
               </h3>
@@ -825,7 +845,7 @@ function SubscriptionPageContent() {
                 <div className="text-center p-4 bg-slate-800/30 rounded-lg">
                   <Clock className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-white mb-2">
-                    24/7 Access
+                    Dashboard access
                   </h4>
                   <p className="text-slate-400 text-sm">
                     Access your data anytime, anywhere
@@ -842,7 +862,7 @@ function SubscriptionPageContent() {
           onOpenChange={setShowCancelDialog}
           onCancelled={() => fetchSubscription()}
         />
-      </div>
+      </SimpleDashboardPageFrame>
     </BillingGate>
   );
 }

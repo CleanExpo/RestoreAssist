@@ -40,6 +40,8 @@ function mockAdmin() {
 }
 
 beforeEach(() => {
+  // RA-8043c: the route now also requires the platform support allowlist.
+  process.env.PLATFORM_SUPPORT_USER_IDS = "admin-1";
   getServerSession.mockReset();
   userFindUnique.mockReset();
   cronJobRunFindMany.mockReset();

@@ -32,6 +32,8 @@ beforeEach(() => {
     user: { id: "user_abcd" },
   });
   userFindUnique
+    // RA-7893: the gate reads the organisation link, then the effective plan.
+    .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
     .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
     .mockResolvedValueOnce({
       businessName: "Test Co",

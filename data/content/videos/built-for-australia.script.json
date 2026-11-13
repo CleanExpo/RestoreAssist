@@ -1,0 +1,14 @@
+{
+  "slug": "built-for-australia",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 55,
+  "segments": [
+    { "text": "Most restoration software was built for a different market. American building practice, American insurers, American paperwork.", "startSec": 0.5, "durationSec": 9.0 },
+    { "text": "Then it was translated. The currency changed, the spelling changed, and every assumption underneath stayed exactly where it was.", "startSec": 10.0, "durationSec": 9.5 },
+    { "text": "RestoreAssist was built here, for how the work is actually done in Australia and New Zealand.", "startSec": 20.0, "durationSec": 7.0 },
+    { "text": "Local building methods and climate. Local insurer expectations. ABN and GST handled as standard, not as a regional setting somebody remembered to add.", "startSec": 27.5, "durationSec": 11.0 },
+    { "text": "Australian English throughout, dates the right way around, and pricing in dollars that are already yours.", "startSec": 39.0, "durationSec": 8.0 },
+    { "text": "Built by people who have run these jobs, in these conditions.", "startSec": 47.5, "durationSec": 5.0 },
+    { "text": "See how it handles your next claim.", "startSec": 52.5, "durationSec": 2.5 }
+  ]
+}

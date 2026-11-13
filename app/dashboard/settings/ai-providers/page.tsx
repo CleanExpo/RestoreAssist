@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { META_PROVIDER_DESCRIPTION } from "./meta-provider-copy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,7 +26,8 @@ type AiProvider =
   | "OPENAI"
   | "GOOGLE"
   | "GEMMA"
-  | "OPENROUTER";
+  | "OPENROUTER"
+  | "META";
 type ConnectionStatus = "ACTIVE" | "DISABLED" | "FAILED";
 
 interface ProviderConnectionSummary {
@@ -84,6 +86,14 @@ const PROVIDERS: {
     keyPlaceholder:
       "(no API key required — uses RESTOREASSIST_AI_ENDPOINT env var)",
     docsUrl: "",
+  },
+  {
+    id: "META",
+    name: "Meta (Llama)",
+    description:
+      META_PROVIDER_DESCRIPTION,
+    keyPlaceholder: "LLM_...",
+    docsUrl: "https://llama.developer.meta.com",
   },
   {
     id: "OPENROUTER",
@@ -281,7 +291,7 @@ export default function AiProvidersPage() {
   // ── No workspace ─────────────────────────────────────────────────────────
   if (!loading && !loadError && wsStatus?.status !== "READY") {
     return (
-      <div className="max-w-2xl mx-auto py-16 text-center space-y-4">
+      <div className="max-w-9xl mx-auto py-16 text-center space-y-4">
         <Brain size={40} className="mx-auto text-neutral-300" />
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
           Workspace required
@@ -295,7 +305,7 @@ export default function AiProvidersPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-9xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-neutral-900 dark:text-white">

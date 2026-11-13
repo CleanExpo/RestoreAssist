@@ -186,7 +186,7 @@ export default function MonitoringPage({
   const hasReadings = report.dailyLogs.length > 0;
 
   return (
-    <div className="space-y-6 p-6 max-w-5xl mx-auto">
+    <div className="space-y-6 p-6 max-w-9xl mx-auto">
       {/* ── Header ── */}
       <div className="flex items-start gap-4">
         <button

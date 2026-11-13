@@ -18,7 +18,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import {
   optimizePrompt,
   type OptimizationOptions,
@@ -42,6 +45,10 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // RA-8043c: the optimiser loop makes up to 50 calls on the platform AI key. Every firm owner is an ADMIN,
+  // so the ADMIN check alone let any firm reach it.
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
   const userId = auth.user!.id;
 
   // RA-1266: prompt optimization loop burns many Claude API calls

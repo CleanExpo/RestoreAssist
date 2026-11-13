@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildAdvancedNavGroups,
+  buildSimpleNavItems,
   simpleNavItems,
   ADMIN_NAV_HREFS,
   type NavItem,
@@ -25,6 +26,11 @@ describe("dashboard nav — create-report gate href", () => {
     const makeReport = simpleNavItems.find((i) => i.highlight);
     expect(makeReport?.href).toBe("/dashboard/reports/new");
     expect(makeReport?.label).toBe("Make a Report");
+  });
+
+  it("Simple mode includes overview and jobs before the report CTA", () => {
+    expect(simpleNavItems[0]?.href).toBe("/dashboard");
+    expect(simpleNavItems[1]?.href).toBe("/dashboard/inspections");
   });
 
   it("lists the six Admin destinations for Simple-mode admin append", () => {
@@ -84,5 +90,13 @@ describe("dashboard nav — create-report gate href", () => {
         "/dashboard/governance",
       ]),
     );
+  });
+});
+
+describe("buildSimpleNavItems — manager landing", () => {
+  it("puts completeness inbox first and summary with stay=1", () => {
+    const items = buildSimpleNavItems({ isManager: true });
+    expect(items[0]?.href).toBe("/dashboard/operations/completeness-inbox");
+    expect(items.some((i) => i.href === "/dashboard?stay=1")).toBe(true);
   });
 });

@@ -230,7 +230,7 @@ function SearchPageInner() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
-      <div className="max-w-3xl mx-auto px-4 py-10">
+      <div className="max-w-9xl mx-auto px-4 py-10">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-white mb-1">Search</h1>

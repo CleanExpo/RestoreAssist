@@ -565,7 +565,7 @@ export default function NewReportPage() {
         "bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950",
       )}
     >
-      <div className="max-w-8xl mx-auto">
+      <div className="max-w-9xl mx-auto">
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1
@@ -908,7 +908,7 @@ export default function NewReportPage() {
       {/* Setup Guide Modal - Same as success page */}
       {showSetupGuide && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="max-w-2xl w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="max-w-9xl w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-6 rounded-t-xl z-10">
               <div className="flex items-center justify-between">

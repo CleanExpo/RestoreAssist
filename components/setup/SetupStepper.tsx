@@ -18,6 +18,32 @@ export interface SetupStepperItem {
   description?: string;
 }
 
+/** Progress + sidebar checks — optional welcome only counts once you've moved past it. */
+function resolveStepCompletion(
+  items: SetupStepperItem[],
+  currentIndex: number,
+): Record<string, boolean> {
+  return Object.fromEntries(
+    items.map((item, i) => {
+      if (item.complete) return [item.key, true];
+      if (item.key === "welcome") return [item.key, i < currentIndex];
+      return [item.key, false];
+    }),
+  );
+}
+
+function stepHeaderBadge(item: SetupStepperItem): string | null {
+  if (item.key === "welcome") return null;
+  if (item.required) return "Required";
+  return "Recommended";
+}
+
+function sidebarStepTag(item: SetupStepperItem): string | null {
+  if (item.key === "welcome") return null;
+  if (item.required) return null;
+  return "Recommended";
+}
+
 // Inline SVG marks (Phill Rule 1: no generic icon-library imports).
 function CheckMark({ size = 12, className }: { size?: number; className?: string }) {
   return (
@@ -164,17 +190,21 @@ export function SetupStepper({
     title: i.title,
     required: i.required,
   }));
-  const completion = Object.fromEntries(items.map((i) => [i.key, i.complete]));
-  const state = computeWizardState(index, completion, steps);
+  const completionForGates = Object.fromEntries(
+    items.map((i) => [i.key, i.complete]),
+  );
+  const completionForProgress = resolveStepCompletion(items, index);
+  const state = computeWizardState(index, completionForGates, steps);
+  const progressState = computeWizardState(index, completionForProgress, steps);
   const current = items[state.currentIndex];
 
   const progressPct = Math.round(
-    (state.completedCount / state.totalSteps) * 100,
+    (progressState.completedCount / progressState.totalSteps) * 100,
   );
 
   const stepBadge = (item: SetupStepperItem, i: number) => {
     const isCurrent = i === state.currentIndex;
-    const isDone = item.complete && !isCurrent;
+    const isDone = completionForProgress[item.key] === true && !isCurrent;
     return (
       <span
         aria-hidden="true"
@@ -257,16 +287,16 @@ export function SetupStepper({
                       "min-w-0 flex-1 truncate text-sm",
                       isCurrent
                         ? "font-medium text-white"
-                        : item.complete
+                        : completionForProgress[item.key]
                           ? "text-white/70"
                           : "text-white/45",
                     ].join(" ")}
                   >
                     {item.title}
                   </span>
-                  {!item.required && (
+                  {sidebarStepTag(item) && (
                     <span className="shrink-0 rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/40">
-                      Optional
+                      {sidebarStepTag(item)}
                     </span>
                   )}
                 </li>
@@ -277,7 +307,8 @@ export function SetupStepper({
           <div className="relative mt-6 shrink-0 border-t border-white/10 pt-5">
             <div className="flex items-center justify-between gap-3 text-xs text-white/60">
               <span className="min-w-0 truncate">
-                {state.completedCount} of {state.totalSteps} complete
+                {progressState.completedCount} of {progressState.totalSteps}{" "}
+                complete
               </span>
               <span className="shrink-0 font-medium text-brand-gold">
                 {progressPct}%
@@ -301,7 +332,7 @@ export function SetupStepper({
       </aside>
 
       {/* ————— Content pane (fills remaining viewport) ————— */}
-      <div className="flex h-full min-w-0 flex-1 flex-col bg-white">
+      <div className="setup-wizard-surface flex h-full min-w-0 flex-1 flex-col bg-white text-brand-navy">
         <header className="shrink-0 border-b border-brand-navy/10 bg-white px-5 py-3 lg:hidden">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -333,15 +364,17 @@ export function SetupStepper({
           <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
             <div className="mb-6 shrink-0 sm:mb-7">
               <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
-                <span
-                  className={
-                    current.required
-                      ? "rounded-full bg-brand-navy px-2.5 py-1 text-white"
-                      : "rounded-full border border-brand-navy/15 px-2.5 py-1 text-brand-slate"
-                  }
-                >
-                  {current.required ? "Required" : "Optional"}
-                </span>
+                {stepHeaderBadge(current) && (
+                  <span
+                    className={
+                      current.required
+                        ? "rounded-full bg-brand-navy px-2.5 py-1 text-white"
+                        : "rounded-full border border-brand-navy/15 px-2.5 py-1 text-brand-slate"
+                    }
+                  >
+                    {stepHeaderBadge(current)}
+                  </span>
+                )}
                 <span className="text-brand-slate/70">
                   {state.currentIndex + 1} of {state.totalSteps}
                 </span>
@@ -438,7 +471,7 @@ export function SetupStepper({
                     "Setting up your workspace…"
                   ) : (
                     <>
-                      Generate your first report
+                      Finish setup
                       <ArrowMark direction="right" />
                     </>
                   )}

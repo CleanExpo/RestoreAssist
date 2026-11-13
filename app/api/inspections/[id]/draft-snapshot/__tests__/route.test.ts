@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
+const { notifyClientDryingChange } = vi.hoisted(() => ({
+  notifyClientDryingChange: vi.fn(),
+}));
+vi.mock("@/lib/pulse/notify-client-change", () => ({ notifyClientDryingChange }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
 const { resolveInspectionWrite, inspectionFindUnique, areaFindMany, sketchRoomFindMany, transaction, tx } =
@@ -114,6 +118,28 @@ beforeEach(() => {
 });
 
 describe("PUT inspection draft snapshot", () => {
+  it("checks drying when a save removes the last reading", async () => {
+    const response = await PUT(
+      request({
+        ...payload,
+        moistureReadings: [],
+        baseIds: { moistureReadings: ["reading-removed"] },
+      }),
+      { params: Promise.resolve({ id: "insp_1" }) },
+    );
+    expect(response.status).toBe(200);
+    expect(notifyClientDryingChange).toHaveBeenCalledWith("insp_1");
+  });
+
+  it("does not check drying when a save had and has no readings", async () => {
+    const response = await PUT(
+      request({ ...payload, moistureReadings: [] }),
+      { params: Promise.resolve({ id: "insp_1" }) },
+    );
+    expect(response.status).toBe(200);
+    expect(notifyClientDryingChange).not.toHaveBeenCalled();
+  });
+
   it("accepts an unmeasured draft without creating an environmental reading", async () => {
     const response = await PUT(request({ ...payload, environmentalData: null }), {
       params: Promise.resolve({ id: "insp_1" }),

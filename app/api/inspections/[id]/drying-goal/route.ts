@@ -10,13 +10,21 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { notifyClientDryingChange } from "@/lib/pulse/notify-client-change";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionReadable,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { IICRC_DRY_STANDARDS, getDryStandard } from "@/lib/iicrc-dry-standards";
 import { computeTargetCurve } from "@/lib/drying/target-curve";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { latestMonitoringReadingsForDryingGoal } from "@/lib/moisture/latest-monitoring-readings";
 
 // Material EMC targets for the "Drying Goal: ACHIEVED" gate
 // These map the iicrc-dry-standards.ts values into the per-material target JSON
@@ -45,12 +53,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { id: inspectionId } = await params;
 
-    // Verify ownership
-    const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
-      select: { id: true },
-    });
-    if (!inspection) {
+    // D-028 / D-023: the assigned technician reads back the goal they set.
+    const tenancy = await assertInspectionReadable(session, inspectionId);
+    if (!tenancy.ok) {
       return apiError(request, {
         code: "NOT_FOUND",
         message: "Inspection not found",
@@ -196,8 +201,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // Verify ownership + get classification
+      // D-028: the owner's reach, plus the technician assigned to the job.
+      const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+      if (!tenancy.ok) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
       const inspection = await prisma.inspection.findFirst({
-        where: { id: inspectionId, userId },
+        where: tenancy.data.inspectionManyWhere,
         select: { id: true },
       });
       if (!inspection) {
@@ -212,16 +226,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // race where two simultaneous POST requests both read null and both attempt create.
       let record;
       try {
-        record = await (prisma as any).dryingGoalRecord.create({
-          data: {
-            inspectionId,
-            targetCategory,
-            targetClass,
-            materialTargets: buildMaterialTargets(),
-            goalAchieved: false,
-            iicrcReference: "IICRC S500:2021 §11.4",
-          },
-        });
+        // D-028: re-check the caller's reach inside the write, so a
+        // reassignment between the check and the write changes 0 rows.
+        record = await writeWithinInspectionScope(
+          tenancy.data.inspectionManyWhere,
+          { updatedAt: new Date() },
+          (tx) =>
+            tx.dryingGoalRecord.create({
+              data: {
+                inspectionId,
+                targetCategory,
+                targetClass,
+                materialTargets: buildMaterialTargets(),
+                goalAchieved: false,
+                iicrcReference: "IICRC S500:2021 §11.4",
+              },
+            }),
+        );
       } catch (err: any) {
         if (err.code === "P2002") {
           return apiError(request, {
@@ -233,6 +254,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
         throw err;
       }
+      if (!record) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
+
+      void notifyClientDryingChange(inspectionId);
 
       return NextResponse.json({
         dryingGoal: record,
@@ -258,11 +288,22 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { id: inspectionId } = await params;
     const body = await request.json().catch(() => ({}));
-    const { signedOffBy } = body as { signedOffBy?: string };
+    // A truthy `signedOffBy` asks for sign-off. The signatory recorded is
+    // always the signed-in user, never a name from the request body.
+    const signOffRequested = Boolean((body as { signedOffBy?: unknown }).signedOffBy);
 
     // Verify ownership
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
+      where: tenancy.data.inspectionManyWhere,
       include: {
         moistureReadings: {
           select: {
@@ -270,6 +311,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             location: true,
             surfaceType: true,
             moistureLevel: true,
+            isBaseline: true,
+            isMonitoringPoint: true,
+            invalidatedAt: true,
             recordedAt: true,
             createdAt: true,
           },
@@ -306,7 +350,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const materialTargets = record.materialTargets as Record<string, number>;
-    const readings = inspection.moistureReadings;
+    const readings = latestMonitoringReadingsForDryingGoal(
+      inspection.moistureReadings,
+    );
 
     if (readings.length === 0) {
       return NextResponse.json({
@@ -365,23 +411,55 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // ALL readings are at or below target — goal achieved!
+    // ALL readings are at or below target. Marking the goal ACHIEVED is a
+    // certification that goes into the report, so it stays with the owner's
+    // reach: the assigned technician may record readings and evaluate, but
+    // not certify (D-028).
+    if (tenancy.data.viaAssignment) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message:
+          "All readings are at target. The job owner or a manager certifies the drying goal.",
+        status: 403,
+      });
+    }
+
+    // Goal achieved.
     const now = new Date();
     const startedAt = record.startedAt;
     const dryingMs = now.getTime() - startedAt.getTime();
     const totalDryingDays = Math.ceil(dryingMs / (1000 * 60 * 60 * 24));
 
-    const updated = await (prisma as any).dryingGoalRecord.update({
-      where: { inspectionId },
-      data: {
-        goalAchieved: true,
-        goalAchievedAt: now,
-        totalDryingDays,
-        finalReadingsSnapshot: readingSnapshot,
-        signedOffBy: signedOffBy ?? null,
-        signedOffAt: signedOffBy ? now : null,
+    // Scoped and conditional: a reassignment, or a concurrent certify, between
+    // the read above and this write changes 0 rows.
+    const updated = await writeWithinInspectionScope(
+      tenancy.data.inspectionManyWhere,
+      { updatedAt: now },
+      async (tx) => {
+        const claimed = await tx.dryingGoalRecord.updateMany({
+          where: { inspectionId, goalAchieved: false },
+          data: {
+            goalAchieved: true,
+            goalAchievedAt: now,
+            totalDryingDays,
+            finalReadingsSnapshot: readingSnapshot as unknown as Prisma.InputJsonValue,
+            signedOffBy: signOffRequested ? session.user.id : null,
+            signedOffAt: signOffRequested ? now : null,
+          },
+        });
+        if (claimed.count === 0) return null;
+        return tx.dryingGoalRecord.findUnique({ where: { inspectionId } });
       },
-    });
+    );
+    if (!updated) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Drying goal not found or already certified",
+        status: 404,
+      });
+    }
+
+    void notifyClientDryingChange(inspectionId);
 
     return NextResponse.json({
       status: "ACHIEVED",

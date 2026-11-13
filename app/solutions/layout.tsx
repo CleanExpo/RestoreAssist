@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
 
 /**
  * Solutions page metadata.
@@ -40,5 +41,5 @@ export default function SolutionsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <MarketingShell>{children}</MarketingShell>;
 }

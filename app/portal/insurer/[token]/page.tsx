@@ -1,6 +1,7 @@
-import { verifyInsurerToken } from "@/lib/portal-token";
+import { verifyReportReaderToken } from "@/lib/report-share/access";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { readEquipmentDeploymentLog } from "@/lib/reports/stored-equipment-pricing";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -14,8 +15,11 @@ interface PageProps {
 export default async function InsurerPortalPage({ params }: PageProps) {
   const { token } = await params;
 
-  const verified = verifyInsurerToken(token);
-  if (!verified) {
+  const verified = await verifyReportReaderToken(token);
+  if (
+    !verified ||
+    (verified.scope !== "INSURER" && verified.scope !== "LEGACY_HMAC")
+  ) {
     return <ExpiredPage />;
   }
 
@@ -45,13 +49,9 @@ export default async function InsurerPortalPage({ params }: PageProps) {
   const scopeAreas = report.scopeAreas
     ? JSON.parse(report.scopeAreas as string)
     : null;
-  const equipmentSelection = report.equipmentSelection
-    ? JSON.parse(report.equipmentSelection as string)
-    : null;
-
-  const eqArr = Array.isArray(equipmentSelection)
-    ? equipmentSelection
-    : (equipmentSelection?.equipment ?? equipmentSelection?.items ?? []);
+  // RA-8281 B1 round 13: read by the one reader of the stored value. No
+  // money is read here.
+  const eqArr = readEquipmentDeploymentLog(report.equipmentSelection);
 
   const moistureArr = Array.isArray(moistureReadings) ? moistureReadings : [];
 
@@ -329,23 +329,22 @@ export default async function InsurerPortalPage({ params }: PageProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {eqArr.map((eq: any, i: number) => (
+                  {eqArr.map((eq, i: number) => (
                     <tr
                       key={i}
                       className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}
                     >
                       <td className="px-3 py-1.5 text-slate-700">
-                        {eq.type ?? eq.name ?? "—"}
+                        {eq.type ?? "—"}
                       </td>
                       <td className="px-3 py-1.5 text-slate-700">
-                        {`${eq.brand ?? eq.make ?? ""}${eq.model ? ` ${eq.model}` : ""}`.trim() ||
-                          "—"}
+                        {eq.brandModel ?? "—"}
                       </td>
                       <td className="px-3 py-1.5 text-slate-400 font-mono">
-                        {eq.serialNumber ?? eq.serial ?? "—"}
+                        {eq.serial ?? "—"}
                       </td>
                       <td className="px-3 py-1.5 text-slate-700">
-                        {eq.location ?? eq.room ?? "—"}
+                        {eq.location ?? "—"}
                       </td>
                     </tr>
                   ))}

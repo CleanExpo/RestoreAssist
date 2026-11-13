@@ -1,42 +1,42 @@
 ---
-title: "Connect Xero to push invoices automatically"
+title: "Connect Xero to push invoices"
 slug: "connect-xero"
 category: "integrations"
 order: 1
 audience: ["admin"]
 readTimeMin: 4
-updatedAt: "2026-05-15"
+updatedAt: "2026-11-02"
 status: "published"
 heroImage: "ra-help/integrations/connect-xero-hero"
 relatedSlugs: []
-aiSummary: "Walks an admin through OAuth-connecting their Xero organisation from /dashboard/integrations, picking the default sales account and tax rate, and what happens when an inspection is closed (invoice auto-syncs to Xero as a Draft)."
+aiSummary: "Walks an admin through OAuth-connecting their Xero organisation from /dashboard/integrations, picking the default sales account and tax rate, and how invoices reach Xero (a background job about once an hour, or Sync from the invoice menu)."
 userIntents:
   - "how do I connect Xero"
   - "Xero integration setup"
-  - "auto-sync invoices"
+  - "sync invoices to Xero"
   - "push invoices to accounting"
   - "Xero OAuth"
 successCriteria:
   - "Xero organisation connected and visible under /dashboard/integrations"
   - "Default sales account + GST tax rate selected"
-  - "Test invoice appears in Xero as Draft after closing an inspection"
+  - "Test invoice appears in Xero after Sync from the invoice menu"
 ---
 
-The Xero integration pushes invoices from RestoreAssist into your Xero organisation as Drafts the moment you close an inspection. The sync is fire-and-forget — Xero outages never block you from closing a job.
+The Xero integration pushes invoices from RestoreAssist into your Xero organisation. A background job picks up invoices that are past draft about once an hour, and you can push one straight away from the invoice menu. Xero outages do not block your work in RestoreAssist.
 
 ## Before you start
 
 You need:
 
 - A Xero organisation you're an admin of
-- An active RestoreAssist subscription on PREMIUM tier or above
+- An active RestoreAssist subscription and the Online Bookkeeping Connection add-on
 - The ABN on your RestoreAssist account matching the ABN on your Xero org
 
 ## Open the integrations page
 
 Go to `/dashboard/integrations`. Click **Connect** on the Xero card.
 
-<Screenshot src="ra-help/integrations/integrations-page" alt="The /dashboard/integrations page showing the Xero connect card" caption="Xero appears alongside MYOB, Stripe, and other accounting integrations." />
+<Screenshot src="ra-help/integrations/integrations-page" alt="The /dashboard/integrations page showing the Xero connect card" caption="The Xero card on the integrations page." />
 
 ## OAuth into Xero
 
@@ -56,15 +56,15 @@ After connecting, RestoreAssist asks you to pick:
 - **GST tax rate** — `GST on Income` (10%), matching Australian Tax Office rules
 - **Default contact group** — optional, helps with reporting
 
-<Screenshot src="ra-help/integrations/xero-defaults" alt="The Xero defaults form showing sales account and tax rate pickers" caption="These defaults apply to every auto-synced invoice; you can override per-invoice." />
+<Screenshot src="ra-help/integrations/xero-defaults" alt="The Xero defaults form showing sales account and tax rate pickers" caption="These defaults apply to every invoice pushed to Xero; you can override per-invoice." />
 
 ## Test the sync
 
-Close one of your inspections. Within 30 seconds, an invoice appears in Xero under **Business → Invoices → Draft**. Customer name, line items, GST, and total amount come from the RestoreAssist invoice.
+Open an invoice and choose **Sync** from its menu. The invoice appears in Xero under **Business → Invoices**. Customer name, line items, GST, and total amount come from the RestoreAssist invoice.
 
 ## Troubleshooting
 
 - **Sync paused banner** — Xero rate-limited us; the dead-letter queue retries automatically with backoff
 - **Invoice missing in Xero** — check `/dashboard/integrations/sync-errors` for the specific failure
 - **Wrong tax rate applied** — re-check your default GST rate; existing drafts won't update retroactively
-- **Disconnect** — click **Disconnect** on the Xero card. Past synced invoices stay in Xero; new closes stop syncing until you reconnect.
+- **Disconnect** — click **Disconnect** on the Xero card. Past synced invoices stay in Xero; new invoices stop syncing until you reconnect.

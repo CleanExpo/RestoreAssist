@@ -1,6 +1,8 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { upgradeBentoTile, upgradeBentoTileShine } from "@/lib/billing/upgrade-page-theme";
+import { cn } from "@/lib/utils";
 
 const FAQ_ITEMS = [
   {
@@ -17,13 +19,12 @@ const FAQ_ITEMS = [
   },
 ] as const;
 
-/** Short reassurance block — one job, three answers, no accordion clutter. */
 export default function UpgradeFaq() {
   const reduceMotion = useReducedMotion();
 
   return (
     <motion.section
-      className="mx-auto mt-12 w-full max-w-lg sm:mt-14"
+      className="w-full"
       aria-labelledby="upgrade-faq-heading"
       initial={reduceMotion ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -35,16 +36,25 @@ export default function UpgradeFaq() {
       >
         Good to know
       </h2>
-      <dl className="mt-5 space-y-5 border-t border-border pt-6">
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
         {FAQ_ITEMS.map((item) => (
-          <div key={item.q}>
-            <dt className="text-sm font-medium text-foreground">{item.q}</dt>
-            <dd className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+          <article
+            key={item.q}
+            className={cn(
+              upgradeBentoTile,
+              "border-border/60 bg-card/90 p-5 dark:from-card dark:via-card dark:to-primary/[0.03]",
+            )}
+          >
+            <div aria-hidden className={upgradeBentoTileShine} />
+            <h3 className="relative text-sm font-semibold text-foreground">
+              {item.q}
+            </h3>
+            <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">
               {item.a}
-            </dd>
-          </div>
+            </p>
+          </article>
         ))}
-      </dl>
+      </div>
     </motion.section>
   );
 }

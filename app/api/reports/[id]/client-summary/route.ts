@@ -12,6 +12,11 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
+import {
+  getEffectiveSubscriptionForResource,
+  resourceBillsToCaller,
+} from "@/lib/organization-credits";
 
 /**
  * RA-1461: POST /api/reports/[id]/client-summary
@@ -29,7 +34,6 @@ import {
  *   - ?refresh=1 forces regeneration even within the 5-minute window.
  */
 
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 const CACHE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function POST(
@@ -60,23 +64,6 @@ export async function POST(
     });
     if (rateLimited) return rateLimited;
 
-    // Rule 8 — subscription gate before any AI call.
-    const subUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { subscriptionStatus: true },
-    });
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(subUser?.subscriptionStatus ?? "")
-    ) {
-      return NextResponse.json(
-        {
-          error: "Active subscription required to generate client summaries",
-          upgradeRequired: true,
-        },
-        { status: 402 },
-      );
-    }
-
     // Ownership check + fetch the fields we'll summarise.
     const report = await prisma.report.findFirst({
       where: { id, userId },
@@ -94,6 +81,7 @@ export async function POST(
         scopeOfWorksDocument: true,
         clientSummaryCache: true,
         clientSummaryCachedAt: true,
+        createdAt: true,
       },
     });
 
@@ -103,6 +91,29 @@ export async function POST(
         message: "Report not found",
         status: 404,
       });
+    }
+
+    // Rule 8 — subscription gate before any AI call.
+    // RA-7893: the plan, and the balance a trial charge lands on
+    // (effectiveSub.id), are those of the business the REPORT belongs to: the
+    // owner of an invited technician's organisation, but never the owner of
+    // an organisation the technician joined after creating the report. The
+    // report must also bill to the caller (resourceBillsToCaller), the one
+    // rule every logged-in charge on a resource uses.
+    const effectiveSub = (await resourceBillsToCaller(userId, {
+      userId,
+      createdAt: report.createdAt,
+    }))
+      ? await getEffectiveSubscriptionForResource(userId, report.createdAt)
+      : null;
+    if (!isEffectivePlanCurrent(effectiveSub)) {
+      return NextResponse.json(
+        {
+          error: "Active subscription required to generate client summaries",
+          upgradeRequired: true,
+        },
+        { status: 402 },
+      );
     }
 
     const url = new URL(request.url);
@@ -145,9 +156,9 @@ export async function POST(
     // Rule 9 — atomic credit deduction for TRIAL users.
     // ACTIVE/LIFETIME users are not charged per-summary (same pattern as
     // the rest of the AI endpoints in this repo).
-    if (subUser?.subscriptionStatus === "TRIAL") {
+    if (effectiveSub?.subscriptionStatus === "TRIAL") {
       const result = await prisma.user.updateMany({
-        where: { id: userId, creditsRemaining: { gte: 1 } },
+        where: { id: effectiveSub.id, creditsRemaining: { gte: 1 } },
         data: {
           creditsRemaining: { decrement: 1 },
           totalCreditsUsed: { increment: 1 },

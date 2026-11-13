@@ -18,8 +18,20 @@
  *   Rates    — as per NRPG_RATE_RANGES units ($/hr, $/day, $/m², $)
  */
 
+import {
+  blockedPricing,
+  blockedRates,
+  TOTAL_NOT_AVAILABLE_NOTE,
+  type BlockedLineFields,
+  type BlockedPricing,
+  type BlockedRate,
+} from "@/lib/pricing/blocked-line";
 import { prisma } from "@/lib/prisma";
-import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
+import {
+  resolveEffectivePricing,
+  type EffectivePricing,
+} from "@/lib/pricing/effective-pricing";
+import { resolveReportPricing } from "@/lib/pricing/report-pricing";
 import {
   NRPG_RATE_RANGES,
   validateRateInRange,
@@ -56,6 +68,19 @@ export interface CostEstimateItem {
   warning?: "NO_RATE_CONFIGURED";
 }
 
+/**
+ * RA-8281 (B2): a line whose price-list rate the contractor has not set. It
+ * is shown with "Rate not set" and the national range when one exists. It has
+ * no rate and no amount, and it blocks the estimate's total.
+ */
+export interface BlockedCostEstimateItem
+  extends Omit<CostEstimateItem, "rate" | "subtotal" | "rateSource" | "warning">,
+    BlockedLineFields {
+  rate: null;
+  subtotal: null;
+  rateSource: "none";
+}
+
 /** Description prefix on a line whose item type has no configured rate. */
 export const NO_RATE_PREFIX = "No rate configured";
 
@@ -89,25 +114,81 @@ export interface CostEstimateResult {
   pricingSource: "company-config" | "nrpg-midpoint" | "mixed";
 }
 
+/**
+ * RA-8281 (B2): an estimate with at least one line whose rate is not set.
+ * Every line is listed; the blocked ones carry no rate and no amount, and no
+ * subtotal, contingency or total is given. It is never saved.
+ */
+export interface BlockedCostEstimate {
+  status: "blocked";
+  items: Array<CostEstimateItem | BlockedCostEstimateItem>;
+  subtotal: null;
+  contingency: null;
+  total: null;
+  totalNote: typeof TOTAL_NOT_AVAILABLE_NOTE;
+  /** Every unset price-list field a line needed, once each. */
+  missing: BlockedRate[];
+  currency: "AUD";
+}
+
+/** True for a line the contractor's price list cannot price yet. */
+export function isBlockedEstimateItem(
+  item: CostEstimateItem | BlockedCostEstimateItem,
+): item is BlockedCostEstimateItem {
+  return item.rate === null;
+}
+
+/** A blocked estimate in the shared blocked-pricing shape every screen shows. */
+export function blockedEstimatePricing(
+  estimate: BlockedCostEstimate,
+): BlockedPricing {
+  return blockedPricing(
+    estimate.items.map((item) =>
+      isBlockedEstimateItem(item)
+        ? {
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            rate: null,
+            subtotal: null,
+            pricingStatus: item.pricingStatus,
+            rateField: item.rateField,
+            pricingNote: item.pricingNote,
+            nationalRange: item.nationalRange,
+          }
+        : {
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            rate: item.rate,
+            subtotal: item.subtotal,
+            pricingStatus: "priced" as const,
+          },
+    ),
+    estimate.missing,
+  );
+}
+
 /** Subset of CompanyPricingConfig fields used by the estimation engine */
+/** RA-8281: a rate is null until the contractor sets it; null never prices at $0. */
 export interface CompanyPricingRates {
-  masterQualifiedNormalHours: number;
-  qualifiedTechnicianNormalHours: number;
-  labourerNormalHours: number;
-  airMoverAxialDailyRate: number;
-  airMoverCentrifugalDailyRate: number;
-  dehumidifierLGRDailyRate: number;
-  dehumidifierDesiccantDailyRate: number;
-  afdUnitLargeDailyRate: number;
-  extractionTruckMountedHourlyRate: number;
-  extractionElectricHourlyRate: number;
-  injectionDryingSystemDailyRate: number;
-  antimicrobialTreatmentRate: number;
-  mouldRemediationTreatmentRate: number;
-  biohazardTreatmentRate: number;
-  administrationFee: number;
-  callOutFee: number;
-  thermalCameraUseCostPerAssessment: number;
+  masterQualifiedNormalHours: number | null;
+  qualifiedTechnicianNormalHours: number | null;
+  labourerNormalHours: number | null;
+  airMoverAxialDailyRate: number | null;
+  airMoverCentrifugalDailyRate: number | null;
+  dehumidifierLGRDailyRate: number | null;
+  dehumidifierDesiccantDailyRate: number | null;
+  afdUnitLargeDailyRate: number | null;
+  extractionTruckMountedHourlyRate: number | null;
+  extractionElectricHourlyRate: number | null;
+  injectionDryingSystemDailyRate: number | null;
+  antimicrobialTreatmentRate: number | null;
+  mouldRemediationTreatmentRate: number | null;
+  biohazardTreatmentRate: number | null;
+  administrationFee: number | null;
+  callOutFee: number | null;
+  thermalCameraUseCostPerAssessment: number | null;
 }
 
 // ─── SCOPE → NRPG MAPPING ────────────────────────────────────────────────────
@@ -320,7 +401,7 @@ export async function estimateCosts(
   region?: string | null,
   pricingRates?: CompanyPricingRates | null,
   userId?: string | null,
-): Promise<CostEstimateResult> {
+): Promise<CostEstimateResult | BlockedCostEstimate> {
   // ── Load company pricing config ──────────────────────────────────────────
   let rates: CompanyPricingRates | null = pricingRates ?? null;
 
@@ -332,14 +413,15 @@ export async function estimateCosts(
 
   // ── Build estimate items ──────────────────────────────────────────────────
   // Every scope item yields a line; unknown types get a $0 warning line.
-  const items: CostEstimateItem[] = [];
+  const built: Array<CostEstimateItem | BlockedCostEstimateItem> = [];
   // Scope items that were actually priced, with their catalog item type.
   const pricedScopeItems: ScopeItemInput[] = [];
   const unpricedTypes: string[] = [];
 
   for (const scopeItem of scopeItems) {
     const item = buildEstimateItem(scopeItem, rates, pricingSourceTracker);
-    items.push(item);
+    built.push(item);
+    if (isBlockedEstimateItem(item)) continue;
     if (item.warning) {
       unpricedTypes.push(scopeItem.itemType);
     } else {
@@ -356,6 +438,33 @@ export async function estimateCosts(
       unpricedTypes,
     );
   }
+
+  // RA-8281 (B2): one blocked line blocks the whole estimate. No subtotal,
+  // contingency or total is worked out from the lines that could be priced.
+  const blockedItems = built.filter(isBlockedEstimateItem);
+  if (blockedItems.length > 0) {
+    const missing = new Map<string, BlockedRate>();
+    for (const b of blockedItems) {
+      if (!missing.has(b.rateField)) {
+        missing.set(b.rateField, {
+          field: b.rateField,
+          note: b.pricingNote,
+          nationalRange: b.nationalRange,
+        });
+      }
+    }
+    return {
+      status: "blocked",
+      items: built,
+      subtotal: null,
+      contingency: null,
+      total: null,
+      totalNote: TOTAL_NOT_AVAILABLE_NOTE,
+      missing: [...missing.values()],
+      currency: "AUD",
+    };
+  }
+  const items = built as CostEstimateItem[];
 
   // ── Aggregate ─────────────────────────────────────────────────────────────
   const subtotalDec = items.reduce(
@@ -429,7 +538,7 @@ function buildEstimateItem(
   scopeItem: ScopeItemInput,
   rates: CompanyPricingRates | null,
   pricingSourceTracker: Set<"company-config" | "nrpg-midpoint">,
-): CostEstimateItem {
+): CostEstimateItem | BlockedCostEstimateItem {
   const config =
     SCOPE_ITEM_NRPG_CONFIG[resolveScopeItemType(scopeItem.itemType)];
 
@@ -461,7 +570,31 @@ function buildEstimateItem(
   let rate: number;
   let rateSource: "company-config" | "nrpg-midpoint";
 
-  if (rates && config.nrpgField && rates[config.nrpgField] != null) {
+  if (rates && config.nrpgField) {
+    // RA-8281: the contractor has a price list, so their own rate is the only
+    // rate. An unset rate is never replaced by an NRPG midpoint or $0: the
+    // line is shown blocked (B2), with the national range for reference.
+    const [unset] = blockedRates(rates, [config.nrpgField]);
+    if (unset) {
+      return {
+        category: config.category,
+        description:
+          scopeItem.description || getDefaultDescription(scopeItem.itemType),
+        quantity: resolveQuantity(scopeItem, config),
+        unit: config.unit,
+        rate: null,
+        subtotal: null,
+        nrpgField: config.nrpgField,
+        nrpgCompliant: true,
+        nrpgRange: unset.nationalRange,
+        rateSource: "none",
+        isEstimated: true,
+        pricingStatus: "rate_not_set",
+        rateField: unset.field,
+        pricingNote: unset.note,
+        nationalRange: unset.nationalRange,
+      };
+    }
     rate = rates[config.nrpgField] as number;
     rateSource = "company-config";
   } else {
@@ -541,33 +674,59 @@ async function fetchCompanyRates(
 ): Promise<CompanyPricingRates | null> {
   try {
     const config = await resolveEffectivePricing(prisma, userId);
-    if (!config) return null;
-
-    // Return only the fields CompanyPricingRates needs
-    return {
-      masterQualifiedNormalHours: config.masterQualifiedNormalHours,
-      qualifiedTechnicianNormalHours: config.qualifiedTechnicianNormalHours,
-      labourerNormalHours: config.labourerNormalHours,
-      airMoverAxialDailyRate: config.airMoverAxialDailyRate,
-      airMoverCentrifugalDailyRate: config.airMoverCentrifugalDailyRate,
-      dehumidifierLGRDailyRate: config.dehumidifierLGRDailyRate,
-      dehumidifierDesiccantDailyRate: config.dehumidifierDesiccantDailyRate,
-      afdUnitLargeDailyRate: config.afdUnitLargeDailyRate,
-      extractionTruckMountedHourlyRate: config.extractionTruckMountedHourlyRate,
-      extractionElectricHourlyRate: config.extractionElectricHourlyRate,
-      injectionDryingSystemDailyRate: config.injectionDryingSystemDailyRate,
-      antimicrobialTreatmentRate: config.antimicrobialTreatmentRate,
-      mouldRemediationTreatmentRate: config.mouldRemediationTreatmentRate,
-      biohazardTreatmentRate: config.biohazardTreatmentRate,
-      administrationFee: config.administrationFee,
-      callOutFee: config.callOutFee,
-      thermalCameraUseCostPerAssessment:
-        config.thermalCameraUseCostPerAssessment,
-    };
+    return config ? toCompanyRates(config) : null;
   } catch (err) {
     console.error("[NIR Cost] Failed to fetch company pricing config:", err);
     return null;
   }
+}
+
+/** Only the fields CompanyPricingRates needs. */
+function toCompanyRates(config: EffectivePricing): CompanyPricingRates {
+  return {
+    masterQualifiedNormalHours: config.masterQualifiedNormalHours,
+    qualifiedTechnicianNormalHours: config.qualifiedTechnicianNormalHours,
+    labourerNormalHours: config.labourerNormalHours,
+    airMoverAxialDailyRate: config.airMoverAxialDailyRate,
+    airMoverCentrifugalDailyRate: config.airMoverCentrifugalDailyRate,
+    dehumidifierLGRDailyRate: config.dehumidifierLGRDailyRate,
+    dehumidifierDesiccantDailyRate: config.dehumidifierDesiccantDailyRate,
+    afdUnitLargeDailyRate: config.afdUnitLargeDailyRate,
+    extractionTruckMountedHourlyRate: config.extractionTruckMountedHourlyRate,
+    extractionElectricHourlyRate: config.extractionElectricHourlyRate,
+    injectionDryingSystemDailyRate: config.injectionDryingSystemDailyRate,
+    antimicrobialTreatmentRate: config.antimicrobialTreatmentRate,
+    mouldRemediationTreatmentRate: config.mouldRemediationTreatmentRate,
+    biohazardTreatmentRate: config.biohazardTreatmentRate,
+    administrationFee: config.administrationFee,
+    callOutFee: config.callOutFee,
+    thermalCameraUseCostPerAssessment: config.thermalCameraUseCostPerAssessment,
+  };
+}
+
+/**
+ * RA-7893 — the rates an inspection is priced at: the business it belongs
+ * to, by the same rule as a report's documents (resolveReportPricing). An
+ * invited member's inspection is priced at the organisation's rates, then
+ * its owner's legacy rates, never the member's own. `rates: null` means the
+ * business has no saved pricing, so estimateCosts uses NRPG midpoints.
+ * `ok: false` means the inspection's business cannot be proven: price nothing.
+ */
+export async function resolveInspectionRates(
+  creatorId: string,
+  inspectionCreatedAt: Date,
+): Promise<{ ok: true; rates: CompanyPricingRates | null } | { ok: false }> {
+  const own = await resolveEffectivePricing(prisma, creatorId);
+  const pricing = await resolveReportPricing(
+    creatorId,
+    own,
+    inspectionCreatedAt,
+  );
+  if (!pricing.ok) return { ok: false };
+  return {
+    ok: true,
+    rates: pricing.pricingConfig ? toCompanyRates(pricing.pricingConfig) : null,
+  };
 }
 
 // ─── CONTINGENCY ──────────────────────────────────────────────────────────────

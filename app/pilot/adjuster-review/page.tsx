@@ -475,7 +475,7 @@ function AdjusterReviewContent() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form method="post" onSubmit={handleSubmit} className="space-y-6">
         {/* Report format selection */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-neutral-700 dark:text-slate-300">

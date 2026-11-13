@@ -19,7 +19,16 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { quoteToInvoiceLineItems } from "@/lib/quotes/quote-calc";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  readBlockedPricing,
+  type BlockedPricing,
+} from "@/lib/pricing/blocked-line";
+import { BlockedPricingNotice } from "@/components/pricing/BlockedPricingNotice";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 /* ─── Types ─── */
 
@@ -155,6 +164,7 @@ export default function QuotePage() {
   const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [quoteResult, setQuoteResult] = useState<QuoteResponse | null>(null);
+  const [blockedQuote, setBlockedQuote] = useState<BlockedPricing | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [savingEstimate, setSavingEstimate] = useState(false);
   const [savingInvoice, setSavingInvoice] = useState(false);
@@ -187,6 +197,7 @@ export default function QuotePage() {
     if (!selectedJobType) return;
     setCalculating(true);
     setQuoteResult(null);
+    setBlockedQuote(null);
     setInvoiceError(null);
     try {
       const res = await fetch("/api/calculate", {
@@ -195,8 +206,14 @@ export default function QuotePage() {
         body: JSON.stringify({ jobType: selectedJobType, ...form }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error || "Calculation failed");
+        const err = await res.json().catch(() => null);
+        // RA-8281 (B2): a rate that is not set is shown line by line.
+        const blocked = readBlockedPricing(err);
+        if (blocked) {
+          setBlockedQuote(blocked);
+          return;
+        }
+        toast.error(apiErrorMessage(err) ?? "Calculation failed");
         return;
       }
       const data: QuoteResponse = await res.json();
@@ -213,6 +230,7 @@ export default function QuotePage() {
     setSelectedJobType(null);
     setForm(DEFAULT_FORM);
     setQuoteResult(null);
+    setBlockedQuote(null);
   };
 
   const handlePrint = () => {
@@ -318,28 +336,26 @@ export default function QuotePage() {
 
   /* ─── Render ─── */
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">
-            Quote Generator
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Generate quotes using your Company Pricing rates (not Cost
-            Libraries). Save as a Restoration Estimate or AR Invoice draft when ready.
-          </p>
-        </div>
-        {(selectedJobType || quoteResult) && (
-          <button
-            onClick={handleReset}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Start Over
-          </button>
-        )}
-      </div>
+    <DashboardPageFrame className="mx-auto max-w-9xl space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Quote Generator"
+        description="Generate quotes from Company Pricing rates. Save as a restoration estimate or AR invoice draft."
+        icon={<Calculator className="h-7 w-7 text-cyan-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/quote" })}
+        primaryAction={
+          selectedJobType || quoteResult ? (
+            <button
+              type="button"
+              onClick={handleReset}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 text-sm font-medium text-white hover:bg-white/10"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Start Over
+            </button>
+          ) : undefined
+        }
+      />
 
       {/* Step 1: Job Type Selector */}
       {!quoteResult && (
@@ -602,6 +618,10 @@ export default function QuotePage() {
             {calculating ? "Calculating..." : "Calculate Quote"}
           </button>
         </div>
+      )}
+
+      {blockedQuote && !quoteResult && (
+        <BlockedPricingNotice blocked={blockedQuote} title="Quote" />
       )}
 
       {/* Step 3: Quote Result (Printable) */}
@@ -962,7 +982,7 @@ export default function QuotePage() {
           </div>
         </div>
       )}
-    </div>
+    </DashboardPageFrame>
   );
 }
 

@@ -3,23 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveClientRecipient } from "@/lib/client-recipient";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import { isDemoOrReservedRecipient } from "@/lib/email/reserved-recipient";
 import { sendEmail } from "@/lib/email-send";
 import { getAppUrl } from "@/lib/app-url";
-import { escapeHtml } from "@/lib/email";
-
-/**
- * The "single button" (Client portal Phase 1).
- *
- * Staff action on an inspection → ensure the claim's client has a portal token
- * (ClientPortalAccount, revocable), email them the one /portal/[token] link, and
- * return it for copy. The link is the client's single entry to their claim
- * (status now; evidence upload + authority approvals in later phases).
- *
- * Authed + tenancy-gated. Client is resolved via Report.clientId (Inspection has
- * no direct client). Token: 256-bit, stored verbatim (matches ClientPortalAccount).
- */
+import {
+  buildClientPortalInviteEmailHtml,
+  clientPortalInviteSubject,
+} from "@/lib/portal/client-portal-invite-email";
 
 export const dynamic = "force-dynamic";
 
@@ -53,10 +46,31 @@ export async function POST(
     const inspection = await prisma.inspection.findUnique({
       where: { id },
       select: {
-        report: { select: { client: { select: { id: true, email: true } } } },
+        clientId: true,
+        propertyAddress: true,
+        inspectionNumber: true,
+        client: { select: { id: true, email: true, name: true } },
+        report: { select: { client: { select: { id: true, email: true, name: true } } } },
+        user: {
+          select: {
+            businessName: true,
+            organization: { select: { name: true } },
+          },
+        },
       },
     });
-    const client = inspection?.report?.client;
+    if (!inspection) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
+    const client =
+      resolveClientRecipient({
+        reportClient: inspection.report?.client,
+        inspectionClient: inspection.client,
+      })?.client ?? null;
     if (!client?.id || !client.email) {
       return apiError(request, {
         code: "VALIDATION",
@@ -65,13 +79,18 @@ export async function POST(
         status: 422,
       });
     }
+    if (isDemoOrReservedRecipient(client.email)) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "This client email is a sample or reserved address and cannot receive a portal link.",
+        status: 422,
+      });
+    }
 
-    // Reuse the client's active portal token if present; else mint one. Always
-    // (re)set a 30-day expiry on send — the link authorises signing, so it must
-    // not be an unbounded-lifetime bearer token (security review must-fix).
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const existing = await prisma.clientPortalAccount.findFirst({
-      where: { clientId: client.id, revokedAt: null },
+      where: { clientId: client.id, inspectionId: id, revokedAt: null },
       select: { id: true, token: true },
     });
     let token: string;
@@ -84,26 +103,51 @@ export async function POST(
     } else {
       token = (
         await prisma.clientPortalAccount.create({
-          data: { clientId: client.id, token: mintToken(), expiresAt },
+          data: {
+            clientId: client.id,
+            inspectionId: id,
+            token: mintToken(),
+            expiresAt,
+          },
           select: { token: true },
         })
       ).token;
     }
 
-    // RA-7634: build the emailed link from the configured app URL, never from
-    // the request's Origin header — a forged Origin must not steer where the
-    // client's link points.
     const url = `${getAppUrl()}/portal/${token}`;
-    const safeUrl = escapeHtml(url);
+
+    const contractorName =
+      inspection.user?.organization?.name?.trim() ||
+      inspection.user?.businessName?.trim() ||
+      "Your restoration team";
 
     const messageId = await sendEmail({
       to: client.email,
-      subject: "Your RestoreAssist claim — view and respond",
-      html: `<p>Your assessor has shared your claim with you.</p>
-<p>Use this secure link to view your claim, add photos, and approve the authorities required:</p>
-<p><a href="${safeUrl}">${safeUrl}</a></p>
-<p>If you didn’t expect this, you can ignore this email.</p>`,
+      subject: clientPortalInviteSubject(contractorName),
+      html: buildClientPortalInviteEmailHtml({
+        url,
+        contractorName,
+        clientName: client.name,
+        inspectionNumber: inspection.inspectionNumber,
+        propertyAddress: inspection.propertyAddress,
+      }),
     });
+
+    if (messageId) {
+      await prisma.auditLog.create({
+        data: {
+          inspectionId: id,
+          userId: session.user.id,
+          action: "CLIENT_PORTAL_LINK_EMAILED",
+          entityType: "Client",
+          entityId: client.id,
+          changes: JSON.stringify({
+            channel: "email",
+            providerMessageId: messageId,
+          }),
+        },
+      });
+    }
 
     return NextResponse.json({
       data: {

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 
 export default defineConfig({
-  testDir: "../tests/browser",
+  testDir: "../e2e/browser",
   testMatch: "room-identity.spec.ts",
   workers: 1,
   timeout: 90_000,

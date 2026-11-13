@@ -7,6 +7,7 @@ const inspectionFindFirst = vi.fn();
 const safeRetrieveSimilarJobs = vi.fn();
 const resolveWorkspaceAiKey = vi.fn();
 const generateScopeStream = vi.fn();
+const assessS500IntakeComplete = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -42,6 +43,12 @@ vi.mock("@/lib/ai/claim-type-prompts", () => ({
 vi.mock("@/lib/services/ai/generate-scope", () => ({
   generateScopeStream: (...args: unknown[]) => generateScopeStream(...args),
 }));
+// The S500 intake gate has its own suite; here intake is complete unless a
+// case says otherwise.
+vi.mock("@/lib/compliance/s500-intake-gate", () => ({
+  assessS500IntakeComplete: (...args: unknown[]) =>
+    assessS500IntakeComplete(...args),
+}));
 vi.mock("@/lib/ai/resolve-workspace-ai-key", () => ({
   resolveWorkspaceAiKey: (...args: unknown[]) => resolveWorkspaceAiKey(...args),
   NoWorkspaceKeyError: class NoWorkspaceKeyError extends Error {},
@@ -56,6 +63,8 @@ beforeEach(() => {
   safeRetrieveSimilarJobs.mockReset();
   resolveWorkspaceAiKey.mockReset();
   generateScopeStream.mockReset();
+  assessS500IntakeComplete.mockReset();
+  assessS500IntakeComplete.mockResolvedValue({ ok: true });
 
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
   userFindUnique.mockResolvedValue({
@@ -105,6 +114,26 @@ describe("POST /api/inspections/[id]/generate-scope", () => {
     expect(body.error.code).toBe("PAYMENT_REQUIRED");
     // The streaming customer workload must never open the upstream stream on
     // no key — the 402 is a clean JSON response, not a mid-stream error.
+    expect(generateScopeStream).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 naming the S500 intake gaps and never opens the stream", async () => {
+    assessS500IntakeComplete.mockResolvedValueOnce({
+      ok: false,
+      gaps: ["WATER_CATEGORY_CLASS", "INCIDENT_DATE"],
+    });
+
+    const response = await POST(postRequest(), {
+      params: Promise.resolve({ id: "inspection_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.error.code).toBe("VALIDATION");
+    expect(Object.keys(body.error.fields ?? {})).toEqual([
+      "WATER_CATEGORY_CLASS",
+      "INCIDENT_DATE",
+    ]);
     expect(generateScopeStream).not.toHaveBeenCalled();
   });
 

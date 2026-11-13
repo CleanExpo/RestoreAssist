@@ -50,14 +50,24 @@ describe("SetupStepper — locked one-step-at-a-time", () => {
     expect(screen.getByText(/Step 3 of 4/)).toBeInTheDocument();
   });
 
-  it("gates the final 'Generate your first report' CTA on all required steps", () => {
+  it("shows 0% progress on Welcome when it is not marked complete", () => {
+    render(
+      <SetupStepper
+        items={items({ welcome: false, ai_key: false })}
+        initialIndex={0}
+      />,
+    );
+    expect(screen.getByText(/0 of 4 complete/i)).toBeInTheDocument();
+  });
+
+  it("gates the final 'Finish setup' CTA on all required steps", () => {
     const onFinish = vi.fn();
     // Last step, required steps NOT complete → CTA disabled.
     const { rerender } = render(
       <SetupStepper items={items()} initialIndex={3} onFinish={onFinish} />,
     );
     const cta = () =>
-      screen.getByRole("button", { name: /generate your first report/i });
+      screen.getByRole("button", { name: /finish setup/i });
     expect(cta()).toBeDisabled();
     fireEvent.click(cta());
     expect(onFinish).not.toHaveBeenCalled();
@@ -107,7 +117,7 @@ describe("SetupStepper — async finish", () => {
     renderWith(onFinish);
 
     fireEvent.click(
-      screen.getByRole("button", { name: /generate your first report/i }),
+      screen.getByRole("button", { name: /finish setup/i }),
     );
 
     const pending = await screen.findByRole("button", {
@@ -127,7 +137,7 @@ describe("SetupStepper — async finish", () => {
     renderWith(onFinish);
 
     const cta = screen.getByRole("button", {
-      name: /generate your first report/i,
+      name: /finish setup/i,
     });
     fireEvent.click(cta);
     fireEvent.click(cta);
@@ -154,7 +164,7 @@ describe("SetupStepper — async finish", () => {
     renderWith(onFinish);
 
     const cta = screen.getByRole("button", {
-      name: /generate your first report/i,
+      name: /finish setup/i,
     });
     fireEvent.click(cta);
     await screen.findByRole("button", { name: /setting up your workspace/i });
@@ -184,7 +194,7 @@ describe("SetupStepper — async finish", () => {
     renderWith(onFinish);
 
     fireEvent.click(
-      screen.getByRole("button", { name: /generate your first report/i }),
+      screen.getByRole("button", { name: /finish setup/i }),
     );
 
     const alert = await screen.findByRole("alert");
@@ -194,7 +204,7 @@ describe("SetupStepper — async finish", () => {
 
     // Retryable: the CTA comes back rather than stranding the operator.
     const cta = screen.getByRole("button", {
-      name: /generate your first report/i,
+      name: /finish setup/i,
     });
     expect(cta).toBeEnabled();
 
@@ -209,7 +219,7 @@ describe("SetupStepper — async finish", () => {
     renderWith(vi.fn().mockRejectedValue(new Error("")));
 
     fireEvent.click(
-      screen.getByRole("button", { name: /generate your first report/i }),
+      screen.getByRole("button", { name: /finish setup/i }),
     );
 
     const alert = await screen.findByRole("alert");
@@ -221,7 +231,7 @@ describe("SetupStepper — async finish", () => {
     renderWith(onFinish);
 
     fireEvent.click(
-      screen.getByRole("button", { name: /generate your first report/i }),
+      screen.getByRole("button", { name: /finish setup/i }),
     );
 
     await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
@@ -235,7 +245,7 @@ describe("SetupStepper — async finish", () => {
   it("still renders the CTA when no onFinish is supplied", () => {
     finished();
     expect(
-      screen.getByRole("button", { name: /generate your first report/i }),
+      screen.getByRole("button", { name: /finish setup/i }),
     ).toBeEnabled();
   });
 });

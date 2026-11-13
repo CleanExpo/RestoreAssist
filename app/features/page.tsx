@@ -355,9 +355,9 @@ const PAID_ADDS: readonly string[] = [
   "A monthly allowance that resets, in place of a one-off trial credit grant",
   "Your own labour, equipment and chemical rates, in place of the state defaults",
   // RA-7714: Ascora is a migration source, not an ongoing connection, and
-  // both it and Xero are separately-priced add-ons, not part of the $99.
+  // both it and Xero are separately-priced add-ons, not part of the plan price.
   "Optional add-ons, including Migrate from Ascora",
-  "Report packs when a month runs long, from $20 for 8",
+  `Report packs when a month runs long, from $${PRICING_CONFIG.addons.pack8.amount} for ${PRICING_CONFIG.addons.pack8.reportLimit}`,
 ];
 
 export default function FeaturesPage() {

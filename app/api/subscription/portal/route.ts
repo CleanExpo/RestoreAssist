@@ -4,6 +4,7 @@
  * User can manage payment method, view invoices, update billing address.
  */
 
+import { refuseNonOwner } from "@/lib/billing/require-billing-owner";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -31,6 +32,9 @@ export async function POST(request: NextRequest) {
     });
   }
   const userId = session.user.id;
+  const notOwner = await refuseNonOwner(request, userId);
+  if (notOwner) return notOwner;
+
 
   // RA-1266: each billingPortal.sessions.create is a billable Stripe API
   // call — idempotency returns the same URL on retry instead of creating

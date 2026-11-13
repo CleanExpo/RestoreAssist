@@ -47,6 +47,14 @@ describe("/dashboard/admin/founding-trial layout", () => {
     await expect(FoundingTrialLayout({ children: "FORM" })).rejects.toThrow("NEXT_NOT_FOUND");
   });
 
+  it("refuses a tenant ADMIN in development with PLATFORM_SUPPORT_DEV_OPEN and no allowlist", async () => {
+    signIn(TENANT_ADMIN);
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PLATFORM_SUPPORT_DEV_OPEN", "true");
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "");
+    await expect(FoundingTrialLayout({ children: "FORM" })).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
   it("positive control: an allowlisted operator sees the page", async () => {
     signIn(OPERATOR);
     vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", `someone_else, ${OPERATOR}`);

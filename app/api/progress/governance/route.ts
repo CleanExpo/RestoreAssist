@@ -1,7 +1,7 @@
 /**
  * GET /api/progress/governance
  *
- * RA-1390 / Motion M-15. ADMIN-only read of override governance
+ * RA-1390 / Motion M-15. Platform-support-only read of override governance
  * reports. Optional ?month=YYYY-MM filter.
  *
  * Returns: { reports: OverrideGovernanceReport[], months: string[] }
@@ -10,7 +10,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { fromException } from "@/lib/api-errors";
 
@@ -19,6 +22,10 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // RA-8043c: these reports count every firm's overrides (the model has no
+    // tenant column), so they are RestoreAssist staff data, not a firm ADMIN's.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     const monthParam = request.nextUrl.searchParams.get("month");
     let monthFilter: Date | null = null;

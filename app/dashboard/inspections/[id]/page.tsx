@@ -1,12 +1,32 @@
 "use client";
 
-import { useState, useEffect, use, useRef, useMemo } from "react";
+import { useState, useEffect, use, useRef, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  readBlockedPricing,
+  type BlockedPricing,
+} from "@/lib/pricing/blocked-line";
+import { BlockedPricingNotice } from "@/components/pricing/BlockedPricingNotice";
+import {
+  parseApiError,
+  type ParsedApiError,
+} from "@/lib/client/parse-api-error";
+import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
 import { AssignTechnician } from "@/components/inspection/AssignTechnician";
 import { EngagementLicenceModal } from "@/components/attestation/EngagementLicenceModal";
 import { cn } from "@/lib/utils";
+import {
+  canGenerateDisputePack,
+  canUseOwnerJobActions,
+  failedResponseMessage,
+} from "@/lib/inspections/job-actions";
+import {
+  ATTENDANCE_NOT_RECORDED_LABEL,
+  formatAttendanceDateEnAu,
+} from "@/lib/inspections/format-attendance-date";
 import { resolveAreaSqm } from "@/lib/units";
 import { parseReadingInput } from "@/lib/forms/parse-reading-input";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
@@ -21,6 +41,19 @@ import InspectionEvidenceReadinessPanel, {
 } from "@/components/inspection/InspectionEvidenceReadinessPanel";
 import HandoverPackagePanel from "@/components/inspection/HandoverPackagePanel";
 import { MakeSafeChecklist } from "@/components/inspection/MakeSafeChecklist";
+import { ClaimContextBanner } from "@/components/inspection/ClaimContextBanner";
+import { JobAppointmentsPanel } from "@/components/inspection/JobAppointmentsPanel";
+import { FieldAssistPanel } from "@/components/inspection/FieldAssistPanel";
+import { InspectionWorkflowStrip } from "@/components/inspection/InspectionWorkflowStrip";
+import { InspectionWorkspaceLinks } from "@/components/inspection/InspectionWorkspaceLinks";
+import { InspectionJourneyGuide } from "@/components/inspection/InspectionJourneyGuide";
+import { SketchRoomCoveragePanel } from "@/components/inspection/SketchRoomCoveragePanel";
+import { SketchMeasurementChecklistLoader } from "@/components/inspection/SketchMeasurementChecklistLoader";
+import {
+  PULSE_JOB_TOGGLE_HINT,
+  PULSE_JOB_TOGGLE_LABEL,
+} from "@/lib/pulse/pulse-inspection-ui-copy";
+import { FloorPlanFieldGuide } from "@/components/inspection/FloorPlanFieldGuide";
 import EnvironmentalSummary from "@/components/inspection/EnvironmentalSummary";
 import {
   latestEnvironmentalReading,
@@ -177,6 +210,15 @@ type Tab =
   | "insurer"
   | "live-teacher";
 
+const ADVANCED_INSPECTION_TABS: Tab[] = [
+  "environmental",
+  "moisture-map",
+  "areas",
+  "costs",
+  "activity",
+  "live-teacher",
+];
+
 interface Inspection {
   id: string;
   inspectionNumber: string;
@@ -184,7 +226,10 @@ interface Inspection {
   propertyPostcode: string;
   technicianName: string | null;
   technicianId: string | null;
+  // The job owner (Inspection.userId). Absent on the demo inspection.
+  userId?: string | null;
   status: string;
+  inspectionDate: string | null;
   createdAt: string;
   submittedAt: string | null;
   processedAt: string | null;
@@ -200,6 +245,8 @@ interface Inspection {
   handoverPackageStorageKey: string | null;
   // RA-6949 — per-job Restoration Pulse notification toggle.
   pulseEnabled: boolean;
+  reportId?: string | null;
+  clientId?: string | null;
   // RA-7713: the API returns an array (time series since RA-1383); the demo
   // inspection returns a single object. Read it via latestEnvironmentalReading.
   environmentalData: EnvironmentalReading | EnvironmentalReading[] | null;
@@ -282,6 +329,27 @@ const STATUS_STEPS = [
   "COMPLETED",
 ];
 
+/** Shared surface for hub sections — one visual language across the page. */
+const INSPECTION_HUB_CARD =
+  "rounded-xl border border-neutral-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-900/40 shadow-sm";
+
+function formatWorkflowStatusLabel(step: string): string {
+  return step
+    .split("_")
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function decodeDisplayText(value: string): string {
+  return value
+    .replace(/&#x27;/gi, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
   const currentIndex = STATUS_STEPS.indexOf(currentStatus);
   const isRejected = currentStatus === "REJECTED";
@@ -314,7 +382,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
               ) : isActive ? (
                 <Clock size={12} />
               ) : null}
-              {step.charAt(0) + step.slice(1).toLowerCase()}
+              {formatWorkflowStatusLabel(step)}
             </div>
             {i < STATUS_STEPS.length - 1 && (
               <div
@@ -366,15 +434,23 @@ export default function InspectionDetailPage({
   const [licenceModalOpen, setLicenceModalOpen] = useState(false);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [moreSectionsOpen, setMoreSectionsOpen] = useState(false);
+  const [sketchFocusRoomId, setSketchFocusRoomId] = useState<string | null>(
+    null,
+  );
+  const [sketchMapMoisture, setSketchMapMoisture] = useState(false);
+  const [scopeRoomHint, setScopeRoomHint] = useState<string | null>(null);
+  const [sketchReloadToken, setSketchReloadToken] = useState(0);
 
   // Deep-link from field evidence checklist: ?tab=areas (etc.).
   // Re-read on job change so a previous inspection's Sketch tab does not
   // stick onto the next job (RA-7542 post-nav chrome).
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const tabParam = new URLSearchParams(window.location.search).get("tab");
+    const searchParams = new URLSearchParams(window.location.search);
+    const tabParam = searchParams.get("tab");
     const allowed: Tab[] = [
       "overview",
       "environmental",
@@ -392,8 +468,26 @@ export default function InspectionDetailPage({
     ];
     if (tabParam && allowed.includes(tabParam as Tab)) {
       setActiveTab(tabParam as Tab);
+      if (ADVANCED_INSPECTION_TABS.includes(tabParam as Tab)) {
+        setMoreSectionsOpen(true);
+      }
+      const sketchRoomId = searchParams.get("sketchRoomId");
+      const roomName = searchParams.get("roomName");
+      setSketchFocusRoomId(sketchRoomId);
+      setSketchMapMoisture(searchParams.get("mapMoisture") === "1");
+      setScopeRoomHint(searchParams.get("roomZone"));
+      if (tabParam === "moisture" && sketchRoomId) {
+        setMoistureForm((f) => ({
+          ...f,
+          sketchRoomId,
+          location: roomName?.trim() || f.location,
+        }));
+      }
       return;
     }
+    setSketchFocusRoomId(null);
+    setSketchMapMoisture(false);
+    setScopeRoomHint(null);
     setActiveTab("overview");
   }, [id]);
 
@@ -496,6 +590,7 @@ export default function InspectionDetailPage({
   });
   const [savingClass, setSavingClass] = useState(false);
   const [generatingCosts, setGeneratingCosts] = useState(false);
+  const [blockedCosts, setBlockedCosts] = useState<BlockedPricing | null>(null);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [photoCaptionDraft, setPhotoCaptionDraft] = useState("");
   const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
@@ -517,32 +612,31 @@ export default function InspectionDetailPage({
     fetchInspection();
   }, [id]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/inspections/${id}/sketches`);
-        if (!res.ok) return;
-        const json = (await res.json()) as {
-          sketches?: Array<{
-            rooms?: Array<{ id: string; name: string }>;
-          }>;
-        };
-        const rooms = (json.sketches ?? []).flatMap((sketch) =>
-          (sketch.rooms ?? []).map((room) => ({
-            id: room.id,
-            name: room.name,
-          })),
-        );
-        if (!cancelled) setSketchRooms(rooms);
-      } catch {
-        if (!cancelled) setSketchRooms([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const refetchSketchRooms = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/inspections/${id}/sketches`);
+      if (!res.ok) return;
+      const json = (await res.json()) as {
+        sketches?: Array<{
+          rooms?: Array<{ id: string; name: string }>;
+        }>;
+      };
+      const rooms = (json.sketches ?? []).flatMap((sketch) =>
+        (sketch.rooms ?? []).map((room) => ({
+          id: room.id,
+          name: room.name,
+        })),
+      );
+      setSketchRooms(rooms);
+    } catch {
+      setSketchRooms([]);
+    }
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab !== "overview" && activeTab !== "sketch") return;
+    void refetchSketchRooms();
+  }, [id, activeTab, refetchSketchRooms]);
 
   useEffect(() => {
     let cancelled = false;
@@ -584,6 +678,7 @@ export default function InspectionDetailPage({
   const fetchInspection = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await fetch(`/api/inspections/${id}`);
       if (response.ok) {
         const data = await response.json();
@@ -613,13 +708,17 @@ export default function InspectionDetailPage({
           });
         }
       } else {
-        toast.error("Inspection not found");
-        router.push("/dashboard/inspections");
+        setInspection(null);
+        setLoadError(await parseApiError(response));
       }
     } catch (error) {
       console.error("Error:", error);
-      toast.error("Failed to load inspection");
-      setLoadError(true);
+      setInspection(null);
+      setLoadError({
+        code: "NETWORK",
+        message: "Could not reach the server. Check your connection and retry.",
+        status: 0,
+      });
     } finally {
       setLoading(false);
     }
@@ -762,10 +861,13 @@ export default function InspectionDetailPage({
         body: JSON.stringify({ replace: true }),
       });
       const data = await res.json();
+      // RA-8281 (B2): a rate that is not set is shown line by line. Nothing
+      // was saved, so the saved estimate and the status stay as they are.
+      const blocked = readBlockedPricing(data);
+      setBlockedCosts(blocked);
+      if (blocked) return;
       if (!res.ok) {
-        throw new Error(
-          data.error?.message ?? data.error ?? "Failed to generate costs",
-        );
+        throw new Error(apiErrorMessage(data) ?? "Failed to generate costs");
       }
       setInspection((prev) =>
         prev
@@ -1023,9 +1125,8 @@ export default function InspectionDetailPage({
         `/api/inspections/${inspection!.id}/report?format=pdf`,
       );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
         throw new Error(
-          (err as { error?: string }).error ?? "Report generation failed",
+          await failedResponseMessage(res, "Report generation failed"),
         );
       }
       const contentType = res.headers.get("content-type") ?? "";
@@ -1084,9 +1185,8 @@ export default function InspectionDetailPage({
         { method: "POST" },
       );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
         throw new Error(
-          (err as { error?: string }).error ?? "Dispute pack generation failed",
+          await failedResponseMessage(res, "Dispute pack generation failed"),
         );
       }
       const blob = await res.blob();
@@ -1143,10 +1243,7 @@ export default function InspectionDetailPage({
         },
       );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-          (err as { error?: string }).error ?? "Failed to add area",
-        );
+        throw new Error(await failedResponseMessage(res, "Failed to add area"));
       }
       const data = await res.json();
       setAffectedAreas((prev) => [...prev, data.affectedArea]);
@@ -1181,7 +1278,10 @@ export default function InspectionDetailPage({
     }
   }
 
-  if (loading) {
+  // Spinner only for the first load (or a different job). A refetch after a
+  // save keeps the page mounted; swapping it for a spinner collapsed the
+  // layout and threw the technician back to the top of the page.
+  if (loading && (!inspection || inspection.id !== id)) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="animate-spin text-cyan-500" size={32} />
@@ -1189,34 +1289,15 @@ export default function InspectionDetailPage({
     );
   }
 
-  if (!inspection) {
+  if (loadError || !inspection) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-        <XCircle className="text-destructive" size={40} />
-        <p className="text-slate-400 text-sm">
-          {loadError
-            ? "Could not load inspection. Check your connection and try again."
-            : "Inspection not found."}
-        </p>
-        {loadError && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setLoadError(false);
-              fetchInspection();
-            }}
-          >
-            Retry
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push("/dashboard/inspections")}
-        >
-          Back to inspections
-        </Button>
-      </div>
+      <DetailLoadErrorPanel
+        resourceLabel="inspection"
+        error={loadError}
+        backHref="/dashboard/inspections"
+        backLabel="Back to inspections"
+        onRetry={() => void fetchInspection()}
+      />
     );
   }
 
@@ -1226,6 +1307,19 @@ export default function InspectionDetailPage({
     0,
   );
   const isAdmin = session?.user?.role === "ADMIN";
+  // D-028: the assigned technician records field data; deleting readings and
+  // the client progress-update toggle stay with the job owner and managers,
+  // and the dispute pack with the owner only. The routes enforce this; the
+  // page stops offering them.
+  const ownerActions = canUseOwnerJobActions({
+    role: session?.user?.role,
+    callerId: session?.user?.id,
+    ownerId: inspection.userId,
+  });
+  const disputePackAction = canGenerateDisputePack({
+    callerId: session?.user?.id,
+    ownerId: inspection.userId,
+  });
   const showMoistureTabs = moistureReadingsRequired(
     inspection.claimType as IicrcClaimType | null | undefined,
   );
@@ -1303,114 +1397,198 @@ export default function InspectionDetailPage({
       : []),
   ];
 
+  const PRIMARY_SECTION_TABS = new Set<Tab>([
+    "overview",
+    "sketch",
+    "photos",
+    "classification",
+    "scope",
+    "insurer",
+    ...(showMoistureTabs ? (["moisture"] as Tab[]) : []),
+  ]);
+  const ADVANCED_SECTION_TABS = new Set<Tab>([
+    "environmental",
+    "moisture-map",
+    "areas",
+    "costs",
+    "activity",
+    ...(isLiveTeacherEnabled() ? (["live-teacher"] as Tab[]) : []),
+  ]);
+
+  const visibleTabs = TABS.filter(
+    (tab) =>
+      PRIMARY_SECTION_TABS.has(tab.key) ||
+      moreSectionsOpen ||
+      tab.key === activeTab,
+  );
+
+  const isManagerOps =
+    session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
+
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-9xl space-y-5 pb-10">
       <confirm.Mount />
       {/* Header */}
-      <div className="flex items-start gap-4">
-        <button
-          onClick={() => router.push("/dashboard/inspections")}
-          aria-label="Back to inspections"
-          className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors mt-0.5 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
-        >
-          <ArrowLeft size={20} aria-hidden="true" />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
-              {inspection.inspectionNumber}
-            </h1>
-            {classification && (
-              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-warning-subtle text-warning-subtle-foreground">
-                Category {classification.category} / Class{" "}
-                {classification.class}
+      <header className={cn(INSPECTION_HUB_CARD, "p-4 sm:p-5 space-y-4")}>
+        <div className="flex items-start gap-3 sm:gap-4">
+          <button
+            onClick={() => router.push("/dashboard/inspections")}
+            aria-label="Back to inspections"
+            className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors shrink-0 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+          >
+            <ArrowLeft size={20} aria-hidden="true" />
+          </button>
+          <div className="flex-1 min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                {inspection.inspectionNumber}
+              </h1>
+              {classification && (
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-warning-subtle text-warning-subtle-foreground">
+                  Category {classification.category} / Class{" "}
+                  {classification.class}
+                </span>
+              )}
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-300">
+                {formatWorkflowStatusLabel(inspection.status)}
               </span>
-            )}
-            {canGenerateReport && (
-              <button
-                onClick={handleGenerateReport}
-                disabled={generatingReport}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-600 hover:bg-cyan-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
-              >
-                {generatingReport ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <FileDown className="h-4 w-4" />
-                    Generate NIR Report
-                  </>
-                )}
-              </button>
-            )}
-            <ExportPdfButton inspectionId={inspection.id} />
-            {(inspection.status === "SUBMITTED" ||
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-500 dark:text-slate-400">
+              <span className="flex items-center gap-1.5 min-w-0">
+                <MapPin size={14} className="shrink-0" aria-hidden="true" />
+                <span className="truncate">
+                  {inspection.propertyAddress} ({inspection.propertyPostcode})
+                </span>
+              </span>
+              {inspection.technicianName && (
+                <span className="flex items-center gap-1.5">
+                  <User size={14} aria-hidden="true" />
+                  {decodeDisplayText(inspection.technicianName)}
+                </span>
+              )}
+              {(session?.user?.role === "ADMIN" ||
+                session?.user?.role === "MANAGER") && (
+                <AssignTechnician
+                  inspectionId={inspection.id}
+                  technicianId={inspection.technicianId ?? null}
+                  onAssigned={(technicianId) =>
+                    setInspection((prev) =>
+                      prev ? { ...prev, technicianId } : prev,
+                    )
+                  }
+                />
+              )}
+              <span className="flex items-center gap-1.5">
+                <Calendar size={14} aria-hidden="true" />
+                {formatAttendanceDateEnAu(inspection.inspectionDate) ??
+                  ATTENDANCE_NOT_RECORDED_LABEL}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-neutral-200/80 dark:border-slate-700/60">
+          {canGenerateReport && (
+            <Button
+              size="sm"
+              onClick={handleGenerateReport}
+              disabled={generatingReport}
+              className="gap-1.5 bg-cyan-600 hover:bg-cyan-700"
+            >
+              {generatingReport ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <FileDown className="h-4 w-4" />
+                  Generate NIR Report
+                </>
+              )}
+            </Button>
+          )}
+          <ExportPdfButton inspectionId={inspection.id} />
+          {disputePackAction &&
+            (inspection.status === "SUBMITTED" ||
               inspection.status === "COMPLETED") && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGenerateDisputePack}
-                disabled={generatingDisputePack}
-                className="text-xs gap-1.5 border-amber-500 text-warning-subtle-foreground hover:bg-warning-subtle dark:hover:bg-amber-900/10"
-              >
-                {generatingDisputePack ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Shield className="h-3.5 w-3.5" />
-                )}
-                {generatingDisputePack
-                  ? "Generating..."
-                  : "Dispute Defence Pack"}
-              </Button>
-            )}
             <Button
               variant="outline"
               size="sm"
-              onClick={handleShareWithClient}
-              disabled={shareLoading}
-              className="text-xs gap-1.5"
+              onClick={handleGenerateDisputePack}
+              disabled={generatingDisputePack}
+              className="gap-1.5 border-amber-500/60 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
             >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                />
-              </svg>
-              Send to Client
+              {generatingDisputePack ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Shield className="h-4 w-4" />
+              )}
+              {generatingDisputePack ? "Generating…" : "Dispute Defence Pack"}
             </Button>
-            <Link
-              href={`/dashboard/inspections/${inspection.id}/voice`}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-navy text-brand-navy dark:border-brand-gold dark:text-brand-gold hover:bg-brand-navy/10 text-xs font-semibold transition-colors"
-            >
-              <Mic size={14} />
+          )}
+          <span
+            className="hidden sm:block w-px h-6 bg-neutral-200 dark:bg-slate-700 mx-0.5"
+            aria-hidden="true"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleShareWithClient}
+            disabled={shareLoading}
+            className="gap-1.5"
+          >
+            Send to Client
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/voice`}>
+              <Mic className="h-4 w-4" />
               Voice Copilot
             </Link>
-            <Link
-              href={`/dashboard/inspections/${inspection.id}/contents`}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 text-xs font-semibold transition-colors"
-            >
-              <Package size={14} />
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/contents`}>
+              <Package className="h-4 w-4" />
               Contents
             </Link>
-            {canGenerateInvoice && (
-              <Link
-                href={`/dashboard/inspections/${inspection.id}/invoice`}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
-              >
-                <Receipt size={14} />
+          </Button>
+          {/* RA-8081: per-job pages that had no link anywhere */}
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/print`}>
+              Print
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/monitoring`}>
+              Monitoring
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/audit`}>
+              Audit trail
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link
+              href={`/dashboard/inspections/${inspection.id}/sketch-preview`}
+            >
+              Homeowner sketch view
+            </Link>
+          </Button>
+          {canGenerateInvoice && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 sm:ml-auto border-cyan-500/50 text-cyan-700 dark:text-cyan-300"
+              asChild
+            >
+              <Link href={`/dashboard/inspections/${inspection.id}/invoice`}>
+                <Receipt className="h-4 w-4" />
                 Generate Invoice
               </Link>
-            )}
-          </div>
+            </Button>
+          )}
+        </div>
 
           {/* Share Dialog */}
           <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
@@ -1458,64 +1636,62 @@ export default function InspectionDetailPage({
               </div>
               {/* RA-6949 — per-job Restoration Pulse kill switch. Default OFF;
                   the firm opts a job in before any automated update is sent. */}
-              <div className="mt-2 pt-3 border-t border-neutral-200 dark:border-slate-700">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={inspection.pulseEnabled}
-                    disabled={pulseSaving}
-                    onChange={(e) => handleTogglePulse(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500"
-                    aria-label="Send automatic progress updates to the client for this job"
-                  />
-                  <span className="text-sm">
-                    <span className="font-medium text-neutral-800 dark:text-slate-200">
-                      Automatic progress updates
+              {ownerActions && (
+                <div className="mt-2 pt-3 border-t border-neutral-200 dark:border-slate-700">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={inspection.pulseEnabled}
+                      disabled={pulseSaving}
+                      onChange={(e) => handleTogglePulse(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500"
+                      aria-label={PULSE_JOB_TOGGLE_LABEL}
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium text-neutral-800 dark:text-slate-200">
+                        {PULSE_JOB_TOGGLE_LABEL}
+                      </span>
+                      <span className="block text-xs text-neutral-500 dark:text-slate-400">
+                        {PULSE_JOB_TOGGLE_HINT}
+                      </span>
                     </span>
-                    <span className="block text-xs text-neutral-500 dark:text-slate-400">
-                      Email the client when this job reaches a new stage or the
-                      drying status changes. Turn off to pause updates (for
-                      example, during a dispute).
-                    </span>
-                  </span>
-                </label>
-              </div>
+                  </label>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
-          <div className="flex items-center gap-4 mt-1 text-sm text-neutral-500 dark:text-slate-400">
-            <span className="flex items-center gap-1">
-              <MapPin size={14} />
-              {inspection.propertyAddress} ({inspection.propertyPostcode})
-            </span>
-            {inspection.technicianName && (
-              <span className="flex items-center gap-1">
-                <User size={14} />
-                {inspection.technicianName}
-              </span>
-            )}
-            {(session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER") && (
-              <AssignTechnician
-                inspectionId={inspection.id}
-                technicianId={inspection.technicianId ?? null}
-                onAssigned={(technicianId) =>
-                  setInspection((prev) => (prev ? { ...prev, technicianId } : prev))
-                }
-              />
-            )}
-            <span className="flex items-center gap-1">
-              <Calendar size={14} />
-              {new Date(inspection.createdAt).toLocaleDateString("en-AU", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })}
-            </span>
-          </div>
-        </div>
-      </div>
+      </header>
 
-      {/* Status Timeline */}
-      <StatusTimeline currentStatus={inspection.status} />
+      <section className={cn(INSPECTION_HUB_CARD, "p-3 sm:p-4 space-y-3")}>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400 px-0.5">
+          Quick navigation
+        </p>
+        <InspectionWorkflowStrip
+          inspectionId={inspection.id}
+          status={inspection.status}
+          reportId={inspection.reportId}
+          clientId={inspection.clientId}
+        />
+        <InspectionWorkspaceLinks
+          inspectionId={inspection.id}
+          clientId={inspection.clientId}
+          reportId={inspection.reportId}
+          showCompletenessInbox={isManagerOps}
+        />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-3 items-stretch">
+        <ClaimContextBanner inspectionId={inspection.id} />
+        <JobAppointmentsPanel inspectionId={inspection.id} />
+        <FieldAssistPanel inspectionId={inspection.id} />
+      </section>
+
+      <section className={cn(INSPECTION_HUB_CARD, "p-4 sm:p-5 space-y-3")}>
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400">
+          Job progress
+        </h2>
+        <StatusTimeline currentStatus={inspection.status} />
+      </section>
 
       <InspectionEvidenceReadinessPanel
         claimType={inspection.claimType}
@@ -1531,23 +1707,29 @@ export default function InspectionDetailPage({
         requiredEvidence={requiredEvidence}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Link
-          href={`/dashboard/inspections/${inspection.id}/capture`}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
-        >
-          <Camera size={16} />
-          Open Guided Capture
-        </Link>
-        <button
+      <section
+        className={cn(
+          INSPECTION_HUB_CARD,
+          "p-4 flex flex-wrap items-center gap-2 sm:gap-3",
+        )}
+      >
+        <Button size="sm" className="gap-2 bg-cyan-600 hover:bg-cyan-700" asChild>
+          <Link href={`/dashboard/inspections/${inspection.id}/capture`}>
+            <Camera className="h-4 w-4" />
+            Open Guided Capture
+          </Link>
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
+          className="gap-2"
           onClick={() => setActiveTab("photos")}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm font-medium hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
         >
-          <Upload size={16} />
+          <Upload className="h-4 w-4" />
           Upload photos
-        </button>
-      </div>
+        </Button>
+      </section>
 
       {/* Field evidence checklist is always available; sign-off only when ready. */}
       <div className="space-y-3" aria-label="Inspection completion">
@@ -1606,24 +1788,30 @@ export default function InspectionDetailPage({
       />
 
       {/* Tabs */}
+      <section className={cn(INSPECTION_HUB_CARD, "overflow-hidden")}>
       <div
         role="tablist"
         aria-label="Inspection sections"
-        className="flex gap-1 overflow-x-auto pb-1 border-b border-neutral-200 dark:border-slate-700"
+        className="flex gap-0.5 overflow-x-auto px-2 pt-2 pb-0 border-b border-neutral-200/80 dark:border-slate-700/60 bg-neutral-50/80 dark:bg-slate-950/40"
       >
-        {TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.key}
             role="tab"
             aria-selected={activeTab === tab.key}
             aria-controls={`tabpanel-${tab.key}`}
             id={`tab-${tab.key}`}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => {
+              setActiveTab(tab.key);
+              if (ADVANCED_SECTION_TABS.has(tab.key)) {
+                setMoreSectionsOpen(true);
+              }
+            }}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none",
+              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-t-md whitespace-nowrap transition-all border-b-2 -mb-px focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none",
               activeTab === tab.key
-                ? "border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-cyan-50/50 dark:bg-cyan-900/10"
-                : "border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50",
+                ? "border-cyan-500 text-cyan-700 dark:text-cyan-300 bg-white dark:bg-slate-900/60"
+                : "border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-800 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-900/30",
             )}
           >
             <tab.icon size={16} aria-hidden="true" />
@@ -1643,6 +1831,19 @@ export default function InspectionDetailPage({
             )}
           </button>
         ))}
+        {TABS.some((t) => ADVANCED_SECTION_TABS.has(t.key)) && (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={false}
+            aria-expanded={moreSectionsOpen}
+            onClick={() => setMoreSectionsOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+          >
+            <ListChecks size={16} aria-hidden="true" />
+            {moreSectionsOpen ? "Fewer sections" : "More sections"}
+          </button>
+        )}
         <Link
           href={`/dashboard/inspections/${inspection.id}/contents`}
           role="tab"
@@ -1660,12 +1861,12 @@ export default function InspectionDetailPage({
         id={`tabpanel-${activeTab}`}
         aria-labelledby={`tab-${activeTab}`}
         tabIndex={0}
-        className="min-h-[400px]"
+        className="min-h-[400px] p-4 sm:p-5"
       >
         {/* Overview */}
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+            <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
               <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Moisture Readings
               </div>
@@ -1685,7 +1886,7 @@ export default function InspectionDetailPage({
                 </div>
               )}
             </div>
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+            <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
               <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Affected Areas
               </div>
@@ -1702,7 +1903,7 @@ export default function InspectionDetailPage({
                 </div>
               )}
             </div>
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+            <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
               <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Scope Items
               </div>
@@ -1714,7 +1915,7 @@ export default function InspectionDetailPage({
                 auto-determined
               </div>
             </div>
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+            <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
               <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Estimated Cost
               </div>
@@ -1728,6 +1929,18 @@ export default function InspectionDetailPage({
                 {inspection.costEstimates.length} line items
               </div>
             </div>
+
+            <InspectionJourneyGuide
+              inspectionId={inspection.id}
+              status={inspection.status}
+              clientId={inspection.clientId}
+              reportId={inspection.reportId}
+              sketchRoomCount={sketchRooms.length}
+              photoCount={inspection.photos.length}
+              moistureCount={inspection.moistureReadings.length}
+              hasClassification={inspection.classifications.length > 0}
+              showCompletenessInbox={isManagerOps}
+            />
 
             {/* Classification Card */}
             {classification ? (
@@ -1806,14 +2019,14 @@ export default function InspectionDetailPage({
 
             {/* Make-safe is a hard submit blocker — keep it editable on the hub */}
             <div className="lg:col-span-4 md:col-span-2">
-              <MakeSafeChecklist inspectionId={inspection.id} />
+              <MakeSafeChecklist inspectionId={inspection.id} autoSave />
             </div>
 
             {/* Portal Invite */}
             <div className="lg:col-span-4 md:col-span-2">
               <PortalInvitePanel
                 inspectionId={inspection.id}
-                preselectedClientId={null}
+                preselectedClientId={inspection.clientId ?? null}
               />
             </div>
           </div>
@@ -1821,7 +2034,7 @@ export default function InspectionDetailPage({
 
         {/* Environmental Tab */}
         {activeTab === "environmental" && (
-          <div className="max-w-2xl space-y-4">
+          <div className="max-w-9xl space-y-4">
             {envData && !showEnvForm ? (
               <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-6">
                 <div className="flex items-center justify-between">
@@ -2288,13 +2501,15 @@ export default function InspectionDetailPage({
                           {reading.notes || "—"}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => handleDeleteMoisture(reading.id)}
-                            aria-label={`Delete moisture reading for ${reading.location}`}
-                            className="text-destructive hover:text-destructive transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
-                          >
-                            <Trash2 size={14} aria-hidden="true" />
-                          </button>
+                          {ownerActions && (
+                            <button
+                              onClick={() => handleDeleteMoisture(reading.id)}
+                              aria-label={`Delete moisture reading for ${reading.location}`}
+                              className="text-destructive hover:text-destructive transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
+                            >
+                              <Trash2 size={14} aria-hidden="true" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -2342,22 +2557,74 @@ export default function InspectionDetailPage({
             SketchEditor owns viewport height; panels below scroll naturally. */}
         <div
           className={cn(
-            "flex flex-col min-h-0",
+            "flex flex-col min-h-0 gap-4",
             activeTab !== "sketch" && "hidden",
           )}
           hidden={activeTab !== "sketch"}
         >
-          <SketchEditor
-            key={inspection.id}
-            inspectionId={inspection.id}
-            propertyAddress={inspection.propertyAddress ?? undefined}
-            propertyPostcode={inspection.propertyPostcode ?? undefined}
-            autoFetchFloorPlan={autoFetchFloorPlan}
-          />
-          <div className="mt-3 space-y-3 flex-shrink-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px] items-start">
+            <SketchEditor
+              key={inspection.id}
+              embedMode="hub"
+              inspectionId={inspection.id}
+              propertyAddress={inspection.propertyAddress ?? undefined}
+              propertyPostcode={inspection.propertyPostcode ?? undefined}
+              autoFetchFloorPlan={autoFetchFloorPlan}
+              onSketchPersisted={() => void refetchSketchRooms()}
+              sketchReloadToken={sketchReloadToken}
+              focusSketchRoomId={sketchFocusRoomId}
+              mapMoistureForRoom={sketchMapMoisture}
+              className="w-full"
+            />
+            <aside className="hidden xl:flex flex-col gap-3 sticky top-4">
+              <FloorPlanFieldGuide />
+              <SketchRoomCoveragePanel
+                inspectionId={inspection.id}
+                rooms={sketchRooms}
+                moistureReadings={moistureReadings}
+                scopeItems={scopeItems.map((s) => ({
+                  isSelected: s.isSelected,
+                  roomZoneId: (s as { roomZoneId?: string }).roomZoneId,
+                  sketchRoomId: (s as { sketchRoomId?: string | null })
+                    .sketchRoomId,
+                }))}
+              />
+            </aside>
+          </div>
+          <details className="xl:hidden rounded-xl border border-neutral-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-900/40 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-semibold text-neutral-600 dark:text-slate-300">
+              Field checklist & room coverage
+            </summary>
+            <div className="mt-3 space-y-3 pb-1">
+              <FloorPlanFieldGuide />
+              <SketchRoomCoveragePanel
+                inspectionId={inspection.id}
+                rooms={sketchRooms}
+                moistureReadings={moistureReadings}
+                scopeItems={scopeItems.map((s) => ({
+                  isSelected: s.isSelected,
+                  roomZoneId: (s as { roomZoneId?: string }).roomZoneId,
+                  sketchRoomId: (s as { sketchRoomId?: string | null })
+                    .sketchRoomId,
+                }))}
+              />
+            </div>
+          </details>
+          <div className="space-y-3 flex-shrink-0">
             <ClientPortalLinkButton inspectionId={inspection.id} />
             <ClientEvidenceReviewPanel inspectionId={inspection.id} />
-            <HomeownerCapturePanel inspectionId={inspection.id} />
+            <SketchMeasurementChecklistLoader
+              inspectionId={inspection.id}
+              refreshToken={sketchReloadToken}
+            />
+            <HomeownerCapturePanel
+              inspectionId={inspection.id}
+              refreshToken={sketchReloadToken}
+              onPromoted={() => {
+                void refetchSketchRooms();
+                setSketchReloadToken((token) => token + 1);
+              }}
+            />
           </div>
         </div>
 
@@ -2668,7 +2935,7 @@ export default function InspectionDetailPage({
 
         {/* Classification Tab */}
         {activeTab === "classification" && (
-          <div className="space-y-4 max-w-3xl">
+          <div className="space-y-4 max-w-9xl">
             <div className="p-5 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-4">
               <div>
                 <h3 className="font-semibold text-neutral-900 dark:text-white">
@@ -2830,6 +3097,13 @@ export default function InspectionDetailPage({
         {/* Scope Items Tab */}
         {activeTab === "scope" && (
           <div className="space-y-3">
+            {scopeRoomHint && (
+              <p className="text-sm rounded-lg border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-950/30 px-3 py-2 text-indigo-900 dark:text-indigo-100">
+                Scope for room:{" "}
+                <span className="font-semibold">{scopeRoomHint}</span> — match
+                the line item zone to this name on the floor plan.
+              </p>
+            )}
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setChecklistDialogOpen(true)}
@@ -3333,6 +3607,14 @@ export default function InspectionDetailPage({
                   : "Generate from scope"}
               </button>
             </div>
+            {blockedCosts && (
+              <div className="mb-4">
+                <BlockedPricingNotice
+                  blocked={blockedCosts}
+                  title="Cost estimate"
+                />
+              </div>
+            )}
             {inspection.costEstimates.length > 0 ? (
               <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-slate-700/50">
                 <table className="w-full">
@@ -3575,6 +3857,7 @@ export default function InspectionDetailPage({
           </div>
         )}
       </div>
+      </section>
 
       {/* Pilot ease-of-use survey — shown once per technician after COMPLETED */}
       <NirPilotSurvey

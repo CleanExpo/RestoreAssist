@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 const getServerSession = vi.fn();
 const reportFindFirst = vi.fn();
 const auditLogCreate = vi.fn();
+const mintReportShareAccess = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -27,8 +28,9 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("@/lib/portal-token", () => ({
-  generateInsurerToken: () => "signed-token",
+// Minting has its own suite (lib/report-share/__tests__/access.test.ts).
+vi.mock("@/lib/report-share/access", () => ({
+  mintReportShareAccess: (...args: unknown[]) => mintReportShareAccess(...args),
 }));
 
 import { POST } from "../route";
@@ -43,6 +45,12 @@ beforeEach(() => {
   getServerSession.mockReset();
   reportFindFirst.mockReset();
   auditLogCreate.mockReset();
+  mintReportShareAccess.mockReset();
+  mintReportShareAccess.mockResolvedValue({
+    id: "access_1",
+    token: "opaque-token",
+    expiresAt: new Date("2026-11-12T00:00:00.000Z"),
+  });
 
   getServerSession.mockResolvedValue({ user: { id: "manager_1" } });
   reportFindFirst.mockResolvedValue({
@@ -62,6 +70,15 @@ describe("POST /api/reports/[id]/insurer-link — link-generation evidence", () 
 
     expect(response.status).toBe(200);
     expect(body.deliveryRecorded).toBe(false);
+    // The link carries a revocable, stored share grant, scoped to insurers.
+    expect(mintReportShareAccess).toHaveBeenCalledWith({
+      reportId: "report_1",
+      scope: "INSURER",
+      createdByUserId: "manager_1",
+    });
+    expect(body.token).toBe("opaque-token");
+    expect(body.accessId).toBe("access_1");
+    expect(body.expiresAt).toBe("2026-11-12T00:00:00.000Z");
     expect(auditLogCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         inspectionId: "inspection_1",
@@ -96,6 +113,7 @@ describe("POST /api/reports/[id]/insurer-link — link-generation evidence", () 
 
     expect(response.status).toBe(409);
     expect(auditLogCreate).not.toHaveBeenCalled();
+    expect(mintReportShareAccess).not.toHaveBeenCalled();
   });
 
   it("does not generate a link for an unrelated or inaccessible report", async () => {

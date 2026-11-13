@@ -16,6 +16,7 @@ import {
   transitionWorkflow,
 } from "./state-manager";
 import { syncToDatabase } from "./registry";
+import { unskipUpstreamFailed } from "./lease";
 
 // ---------------------------------------------------------------------------
 // Workflow creation
@@ -200,29 +201,35 @@ export async function cancelWorkflow(workflowId: string): Promise<void> {
 export async function resumeWorkflow(
   workflowId: string,
 ): Promise<{ retriedCount: number }> {
-  const result = await prisma.agentTask.updateMany({
-    where: {
-      workflowId,
-      status: { in: ["FAILED", "DEAD_LETTER"] },
-    },
-    data: {
-      status: "READY",
-      errorMessage: null,
-      errorCode: null,
-      attempts: 0,
-    },
-  });
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.agentTask.updateMany({
+      where: {
+        workflowId,
+        status: { in: ["FAILED", "DEAD_LETTER"] },
+      },
+      data: {
+        status: "READY",
+        errorMessage: null,
+        errorCode: null,
+        attempts: 0,
+      },
+    });
 
-  // Reset workflow status to RUNNING
-  await prisma.agentWorkflow.update({
-    where: { id: workflowId },
-    data: {
-      status: "RUNNING",
-      completedAt: null,
-      errorMessage: null,
-      failedTasks: 0,
-    },
-  });
+    // RA-7999: dependents skipped by the failure cascade run again too;
+    // otherwise the resumed workflow would complete with steps missing.
+    await unskipUpstreamFailed(tx, workflowId);
 
-  return { retriedCount: result.count };
+    // Reset workflow status to RUNNING
+    await tx.agentWorkflow.update({
+      where: { id: workflowId },
+      data: {
+        status: "RUNNING",
+        completedAt: null,
+        errorMessage: null,
+        failedTasks: 0,
+      },
+    });
+
+    return { retriedCount: result.count };
+  });
 }

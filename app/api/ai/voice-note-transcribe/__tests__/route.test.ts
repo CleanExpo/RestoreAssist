@@ -75,7 +75,7 @@ describe("POST /api/ai/voice-note-transcribe — Rule 5 subscription gate", () =
   it.each(["CANCELED", "PAST_DUE"])(
     "returns 402 with no AI spend for %s subscriptions",
     async (status) => {
-      userFindUnique.mockResolvedValueOnce({ subscriptionStatus: status });
+      userFindUnique.mockResolvedValue({ subscriptionStatus: status });
 
       const res = await POST(makeRequest());
       const body = await res.json();

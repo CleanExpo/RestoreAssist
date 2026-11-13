@@ -93,7 +93,7 @@ tiers:
     tools: "Read, Grep, Bash(git log *), Bash(npm run *)"
     detail: >-
       Claude may be invoked READ-ONLY to explain the movement, and writes its
-      finding as an intent.md in intent/ using the Stage 1 template. It may not
+      finding as an intent.md in docs/intent/ using the Stage 1 template. It may not
       edit code, and the finding goes into the triage queue rather than
       straight to a fix.
 

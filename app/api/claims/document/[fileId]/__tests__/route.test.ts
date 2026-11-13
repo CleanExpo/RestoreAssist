@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
-const claimAnalysisFindUnique = vi.fn();
+const claimAnalysisFindFirst = vi.fn();
 const downloadDriveFile = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -12,7 +12,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     claimAnalysis: {
-      findUnique: (...args: unknown[]) => claimAnalysisFindUnique(...args),
+      findFirst: (...args: unknown[]) => claimAnalysisFindFirst(...args),
     },
   },
 }));
@@ -29,7 +29,7 @@ const ctx = { params: Promise.resolve({ fileId: "file-123" }) };
 
 beforeEach(() => {
   getServerSession.mockReset();
-  claimAnalysisFindUnique.mockReset();
+  claimAnalysisFindFirst.mockReset();
   downloadDriveFile.mockReset();
 });
 
@@ -43,15 +43,24 @@ describe("GET /api/claims/document/[fileId]", () => {
 
   it("returns 404 when the fileId belongs to another user (no cross-tenant download)", async () => {
     getServerSession.mockResolvedValue({ user: { id: "user-A" } });
-    claimAnalysisFindUnique.mockResolvedValue({ batch: { userId: "user-B" } });
+    // The row exists only in user-B's batch; the query filters on the caller.
+    claimAnalysisFindFirst.mockImplementation(
+      async (args: { where: { batch?: { userId?: string } } }) =>
+        args.where.batch?.userId === "user-B" ? { id: "analysis-1" } : null,
+    );
     const res = await GET(makeRequest(), ctx);
     expect(res.status).toBe(404);
     expect(downloadDriveFile).not.toHaveBeenCalled();
+    expect(claimAnalysisFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { googleDriveFileId: "file-123", batch: { userId: "user-A" } },
+      }),
+    );
   });
 
   it("returns 404 when no claim analysis owns the fileId", async () => {
     getServerSession.mockResolvedValue({ user: { id: "user-A" } });
-    claimAnalysisFindUnique.mockResolvedValue(null);
+    claimAnalysisFindFirst.mockResolvedValue(null);
     const res = await GET(makeRequest(), ctx);
     expect(res.status).toBe(404);
     expect(downloadDriveFile).not.toHaveBeenCalled();
@@ -59,7 +68,7 @@ describe("GET /api/claims/document/[fileId]", () => {
 
   it("serves the PDF with a private, no-store cache header for the owner", async () => {
     getServerSession.mockResolvedValue({ user: { id: "user-A" } });
-    claimAnalysisFindUnique.mockResolvedValue({ batch: { userId: "user-A" } });
+    claimAnalysisFindFirst.mockResolvedValue({ id: "analysis-1" });
     downloadDriveFile.mockResolvedValue({
       buffer: Buffer.from("%PDF-1.4 test"),
       mimeType: "application/pdf",

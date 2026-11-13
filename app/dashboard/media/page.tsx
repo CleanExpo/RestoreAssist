@@ -48,6 +48,11 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { DashboardPanel } from "@/app/dashboard/components/DashboardPanel";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -288,23 +293,17 @@ export default function MediaPage() {
   const activeCount = activeFilterCount(filters);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="border-b border-border/40 bg-background/95 backdrop-blur px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Camera className="h-6 w-6 text-brand-bronze" />
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">
-                Media Library
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Catalogued inspection photos for marketing &amp; SEO
-              </p>
-            </div>
-          </div>
+    <DashboardPageFrame className="flex flex-col gap-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Media Library"
+        description="Catalogued inspection photos for marketing, SEO, and client-facing assets."
+        icon={<Camera className="h-7 w-7 text-cyan-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/media" })}
+      />
 
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+      <DashboardPanel padded className="space-y-3">
+        <div className="flex flex-wrap items-center justify-end gap-2">
             {/* Bulk actions */}
             {selected.size > 0 && (
               <div className="flex items-center gap-1.5 border rounded-md px-2 py-1 bg-muted">
@@ -486,11 +485,10 @@ export default function MediaPage() {
               ))}
             </div>
           </div>
-        </div>
 
         {/* Active filter badges */}
         {activeCount > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-3">
+          <div className="flex flex-wrap gap-1.5">
             {Object.entries(filters).map(([key, value]) =>
               value ? (
                 <Badge
@@ -507,10 +505,9 @@ export default function MediaPage() {
             )}
           </div>
         )}
-      </div>
+      </DashboardPanel>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="min-w-0 space-y-6">
         {/* Stats cards */}
         {!loadingStats && stats && <StatsSection stats={stats} />}
 
@@ -583,7 +580,7 @@ export default function MediaPage() {
           </div>
         )}
       </div>
-    </div>
+    </DashboardPageFrame>
   );
 }
 

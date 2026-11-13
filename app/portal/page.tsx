@@ -2,11 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import PortalNav from "@/components/portal/PortalNav";
-import {
-  getStoredClientSession,
-  portalFetch,
-} from "@/lib/portal/client-session";
 import Link from "next/link";
 import {
   FileText,
@@ -17,6 +12,15 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { PortalEmptyProject } from "@/components/portal/PortalEmptyProject";
+import { ClientPortalAccountLayout } from "@/components/portal/ClientPortalAccountLayout";
+import {
+  getStoredClientSession,
+  portalFetch,
+} from "@/lib/portal/client-session";
+import {
+  clientPortalEyebrow,
+  clientPortalPanelPadding,
+} from "@/lib/portal/client-portal-theme";
 
 interface Report {
   id: string;
@@ -25,7 +29,6 @@ interface Report {
   status: string;
   propertyAddress: string;
   hazardType: string;
-  totalCost: number | null;
   createdAt: string;
   updatedAt: string;
   completionDate: string | null;
@@ -40,8 +43,6 @@ export default function PortalDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // JWT lives in localStorage — check client-side and bounce to login
-    // when missing/expired.
     if (!getStoredClientSession()) {
       router.push("/portal/login");
       return;
@@ -68,18 +69,18 @@ export default function PortalDashboard() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      DRAFT: "bg-slate-100 text-slate-700",
-      PENDING: "bg-warning-subtle text-warning-subtle-foreground",
-      APPROVED: "bg-success-subtle text-success-subtle-foreground",
-      COMPLETED: "bg-info-subtle text-info-subtle-foreground",
-      ARCHIVED: "bg-slate-100 text-slate-500",
+  const statusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      DRAFT: "bg-slate-800 text-slate-300 border-white/10",
+      PENDING: "bg-amber-500/15 text-amber-200 border-amber-500/30",
+      APPROVED: "bg-emerald-500/15 text-emerald-200 border-emerald-500/30",
+      COMPLETED: "bg-cyan-500/15 text-cyan-200 border-cyan-500/30",
+      ARCHIVED: "bg-slate-800 text-slate-500 border-white/10",
     };
-    return styles[status as keyof typeof styles] || styles.DRAFT;
+    return styles[status] ?? styles.DRAFT;
   };
 
-  const getStatusIcon = (status: string) => {
+  const statusIcon = (status: string) => {
     switch (status) {
       case "APPROVED":
       case "COMPLETED":
@@ -95,96 +96,82 @@ export default function PortalDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand-cloud">
-        <PortalNav />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-bronze mx-auto mb-4"></div>
-            <p className="text-brand-slate">Loading your reports...</p>
-          </div>
+      <ClientPortalAccountLayout>
+        <div className="py-16 text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-cyan-500/30 border-t-cyan-400" />
+          <p className="text-slate-400">Loading your reports…</p>
         </div>
-      </div>
+      </ClientPortalAccountLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-brand-cloud">
-      <PortalNav />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-brand-navy mb-2">
-            My Restoration Reports
-          </h1>
-          <p className="text-brand-slate">
-            View your restoration project reports, track progress, and approve
-            work.
-          </p>
-        </div>
-
-        {reports.length === 0 ? (
-          <PortalEmptyProject />
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {reports.map((report) => (
-              <Link
-                key={report.id}
-                href={`/portal/reports/${report.id}`}
-                className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 border border-transparent hover:border-brand-bronze/30"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(report.status)}`}
-                  >
-                    {getStatusIcon(report.status)}
-                    {report.status}
-                  </div>
-                  {report.pendingApprovals > 0 && (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
-                      <AlertCircle size={14} />
-                      {report.pendingApprovals}
-                    </div>
-                  )}
-                </div>
-
-                <h3 className="text-lg font-semibold text-brand-navy mb-2 line-clamp-2">
-                  {report.title}
-                </h3>
-
-                <div className="space-y-2 text-sm text-brand-slate">
-                  <p className="flex items-start gap-2">
-                    <span className="font-medium">Address:</span>
-                    <span className="line-clamp-2">
-                      {report.propertyAddress}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-medium">Type:</span>{" "}
-                    {report.hazardType}
-                  </p>
-                  {report.totalCost && (
-                    <p className="text-brand-navy font-semibold mt-3">
-                      Estimated Cost: ${report.totalCost.toLocaleString()}
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-brand-slate/10 flex justify-between items-center text-xs text-brand-slate">
-                  <span>
-                    Created {new Date(report.createdAt).toLocaleDateString()}
-                  </span>
-                  {report.completionDate && (
-                    <span>
-                      Completed{" "}
-                      {new Date(report.completionDate).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+    <ClientPortalAccountLayout>
+      <div className="mb-8">
+        <p className={clientPortalEyebrow}>Your account</p>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight text-white">
+          My restoration reports
+        </h1>
+        <p className="mt-2 text-slate-400">
+          Track progress and respond to approvals your restorer sent you.
+        </p>
       </div>
-    </div>
+
+      {reports.length === 0 ? (
+        <PortalEmptyProject />
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {reports.map((report) => (
+            <Link
+              key={report.id}
+              href={`/portal/reports/${report.id}`}
+              className={`${clientPortalPanelPadding} block transition hover:border-cyan-400/30 hover:shadow-cyan-950/20`}
+            >
+              <div className="mb-4 flex items-start justify-between">
+                <div
+                  className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${statusBadge(report.status)}`}
+                >
+                  {statusIcon(report.status)}
+                  {report.status}
+                </div>
+                {report.pendingApprovals > 0 && (
+                  <div className="flex items-center gap-1 rounded-full bg-orange-500/15 px-2 py-1 text-xs font-medium text-orange-200">
+                    <AlertCircle size={14} />
+                    {report.pendingApprovals}
+                  </div>
+                )}
+              </div>
+
+              <h3 className="mb-2 line-clamp-2 text-lg font-semibold text-white">
+                {report.title}
+              </h3>
+
+              <div className="space-y-2 text-sm text-slate-400">
+                <p className="flex items-start gap-2">
+                  <span className="font-medium text-slate-500">Address:</span>
+                  <span className="line-clamp-2">{report.propertyAddress}</span>
+                </p>
+                <p>
+                  <span className="font-medium text-slate-500">Type:</span>{" "}
+                  {report.hazardType}
+                </p>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4 text-xs text-slate-500">
+                <span>
+                  Created {new Date(report.createdAt).toLocaleDateString()}
+                </span>
+                {report.completionDate && (
+                  <span>
+                    Completed{" "}
+                    {new Date(report.completionDate).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </ClientPortalAccountLayout>
   );
 }

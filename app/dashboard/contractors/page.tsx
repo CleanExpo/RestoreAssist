@@ -2,9 +2,13 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { SVGProps } from "react";
-import { ChromeMapPin } from "@/components/brand/chrome-icons";
+import { ChromeBuilding, ChromeMapPin } from "@/components/brand/chrome-icons";
 import { authOptions } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 // Inline SVG marks (Phill Rule 1: no generic icon-library imports). RAIcon is
 // the wrong tool here — it renders fixed brand-palette <img> assets and cannot
@@ -109,16 +113,15 @@ export default async function ContractorsHubPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          Contractor workspace
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Profile, licences, coverage and kit for this organisation.
-        </p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Contractor workspace"
+        description="Profile, licences, coverage, equipment, and service areas for this organisation."
+        icon={<ChromeBuilding className="h-7 w-7 text-cyan-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/contractors" })}
+      />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {SECTIONS.map((section) => {
           const Icon = section.icon;
           return (
@@ -138,6 +141,6 @@ export default async function ContractorsHubPage() {
           );
         })}
       </div>
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }

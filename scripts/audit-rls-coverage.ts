@@ -187,6 +187,9 @@ export const SERVICE_ONLY = new Set<string>([
   "PilotAdjusterReceipt",
   "PilotGenerationReceipt",
   "PilotNoChargeApproval",
+  // 20261016120000: rows carry bearer report-share tokens. Server-only, like
+  // UserInvite: RLS enabled with zero client policies.
+  "ReportShareAccess",
   // Durable delivery/cleanup/authentication ledgers are only consumed by
   // trusted server jobs and route handlers. No browser database role needs a
   // policy on these tables.
@@ -514,6 +517,9 @@ export const PENDING_RLS = new Set<string>([
   "InterviewStandardsMapping",
   "InvoiceSequence",
   "InvoiceSyncJob",
+  // RA-8199: outbound Zoho CRM queue. Tenant data via userId, no RLS migration
+  // yet — same posture as InvoiceSyncJob until the RA-6677 policy pass.
+  "ZohoSyncJob",
   "InvoiceTemplate",
   "LidarScan",
   "LiveTeacherSession",

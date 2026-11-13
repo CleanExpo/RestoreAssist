@@ -18,6 +18,8 @@ import {
   Mail,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { resolveClientRecipient } from "@/lib/client-recipient";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import InspectionReportViewer from "@/components/InspectionReportViewer";
 import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer";
@@ -43,6 +45,13 @@ import {
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { StartClaimProgressButton } from "@/components/claims/StartClaimProgressButton";
+import {
+  parseApiError,
+  type ParsedApiError,
+} from "@/lib/client/parse-api-error";
+import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
+import { ReportClientSendChecklist } from "@/components/reports/ReportClientSendChecklist";
+import { ReportDetailHonestyPanel } from "@/components/reports/ReportDetailHonestyPanel";
 
 export default function ReportDetailPage({
   params,
@@ -53,7 +62,7 @@ export default function ReportDetailPage({
   const { data: session } = useSession();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     "inspection" | "scope" | "cost" | "authority" | "approvals" | "package"
@@ -94,30 +103,36 @@ export default function ReportDetailPage({
     getParams();
   }, [params]);
 
+  const fetchReportData = async () => {
+    if (!reportId) return;
+    try {
+      setLoading(true);
+      setLoadError(null);
+      const reportResponse = await fetch(`/api/reports/${reportId}`);
+      if (reportResponse.ok) {
+        const reportData = await reportResponse.json();
+        setReport(reportData);
+      } else {
+        setReport(null);
+        setLoadError(await parseApiError(reportResponse));
+      }
+    } catch (err) {
+      setReport(null);
+      setLoadError({
+        code: "NETWORK",
+        message: "Could not reach the server. Check your connection and retry.",
+        status: 0,
+      });
+      console.error("Error fetching report:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!reportId) return;
-
-    const fetchReportData = async () => {
-      try {
-        setLoading(true);
-
-        // Fetch report
-        const reportResponse = await fetch(`/api/reports/${reportId}`);
-        if (reportResponse.ok) {
-          const reportData = await reportResponse.json();
-          setReport(reportData);
-        } else {
-          setError("Report not found");
-        }
-      } catch (err) {
-        setError("Failed to load report");
-        console.error("Error fetching report:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReportData();
+    void fetchReportData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when id changes only
   }, [reportId]);
 
   if (loading) {
@@ -128,23 +143,15 @@ export default function ReportDetailPage({
     );
   }
 
-  if (error || !report) {
+  if (!loading && (loadError || !report)) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Report Not Found</h2>
-          <p className="text-slate-400 mb-4">
-            {error || "The requested report could not be found."}
-          </p>
-          <button
-            onClick={() => router.push("/dashboard/reports")}
-            className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
-          >
-            Back to Reports
-          </button>
-        </div>
-      </div>
+      <DetailLoadErrorPanel
+        resourceLabel="report"
+        error={loadError}
+        backHref="/dashboard/reports"
+        backLabel="Back to reports"
+        onRetry={() => void fetchReportData()}
+      />
     );
   }
 
@@ -192,7 +199,11 @@ export default function ReportDetailPage({
 
   // RA-7632: emailing the finished report is the delivery record Close Job
   // needs. The server enforces both conditions; this only explains the state.
-  const clientEmail: string = report.client?.email?.trim() ?? "";
+  const clientEmail: string =
+    resolveClientRecipient<{ email?: string | null }>({
+      reportClient: report.client,
+      inspectionClient: report.inspection?.client,
+    })?.email ?? "";
   const canEmailClient =
     report.status === "COMPLETED" && clientEmail.length > 0;
   const emailClientTitle =
@@ -257,6 +268,8 @@ export default function ReportDetailPage({
         </div>
       </div>
 
+      <ReportDetailHonestyPanel report={report} />
+
       {/* Weakness check — reviewed ahead of export/handoff (RA-5041 UI) */}
       {reportId && (
         <WeaknessFindingsPanel
@@ -264,6 +277,20 @@ export default function ReportDetailPage({
           acknowledged={p0Acknowledged}
           onGateChange={setWeaknessGate}
           onRunStart={() => setP0Acknowledged(false)}
+        />
+      )}
+
+      {reportId && (
+        <ReportClientSendChecklist
+          reportId={reportId}
+          reportStatus={report.status}
+          inspectionId={
+            report?.inspectionId ?? report?.inspection?.id ?? null
+          }
+          clientEmailHint={clientEmail || report?.clientEmail || null}
+          canSend={canEmailClient}
+          sending={emailingClient}
+          onSend={() => requestExport(handleEmailClient)}
         />
       )}
 
@@ -356,6 +383,19 @@ export default function ReportDetailPage({
           <MessageSquare size={18} />
           Start Interview
         </button>
+        {/* RA-8081: report pages that had no link anywhere */}
+        <Link
+          href={`/dashboard/reports/${reportId}/preview`}
+          className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+        >
+          Preview
+        </Link>
+        <Link
+          href={`/dashboard/reports/${reportId}/share`}
+          className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+        >
+          Share settings
+        </Link>
       </div>
 
       {/* RA-5041 UI: block export/handoff on an unacknowledged P0 hard-stop —

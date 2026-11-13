@@ -1,6 +1,6 @@
 # RestoreAssist
 
-> Australia's first Australian-designed full CRM — Office and Field Management System designed specifically for the Australian Restoration Industry. Inbuilt IICRC frameworks, WHS policies, and Australian Building Code references remove double-handling between field capture and office processing. AI assists administration and field technicians; the decisions stay with the operator. Designed in Australia, deployed across Australia and New Zealand.
+> The Australian-designed CRM — Office and Field Management System designed specifically for the Australian Restoration Industry. Inbuilt IICRC frameworks, WHS policies, and Australian Building Code references remove double-handling between field capture and office processing. AI assists administration and field technicians; the decisions stay with the operator. Designed in Australia, deployed across Australia and New Zealand.
 
 ## Business Identity
 
@@ -25,14 +25,19 @@ Built for restoration contractors who want to eliminate the gap between what the
 
 ## Core Capabilities
 
-- **Office CRM** — client + claim management, insurance carrier coordination, scope-of-works approval
+- **Office CRM** — client records and search, claim management, insurer profiles, scope-of-works approval
 - **Field Management** — mobile inspection capture (water classification, moisture readings, psychrometric data, environmental data, photos, sketches, voice notes)
 - **IICRC-aware forms** — drying goals, water damage classification (Categories 1/2/3, Classes 1-4), mould remediation conditions, fire/smoke damage assessment
 - **WHS automation** — SWMS draft generation, WHS incident recording, corrective action tracking
 - **Authority forms** — work authorisation, payment authority, scope variation tracking with digital signatures
-- **Estimating** — scope items, cost library + estimates, EstimateVariation tracking, claim analysis batches
-- **Integrations** — Xero (accounting), Ascora (existing CRM bridge)
+- **Estimating** — scope items, cost library + estimates, claim analysis batches
+- **Integrations** — Xero (accounting, optional add-on), Ascora (migration of job history and pricing, optional add-on)
 - **AI assist** — administration agents + field technician assistants; decisions stay with human operators
+
+## Pricing
+
+- $99 AUD a month including GST, with 50 inspection reports
+- Field technician seats are billed per seat; the plan comes with none
 
 ## Who It's For
 
@@ -43,11 +48,11 @@ Built for restoration contractors who want to eliminate the gap between what the
 
 ## Trust Signals
 
-- IICRC framework compliance built-in
+- Reports structured on IICRC sections; the operator owns every report
 - All assessments include the relevant Australian Standard reference
 - Audit log per inspection (custody-of-evidence chain)
 - WHS incident reporting integrated with corrective-action workflow
-- Supabase backend with Row Level Security per organisation tenant
+- Data access scoped to each customer's account
 - Parent: Unite-Group (Australian-owned)
 - Status / uptime monitoring at the app's /status page
 

@@ -25,6 +25,8 @@ import { NextRequest } from "next/server";
 const getServerSession = vi.fn();
 const inspectionFindFirst = vi.fn();
 const evidenceItemGroupBy = vi.fn();
+const inspectionUpdateMany = vi.fn();
+const insurerProfileFindFirst = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -34,6 +36,10 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: {
       findFirst: (...args: unknown[]) => inspectionFindFirst(...args),
+      updateMany: (...args: unknown[]) => inspectionUpdateMany(...args),
+    },
+    insurerProfile: {
+      findFirst: (...args: unknown[]) => insurerProfileFindFirst(...args),
     },
     evidenceItem: {
       groupBy: (...args: unknown[]) => evidenceItemGroupBy(...args),
@@ -81,6 +87,9 @@ const SEEDED_EVIDENCE_COUNTS = [
 const REAL_INSPECTION = {
   id: INSPECTION_ID,
   claimType: "WATER",
+  claimNumber: null,
+  insurerTemplateId: null,
+  insurerProfileId: null,
   inspectionWorkflow: { jobType: "WATER_DAMAGE" },
 };
 
@@ -111,6 +120,8 @@ beforeEach(() => {
     return { ...REAL_INSPECTION };
   });
   evidenceItemGroupBy.mockResolvedValue([...SEEDED_EVIDENCE_COUNTS]);
+  inspectionUpdateMany.mockResolvedValue({ count: 1 });
+  insurerProfileFindFirst.mockResolvedValue({ id: "profile_iag" });
 });
 
 describe("POST /api/inspections/[id]/insurer-profile — RA-7508 evidence gap", () => {
@@ -202,8 +213,16 @@ describe("RA-7570 — job type from InspectionWorkflow, not Inspection.jobType",
       select: {
         id: true,
         claimType: true,
+        claimNumber: true,
+        insurerTemplateId: true,
+        insurerProfileId: true,
         inspectionWorkflow: { select: { jobType: true } },
       },
+    });
+    // The selection is persisted on the inspection, scoped to the owner.
+    expect(inspectionUpdateMany).toHaveBeenCalledWith({
+      where: { id: INSPECTION_ID, userId: "user_1" },
+      data: { insurerTemplateId: "IAG", insurerProfileId: "profile_iag" },
     });
   });
 
@@ -342,7 +361,8 @@ describe("GET /api/inspections/[id]/insurer-profile", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.insurerProfile).toBeNull();
-    expect(body.message).toMatch(/No insurer profile assigned/);
+    expect(body.insurerTemplateId).toBeNull();
+    expect(body.insurerProfileId).toBeNull();
     expect(body.availableProfiles).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "IAG" })]),
     );

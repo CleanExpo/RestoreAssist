@@ -188,7 +188,7 @@ function SignupForm() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form method="post" onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="portal-signup-email" className="block text-sm font-medium text-brand-navy mb-1">
               Email

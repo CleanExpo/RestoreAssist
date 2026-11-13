@@ -36,6 +36,11 @@ const STATUTORY_REASSIGNED_DELEGATES = [
   "restorationDocument",
   "creditNote",
   "invoicePayment",
+  // Fire walkthrough records (VoiceCopilotObservation) cascade from the
+  // technician's session, so the session is re-homed and a technician leaving
+  // never erases a walkthrough on another user's inspection. They are kept for
+  // as long as the inspection is, not beyond it.
+  "voiceCopilotSession",
 ] as const;
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
@@ -65,22 +70,32 @@ vi.mock("@/lib/stripe", () => ({ stripe: stripeMock }));
 
 const prismaMock = vi.hoisted(() => {
   const mock: {
-    user: { findUnique: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
+    user: {
+      findUnique: ReturnType<typeof vi.fn>;
+      delete: ReturnType<typeof vi.fn>;
+      updateMany: ReturnType<typeof vi.fn>;
+    };
+    organization: { findMany: ReturnType<typeof vi.fn> };
     invoice: { updateMany: ReturnType<typeof vi.fn> };
     report: { updateMany: ReturnType<typeof vi.fn> };
     estimate: { updateMany: ReturnType<typeof vi.fn> };
     restorationDocument: { updateMany: ReturnType<typeof vi.fn> };
     creditNote: { updateMany: ReturnType<typeof vi.fn> };
     invoicePayment: { updateMany: ReturnType<typeof vi.fn> };
+    voiceCopilotSession: { updateMany: ReturnType<typeof vi.fn> };
+    securityEvent: { create: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
   } = {
-    user: { findUnique: vi.fn(), delete: vi.fn() },
+    user: { findUnique: vi.fn(), delete: vi.fn(), updateMany: vi.fn() },
+    organization: { findMany: vi.fn(async () => []) },
     invoice: { updateMany: vi.fn() },
     report: { updateMany: vi.fn() },
     estimate: { updateMany: vi.fn() },
     restorationDocument: { updateMany: vi.fn() },
     creditNote: { updateMany: vi.fn() },
     invoicePayment: { updateMany: vi.fn() },
+    voiceCopilotSession: { updateMany: vi.fn() },
+    securityEvent: { create: vi.fn() },
     // Interactive transaction: run the callback with the same delegate set as
     // the transactional client so tx.* calls are observable on the mock.
     $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mock)),
@@ -131,10 +146,50 @@ describe("POST /api/account/delete — statutory-record retention", () => {
     prismaMock.invoicePayment.updateMany.mockResolvedValue({
       count: 5,
     } as never);
+    prismaMock.voiceCopilotSession.updateMany.mockResolvedValue({ count: 2 } as never);
     prismaMock.user.delete.mockResolvedValue({ id: "user-1" } as never);
+    prismaMock.user.updateMany.mockResolvedValue({ count: 2 } as never);
+    prismaMock.securityEvent.create.mockResolvedValue({ id: "se-1" } as never);
     prismaMock.$transaction.mockImplementation(
       async (cb: (tx: unknown) => Promise<unknown>) => cb(prismaMock),
     );
+  });
+
+  // GET /api/user/profile refuses to recreate an id with this tombstone, so
+  // it must be written before the delete or the delete must not happen.
+  it("writes the ACCOUNT_DELETED tombstone before the user is deleted", async () => {
+    const res = await POST(makeRequest(CONFIRMATION));
+    expect(res.status).toBe(200);
+    expect(prismaMock.securityEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        eventType: "ACCOUNT_DELETED",
+        userId: "user-1",
+      }),
+    });
+    expect(
+      prismaMock.securityEvent.create.mock.invocationCallOrder[0],
+    ).toBeLessThan(prismaMock.user.delete.mock.invocationCallOrder[0]);
+  });
+
+  it("does not delete the account when the tombstone cannot be written", async () => {
+    prismaMock.securityEvent.create.mockRejectedValue(new Error("db down"));
+    const res = await POST(makeRequest(CONFIRMATION));
+    expect(res.status).not.toBe(200);
+    expect(prismaMock.user.delete).not.toHaveBeenCalled();
+  });
+
+  it("does not cancel a paid subscription when the tombstone cannot be written", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      stripeCustomerId: "cus_1",
+      subscriptionId: "sub_paid",
+    } as never);
+    prismaMock.securityEvent.create.mockRejectedValue(new Error("db down"));
+    const res = await POST(makeRequest(CONFIRMATION));
+    expect(res.status).not.toBe(200);
+    expect(stripeMock.subscriptions.cancel).not.toHaveBeenCalled();
+    expect(prismaMock.user.delete).not.toHaveBeenCalled();
   });
 
   it("deletes the account holder's User row (erases their PII)", async () => {
@@ -206,5 +261,60 @@ describe("POST /api/account/delete — statutory-record retention", () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
     expect(prismaMock.invoice.updateMany).not.toHaveBeenCalled();
     expect(prismaMock.user.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/account/delete — RA-7893 members keep a leave date", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "user-1", email: "owner@example.com", name: "Owner" },
+    } as never);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      stripeCustomerId: null,
+      subscriptionId: null,
+    } as never);
+    for (const d of STATUTORY_REASSIGNED_DELEGATES) {
+      updateManyOf(d).mockResolvedValue({ count: 0 } as never);
+    }
+    prismaMock.user.updateMany.mockResolvedValue({ count: 2 } as never);
+    prismaMock.organization.findMany.mockResolvedValue([
+      { id: "org-a" },
+    ] as never);
+    prismaMock.user.delete.mockResolvedValue({ id: "user-1" } as never);
+    prismaMock.securityEvent.create.mockResolvedValue({ id: "se-1" } as never);
+    prismaMock.$transaction.mockImplementation(
+      async (cb: (tx: unknown) => Promise<unknown>) => cb(prismaMock),
+    );
+  });
+
+  it("stamps organizationLeftAt on the owner's members, in the transaction, before the owner is deleted", async () => {
+    // Deleting the owner cascades the Organization and its UserInvites and
+    // nulls each member's organizationId. The leave date is the only record
+    // left that a member's older jobs belonged to that organisation.
+    const res = await POST(makeRequest(CONFIRMATION));
+    expect(res.status).toBe(200);
+
+    // Every current member of each organisation the owner owns gets the
+    // leave date AND which organisation they left.
+    expect(prismaMock.organization.findMany).toHaveBeenCalledWith({
+      where: { ownerId: "user-1" },
+      select: { id: true },
+    });
+    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
+      where: { organizationId: "org-a" },
+      data: {
+        organizationLeftAt: expect.any(Date),
+        organizationLeftId: "org-a",
+      },
+    });
+    expect(
+      prismaMock.user.updateMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(prismaMock.user.delete.mock.invocationCallOrder[0]);
+    expect(
+      prismaMock.$transaction.mock.invocationCallOrder[0],
+    ).toBeLessThan(prismaMock.user.updateMany.mock.invocationCallOrder[0]);
   });
 });

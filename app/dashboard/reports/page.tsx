@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
 import { useMobilePullRefreshHandler } from "@/components/mobile/MobilePullToRefresh";
+import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListErrorBanner";
+import type { ParsedApiError } from "@/lib/client/parse-api-error";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,7 +24,11 @@ import {
   GitBranch,
   RefreshCw,
   Sparkles,
+  FileText,
 } from "lucide-react";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 import toast from "react-hot-toast";
 import {
   EvaluatorScoreBadge,
@@ -67,6 +73,9 @@ export default function ReportsPage() {
   } = useFetch<{ reports: ReportWithSessionData[] }>(
     dataSource === "native" ? "/api/reports" : null,
   );
+  const listError: ParsedApiError | null = fetchError
+    ? { code: "UNKNOWN", message: fetchError, status: 0 }
+    : null;
   useMobilePullRefreshHandler(async () => {
     if (dataSource !== "native") return { kind: "cancelled", message: "Use the synced jobs panel to refresh this source." };
     return await refreshReports()
@@ -392,16 +401,18 @@ export default function ReportsPage() {
   };
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Reports</h1>
-          <p className="text-slate-300">
-            Manage and view all restoration reports
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap justify-end">
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        className="mb-4"
+        eyebrow="Simple workspace"
+        title="My Reports"
+        description="Manage and view all restoration reports"
+        icon={<FileText className="h-7 w-7 text-cyan-500" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/reports",
+        })}
+        primaryAction={
+        <div className="flex items-center gap-3 flex-wrap justify-end w-full sm:w-auto">
           <DataSourceSwitcher
             id="reports-data-source"
             value={dataSource}
@@ -442,7 +453,8 @@ export default function ReportsPage() {
             </Link>
           )}
         </div>
-      </div>
+        }
+      />
 
       {dataSource !== "native" ? (
         <>
@@ -629,20 +641,17 @@ export default function ReportsPage() {
       )}
 
       {/* Fetch error */}
-      {fetchError && !loading && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300 mb-4">
-          <span className="text-sm">Failed to load reports — {fetchError}</span>
-          <button
-            type="button"
-            onClick={refetchReports}
-            className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
+      {listError && !loading && (
+        <DashboardListErrorBanner
+          resourceLabel="reports"
+          error={listError}
+          onRetry={refetchReports}
+        />
       )}
 
       {/* Reports Table */}
+      {!listError && (
+      <>
       <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden mb-4">
         {loading ? (
           <div className="divide-y divide-slate-700/50">
@@ -1075,8 +1084,9 @@ export default function ReportsPage() {
         onPageChange={setCurrentPage}
         noun="reports"
       />
-
       </>
+      )}
+        </>
       )}
 
       {/* RA-1191 — replaced custom bulk-delete modal with shared shadcn
@@ -1091,6 +1101,6 @@ export default function ReportsPage() {
         itemCount={selectedReports.length}
         itemName="report"
       />
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }

@@ -76,6 +76,22 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
+      // A deleted account's session can outlive its row. Account delete logs
+      // ACCOUNT_DELETED against the id (no foreign key, so it survives), and
+      // ids are never reused, so that event means this identity was deleted:
+      // refuse rather than recreate it.
+      const deleted = await prisma.securityEvent.findFirst({
+        where: { userId: session.user.id, eventType: "ACCOUNT_DELETED" },
+        select: { id: true },
+      });
+      if (deleted) {
+        return apiError(request, {
+          code: "UNAUTHORIZED",
+          message: "Unauthorized",
+          status: 401,
+        });
+      }
+
       // Create Stripe customer for new user
       let stripeCustomerId = null;
       try {
@@ -92,6 +108,18 @@ export async function GET(request: NextRequest) {
         // Continue without Stripe customer ID - user can still use the app
       }
 
+      // A self-serve account owns its workspace, so it is ADMIN as on every
+      // signup path (financial writes need ADMIN or MANAGER). An email with an
+      // open invite stays USER, as register refuses it for the same reason.
+      const pendingInvite = await prisma.userInvite.findFirst({
+        where: {
+          email: { equals: session.user.email!, mode: "insensitive" },
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        select: { id: true },
+      });
+
       // If user doesn't exist in database, create a basic profile
       const newUser = await prisma.user.create({
         data: {
@@ -99,6 +127,7 @@ export async function GET(request: NextRequest) {
           name: session.user.name,
           email: session.user.email!,
           image: session.user.image,
+          role: pendingInvite ? "USER" : "ADMIN",
           subscriptionStatus: "TRIAL",
           creditsRemaining: TRIAL_REPORT_CREDITS,
           totalCreditsUsed: 0,

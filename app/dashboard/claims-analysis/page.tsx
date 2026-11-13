@@ -59,6 +59,9 @@ import { useSession } from "next-auth/react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 
+/** Most documents analyze-batch accepts in one batch (RA-8043e). */
+const MAX_DOCUMENTS_PER_BATCH = 100;
+
 interface MissingElementsSummary {
   iicrc: number;
   australianStandards: number;
@@ -173,6 +176,7 @@ export default function ClaimsAnalysisPage() {
     instructions?: string[];
   } | null>(null);
   const [maxDocuments, setMaxDocuments] = useState<string>("");
+  const documentCap = Math.min(files.length, MAX_DOCUMENTS_PER_BATCH);
   const [analysisResults, setAnalysisResults] = useState<GapAnalysisResult[]>(
     [],
   );
@@ -349,9 +353,12 @@ export default function ClaimsAnalysisPage() {
       return;
     }
 
-    const maxDocs = maxDocuments ? parseInt(maxDocuments) : files.length;
-    if (maxDocs <= 0 || maxDocs > files.length) {
-      toast.error(`Please enter a valid number between 1 and ${files.length}`);
+    const maxDocs = Math.min(
+      maxDocuments ? parseInt(maxDocuments) : documentCap,
+      documentCap,
+    );
+    if (!(maxDocs > 0)) {
+      toast.error(`Please enter a valid number between 1 and ${documentCap}`);
       return;
     }
 
@@ -377,7 +384,12 @@ export default function ClaimsAnalysisPage() {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to perform analysis");
+        // apiError responses carry { error: { code, message } }.
+        const apiMessage =
+          typeof errData.error === "string"
+            ? errData.error
+            : errData.error?.message;
+        throw new Error(apiMessage || "Failed to perform analysis");
       }
 
       const reader = response.body?.getReader();
@@ -385,6 +397,7 @@ export default function ClaimsAnalysisPage() {
 
       const decoder = new TextDecoder();
       let buffer = "";
+      let streamFailed = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -445,10 +458,20 @@ export default function ClaimsAnalysisPage() {
               toast.success(
                 `Analysis completed! Processed ${event.results?.length || 0} file(s)`,
               );
+            } else if (event.type === "error") {
+              toast.error(event.error || "Failed to perform analysis");
+              streamFailed = true;
+              break;
             }
           } catch {
             // skip malformed JSON lines
           }
+        }
+        // The error event is terminal: stop reading so a later transport
+        // failure cannot report a second error.
+        if (streamFailed) {
+          await reader.cancel().catch(() => undefined);
+          break;
         }
       }
     } catch (error: any) {
@@ -737,14 +760,14 @@ export default function ClaimsAnalysisPage() {
                   id="maxDocuments"
                   type="number"
                   min="1"
-                  max={files.length}
-                  placeholder={`Max: ${files.length} (all files)`}
+                  max={documentCap}
+                  placeholder={`Max: ${documentCap}`}
                   value={maxDocuments}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (
                       val === "" ||
-                      (parseInt(val) > 0 && parseInt(val) <= files.length)
+                      (parseInt(val) > 0 && parseInt(val) <= documentCap)
                     ) {
                       setMaxDocuments(val);
                     }
@@ -752,8 +775,9 @@ export default function ClaimsAnalysisPage() {
                   disabled={processing}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Leave empty to process all {files.length} files, or enter a
-                  number (1-{files.length}) to limit processing
+                  Leave empty to process {documentCap} of {files.length} files
+                  (at most {MAX_DOCUMENTS_PER_BATCH} per batch), or enter a
+                  number (1-{documentCap}) to limit processing
                 </p>
               </div>
             )}
@@ -800,7 +824,7 @@ export default function ClaimsAnalysisPage() {
                     Start Analysis (
                     {maxDocuments
                       ? `${maxDocuments}/${files.length}`
-                      : files.length}{" "}
+                      : documentCap}{" "}
                     files)
                   </>
                 )}

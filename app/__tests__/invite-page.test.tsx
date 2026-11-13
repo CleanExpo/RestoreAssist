@@ -3,17 +3,18 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { push, signIn, updateSession, toastError } = vi.hoisted(() => ({
+const { push, signIn, updateSession, toastError, search } = vi.hoisted(() => ({
   push: vi.fn(),
   signIn: vi.fn(),
   updateSession: vi.fn(),
   toastError: vi.fn(),
+  search: { value: "" },
 }));
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ token: "a".repeat(48) }),
   useRouter: () => ({ push }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(search.value),
 }));
 
 vi.mock("next-auth/react", () => ({
@@ -59,6 +60,7 @@ import InviteAcceptPage from "../invite/[token]/page";
 describe("InviteAcceptPage session claims", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    search.value = "";
     signIn.mockResolvedValue({ ok: true });
     updateSession.mockResolvedValue({});
     vi.stubGlobal(
@@ -86,7 +88,8 @@ describe("InviteAcceptPage session claims", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Continue identity" }));
     fireEvent.click(screen.getByRole("button", { name: "Accept invitation" }));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard?firstRun=tech"));
+    // A technician (role USER) lands on Field Mode.
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/field"));
     expect(signIn).toHaveBeenCalledWith("credentials", {
       email: "technician@example.com",
       password: "not-a-real-password",
@@ -113,7 +116,28 @@ describe("InviteAcceptPage session claims", () => {
     expect(toastError).toHaveBeenCalledWith(
       "Invitation accepted, but your session could not be refreshed. Please sign in again.",
     );
-    expect(push).not.toHaveBeenCalledWith("/dashboard?firstRun=tech");
+    expect(push).not.toHaveBeenCalledWith("/dashboard/field");
+  });
+
+  it("ignores an inherited error key such as ?error=__proto__", async () => {
+    search.value = "error=__proto__";
+    render(<InviteAcceptPage />);
+
+    // The page renders the invite instead of crashing on an object child.
+    expect(
+      await screen.findByRole("button", { name: "Continue identity" }),
+    ).toBeInTheDocument();
+  });
+
+  it("still explains a known error key", async () => {
+    search.value = "error=signin";
+    render(<InviteAcceptPage />);
+
+    expect(
+      await screen.findByText(
+        "Google sign-in did not finish. Try again, or create a password below.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("renders a structured preview error message instead of an object", async () => {
@@ -164,9 +188,7 @@ describe("InviteAcceptPage session claims", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Continue identity" }));
     fireEvent.click(screen.getByRole("button", { name: "Accept invitation" }));
 
-    await waitFor(() =>
-      expect(push).toHaveBeenCalledWith("/dashboard?firstRun=tech"),
-    );
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/field"));
     expect(toastError).toHaveBeenCalledWith(
       "Your photo did not save. You can add it later from your profile.",
       expect.objectContaining({ duration: 8000 }),

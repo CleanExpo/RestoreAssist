@@ -75,7 +75,7 @@ describe("workspace provider authority over platform fallback", () => {
 
   it("uses the organisation owner's authorised workspace and BYOK key", async () => {
     row("ACTIVE", "sk-ant-synthetic-byok");
-    expect(await resolveWorkspaceAiKey("team-member", "ANTHROPIC")).toEqual({ workspaceId: "owner-workspace", apiKey: "sk-ant-synthetic-byok" });
+    expect(await resolveWorkspaceAiKey("team-member", "ANTHROPIC")).toEqual({ workspaceId: "owner-workspace", apiKey: "sk-ant-synthetic-byok", source: "byok" });
     expect(mocks.workspace).toHaveBeenCalledWith(expect.objectContaining({ where: { ownerId: "organisation-owner", status: "READY" } }));
     expect(mocks.credential).toHaveBeenCalledWith(expect.objectContaining({ where: { workspaceId_provider: { workspaceId: "owner-workspace", provider: "ANTHROPIC" } } }));
     expect(mocks.trial).not.toHaveBeenCalled();
@@ -83,7 +83,7 @@ describe("workspace provider authority over platform fallback", () => {
 
   it("retains intended trial fallback for an untouched empty DISABLED placeholder", async () => {
     row("DISABLED", null);
-    expect(await resolveWorkspaceAiKey("team-member", "ANTHROPIC")).toEqual({ workspaceId: "owner-workspace", apiKey: "sk-ant-synthetic-trial" });
+    expect(await resolveWorkspaceAiKey("team-member", "ANTHROPIC")).toEqual({ workspaceId: "owner-workspace", apiKey: "sk-ant-synthetic-trial", source: "platform" });
     expect(mocks.trial).toHaveBeenCalledWith("organisation-owner", "ANTHROPIC");
   });
 

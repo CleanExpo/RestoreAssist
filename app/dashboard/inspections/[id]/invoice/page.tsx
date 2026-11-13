@@ -155,7 +155,7 @@ export default function InspectionInvoicePage({
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-9xl">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button

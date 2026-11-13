@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // RA-6922: the floor-plan underlay is gated by the recurring $9.95/mo add-on.
+  // RA-6922: the floor-plan underlay is gated by the recurring $11/mo add-on.
   // requireAddon returns a fail-closed 402 (code ADDON_REQUIRED) when the
   // workspace has no ACTIVE FeatureEntitlement, which the client turns into the
   // "Upgrade to unlock" CTA — rather than silently consuming an outbound scrape.

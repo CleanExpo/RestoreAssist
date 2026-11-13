@@ -31,12 +31,22 @@ import {
   getAllEquipmentGroups,
   getEquipmentGroupById,
   calculateTotalAmps,
-  calculateTotalDailyCost,
-  calculateTotalCost,
-  getEquipmentDailyRate,
+  getEquipmentDailyRateOrNull,
+  selectionDailyRateOrNull,
   type EquipmentSelection,
   type EquipmentGroup,
 } from "@/lib/equipment-matrix";
+import { RateNotSetError } from "@/lib/pricing/rate-not-set";
+import {
+  UNREADABLE_LINES_BLOCK_SAVE,
+  UnreadableEquipmentNotice,
+} from "@/components/UnreadableEquipmentNotice";
+import {
+  calculateTotalCost,
+  calculateTotalDailyCost,
+  editableStoredEquipment,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 
 interface EquipmentToolsSelectionProps {
   reportId: string;
@@ -44,7 +54,8 @@ interface EquipmentToolsSelectionProps {
   initialData?: {
     psychrometricAssessment?: any;
     scopeAreas?: any[];
-    equipmentSelection?: EquipmentSelection[];
+    /** Opaque: read through readStoredEquipment below. */
+    equipmentSelection?: StoredEquipmentSelections;
   };
 }
 
@@ -57,6 +68,20 @@ interface ScopeArea {
   width: number;
   height: number;
   wetPercentage: number;
+}
+
+/** RA-8281: run a total; an unset price-list rate gives null, never $0. */
+function equipmentTotalsOrNull<T>(compute: () => T): T | null {
+  try {
+    return compute();
+  } catch (err) {
+    if (err instanceof RateNotSetError) return null;
+    throw err;
+  }
+}
+/** RA-8281: an unset daily rate reads "rate not set", never $0.00. */
+function formatDailyRate(rate: number | null | undefined): string {
+  return rate == null ? "rate not set" : `$${rate.toFixed(2)}/day`;
 }
 
 export default function EquipmentToolsSelection({
@@ -87,9 +112,18 @@ export default function EquipmentToolsSelection({
   });
 
   // Step 3: Equipment Selection
+  // RA-8281 B1 round 13: saved lines are read through the one reader. A line
+  // that cannot be read is not loaded into the editable list; it is counted,
+  // shown as a notice, and blocks Save until the user removes it on purpose.
+  const [savedEquipment] = useState(() =>
+    editableStoredEquipment(initialData?.equipmentSelection),
+  );
   const [equipmentSelections, setEquipmentSelections] = useState<
     EquipmentSelection[]
-  >(initialData?.equipmentSelection || []);
+  >(savedEquipment.selections);
+  const [unreadableSavedLines, setUnreadableSavedLines] = useState(
+    savedEquipment.unusableCount,
+  );
   const [durationDays, setDurationDays] = useState(4);
 
   // Fetch pricing config on mount
@@ -111,9 +145,8 @@ export default function EquipmentToolsSelection({
             setEquipmentSelections((prev) =>
               prev.map((sel) => ({
                 ...sel,
-                // Only update if selection doesn't already have a rate
-                dailyRate:
-                  sel.dailyRate || getEquipmentDailyRate(sel.groupId, config),
+                // RA-8281: the current price list wins over a cached rate.
+                dailyRate: selectionDailyRateOrNull(sel, config) ?? undefined,
               })),
             );
           }
@@ -147,15 +180,13 @@ export default function EquipmentToolsSelection({
 
   // Calculate equipment totals using pricing config
   const totalAmps = calculateTotalAmps(equipmentSelections);
-  const totalDailyCost = calculateTotalDailyCost(
-    equipmentSelections,
-    pricingConfig,
-  );
-  const totalCost = calculateTotalCost(
-    equipmentSelections,
-    durationDays,
-    pricingConfig,
-  );
+  // RA-8281: an unset price-list rate blocks the totals (null), never $0.
+  const totals = equipmentTotalsOrNull(() => ({
+    daily: calculateTotalDailyCost(equipmentSelections, pricingConfig),
+    total: calculateTotalCost(equipmentSelections, durationDays, pricingConfig),
+  }));
+  const totalDailyCost = totals?.daily ?? null;
+  const totalCost = totals?.total ?? null;
 
   // Calculate efficiency targets
   // Only count dehumidifiers (LGR/Desiccant) for water removal capacity, not air movers
@@ -240,8 +271,8 @@ export default function EquipmentToolsSelection({
         // Use pricing config rate if available, otherwise use default from equipment matrix
         // This ensures we use the correct rate for each capacity group
         const rate = pricingConfig
-          ? getEquipmentDailyRate(groupId, pricingConfig)
-          : 0;
+          ? (getEquipmentDailyRateOrNull(groupId, pricingConfig) ?? undefined)
+          : undefined; // RA-8281: no price list loaded = rate not set, never $0
         return [
           ...prev,
           {
@@ -269,8 +300,9 @@ export default function EquipmentToolsSelection({
         const needed = Math.ceil(remainingCapacity / capacity);
         if (needed > 0) {
           const rate = pricingConfig
-            ? getEquipmentDailyRate(group.id, pricingConfig)
-            : 0;
+            ? (getEquipmentDailyRateOrNull(group.id, pricingConfig) ??
+              undefined)
+            : undefined; // RA-8281: no price list loaded = rate not set, never $0
           selections.push({
             groupId: group.id,
             quantity: needed,
@@ -290,8 +322,9 @@ export default function EquipmentToolsSelection({
             ? "airmover-1500"
             : "airmover-800";
       const rate = pricingConfig
-        ? getEquipmentDailyRate(preferredAirMover, pricingConfig)
-        : 0;
+        ? (getEquipmentDailyRateOrNull(preferredAirMover, pricingConfig) ??
+          undefined)
+        : undefined; // RA-8281: no price list loaded = rate not set, never $0
       selections.push({
         groupId: preferredAirMover,
         quantity: airMoversRequired,
@@ -304,6 +337,10 @@ export default function EquipmentToolsSelection({
   };
 
   const handleSave = async () => {
+    if (unreadableSavedLines > 0) {
+      toast.error(UNREADABLE_LINES_BLOCK_SAVE);
+      return;
+    }
     setLoading(true);
     try {
       const psychrometricAssessment = {
@@ -314,6 +351,12 @@ export default function EquipmentToolsSelection({
         dryingPotential,
       };
 
+      if (totalCost === null) {
+        toast.error(
+          "A daily rate in your price list is not set. Set it before saving.",
+        );
+        return;
+      }
       const equipmentData = {
         psychrometricAssessment,
         scopeAreas: areas,
@@ -355,6 +398,10 @@ export default function EquipmentToolsSelection({
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      <UnreadableEquipmentNotice
+        count={unreadableSavedLines}
+        onRemove={() => setUnreadableSavedLines(0)}
+      />
       {/* Step Indicator */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
@@ -801,7 +848,9 @@ export default function EquipmentToolsSelection({
                 <div className="p-4 bg-slate-900/50 rounded-lg">
                   <h4 className="font-semibold mb-3">ESTIMATED CONSUMPTION</h4>
                   <div className="text-2xl font-bold mb-2">
-                    ${totalCost.toFixed(2)}
+                    {totalCost === null
+                      ? "Total not available: rate not set"
+                      : `$${totalCost.toFixed(2)}`}
                   </div>
                   <div className="flex items-center gap-2 mb-2">
                     <input
@@ -857,17 +906,12 @@ export default function EquipmentToolsSelection({
                               {group.amps}A | {group.models.length} Models
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
-                              $
-                              {(
-                                selection?.dailyRate ||
-                                (pricingConfig
-                                  ? getEquipmentDailyRate(
-                                      group.id,
-                                      pricingConfig,
-                                    )
-                                  : 0)
-                              ).toFixed(2)}
-                              /day
+                              {formatDailyRate(
+                                selectionDailyRateOrNull(
+                                  { groupId: group.id, dailyRate: selection?.dailyRate },
+                                  pricingConfig,
+                                ),
+                              )}
                             </div>
                           </div>
                           {quantity > 0 && (
@@ -925,17 +969,12 @@ export default function EquipmentToolsSelection({
                               {group.amps}A | {group.models.length} Models
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
-                              $
-                              {(
-                                selection?.dailyRate ||
-                                (pricingConfig
-                                  ? getEquipmentDailyRate(
-                                      group.id,
-                                      pricingConfig,
-                                    )
-                                  : 0)
-                              ).toFixed(2)}
-                              /day
+                              {formatDailyRate(
+                                selectionDailyRateOrNull(
+                                  { groupId: group.id, dailyRate: selection?.dailyRate },
+                                  pricingConfig,
+                                ),
+                              )}
                             </div>
                           </div>
                           {quantity > 0 && (
@@ -995,17 +1034,12 @@ export default function EquipmentToolsSelection({
                               {group.amps}A | {group.models.length} Models
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
-                              $
-                              {(
-                                selection?.dailyRate ||
-                                (pricingConfig
-                                  ? getEquipmentDailyRate(
-                                      group.id,
-                                      pricingConfig,
-                                    )
-                                  : 0)
-                              ).toFixed(2)}
-                              /day
+                              {formatDailyRate(
+                                selectionDailyRateOrNull(
+                                  { groupId: group.id, dailyRate: selection?.dailyRate },
+                                  pricingConfig,
+                                ),
+                              )}
                             </div>
                           </div>
                           {quantity > 0 && (
@@ -1069,17 +1103,12 @@ export default function EquipmentToolsSelection({
                               {group.amps}A | {group.models.length} Models
                             </div>
                             <div className="text-xs text-cyan-400 mt-1">
-                              $
-                              {(
-                                selection?.dailyRate ||
-                                (pricingConfig
-                                  ? getEquipmentDailyRate(
-                                      group.id,
-                                      pricingConfig,
-                                    )
-                                  : 0)
-                              ).toFixed(2)}
-                              /day
+                              {formatDailyRate(
+                                selectionDailyRateOrNull(
+                                  { groupId: group.id, dailyRate: selection?.dailyRate },
+                                  pricingConfig,
+                                ),
+                              )}
                             </div>
                           </div>
                           {quantity > 0 && (

@@ -21,6 +21,7 @@
  *      transaction (see the delete block for the full rationale).
  */
 
+import { businessWorkBlocksDeletion } from "@/lib/account/business-work-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -28,7 +29,7 @@ import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
-import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { extractRequestContext } from "@/lib/security-audit";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -105,6 +106,37 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      if (await businessWorkBlocksDeletion(user.id)) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "Your jobs and clients belong to the business you work for, so this account can't be deleted yet. Ask your business owner to arrange the hand-over, or contact support.",
+          status: 409,
+        });
+      }
+
+      const reqCtx = extractRequestContext(request);
+
+      // The ACCOUNT_DELETED event is the tombstone GET /api/user/profile
+      // checks before it recreates a missing user, so a session that
+      // outlives this delete cannot bring the account back. It is written
+      // first and is not best-effort: if it fails, nothing is cancelled or
+      // deleted. If a later step fails, the user row still exists, and the
+      // profile route only reads the tombstone when the row is missing.
+      await prisma.securityEvent.create({
+        data: {
+          eventType: "ACCOUNT_DELETED",
+          severity: "INFO",
+          userId: user.id,
+          email: user.email,
+          ipAddress: reqCtx.ipAddress,
+          userAgent: reqCtx.userAgent,
+          details: JSON.stringify({
+            hadSubscription: Boolean(user.subscriptionId),
+          }),
+        },
+      });
+
       if (user.subscriptionId) {
         try {
           await stripe.subscriptions.cancel(user.subscriptionId);
@@ -115,17 +147,6 @@ export async function POST(request: NextRequest) {
           );
         }
       }
-
-      const reqCtx = extractRequestContext(request);
-      await logSecurityEvent({
-        eventType: "ACCOUNT_DELETED",
-        userId: user.id,
-        email: user.email,
-        ...reqCtx,
-        details: { hadSubscription: Boolean(user.subscriptionId) },
-      }).catch((err) =>
-        console.error("[account-delete] audit log failed:", err),
-      );
 
       // account-deletion-retention: the account holder's PII is erased (the
       // User row is deleted below), but the statutory financial/compliance
@@ -160,12 +181,37 @@ export async function POST(request: NextRequest) {
         data: { userId: RETENTION_OWNER_USER_ID },
       };
       await prisma.$transaction(async (tx) => {
+        // RA-7893: deleting this user cascades any organisation they own and
+        // its UserInvites, and sets each member's organizationId to null.
+        // Stamp each member's leave date and the organisation they left
+        // first: with the invites gone, that is the only record that their
+        // older jobs belonged to it (lib/organization-credits
+        // getResourceTenantOwner). It overwrites any earlier leave: this is
+        // now their latest.
+        const leftAt = new Date();
+        const ownedOrganizations = await tx.organization.findMany({
+          where: { ownerId: user.id },
+          select: { id: true },
+        });
+        for (const org of ownedOrganizations) {
+          await tx.user.updateMany({
+            where: { organizationId: org.id },
+            data: { organizationLeftAt: leftAt, organizationLeftId: org.id },
+          });
+        }
         await tx.invoice.updateMany(reassignToRetentionOwner);
         await tx.report.updateMany(reassignToRetentionOwner);
         await tx.estimate.updateMany(reassignToRetentionOwner);
         await tx.restorationDocument.updateMany(reassignToRetentionOwner);
         await tx.creditNote.updateMany(reassignToRetentionOwner);
         await tx.invoicePayment.updateMany(reassignToRetentionOwner);
+        // Fire walkthrough records hang off the technician's voice sessions.
+        // Re-homing the sessions means a technician closing their account
+        // never erases a walkthrough on someone else's job. The records still
+        // go with the inspection itself, like every other part of the
+        // inspection record (privacy policy 2.7), including when the
+        // inspection's owner closes their account.
+        await tx.voiceCopilotSession.updateMany(reassignToRetentionOwner);
         await tx.user.delete({ where: { id: user.id } });
       });
 

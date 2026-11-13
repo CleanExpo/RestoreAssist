@@ -22,7 +22,6 @@ import {
   Plus,
   HelpCircle,
   CreditCard,
-  Package,
   Crown,
   FileSearch,
   ClipboardCheck,
@@ -42,12 +41,13 @@ import {
   Library,
   FolderKanban,
   Bot,
+  CalendarDays,
+  Inbox,
 } from "lucide-react";
 import { signOutAndConfirm } from "@/lib/oauth-native";
 import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
-import { NotificationBell } from "@/components/notifications";
 import { NirSyncStatusBadge } from "@/components/nir-offline-provider";
 import { WhatsNewModal } from "@/components/releases/WhatsNewModal";
 import { ProductTour } from "@/components/onboarding/ProductTour";
@@ -57,27 +57,41 @@ import { CancellationCountdownBanner } from "@/components/billing/CancellationCo
 import TrialCountdownBanner from "@/components/billing/TrialCountdownBanner";
 import CreditExhaustModal from "@/components/billing/CreditExhaustModal";
 import { AiProviderBanner } from "@/components/dashboard/AiProviderBanner";
+import { SimpleModeExploreBanner } from "@/components/dashboard/SimpleModeExploreBanner";
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { AutoBreadcrumbs } from "@/components/AutoBreadcrumbs";
 import { MobilePullToRefresh } from "@/components/mobile/MobilePullToRefresh";
-import HowToDropdown from "@/components/help/HowToDropdown";
 import HelpSearchModal from "@/components/help/HelpSearchModal";
 import { cn } from "@/lib/utils";
 import {
-  simpleNavItems,
+  buildSimpleNavItems,
   buildAdvancedNavGroups,
+  FIELD_ADDONS_NAV_ITEM,
+  fieldAddonsTabVisible,
   isAdvancedMode,
   ADMIN_NAV_HREFS,
+  platformNavHrefs,
   type ExperienceMode,
   type NavItem,
 } from "./nav-config";
+import { isNavItemActive } from "@/lib/dashboard/nav-active";
 import { resolveReportCreationPayRoute } from "@/lib/billing/trial-expired-pay-route";
+import {
+  advancedDashboardModeToggleActive,
+  advancedDashboardNavActive,
+  advancedDashboardNavIdle,
+  advancedDashboardSidebarGroupLabel,
+  advancedDashboardSidebarShell,
+  simpleDashboardMeshGradient,
+} from "@/lib/dashboard/simple-dashboard-theme";
 
 /** Icons for the six Admin destinations — shared by Advanced + Simple mode. */
-const ADMIN_NAV_ICONS: Record<(typeof ADMIN_NAV_HREFS)[number]["label"], typeof Shield> = {
+const ADMIN_NAV_ICONS: Record<
+  (typeof ADMIN_NAV_HREFS)[number]["label"],
+  typeof Shield
+> = {
   Admin: Shield,
   "NIR Pilot": FlaskConical,
   "Content Gate": Lock,
@@ -88,8 +102,15 @@ const ADMIN_NAV_ICONS: Record<(typeof ADMIN_NAV_HREFS)[number]["label"], typeof 
 
 export default function DashboardShell({
   children,
+  isPlatformOperator = false,
 }: {
   children: React.ReactNode;
+  /**
+   * Resolved on the server by the dashboard layout from the
+   * PLATFORM_SUPPORT_USER_IDS allowlist. Only the boolean crosses to the
+   * client; the allowlist never does. Defaults to false (fails closed).
+   */
+  isPlatformOperator?: boolean;
 }) {
   // Default: collapsed (icon-only) on tablets to give the content pane
   // breathing room. Apple App Review (1.0.2) flagged the iPad layout because
@@ -116,8 +137,14 @@ export default function DashboardShell({
       setSidebarOpen(false);
     }
   }, []);
-  // NotificationBell manages its own open/close state
-  const [profile, setProfile] = useState<{ userId: string; scopeKey: string; subscriptionStatus: string | null; businessName?: string | null; organizationId?: string | null } | null>(null);
+  const [profile, setProfile] = useState<{
+    userId: string;
+    scopeKey: string;
+    subscriptionStatus: string | null;
+    businessName?: string | null;
+    organizationId?: string | null;
+  } | null>(null);
+  const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const logoutInFlight = useRef(false);
 
@@ -134,8 +161,13 @@ export default function DashboardShell({
   const accountId = session?.user?.id;
   const organizationId = session?.user?.organizationId;
   const scopeVerified = session?.user?.organizationScopeVerified !== false;
-  const profileScopeKey = JSON.stringify([accountId, organizationId, scopeVerified]);
-  const currentProfile = scopeVerified && profile?.scopeKey === profileScopeKey ? profile : null;
+  const profileScopeKey = JSON.stringify([
+    accountId,
+    organizationId,
+    scopeVerified,
+  ]);
+  const currentProfile =
+    scopeVerified && profile?.scopeKey === profileScopeKey ? profile : null;
   const subscriptionStatus = currentProfile?.subscriptionStatus ?? null;
   const router = useRouter();
   const pathname = usePathname() ?? "";
@@ -149,6 +181,7 @@ export default function DashboardShell({
   useEffect(() => {
     let cancelled = false;
     setProfile(null);
+    setProfileLoadError(null);
     const fetchSubscriptionStatus = async () => {
       try {
         const response = await fetch("/api/user/profile", {
@@ -158,13 +191,35 @@ export default function DashboardShell({
         if (response.status === 401) return;
         if (response.ok) {
           const data = await response.json();
-          if (!cancelled && accountId && data.profile?.id === accountId &&
-            (organizationId === undefined || (data.profile.organizationId ?? null) === organizationId)) {
-            setProfile({ userId: accountId, scopeKey: profileScopeKey, subscriptionStatus: data.profile.subscriptionStatus ?? null, businessName: data.profile.businessName, organizationId: data.profile.organizationId });
+          if (
+            !cancelled &&
+            accountId &&
+            data.profile?.id === accountId &&
+            (organizationId === undefined ||
+              (data.profile.organizationId ?? null) === organizationId)
+          ) {
+            setProfileLoadError(null);
+            setProfile({
+              userId: accountId,
+              scopeKey: profileScopeKey,
+              subscriptionStatus: data.profile.subscriptionStatus ?? null,
+              businessName: data.profile.businessName,
+              organizationId: data.profile.organizationId,
+            });
           }
+        } else if (!cancelled) {
+          const parsed = await import("@/lib/client/parse-api-error").then(
+            (m) => m.parseApiError(response),
+          );
+          setProfileLoadError(parsed.message);
         }
       } catch (error) {
         console.error("Error fetching subscription status:", error);
+        if (!cancelled) {
+          setProfileLoadError(
+            "Could not load account details. Billing banners may be inaccurate until you retry.",
+          );
+        }
       }
     };
 
@@ -175,7 +230,10 @@ export default function DashboardShell({
       const handleFocus = () => fetchSubscriptionStatus();
       window.addEventListener("focus", handleFocus);
 
-      return () => { cancelled = true; window.removeEventListener("focus", handleFocus); };
+      return () => {
+        cancelled = true;
+        window.removeEventListener("focus", handleFocus);
+      };
     }
   }, [status, accountId, organizationId, scopeVerified, profileScopeKey]);
 
@@ -256,15 +314,20 @@ export default function DashboardShell({
     session?.user?.role === "MANAGER" || session?.user?.role === "USER";
   const isTechnician = session?.user?.role === "USER";
   const isAdmin = (session?.user as { role?: string })?.role === "ADMIN";
+  const isManager =
+    isAdmin || (session?.user as { role?: string })?.role === "MANAGER";
 
-  const adminNavItems: NavItem[] = isAdmin
-    ? ADMIN_NAV_HREFS.map((item) => ({
-        icon: ADMIN_NAV_ICONS[item.label],
-        label: item.label,
-        href: item.href,
-        adminOnly: true,
-      }))
-    : [];
+  // Platform staff links only: every business owner is ADMIN, so ADMIN alone
+  // must not show them (pages and APIs still enforce access server-side).
+  const adminNavItems: NavItem[] = platformNavHrefs({
+    role: session?.user?.role,
+    isPlatformOperator,
+  }).map((item) => ({
+    icon: ADMIN_NAV_ICONS[item.label],
+    label: item.label,
+    href: item.href,
+    adminOnly: true,
+  }));
 
   // Free trial users get full sidebar access; they must add their own API key in Integrations
   const fullNavItems = [
@@ -281,6 +344,20 @@ export default function DashboardShell({
       label: "Inspections",
       href: "/dashboard/inspections",
     },
+    {
+      icon: CalendarDays,
+      label: "Job schedule",
+      href: "/dashboard/inspections/schedule",
+    },
+    ...(isManager
+      ? [
+          {
+            icon: Inbox,
+            label: "Completeness inbox",
+            href: "/dashboard/operations/completeness-inbox",
+          },
+        ]
+      : []),
     { icon: Users, label: "Clients", href: "/dashboard/clients" },
     { icon: Receipt, label: "Invoices", href: "/dashboard/invoices" },
     {
@@ -330,17 +407,17 @@ export default function DashboardShell({
             label: "Subscription",
             href: "/dashboard/subscription",
           },
-          {
-            icon: Package,
-            label: "Add-ons",
-            href: "/dashboard/addons",
-          },
         ]),
+    // Review round 5: the same fail-closed rule as Simple mode (ADMIN only,
+    // never in the iOS shell). An absent or unknown role does not see it.
+    ...(fieldAddonsTabVisible({ role: session?.user?.role, hideBillingNav })
+      ? [FIELD_ADDONS_NAV_ITEM]
+      : []),
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
     { icon: MessageCircle, label: "Feedback", href: "/dashboard/feedback" },
     { icon: PlayCircle, label: "Tutorials", href: "/dashboard/learn" },
     { icon: HelpCircle, label: "Help & Support", href: "/dashboard/help" },
-    // Admin-only section — hidden from Managers and Technicians
+    // Platform staff section — hidden from business owners, Managers and Technicians
     ...adminNavItems,
   ];
 
@@ -377,7 +454,16 @@ export default function DashboardShell({
     ? fieldTechNavItems
     : advanced
       ? fullNavItems
-      : [...simpleNavItems, ...adminNavItems];
+      : [
+          ...buildSimpleNavItems({
+            isManager,
+            showFieldAddons: fieldAddonsTabVisible({
+              role: session?.user?.role,
+              hideBillingNav,
+            }),
+          }),
+          ...adminNavItems,
+        ];
 
   // Advanced mode renders the full nav grouped under section headers instead of
   // one flat 24-item list. Only computed when relevant. Simple mode with admin
@@ -485,26 +571,37 @@ export default function DashboardShell({
         </button>
       );
     }
+    const active = isNavItemActive(pathname, item.href);
     return (
       <Link
         key={item.href}
         href={item.href}
         onClick={() => setMobileMenuOpen(false)}
+        aria-current={active ? "page" : undefined}
         className={cn(
-          "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
+          "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-deep",
           item.adminOnly
             ? cn(
                 "text-neutral-500 dark:text-slate-500",
                 "hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
-                pathname === item.href &&
-                  "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400",
+                active &&
+                  "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 font-medium",
                 "hover:scale-[1.02]",
               )
             : item.highlight
               ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
               : cn(
-                  "text-neutral-700 dark:text-slate-300",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                  advanced
+                    ? cn(
+                        advancedDashboardNavIdle,
+                        active && advancedDashboardNavActive,
+                      )
+                    : cn(
+                        "text-neutral-700 dark:text-slate-300",
+                        "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                        active &&
+                          "bg-neutral-100 dark:bg-slate-800 font-medium text-neutral-900 dark:text-slate-50 ring-1 ring-inset ring-neutral-200 dark:ring-slate-700",
+                      ),
                   "hover:scale-[1.02] hover:shadow-md",
                 ),
         )}
@@ -540,8 +637,10 @@ export default function DashboardShell({
         <aside
           className={cn(
             "fixed left-0 top-0 h-screen transition-all duration-300 z-40 flex flex-col",
-            "bg-brand-deep",
-            "border-r border-neutral-200 dark:border-slate-800",
+            advanced ? advancedDashboardSidebarShell : "bg-brand-deep",
+            advanced
+              ? "border-r border-white/5"
+              : "border-r border-neutral-200 dark:border-slate-800",
             // Mobile: slide in/out, always w-64 when visible
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
             "md:translate-x-0",
@@ -565,7 +664,9 @@ export default function DashboardShell({
                   <span
                     className={cn(
                       "font-semibold text-sm",
-                      "text-neutral-900 dark:text-slate-50",
+                      advanced
+                        ? "text-white"
+                        : "text-neutral-900 dark:text-slate-50",
                     )}
                   >
                     Restore Assist
@@ -573,7 +674,9 @@ export default function DashboardShell({
                   <span
                     className={cn(
                       "text-[10px] font-normal leading-tight",
-                      "text-neutral-500 dark:text-slate-400",
+                      advanced
+                        ? "text-cyan-200/60"
+                        : "text-neutral-500 dark:text-slate-400",
                     )}
                   >
                     {isTechnician
@@ -619,13 +722,26 @@ export default function DashboardShell({
                 advancedGroups.map((group) => (
                   <Fragment key={group.label}>
                     {sidebarOpen && (
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-slate-500 mt-3 mb-1 px-2 first:mt-0">
+                      <p
+                        className={cn(
+                          advanced
+                            ? advancedDashboardSidebarGroupLabel
+                            : "text-[10px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-slate-500 mt-3 mb-1 px-2 first:mt-0",
+                        )}
+                      >
                         {group.label}
                       </p>
                     )}
                     {!sidebarOpen && (
                       <div className="my-2 px-2">
-                        <div className="border-t border-neutral-200 dark:border-slate-700" />
+                        <div
+                          className={cn(
+                            "border-t",
+                            advanced
+                              ? "border-white/10"
+                              : "border-neutral-200 dark:border-slate-700",
+                          )}
+                        />
                       </div>
                     )}
                     {group.items.map((item) => renderNavItem(item))}
@@ -680,8 +796,12 @@ export default function DashboardShell({
                 aria-pressed={advanced}
                 className={cn(
                   "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md group disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100",
-                  "text-neutral-700 dark:text-slate-300",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                  advanced
+                    ? advancedDashboardModeToggleActive
+                    : cn(
+                        "text-neutral-700 dark:text-slate-300",
+                        "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                      ),
                 )}
                 title={
                   !sidebarOpen
@@ -740,29 +860,26 @@ export default function DashboardShell({
           {/* Top Bar */}
           <header
             className={cn(
-              "h-16 flex items-center justify-between gap-2 overflow-hidden px-3 sm:px-4 md:px-6 sticky top-0 z-20",
-              "bg-brand-deep",
-              "border-b border-neutral-200 dark:border-slate-800",
+              "sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b px-3 sm:px-4 md:px-6",
+              "border-neutral-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95",
             )}
           >
-            {/* Mobile hamburger */}
             <button
               onClick={() => setMobileMenuOpen(true)}
               className={cn(
-                "min-h-11 min-w-11 p-2 rounded-lg md:hidden mr-1",
-                "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                "text-neutral-700 dark:text-slate-300",
+                "mr-1 min-h-11 min-w-11 rounded-lg p-2 md:hidden",
+                "text-neutral-700 hover:bg-neutral-100 dark:text-slate-300 dark:hover:bg-slate-800",
               )}
               aria-label="Open menu"
             >
               <Menu size={22} />
             </button>
 
-            <div className="min-w-0 flex-1 max-w-xs sm:max-w-md">
+            <div className="min-w-0 flex-1 max-w-md lg:max-w-xl">
               {isTechnician ? (
                 <Link
                   href="/dashboard/field"
-                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
                 >
                   <Smartphone className="h-4 w-4" />
                   Field Mode
@@ -772,49 +889,19 @@ export default function DashboardShell({
               )}
             </div>
 
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-4 ml-1 sm:ml-6">
-              {/* RA-1124 MVP — persistent sync-status pill. The offline
-                  infrastructure (service worker + IndexedDB queue +
-                  reconnect listeners) already ships via NirOfflineProvider,
-                  but the user-facing badge was never mounted, so a
-                  technician in the field had no signal that their save
-                  was queued vs. actually on the wire. */}
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <NirSyncStatusBadge />
-
-              {/* SP-8 T12 — How To dropdown (in-app Help Library entry point) */}
-              <div className="hidden sm:block">
-                {!isTechnician && <HowToDropdown />}
-              </div>
-
-              <div className="hidden sm:block">
-                {!isTechnician && <ThemeToggle />}
-              </div>
-
-              {/* Notifications */}
-              <NotificationBell />
-
-              {/* User Avatar & Dropdown */}
               <div
                 className={cn(
-                  "flex items-center gap-3 pl-2 sm:pl-4",
-                  "border-l border-neutral-200 dark:border-slate-700",
+                  "flex items-center gap-2 border-l pl-2 sm:gap-3 sm:pl-4",
+                  "border-neutral-200 dark:border-slate-700",
                 )}
               >
-                <div className="text-right hidden sm:block">
-                  <p
-                    className={cn(
-                      "text-sm font-medium",
-                      "text-neutral-900 dark:text-slate-50",
-                    )}
-                  >
+                <div className="hidden text-right sm:block">
+                  <p className="max-w-[11rem] truncate text-sm font-medium text-neutral-900 dark:text-slate-50 lg:max-w-[14rem]">
                     {session?.user?.name}
                   </p>
-                  <p
-                    className={cn(
-                      "text-xs",
-                      "text-neutral-600 dark:text-slate-400",
-                    )}
-                  >
+                  <p className="max-w-[11rem] truncate text-xs text-neutral-500 dark:text-slate-400 lg:max-w-[14rem]">
                     {session?.user?.email}
                   </p>
                 </div>
@@ -833,6 +920,51 @@ export default function DashboardShell({
           {/* Trial / demo sit under the search bar so a cream banner cannot
               open a white gap above the header (RA-7465 still keeps them
               in this offset column, not under the fixed sidebar). */}
+          {profileLoadError ? (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-center gap-3 border-b border-amber-500/30 bg-amber-950/80 px-4 py-2 text-sm text-amber-100"
+            >
+              <span>{profileLoadError}</span>
+              <button
+                type="button"
+                className="rounded-md border border-amber-400/50 px-2 py-0.5 text-xs font-medium hover:bg-amber-900/60"
+                onClick={() => {
+                  if (
+                    status === "authenticated" &&
+                    accountId &&
+                    scopeVerified
+                  ) {
+                    void fetch("/api/user/profile", { credentials: "include" })
+                      .then(async (response) => {
+                        if (response.ok) {
+                          const data = await response.json();
+                          if (
+                            data.profile?.id === accountId &&
+                            (organizationId === undefined ||
+                              (data.profile.organizationId ?? null) ===
+                                organizationId)
+                          ) {
+                            setProfileLoadError(null);
+                            setProfile({
+                              userId: accountId,
+                              scopeKey: profileScopeKey,
+                              subscriptionStatus:
+                                data.profile.subscriptionStatus ?? null,
+                              businessName: data.profile.businessName,
+                              organizationId: data.profile.organizationId,
+                            });
+                          }
+                        }
+                      })
+                      .catch(() => {});
+                  }
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
           {!hideBillingNav && <TrialCountdownBanner />}
           {isDemoAccount && (
             <div
@@ -863,10 +995,11 @@ export default function DashboardShell({
           {/* Page Content */}
           <main
             className={cn(
-              "space-y-6 max-w-9xl mx-auto overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 lg:px-6",
-              "bg-slate-950",
+              "relative isolate mx-auto max-w-9xl space-y-6 overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6 lg:px-6",
+              "bg-background dark:bg-slate-950",
             )}
           >
+            <div aria-hidden className={simpleDashboardMeshGradient} />
             {/* RA-1569 adoption — auto-crumbs derived from the URL.
                 Hidden on /dashboard itself (one segment); visible on
                 every deeper route. Detail pages can pass an override
@@ -875,8 +1008,27 @@ export default function DashboardShell({
                 renders friendly text plus a short-hash fallback for
                 cuids so the trail never shows a raw 25-char id. */}
             <MobilePullToRefresh>
-              <AutoBreadcrumbs className="text-xs" />
-              {children}
+              <div className="relative min-w-0">
+                {!isTechnician && !advanced && (
+                  <SimpleModeExploreBanner
+                    onSwitchToAdvanced={() => void toggleExperienceMode()}
+                    switching={savingMode}
+                    isManager={isManager}
+                  />
+                )}
+                {!isTechnician && advanced && (
+                  <p className="mb-4 text-xs font-medium text-muted-foreground">
+                    <span className="text-cyan-600 dark:text-cyan-400">
+                      Advanced workspace
+                    </span>
+                    {" — "}
+                    Full nav grouped by Jobs, Billing, Compliance, Insights, and
+                    Setup.
+                  </p>
+                )}
+                <AutoBreadcrumbs className="text-xs" />
+                {children}
+              </div>
             </MobilePullToRefresh>
           </main>
         </div>

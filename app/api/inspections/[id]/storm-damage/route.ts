@@ -18,7 +18,8 @@ import { prisma } from "@/lib/prisma";
 import { softDelete } from "@/lib/prisma-helpers";
 import { z } from "zod";
 import {
-  assertInspectionTenancy,
+  assertInspectionReadable,
+  assertInspectionAssignedWrite,
   resolveInspectionWrite,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
@@ -71,7 +72,7 @@ export async function GET(
     const { id } = await params;
 
     // RA-1711 batch 2 — shared tenancy helper (workspace-member + admin paths).
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await assertInspectionReadable(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },
@@ -108,7 +109,7 @@ export async function POST(
 
     const { id } = await params;
 
-    const tenancy = await resolveInspectionWrite(session, id);
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },

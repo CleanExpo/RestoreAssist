@@ -21,6 +21,37 @@ export interface SketchFieldMeta {
    * import-from-image; looked up across every floor of the inspection.
    */
   aiSuggestedRoomIds?: string[];
+  /**
+   * RA-8233 — server-authored. Technician measurement evidence per room,
+   * append-only. The sketch POST route rebuilds this from what it stored
+   * earlier; a client-posted value is always discarded.
+   */
+  roomMeasurementEvidence?: RoomMeasurementEvidence[];
+}
+
+export type RoomMeasurementEvidenceStatus =
+  | "current"
+  | "invalidated"
+  | "superseded";
+
+/**
+ * RA-8233 — one technician measurement of one room, recorded by the server.
+ * Bound to the room geometry and scale it was taken against
+ * (`geometryRevision`); any later geometry or scale edit invalidates it.
+ */
+export interface RoomMeasurementEvidence {
+  fabricObjectId: string;
+  measuredAreaM2: number;
+  lengthM: number | null;
+  widthM: number | null;
+  geometryRevision: string;
+  /** Session user id — never a client value. */
+  recordedBy: string;
+  /** Server clock, ISO — never a client value. */
+  recordedAt: string;
+  status: RoomMeasurementEvidenceStatus;
+  invalidatedAt?: string | null;
+  invalidatedReason?: string | null;
 }
 
 function asRecord(v: unknown): Record<string, unknown> | null {
@@ -96,6 +127,90 @@ export function withSketchFieldComplete(
     ...prev,
     fieldComplete: complete,
     fieldCompletedAt: complete ? now.toISOString() : null,
+  };
+  return base;
+}
+
+const EVIDENCE_STATUSES: ReadonlySet<string> = new Set([
+  "current",
+  "invalidated",
+  "superseded",
+]);
+
+function finiteOrNull(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+/**
+ * RA-8233 — measurement evidence stored on a floor's sketch blob. Only call
+ * this on a blob the server persisted; malformed entries are dropped.
+ */
+export function readRoomMeasurementEvidence(
+  sketchData: unknown,
+): RoomMeasurementEvidence[] {
+  const root = asRecord(sketchData);
+  const meta = asRecord(root?.[SKETCH_META_KEY]);
+  const raw = meta?.roomMeasurementEvidence;
+  if (!Array.isArray(raw)) return [];
+  const out: RoomMeasurementEvidence[] = [];
+  for (const item of raw) {
+    const e = asRecord(item);
+    if (!e) continue;
+    const area = finiteOrNull(e.measuredAreaM2);
+    if (
+      typeof e.fabricObjectId !== "string" ||
+      e.fabricObjectId.length === 0 ||
+      area === null ||
+      area <= 0 ||
+      typeof e.geometryRevision !== "string" ||
+      typeof e.recordedBy !== "string" ||
+      e.recordedBy.length === 0 ||
+      typeof e.recordedAt !== "string" ||
+      typeof e.status !== "string" ||
+      !EVIDENCE_STATUSES.has(e.status)
+    ) {
+      continue;
+    }
+    out.push({
+      fabricObjectId: e.fabricObjectId,
+      measuredAreaM2: area,
+      lengthM: finiteOrNull(e.lengthM),
+      widthM: finiteOrNull(e.widthM),
+      geometryRevision: e.geometryRevision,
+      recordedBy: e.recordedBy,
+      recordedAt: e.recordedAt,
+      status: e.status as RoomMeasurementEvidenceStatus,
+      invalidatedAt:
+        typeof e.invalidatedAt === "string" ? e.invalidatedAt : null,
+      invalidatedReason:
+        typeof e.invalidatedReason === "string" ? e.invalidatedReason : null,
+    });
+  }
+  return out;
+}
+
+/**
+ * Replace `raSketchMeta.roomMeasurementEvidence` with the server's list.
+ * Whatever the client posted under that key is discarded; with no evidence
+ * the key is removed, and a blob without meta is left without meta.
+ */
+export function withRoomMeasurementEvidence(
+  sketchData: Record<string, unknown> | null | undefined,
+  evidence: RoomMeasurementEvidence[],
+): Record<string, unknown> {
+  const base: Record<string, unknown> = sketchData ? { ...sketchData } : {};
+  const prev = asRecord(base[SKETCH_META_KEY]);
+  if (evidence.length === 0) {
+    if (prev && "roomMeasurementEvidence" in prev) {
+      const rest = { ...prev };
+      delete rest.roomMeasurementEvidence;
+      base[SKETCH_META_KEY] = rest;
+    }
+    return base;
+  }
+  base[SKETCH_META_KEY] = {
+    ...(prev ?? {}),
+    roomMeasurementEvidence: evidence,
   };
   return base;
 }

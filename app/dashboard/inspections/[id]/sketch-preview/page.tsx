@@ -64,7 +64,7 @@ export default function SketchPreviewPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-slate-950 py-8 px-4">
-      <div className="max-w-6xl mx-auto space-y-5">
+      <div className="max-w-9xl mx-auto space-y-5">
         {/* Back navigation */}
         <div className="flex items-center justify-between">
           <Link

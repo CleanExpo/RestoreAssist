@@ -111,6 +111,11 @@ function plantedPin(level: number, i: number, sketchRoomId: string): Record<stri
     photoUrl: `photo-${level}.jpg`, unit: "PERCENT_MC", deviceVendor: "Delmhorst", deviceModel: "Navigator Pro",
     notes: `note ${level}`, affectedArea: "Bedroom 4", recordedAt: new Date(Date.UTC(2026, 9, 2, 3, 0, i)),
     createdAt: new Date(Date.UTC(2026, 9, 1, 22, 0, i)),
+    // 20261012143000: controlled invalidation, set by the invalidate route only.
+    invalidatedAt: new Date(Date.UTC(2026, 9, 2, 4, 0, i)),
+    invalidatedByUserId: `invalidator-${level}`,
+    invalidationReason: `reason ${level}`,
+    replacementReadingId: `replacement-${level}`,
   };
   const missing = PINNED.filter((f) => !(f in values));
   // A new MoistureReading column must get a planted value here, or nothing

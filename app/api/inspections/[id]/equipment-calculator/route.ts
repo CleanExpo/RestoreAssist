@@ -18,12 +18,23 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
+  assertInspectionAssignedWrite,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
+import {
   calculateEquipment,
   type DamageCategory,
   type DamageClass,
 } from "@/lib/equipment-calculator";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+
+/**
+ * Marks the scope rows this calculator writes (ScopeItem.source, as D-030
+ * does for AI scope generation). It records the route, not who ran it, so it
+ * never licenses a delete (D-028).
+ */
+const EQUIPMENT_CALCULATOR_SOURCE = "equipment_calculator";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -44,8 +55,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // RA-1266: saves ScopeItem records — retry creates duplicates.
   return withIdempotency(request, userId, async (rawBody) => {
     try {
+      // D-028: the owner's reach, plus the technician assigned to the job.
+      const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+      if (!tenancy.ok) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
       const inspection = await prisma.inspection.findFirst({
-        where: { id: inspectionId, userId },
+        where: tenancy.data.inspectionManyWhere,
         select: {
           id: true,
           classifications: {
@@ -133,24 +153,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // Persist as ScopeItem records (autoDetermined)
       let savedScopeItems: string[] = [];
       if (saveScopeItems) {
-        // Remove any previous auto-determined equipment scope items
-        await prisma.scopeItem.deleteMany({
-          where: {
-            inspectionId,
-            autoDetermined: true,
-            itemType: {
-              in: [
-                "air_mover",
-                "lgr_dehumidifier",
-                "desiccant_dehumidifier",
-                "air_scrubber",
-                "negative_air_machine",
-              ],
-            },
-            inspection: { userId },
-          },
-        });
-
         const { randomUUID } = await import("crypto");
         const equipmentPayloads = result.equipmentList.map((item) => ({
           id: randomUUID(),
@@ -164,8 +166,74 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           justification: `${item.justification} — ${item.iicrcReference}`,
           isRequired: true,
           isSelected: true,
+          source: EQUIPMENT_CALCULATOR_SOURCE,
         }));
-        await prisma.scopeItem.createMany({ data: equipmentPayloads });
+        // D-028: deletes stay with the owner's reach. On the assigned
+        // technician's path the calculator is create-only: if the job already
+        // has any scope row of these equipment types (the owner's earlier
+        // calculation, tagged or not and perhaps edited since, or a
+        // checklist's air scrubber), the owner or a manager recalculates.
+        const ownerReach = !tenancy.data.viaAssignment;
+        if (!ownerReach) {
+          const existingEquipment = await prisma.scopeItem.count({
+            where: {
+              inspectionId,
+              itemType: {
+                in: [
+                  "air_mover",
+                  "lgr_dehumidifier",
+                  "desiccant_dehumidifier",
+                  "air_scrubber",
+                  "negative_air_machine",
+                ],
+              },
+            },
+          });
+          if (existingEquipment > 0) {
+            return apiError(request, {
+              code: "CONFLICT",
+              message:
+                "This job already has equipment rows. The job owner or a manager recalculates them.",
+              status: 409,
+            });
+          }
+        }
+        // D-028: replace the auto-determined equipment rows inside one write
+        // that re-checks the caller's reach, so a reassignment between the
+        // check and the write changes 0 rows.
+        const replaced = await writeWithinInspectionScope(
+          tenancy.data.inspectionManyWhere,
+          { updatedAt: new Date() },
+          async (tx) => {
+            if (ownerReach) {
+              // Remove any previous auto-determined equipment scope items
+              await tx.scopeItem.deleteMany({
+                where: {
+                  inspectionId,
+                  autoDetermined: true,
+                  itemType: {
+                    in: [
+                      "air_mover",
+                      "lgr_dehumidifier",
+                      "desiccant_dehumidifier",
+                      "air_scrubber",
+                      "negative_air_machine",
+                    ],
+                  },
+                },
+              });
+            }
+            // Technician path: create only (no equipment rows exist; checked above).
+            return tx.scopeItem.createMany({ data: equipmentPayloads });
+          },
+        );
+        if (!replaced) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Inspection not found",
+            status: 404,
+          });
+        }
         savedScopeItems.push(...equipmentPayloads.map((p) => p.id));
       }
 

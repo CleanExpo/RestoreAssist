@@ -191,7 +191,7 @@ export default function NewInterviewPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-9xl">
       {/* Header */}
       <div className="flex items-center gap-4">
         <button

@@ -191,7 +191,7 @@ export default function InterviewDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6 p-4">
+      <div className="max-w-9xl mx-auto space-y-6 p-4">
         <DetailSkeleton />
       </div>
     );
@@ -199,7 +199,7 @@ export default function InterviewDetailPage() {
 
   if (error || !interview) {
     return (
-      <div className="max-w-4xl mx-auto p-8 text-center space-y-4">
+      <div className="max-w-9xl mx-auto p-8 text-center space-y-4">
         <MessageSquare
           size={48}
           className="mx-auto text-neutral-300 dark:text-slate-600"
@@ -239,7 +239,7 @@ export default function InterviewDetailPage() {
         : `~${interview.estimatedTimeMinutes}m est.`;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 p-4">
+    <div className="max-w-9xl mx-auto space-y-6 p-4">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <Link

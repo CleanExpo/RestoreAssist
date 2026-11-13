@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useLandingReduceMotion } from "./useLandingReduceMotion";
+import { useRevealArmed } from "./useRevealArmed";
 import {
   fadeUp,
   staggerContainer,
@@ -27,16 +28,17 @@ export function MarketingPageHero({
   align = "left",
 }: Props) {
   const reduce = useLandingReduceMotion();
+  const armed = useRevealArmed();
   const centered = align === "center";
-
   return (
     <section className="border-b border-slate-200/90 bg-[#F3F5F7]">
       <div
         className={`${CONTAINER} py-16 sm:py-20 lg:py-24 ${centered ? "text-center" : ""}`}
       >
         <motion.div
+          key={armed ? "hero-armed" : "hero-static"}
           variants={staggerContainer}
-          initial={reduce ? false : "hidden"}
+          initial={armed && !reduce ? "hidden" : false}
           animate="visible"
           className={centered ? "mx-auto max-w-3xl" : "max-w-3xl"}
         >

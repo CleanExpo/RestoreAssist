@@ -291,7 +291,7 @@ export default function ReportVersionHistoryPage({
   const currentVersion = versions.length > 0 ? versions[0].version : null;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 py-6 px-4">
+    <div className="max-w-9xl mx-auto space-y-6 py-6 px-4">
       {/* Back link */}
       <Link
         href={`/dashboard/reports/${id}`}

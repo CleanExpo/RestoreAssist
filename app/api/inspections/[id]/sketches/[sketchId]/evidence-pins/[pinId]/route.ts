@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionTenancy,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { toNormalized } from "@/lib/sketch/pin-coords";
 import { resolveEvidenceRoomLink } from "@/lib/sketch/sync-room-graph";
@@ -26,7 +29,7 @@ export async function PATCH(
     }
 
     const { id, sketchId, pinId } = await params;
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -127,8 +130,14 @@ export async function PATCH(
           : null;
     }
 
+    // D-028: re-check the caller's reach inside the write itself.
     const pin = await prisma.evidencePin.update({
-      where: { id: pinId },
+      where: {
+        id: pinId,
+        ...(tenancy.data.childInspectionFilter && {
+          sketch: { inspection: tenancy.data.childInspectionFilter },
+        }),
+      },
       data: {
         ...(typeof body.x === "number" ? { x: body.x } : {}),
         ...(typeof body.y === "number" ? { y: body.y } : {}),

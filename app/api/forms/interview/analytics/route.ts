@@ -14,6 +14,37 @@ import { authOptions } from "@/lib/auth";
 import { InterviewAnalyticsService } from "@/lib/forms/analytics";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
+
+type Caller = { id: string; role: string; organizationId: string | null };
+
+/**
+ * The users whose interview sessions the caller may see (RA-8043b). ADMIN or
+ * MANAGER with an organisation see their teammates (a MANAGER only the USERs);
+ * everyone else, and anyone without an organisation, sees only themselves.
+ * `role: "ADMIN"` is every firm owner, so it never widens past their own firm.
+ */
+async function teamMemberIds(user: Caller): Promise<string[]> {
+  const memberIds: string[] = [user.id];
+  if (
+    user.organizationId &&
+    (user.role === "ADMIN" || user.role === "MANAGER")
+  ) {
+    const where =
+      user.role === "MANAGER"
+        ? { organizationId: user.organizationId, role: "USER" as const }
+        : { organizationId: user.organizationId };
+    const members = await prisma.user.findMany({
+      where,
+      select: { id: true },
+      take: 500,
+    });
+    for (const m of members) {
+      if (!memberIds.includes(m.id)) memberIds.push(m.id);
+    }
+  }
+  return memberIds;
+}
 
 /**
  * GET /api/forms/interview/analytics
@@ -69,41 +100,24 @@ export async function GET(request: NextRequest) {
     // List per-user performance for the interview-analytics Users tab.
     // ADMIN/MANAGER with an org see org teammates; everyone else sees self.
     if (type === "user") {
-      let memberIds: string[] = [user.id];
-
-      if (
-        user.organizationId &&
-        (user.role === "ADMIN" || user.role === "MANAGER")
-      ) {
-        const where =
-          user.role === "MANAGER"
-            ? {
-                organizationId: user.organizationId,
-                role: "USER" as const,
-              }
-            : { organizationId: user.organizationId };
-
-        const members = await prisma.user.findMany({
-          where,
-          select: { id: true },
-          take: 500,
-        });
-        memberIds = members.map((m) => m.id);
-        // Always include the caller (admin/manager) so their own sessions appear
-        if (!memberIds.includes(user.id)) {
-          memberIds.push(user.id);
-        }
-      }
-
+      const memberIds = await teamMemberIds(user);
       const users =
         await InterviewAnalyticsService.getUserPerformanceList(memberIds);
       return NextResponse.json({ users });
     }
 
+    const platform =
+      user.role === "ADMIN" && isPlatformSupportOperator(user.id);
+
     // Get user-specific analytics
     if (userId) {
-      // Security: Users can only see their own analytics unless they're admin
-      if (userId !== user.id && user.role !== "ADMIN") {
+      // Security: users see their own analytics; a firm ADMIN also sees their
+      // own firm's people, never another firm's (RA-8043b).
+      const allowed =
+        userId === user.id ||
+        platform ||
+        (user.role === "ADMIN" && (await teamMemberIds(user)).includes(userId));
+      if (!allowed) {
         return apiError(request, {
           code: "FORBIDDEN",
           message: "Forbidden",
@@ -122,7 +136,10 @@ export async function GET(request: NextRequest) {
       // templateId and pull aggregate performance data (completion rate,
       // average session duration, most-difficult-questions) for another
       // user's private FormTemplate — no ownership check at all. Scope to
-      // templates the caller owns, shared system templates, or admins.
+      // templates the caller owns, shared system templates, or the caller's
+      // own firm (RA-8043b: a firm ADMIN no longer sees other firms' templates).
+      // The sessions counted are always the caller's team's, so a shared
+      // system template does not reveal other firms' usage.
       const template = await prisma.formTemplate.findUnique({
         where: { id: templateId },
         select: { userId: true, isSystemTemplate: true },
@@ -136,10 +153,14 @@ export async function GET(request: NextRequest) {
         });
       }
 
+      const memberIds = platform ? null : await teamMemberIds(user);
       const canView =
+        platform ||
         template.isSystemTemplate ||
         template.userId === user.id ||
-        user.role === "ADMIN";
+        (user.role === "ADMIN" &&
+          template.userId !== null &&
+          (memberIds ?? []).includes(template.userId));
 
       if (!canView) {
         return apiError(request, {
@@ -152,6 +173,7 @@ export async function GET(request: NextRequest) {
       const analytics =
         await InterviewAnalyticsService.getTemplatePerformanceAnalytics(
           templateId,
+          memberIds ?? undefined,
         );
       return NextResponse.json(analytics);
     }

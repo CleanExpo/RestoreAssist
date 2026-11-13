@@ -191,7 +191,7 @@ export default function FoundingTrialPage() {
                 setLookup(e.target.value);
                 setConfirmed(null);
               }}
-              placeholder="51 824 753 556"
+              placeholder="e.g. 12 345 678 901"
               className="flex-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
             />
             <Button

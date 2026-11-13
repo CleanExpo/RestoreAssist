@@ -112,10 +112,12 @@ describe("WeaknessFindingsPanel", () => {
     await waitFor(() =>
       expect(screen.getByTestId("weakness-all-clear")).toBeInTheDocument(),
     );
-    expect(onGateChange).toHaveBeenLastCalledWith({
-      hasUnresolvedP0: false,
-      p0Count: 0,
-    });
+    await waitFor(() =>
+      expect(onGateChange).toHaveBeenLastCalledWith({
+        hasUnresolvedP0: false,
+        p0Count: 0,
+      }),
+    );
   });
 
   it("groups findings by severity with P0 rendered first as a hard-stop banner", async () => {
@@ -190,10 +192,12 @@ describe("WeaknessFindingsPanel", () => {
         screen.getByText(/export is blocked until these are acknowledged/i),
       ).toBeInTheDocument(),
     );
-    expect(onGateChange).toHaveBeenLastCalledWith({
-      hasUnresolvedP0: true,
-      p0Count: 1,
-    });
+    await waitFor(() =>
+      expect(onGateChange).toHaveBeenLastCalledWith({
+        hasUnresolvedP0: true,
+        p0Count: 1,
+      }),
+    );
 
     // Host acknowledges (e.g. after its own "Export anyway" confirmation) —
     // export becomes possible without a fresh run or any raw gating.
@@ -210,10 +214,12 @@ describe("WeaknessFindingsPanel", () => {
         screen.getByText(/p0 flags acknowledged — export unblocked/i),
       ).toBeInTheDocument(),
     );
-    expect(onGateChange).toHaveBeenLastCalledWith({
-      hasUnresolvedP0: false,
-      p0Count: 1,
-    });
+    await waitFor(() =>
+      expect(onGateChange).toHaveBeenLastCalledWith({
+        hasUnresolvedP0: false,
+        p0Count: 1,
+      }),
+    );
   });
 
   it("shows an error state with a retry that re-runs the check", async () => {

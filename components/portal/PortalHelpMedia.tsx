@@ -30,8 +30,8 @@ function HelpVideo({
 
   return (
     <li>
-      <p className="text-sm font-medium text-brand-navy">{video.title}</p>
-      <p className="text-xs text-brand-slate mb-2">{video.description}</p>
+      <p className="text-sm font-medium text-white/90">{video.title}</p>
+      <p className="mb-2 text-xs text-slate-400">{video.description}</p>
       <video
         ref={ref}
         controls
@@ -73,7 +73,7 @@ export function PortalHelpMedia({
 
   return (
     <section data-testid="portal-help-media" className="space-y-3">
-      <h2 className="text-sm font-semibold text-brand-navy">{heading}</h2>
+      <h2 className="text-sm font-semibold text-white/90">{heading}</h2>
       <ul className="space-y-3">
         {playable.map((video) => (
           <HelpVideo key={video.id} video={video} onFail={onFail} />

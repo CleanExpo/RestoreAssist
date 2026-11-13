@@ -14,6 +14,9 @@
 export const BREADCRUMB_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   inspections: "Inspections",
+  schedule: "Schedule",
+  operations: "Operations",
+  field: "Field mode",
   reports: "Reports",
   clients: "Clients",
   invoices: "Invoices",

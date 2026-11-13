@@ -232,4 +232,43 @@ describe("syncRecurringAddonsFromStripe", () => {
     expect(result).toEqual({ examined: 1, granted: 1 });
     expect(mockUpsert).toHaveBeenCalledTimes(1);
   });
+
+  it("an old cancelled subscription never overwrites the paid one, in any list order", async () => {
+    const { syncRecurringAddonsFromStripe } = await import(
+      "@/lib/billing/fulfill-recurring-addon"
+    );
+    const sub = (id: string, status: string, created: number) => ({
+      id,
+      status,
+      created,
+      metadata: {
+        type: BOOKKEEPING_ADDON_SUBSCRIPTION_TYPE,
+        sku: "BOOKKEEPING",
+        workspaceId: "ws_1",
+      },
+      items: { data: [{ price: { id: "price_bk" }, quantity: 1 }] },
+    });
+    const paid = sub("sub_new", "active", 200);
+    const cancelled = sub("sub_old", "canceled", 100);
+    for (const data of [
+      [paid, cancelled],
+      [cancelled, paid],
+    ]) {
+      mockUpsert.mockClear();
+      (
+        stripe as unknown as {
+          subscriptions: { list: ReturnType<typeof vi.fn> };
+        }
+      ).subscriptions.list = vi.fn().mockResolvedValue({ data });
+
+      await syncRecurringAddonsFromStripe("cus_1");
+      const lastWrite = mockUpsert.mock.calls.at(-1)?.[0] as {
+        update: { active: boolean; stripeSubscriptionId: string };
+      };
+      expect(lastWrite.update).toMatchObject({
+        active: true,
+        stripeSubscriptionId: "sub_new",
+      });
+    }
+  });
 });

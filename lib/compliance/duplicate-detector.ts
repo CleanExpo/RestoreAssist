@@ -38,12 +38,24 @@ export async function detectDuplicateJob(
       propertyPostcode: true,
       inspectionDate: true,
       userId: true,
+      user: { select: { organizationId: true } },
     },
   });
 
   if (!current || !current.propertyPostcode || !current.inspectionDate) {
     return { hasDuplicates: false, candidates: [], mergeSuggestion: null };
   }
+
+  // RA-8043c: a duplicate can only be one of this firm's own jobs. Without
+  // this, the submit response listed other firms' jobs at the same postcode
+  // (their customer's address and technician). An organisation is matched only
+  // as a non-empty string: `organizationId: null` would match every org-less
+  // firm on the platform.
+  const orgId = current.user?.organizationId;
+  const firmScope =
+    typeof orgId === "string" && orgId.length > 0
+      ? { OR: [{ userId: current.userId }, { user: { organizationId: orgId } }] }
+      : { userId: current.userId };
 
   const rangeStart = new Date(
     current.inspectionDate.getTime() - 4 * 60 * 60 * 1000,
@@ -54,6 +66,7 @@ export async function detectDuplicateJob(
 
   const siblings = await prisma.inspection.findMany({
     where: {
+      AND: [firmScope],
       id: { not: inspectionId },
       propertyPostcode: current.propertyPostcode,
       inspectionDate: { gte: rangeStart, lte: rangeEnd },

@@ -23,6 +23,25 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("@/components/mobile/MobileNav", () => ({ MobileNav: () => null }));
+vi.mock("@/app/dashboard/components/DashboardListPageHeader", () => ({
+  DashboardListPageHeader: ({
+    title,
+    description,
+  }: {
+    title: string;
+    description?: string;
+  }) => (
+    <div>
+      <h1>{title}</h1>
+      {description ? <p>{description}</p> : null}
+    </div>
+  ),
+}));
+vi.mock("@/app/dashboard/components/DashboardPageFrame", () => ({
+  DashboardPageFrame: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
 vi.mock("@/lib/capacitor", () => ({ isCapacitor: () => false }));
 vi.mock("@/lib/offline/account-boundary", () => ({
   getOfflineOwner: () => ({ userId: "synthetic", organizationId: null, workspaceId: null, workspaceOwnerId: null }),
@@ -99,7 +118,7 @@ describe("Field Mode active jobs (RA-7711)", () => {
     render(<FieldDashboardPage />);
 
     expect(await screen.findByText("NIR-2026-09-F1C142")).toBeInTheDocument();
-    expect(screen.getByText("2 active jobs")).toBeInTheDocument();
+    expect(screen.getByText(/\b2 active jobs\b/)).toBeInTheDocument();
 
     const url = new URL(listUrl(), "http://localhost");
     expect(url.searchParams.get("status")?.split(",")).toEqual([
@@ -167,7 +186,7 @@ describe("Field Mode active jobs (RA-7711)", () => {
     expect(
       screen.getByRole("button", { name: /retry/i }),
     ).toBeVisible();
-    expect(screen.queryByText("0 active jobs")).not.toBeInTheDocument();
+    expect(screen.queryByText(/\b0 active jobs\b/)).not.toBeInTheDocument();
     expect(screen.queryByText("No active jobs")).not.toBeInTheDocument();
   });
 
@@ -180,7 +199,7 @@ describe("Field Mode active jobs (RA-7711)", () => {
 
     await screen.findByRole("alert");
     expect(screen.getByRole("button", { name: /retry/i })).toBeVisible();
-    expect(screen.queryByText("0 active jobs")).not.toBeInTheDocument();
+    expect(screen.queryByText(/\b0 active jobs\b/)).not.toBeInTheDocument();
   });
 
   it("Retry reloads and then lists the jobs", async () => {

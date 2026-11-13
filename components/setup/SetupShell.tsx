@@ -12,6 +12,7 @@ import { FeatureHealthCard } from './FeatureHealthCard';
 import { VideoExplainer } from './VideoExplainer';
 import { WelcomeOverview } from './WelcomeOverview';
 import { AiKeyCard } from './AiKeyCard';
+import { AddonCardDeck } from '@/components/addons/AddonCardDeck';
 import { SetupStepper, type SetupStepperItem } from './SetupStepper';
 import {
   SETUP_AI_KEY_OPTIONAL_HINT,
@@ -40,6 +41,7 @@ interface InitialPayload extends SetupOrganization {
 export function SetupShell({ initial }: { initial: InitialPayload }) {
   const setOrg = useSetupStore((s) => s.setOrg);
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
+  const setSectionError = useSetupStore((s) => s.setSectionError);
   const org = useSetupStore((s) => s.org);
   const { update: refreshSession } = useSession();
 
@@ -56,7 +58,9 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     if (!(initial.legalName && id && initial.state && initial.timezone)) return 2; // Business details
     if (!(initial.logoUrl || initial.primaryColor)) return 3; // Branding
     if (!initial.pricingConfig) return 4; // Pricing
-    return 5; // Integrations, the step before the finish
+    // RA-8271: Field Add-Ons follows Pricing, so a returning business sees the
+    // packs before it reaches Integrations and the finish.
+    return 5; // Field Add-Ons
   });
 
   // AI-key completion is the one gate the store doesn't already carry, so read
@@ -124,9 +128,17 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
         const jobs: Array<{
           kind: 'ABR' | 'WEBSITE' | 'PRICING';
           status: string;
+          errorMessage?: string | null;
         }> = JSON.parse(e.data);
         for (const job of jobs) {
-          setSectionStatus(jobKindToSectionKey(job.kind), jobStatusToHydrationState(job.status));
+          const section = jobKindToSectionKey(job.kind);
+          setSectionStatus(section, jobStatusToHydrationState(job.status));
+          if (job.kind === 'ABR') {
+            setSectionError(
+              section,
+              job.status === 'ERROR' ? job.errorMessage ?? 'UPSTREAM_ERROR' : null,
+            );
+          }
         }
         // The server ends the stream once all three jobs are terminal; close
         // here too, or EventSource reconnects for the rest of the wizard.
@@ -163,7 +175,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     es.onerror = (err) => console.error('[setup] SSE error:', err);
 
     return () => es.close();
-  }, [runningAtLoad, hydrationRun, setOrg, setSectionStatus]);
+  }, [runningAtLoad, hydrationRun, setOrg, setSectionStatus, setSectionError]);
 
   // Locked one-step-at-a-time flow (Phase 4). Business details is the hard
   // gate; the AI key is optional for funded trials (D-022). Optional steps
@@ -179,7 +191,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       key: 'welcome',
       title: 'Welcome',
       required: false,
-      complete: true,
+      complete: false,
       description: 'What RestoreAssist does, how a job moves through it, and what setup asks of you.',
       // The overview leads. The video is a supplement, not the explanation:
       // it currently renders with no audio track and starts muted on mobile,
@@ -187,7 +199,24 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       content: (
         <div className="space-y-6">
           <WelcomeOverview />
-          <VideoExplainer slug="remotion-onboarding-welcome" />
+          <details className="group rounded-xl border border-brand-navy/10 bg-[#F7F9FB] open:shadow-sm">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-brand-navy marker:content-none [&::-webkit-details-marker]:hidden">
+              <span className="underline decoration-brand-navy/25 underline-offset-4 group-open:no-underline">
+                Watch a short overview video (optional)
+              </span>
+              <span className="mt-0.5 block text-xs font-normal text-brand-slate">
+                Collapsed by default — read the summary above first.
+              </span>
+            </summary>
+            <div className="border-t border-brand-navy/10 px-4 pb-4 pt-3">
+              <VideoExplainer
+                slug="remotion-onboarding-welcome"
+                showCaptions={false}
+                unavailableVariant="subtle"
+                className="relative aspect-video w-full max-h-[min(40vh,420px)] overflow-hidden rounded-lg border border-brand-navy/10 bg-white shadow-sm"
+              />
+            </div>
+          </details>
         </div>
       ),
     },
@@ -195,7 +224,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       key: 'ai_key',
       title: aiKeyTitle,
       required: aiKeyRequired,
-      complete: hasApiKey || !aiKeyRequired,
+      complete: hasApiKey,
       description: aiKeyDescription,
       content: (
         <AiKeyCard
@@ -235,6 +264,19 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       content: <PricingCard />,
     },
     {
+      // RA-8271: RestoreAssist is the CRM; the packs add field and admin
+      // features on top. Every pack is shown here as a card so a new owner
+      // sees what can be added before reaching the dashboard. Optional: it
+      // never blocks, and a pack can be added any time from Field Add-Ons in
+      // the side panel.
+      key: 'add_ons',
+      title: 'Field Add-Ons',
+      required: false,
+      complete: false,
+      description: 'Optional packs that add field and admin features to your CRM. Add one now, or any time later from Field Add-Ons in the side panel.',
+      content: <AddonCardDeck />,
+    },
+    {
       key: 'integrations',
       title: 'Integrations',
       required: false,
@@ -261,7 +303,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
             </span>
             <h3 className="mt-4 text-xl font-semibold tracking-tight">You&apos;re ready to go</h3>
             <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-white/70">
-              Use the button below to generate your first report. You can always come back and finish the optional steps later from your dashboard.
+              Finish setup, then we&apos;ll guide you through your first job — inspection, floor plan, and report — from the dashboard.
             </p>
           </div>
           <ul className="divide-y divide-brand-navy/5 px-6 py-2 sm:px-10">
@@ -330,7 +372,7 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     }
 
     await refreshSession();
-    window.location.assign('/dashboard/reports/new');
+    window.location.assign('/dashboard/onboarding?welcome=1');
   };
 
   // RA-7427 — leave the wizard with one tap. Same three-step discipline as

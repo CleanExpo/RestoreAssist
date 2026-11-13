@@ -1,0 +1,14 @@
+{
+  "slug": "crm-explainer",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 58,
+  "segments": [
+    { "text": "Right now your job data lives in six places. A spreadsheet, a shared inbox, a camera roll, a job book, an accounting package, and someone's memory.", "startSec": 0.5, "durationSec": 9.5 },
+    { "text": "A CRM is one record per job that all six of those things write into instead.", "startSec": 10.5, "durationSec": 6.0 },
+    { "text": "Client details, site photos, moisture readings, scope, quote, invoice. Entered once, on site, and never retyped.", "startSec": 17.0, "durationSec": 8.5 },
+    { "text": "The saving is not the software. It is the double handling you stop paying for. The re-keying, the chasing, the reconciling of two systems that disagree.", "startSec": 26.0, "durationSec": 10.0 },
+    { "text": "Every hour a technician spends retyping is an hour nobody bills. Every photo that never leaves a phone is a line item you cannot defend.", "startSec": 36.5, "durationSec": 9.5 },
+    { "text": "RestoreAssist is that single record, built for restoration work.", "startSec": 46.5, "durationSec": 5.0 },
+    { "text": "Start with one job. Run it end to end. Compare it to how you ran the last one.", "startSec": 52.0, "durationSec": 5.5 }
+  ]
+}

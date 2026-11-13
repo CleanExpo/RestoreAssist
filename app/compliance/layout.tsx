@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
 import { isIosShellUserAgent } from "@/lib/capacitor";
 import { Metadata } from "next";
 
@@ -40,7 +41,7 @@ export default async function ComplianceLayout({
   const isIosShell = isIosShellUserAgent((await headers()).get("user-agent"));
   return (
     <ShellPlatformProvider isIosShell={isIosShell}>
-      {children}
+      <MarketingShell>{children}</MarketingShell>
     </ShellPlatformProvider>
   );
 }

@@ -210,7 +210,7 @@ export default function ServiceAreasPage() {
   // Loading skeleton
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <Skeleton className="h-8 w-48" />
@@ -235,7 +235,7 @@ export default function ServiceAreasPage() {
   // Profile not found
   if (profileNotFound) {
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <MapPin className="h-12 w-12 text-slate-500 mb-4" />
           <h2 className="text-xl font-semibold text-white mb-2">
@@ -256,7 +256,7 @@ export default function ServiceAreasPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <confirm.Mount />
       {/* Header */}
       <ContractorsBackLink />

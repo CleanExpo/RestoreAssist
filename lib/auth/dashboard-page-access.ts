@@ -21,6 +21,7 @@ export const DASHBOARD_PAGE_ACCESS = {
   "/dashboard/team": ["ADMIN", "MANAGER"],
   "/dashboard/pricing-config": ["ADMIN", "MANAGER"],
   "/dashboard/integrations": ["ADMIN", "MANAGER"],
+  "/dashboard/operations/completeness-inbox": ["ADMIN", "MANAGER"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type GuardedDashboardPage = keyof typeof DASHBOARD_PAGE_ACCESS;

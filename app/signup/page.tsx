@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { signInWithOAuth } from "@/lib/oauth-native";
 import { isCapacitorIOS } from "@/lib/capacitor";
+import { useServerIosShell } from "@/components/capacitor/ShellPlatformProvider";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -20,6 +21,7 @@ import {
   Key,
 } from "lucide-react";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { reservedEmailSignUpMessage } from "@/lib/auth/reserved-email-user-message";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import {
@@ -48,10 +50,21 @@ export default function SignupPage() {
   // need NEXT_PUBLIC_APPLE_SIGNIN_ENABLED because the native plugin
   // verifies via Apple's JWKS, not the web Service ID + .p8 secret).
   const [isIOS, setIsIOS] = useState(false);
+  const [shellChecked, setShellChecked] = useState(false);
 
   useEffect(() => {
     setIsIOS(isCapacitorIOS());
+    setShellChecked(true);
   }, []);
+
+  // Apple 3.1.1: there is no web sign-up inside the iOS shell. The server
+  // verdict (request user-agent, see BillingGate) covers current shells.
+  // Older shells send no token, so the form also waits for the client
+  // check: it is never in the server HTML.
+  const iosShell = useServerIosShell() === true || isIOS;
+  useEffect(() => {
+    if (iosShell) window.location.replace("/login");
+  }, [iosShell]);
 
   useEffect(() => {
     if (shouldRedirect) {
@@ -68,6 +81,13 @@ export default function SignupPage() {
     setError("");
 
     // Validation
+    const reservedMsg = reservedEmailSignUpMessage(email);
+    if (reservedMsg) {
+      setError(reservedMsg);
+      setIsLoading(false);
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setIsLoading(false);
@@ -117,9 +137,9 @@ export default function SignupPage() {
         });
 
         if (result?.ok) {
-          notifySuccess("Welcome to RestoreAssist!");
-          // Redirect to dashboard with welcome param so we show personalization popup
-          window.location.href = "/dashboard?welcome=1";
+          notifySuccess("Welcome to RestoreAssist — let's set up your workspace.");
+          // Owners complete the setup wizard before the dashboard (middleware gate).
+          window.location.href = "/setup?welcome=1";
         } else {
           notifyError("Account created — please sign in to continue");
           // Send to login with callbackUrl=dashboard so after login they land on dashboard
@@ -171,6 +191,14 @@ export default function SignupPage() {
     }
   };
 
+  if (iosShell || !shellChecked) {
+    return (
+      <p className="py-20 text-center text-slate-600" role="status">
+        {iosShell ? "Taking you to sign in…" : "Loading…"}
+      </p>
+    );
+  }
+
   return (
     <MarketingShell chrome={false}>
     <div className={`${CONTAINER} flex justify-center py-14 sm:py-20`}>
@@ -190,6 +218,11 @@ export default function SignupPage() {
             RestoreAssist
           </motion.h1>
           <p className="text-slate-600">Create your account</p>
+          <p className="mt-2 text-sm text-slate-500">
+            {PRICING_CONFIG.free.trialDays}-day free trial ·{" "}
+            {PRICING_CONFIG.free.trialReportCredits} report credits · No credit
+            card required
+          </p>
         </div>
 
         {/* RA-7549 — Basic works without BYOK; provider charges are opt-in. */}
@@ -340,7 +373,7 @@ export default function SignupPage() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="bg-white border border-slate-200/90 rounded-2xl p-8 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form method="post" onSubmit={handleSubmit} className="space-y-6">
             {/* Name Field */}
             <div>
               <label

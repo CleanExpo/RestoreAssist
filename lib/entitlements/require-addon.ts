@@ -20,7 +20,10 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import {
+  getOrganizationOwner,
+  getResourceTenantOwner,
+} from "@/lib/organization-credits";
 import { isAddonSku, type AddonSku } from "./types";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -92,6 +95,133 @@ function addonRequiredResponse(
   );
 }
 
+// ─── Entitlement workspace ────────────────────────────────────────────────────
+
+/**
+ * RA-7893 — the workspace whose add-ons apply to this user, for READING an
+ * entitlement only.
+ *
+ * Add-ons are bought by the business owner and belong to the owner's
+ * workspace. Invite acceptance gives a technician or manager an
+ * organizationId and no WorkspaceMember row, so resolving through the
+ * member's own id found nothing and every add-on read as "subscription
+ * required".
+ *
+ * Resolution: the organisation owner (`getOrganizationOwner`, which already
+ * scopes MANAGER/USER to their own organisation's owner), falling back to the
+ * user themselves when they have no organisation; then the oldest READY
+ * workspace that user OWNS. A user removed from the organisation
+ * (organizationId null) falls back to themselves and so gets only what they
+ * own — never a lingering WorkspaceMember row.
+ *
+ * NOT for writes. `getWorkspaceForUser` is deliberately left keyed on the
+ * caller: its other callers write provider API keys, and widening it would
+ * let a technician write into the owner's workspace.
+ */
+export async function getEntitlementWorkspaceForUser(
+  userId: string,
+): Promise<{ id: string; name: string } | null> {
+  const ownerId = (await getOrganizationOwner(userId)) ?? userId;
+  return getReadyWorkspaceOwnedBy(ownerId);
+}
+
+/**
+ * The oldest READY workspace `ownerId` OWNS — the only workspace whose
+ * add-ons an entitlement read may use. For callers that have already resolved
+ * the organisation owner themselves.
+ */
+export async function getReadyWorkspaceOwnedBy(
+  ownerId: string,
+): Promise<{ id: string; name: string } | null> {
+  // OWNED workspaces only. getWorkspaceForUser's WorkspaceMember fallback is
+  // deliberately not used here: a membership row can point into another
+  // organisation's workspace (an owner who is also a member elsewhere), or
+  // outlive the user's removal from the organisation. Either would carry an
+  // add-on across a tenant boundary. Workspace has no organisation column,
+  // so ownership by the resolved owner is the binding.
+  return prisma.workspace.findFirst({
+    where: { ownerId, status: "READY" },
+    select: { id: true, name: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/**
+ * RA-7893 — fail-closed boolean read of an add-on for the business a user
+ * belongs to. For surfaces with no session user (the client portal) that
+ * resolve the job's creator: any error reads as "not entitled", never as paid
+ * content.
+ */
+export async function isAddonEntitledForUser(
+  userId: string,
+  sku: string,
+): Promise<boolean> {
+  try {
+    const workspace = await getEntitlementWorkspaceForUser(userId);
+    if (!workspace) return false;
+    const gate = await requireAddonForWorkspace(workspace.id, sku);
+    return gate.allowed;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * RA-7893 — fail-closed add-on read for a RESOURCE (an inspection behind a
+ * portal link): the add-ons of the business the resource belongs to
+ * (`getResourceTenantOwner`), not of whichever organisation its creator is in
+ * today. A job whose business cannot be proven reads as not entitled.
+ */
+export async function isAddonEntitledForResource(
+  creatorId: string,
+  resourceCreatedAt: Date,
+  sku: string,
+): Promise<boolean> {
+  try {
+    const gate = await requireAddonForResource(
+      creatorId,
+      resourceCreatedAt,
+      sku,
+    );
+    return gate.allowed;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * RA-7893 — `requireAddon()` for work on a specific RESOURCE (a job, report
+ * or inspection): the add-on of the business the resource belongs to
+ * (`getResourceTenantOwner`), never of an organisation its creator joined
+ * after creating it. For senders with no session user (Pulse) and any path
+ * acting on someone's job. An unprovable business denies as NO_WORKSPACE.
+ */
+export async function requireAddonForResource(
+  creatorId: string,
+  resourceCreatedAt: Date,
+  sku: string,
+): Promise<AddonGateResult> {
+  if (!isAddonSku(sku)) {
+    return {
+      allowed: false,
+      reason: "UNKNOWN_SKU",
+      sku,
+      response: unknownSkuResponse(sku),
+    };
+  }
+  const ownerId = await getResourceTenantOwner(creatorId, resourceCreatedAt);
+  const workspace = ownerId ? await getReadyWorkspaceOwnedBy(ownerId) : null;
+  if (!workspace) {
+    return {
+      allowed: false,
+      reason: "NO_WORKSPACE",
+      sku,
+      response: addonRequiredResponse(sku, "NO_WORKSPACE"),
+    };
+  }
+  return requireAddonForWorkspace(workspace.id, sku);
+}
+
 // ─── Guard ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -115,7 +245,7 @@ export async function requireAddon(
     };
   }
 
-  const workspace = await getWorkspaceForUser(userId);
+  const workspace = await getEntitlementWorkspaceForUser(userId);
   if (!workspace) {
     return {
       allowed: false,

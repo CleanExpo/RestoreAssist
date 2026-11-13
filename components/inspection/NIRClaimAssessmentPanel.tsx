@@ -15,7 +15,14 @@
  *   3. Australian Compliance → GET/POST /api/inspections/[id]/australian-compliance
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  forwardRef,
+  useState,
+  useEffect,
+  useCallback,
+  useImperativeHandle,
+  useRef,
+} from "react";
 import toast from "react-hot-toast";
 import {
   Droplets,
@@ -29,7 +36,6 @@ import {
   Shield,
   ChevronDown,
   ChevronUp,
-  Save,
   Loader2,
   CheckCircle2,
   XCircle,
@@ -66,7 +72,20 @@ interface NIRClaimAssessmentPanelProps {
   onWaterClassificationSaved?: (
     choice: { category: string; class: string } | null,
   ) => void;
+  /** Merged into the assessment form when Quick Fill or similar pre-populates. */
+  assessmentSeed?: Record<string, unknown> | null;
+  complianceSeed?: Record<string, unknown> | null;
 }
+
+export type NIRClaimAssessmentPanelHandle = {
+  persistAssessment: () => Promise<void>;
+  persistCompliance: () => Promise<void>;
+  persist: () => Promise<void>;
+  applyQuickFillSeed: (seed: {
+    assessment?: Record<string, unknown>;
+    compliance?: Record<string, unknown>;
+  }) => void;
+};
 
 /** "CAT_2" / "CLASS_3" on a water record → { category: "2", class: "3" }. */
 function waterChoice(
@@ -316,7 +335,7 @@ function WaterForm({
   onChange: (k: string, v: unknown) => void;
 }) {
   return (
-    <>
+    <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-x-10">
       <FieldRow label="Water Category">
         <Select
           value={(data.waterCategory as string) || ""}
@@ -380,7 +399,7 @@ function WaterForm({
           placeholder="e.g. 24"
         />
       </FieldRow>
-    </>
+    </div>
   );
 }
 
@@ -1465,13 +1484,21 @@ function AustralianComplianceForm({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function NIRClaimAssessmentPanel({
-  inspectionId,
-  initialClaimType,
-  lockedClaimType,
-  onClaimTypeChange,
-  onWaterClassificationSaved,
-}: NIRClaimAssessmentPanelProps) {
+const NIRClaimAssessmentPanel = forwardRef<
+  NIRClaimAssessmentPanelHandle,
+  NIRClaimAssessmentPanelProps
+>(function NIRClaimAssessmentPanel(
+  {
+    inspectionId,
+    initialClaimType,
+    lockedClaimType,
+    onClaimTypeChange,
+    onWaterClassificationSaved,
+    assessmentSeed,
+    complianceSeed,
+  },
+  ref,
+) {
   // Last water Category / Class pick the server holds, as "cat/class" or null.
   const lastWaterChoice = useRef<string | null>(null);
   const [selectedType, setSelectedType] = useState<NIRClaimType | null>(
@@ -1559,6 +1586,26 @@ export default function NIRClaimAssessmentPanel({
     loadCompliance();
   }, [lockedClaimType, initialClaimType, loadAssessment, loadCompliance]);
 
+  useEffect(() => {
+    if (assessmentSeed && Object.keys(assessmentSeed).length > 0) {
+      setFormData((prev) => ({ ...prev, ...assessmentSeed }));
+      if (lockedClaimType === "WATER" || selectedType === "WATER") {
+        const c = waterChoice(assessmentSeed);
+        const key = c ? `${c.category}/${c.class}` : null;
+        if (key !== lastWaterChoice.current) {
+          lastWaterChoice.current = key;
+          onWaterClassificationSaved?.(c);
+        }
+      }
+    }
+  }, [assessmentSeed, lockedClaimType, selectedType, onWaterClassificationSaved]);
+
+  useEffect(() => {
+    if (complianceSeed && Object.keys(complianceSeed).length > 0) {
+      setComplianceData((prev) => ({ ...prev, ...complianceSeed }));
+    }
+  }, [complianceSeed]);
+
   const handleTypeSelect = (type: NIRClaimType) => {
     if (lockedClaimType) return;
     setSelectedType(type);
@@ -1574,9 +1621,17 @@ export default function NIRClaimAssessmentPanel({
 
   // ── Save assessment ─────────────────────────────────────────────────────────
 
-  const handleSave = async () => {
-    if (!selectedType) return;
-    const meta = CLAIM_TYPES.find((c) => c.type === selectedType);
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
+  const complianceDataRef = useRef(complianceData);
+  complianceDataRef.current = complianceData;
+  const selectedTypeRef = useRef(selectedType);
+  selectedTypeRef.current = selectedType;
+
+  const persistAssessment = async (options?: { silent?: boolean }) => {
+    const type = selectedTypeRef.current;
+    if (!type || type === "CONTENTS") return;
+    const meta = CLAIM_TYPES.find((c) => c.type === type);
     if (!meta) return;
     setSaving(true);
     try {
@@ -1585,7 +1640,7 @@ export default function NIRClaimAssessmentPanel({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(formDataRef.current),
         },
       );
       if (res.ok) {
@@ -1596,7 +1651,7 @@ export default function NIRClaimAssessmentPanel({
         }
         setGates(g);
         if (record.asbestosWarning) setAsbestosWarning(record.asbestosWarning);
-        if (selectedType === "WATER") {
+        if (type === "WATER") {
           const c = waterChoice(record);
           const key = c ? `${c.category}/${c.class}` : null;
           if (key !== lastWaterChoice.current) {
@@ -1604,21 +1659,24 @@ export default function NIRClaimAssessmentPanel({
             onWaterClassificationSaved?.(c);
           }
         }
-        toast.success("Assessment saved");
+        if (!options?.silent) toast.success("Assessment saved");
       } else {
         const err = await res.json().catch(() => ({}));
-        toast.error(err.error || "Failed to save");
+        const message = (err as { error?: string }).error || "Failed to save";
+        if (options?.silent) throw new Error(message);
+        toast.error(message);
       }
-    } catch {
+    } catch (error) {
+      if (options?.silent) {
+        throw error instanceof Error ? error : new Error("Network error");
+      }
       toast.error("Network error");
     } finally {
       setSaving(false);
     }
   };
 
-  // ── Save compliance ────────────────────────────────────────────────────────
-
-  const handleSaveCompliance = async () => {
+  const persistCompliance = async (options?: { silent?: boolean }) => {
     setSavingCompliance(true);
     try {
       const res = await fetch(
@@ -1626,23 +1684,58 @@ export default function NIRClaimAssessmentPanel({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(complianceData),
+          body: JSON.stringify(complianceDataRef.current),
         },
       );
       if (res.ok) {
         const record = await res.json();
         if (record.asbestosWarning) setAsbestosWarning(record.asbestosWarning);
-        toast.success("Compliance record saved");
+        if (!options?.silent) toast.success("Compliance record saved");
       } else {
         const err = await res.json().catch(() => ({}));
-        toast.error(err.error || "Failed to save compliance");
+        const message =
+          (err as { error?: string }).error || "Failed to save compliance";
+        if (options?.silent) throw new Error(message);
+        toast.error(message);
       }
-    } catch {
+    } catch (error) {
+      if (options?.silent) {
+        throw error instanceof Error ? error : new Error("Network error");
+      }
       toast.error("Network error");
     } finally {
       setSavingCompliance(false);
     }
   };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      persistAssessment: () => persistAssessment({ silent: true }),
+      persistCompliance: () => persistCompliance({ silent: true }),
+      persist: async () => {
+        await persistAssessment({ silent: true });
+        await persistCompliance({ silent: true });
+      },
+      applyQuickFillSeed: (seed) => {
+        if (seed.assessment) {
+          setFormData((prev) => ({ ...prev, ...seed.assessment }));
+          if (selectedTypeRef.current === "WATER") {
+            const c = waterChoice(seed.assessment);
+            const key = c ? `${c.category}/${c.class}` : null;
+            if (key !== lastWaterChoice.current) {
+              lastWaterChoice.current = key;
+              onWaterClassificationSaved?.(c);
+            }
+          }
+        }
+        if (seed.compliance) {
+          setComplianceData((prev) => ({ ...prev, ...seed.compliance }));
+        }
+      },
+    }),
+    [inspectionId, onWaterClassificationSaved],
+  );
 
   // ── Add contents item ───────────────────────────────────────────────────────
 
@@ -1689,7 +1782,7 @@ export default function NIRClaimAssessmentPanel({
 
   return (
     <div
-      className="space-y-5 max-w-3xl"
+      className="space-y-5 w-full"
       data-testid="nir-claim-assessment-panel"
     >
       {/* Claim type selector — hidden when locked to upstream picker */}
@@ -1871,24 +1964,6 @@ export default function NIRClaimAssessmentPanel({
             )}
           </div>
 
-          {/* Save button — not for CONTENTS (it uses per-item saves) */}
-          {selectedType !== "CONTENTS" && (
-            <div className="px-4 py-3 border-t border-neutral-100 dark:border-slate-800 flex justify-end">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving || loading}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
-              >
-                {saving ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Save size={14} />
-                )}
-                {saving ? "Saving…" : "Save Assessment"}
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -1905,21 +1980,8 @@ export default function NIRClaimAssessmentPanel({
         onChange={(k, v) => setComplianceData((p) => ({ ...p, [k]: v }))}
         asbestosWarning={asbestosWarning}
       />
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={handleSaveCompliance}
-          disabled={savingCompliance}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-800 disabled:opacity-50 text-sm font-medium transition-colors"
-        >
-          {savingCompliance ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <Save size={14} />
-          )}
-          {savingCompliance ? "Saving…" : "Save Compliance Record"}
-        </button>
-      </div>
     </div>
   );
-}
+});
+
+export default NIRClaimAssessmentPanel;

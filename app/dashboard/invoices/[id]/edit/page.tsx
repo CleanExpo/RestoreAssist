@@ -433,7 +433,7 @@ export default function EditInvoicePage({
         </div>
       </div>
 
-      <form
+      <form method="post"
         onSubmit={handleSubmit}
         className="grid grid-cols-1 lg:grid-cols-3 gap-6"
       >

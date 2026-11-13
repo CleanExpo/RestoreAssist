@@ -21,9 +21,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { notifyClientDryingChange } from "@/lib/pulse/notify-client-change";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { groupReadings } from "@/lib/services/ai/group-readings";
 import {
@@ -31,8 +33,7 @@ import {
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { apiError, fromException } from "@/lib/api-errors";
-
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 type GroupResponse = {
   groups: Array<{
@@ -72,14 +73,9 @@ export async function POST(
     });
     if (rateLimited) return rateLimited;
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { subscriptionStatus: true },
-    });
-    if (
-      !user ||
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-    ) {
+    // RA-7893: an invited technician uses the business owner's plan; an
+    // unknown user reads as no plan.
+    if (!(await hasActiveSubscription(userId))) {
       return apiError(request, {
         code: "PAYMENT_REQUIRED",
         message: "Active subscription required",
@@ -230,8 +226,17 @@ export async function PATCH(
 
     const { id: inspectionId } = await context.params;
 
+    // D-028: the owner's reach, plus the technician assigned to the job.
+    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId },
+      where: tenancy.data.inspectionManyWhere,
       select: { id: true },
     });
     if (!inspection) {
@@ -287,7 +292,13 @@ export async function PATCH(
       for (const op of ops) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const r = await (tx.moistureReading.updateMany as any)({
-          where: { id: { in: op.ids }, inspectionId },
+          where: {
+            id: { in: op.ids },
+            inspectionId,
+            ...(tenancy.data.childInspectionFilter && {
+              inspection: tenancy.data.childInspectionFilter,
+            }),
+          },
           data: { affectedArea: op.name },
         });
         updated += r.count;
@@ -298,6 +309,9 @@ export async function PATCH(
         const r = await (tx.moistureReading.updateMany as any)({
           where: {
             inspectionId,
+            ...(tenancy.data.childInspectionFilter && {
+              inspection: tenancy.data.childInspectionFilter,
+            }),
             id: { notIn: Array.from(touchedIds) },
             NOT: { affectedArea: null },
           },
@@ -324,6 +338,8 @@ export async function PATCH(
         },
       })
       .catch((e) => console.warn("[group-readings] audit failed:", e));
+
+    void notifyClientDryingChange(inspectionId);
 
     return NextResponse.json({
       updated: result.updated,

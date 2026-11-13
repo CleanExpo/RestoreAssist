@@ -67,6 +67,23 @@ describe("callAnthropic", () => {
     if (r.ok) expect(r.data).toEqual(fakeMessage);
   });
 
+  it("passes request options to the SDK only when given (RA-8236)", async () => {
+    vi.mocked(getAnthropicApiKey).mockResolvedValue("sk-test");
+    mockMessagesCreate.mockResolvedValue({ id: "msg_1", content: [] });
+
+    await callAnthropic({
+      ...baseReq,
+      requestOptions: { timeout: 90_000, maxRetries: 0 },
+    });
+    expect(mockMessagesCreate.mock.calls[0]).toEqual([
+      baseReq.request,
+      { timeout: 90_000, maxRetries: 0 },
+    ]);
+
+    await callAnthropic(baseReq);
+    expect(mockMessagesCreate.mock.calls[1]).toEqual([baseReq.request]);
+  });
+
   it("returns KEY_MISSING when getAnthropicApiKey throws", async () => {
     vi.mocked(getAnthropicApiKey).mockRejectedValueOnce(new Error("no key"));
 
@@ -152,5 +169,31 @@ describe("callAnthropic", () => {
     });
     expect(r.ok).toBe(true);
     expect(vi.mocked(getAnthropicApiKey)).not.toHaveBeenCalled();
+  });
+
+  // RA-8232 — a Messages-compatible backup vendor is reached by base URL only.
+  it("passes baseURL to the SDK client when given, and omits it otherwise", async () => {
+    const Anthropic = (await import("@anthropic-ai/sdk")).default as unknown as ReturnType<
+      typeof vi.fn
+    >;
+    mockMessagesCreate.mockResolvedValue({ id: "m", content: [] });
+
+    await callAnthropic({
+      userId: "user-1",
+      apiKey: "ak-backup",
+      baseURL: "https://api.abliteration.ai",
+      request: baseReq.request,
+    });
+    expect(Anthropic).toHaveBeenLastCalledWith({
+      apiKey: "ak-backup",
+      baseURL: "https://api.abliteration.ai",
+    });
+
+    await callAnthropic({
+      userId: "user-1",
+      apiKey: "sk-default",
+      request: baseReq.request,
+    });
+    expect(Anthropic).toHaveBeenLastCalledWith({ apiKey: "sk-default" });
   });
 });

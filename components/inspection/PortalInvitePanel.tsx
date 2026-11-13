@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Link2, Send, CheckCircle, Info, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Link2, Send, CheckCircle, Info, Loader2, RefreshCw } from "lucide-react";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { cn } from "@/lib/utils";
@@ -12,13 +12,27 @@ interface Client {
   email: string;
 }
 
+interface PendingInvitation {
+  id: string;
+  token: string;
+  email: string;
+  expiresAt: string;
+}
+
 interface PortalInvitePanelProps {
   inspectionId: string;
   preselectedClientId?: string | null;
 }
 
+function isActivePending(inv: {
+  status: string;
+  expiresAt: string;
+}): boolean {
+  return inv.status === "PENDING" && new Date(inv.expiresAt) > new Date();
+}
+
 export default function PortalInvitePanel({
-  inspectionId,
+  inspectionId: _inspectionId,
   preselectedClientId,
 }: PortalInvitePanelProps) {
   const [clients, setClients] = useState<Client[]>([]);
@@ -28,6 +42,9 @@ export default function PortalInvitePanel({
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [pendingInvitation, setPendingInvitation] =
+    useState<PendingInvitation | null>(null);
   const [inviteStatus, setInviteStatus] = useState<
     "idle" | "sent" | "existing_access" | "pending"
   >("idle");
@@ -39,7 +56,75 @@ export default function PortalInvitePanel({
       .finally(() => setLoading(false));
   }, []);
 
+  const loadPendingInvitation = useCallback(async (clientId: string) => {
+    if (!clientId) {
+      setPendingInvitation(null);
+      setInviteStatus((s) => (s === "pending" ? "idle" : s));
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/portal/invitations?clientId=${encodeURIComponent(clientId)}&status=PENDING`,
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const invitations = (data.invitations ?? []) as Array<
+        PendingInvitation & { status: string }
+      >;
+      const active = invitations.find(isActivePending);
+      if (active) {
+        setPendingInvitation({
+          id: active.id,
+          token: active.token,
+          email: active.email,
+          expiresAt: active.expiresAt,
+        });
+        setInviteStatus((s) => (s === "sent" ? s : "pending"));
+      } else {
+        setPendingInvitation(null);
+        setInviteStatus((s) => (s === "pending" ? "idle" : s));
+      }
+    } catch {
+      /* non-blocking */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPendingInvitation(selectedClientId);
+  }, [selectedClientId, loadPendingInvitation]);
+
+  useEffect(() => {
+    if (preselectedClientId) setSelectedClientId(preselectedClientId);
+  }, [preselectedClientId]);
+
   const selectedClient = clients.find((c) => c.id === selectedClientId);
+
+  const signupLink =
+    pendingInvitation && typeof window !== "undefined"
+      ? `${window.location.origin}/portal/signup?token=${pendingInvitation.token}`
+      : null;
+
+  const handleResend = async (invitationId: string) => {
+    setResending(true);
+    try {
+      const res = await fetch(
+        `/api/portal/invitations/${invitationId}/resend`,
+        { method: "POST" },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        notifyError(apiErrorMessage(data) ?? "Failed to resend invitation");
+        return;
+      }
+      notifySuccess(`Invitation resent to ${selectedClient?.email ?? "client"}`);
+      setInviteStatus("sent");
+      await loadPendingInvitation(selectedClientId);
+    } catch {
+      notifyError("Failed to resend invitation");
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleSendInvite = async () => {
     if (!selectedClientId) {
@@ -58,17 +143,39 @@ export default function PortalInvitePanel({
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setInviteStatus("sent");
-        notifySuccess(`Portal invite sent to ${selectedClient?.name}`);
+        if (data.emailSent === false) {
+          notifyError(
+            apiErrorMessage(data) ??
+              "Invitation saved but email could not be sent — use Resend",
+          );
+          if (data.invitation?.id) {
+            setPendingInvitation({
+              id: data.invitation.id,
+              token: data.invitation.token,
+              email: data.invitation.email,
+              expiresAt: data.invitation.expiresAt,
+            });
+            setInviteStatus("pending");
+          }
+        } else {
+          setInviteStatus("sent");
+          notifySuccess(`Portal invite sent to ${selectedClient?.name}`);
+        }
+      } else if (res.status === 409) {
+        await loadPendingInvitation(selectedClientId);
+        notifyError(
+          "An invitation is already pending — use Resend invitation below",
+        );
       } else {
-        const message = apiErrorMessage(data) ?? "Failed to send invite";
-        const lower = message.toLowerCase();
+        const errMsg = apiErrorMessage(data) ?? "Failed to send invite";
+        const lower = errMsg.toLowerCase();
         if (lower.includes("already has portal access")) {
           setInviteStatus("existing_access");
         } else if (lower.includes("active invitation already exists")) {
           setInviteStatus("pending");
+          await loadPendingInvitation(selectedClientId);
         } else {
-          notifyError(message);
+          notifyError(errMsg);
         }
       }
     } catch {
@@ -78,8 +185,18 @@ export default function PortalInvitePanel({
     }
   };
 
+  const copySignupLink = async () => {
+    if (!signupLink) return;
+    try {
+      await navigator.clipboard.writeText(signupLink);
+      notifySuccess("Signup link copied to clipboard");
+    } catch {
+      notifyError("Could not copy link");
+    }
+  };
+
   return (
-    <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
+    <div className="p-4 sm:p-5 rounded-xl border border-neutral-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-900/40 shadow-sm">
       <div className="flex items-center gap-2 mb-3">
         <Link2 size={16} className="text-cyan-500" />
         <h4 className="font-semibold text-sm">Share Job Status with Client</h4>
@@ -100,8 +217,46 @@ export default function PortalInvitePanel({
         </div>
       )}
       {inviteStatus === "pending" && (
-        <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
-          <Info size={14} /> An invitation is already pending for this client
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 text-sm text-amber-600 dark:text-amber-400">
+            <Info size={14} className="mt-0.5 shrink-0" />
+            <span>
+              An invitation is already pending for{" "}
+              {selectedClient?.name ?? "this client"}
+              {selectedClient?.email ? ` (${selectedClient.email})` : ""}.
+              Resend the email or copy the signup link if delivery failed.
+            </span>
+          </div>
+          {pendingInvitation?.id && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleResend(pendingInvitation.id)}
+                disabled={resending}
+                className={cn(
+                  "inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "bg-cyan-500 hover:bg-cyan-600 text-white disabled:opacity-50",
+                )}
+              >
+                {resending ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={14} />
+                )}
+                Resend invitation
+              </button>
+              {signupLink && pendingInvitation.token && (
+                <button
+                  type="button"
+                  onClick={() => void copySignupLink()}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-neutral-200 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-800"
+                >
+                  <Link2 size={14} />
+                  Copy signup link
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

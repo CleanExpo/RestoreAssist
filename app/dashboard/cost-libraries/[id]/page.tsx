@@ -175,13 +175,22 @@ export default function CostLibraryDetailPage({
             <p className="text-slate-400 text-sm mt-2">{library.description}</p>
           )}
         </div>
-        <button
-          onClick={exportCSV}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm whitespace-nowrap"
-        >
-          <Download size={16} />
-          Export CSV
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* RA-8081: the bulk editor had no link anywhere */}
+          <Link
+            href={`/dashboard/cost-libraries/${library.id}/bulk-editor`}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm whitespace-nowrap"
+          >
+            Bulk edit
+          </Link>
+          <button
+            onClick={exportCSV}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm whitespace-nowrap"
+          >
+            <Download size={16} />
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

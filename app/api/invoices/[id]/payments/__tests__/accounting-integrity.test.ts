@@ -27,6 +27,8 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    // RA-7893 pre-check outside the transaction; not what this file tests.
+    invoice: { findUnique: async () => null },
     $transaction: (...args: unknown[]) => transaction(...args),
   },
 }));
@@ -124,6 +126,21 @@ describe("POST /api/invoices/[id]/payments — accounting integrity", () => {
         allocatedAmount: 4_000,
       },
     });
+  });
+
+  it("refuses an unknown payment method as the caller's input, before any ledger write", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/invoices/invoice_1/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: 5_000, paymentMethod: "EFT", reference: "BANK-123" }),
+      }),
+      params,
+    );
+
+    expect(response.status).toBe(400);
+    expect(transaction).not.toHaveBeenCalled();
+    expect(tx.invoicePayment.create).not.toHaveBeenCalled();
   });
 
   it("rejects an over-allocation before creating ledger rows", async () => {

@@ -120,7 +120,7 @@ export async function canTrialUserPerformAction(
     return {
       allowed: false,
       reason:
-        "Your 30-day free trial has expired. Please subscribe to continue using RestoreAssist.",
+        "Your free trial has ended. Please subscribe to continue using RestoreAssist.",
     };
   }
 

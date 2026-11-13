@@ -23,6 +23,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
+import { useFetchWithError } from "@/lib/client/useFetchWithError";
+import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListErrorBanner";
 import { formatCurrencyCents, formatDate } from "@/lib/formatters";
 import {
   collectFailedLabels,
@@ -32,6 +34,9 @@ import toast from "react-hot-toast";
 import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 interface Invoice {
   id: string;
@@ -73,7 +78,7 @@ export default function InvoicesPage() {
     loading,
     error: fetchError,
     refetch: refetchInvoices,
-  } = useFetch<{ invoices: Invoice[] }>(invoiceUrl);
+  } = useFetchWithError<{ invoices: Invoice[] }>(invoiceUrl);
   const invoices = invoiceData?.invoices ?? [];
 
   const {
@@ -192,20 +197,28 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-          Invoices
-        </h1>
-        <Link
-          href="/dashboard/invoices/new"
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:scale-[1.02] transition-transform"
-        >
-          <Plus className="h-5 w-5" />
-          New Invoice
-        </Link>
-      </div>
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        className="mb-6"
+        eyebrow="Simple workspace"
+        title="Invoices"
+        description="Bill completed work, track payments, and sync to accounting."
+        icon={<FileText className="h-7 w-7 text-cyan-500" aria-hidden />}
+        primaryAction={
+          <Link
+            href="/dashboard/invoices/new"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2 font-medium text-white transition-transform hover:scale-[1.02] sm:w-auto"
+          >
+            <Plus className="h-5 w-5" aria-hidden />
+            New invoice
+          </Link>
+        }
+        secondaryLinks={[
+          ...workspaceHubLinks({ omitHref: "/dashboard/invoices" }),
+          // RA-8081: credit notes had no link from the Invoices list.
+          { href: "/dashboard/invoices/credit-notes", label: "Credit notes" },
+        ]}
+      />
 
       {/* Stats Cards (amounts in cents, divide by 100 for display) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
@@ -356,20 +369,15 @@ export default function InvoicesPage() {
 
       {/* Fetch error */}
       {fetchError && !loading && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300 mb-4">
-          <span className="text-sm">Failed to load invoices — {fetchError}</span>
-          <button
-            type="button"
-            onClick={refetchInvoices}
-            className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
+        <DashboardListErrorBanner
+          resourceLabel="invoices"
+          error={fetchError}
+          onRetry={refetchInvoices}
+        />
       )}
 
       {/* Invoice Table */}
-      {loading ? (
+      {fetchError && !loading ? null : loading ? (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden divide-y divide-slate-200 dark:divide-slate-700">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-4 py-3">
@@ -567,6 +575,6 @@ export default function InvoicesPage() {
         itemCount={selectedCount}
         isLoading={deleting}
       />
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }

@@ -88,7 +88,7 @@ function sessionAs(userId: string, fixture = makeTwoWorkspaces()) {
     async (args: { where: { id: string }; select: Record<string, unknown> }) => {
       const row = fixture.userRow(args.where.id);
       return row
-        ? { ...(project(row, args.select) as object), subscriptionStatus: "TRIAL" }
+        ? { ...(project(row, args.select) as object), subscriptionStatus: "TRIAL", trialEndsAt: new Date("2099-01-01") }
         : null;
     },
   );

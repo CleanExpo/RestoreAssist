@@ -4,6 +4,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BusinessDetailsCard } from '../BusinessDetailsCard';
 import { useSetupStore } from '../store';
+import { isValidAbn } from '@/lib/abn/checksum';
 
 const TEST_ORG = {
   id: 'org-1',
@@ -41,12 +42,23 @@ describe('BusinessDetailsCard', () => {
 
   it('renders the ABN input when pending', () => {
     render(<BusinessDetailsCard />);
-    expect(screen.getByPlaceholderText(/53 004/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^ABN/)).toBeInTheDocument();
+  });
+
+  // The placeholder was BP Australia's real ABN (53 004 085 616). An example
+  // that fails the ABN checksum can never be issued to a real business.
+  it('uses an ABN placeholder that can never be a real ABN', () => {
+    render(<BusinessDetailsCard />);
+    const placeholder = screen.getByLabelText(/^ABN/).getAttribute('placeholder') ?? '';
+    const digits = placeholder.replace(/\D/g, '');
+    expect(digits).toHaveLength(11);
+    expect(digits).not.toBe('53004085616');
+    expect(isValidAbn(digits)).toBe(false);
   });
 
   it('disables submit on invalid ABN', () => {
     render(<BusinessDetailsCard />);
-    fireEvent.change(screen.getByPlaceholderText(/53 004/i), {
+    fireEvent.change(screen.getByLabelText(/^ABN/), {
       target: { value: '123' },
     });
     expect(screen.getByRole('button', { name: /start setup/i })).toBeDisabled();
@@ -54,7 +66,7 @@ describe('BusinessDetailsCard', () => {
 
   it('enables submit on valid ABN', () => {
     render(<BusinessDetailsCard />);
-    fireEvent.change(screen.getByPlaceholderText(/53 004/i), {
+    fireEvent.change(screen.getByLabelText(/^ABN/), {
       target: { value: '53004085616' },
     });
     expect(screen.getByRole('button', { name: /start setup/i })).not.toBeDisabled();
@@ -109,8 +121,18 @@ describe('BusinessDetailsCard', () => {
     expect(screen.getByText('NSW')).toBeInTheDocument();
   });
 
+  // 4647b0097: the fallback copy now names the lookup failure
+  // (lib/setup/abr-user-message.ts); with no reason it is the generic message.
   it('shows manual-entry fallback in error state', () => {
     useSetupStore.getState().setSectionStatus('businessDetails', 'error');
+    render(<BusinessDetailsCard />);
+    expect(screen.getByText(/couldn't complete the business register lookup/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/legal name/i)).toBeInTheDocument();
+  });
+
+  it('says the register was unreachable only for an upstream failure', () => {
+    useSetupStore.getState().setSectionStatus('businessDetails', 'error');
+    useSetupStore.getState().setSectionError('businessDetails', 'UPSTREAM_ERROR');
     render(<BusinessDetailsCard />);
     expect(screen.getByText(/couldn't reach the business register/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/legal name/i)).toBeInTheDocument();
@@ -250,7 +272,7 @@ describe('BusinessDetailsCard', () => {
         : { ok: true, json: async () => ({ data: { accepted: true } }) },
     );
     const { unmount } = render(<BusinessDetailsCard />);
-    fireEvent.change(screen.getByPlaceholderText(/53 004/i), { target: { value: '53004085616' } });
+    fireEvent.change(screen.getByLabelText(/^ABN/), { target: { value: '53004085616' } });
     fireEvent.click(screen.getByRole('button', { name: /start setup/i }));
     await screen.findByText('ABN taken');
     expect(useSetupStore.getState().hydrationRun).toBe(0);
@@ -262,7 +284,7 @@ describe('BusinessDetailsCard', () => {
         : { ok: true, json: async () => ({ data: { accepted: true } }) },
     );
     render(<BusinessDetailsCard />);
-    fireEvent.change(screen.getByPlaceholderText(/53 004/i), { target: { value: '53004085616' } });
+    fireEvent.change(screen.getByLabelText(/^ABN/), { target: { value: '53004085616' } });
     fireEvent.click(screen.getByRole('button', { name: /start setup/i }));
     await vi.waitFor(() => expect(useSetupStore.getState().hydrationRun).toBe(1));
   });

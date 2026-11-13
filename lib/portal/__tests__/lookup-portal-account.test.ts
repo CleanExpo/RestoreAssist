@@ -43,6 +43,7 @@ describe("lookupPortalAccount", () => {
       select: {
         id: true,
         clientId: true,
+        inspectionId: true,
         createdAt: true,
         tokenRotatedAt: true,
         expiresAt: true,

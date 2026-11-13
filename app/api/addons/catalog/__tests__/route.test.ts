@@ -14,18 +14,26 @@ vi.mock("@/lib/billing/technician-seats", () => ({
 vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: vi.fn(),
 }));
+// RA-7893: "owned" is read from the business owner's workspace.
+vi.mock("@/lib/entitlements", () => ({
+  getEntitlementWorkspaceForUser: vi.fn(),
+}));
 
 import { GET } from "../route";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { getEntitlementWorkspaceForUser } from "@/lib/entitlements";
 import { RECURRING_ADDONS } from "@/lib/billing/addon-registry";
 
 const mockSession = getServerSession as ReturnType<typeof vi.fn>;
 const mockFindMany = prisma.featureEntitlement.findMany as ReturnType<
   typeof vi.fn
 >;
-const mockGetWorkspace = getWorkspaceForUser as ReturnType<typeof vi.fn>;
+const mockCallerWorkspace = getWorkspaceForUser as ReturnType<typeof vi.fn>;
+const mockGetWorkspace = getEntitlementWorkspaceForUser as ReturnType<
+  typeof vi.fn
+>;
 
 const req = () =>
   new Request("http://localhost/api/addons/catalog") as unknown as Parameters<
@@ -81,5 +89,23 @@ describe("GET /api/addons/catalog", () => {
     const json = await res.json();
     expect(json.owned).toEqual([]);
     expect(mockFindMany).not.toHaveBeenCalled();
+  });
+
+  it("RA-7893: an invited technician sees the business owner's add-ons as owned", async () => {
+    mockSession.mockResolvedValue({ user: { id: "tech-1" } });
+    // The technician has no workspace of their own (invites create none).
+    mockCallerWorkspace.mockResolvedValue(null);
+    mockGetWorkspace.mockResolvedValue({ id: "ws-owner", name: "Owner" });
+    mockFindMany.mockResolvedValue([{ sku: "CLIENT_COMMS" }]);
+
+    const res = await GET(req());
+    const json = await res.json();
+    expect(mockGetWorkspace).toHaveBeenCalledWith("tech-1");
+    expect(json.owned).toEqual(["CLIENT_COMMS"]);
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ workspaceId: "ws-owner" }),
+      }),
+    );
   });
 });

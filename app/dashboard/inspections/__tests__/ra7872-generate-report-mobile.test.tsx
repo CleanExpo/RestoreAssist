@@ -16,8 +16,17 @@ vi.mock("@/lib/hooks/useFetch", () => ({
     refetch: () => {},
   }),
 }));
+// The list now reads the role to scope a technician to their own jobs.
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({
+    data: { user: { id: "m-1", role: "MANAGER" } },
+    status: "authenticated",
+  }),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 import InspectionsPage from "@/app/dashboard/inspections/page";

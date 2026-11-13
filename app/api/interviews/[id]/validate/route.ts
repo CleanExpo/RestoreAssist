@@ -12,6 +12,7 @@ import {
   type ValidationFinding,
 } from "@/lib/services/ai/validate-interview-response";
 import { apiError } from "@/lib/api-errors";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 /**
  * RA-1214 — POST /api/interviews/[id]/validate
@@ -28,7 +29,6 @@ import { apiError } from "@/lib/api-errors";
  *    (RA-6963) — never spends the platform ANTHROPIC_API_KEY
  */
 
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 const MAX_INPUT_ANSWERS = 60;
 
 interface AnsweredQuestionInput {
@@ -115,9 +115,7 @@ export async function POST(
         status: 404,
       });
     }
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-    ) {
+    if (!(await hasActiveSubscription(userId))) {
       return apiError(request, {
         code: "PAYMENT_REQUIRED",
         message: "Active subscription required",

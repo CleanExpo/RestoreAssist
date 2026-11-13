@@ -1,8 +1,43 @@
 import { BRAND } from "@/lib/brand";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { RECURRING_ADDONS } from "@/lib/billing/addon-registry";
 
 const trialDays = PRICING_CONFIG.free.trialDays;
 const trialReports = PRICING_CONFIG.free.trialReportCredits;
+
+/**
+ * Prices quoted in the stance strip, derived rather than typed.
+ *
+ * Round-5 blocker 4 asked for a drift guard because this file had no reason to
+ * stay in step with the billing SSOT, and it had already fallen out: the copy
+ * claimed every add-on was $11 while FLOORPLAN_UNDERLAY_ADDON charged $9.95.
+ * That outlier was levelled to $11 (founder decision 06/10/2026), so the claim
+ * is true again -- but it is now derived, so it cannot quietly stop being true
+ * a second time. Same formatting idiom as TierComparison so the two surfaces
+ * render the figure identically.
+ */
+const money = (amount: number) =>
+  amount % 1 === 0 ? `$${amount}` : `$${amount.toFixed(2)}`;
+const monthlyPlan = PRICING_CONFIG.pricing.monthly;
+const planPrice = money(monthlyPlan.amount);
+const planReports = monthlyPlan.reportLimit;
+const perReportPrice = money(monthlyPlan.amount / planReports);
+/**
+ * The add-on claim, phrased from the registry rather than asserted.
+ *
+ * While every recurring add-on is the same price, "are $11 a month each" is
+ * the honest sentence. Add one cheaper or dearer and the same expression says
+ * "from $X a month each" instead, because "each" would then be a lie. Do not
+ * hardcode either wording: the last time this read "are $11/month each" it had
+ * to be corrected on a live site.
+ */
+const addonAmounts = Object.values(RECURRING_ADDONS).map((a) => a.amount);
+const cheapestAddonPrice = money(Math.min(...addonAmounts));
+const addonsAreUniform =
+  Math.min(...addonAmounts) === Math.max(...addonAmounts);
+const addonClaim = addonsAreUniform
+  ? `are ${cheapestAddonPrice} a month each`
+  : `from ${cheapestAddonPrice} a month each`;
 
 /** Shared marketing home copy — same words on Home 1 / 2 / 3; only layout changes. */
 export const HOME = {
@@ -15,17 +50,27 @@ export const HOME = {
   ] as const,
 
   hero: {
-    eyebrow: BRAND.tagline,
-    // RA-7660 (One CRM): founder's headline and sub-line, verbatim.
-    headline:
-      "The CRM built for Australian and New Zealand restoration professionals. One product, not three.",
+    eyebrow: "Restoration management software",
+    headline: "Less paperwork. More time to run your restoration business.",
+    lead: "Capture site evidence, prepare IICRC-aligned reports, and manage scopes and invoices in one connected workspace.",
+    trialReassurance: `${trialDays} days free · No credit card required · ${trialReports} report credits`,
     brand: BRAND.name,
     valueLine:
-      "Inspections, reports, quotes, invoices, clients, team and compliance in one system — with optional add-ons you switch on only when they earn their keep.",
-    support:
-      "The platforms that dominate this industry were built to serve the carrier. RestoreAssist was built for the contractor doing the work — and the homeowner living through it. Australian-built. Australian-priced.",
-    primaryCta: `Start free — ${trialDays}-day trial`,
+      "RestoreAssist is restoration management software for contractors in Australia and New Zealand — field capture, IICRC-aligned reports, scopes, and invoices in one workspace.",
+    primaryCta: "Start your free trial",
     secondaryCta: "See how it works",
+  },
+
+  /** Honest trust signal — no fabricated logos or vanity metrics. */
+  proof: {
+    eyebrow: "Live today",
+    title: "Built for real restoration work on restoreassist.app",
+    body: "RestoreAssist is in active use with a transparent trial: no credit card to start, clear report-credit limits, and email support during Australian business hours.",
+    bullets: [
+      `${trialDays}-day trial · ${trialReports} inspection report credits`,
+      "No credit card required to sign up",
+      "IICRC-aligned reporting from field capture you control",
+    ] as const,
   },
 
   /**
@@ -46,9 +91,10 @@ export const HOME = {
    * Every line here is checked against shipped behaviour before it goes out:
    * capture (lib/capture), evidence honesty (lib/evidence/qa-scorer.ts flags
    * "GPS location not recorded" rather than inventing one), and pricing
-   * (lib/pricing.ts — $99 AUD/month, reportLimit 50, signupBonus 10, so
-   * $1.98/report; lib/billing/*-addon.ts — six $11 flat unlocks plus
-   * TECHNICIAN_SEATS, which is perSeat: true and bills $11 x seat count).
+   * (lib/pricing.ts and lib/billing/addon-registry.ts, read through the
+   * derived constants above — never typed here. TECHNICIAN_SEATS is
+   * perSeat: true, so it bills its amount x seat count even while every
+   * add-on's headline amount is the same).
    * NEVER claim "flat", "no per-seat", or "whole team" pricing here.
    */
   stance: {
@@ -64,7 +110,7 @@ export const HOME = {
       },
       {
         title: "Priced for Australian businesses",
-        body: "$99 a month, 50 inspection reports — $1.98 a report, in Australian dollars. Basic reports on the free trial work without pasting an API key. Provider charges apply only if you add your own key — they bill you directly and we take no margin. Add-ons are $11/month each, field technician seats per seat, all itemised on the pricing page.",
+        body: `${planPrice} a month, ${planReports} inspection reports — ${perReportPrice} a report, in Australian dollars. Basic reports on the free trial work without pasting an API key. Provider charges apply only if you add your own key — they bill you directly and we take no margin. Add-ons ${addonClaim}, field technician seats per seat, all itemised on the pricing page.`,
       },
     ] as const,
   },
@@ -272,7 +318,7 @@ export const HOME = {
     reassurances: [
       `${trialDays}-day trial · ${trialReports} report credits`,
       "Basic reports without an API key",
-      "24/7 support",
+      "Email support during business hours",
     ] as const,
   },
 } as const;
@@ -284,7 +330,7 @@ export function getHomeFaqs() {
     {
       cat: "Product",
       q: "What is RestoreAssist?",
-      a: "RestoreAssist is an Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. It connects field capture, IICRC-aligned reporting, GST invoicing, and client approvals in one system so teams remove double-handling between the driveway and the desk.",
+      a: "RestoreAssist is the Australian-designed CRM for restoration contractors — an Office and Field Management System for the Australian Restoration Industry. It connects field capture, IICRC-aligned reporting, GST invoicing, and client approvals in one system so teams remove double-handling between the driveway and the desk.",
     },
     {
       cat: "Trial",
@@ -294,12 +340,12 @@ export function getHomeFaqs() {
     {
       cat: "Pricing",
       q: "How does pricing work?",
-      a: `Start free for ${trialDays} days with ${trialReports} report credits, then choose a plan that fits your team. See current options on the pricing page — clear packages, no need to rebuild your process just to evaluate the product.`,
+      a: `Start free for ${trialDays} days with ${trialReports} report credits, then ${planPrice} a month. Field technician seats and optional add-ons are billed on top, and every charge is itemised on the pricing page.`,
     },
     {
       cat: "Team",
-      q: "Can my whole team use it?",
-      a: "Yes. Roles, handoffs, and shared jobs keep owners, office managers, and field technicians aligned on the same claim — from first visit to final invoice.",
+      q: "How do I add my team?",
+      a: `Each field technician needs a paid seat, ${money(RECURRING_ADDONS.TECHNICIAN_SEATS.amount)} a month per seat. The plan comes with no technician seats, so you buy one for each technician you add. Roles and shared jobs keep owners, office managers, and field technicians on the same claim — from first visit to final invoice.`,
     },
     {
       cat: "Reports",

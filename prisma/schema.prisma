@@ -89,8 +89,15 @@ model User {
   updatedAt                    DateTime       @updatedAt
 
   // Organisation & team hierarchy
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organizationId     String?
+  organization       Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  // RA-7893: when, and from which organisation, this user last left one
+  // (member removal, or the owner deleting their account). Null for current
+  // members and for removals made before the columns existed.
+  // organizationLeftId has no relation on purpose: it must survive the
+  // organisation being deleted.
+  organizationLeftAt DateTime?
+  organizationLeftId String?
 
   // Organisations this user owns (Admin/Owner)
   ownedOrganizations Organization[] @relation("OrganizationOwner")
@@ -168,28 +175,30 @@ model User {
   // this state; event hooks must not infer it from mutable invite rows.
   pendingInviteIdentity Boolean @default(false)
 
-  accounts             Account[]
-  sessions             Session[]
-  reports              Report[]
-  clients              Client[]
-  integrations         Integration[]
-  costLibraries        CostLibrary[]
-  scopes               Scope[]
-  estimates            Estimate[]
-  pricingConfig        CompanyPricingConfig?
-  contractorProfile    ContractorProfile?
-  addonPurchases       AddonPurchase[]
-  claimAnalysisBatches ClaimAnalysisBatch[]
-  standardTemplates    StandardTemplate[]
-  inspections          Inspection[]
-  chatMessages         ChatMessage[]
-  usageEvents          UsageEvent[]          @relation("usageEvents")
-  emailConnection      EmailConnection?
-  scheduledEmails      ScheduledEmail[]
-  emailAudits          EmailAudit[]
-  formTemplates        FormTemplate[]
-  formSubmissions      FormSubmission[]
-  xeroSyncStatuses     XeroSyncStatus[]
+  accounts                Account[]
+  sessions                Session[]
+  reports                 Report[]
+  clients                 Client[]
+  integrations            Integration[]
+  costLibraries           CostLibrary[]
+  scopes                  Scope[]
+  estimates               Estimate[]
+  pricingConfig           CompanyPricingConfig?
+  contractorProfile       ContractorProfile?
+  addonPurchases          AddonPurchase[]
+  claimAnalysisBatches    ClaimAnalysisBatch[]
+  standardTemplates       StandardTemplate[]
+  inspections             Inspection[]
+  jobAppointmentsCreated  JobAppointment[]      @relation("JobAppointmentCreator")
+  jobAppointmentsAssigned JobAppointment[]      @relation("JobAppointmentAssignee")
+  chatMessages            ChatMessage[]
+  usageEvents             UsageEvent[]          @relation("usageEvents")
+  emailConnection         EmailConnection?
+  scheduledEmails         ScheduledEmail[]
+  emailAudits             EmailAudit[]
+  formTemplates           FormTemplate[]
+  formSubmissions         FormSubmission[]
+  xeroSyncStatuses        XeroSyncStatus[]
 
   // AI Assistant Tier (Phase 1 - Metering)
   monthlyUsageCap Float? // Optional: cap usage to prevent runaway costs
@@ -210,8 +219,9 @@ model User {
   cancellationFeedback CancellationFeedback[]
 
   // Reports assigned to this user (as Manager or Admin)
-  assignedReportsAsManager Report[] @relation("ReportManager")
-  assignedReportsAsAdmin   Report[] @relation("ReportAdmin")
+  assignedReportsAsManager Report[]            @relation("ReportManager")
+  assignedReportsAsAdmin   Report[]            @relation("ReportAdmin")
+  reportShareAccessCreated ReportShareAccess[] @relation("ReportShareAccessCreatedBy")
 
   // In-app notifications
   notifications Notification[]
@@ -405,6 +415,7 @@ model Client {
   // Invoice relationships
   invoices          Invoice[]          @relation("ClientInvoices")
   recurringInvoices RecurringInvoice[] @relation("ClientRecurringInvoices")
+  inspections       Inspection[]       @relation("InspectionClient")
 
   @@unique([userId, email])
   @@index([search_vector], type: Gin)
@@ -455,9 +466,14 @@ model ClientPortalAccount {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   lastAccessedAt DateTime?
+  // WP-02: the job this link was sent for. Null = a link issued before the
+  // column existed, which keeps resolving to the client's newest job. Plain
+  // string, no relation: a deleted job must not delete or re-point a link.
+  inspectionId   String?
 
   @@index([clientId])
   @@index([token])
+  @@index([inspectionId])
 }
 
 model PortalInvitation {
@@ -879,6 +895,7 @@ model Report {
   businessProfileId    String?
   equipmentDeployments EquipmentDeployment[]
   mobileInspections    MobileInspection[]
+  shareAccess          ReportShareAccess[]
 
   @@index([search_vector], type: Gin)
   @@index([userId, createdAt])
@@ -940,12 +957,12 @@ enum HydrationStatus {
 }
 
 model Organization {
-  id      String       @id @default(cuid())
-  name    String
-  ownerId String
-  owner   User         @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members User[]
-  invites UserInvite[]
+  id                 String              @id @default(cuid())
+  name               String
+  ownerId            String
+  owner              User                @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members            User[]
+  invites            UserInvite[]
   // Text the Job In (S1)
   inboundJobMessages InboundJobMessage[]
 
@@ -1003,10 +1020,41 @@ model Organization {
   // SP-E: Restore from Google Drive queue
   storageRestoreJobs StorageRestoreJob[]
 
+  // RA-8043e: claim analysis batches run on this firm's own Drive (FIRM_OAUTH only)
+  claimAnalysisBatches ClaimAnalysisBatch[]
+
+  // RA-8156: Pulse address withdrawal is organisation-wide, not per staff user.
+  pulseAddressOptOuts PulseOrgAddressOptOut[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
+}
+
+/// RA-8156 — durable Pulse consent lock for one address inside one organisation.
+///
+/// Client.pulseOptOut stays on the person (the client row). This table is the
+/// address lock: an unsubscribe still holds after that row's email is replaced
+/// or a colleague creates a new client with the same address. Keyed by
+/// organisation, never by staff userId, so two members of one firm cannot
+/// bypass each other, and two firms never share a withdrawal.
+///
+/// No FK to Client or User: deleting a client or a staff account must not
+/// restore mail to an address that already withdrew.
+model PulseOrgAddressOptOut {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// HMAC fingerprint from pulseAddressTag(); never the raw address.
+  addressTag     String
+  optedOutAt     DateTime @default(now())
+  sourceClientId String?
+  sourceUserId   String?
+
+  @@unique([organizationId, addressTag])
+  @@index([addressTag])
+  @@index([organizationId])
 }
 
 model UserInvite {
@@ -1106,6 +1154,30 @@ enum ReportStatus {
   APPROVED
   COMPLETED
   ARCHIVED
+}
+
+/// RA-P1-5 / V1 P0-2 — revocable opaque tokens for owner-view and insurer report links.
+enum ReportShareScope {
+  OWNER_VIEW
+  INSURER
+}
+
+model ReportShareAccess {
+  id              String           @id @default(cuid())
+  reportId        String
+  report          Report           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  token           String           @unique
+  scope           ReportShareScope
+  revokedAt       DateTime?
+  expiresAt       DateTime
+  createdByUserId String?
+  createdBy       User?            @relation("ReportShareAccessCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime         @default(now())
+  lastAccessedAt  DateTime?
+
+  @@index([reportId])
+  @@index([reportId, scope])
+  @@index([revokedAt])
 }
 
 enum InvitationStatus {
@@ -1276,6 +1348,7 @@ enum IntegrationProvider {
   MYOB
   SERVICEM8
   ASCORA
+  ZOHO
 }
 
 // External Client from integration (synced data)
@@ -1675,39 +1748,39 @@ model CompanyPricingConfig {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Labour Rates - Master Qualified Technician
-  masterQualifiedNormalHours Float
-  masterQualifiedSaturday    Float
-  masterQualifiedSunday      Float
+  masterQualifiedNormalHours Float?
+  masterQualifiedSaturday    Float?
+  masterQualifiedSunday      Float?
 
   // Labour Rates - Qualified Technician
-  qualifiedTechnicianNormalHours Float
-  qualifiedTechnicianSaturday    Float
-  qualifiedTechnicianSunday      Float
+  qualifiedTechnicianNormalHours Float?
+  qualifiedTechnicianSaturday    Float?
+  qualifiedTechnicianSunday      Float?
 
   // Labour Rates - Labourer
-  labourerNormalHours Float
-  labourerSaturday    Float
-  labourerSunday      Float
+  labourerNormalHours Float?
+  labourerSaturday    Float?
+  labourerSunday      Float?
 
   // Equipment Daily Rental Rates
-  airMoverAxialDailyRate           Float
-  airMoverCentrifugalDailyRate     Float
-  dehumidifierLGRDailyRate         Float
-  dehumidifierDesiccantDailyRate   Float
-  afdUnitLargeDailyRate            Float
-  extractionTruckMountedHourlyRate Float
-  extractionElectricHourlyRate     Float
-  injectionDryingSystemDailyRate   Float
+  airMoverAxialDailyRate           Float?
+  airMoverCentrifugalDailyRate     Float?
+  dehumidifierLGRDailyRate         Float?
+  dehumidifierDesiccantDailyRate   Float?
+  afdUnitLargeDailyRate            Float?
+  extractionTruckMountedHourlyRate Float?
+  extractionElectricHourlyRate     Float?
+  injectionDryingSystemDailyRate   Float?
 
   // Chemical Treatment Rates (per sqm)
-  antimicrobialTreatmentRate    Float
-  mouldRemediationTreatmentRate Float
-  biohazardTreatmentRate        Float
+  antimicrobialTreatmentRate    Float?
+  mouldRemediationTreatmentRate Float?
+  biohazardTreatmentRate        Float?
 
   // Fees
-  administrationFee                 Float
-  callOutFee                        Float
-  thermalCameraUseCostPerAssessment Float
+  administrationFee                 Float?
+  callOutFee                        Float?
+  thermalCameraUseCostPerAssessment Float?
 
   // Custom Fields (JSON: { category: [{ name: string, value: number }] })
   customFields String? @db.Text
@@ -1719,6 +1792,24 @@ model CompanyPricingConfig {
   mobilisationFee             Float?
   wasteDisposalPerBinRate     Float?
   photoDocumentationFee       Float?
+
+  // RA-8281: fire and contents price-list fields (nullable = not yet set; never priced at $0)
+  rateFireRestoration          Float?
+  rateOzoneGenerator           Float?
+  rateHydroxylUnit             Float?
+  rateContentsClean            Float?
+  rateFireEnzymeAdditionalPass Float?
+  rateFireSolventClean         Float?
+  rateFireDeodorisation        Float?
+  rateFireWallCeilingWash      Float?
+  rateFireWindowTrackClean     Float?
+  rateFireCupboardBenchClean   Float?
+  rateCarpetClean              Float?
+  rateSoftFurnishingClean      Float?
+  rateHvacDuctClean            Float?
+  rateLightFittingClean        Float?
+  rateStructuralAssessment     Float?
+  rateFireDebrisRemoval        Float?
 
   // RA-848: Multipliers (NRPG standard defaults)
   afterHoursMultiplier     Float @default(1.5)
@@ -1780,6 +1871,13 @@ model ClaimAnalysisBatch {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // RA-8043e: which Drive credential produced the batch. Only a FIRM_OAUTH batch
+  // carries a firm; the database CHECK claim_batch_source_org refuses any other
+  // pairing, so a service-account batch can never be labelled with a firm.
+  source         ClaimDriveSource @default(PLATFORM_SERVICE_ACCOUNT)
+  organizationId String?
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   // Batch details
   folderId       String // Google Drive folder ID
   folderName     String?
@@ -1806,6 +1904,13 @@ model ClaimAnalysisBatch {
 
   @@index([userId])
   @@index([status])
+  @@index([organizationId])
+}
+
+/// RA-8043e: the Drive credential a claim analysis batch ran under.
+enum ClaimDriveSource {
+  PLATFORM_SERVICE_ACCOUNT
+  FIRM_OAUTH
 }
 
 enum ClaimAnalysisBatchStatus {
@@ -1873,6 +1978,9 @@ model ClaimAnalysis {
 
   missingElements MissingElement[]
 
+  // RA-8043e: added beside the global unique on googleDriveFileId, which stays
+  // until Slice 1a-ii switches analysis rows to one per batch per file.
+  @@unique([batchId, googleDriveFileId])
   @@index([batchId])
   @@index([technicianName])
   @@index([status])
@@ -2046,6 +2154,15 @@ model Inspection {
   reportId String? @unique // Link to existing Report if applicable
   report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
+  // V1 Phase 3 — canonical client / insurer spine (P3-2, P3-3)
+  clientId          String?
+  client            Client?         @relation("InspectionClient", fields: [clientId], references: [id], onDelete: SetNull)
+  insurerProfileId  String?
+  insurerProfile    InsurerProfile? @relation(fields: [insurerProfileId], references: [id], onDelete: SetNull)
+  /// Template id from lib/insurer-profiles (e.g. iag) when persisted before DB row match
+  insurerTemplateId String?
+  claimNumber       String?
+
   // Homeowner self-capture tokens scoped to this inspection's sketch (spec §2).
   captureTokens             CaptureToken[]
   // Client-portal evidence submissions (quarantined until staff promote).
@@ -2058,7 +2175,7 @@ model Inspection {
   clientInvites     ClientInvite[]
 
   // Inspection Metadata
-  inspectionNumber String   @unique // NIR-YYYY-MM-XXXX format
+  inspectionNumber String    @unique // NIR-YYYY-MM-XXXX format
   propertyAddress  String
   propertyPostcode String // Required for state detection
   // Attendance is unknown on an intake draft until a technician records it.
@@ -2146,7 +2263,6 @@ model Inspection {
   // RA-7493: AI runtime — receipts and suggestions land on the job record
   aiRunnerReceipts AiRunnerReceipt[] @relation("InspectionAiRunnerReceipts")
   aiJobSuggestions AiJobSuggestion[] @relation("InspectionAiJobSuggestions")
-
 
   // RA-1717 — Unified assessment-generation artefacts.
   assessmentGenerations AssessmentGeneration[] @relation("InspectionAssessmentGenerations")
@@ -2237,8 +2353,9 @@ model Inspection {
   swmsDraft SwmsDraft?
 
   // RA-1381 (Board M-5): Progress framework back-relation
-  claimProgress  ClaimProgress?
-  authorisations Authorisation[]
+  claimProgress   ClaimProgress?
+  authorisations  Authorisation[]
+  jobAppointments JobAppointment[]
 
   // RA-261 NIR phase 1 — re-modelled here per issue #963.
   // Tables existed on prod (via repair hotfix #960) but had no Prisma models.
@@ -2268,6 +2385,9 @@ model Inspection {
   @@index([workspaceId])
   @@index([userId, createdAt])
   @@index([userId, status])
+  @@index([clientId])
+  @@index([insurerProfileId])
+  @@index([claimNumber])
 }
 
 enum InspectionStatus {
@@ -2425,6 +2545,12 @@ model MoistureReading {
   // and monitoring-point discipline across drying stage.
   isBaseline        Boolean @default(false)
   isMonitoringPoint Boolean @default(false)
+
+  // P2 / V1 P1-3 — controlled invalidation (reading retained for audit).
+  invalidatedAt        DateTime?
+  invalidatedByUserId  String?
+  invalidationReason   String?   @db.Text
+  replacementReadingId String?
 
   // RA-1196: AI-assigned affected-area grouping label (e.g. "Master Bedroom").
   // Lightweight text tag; deliberately not an FK to AffectedArea so grouping
@@ -3059,8 +3185,9 @@ model ScopeItem {
   autoDetermined Boolean @default(false) // True if system auto-added this
   justification  String? @db.Text // Why this item is required (IICRC/building code reference)
   // D-030: "ai_generate_scope" on rows written by AI scope generation, which
-  // is the only set a regenerate replaces. Null for every other writer,
-  // including a technician's own items.
+  // is the only set a regenerate replaces. "equipment_calculator" on rows the
+  // equipment calculator writes (D-028; it records the route, not who ran
+  // it). Null for every other writer, including a technician's own items.
   source         String?
 
   // RA-1142: IICRC / building-code clause citation (e.g. "S500:2021 §7.1")
@@ -3076,7 +3203,10 @@ model ScopeItem {
   rateSource      String?
   suggestedRate   Float?
   roomId          String?
-  room            Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  room            Room?       @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  // V1 P1-13 / P3-4 — canonical sketch twin (prefer over legacy Room)
+  sketchRoomId    String?
+  sketchRoom      SketchRoom? @relation("ScopeItemSketchRoom", fields: [sketchRoomId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3085,6 +3215,7 @@ model ScopeItem {
   @@index([itemType])
   @@index([autoDetermined])
   @@index([roomId])
+  @@index([sketchRoomId])
 }
 
 // Cost Estimates (Line items with costs)
@@ -4646,6 +4777,10 @@ model AgentTask {
   model            String?
   tokensUsed       Int?
   idempotencyKey   String?          @unique
+  /// RA-7999: fencing token of the current claim. A DB CHECK keeps it NULL unless status is RUNNING.
+  leaseOwner       String?
+  /// RA-7999: database-clock expiry of the current claim; the sweep reclaims RUNNING rows past it.
+  leaseExpiresAt   DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   logs             AgentTaskLog[]
@@ -4653,6 +4788,7 @@ model AgentTask {
   @@index([workflowId])
   @@index([agentSlug])
   @@index([status])
+  @@index([status, leaseExpiresAt])
   @@index([workflowId, status])
   @@index([workflowId, parallelGroup, sequenceOrder])
 }
@@ -5951,6 +6087,15 @@ model Workspace {
   stripeCustomerId       String?         @unique
   stripeSubscriptionId   String?         @unique
 
+  // P1-MNY-01 — the firm's own Stripe account (Connect, Standard). Invoice card
+  // payments are direct charges on this account, so the money is the firm's.
+  // Status mirrors Stripe (account.updated webhook / onboarding return) and is
+  // never trusted from a browser redirect alone.
+  stripeConnectAccountId        String?   @unique
+  stripeConnectChargesEnabled   Boolean   @default(false)
+  stripeConnectDetailsSubmitted Boolean   @default(false)
+  stripeConnectStatusAt         DateTime?
+
   // RA-1707 / P0-2 — Anthropic + AI org-spend cap. Daily ceiling in USD.
   // Null falls back to AI_DEFAULT_DAILY_BUDGET_USD env (defaults to 50).
   // checkWorkspaceBudget() in lib/ai/budget-guard.ts reads this.
@@ -6007,7 +6152,6 @@ model Workspace {
   aiRunnerReceipts AiRunnerReceipt[] @relation("WorkspaceAiRunnerReceipts")
   aiJobSuggestions AiJobSuggestion[] @relation("WorkspaceAiJobSuggestions")
   aiStyleProfile   AiStyleProfile?   @relation("WorkspaceAiStyleProfile")
-
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -6386,6 +6530,7 @@ enum AiProvider {
   GEMMA
   ELEVENLABS
   OPENROUTER
+  META
 }
 
 enum ProviderConnectionStatus {
@@ -6430,7 +6575,7 @@ enum AddonSku {
   BOOKKEEPING // Online Bookkeeping Connection (Xero / QuickBooks / MYOB)
   SERVICE_CRM // Service CRM Connection (Ascora / DR-NRPG)
   PAYMENTS // Payments Collection (Stripe Connect on the client's own account)
-  FLOORPLAN_UNDERLAY // RA-6922: Floor Plan Underlay — recurring $9.95/mo internet-floorplan-overlay entitlement
+  FLOORPLAN_UNDERLAY // RA-6922: Floor Plan Underlay — recurring $11/mo internet-floorplan-overlay entitlement
   CLIENT_COMMS // RA-6954: Restoration Pulse client-comms — recurring $11/mo client-facing email updates entitlement
   CLIENT_EDUCATION // Client education library + /learn kiosk on the client portal — recurring $11/mo
   AI_COPILOT // Margot technician co-pilot (the live-teacher routes) — recurring $11/mo
@@ -6693,7 +6838,7 @@ model AiRunnerBudget {
 
   /// The ceiling as granted, kept for reporting and for resetting the window.
   /// NEVER read as part of a spend decision.
-  maxMicroUsd BigInt
+  maxMicroUsd       BigInt
   /// The only field a deduction touches:
   ///   updateMany({ where: { id, remainingMicroUsd: { gte: cost } },
   ///                data:  { remainingMicroUsd: { decrement: cost } } })
@@ -6715,7 +6860,7 @@ model AiRunnerBudget {
   /// pair to be both null (no token ceiling) or both set. A null remaining
   /// against a non-null max would silently disable the token ceiling while the
   /// row still looked like it had one.
-  remainingTokens BigInt?
+  remainingTokens   BigInt?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -6822,7 +6967,7 @@ model AiJobSuggestion {
   runner AiRunner
   kind   String
   title  String
-  body   String @db.Text
+  body   String   @db.Text
 
   /// REFERENCES to job-record facts, never copies of them: field paths, chunk
   /// ids, document ids, inspection ids. A suggestion that cannot show its
@@ -7011,20 +7156,20 @@ model SketchUnderlayReference {
 // RoomGraph V1 — derived room nodes. Fabric sketchData remains render SSOT;
 // these rows are the stable Room IDs that photos/moisture/damage/scope join to.
 model SketchRoom {
-  id               String                  @id @default(cuid())
-  sketchId         String
-  sketch           ClaimSketch             @relation(fields: [sketchId], references: [id], onDelete: Cascade)
-  fabricObjectId   String
-  name             String                  @default("Room")
-  areaM2           Float?
-  perimeterM       Float?
-  heightM          Float?
-  floorNumber      Int                     @default(0)
-  materialSlug     String?
-  waterCategory    String? // CAT_1 | CAT_2 | CAT_3
-  dryingStatus     String                  @default("unknown") // unknown | wet | drying | dry
-  locked           Boolean                 @default(false)
-  hidden           Boolean                 @default(false)
+  id                   String                  @id @default(cuid())
+  sketchId             String
+  sketch               ClaimSketch             @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  fabricObjectId       String
+  name                 String                  @default("Room")
+  areaM2               Float?
+  perimeterM           Float?
+  heightM              Float?
+  floorNumber          Int                     @default(0)
+  materialSlug         String?
+  waterCategory        String? // CAT_1 | CAT_2 | CAT_3
+  dryingStatus         String                  @default("unknown") // unknown | wet | drying | dry
+  locked               Boolean                 @default(false)
+  hidden               Boolean                 @default(false)
   // Set when the room's fabricObjectId is no longer present in the saved
   // canvas but the row still carries evidence. The row is RETAINED rather
   // than deleted so its pins, moisture readings and hazards keep the room
@@ -7033,23 +7178,24 @@ model SketchRoom {
   // from pin hit-testing; it is history, not a placement target. Cleared if
   // the same fabricObjectId reappears. Distinct from `hidden`, which means an
   // operator hid a room that still exists.
-  detachedAt       DateTime?
-  geometryJson     Json?
+  detachedAt           DateTime?
+  geometryJson         Json?
   // operator_measured | underlay_reference | ai_suggested
-  provenance       String                  @default("operator_measured")
+  provenance           String                  @default("operator_measured")
   // RA-7611: confirmation lives on SketchRoom, not SketchElement (those
   // rows are deleted and recreated on every save). Null until Confirm.
-  confirmedAt      DateTime?
-  confirmedBy      String?
-  correctionHistory Json?
-  originalAreaM2   Float?
+  confirmedAt          DateTime?
+  confirmedBy          String?
+  correctionHistory    Json?
+  originalAreaM2       Float?
   originalGeometryJson Json?
   evidencePins         EvidencePin[]
   moistureReadings     SketchMoistureReading[]
   jobMoistureReadings  MoistureReading[]       @relation("JobMoistureReadings")
+  scopeItems           ScopeItem[]             @relation("ScopeItemSketchRoom")
   hazards              Hazard[]
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
 
   @@unique([sketchId, fabricObjectId])
   @@index([sketchId])
@@ -7621,6 +7767,27 @@ model InvoiceSyncJob {
   @@unique([invoiceId, provider], name: "invoiceId_provider")
   @@index([status, priority, createdAt])
   @@index([invoiceId])
+}
+
+/// RA-8199 — durable Zoho CRM outbound upserts. The invoice-sync cron drains
+/// this queue; a create/update also kicks one batch. Payload is CRM fields
+/// only. Tokens never land here.
+model ZohoSyncJob {
+  id           String    @id @default(cuid())
+  userId       String
+  entityType   String
+  entityId     String
+  payload      Json
+  status       String    @default("PENDING")
+  retryCount   Int       @default(0)
+  errorMessage String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  completedAt  DateTime?
+
+  @@unique([userId, entityType, entityId])
+  @@index([status, createdAt])
+  @@index([userId])
 }
 
 // ─── RA-1132a: AI Live Teacher ───────────────────────────────────────────────
@@ -8305,39 +8472,39 @@ model OrganizationPricingConfig {
   organizationId String @unique
 
   // Labour Rates - Master Qualified Technician
-  masterQualifiedNormalHours Float
-  masterQualifiedSaturday    Float
-  masterQualifiedSunday      Float
+  masterQualifiedNormalHours Float?
+  masterQualifiedSaturday    Float?
+  masterQualifiedSunday      Float?
 
   // Labour Rates - Qualified Technician
-  qualifiedTechnicianNormalHours Float
-  qualifiedTechnicianSaturday    Float
-  qualifiedTechnicianSunday      Float
+  qualifiedTechnicianNormalHours Float?
+  qualifiedTechnicianSaturday    Float?
+  qualifiedTechnicianSunday      Float?
 
   // Labour Rates - Labourer
-  labourerNormalHours Float
-  labourerSaturday    Float
-  labourerSunday      Float
+  labourerNormalHours Float?
+  labourerSaturday    Float?
+  labourerSunday      Float?
 
   // Equipment Daily Rental Rates
-  airMoverAxialDailyRate           Float
-  airMoverCentrifugalDailyRate     Float
-  dehumidifierLGRDailyRate         Float
-  dehumidifierDesiccantDailyRate   Float
-  afdUnitLargeDailyRate            Float
-  extractionTruckMountedHourlyRate Float
-  extractionElectricHourlyRate     Float
-  injectionDryingSystemDailyRate   Float
+  airMoverAxialDailyRate           Float?
+  airMoverCentrifugalDailyRate     Float?
+  dehumidifierLGRDailyRate         Float?
+  dehumidifierDesiccantDailyRate   Float?
+  afdUnitLargeDailyRate            Float?
+  extractionTruckMountedHourlyRate Float?
+  extractionElectricHourlyRate     Float?
+  injectionDryingSystemDailyRate   Float?
 
   // Chemical Treatment Rates (per sqm)
-  antimicrobialTreatmentRate    Float
-  mouldRemediationTreatmentRate Float
-  biohazardTreatmentRate        Float
+  antimicrobialTreatmentRate    Float?
+  mouldRemediationTreatmentRate Float?
+  biohazardTreatmentRate        Float?
 
   // Fees
-  administrationFee                 Float
-  callOutFee                        Float
-  thermalCameraUseCostPerAssessment Float
+  administrationFee                 Float?
+  callOutFee                        Float?
+  thermalCameraUseCostPerAssessment Float?
 
   // Custom Fields (JSON: { category: [{ name: string, value: number }] })
   customFields String? @db.Text
@@ -8349,6 +8516,24 @@ model OrganizationPricingConfig {
   mobilisationFee             Float?
   wasteDisposalPerBinRate     Float?
   photoDocumentationFee       Float?
+
+  // RA-8281: fire and contents price-list fields (nullable = not yet set; never priced at $0)
+  rateFireRestoration          Float?
+  rateOzoneGenerator           Float?
+  rateHydroxylUnit             Float?
+  rateContentsClean            Float?
+  rateFireEnzymeAdditionalPass Float?
+  rateFireSolventClean         Float?
+  rateFireDeodorisation        Float?
+  rateFireWallCeilingWash      Float?
+  rateFireWindowTrackClean     Float?
+  rateFireCupboardBenchClean   Float?
+  rateCarpetClean              Float?
+  rateSoftFurnishingClean      Float?
+  rateHvacDuctClean            Float?
+  rateLightFittingClean        Float?
+  rateStructuralAssessment     Float?
+  rateFireDebrisRemoval        Float?
 
   // RA-848: Multipliers (NRPG standard defaults)
   afterHoursMultiplier     Float @default(1.5)
@@ -8641,9 +8826,41 @@ model InsurerProfile {
   isSystemProfile          Boolean             @default(false)
   createdAt                DateTime            @default(now())
   updatedAt                DateTime            @updatedAt
+  inspections              Inspection[]
 
   @@index([slug])
   @@index([isActive])
+}
+
+/// V1 Phase 5 — minimum scheduling model (P5-1)
+enum JobAppointmentStatus {
+  SCHEDULED
+  ACKNOWLEDGED
+  CANCELLED
+  COMPLETED
+}
+
+model JobAppointment {
+  id              String               @id @default(cuid())
+  inspectionId    String
+  inspection      Inspection           @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  title           String               @default("Site visit")
+  startsAt        DateTime
+  endsAt          DateTime
+  status          JobAppointmentStatus @default(SCHEDULED)
+  notes           String?              @db.Text
+  assignedUserId  String?
+  assignedUser    User?                @relation("JobAppointmentAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  acknowledgedAt  DateTime?
+  cancelledAt     DateTime?
+  createdByUserId String
+  createdBy       User                 @relation("JobAppointmentCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([inspectionId, startsAt])
+  @@index([assignedUserId, startsAt])
+  @@index([status])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -34,8 +34,7 @@ import {
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { apiError, fromException } from "@/lib/api-errors";
-
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 export async function POST(
   req: NextRequest,
@@ -73,9 +72,7 @@ export async function POST(
         status: 404,
       });
     }
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-    ) {
+    if (!(await hasActiveSubscription(userId))) {
       return apiError(req, {
         code: "PAYMENT_REQUIRED",
         message: "Active subscription required",

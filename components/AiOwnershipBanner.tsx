@@ -27,7 +27,7 @@ interface AiOwnershipBannerProps {
 
 /**
  * Enterprise ownership review panel — stepper + acknowledge CTA.
- * Replaces a single warning banner with a clear sign-off workflow.
+ * Styled for `.report-light-surface` (white document pane under global dark theme).
  */
 export default function AiOwnershipBanner({
   reportId,
@@ -73,18 +73,16 @@ export default function AiOwnershipBanner({
   if (status === "owned") {
     return (
       <section
-        className="print:hidden mb-4 rounded-[10px] border border-success/40 bg-success/10 px-4 py-4"
+        className="print:hidden mb-4 rounded-[10px] border border-emerald-300 bg-emerald-50 px-4 py-4"
         aria-label={AI_OWNERSHIP_STEPPER_HEADING}
       >
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success text-white">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
             <ChromeCheck className="h-4 w-4" aria-hidden />
           </span>
           <div className="min-w-0 space-y-1">
-            <p className="font-semibold text-success">{meta.label}</p>
-            <p className="text-sm text-slate-700 dark:text-slate-200">
-              {AI_OWNERSHIP_EXPORT_READY}
-            </p>
+            <p className="font-semibold text-emerald-900">{meta.label}</p>
+            <p className="text-sm text-slate-700">{AI_OWNERSHIP_EXPORT_READY}</p>
           </div>
         </div>
       </section>
@@ -95,16 +93,12 @@ export default function AiOwnershipBanner({
 
   return (
     <section
-      className="print:hidden mb-4 rounded-[10px] border border-warning/50 bg-warning/10 px-4 py-4 space-y-4"
+      className="print:hidden mb-4 rounded-[10px] border border-amber-300 bg-amber-50 px-4 py-4 space-y-4"
       aria-label={AI_OWNERSHIP_STEPPER_HEADING}
     >
       <header className="space-y-1">
-        <p className="font-semibold text-amber-900 dark:text-amber-100">
-          {AI_OWNERSHIP_STEPPER_HEADING}
-        </p>
-        <p className="text-sm text-amber-950/80 dark:text-amber-50/85">
-          {AI_OWNERSHIP_STEPPER_SUBHEAD}
-        </p>
+        <p className="font-semibold text-amber-950">{AI_OWNERSHIP_STEPPER_HEADING}</p>
+        <p className="text-sm text-amber-950/85">{AI_OWNERSHIP_STEPPER_SUBHEAD}</p>
       </header>
 
       <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -117,29 +111,27 @@ export default function AiOwnershipBanner({
               className={
                 "rounded-lg border px-3 py-3 " +
                 (isCurrent
-                  ? "border-amber-600/60 bg-white/70 dark:bg-slate-950/40"
+                  ? "border-amber-600 bg-white shadow-sm"
                   : isComplete
-                    ? "border-success/30 bg-success/5"
-                    : "border-slate-300/60 dark:border-slate-700/60 bg-transparent opacity-80")
+                    ? "border-emerald-300 bg-emerald-50/80"
+                    : "border-slate-200 bg-white/60")
               }
             >
-              <div className="flex items-center gap-2 mb-1.5">
+              <div className="mb-1.5 flex items-center gap-2">
                 <span
                   className={
                     "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold " +
                     (isComplete
-                      ? "bg-success text-white"
+                      ? "bg-emerald-600 text-white"
                       : isCurrent
                         ? "bg-amber-600 text-white"
-                        : "bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-200")
+                        : "bg-slate-200 text-slate-700")
                   }
                   aria-hidden
                 >
                   {isComplete ? <ChromeCheck className="h-3.5 w-3.5" /> : index + 1}
                 </span>
-                <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                  {step.title}
-                </span>
+                <span className="text-sm font-medium text-slate-900">{step.title}</span>
                 {isCurrent && (
                   <ChromeCircle
                     className="ml-auto h-2.5 w-2.5 fill-amber-600 text-amber-600"
@@ -147,28 +139,22 @@ export default function AiOwnershipBanner({
                   />
                 )}
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-300 pl-8">
-                {step.description}
-              </p>
+              <p className="pl-8 text-xs text-slate-600">{step.description}</p>
             </li>
           );
         })}
       </ol>
 
-      <p className="text-sm text-amber-950/90 dark:text-amber-50/90">
-        {AI_OWNERSHIP_EXPORT_WATERMARKED}
-      </p>
+      <p className="text-sm text-amber-950/90">{AI_OWNERSHIP_EXPORT_WATERMARKED}</p>
 
       {status === "ai_draft" && (
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm text-amber-900 dark:text-amber-100">
-            {AI_OWNERSHIP_EDIT_REQUIRED}
-          </p>
+          <p className="text-sm text-amber-950">{AI_OWNERSHIP_EDIT_REQUIRED}</p>
           {onStartRewrite && (
             <button
               type="button"
               onClick={onStartRewrite}
-              className="min-h-[44px] px-4 py-2 rounded-[10px] border border-amber-700/40 bg-white/80 dark:bg-slate-950/50 text-sm font-medium text-amber-950 dark:text-amber-50 hover:bg-amber-500/10"
+              className="min-h-[44px] rounded-[10px] border border-amber-700/35 bg-white px-4 py-2 text-sm font-medium text-amber-950 hover:bg-amber-100/80"
             >
               Rewrite report in your own words
             </button>
@@ -177,7 +163,7 @@ export default function AiOwnershipBanner({
       )}
 
       {error && (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="text-sm text-red-700" role="alert">
           {error}
         </p>
       )}
@@ -186,7 +172,7 @@ export default function AiOwnershipBanner({
         type="button"
         disabled={!canAck || acking}
         onClick={() => void handleAcknowledge()}
-        className="min-h-[44px] w-full sm:w-auto px-4 py-2.5 rounded-[10px] bg-amber-700 hover:bg-amber-800 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        className="min-h-[44px] w-full rounded-[10px] bg-amber-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
       >
         {acking ? "Confirming…" : AI_OWNERSHIP_ACK_LABEL}
       </button>

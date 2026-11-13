@@ -180,7 +180,7 @@ export default function NewRecurringInvoicePage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-9xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Link
@@ -199,7 +199,7 @@ export default function NewRecurringInvoicePage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form method="post" onSubmit={handleSubmit} className="space-y-6">
           {/* Template & Schedule */}
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 space-y-5">
             <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">

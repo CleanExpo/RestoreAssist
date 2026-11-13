@@ -8,7 +8,8 @@ import { apiError, fromException } from "@/lib/api-errors";
 /**
  * RA-1459 — cloud mirror provider preference.
  *
- * GET  → { provider: "drive" | "onedrive" | "icloud" | null }
+ * GET  → { provider: "drive" | "onedrive" | "icloud" | null, catalog }
+ *        provider is null when the saved choice is not enabled in the catalog.
  * POST → body: { provider }
  *        Only enabled providers can be saved. OneDrive + iCloud return 400
  *        ("coming soon") so the picker UI can surface a friendly message
@@ -30,8 +31,12 @@ export async function GET(request: NextRequest) {
     select: { cloudMirrorProvider: true },
   });
   const stored = user?.cloudMirrorProvider;
+  // RA-8078: a choice saved while a provider was offered (OneDrive, when
+  // MICROSOFT_CLIENT_ID was set) is not reported once the catalog turns it
+  // off. Nothing mirrors to a disabled provider, so "current" would be false.
+  const offered = PROVIDER_CATALOG.some((p) => p.id === stored && p.enabled);
   return NextResponse.json({
-    provider: stored && isProviderId(stored) ? stored : null,
+    provider: stored && isProviderId(stored) && offered ? stored : null,
     catalog: PROVIDER_CATALOG,
   });
 }

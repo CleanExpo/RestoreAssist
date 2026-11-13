@@ -1,3 +1,4 @@
+import { track } from "@/lib/analytics/track";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -152,6 +153,11 @@ export async function POST(request: NextRequest) {
     const timeToActivate = result.setupStartedAt
       ? result.setupCompletedAt!.getTime() - result.setupStartedAt.getTime()
       : null;
+
+    await track(userId, "setup_completed", {
+      organizationId: result.id,
+      setupMode: result.setupMode,
+    });
 
     recordActivationAnalytics({
       organizationId: result.id,

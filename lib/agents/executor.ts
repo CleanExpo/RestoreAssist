@@ -3,20 +3,88 @@
  *
  * Each task is dispatched to the appropriate agent handler function
  * via the registry. Results are recorded as ExecutionResult objects.
+ *
+ * RA-7999: a claim takes a fencing lease (lease.ts). Every write after the
+ * claim matches only `{id, status: RUNNING, leaseOwner: <this claim>}`; when
+ * it matches nothing the lease was reclaimed, and the outcome is discarded as
+ * LEASE_LOST. The executor is the only retry layer: one provider request per
+ * attempt, and a retryable failure parks the task RUNNING until its lease
+ * (the backoff gate) expires and the sweep returns it to READY.
  */
 
+import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { AgentTask } from "@prisma/client";
 import type {
   ExecutionResult,
   TaskInput,
-  TaskOutput,
   WorkflowContext,
 } from "./types";
 import { getAgent, getAgentHandler } from "./registry";
-import { classifyError, isRetryable } from "./error-handler";
+import { classifyError } from "./error-handler";
+import { PlatformKeyRefusedError } from "./ai-bridge";
 import { logAgentEvent } from "./logger";
-import { transitionTask } from "./state-manager";
+import { refreshWorkflowProgress } from "./state-manager";
+import {
+  DB_NOW,
+  DEFAULT_RETRY_AFTER_MS,
+  LEASE_MARGIN_MS,
+  extendLease,
+  msInterval,
+  skipDependentsOfFailedTask,
+} from "./lease";
+
+export interface TaskClaim {
+  leaseOwner: string;
+  /** attempts after this claim's increment, read back from the row. */
+  attempts: number;
+  maxRetries: number;
+  workflowId: string;
+}
+
+/**
+ * Claim a READY task: RUNNING, a fresh lease token, a database-clock lease of
+ * `timeoutMs + LEASE_MARGIN_MS`, and `attempts + 1`, in one compare-and-swap.
+ * Returns null when the task was not READY (another worker has it).
+ */
+export async function claimTask(
+  taskId: string,
+  timeoutMs: number,
+): Promise<TaskClaim | null> {
+  const leaseOwner = randomUUID();
+  const rows = await prisma.$queryRaw<
+    Array<{ attempts: number; maxRetries: number; workflowId: string }>
+  >`
+    UPDATE "AgentTask"
+    SET status = 'RUNNING',
+        "leaseOwner" = ${leaseOwner},
+        "leaseExpiresAt" = ${DB_NOW} + ${msInterval(timeoutMs + LEASE_MARGIN_MS)},
+        attempts = attempts + 1,
+        "startedAt" = ${DB_NOW},
+        "lastAttemptAt" = ${DB_NOW},
+        "updatedAt" = ${DB_NOW}
+    WHERE id = ${taskId}
+      AND status = 'READY'
+    RETURNING attempts, "maxRetries", "workflowId"`;
+
+  const row = rows[0];
+  if (!row) return null;
+
+  // Stale detection reads lastActivityAt.
+  await prisma.agentWorkflow
+    .update({
+      where: { id: row.workflowId },
+      data: { lastActivityAt: new Date() },
+    })
+    .catch(() => {}); // Non-blocking
+
+  return {
+    leaseOwner,
+    attempts: row.attempts,
+    maxRetries: row.maxRetries,
+    workflowId: row.workflowId,
+  };
+}
 
 /**
  * Execute a single agent task.
@@ -58,14 +126,10 @@ export async function executeTask(
     };
   }
 
-  // Claim the task (READY -> RUNNING)
-  const claimed = await transitionTask(task.id, "READY", "RUNNING", {
-    startedAt: new Date(),
-    lastAttemptAt: new Date(),
-    attempts: task.attempts + 1,
-  });
+  // Claim the task (READY -> RUNNING) under a fresh lease
+  const claim = await claimTask(task.id, config.timeoutMs);
 
-  if (!claimed) {
+  if (!claim) {
     // Another process already claimed this task
     await logAgentEvent(
       task.id,
@@ -85,10 +149,16 @@ export async function executeTask(
     };
   }
 
+  const { leaseOwner, attempts, maxRetries, workflowId } = claim;
+  const leaseLost = (
+    path: "pre-invoke" | "completion" | "retry" | "failure",
+    tokensUsed: number | null,
+  ) => recordLeaseLost(task.id, leaseOwner, path, tokensUsed, attempts, maxRetries);
+
   await logAgentEvent(
     task.id,
     "info",
-    `Executing agent "${task.agentSlug}" (attempt ${task.attempts + 1})`,
+    `Executing agent "${task.agentSlug}" (attempt ${attempts})`,
   );
 
   try {
@@ -98,18 +168,24 @@ export async function executeTask(
       context: context.completedOutputs,
     };
 
-    // Execute the handler with a timeout
+    // Re-extend immediately before the handler, so the margin only has to
+    // cover the final write.
+    if (!(await extendLease(task.id, leaseOwner, config.timeoutMs + LEASE_MARGIN_MS))) {
+      return leaseLost("pre-invoke", null);
+    }
+
+    // Execute the handler with a timeout that aborts the in-flight request
     const output = await withTimeout(
-      handler(input),
+      (signal) => handler(input, { signal }),
       config.timeoutMs,
       `Agent "${task.agentSlug}" timed out after ${config.timeoutMs}ms`,
     );
 
     const durationMs = Date.now() - startTime;
 
-    // Record success
-    await prisma.agentTask.update({
-      where: { id: task.id },
+    // Record success, only while this claim still holds the lease
+    const written = await prisma.agentTask.updateMany({
+      where: { id: task.id, status: "RUNNING", leaseOwner },
       data: {
         status: "COMPLETED",
         output: JSON.stringify(output),
@@ -118,8 +194,13 @@ export async function executeTask(
         provider: output.metadata.provider,
         model: output.metadata.model,
         tokensUsed: output.metadata.tokensUsed,
+        leaseOwner: null,
+        leaseExpiresAt: null,
       },
     });
+    if (written.count === 0) {
+      return leaseLost("completion", output.metadata.tokensUsed ?? null);
+    }
 
     await logAgentEvent(task.id, "info", `Task completed in ${durationMs}ms`, {
       provider: output.metadata.provider,
@@ -131,32 +212,31 @@ export async function executeTask(
   } catch (err) {
     const durationMs = Date.now() - startTime;
     const classified = classifyError(err);
-    const attempt = task.attempts + 1;
-    const canRetry = classified.retryable && attempt < task.maxRetries;
-
-    await logAgentEvent(
-      task.id,
-      "error",
-      `Task failed: ${classified.message}`,
-      {
-        errorCode: classified.code,
-        attempt,
-        maxRetries: task.maxRetries,
-        durationMs,
-        willRetry: canRetry,
-      },
-    );
+    const canRetry = classified.retryable && attempts < maxRetries;
 
     if (canRetry) {
-      // Transition back to READY for retry
-      await prisma.agentTask.update({
-        where: { id: task.id },
-        data: {
-          status: "READY",
-          errorMessage: classified.message,
-          errorCode: classified.code,
-          durationMs,
-        },
+      // Park: stay RUNNING under this claim's token; the lease is the backoff
+      // gate, and the sweep returns the task to READY once it expires.
+      const retryAfterMs = classified.retryAfterMs ?? DEFAULT_RETRY_AFTER_MS;
+      const parked = await prisma.$executeRaw`
+        UPDATE "AgentTask"
+        SET "leaseExpiresAt" = ${DB_NOW} + ${msInterval(retryAfterMs)},
+            "errorMessage" = ${classified.message},
+            "errorCode" = ${classified.code},
+            "durationMs" = ${durationMs}::int,
+            "updatedAt" = ${DB_NOW}
+        WHERE id = ${task.id}
+          AND status = 'RUNNING'
+          AND "leaseOwner" = ${leaseOwner}`;
+      if (parked === 0) return leaseLost("retry", null);
+
+      await logAgentEvent(task.id, "error", `Task failed: ${classified.message}`, {
+        errorCode: classified.code,
+        attempt: attempts,
+        maxRetries,
+        durationMs,
+        willRetry: true,
+        retryAfterMs,
       });
 
       return {
@@ -166,22 +246,54 @@ export async function executeTask(
           code: classified.code,
           message: classified.message,
           retryable: true,
-          attempt,
-          maxRetries: task.maxRetries,
+          attempt: attempts,
+          maxRetries,
         },
       };
     }
 
-    // No more retries — mark as failed
-    const finalStatus = attempt >= task.maxRetries ? "DEAD_LETTER" : "FAILED";
-    await prisma.agentTask.update({
-      where: { id: task.id },
-      data: {
-        status: finalStatus,
-        errorMessage: classified.message,
-        errorCode: classified.code,
-        durationMs,
-      },
+    // No more retries — mark as failed and skip its dependents in one transaction
+    const finalStatus = attempts >= maxRetries ? "DEAD_LETTER" : "FAILED";
+    const failed = await prisma.$transaction(async (tx) => {
+      const result = await tx.agentTask.updateMany({
+        where: { id: task.id, status: "RUNNING", leaseOwner },
+        data: {
+          status: finalStatus,
+          errorMessage: classified.message,
+          errorCode: classified.code,
+          durationMs,
+          leaseOwner: null,
+          leaseExpiresAt: null,
+        },
+      });
+      if (result.count === 0) return false;
+      await skipDependentsOfFailedTask(tx, workflowId, task.id);
+      await refreshWorkflowProgress(workflowId, tx);
+      return true;
+    });
+    if (!failed) return leaseLost("failure", null);
+
+    // RA-8001: the durable record of a key refusal. AgentTaskLog is purged at
+    // 30 days and resume wipes errorCode. Ids and source only: no key, no prompt.
+    if (err instanceof PlatformKeyRefusedError) {
+      console.warn("[agent-refusal]", {
+        code: classified.code,
+        taskId: task.id,
+        workflowId,
+        agentSlug: task.agentSlug,
+        userId: err.userId ?? context.userId,
+        workspaceId: err.workspaceId,
+        source: err.source,
+      });
+    }
+
+    await logAgentEvent(task.id, "error", `Task failed: ${classified.message}`, {
+      errorCode: classified.code,
+      attempt: attempts,
+      maxRetries,
+      durationMs,
+      willRetry: false,
+      finalStatus,
     });
 
     return {
@@ -191,11 +303,43 @@ export async function executeTask(
         code: classified.code,
         message: classified.message,
         retryable: false,
-        attempt,
-        maxRetries: task.maxRetries,
+        attempt: attempts,
+        maxRetries,
       },
     };
   }
+}
+
+/**
+ * A guarded write matched 0 rows: this claim's lease was reclaimed. The
+ * outcome is discarded (never reported COMPLETED) and a warn names the stale
+ * token and the tokens spent on the discarded work.
+ */
+async function recordLeaseLost(
+  taskId: string,
+  staleLeaseOwner: string,
+  path: "pre-invoke" | "completion" | "retry" | "failure",
+  tokensUsed: number | null,
+  attempt: number,
+  maxRetries: number,
+): Promise<ExecutionResult> {
+  await logAgentEvent(
+    taskId,
+    "warn",
+    `Lease lost before the ${path} write; outcome discarded`,
+    { staleLeaseOwner, tokensUsed, path },
+  );
+  return {
+    taskId,
+    status: "LEASE_LOST",
+    error: {
+      code: "LEASE_LOST",
+      message: `Lease ${staleLeaseOwner} was reclaimed before the ${path} write`,
+      retryable: false,
+      attempt,
+      maxRetries,
+    },
+  };
 }
 
 /**
@@ -231,13 +375,30 @@ export async function executeBatch(
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Run `run` with a deadline. When it fires, the AbortController's signal is
+ * aborted (cancelling the in-flight provider request) and the promise rejects.
+ */
 function withTimeout<T>(
-  promise: Promise<T>,
+  run: (signal: AbortSignal) => Promise<T>,
   ms: number,
   message: string,
 ): Promise<T> {
+  const controller = new AbortController();
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(message)), ms);
+    const timer = setTimeout(() => {
+      const error = new Error(message);
+      controller.abort(error);
+      reject(error);
+    }, ms);
+    let promise: Promise<T>;
+    try {
+      promise = run(controller.signal);
+    } catch (err) {
+      clearTimeout(timer);
+      reject(err);
+      return;
+    }
     promise
       .then((val) => {
         clearTimeout(timer);

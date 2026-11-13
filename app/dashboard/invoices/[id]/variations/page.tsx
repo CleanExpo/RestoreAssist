@@ -92,7 +92,7 @@ function formatDate(iso: string): string {
 
 function PageSkeleton() {
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-9xl mx-auto p-6 space-y-6">
       <Skeleton className="h-5 w-36" />
       <Card>
         <CardHeader>
@@ -247,7 +247,7 @@ export default function InvoiceVariationsPage({
   const statusCfg = getStatusConfig(invoice.status);
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-9xl mx-auto p-6 space-y-6">
       {/* Back link */}
       <Link
         href={`/dashboard/invoices/${id}`}
@@ -320,7 +320,7 @@ export default function InvoiceVariationsPage({
               </div>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form method="post" onSubmit={handleSubmit} className="space-y-4">
                 {/* Reason */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">

@@ -225,7 +225,7 @@ describe("RA-7896 invoice PDF — footer and page numbers on every page", () => 
   });
 });
 
-describe("RA-7896 invoice PDF — totals, payments and notes stay above the footer", () => {
+describe("RA-7896 invoice PDF — totals, payments and terms stay above the footer", () => {
   const invoice = {
     id: "inv_7896_totals",
     invoiceNumber: "INV-7896-T",
@@ -292,19 +292,49 @@ describe("RA-7896 invoice PDF — totals, payments and notes stay above the foot
     expect(movedToNewPage).toBeGreaterThan(0);
   });
 
-  it("continues long notes and terms onto a new page instead of cutting them", async () => {
-    const notes = `NOTES_START ${"site note ".repeat(600)}NOTES_END`;
+  it("continues long terms onto a new page instead of cutting them", async () => {
+    // Notes are internal (Prisma `// Internal notes`, dashboard
+    // "Internal notes (not visible to customer)") and are NOT rendered
+    // on the customer-facing PDF; only `terms` and `footer` are
+    // customer-facing. The generator's input contract therefore no
+    // longer has a `notes` field. This test pins the terms-only
+    // continuation path; coverage for the (now-removed) notes
+    // continuation moved to the regression test below.
     const terms = `TERMS_START ${"payment term ".repeat(120)}TERMS_END`;
     const pages = await textItemsByPage(
-      await generateInvoicePDF({ invoice: { ...invoice, notes, terms }, lineItems: MIXED_GST_LINES }),
+      await generateInvoicePDF({ invoice: { ...invoice, terms }, lineItems: MIXED_GST_LINES }),
     );
     const joined = pages.flat().map((t) => t.str).join(" ");
-    for (const s of ["NOTES_START", "NOTES_END", "TERMS_START", "TERMS_END"]) {
+    for (const s of ["TERMS_START", "TERMS_END"]) {
       expect(joined).toContain(s);
     }
-    expect(joined.match(/\bsite\b/g)?.length).toBe(600);
     expect(joined.match(/\bterm\b/g)?.length).toBe(120);
     expect(intoFooter(pages)).toEqual([]);
+  });
+
+  it("does not render an internal notes marker in PDF output (regression for staff-only notes)", async () => {
+    // The InvoiceData type refuses a `notes` field, but a caller (legacy
+    // or untyped) can still bypass the contract via a `as unknown as ...`
+    // cast. The PDF generator is the last line of defence: it must never
+    // draw the marker even if one is supplied. We thread the marker
+    // through via a narrow cast on the invoice object only — the
+    // production contract on `pdf-generator.ts` stays `notes`-less.
+    const INTERNAL_NOTES_MARKER =
+      "INTERNAL_NOTES_LEAK_MARKER_RA_PAID_TR2_pdf_xyz9";
+    const invoiceWithNotes = {
+      ...invoice,
+      notes: INTERNAL_NOTES_MARKER,
+    } as unknown as Parameters<typeof generateInvoicePDF>[0]["invoice"];
+    const pdf = await generateInvoicePDF({
+      invoice: invoiceWithNotes,
+      lineItems: MIXED_GST_LINES,
+    });
+    const text = (await pdfText(pdf)).replace(/\s+/g, " ");
+    expect(text).not.toContain(INTERNAL_NOTES_MARKER);
+
+    // Defence-in-depth: the rendered PDF should not contain the "NOTES"
+    // heading the old notes-rendering path would have produced.
+    expect(text).not.toMatch(/\bNOTES\b/);
   });
 });
 

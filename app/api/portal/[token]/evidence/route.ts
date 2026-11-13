@@ -1,3 +1,4 @@
+import { portalInspectionWhere } from "@/lib/portal/portal-inspection-scope";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
@@ -65,7 +66,7 @@ export async function POST(
 
   // Resolve the claim's inspection FROM THE TOKEN's client only.
   const inspection = await prisma.inspection.findFirst({
-    where: { report: { clientId: account.clientId } },
+    where: portalInspectionWhere(account),
     orderBy: { createdAt: "desc" },
     select: { id: true, workspaceId: true, userId: true },
   });

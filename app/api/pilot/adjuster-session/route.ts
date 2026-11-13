@@ -27,8 +27,8 @@ import {
 import { apiError } from "@/lib/api-errors";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { validateCsrf } from "@/lib/csrf";
-
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"] as const;
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { resourceBillsToCaller } from "@/lib/organization-credits";
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,11 +66,7 @@ export async function POST(request: NextRequest) {
         status: 404,
       });
     }
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(
-        user.subscriptionStatus as (typeof ALLOWED_SUBSCRIPTION_STATUSES)[number],
-      )
-    ) {
+    if (!(await hasActiveSubscription(userId))) {
       return apiError(request, {
         code: "PAYMENT_REQUIRED",
         message: "Active subscription required",
@@ -99,6 +95,28 @@ export async function POST(request: NextRequest) {
         { error: tenancy.reason },
         { status: tenancy.status },
       );
+    }
+
+    // ── 4c. RA-7893: the credit is charged to the caller's CURRENT business,
+    // so the inspection must belong to that business: never a job its creator
+    // made before joining it, whether the caller is that creator or a
+    // colleague (an admin passes tenancy on a member's older jobs).
+    const inspection = await prisma.inspection.findUnique({
+      where: { id: inspectionId },
+      select: { createdAt: true },
+    });
+    if (
+      !inspection ||
+      !(await resourceBillsToCaller(userId, {
+        userId: tenancy.data.userId,
+        createdAt: inspection.createdAt,
+      }))
+    ) {
+      return apiError(request, {
+        code: "PAYMENT_REQUIRED",
+        message: "Active subscription required",
+        status: 402,
+      });
     }
 
     // ── 5. Atomic credit deduction (rule 9) ───────────────────────────────────

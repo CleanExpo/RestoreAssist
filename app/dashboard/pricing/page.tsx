@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { useState } from "react";
 import {
   Check,
@@ -33,7 +34,9 @@ function PricingPageContent() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create checkout session");
+        throw new Error(
+          apiErrorMessage(errorData) ?? "Failed to create checkout session",
+        );
       }
 
       const { sessionId, url } = await response.json();
@@ -74,7 +77,7 @@ function PricingPageContent() {
             <h1 className="text-4xl font-bold text-white mb-4">
               Choose Your Plan
             </h1>
-            <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-400 max-w-9xl mx-auto">
               Select the perfect plan for your water damage restoration
               business. All plans include IICRC S500 compliance and professional
               reporting tools.
@@ -82,7 +85,7 @@ function PricingPageContent() {
           </div>
 
           {/* Pricing Cards */}
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-8 max-w-9xl mx-auto">
             {Object.entries(PRICING_CONFIG.pricing).map(([key, plan]) => (
               <div
                 key={key}
@@ -184,7 +187,7 @@ function PricingPageContent() {
           </div>
 
           {/* Features Comparison */}
-          <div className="mt-16 max-w-4xl mx-auto">
+          <div className="mt-16 max-w-9xl mx-auto">
             <h2 className="text-3xl font-bold text-white text-center mb-8">
               All Plans Include
             </h2>
@@ -221,7 +224,7 @@ function PricingPageContent() {
               <div className="text-center p-6 bg-slate-800/30 rounded-lg">
                 <Clock className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
-                  24/7 Access
+                  Dashboard access
                 </h3>
                 <p className="text-slate-400 text-sm">
                   Access your reports and data anytime, anywhere with cloud
@@ -232,7 +235,7 @@ function PricingPageContent() {
           </div>
 
           {/* FAQ Section */}
-          <div className="mt-16 max-w-3xl mx-auto">
+          <div className="mt-16 max-w-9xl mx-auto">
             <h2 className="text-3xl font-bold text-white text-center mb-8">
               Frequently Asked Questions
             </h2>
@@ -242,9 +245,12 @@ function PricingPageContent() {
                   What happens after my free trial ends?
                 </h3>
                 <p className="text-slate-400">
-                  After your 30 free reports, you'll need to subscribe to a paid
-                  plan to continue creating reports. Your existing reports will
-                  remain accessible.
+                  When your {PRICING_CONFIG.free.trialDays}-day trial ends or
+                  its {PRICING_CONFIG.free.trialReportCredits} report credits
+                  are used, whichever comes first, you&apos;ll need to subscribe
+                  to keep creating reports. Your existing reports remain
+                  listed, but downloading their PDFs requires an active
+                  subscription.
                 </p>
               </div>
               <div className="bg-slate-800/30 rounded-lg p-6">

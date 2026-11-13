@@ -100,7 +100,7 @@ function ProfileDetailModal({
 }) {
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-9xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="w-5 h-5 text-muted-foreground" />
@@ -259,7 +259,7 @@ export default function InsurerProfilesPage() {
   const custom = profiles.filter((p) => !p.isSystemProfile);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-9xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-xl font-semibold">Insurer Profile Templates</h1>

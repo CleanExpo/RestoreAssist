@@ -81,7 +81,10 @@ beforeEach(() => {
   prismaTransaction.mockImplementation(async (fn) =>
     fn({
       inspection: { updateMany: inspectionUpdateMany },
-      claimProgress: { updateMany: claimProgressUpdateMany },
+      claimProgress: {
+        findFirst: vi.fn().mockResolvedValue({ id: "cp_1", version: 1 }),
+        updateMany: claimProgressUpdateMany,
+      },
     }),
   );
   inspectionUpdateMany.mockResolvedValue({ count: 1 });

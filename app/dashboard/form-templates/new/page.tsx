@@ -77,7 +77,7 @@ export default function NewFormTemplatePage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-9xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Link
@@ -95,7 +95,7 @@ export default function NewFormTemplatePage() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form method="post" onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 space-y-5">
             {/* Name */}
             <div>

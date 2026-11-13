@@ -30,22 +30,25 @@ function fakeDb(overrides: {
   photoCount?: number;
 }) {
   return {
+    // RA-8327: the guard judges the job's own list, so it reads the claim type.
+    inspection: { findUnique: async () => ({ claimType: "WATER" }) },
+    fireSmokeDamageAssessment: { findFirst: async () => null },
     makeSafeAction: {
+      // Default: the whole water list complete. A missing row counts as open.
       findMany: async () =>
-        overrides.makeSafe ?? [
-          {
-            id: "ms_1",
-            action: "power_isolated",
-            completed: true,
-            applicable: true,
-          },
-          {
-            id: "ms_2",
-            action: "water_stopped",
-            completed: true,
-            applicable: true,
-          },
-        ],
+        overrides.makeSafe ??
+        [
+          "power_isolated",
+          "gas_isolated",
+          "mould_containment",
+          "water_stopped",
+          "occupant_briefing",
+        ].map((action, i) => ({
+          id: `ms_${i + 1}`,
+          action,
+          completed: true,
+          applicable: true,
+        })),
     },
     swmsDraft: {
       findFirst: async () =>
@@ -100,13 +103,17 @@ describe("attestStabilisationGuard", () => {
     const res = await attestStabilisationGuard(
       fakeDb({
         makeSafe: [
-          {
-            id: "ms_1",
-            action: "gas_isolated",
-            completed: false,
-            applicable: false,
-          },
-        ],
+          "power_isolated",
+          "gas_isolated",
+          "mould_containment",
+          "water_stopped",
+          "occupant_briefing",
+        ].map((action, i) => ({
+          id: `ms_${i + 1}`,
+          action,
+          completed: action !== "gas_isolated",
+          applicable: action !== "gas_isolated",
+        })),
       }),
       baseCtx(),
     );
@@ -204,6 +211,8 @@ describe("stabilisation guards — query bounds (rule 3)", () => {
   function recordingDb() {
     const calls: { makeSafe?: any; whs: any[] } = { whs: [] };
     const db = {
+      inspection: { findUnique: async () => ({ claimType: "WATER" }) },
+      fireSmokeDamageAssessment: { findFirst: async () => null },
       makeSafeAction: {
         findMany: async (opts?: any) => {
           calls.makeSafe = opts;

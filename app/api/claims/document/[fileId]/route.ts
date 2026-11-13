@@ -38,11 +38,14 @@ export async function GET(
 
     // Authorize: the Drive fileId must belong to a claim analysis the caller owns.
     // Without this, any authenticated user could fetch any tenant's claim PDF by id.
-    const doc = await prisma.claimAnalysis.findUnique({
-      where: { googleDriveFileId: fileId },
-      select: { batch: { select: { userId: true } } },
+    // RA-8043e: the owner check is part of the query, so a row in someone
+    // else's batch is never loaded, and this stays correct once Slice 1a-ii
+    // allows one row per batch for the same file.
+    const doc = await prisma.claimAnalysis.findFirst({
+      where: { googleDriveFileId: fileId, batch: { userId: session.user.id } },
+      select: { id: true },
     });
-    if (!doc || doc.batch.userId !== session.user.id) {
+    if (!doc) {
       return apiError(request, {
         code: "NOT_FOUND",
         message: "Document not found",

@@ -16,11 +16,11 @@ export function HelpRelatedArticles({
 
   const headingClass =
     tone === "public"
-      ? "text-lg font-semibold text-white"
+      ? "text-lg font-semibold text-[#0B1F3A]"
       : "text-lg font-semibold text-foreground";
   const linkClass =
     tone === "public"
-      ? "text-sm font-medium text-brand-gold hover:underline"
+      ? "text-sm font-medium text-[#3B6D8C] hover:text-[#0B1F3A] hover:underline"
       : "text-sm font-medium text-primary hover:underline";
 
   return (

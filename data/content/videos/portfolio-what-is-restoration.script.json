@@ -1,0 +1,16 @@
+{
+  "slug": "portfolio-what-is-restoration",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 57,
+  "whiteLabel": true,
+  "segments": [
+    { "text": "Most people meet a restoration contractor once, on the worst day of their year.", "startSec": 0.5, "durationSec": 6.5 },
+    { "text": "So here is what the work actually is.", "startSec": 7.5, "durationSec": 3.5 },
+    { "text": "Restoration is returning your property to the condition it was in before the loss. Not repairing it. Not renovating it. Returning it.", "startSec": 11.5, "durationSec": 10.0 },
+    { "text": "First the damage is stopped. Water extracted, power made safe, the affected area contained.", "startSec": 22.0, "durationSec": 8.0 },
+    { "text": "Then the property is dried and monitored, because what you cannot see is what decides whether mould arrives in six weeks.", "startSec": 30.5, "durationSec": 9.5 },
+    { "text": "Then whatever cannot be saved is removed, and whatever can be saved is restored.", "startSec": 40.5, "durationSec": 7.0 },
+    { "text": "Only then does any rebuilding start.", "startSec": 48.0, "durationSec": 3.5 },
+    { "text": "Every stage is documented, because your insurer will ask, and because you are entitled to see it.", "startSec": 52.0, "durationSec": 5.0 }
+  ]
+}

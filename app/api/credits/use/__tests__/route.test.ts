@@ -50,6 +50,13 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
+// The role gate is covered by role-gate.test.ts; here the caller passes it,
+// so userFindUnique stays the post-decrement re-read these tests assert on.
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertFinancialWriter: vi
+    .fn()
+    .mockResolvedValue({ ok: true, data: { id: "user-1", role: "ADMIN" } }),
+}));
 
 import { POST } from "../route";
 

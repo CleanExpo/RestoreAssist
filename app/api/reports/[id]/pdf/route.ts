@@ -11,7 +11,7 @@ import {
   prepareReportPhotos,
 } from "@/lib/reports/inspection-photos-to-images";
 import { appendPhotoPages } from "@/lib/reports/append-photo-pages";
-import { verifyInsurerToken } from "@/lib/portal-token";
+import { verifyReportReaderToken } from "@/lib/report-share/access";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
@@ -21,6 +21,7 @@ import {
   WORKSPACE_OWNER_SELECT,
   workspaceBusiness,
 } from "@/lib/reports/workspace-business";
+import { relationalMoistureToPdfRows } from "@/lib/reports/pdf-moisture-readings";
 
 /**
  * GET /api/reports/[id]/pdf
@@ -46,7 +47,7 @@ export async function GET(
 
     // Mode 1: insurer share token (no session required)
     if (shareToken) {
-      const verified = verifyInsurerToken(shareToken);
+      const verified = await verifyReportReaderToken(shareToken);
       if (verified?.reportId === id) {
         authorised = true;
       }
@@ -125,6 +126,20 @@ export async function GET(
             workspaceId: true,
             user: { select: { organizationId: true } },
             _count: { select: { photos: true } },
+            moistureReadings: {
+              where: { invalidatedAt: null },
+              orderBy: { recordedAt: "asc" },
+              select: {
+                location: true,
+                surfaceType: true,
+                moistureLevel: true,
+                depth: true,
+                isBaseline: true,
+                isMonitoringPoint: true,
+                recordedAt: true,
+                createdAt: true,
+              },
+            },
             // RA-7006 Gap 6: uploaded floor-plan image, appended to the PDF.
             claimSketches: {
               select: {
@@ -211,18 +226,24 @@ export async function GET(
       detailedReport: report.detailedReport?.trimStart().startsWith("{")
         ? null
         : report.detailedReport,
-      moistureReadings: report.moistureReadings
-        ? JSON.parse(report.moistureReadings as string)
-        : null,
+      moistureReadings: (() => {
+        const relational = report.inspection?.moistureReadings?.length
+          ? relationalMoistureToPdfRows(report.inspection.moistureReadings)
+          : null;
+        if (relational && relational.length > 0) return relational;
+        return report.moistureReadings
+          ? JSON.parse(report.moistureReadings as string)
+          : null;
+      })(),
       psychrometricReadings: report.psychrometricReadings
         ? JSON.parse(report.psychrometricReadings as string)
         : null,
       psychrometricAssessment: report.psychrometricAssessment
         ? JSON.parse(report.psychrometricAssessment as string)
         : null,
-      equipmentSelection: report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection as string)
-        : null,
+      // RA-8281 B1 round 13: passed on as stored; the PDF reads it through
+      // readEquipmentDeploymentLog.
+      equipmentSelection: report.equipmentSelection,
       scopeAreas: report.scopeAreas
         ? JSON.parse(report.scopeAreas as string)
         : null,

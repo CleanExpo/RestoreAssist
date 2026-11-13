@@ -5,7 +5,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: { integration: { findMany: mocks.legacy
 vi.mock("@/lib/organization-credits", () => ({ getOrganizationOwner: mocks.owner }));
 vi.mock("../ai-connections", () => ({ listConfiguredAiConnections: mocks.canonical }));
 vi.mock("@/lib/workspace/provider-connections", () => ({
-  OPERATING_PROVIDERS: ["ANTHROPIC", "OPENAI", "GOOGLE", "OPENROUTER"],
+  OPERATING_PROVIDERS: ["ANTHROPIC", "OPENAI", "GOOGLE", "OPENROUTER", "META"],
 }));
 
 import { hasConfiguredAi } from "../ai-readiness";
@@ -27,7 +27,7 @@ function canonical(provider: string, status = "ACTIVE") {
 }
 
 describe("AI configuration presence", () => {
-  it.each(["ANTHROPIC", "OPENAI", "GOOGLE", "OPENROUTER"])("recognises configured canonical %s without inspecting any credential", async (provider) => {
+  it.each(["ANTHROPIC", "OPENAI", "GOOGLE", "OPENROUTER", "META"])("recognises configured canonical %s without inspecting any credential", async (provider) => {
     canonical(provider);
     expect(await hasConfiguredAi("member-id")).toBe(true);
     expect(mocks.owner).toHaveBeenCalledWith("member-id");

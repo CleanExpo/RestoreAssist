@@ -194,7 +194,7 @@ function CreditsPageContent() {
     isTrial || isExpiredOrCanceled || (isActive && nearLimit);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-9xl mx-auto px-4 py-8 space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -626,7 +626,7 @@ function CreditsPageContent() {
                   {isExpiredOrCanceled
                     ? "Reactivate your subscription to restore full access."
                     : isTrial
-                      ? `Your 15-day free trial includes ${data?.creditsRemaining ?? 0} report credit${(data?.creditsRemaining ?? 0) === 1 ? "" : "s"} remaining. Upgrade for a monthly report allowance.`
+                      ? `Your free trial includes ${data?.creditsRemaining ?? 0} report credit${(data?.creditsRemaining ?? 0) === 1 ? "" : "s"} remaining. Upgrade for a monthly report allowance.`
                       : `You've used ${usagePct}% of your monthly limit. Upgrade or buy addon reports.`}
                 </p>
               </div>

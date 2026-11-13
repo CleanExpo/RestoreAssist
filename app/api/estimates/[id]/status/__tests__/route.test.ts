@@ -7,21 +7,31 @@ const estimateUpdateMany = vi.fn();
 const reportApprovalFindFirst = vi.fn();
 const checkBillingCompleteness = vi.fn();
 const recordMutationAudit = vi.fn();
+const freezeEstimateApprovalSnapshot = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    estimate: {
-      findUnique: (...args: unknown[]) => estimateFindUnique(...args),
-      updateMany: (...args: unknown[]) => estimateUpdateMany(...args),
+vi.mock("@/lib/prisma", () => {
+  const estimate = {
+    findUnique: (...args: unknown[]) => estimateFindUnique(...args),
+    updateMany: (...args: unknown[]) => estimateUpdateMany(...args),
+  };
+  return {
+    prisma: {
+      estimate,
+      reportApproval: {
+        findFirst: (...args: unknown[]) => reportApprovalFindFirst(...args),
+      },
+      // Non-gated transitions run in one transaction with the same delegates.
+      $transaction: (cb: (tx: unknown) => unknown) => cb({ estimate }),
     },
-    reportApproval: {
-      findFirst: (...args: unknown[]) => reportApprovalFindFirst(...args),
-    },
-  },
+  };
+});
+vi.mock("@/lib/estimate/approval-snapshot", () => ({
+  freezeEstimateApprovalSnapshot: (...args: unknown[]) =>
+    freezeEstimateApprovalSnapshot(...args),
 }));
 vi.mock("@/lib/billing-completeness-check", () => ({
   checkBillingCompleteness: (...args: unknown[]) =>
@@ -82,6 +92,7 @@ beforeEach(() => {
     warnings: [],
   });
   recordMutationAudit.mockResolvedValue(undefined);
+  freezeEstimateApprovalSnapshot.mockResolvedValue(undefined);
 });
 
 describe("PATCH /api/estimates/[id]/status", () => {
@@ -126,6 +137,7 @@ describe("PATCH /api/estimates/[id]/status", () => {
   it("approves only when client approval exists for the current amount", async () => {
     estimateFindUnique
       .mockResolvedValueOnce(estimate("CLIENT_REVIEW"))
+      .mockResolvedValueOnce({ version: 2 })
       .mockResolvedValueOnce(estimate("APPROVED"));
     reportApprovalFindFirst.mockResolvedValueOnce({
       id: "approval_1",
@@ -136,6 +148,11 @@ describe("PATCH /api/estimates/[id]/status", () => {
     const res = await PATCH(request("APPROVED"), params);
 
     expect(res.status).toBe(200);
+    // Approval freezes the approved lines at the version being approved.
+    expect(freezeEstimateApprovalSnapshot).toHaveBeenCalledWith(
+      expect.anything(),
+      { estimateId: "estimate_1", userId: "user_1", version: 2 },
+    );
     expect(reportApprovalFindFirst).toHaveBeenCalledWith({
       where: {
         reportId: "report_1",
@@ -193,6 +210,7 @@ describe("PATCH /api/estimates/[id]/status", () => {
 
     expect(lockRes.status).toBe(200);
     expect(reportApprovalFindFirst).not.toHaveBeenCalled();
+    expect(freezeEstimateApprovalSnapshot).not.toHaveBeenCalled();
 
     vi.clearAllMocks();
     getServerSession.mockResolvedValue({ user: { id: "user_1" } });

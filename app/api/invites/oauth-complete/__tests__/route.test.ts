@@ -34,20 +34,29 @@ function makeReq(token: string | undefined): NextRequest {
   return new NextRequest(`http://localhost/api/invites/oauth-complete${suffix}`);
 }
 
+// The route is the Google sign-in callbackUrl (a full-page navigation), so
+// every failure redirects back to the invite page with an explainable code.
+function expectInviteRedirect(res: Response, path: string): void {
+  expect(res.status).toBe(307);
+  const url = new URL(res.headers.get("location")!);
+  expect(`${url.pathname}${url.search}`).toBe(path);
+}
+
 describe("GET /api/invites/oauth-complete", () => {
-  it("returns 400 when invite_token cookie is missing", async () => {
+  it("redirects to /invite/invalid?error=invalid when the token is missing", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
     const res = await GET(makeReq(undefined));
-    expect(res.status).toBe(400);
+    expectInviteRedirect(res, "/invite/invalid?error=invalid");
   });
 
-  it("returns 401 when not authenticated", async () => {
+  it("redirects to the invite with error=signin when not authenticated", async () => {
     getServerSession.mockResolvedValueOnce(null);
     const res = await GET(makeReq(INVITE_TOKEN));
-    expect(res.status).toBe(401);
+    expectInviteRedirect(res, `/invite/${INVITE_TOKEN}?error=signin`);
+    expect(inviteFindUnique).not.toHaveBeenCalled();
   });
 
-  it("returns 410 when invite is already used", async () => {
+  it("redirects with error=used when invite is already used", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
@@ -58,7 +67,7 @@ describe("GET /api/invites/oauth-complete", () => {
       expiresAt: new Date(Date.now() + 86400000),
     });
     const res = await GET(makeReq(INVITE_TOKEN));
-    expect(res.status).toBe(410);
+    expectInviteRedirect(res, `/invite/${INVITE_TOKEN}?error=used`);
   });
 
   it("redirects to /invite/[token]?step=2 on success", async () => {
@@ -91,12 +100,12 @@ describe("GET /api/invites/oauth-complete", () => {
       expiresAt: new Date(Date.now() + 86400000),
     });
     const res = await GET(makeReq(INVITE_TOKEN));
-    expect(res.status).toBe(403);
+    expectInviteRedirect(res, `/invite/${INVITE_TOKEN}?error=mismatch`);
     expect(userUpdate).not.toHaveBeenCalled();
     expect(inviteUpdate).not.toHaveBeenCalled();
   });
 
-  it("returns 410 idempotently on retry when invite already used", async () => {
+  it("redirects with error=used idempotently on retry when invite already used", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
@@ -107,7 +116,7 @@ describe("GET /api/invites/oauth-complete", () => {
       expiresAt: new Date(Date.now() + 86400000),
     });
     const res = await GET(makeReq(INVITE_TOKEN));
-    expect(res.status).toBe(410);
+    expectInviteRedirect(res, `/invite/${INVITE_TOKEN}?error=used`);
   });
 
   it("does NOT update user when invite is already used (atomic semantics)", async () => {
@@ -121,7 +130,7 @@ describe("GET /api/invites/oauth-complete", () => {
       expiresAt: new Date(Date.now() + 86400000),
     });
     const res = await GET(makeReq(INVITE_TOKEN));
-    expect(res.status).toBe(410);
+    expectInviteRedirect(res, `/invite/${INVITE_TOKEN}?error=used`);
     expect(userUpdate).not.toHaveBeenCalled();
   });
 });
