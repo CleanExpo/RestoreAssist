@@ -39,6 +39,11 @@ const DARK_ONLY = new RegExp(
 
 const DARK_ISLAND = /["'`]dark\s/;
 
+// A hover that turns neutral text white vanishes on a light surface. It is
+// only right when the same element also fills with a colour on hover (an
+// outline button that becomes solid).
+const HOVER_FILL = new RegExp(`(?:^|[\\s"'\`])hover:bg-(?:${HUE}|brand)-`);
+
 /** Return `line:token` for every dark-only class with no `dark:` variant. */
 export function findUnpairedDarkClasses(source: string): string[] {
   const hits: string[] = [];
@@ -51,6 +56,8 @@ export function findUnpairedDarkClasses(source: string): string[] {
       const base = parts.pop() ?? "";
       if (parts.includes("dark")) continue;
       if (DARK_ONLY.test(base)) hits.push(`${i + 1}:${raw}`);
+      else if (base === "text-white" && parts.includes("hover") && !HOVER_FILL.test(line))
+        hits.push(`${i + 1}:${raw}`);
     }
   });
   return hits;
@@ -104,6 +111,16 @@ describe("light-mode surfaces (RA-8305)", () => {
     // A deliberate dark island is exempt; the same classes without it are not.
     expect(findUnpairedDarkClasses(`"dark relative bg-slate-900 text-slate-300"`)).toEqual([]);
     expect(findUnpairedDarkClasses(`"relative darker bg-slate-900"`)).toEqual(["1:bg-slate-900"]);
+    // Neutral text that turns white on hover disappears in Light mode.
+    expect(findUnpairedDarkClasses(`"flex gap-2 hover:text-white transition-colors"`)).toEqual([
+      "1:hover:text-white",
+    ]);
+    expect(
+      findUnpairedDarkClasses(`"hover:text-slate-900 dark:hover:text-white"`),
+    ).toEqual([]);
+    expect(
+      findUnpairedDarkClasses(`"border-blue-600 hover:bg-blue-600 hover:text-white"`),
+    ).toEqual([]);
   });
 
   it("covers a real file list", () => {

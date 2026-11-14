@@ -696,7 +696,7 @@ export default function ReportsPage() {
                             ? "Deselect report"
                             : "Select report"
                         }
-                        className="mt-1 flex-shrink-0 text-slate-500 dark:text-slate-400 hover:text-white transition-colors min-h-[24px] min-w-[24px]"
+                        className="mt-1 flex-shrink-0 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors min-h-[24px] min-w-[24px]"
                       >
                         {selectedReports.includes(report.id) ? (
                           <CheckSquare size={20} className="text-cyan-700 dark:text-cyan-400" />
@@ -725,7 +725,7 @@ export default function ReportsPage() {
                             {report.waterCategory || "—"}
                           </span>
                         </div>
-                        <div className="text-sm text-white font-medium truncate">
+                        <div className="text-sm text-slate-900 dark:text-white font-medium truncate">
                           {report.clientName || "N/A"}
                         </div>
                         {/* RA-1192: AI one-liner (mobile). Shown only when present. */}
@@ -812,7 +812,7 @@ export default function ReportsPage() {
                             ? clearSelection
                             : selectAllReports
                         }
-                        className="flex items-center gap-2 hover:text-white transition-colors"
+                        className="flex items-center gap-2 hover:text-slate-900 dark:hover:text-white transition-colors"
                       >
                         {selectedReports.length === paginatedReports.length ? (
                           <CheckSquare size={16} />
@@ -881,7 +881,7 @@ export default function ReportsPage() {
                         <td className="py-4 px-6">
                           <button
                             onClick={() => toggleReportSelection(report.id)}
-                            className="flex items-center gap-2 hover:text-white transition-colors"
+                            className="flex items-center gap-2 hover:text-slate-900 dark:hover:text-white transition-colors"
                             aria-label={
                               selectedReports.includes(report.id)
                                 ? "Deselect report"

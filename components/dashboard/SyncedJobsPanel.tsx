@@ -209,7 +209,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
               key={row.id}
               className="rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/50 p-4"
             >
-              <div className="font-medium text-white">{row.title}</div>
+              <div className="font-medium text-slate-900 dark:text-white">{row.title}</div>
               {row.clientName && (
                 <div className="text-sm text-slate-600 dark:text-slate-400">{row.clientName}</div>
               )}
@@ -292,7 +292,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
             <tbody>
               {items.map((row) => (
                 <tr key={row.id} className="border-b border-slate-200/80 dark:border-slate-800/80">
-                  <td className="py-4 px-6 text-white font-medium">
+                  <td className="py-4 px-6 text-slate-900 dark:text-white font-medium">
                     {row.title}
                     {row.importedNativeId && (
                       <span className="ml-2 text-xs text-emerald-700 dark:text-emerald-400">
