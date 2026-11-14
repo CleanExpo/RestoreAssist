@@ -245,7 +245,7 @@ function CustomTooltip({ active, payload, label }: any) {
                 <span className={cn("font-bold", colors.text)}>
                   {entry.value}%
                 </span>
-                <span className="text-neutral-400 dark:text-slate-500">
+                <span className="text-neutral-600 dark:text-slate-500">
                   / target ≤{std.dryThreshold}%
                 </span>
               </div>
@@ -275,12 +275,12 @@ export default function DryingProgressChart({
           className,
         )}
       >
-        <Droplets size={32} className="text-neutral-300 dark:text-slate-600" />
+        <Droplets size={32} className="text-neutral-700 dark:text-slate-600" />
         <div className="text-center">
           <p className="text-sm font-medium text-neutral-600 dark:text-slate-400">
             Not enough data yet
           </p>
-          <p className="text-xs text-neutral-400 dark:text-slate-500 mt-0.5">
+          <p className="text-xs text-neutral-600 dark:text-slate-500 mt-0.5">
             At least 2 moisture readings are required to plot a drying curve
           </p>
         </div>
@@ -444,13 +444,13 @@ export default function DryingProgressChart({
             <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
               Drying Progress Curve
             </h4>
-            <p className="text-xs text-neutral-500 dark:text-slate-500 mt-0.5">
+            <p className="text-xs text-neutral-600 dark:text-slate-500 mt-0.5">
               ANSI/IICRC S500:2021 §12.2.2 — moisture % per location over drying
               period
               {targetCurve && " · dashed = target curve"}
             </p>
           </div>
-          <div className="text-right text-xs text-neutral-400 dark:text-slate-500 flex-shrink-0">
+          <div className="text-right text-xs text-neutral-600 dark:text-slate-500 flex-shrink-0">
             <p className="font-medium">{primaryStd.label}</p>
             <p>Target ≤{primaryStd.dryThreshold}%</p>
           </div>
@@ -468,14 +468,14 @@ export default function DryingProgressChart({
             <XAxis
               dataKey="day"
               tick={{ fontSize: 11, fill: "currentColor" }}
-              className="text-neutral-400 dark:text-slate-500"
+              className="text-neutral-600 dark:text-slate-500"
               tickLine={false}
               axisLine={false}
             />
             <YAxis
               domain={[0, 100]}
               tick={{ fontSize: 11, fill: "currentColor" }}
-              className="text-neutral-400 dark:text-slate-500"
+              className="text-neutral-600 dark:text-slate-500"
               tickLine={false}
               axisLine={false}
               tickFormatter={(v) => `${v}%`}
@@ -558,26 +558,26 @@ export default function DryingProgressChart({
       {series.length > 0 && (
         <div className="rounded-xl border border-neutral-200 dark:border-slate-700 overflow-hidden">
           <div className="px-4 py-2.5 bg-neutral-50 dark:bg-slate-800/50 border-b border-neutral-200 dark:border-slate-700">
-            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-slate-400">
               Location Summary — Latest Readings
             </p>
           </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left">
-                <th className="px-4 py-2.5 text-xs font-medium text-neutral-500 dark:text-slate-500">
+                <th className="px-4 py-2.5 text-xs font-medium text-neutral-600 dark:text-slate-500">
                   Location
                 </th>
-                <th className="px-4 py-2.5 text-xs font-medium text-neutral-500 dark:text-slate-500">
+                <th className="px-4 py-2.5 text-xs font-medium text-neutral-600 dark:text-slate-500">
                   Material
                 </th>
-                <th className="px-4 py-2.5 text-xs font-medium text-neutral-500 dark:text-slate-500 text-right">
+                <th className="px-4 py-2.5 text-xs font-medium text-neutral-600 dark:text-slate-500 text-right">
                   Reading
                 </th>
-                <th className="px-4 py-2.5 text-xs font-medium text-neutral-500 dark:text-slate-500 text-right">
+                <th className="px-4 py-2.5 text-xs font-medium text-neutral-600 dark:text-slate-500 text-right">
                   Target
                 </th>
-                <th className="px-4 py-2.5 text-xs font-medium text-neutral-500 dark:text-slate-500 text-right">
+                <th className="px-4 py-2.5 text-xs font-medium text-neutral-600 dark:text-slate-500 text-right">
                   Status
                 </th>
               </tr>
@@ -599,7 +599,7 @@ export default function DryingProgressChart({
                     <td className="px-4 py-2.5 font-medium text-neutral-900 dark:text-white">
                       {r.location}
                     </td>
-                    <td className="px-4 py-2.5 text-neutral-500 dark:text-slate-400">
+                    <td className="px-4 py-2.5 text-neutral-600 dark:text-slate-400">
                       {std.label}
                     </td>
                     <td
@@ -610,7 +610,7 @@ export default function DryingProgressChart({
                     >
                       {r.moistureLevel}%
                     </td>
-                    <td className="px-4 py-2.5 text-right text-neutral-400 dark:text-slate-500 tabular-nums">
+                    <td className="px-4 py-2.5 text-right text-neutral-600 dark:text-slate-500 tabular-nums">
                       ≤{std.dryThreshold}%
                     </td>
                     <td className="px-4 py-2.5 text-right">

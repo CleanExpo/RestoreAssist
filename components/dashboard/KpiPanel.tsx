@@ -33,7 +33,7 @@ function KpiCard({ label, value, sublabel, icon: Icon, colour }: KpiCardProps) {
         <div className="text-2xl font-bold" style={{ color: colour }}>
           {value}
         </div>
-        <p className="text-xs text-neutral-500 dark:text-slate-500 mt-1">
+        <p className="text-xs text-neutral-600 dark:text-slate-500 mt-1">
           {sublabel}
         </p>
       </CardContent>

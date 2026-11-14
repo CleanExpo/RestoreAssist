@@ -76,7 +76,7 @@ export function SketchRoomCoveragePanel({
       >
         Room coverage (drying & scope)
       </h4>
-      <p className="text-[11px] text-neutral-500 dark:text-slate-400 mt-0.5">
+      <p className="text-[11px] text-neutral-600 dark:text-slate-400 mt-0.5">
         Each affected room should have plan pins and a matching scope line.
       </p>
       <ul className="mt-2 space-y-1.5 max-h-36 overflow-y-auto">

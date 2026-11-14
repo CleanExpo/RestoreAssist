@@ -85,7 +85,7 @@ export function ListPagination({
         </button>
         {pages[0] > 1 && (
           <span
-            className="px-2 py-1.5 text-sm text-neutral-500 dark:text-slate-500"
+            className="px-2 py-1.5 text-sm text-neutral-600 dark:text-slate-500"
             aria-hidden
           >
             …
@@ -114,7 +114,7 @@ export function ListPagination({
         ))}
         {pages[pages.length - 1]! < totalPages && (
           <span
-            className="px-2 py-1.5 text-sm text-neutral-500 dark:text-slate-500"
+            className="px-2 py-1.5 text-sm text-neutral-600 dark:text-slate-500"
             aria-hidden
           >
             …

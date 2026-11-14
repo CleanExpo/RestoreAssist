@@ -41,16 +41,16 @@ export function SimpleModeExploreBanner({
     <div
       role="region"
       aria-label="Simple workspace"
-      className="mb-6 overflow-hidden rounded-xl border border-cyan-500/25 bg-gradient-to-br from-cyan-950/50 via-slate-900/80 to-slate-950 p-4 sm:p-5"
+      className="mb-6 overflow-hidden rounded-xl border border-cyan-600/25 dark:border-cyan-500/25 bg-gradient-to-br from-cyan-50 via-white to-white dark:from-cyan-950/50 dark:via-slate-900/80 dark:to-slate-950 p-4 sm:p-5"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-300">
+          <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
             <ChromeSparkle className="h-3.5 w-3.5" aria-hidden />
             Simple workspace
           </p>
-          <p className="mt-2 text-sm text-slate-200">
-            <span className="font-medium text-white">Everything in one place.</span>{" "}
+          <p className="mt-2 text-sm text-slate-800 dark:text-slate-200">
+            <span className="font-medium text-slate-900 dark:text-white">Everything in one place.</span>{" "}
             These match your sidebar — jobs, reports, clients, billing, and help.
             Need integrations or analytics? Switch to Advanced anytime.
           </p>
@@ -60,7 +60,7 @@ export function SimpleModeExploreBanner({
             type="button"
             disabled={switching}
             onClick={onSwitchToAdvanced}
-            className="min-h-10 rounded-lg border border-white/15 bg-white/5 px-3 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-50"
+            className="min-h-10 rounded-lg border border-black/15 dark:border-white/15 bg-white dark:bg-white/5 px-3 text-sm font-medium text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/10 disabled:opacity-50"
           >
             {switching ? "Saving…" : "Advanced menu"}
           </button>
@@ -74,7 +74,7 @@ export function SimpleModeExploreBanner({
               }
               setVisible(false);
             }}
-            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-white/15 text-slate-300 hover:bg-white/5"
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-black/15 dark:border-white/15 text-slate-700 dark:text-slate-300 hover:bg-black/[0.03] dark:hover:bg-white/5"
             aria-label="Dismiss"
           >
             <ChromeX className="h-4 w-4" />
@@ -89,7 +89,7 @@ export function SimpleModeExploreBanner({
           <Link
             key={item.href}
             href={item.href}
-            className="flex min-h-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-2 text-center text-xs font-medium text-slate-100 transition hover:border-cyan-400/35 hover:bg-cyan-500/10 sm:text-sm"
+            className="flex min-h-10 items-center justify-center rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.04] px-2 text-center text-xs font-medium text-slate-900 dark:text-slate-100 transition hover:border-cyan-500/40 dark:hover:border-cyan-400/35 hover:bg-cyan-500/10 sm:text-sm"
           >
             {item.label}
           </Link>

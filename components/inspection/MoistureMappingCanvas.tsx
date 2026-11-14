@@ -415,7 +415,7 @@ export default function MoistureMappingCanvas({
               "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
               sketchMode === mode
                 ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
-                : "text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-200",
+                : "text-neutral-600 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-200",
             )}
           >
             {label}
@@ -481,7 +481,7 @@ export default function MoistureMappingCanvas({
                 "px-2.5 min-h-[44px] rounded-lg text-xs font-medium transition-colors",
                 showCoverage
                   ? "bg-info-subtle text-info-subtle-foreground"
-                  : "bg-neutral-100 dark:bg-slate-800 text-neutral-500",
+                  : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-neutral-500",
               )}
               aria-label="Toggle coverage zones"
               aria-pressed={showCoverage}
@@ -509,7 +509,7 @@ export default function MoistureMappingCanvas({
       {/* IICRC S500 Legend — conditional on mode */}
       {sketchMode === "moisture" && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 rounded-lg bg-neutral-50 dark:bg-slate-800/50 border border-neutral-200 dark:border-slate-700/50 text-xs">
-          <div className="flex items-center gap-1.5 text-neutral-500 dark:text-slate-400">
+          <div className="flex items-center gap-1.5 text-neutral-600 dark:text-slate-400">
             <Info size={11} className="flex-shrink-0" />
             <span className="font-semibold">IICRC S500</span>
           </div>
@@ -528,7 +528,7 @@ export default function MoistureMappingCanvas({
               </span>
             </span>
           ))}
-          <span className="text-neutral-400 dark:text-slate-500 ml-auto italic">
+          <span className="text-neutral-600 dark:text-slate-500 ml-auto italic">
             Thresholds vary by material type
           </span>
         </div>
@@ -536,7 +536,7 @@ export default function MoistureMappingCanvas({
 
       {sketchMode === "equipment" && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 rounded-lg bg-neutral-50 dark:bg-slate-800/50 border border-neutral-200 dark:border-slate-700/50 text-xs">
-          <div className="flex items-center gap-1.5 text-neutral-500 dark:text-slate-400">
+          <div className="flex items-center gap-1.5 text-neutral-600 dark:text-slate-400">
             <Info size={11} className="flex-shrink-0" />
             <span className="font-semibold">IICRC S500 Ratios</span>
           </div>
@@ -549,7 +549,7 @@ export default function MoistureMappingCanvas({
               <span className="text-neutral-600 dark:text-slate-300">
                 {eq.shortLabel}:
               </span>
-              <span className="text-neutral-400 dark:text-slate-400">
+              <span className="text-neutral-600 dark:text-slate-400">
                 {eq.iicrcRatio}
               </span>
             </span>
@@ -798,7 +798,7 @@ export default function MoistureMappingCanvas({
         <div className="w-64 flex-shrink-0 space-y-4">
           {/* ── STRUCTURAL mode sidebar ── */}
           {sketchMode === "structural" && (
-            <div className="p-4 rounded-xl bg-neutral-50 dark:bg-slate-800/50 border border-neutral-200 dark:border-slate-700/50 text-sm text-neutral-500 dark:text-slate-400 text-center space-y-2">
+            <div className="p-4 rounded-xl bg-neutral-50 dark:bg-slate-800/50 border border-neutral-200 dark:border-slate-700/50 text-sm text-neutral-600 dark:text-slate-400 text-center space-y-2">
               <p className="font-medium text-neutral-700 dark:text-slate-300">
                 Structural View
               </p>
@@ -810,7 +810,7 @@ export default function MoistureMappingCanvas({
                   Floor plan loaded
                 </p>
               ) : (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
+                <p className="text-xs text-amber-700 dark:text-amber-400">
                   Upload a floor plan to get started
                 </p>
               )}
@@ -872,7 +872,7 @@ export default function MoistureMappingCanvas({
                     Unplaced Readings ({unplacedReadings.length})
                   </div>
                   {!readonly && (
-                    <p className="text-xs text-neutral-500 dark:text-slate-400">
+                    <p className="text-xs text-neutral-600 dark:text-slate-400">
                       Select a reading, then click the grid to place it, or
                       drag it onto the grid.
                     </p>
@@ -914,7 +914,7 @@ export default function MoistureMappingCanvas({
                             {reading.moistureLevel}%
                           </span>
                         </div>
-                        <div className="text-xs text-neutral-400 mt-0.5">
+                        <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">
                           {reading.surfaceType} / {reading.depth}
                         </div>
                       </button>
@@ -936,7 +936,7 @@ export default function MoistureMappingCanvas({
               )}
 
               {readings.length === 0 && (
-                <div className="text-center py-8 text-neutral-400 text-sm">
+                <div className="text-center py-8 text-neutral-600 dark:text-neutral-400 text-sm">
                   No moisture readings to map
                 </div>
               )}
@@ -994,7 +994,7 @@ export default function MoistureMappingCanvas({
                           ×{equipmentCounts[eq.type] ?? 0}
                         </span>
                       </div>
-                      <div className="text-xs text-neutral-400 mt-0.5 ml-8">
+                      <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5 ml-8">
                         {eq.iicrcRatio}
                       </div>
                     </button>
@@ -1068,7 +1068,7 @@ export default function MoistureMappingCanvas({
               )}
 
               {equipmentPoints.length === 0 && (
-                <div className="text-center py-6 text-neutral-400 text-sm">
+                <div className="text-center py-6 text-neutral-600 dark:text-neutral-400 text-sm">
                   Select a type above, then click the map to place equipment
                 </div>
               )}
