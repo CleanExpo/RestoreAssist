@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload, FileText, Sparkles, MessageCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import ClientQnA from "./ClientQnA";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface TechnicianInputFormProps {
   reportId?: string;
@@ -113,7 +114,7 @@ export default function TechnicianInputForm({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to generate report");
+        throw new Error(apiErrorMessage(error) || "Failed to generate report");
       }
 
       const data = await response.json();

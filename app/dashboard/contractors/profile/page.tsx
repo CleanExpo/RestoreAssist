@@ -18,6 +18,7 @@ import { isConfirmedEmpty } from "@/lib/client/load-state";
 import { useAsyncAction } from "@/lib/client/use-async-action";
 import { parseApiError } from "@/lib/client/parse-api-error";
 import { ContractorsBackLink } from "../ContractorsBackLink";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface ContractorProfile {
   id: string;
@@ -236,7 +237,7 @@ export default function ContractorProfileDashboard() {
         const data = await res.json();
         setMessage({
           type: "error",
-          text: data.error || "Failed to add certification",
+          text: apiErrorMessage(data) || "Failed to add certification",
         });
       }
     } catch (error) {
@@ -301,7 +302,7 @@ export default function ContractorProfileDashboard() {
         const data = await res.json();
         setMessage({
           type: "error",
-          text: data.error || "Failed to add service area",
+          text: apiErrorMessage(data) || "Failed to add service area",
         });
       }
     } catch (error) {

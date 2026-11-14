@@ -1,7 +1,6 @@
 import {
   blockedPricing,
   type BlockedPricingLine,
-  nationalRangeFor,
   priceListReader,
   sumOrBlocked,
 } from "@/lib/pricing/blocked-line";
@@ -212,7 +211,6 @@ export function buildScopeOfWorksData(data: {
           pricingStatus: "rate_not_set" as const,
           rateField: unset.field,
           pricingNote: equipmentNote,
-          nationalRange: nationalRangeFor(unset.field),
         }
       : { pricingStatus: "unusable_line" as const, pricingNote: equipmentNote };
   };
@@ -460,7 +458,6 @@ export function buildScopeOfWorksData(data: {
             pricingStatus: item.pricingStatus ?? "priced",
             rateField: item.rateField,
             pricingNote: item.pricingNote,
-            nationalRange: item.nationalRange,
           },
           // RW_3 carries the equipment. Each equipment line is listed under
           // it with its own status, so two causes on one document (an unset
@@ -479,7 +476,6 @@ export function buildScopeOfWorksData(data: {
                       pricingStatus: line.pricingStatus ?? "priced",
                       rateField: line.rateField,
                       pricingNote: line.pricingNote,
-                      nationalRange: line.nationalRange,
                     }),
                   ),
               )

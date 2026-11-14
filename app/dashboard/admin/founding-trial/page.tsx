@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Outcome {
   status: string;
@@ -128,7 +129,7 @@ export default function FoundingTrialPage() {
           setPreviewed(null);
         }
       } else {
-        setError(data.error ?? "The grant could not be run.");
+        setError(apiErrorMessage(data) ?? "The grant could not be run.");
         setOutcome(null);
       }
     } catch {

@@ -37,7 +37,6 @@ const BLOCKED = blockedPricing(
       pricingStatus: "rate_not_set",
       rateField: "masterQualifiedNormalHours",
       pricingNote: "Rate not set. Set masterQualifiedNormalHours in your price list.",
-      nationalRange: { min: 60, max: 170, unit: "$/hr" },
     },
     {
       description: "Air mover hire",
@@ -80,7 +79,7 @@ afterEach(() => {
 });
 
 describe("RA-8281 B2 quote page: a blocked quote", () => {
-  it("shows the blocked line with its national range and a blocked total, not a toast or a quote", async () => {
+  it("shows the blocked line with no national range and a blocked total, not a toast or a quote", async () => {
     mockFetch({
       ok: false,
       status: 422,
@@ -96,7 +95,7 @@ describe("RA-8281 B2 quote page: a blocked quote", () => {
     expect(cells).toEqual([
       "Labour",
       "16 hr",
-      "Rate not set (national range $60-$170 per hr)",
+      "Rate not set",
       "—",
     ]);
     expect(notice.querySelector("tfoot")?.textContent).toBe(

@@ -12,6 +12,7 @@ import { Printer, Save, Loader2, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 import { dollarsToCents, lineAmountsCents } from "@/lib/invoices/calc";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export interface RestorationInvoiceFormData {
   invoiceTypeId: string;
@@ -337,7 +338,9 @@ export default function RestorationInvoiceForm({
           }),
         });
         if (!res.ok)
-          throw new Error((await res.json()).error || "Failed to update");
+          throw new Error(
+            apiErrorMessage(await res.json().catch(() => null)) ?? "Failed to update",
+          );
         toast.success("Document saved");
       } else {
         const res = await fetch("/api/restoration-documents", {
@@ -346,7 +349,9 @@ export default function RestorationInvoiceForm({
           body: JSON.stringify(payload),
         });
         if (!res.ok)
-          throw new Error((await res.json()).error || "Failed to save");
+          throw new Error(
+            apiErrorMessage(await res.json().catch(() => null)) ?? "Failed to save",
+          );
         const { document } = await res.json();
         toast.success("Document saved");
         router.replace(

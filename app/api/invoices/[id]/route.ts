@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isDraft, isCancelled } from "@/lib/invoice-status";
+import {
+  InvoiceNotMutableError,
+  lockInvoiceForMutation,
+} from "@/lib/invoices/lock-invoice-for-mutation";
 import { recordMutationAudit } from "@/lib/audit-log";
 import { apiError, fromException } from "@/lib/api-errors";
 import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
@@ -214,6 +217,27 @@ export async function GET(
   }
 }
 
+function invoiceNotMutableResponse(
+  request: NextRequest,
+  error: InvoiceNotMutableError,
+) {
+  if (error.status === null) {
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "Invoice not found",
+      status: 404,
+    });
+  }
+  return apiError(request, {
+    code: "CONFLICT",
+    message:
+      error.mutation === "edit"
+        ? "Only draft invoices can be edited"
+        : "Only draft or cancelled invoices can be deleted",
+    status: 409,
+  });
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -404,9 +428,13 @@ export async function PUT(
         // D-025: lock the invoice row first. Without it, two concurrent edits
         // each delete only the lines they can see, both inserts survive, and
         // the stored totals match just one of them.
-        await tx.$queryRaw(
-          Prisma.sql`SELECT "id" FROM "Invoice" WHERE "id" = ${id} FOR UPDATE`,
-        );
+        // RA-8273: and re-check DRAFT under that lock. The check near the top
+        // of this handler read the status before the lock was granted.
+        await lockInvoiceForMutation(tx, {
+          id,
+          userId: session.user.id,
+          mutation: "edit",
+        });
 
         // Delete existing line items
         await tx.invoiceLineItem.deleteMany({
@@ -488,6 +516,11 @@ export async function PUT(
       if (adjustmentError) return adjustmentError;
 
       const invoice = await prisma.$transaction(async (tx) => {
+        await lockInvoiceForMutation(tx, {
+          id,
+          userId: session.user.id,
+          mutation: "edit",
+        });
         const updated = await tx.invoice.update({
           where: { id, userId: session.user.id },
           data: updateData,
@@ -543,6 +576,9 @@ export async function PUT(
       return NextResponse.json({ invoice });
     }
   } catch (error: any) {
+    if (error instanceof InvoiceNotMutableError) {
+      return invoiceNotMutableResponse(request, error);
+    }
     return fromException(request, error, { stage: "invoice-put" });
   }
 }
@@ -587,9 +623,16 @@ export async function DELETE(
       });
     }
 
-    // Delete invoice (cascade will handle related records)
-    await prisma.invoice.delete({
-      where: { id, userId: session.user.id },
+    // Delete invoice (cascade will handle related records). RA-8273: the
+    // status is re-checked under the row lock; the read above is only an early
+    // answer and can be stale by the time the delete runs.
+    await prisma.$transaction(async (tx) => {
+      await lockInvoiceForMutation(tx, {
+        id,
+        userId: session.user.id,
+        mutation: "delete",
+      });
+      await tx.invoice.delete({ where: { id, userId: session.user.id } });
     });
 
     await recordMutationAudit({
@@ -610,6 +653,9 @@ export async function DELETE(
       message: "Invoice deleted successfully",
     });
   } catch (error: any) {
+    if (error instanceof InvoiceNotMutableError) {
+      return invoiceNotMutableResponse(request, error);
+    }
     return fromException(request, error, { stage: "invoice-delete" });
   }
 }

@@ -5,7 +5,7 @@
  * saved for a blocked result, so the status is 422, not 2xx: a caller that
  * does not know about blocked lines reads it as "not created" and can never
  * mistake it for a saved estimate. A caller that does know reads `blocked`
- * and shows every line, with "Rate not set" and the national range on the
+ * and shows every line, with "Rate not set" on the
  * blocked ones and "Total not available: rate not set" for the total.
  */
 import { NextResponse } from "next/server";

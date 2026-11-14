@@ -42,6 +42,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -168,7 +169,7 @@ export default function Claim002CostEntryPage() {
           succeeded++;
         } else {
           const body = await res.json().catch(() => ({}));
-          failed.push(`Row ${i + 1}: ${body.error ?? `HTTP ${res.status}`}`);
+          failed.push(`Row ${i + 1}: ${apiErrorMessage(body) ?? `HTTP ${res.status}`}`);
         }
       } catch {
         failed.push(`Row ${i + 1}: Network error`);
@@ -239,7 +240,7 @@ export default function Claim002CostEntryPage() {
         if (res.ok) succeeded++;
         else {
           const body = await res.json().catch(() => ({}));
-          failed.push(`Item ${i}: ${body.error ?? `HTTP ${res.status}`}`);
+          failed.push(`Item ${i}: ${apiErrorMessage(body) ?? `HTTP ${res.status}`}`);
         }
       } catch {
         failed.push(`Item ${i}: Network error`);

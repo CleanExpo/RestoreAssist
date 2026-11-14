@@ -227,7 +227,10 @@ describe("RA-8275 — each line uses the contractor's own field, inside its NRPG
     const ozone = items.find((i) => i.itemType === "ozone_treatment");
     expect(ozone?.pricingStatus).toBe("rate_out_of_range");
     expect(ozone?.unitCostAud).toBeUndefined();
-    expect(ozone?.pricingNote).toContain("$75-$165");
+    // The contractor's own figure is named; NRPG's range figures are not.
+    expect(ozone?.pricingNote).toBe(
+      "Your rateOzoneGenerator of $500 is outside the national price range. Update it in your price list.",
+    );
     expect(priceFireScope(items, AU).status).toBe("blocked");
   });
 });
@@ -255,7 +258,7 @@ describe("RA-8275 — a missing rate blocks the total and is never $0", () => {
     }
   });
 
-  it("an unset field says 'rate not set' with its national range, never a default", () => {
+  it("an unset field says 'rate not set' with no national range, never a default", () => {
     const items = generateFireScope({
       smokeType: "protein",
       charLevel: 1,
@@ -266,7 +269,7 @@ describe("RA-8275 — a missing rate blocks the total and is never $0", () => {
     expect(pass1?.pricingStatus).toBe("rate_not_set");
     expect(pass1?.unitCostAud).toBeUndefined();
     expect(pass1?.pricingNote).toBe(
-      "Rate not set. Set rateFireRestoration in your price list (national range $85-$195 per m²).",
+      "Rate not set. Set rateFireRestoration in your price list.",
     );
   });
 

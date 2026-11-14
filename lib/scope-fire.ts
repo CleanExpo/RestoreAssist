@@ -19,7 +19,8 @@
  *     the contractor's own price list. No hard-coded rate, no default.
  *   - A fire line never reads a mould, antimicrobial or biohazard field.
  *   - The NRPG national range for that field (lib/nrpg-rate-ranges.ts) is
- *     enforced: a value outside it is not used.
+ *     enforced: a value outside it is not used. The range figures themselves
+ *     are never put in a note or a result (founder rule, 2026-11-12).
  *   - A field the contractor has not set is "rate_not_set"; a line with no
  *     price-list field yet is "needs_price_list_field"; a missing inspection
  *     quantity is "quantity_needed". Each blocks the total. None is $0.
@@ -30,7 +31,8 @@
 
 import type { GstTreatment } from "./gst-rules";
 import { standardCite } from "./nir-standards-mapping";
-import { getFieldRange, type NRPGRateRange } from "./nrpg-rate-ranges";
+import { getFieldRange } from "./nrpg-rate-ranges";
+import { rateNotSetNote } from "./pricing/rate-not-set";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -154,23 +156,13 @@ const S700_CLEANING = standardCite("S700", "6");
 
 /**
  * How a line is priced: the named price-list column it reads. RA-8281 added
- * the columns the fire lines lacked; most carry no NRPG range (range values
- * are a founder decision), so an unset one reads "rate not set" with no range.
+ * the columns the fire lines lacked. An unset one reads "rate not set" and
+ * names the field; no line ever shows an NRPG range figure.
  */
 type RateSource = { field: string };
 
 function usableQuantity(q: number | undefined): number | undefined {
   return typeof q === "number" && Number.isFinite(q) && q > 0 ? q : undefined;
-}
-
-function formatRange(range: NRPGRateRange): string {
-  // "$/m²" -> " per m²"; a flat "$" fee needs no unit suffix.
-  const per = range.unit.startsWith("$/")
-    ? ` per ${range.unit.slice(2)}`
-    : range.unit === "$"
-      ? ""
-      : ` ${range.unit}`;
-  return `national range $${range.min}-$${range.max}${per}`;
 }
 
 /** Read one field from the contractor's price list. Never supplies a value. */
@@ -181,18 +173,16 @@ export function readRate(
   | { status: "priced"; rate: number }
   | { status: "rate_not_set" | "rate_out_of_range"; note: string } {
   const raw = (config as Record<string, unknown>)[field];
-  const range = getFieldRange(field);
-  const rangeText = range ? ` (${formatRange(range)})` : "";
   if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) {
-    return {
-      status: "rate_not_set",
-      note: `Rate not set. Set ${field} in your price list${rangeText}.`,
-    };
+    return { status: "rate_not_set", note: rateNotSetNote(field) };
   }
+  // The range is read here to check the value only. Its figures stay out of
+  // the note: the contractor is told their own figure and nothing of NRPG's.
+  const range = getFieldRange(field);
   if (range && (raw < range.min || raw > range.max)) {
     return {
       status: "rate_out_of_range",
-      note: `Your ${field} of $${raw} is outside the NRPG ${formatRange(range)}. Update it in your price list.`,
+      note: `Your ${field} of $${raw} is outside the national price range. Update it in your price list.`,
     };
   }
   return { status: "priced", rate: raw };

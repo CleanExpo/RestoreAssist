@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type ProviderId = "drive" | "onedrive" | "icloud";
 
@@ -91,7 +92,7 @@ export function CloudMirrorPicker() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || `Save failed: ${res.status}`);
+        throw new Error(apiErrorMessage(body) || `Save failed: ${res.status}`);
       }
       setInitial(selected);
       toast.success("Cloud mirror provider saved");

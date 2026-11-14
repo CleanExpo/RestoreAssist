@@ -28,7 +28,6 @@ import {
 import { RateNotSetError, type UnsetRate } from "@/lib/pricing/rate-not-set";
 
 import {
-  nationalRangeFor,
   RATE_NOT_SET_LABEL,
   type BlockedLineFields,
 } from "@/lib/pricing/blocked-line";
@@ -483,7 +482,7 @@ export function assertEquipmentPriced(priced: PricedEquipment): void {
  * RA-8281 (B2): what a document line carries for an equipment line that has
  * no amount, so the line is shown blocked instead of refusing the document.
  * Nothing for a priced line. A rate the price list leaves unset names its
- * field and the national range; a line that cannot be read, or whose amount
+ * field; a line that cannot be read, or whose amount
  * is not exact, carries its note only.
  */
 export function equipmentLineBlockedFields(
@@ -504,7 +503,6 @@ export function equipmentLineBlockedFields(
     pricingStatus: "rate_not_set",
     rateField: field,
     pricingNote: line.note ?? `${RATE_NOT_SET_LABEL}.`,
-    nationalRange: nationalRangeFor(field),
   };
 }
 

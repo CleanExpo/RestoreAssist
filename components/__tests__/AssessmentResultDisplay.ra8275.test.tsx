@@ -47,7 +47,7 @@ const blocked: GenerateResultPayload = {
         lineTotalIncGst: null,
         pricingStatus: "rate_not_set",
         pricingNote:
-          "Rate not set. Set rateOzoneGenerator in your price list (national range $75-$165 per day).",
+          "Rate not set. Set rateOzoneGenerator in your price list.",
       },
     ],
     totals: {

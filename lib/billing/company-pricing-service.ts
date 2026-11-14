@@ -31,8 +31,6 @@ export interface ValidationError {
   field: string;
   message: string;
   value: number;
-  min: number;
-  max: number;
 }
 
 export interface ValidationResult {
@@ -141,10 +139,9 @@ export function validatePricingConfig(
     if (check && !check.valid) {
       errors.push({
         field,
-        message: `${check.label}: ${value} is outside the typical industry range (${check.min}–${check.max})`,
+        // RA-8281: no range figure in the message or the error.
+        message: `${check.label}: ${value} is outside the national price range`,
         value,
-        min: check.min,
-        max: check.max,
       });
     }
   }

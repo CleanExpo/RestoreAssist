@@ -53,7 +53,10 @@ vi.mock("@/lib/nrpg-rate-ranges", async (original) => {
   };
 });
 
-import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
+import {
+  blockedParts,
+  expectNoRangeFigure,
+} from "@/lib/pricing/__tests__/no-range-figure";
 import { BASE_RATE_FIELDS } from "@/lib/pricing/rate-not-set";
 import { POST } from "../route";
 
@@ -98,7 +101,6 @@ type Line = {
   pricingStatus: string;
   rateField?: string;
   pricingNote?: string;
-  nationalRange?: unknown;
 };
 const lineFor = (lines: Line[], text: string) =>
   lines.find((l) => l.description.includes(text)) as Line;
@@ -112,7 +114,7 @@ beforeEach(() => {
 });
 
 describe("POST generate-cost-estimation: a rate that is not set (RA-8281 B2)", () => {
-  it("shows the blocked line with its national range, beside the priced lines", async () => {
+  it("shows the blocked line with no national range, beside the priced lines", async () => {
     withPriceList(priceList({ callOutFee: null }));
 
     const res = await post();
@@ -120,7 +122,8 @@ describe("POST generate-cost-estimation: a rate that is not set (RA-8281 B2)", (
 
     expect(res.status).toBe(422);
     expect(body.error.code).toBe("RATE_NOT_SET");
-    const range = NRPG_RATE_RANGES.callOutFee;
+    // RA-8281 step 1: no min or max of this field anywhere in the answer.
+    expectNoRangeFigure(blockedParts(body), "callOutFee");
     expect(lineFor(body.blocked.lines, "Minimal Call-Out Fee")).toEqual({
       description: "Call-Out Fees: Minimal Call-Out Fee",
       quantity: 1,
@@ -129,8 +132,7 @@ describe("POST generate-cost-estimation: a rate that is not set (RA-8281 B2)", (
       subtotal: null,
       pricingStatus: "rate_not_set",
       rateField: "callOutFee",
-      pricingNote: `Rate not set. Set callOutFee in your price list (national range $${range.min}-$${range.max}).`,
-      nationalRange: { min: range.min, max: range.max, unit: range.unit },
+      pricingNote: `Rate not set. Set callOutFee in your price list.`,
     });
     expect(lineFor(body.blocked.lines, "Truck-Mounted")).toMatchObject({
       rate: 50,
@@ -156,14 +158,15 @@ describe("POST generate-cost-estimation: a rate that is not set (RA-8281 B2)", (
     expect(reportUpdate).not.toHaveBeenCalled();
   });
 
-  it("an equipment rate that is not set is a blocked equipment line with its range", async () => {
+  it("an equipment rate that is not set is a blocked equipment line with no range", async () => {
     withPriceList(priceList({ dehumidifierLGRDailyRate: null }));
 
     const res = await post();
     const body = await res.json();
 
     expect(res.status).toBe(422);
-    const range = NRPG_RATE_RANGES.dehumidifierLGRDailyRate;
+    // RA-8281 step 1: no min or max of this field anywhere in the answer.
+    expectNoRangeFigure(blockedParts(body), "dehumidifierLGRDailyRate");
     const line = body.blocked.lines.find((l: Line) =>
       l.description.startsWith("Equipment Rental:"),
     );
@@ -173,18 +176,16 @@ describe("POST generate-cost-estimation: a rate that is not set (RA-8281 B2)", (
       subtotal: null,
       pricingStatus: "rate_not_set",
       rateField: "dehumidifierLGRDailyRate",
-      nationalRange: { min: range.min, max: range.max, unit: range.unit },
     });
     expect(body.blocked.missing).toEqual([
       expect.objectContaining({
         field: "dehumidifierLGRDailyRate",
-        nationalRange: { min: range.min, max: range.max, unit: range.unit },
       }),
     ]);
     expect(reportUpdate).not.toHaveBeenCalled();
   });
 
-  it("shows no range when the range table has none for the field", async () => {
+  it("answers the same whether or not the range table holds the field", async () => {
     hiddenRanges.add("callOutFee");
     withPriceList(priceList({ callOutFee: null }));
 
@@ -196,7 +197,6 @@ describe("POST generate-cost-estimation: a rate that is not set (RA-8281 B2)", (
       rate: null,
       subtotal: null,
       pricingStatus: "rate_not_set",
-      nationalRange: null,
       pricingNote: "Rate not set. Set callOutFee in your price list.",
     });
     expect(JSON.stringify(body)).not.toContain("national range");

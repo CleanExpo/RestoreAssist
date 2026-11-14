@@ -62,7 +62,7 @@ describe("estimateFromPriceList", () => {
     expect(est.totals.gstRate).toBe(0.15);
   });
 
-  it("an unset rate reads 'rate not set' with its national range and blocks the total", () => {
+  it("an unset rate reads 'rate not set' with no national range and blocks the total", () => {
     const est = estimateFromPriceList(
       [
         line("dehumidifierLGRDailyRate"),
@@ -75,8 +75,8 @@ describe("estimateFromPriceList", () => {
     expect(unset.pricingStatus).toBe("rate_not_set");
     expect(unset.rate).toBeNull();
     expect(unset.lineTotalExGst).toBeNull();
-    expect(unset.pricingNote).toMatch(
-      /Rate not set\. Set dehumidifierLGRDailyRate .*national range \$\d+-\$\d+/,
+    expect(unset.pricingNote).toBe(
+      "Rate not set. Set dehumidifierLGRDailyRate in your price list.",
     );
     expect(set.pricingStatus).toBe("priced");
     expect(est.totals.status).toBe("blocked");

@@ -10,6 +10,7 @@ import { normalizeNZBN, validateNZBN } from '@/lib/validation/nzbn-validator';
 import { DEFAULT_ORGANIZATION_TIMEZONE, ORGANIZATION_TIMEZONES } from '@/lib/locale/organization-locale';
 import { getGstTreatment } from '@/lib/gst-rules';
 import { abrHydrationUserMessage } from '@/lib/setup/abr-user-message';
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type SetupCountry = 'AU' | 'NZ';
 type ManualField = 'legalName' | 'abn' | 'nzbn' | 'state';
@@ -66,7 +67,7 @@ export function BusinessDetailsCard() {
       if (!result.ok) {
         setFieldError((previous) => ({
           ...previous,
-          [field]: result.error ?? 'Failed to save',
+          [field]: apiErrorMessage(result) ?? 'Failed to save',
         }));
       }
     } finally {
@@ -84,7 +85,7 @@ export function BusinessDetailsCard() {
       acn: nextCountry === 'NZ' ? null : (org?.acn ?? null),
       nzbn: nextCountry === 'AU' ? null : (org?.nzbn ?? null),
     });
-    if (!result.ok) setSubmitError(result.error ?? 'Failed to save country');
+    if (!result.ok) setSubmitError(apiErrorMessage(result) ?? 'Failed to save country');
   };
 
   const normalizedAbn = normaliseAbn(abn);
@@ -108,7 +109,7 @@ export function BusinessDetailsCard() {
           website: website.trim() || null,
         });
         if (!result.ok) {
-          setSubmitError(result.error ?? 'Failed to save business details');
+          setSubmitError(apiErrorMessage(result) ?? 'Failed to save business details');
           return;
         }
 
@@ -126,7 +127,7 @@ export function BusinessDetailsCard() {
 
       const localeResult = await patchState({ country, timezone });
       if (!localeResult.ok) {
-        setSubmitError(localeResult.error ?? 'Failed to save country');
+        setSubmitError(apiErrorMessage(localeResult) ?? 'Failed to save country');
         return;
       }
 
@@ -146,7 +147,7 @@ export function BusinessDetailsCard() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: 'Request failed' }));
-        setSubmitError(body.error ?? `Request failed (${res.status})`);
+        setSubmitError(apiErrorMessage(body) ?? `Request failed (${res.status})`);
         setSectionStatus('businessDetails', 'pending');
         setSectionStatus('branding', 'pending');
         setSectionStatus('pricing', 'pending');

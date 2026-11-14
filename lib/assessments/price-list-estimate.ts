@@ -7,10 +7,12 @@
  * names the price-list field it is priced from:
  *
  *   - field set and inside its NRPG national range -> priced
- *   - field not set          -> "Rate not set ... (national range $X-$Y)"
+ *   - field not set          -> "Rate not set. Set <field> in your price list."
  *   - field outside range    -> rate out of range
  *   - no field for this line -> needs a price-list field
  *   - no usable quantity     -> quantity needed
+ *
+ * No note or result carries an NRPG range figure (founder rule, 2026-11-12).
  *
  * Any unpriced line blocks the total (totals are null, never a partial sum
  * and never $0). Reads and totals go through lib/scope-fire (readRate,

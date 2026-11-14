@@ -334,7 +334,6 @@ export async function POST(request: NextRequest) {
                   pricingStatus: line.pricingStatus,
                   rateField: line.rateField,
                   pricingNote: line.pricingNote,
-                  nationalRange: line.nationalRange,
                 }
               : {
                   description: line.description,

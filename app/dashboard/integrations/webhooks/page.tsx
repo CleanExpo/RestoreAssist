@@ -35,6 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -173,7 +174,7 @@ export default function WebhookLogsPage() {
         method: "POST",
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Retry failed");
+      if (!res.ok) throw new Error(apiErrorMessage(json) || "Retry failed");
       toast.success("Event re-queued for processing");
       fetchLogs();
     } catch (err: unknown) {

@@ -1,6 +1,5 @@
 import {
   blockedPricing,
-  nationalRangeFor,
   priceListReader,
   sumOrBlocked,
   TOTAL_NOT_AVAILABLE_NOTE,
@@ -499,8 +498,8 @@ export function buildCostEstimationData(data: {
   const totalIncGST = subtotal === null || gst === null ? null : subtotal + gst;
 
   // RA-8281 (B2): what blocks this document, if anything. Unset price-list
-  // rates carry their national range; an equipment line that cannot be read
-  // carries its note only.
+  // rates name their field; an equipment line that cannot be read carries
+  // its note only. Neither carries a national range figure.
   const missing = documentMissing(P.missing(), equipmentBlocked);
 
   // Industry comparison
@@ -670,16 +669,12 @@ export function documentMissing(
   if (!equipment) return missing;
   for (const u of equipment.unset) {
     if (!missing.some((m) => m.field === u.field)) {
-      missing.push({
-        field: u.field,
-        note: u.note,
-        nationalRange: nationalRangeFor(u.field),
-      });
+      missing.push({ field: u.field, note: u.note });
     }
   }
   for (const note of equipment.problems) {
     if (!missing.some((m) => m.note === note)) {
-      missing.push({ field: "equipmentSelection", note, nationalRange: null });
+      missing.push({ field: "equipmentSelection", note });
     }
   }
   return missing;
@@ -707,7 +702,6 @@ function categoryPricingLines(categories: any): BlockedPricingLine[] {
         pricingStatus: item.pricingStatus ?? "priced",
         rateField: item.rateField,
         pricingNote: item.pricingNote,
-        nationalRange: item.nationalRange,
       };
     }),
   );

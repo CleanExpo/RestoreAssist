@@ -32,13 +32,18 @@ describe("requireRate", () => {
     },
   );
 
-  it("names the national range when NRPG has one", () => {
-    expect(() =>
+  it("names the field, and never the national range, when NRPG has one", () => {
+    try {
       requireRate(
         { dehumidifierLGRDailyRate: null },
         "dehumidifierLGRDailyRate",
-      ),
-    ).toThrow(/Rate not set.*national range \$\d/);
+      );
+      expect.unreachable();
+    } catch (e) {
+      expect((e as Error).message).toBe(
+        "Rate not set. Set dehumidifierLGRDailyRate in your price list.",
+      );
+    }
   });
 
   it("names no range for a field NRPG has no range for", () => {
