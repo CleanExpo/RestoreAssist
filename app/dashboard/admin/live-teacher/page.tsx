@@ -27,6 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { evaluateCompletenessGate } from "@/lib/live-teacher/gate-metrics";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ── Gate pass thresholds (pilot defaults — tune in review) ──────────────────
 const COST_GATE_P95_CENTS = 500; // 95th-pct inspection cost ≤ $5 AUD
@@ -214,7 +215,7 @@ export default function LiveTeacherGateMetricsDashboard() {
       const res = await fetch("/api/admin/live-teacher/gate-metrics");
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body?.error?.message ?? body?.error ?? `HTTP ${res.status}`);
+        setError(body?.error?.message ?? apiErrorMessage(body) ?? `HTTP ${res.status}`);
         return;
       }
       const json = (await res.json()) as { data: GateMetrics };

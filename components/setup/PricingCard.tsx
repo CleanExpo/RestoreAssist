@@ -56,7 +56,7 @@ const ALL_ROWS: RateRow[] = [
 async function patchPricing(
   key: string,
   value: number,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; message?: string }> {
   let res: Response;
   try {
     res = await fetch('/api/setup/pricing', {
@@ -65,13 +65,13 @@ async function patchPricing(
       body: JSON.stringify({ [key]: value }),
     });
   } catch {
-    return { ok: false, error: 'Rate not saved. Check your connection and try again.' };
+    return { ok: false, message: 'Rate not saved. Check your connection and try again.' };
   }
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     return {
       ok: false,
-      error: apiErrorMessage(body) ?? `Rate not saved (request failed with status ${res.status}).`,
+      message: apiErrorMessage(body) ?? `Rate not saved (request failed with status ${res.status}).`,
     };
   }
   return { ok: true };
@@ -137,7 +137,7 @@ export function PricingCard() {
     const result = await patchPricing(key, n);
     if (revisions.current[key] !== revision) return;
     setSaving((p) => ({ ...p, [key]: false }));
-    setRowError(key, result.ok ? null : (result.error ?? 'Rate not saved.'));
+    setRowError(key, result.ok ? null : (result.message ?? 'Rate not saved.'));
   };
 
   const rows = expanded ? ALL_ROWS : COMPACT_ROWS;

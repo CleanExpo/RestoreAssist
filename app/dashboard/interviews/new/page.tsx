@@ -18,6 +18,7 @@ import {
   User,
   Award,
 } from "lucide-react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface FormTemplate {
   id: string;
@@ -136,7 +137,7 @@ export default function NewInterviewPage() {
       if (!response.ok) {
         const errBody = await response.json().catch(() => ({}));
         throw new Error(
-          errBody.error || `Templates API returned ${response.status}`,
+          apiErrorMessage(errBody) || `Templates API returned ${response.status}`,
         );
       }
       const data = await response.json();

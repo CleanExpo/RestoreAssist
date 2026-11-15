@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { dashboardSurfaceClass } from "@/app/dashboard/components/DashboardPanel";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type ApiResult = {
   canPost: boolean;
@@ -82,7 +83,7 @@ export function SocialRelevanceTester() {
           );
         }
         throw new Error(
-          json?.error?.message || json?.error || `HTTP ${res.status}`,
+          json?.error?.message || apiErrorMessage(json) || `HTTP ${res.status}`,
         );
       }
       setResult(json as ApiResult);

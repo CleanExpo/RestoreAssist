@@ -23,6 +23,7 @@ import {
   MARGOT_ROLE_LABEL,
   MARGOT_WELCOME,
 } from "@/lib/margot-surface";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Message {
   id: string;
@@ -319,7 +320,7 @@ export default function Chatbot() {
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       if (event.error !== "aborted" && event.error !== "no-speech") {
-        toast.error(`Voice error: ${event.error}`);
+        toast.error(`Voice error: ${apiErrorMessage(event.error)}`);
       }
       setIsListening(false);
     };

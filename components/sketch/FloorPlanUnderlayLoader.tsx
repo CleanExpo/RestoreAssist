@@ -395,7 +395,7 @@ export function FloorPlanUnderlayLoader({
     const result = await prepareUnderlayFile(file);
     setPreparingUnderlay(false);
     if (!result.ok) {
-      setError(result.error);
+      setError(apiErrorMessage(result));
       return;
     }
     setSelectedImage(result.dataUrl);
@@ -445,7 +445,7 @@ export function FloorPlanUnderlayLoader({
     });
     setApplying(false);
     if (!result.ok) {
-      setError(result.error);
+      setError(apiErrorMessage(result));
       return;
     }
     onApply(result.imageUrl, opacity, result.reference);

@@ -99,6 +99,7 @@ import type {
   WorkflowStepStatus,
   ExceptionReasonCode,
 } from "@/lib/types/evidence";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ============================================
 // TYPES
@@ -352,7 +353,7 @@ export default function CaptureWorkflowPage({
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed to create workflow");
+        throw new Error(apiErrorMessage(err) || "Failed to create workflow");
       }
       toast.success("Workflow created — let's begin the inspection!");
       await fetchWorkflow();
@@ -591,7 +592,7 @@ export default function CaptureWorkflowPage({
         const data = await res.json().catch(() => null);
         if (!res.ok) {
           throw new Error(
-            data?.error?.message || data?.message || data?.error || "Failed to record evidence",
+            data?.error?.message || data?.message || apiErrorMessage(data) || "Failed to record evidence",
           );
         }
         setEvidenceItems((prev) => [data.evidenceItem, ...prev]);

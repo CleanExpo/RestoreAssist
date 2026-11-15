@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ---- Types ----------------------------------------------------------------
 
@@ -324,9 +325,7 @@ export default function AiUsageDashboardPage() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(
-          typeof body.error === "string"
-            ? body.error
-            : "Failed to load usage data",
+          apiErrorMessage(body) ?? "Failed to load usage data",
         );
       }
       const json = await res.json();

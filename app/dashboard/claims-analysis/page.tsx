@@ -58,6 +58,7 @@ import {
 import { useSession } from "next-auth/react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 /** Most documents analyze-batch accepts in one batch (RA-8043e). */
 const MAX_DOCUMENTS_PER_BATCH = 100;
@@ -446,7 +447,7 @@ export default function ClaimsAnalysisPage() {
                   updated.fileStatuses[event.index] = {
                     name: event.file,
                     status: "failed",
-                    error: event.error,
+                    error: apiErrorMessage(event.error) ?? undefined,
                   };
                 }
                 return updated;

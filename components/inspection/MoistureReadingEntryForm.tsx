@@ -26,6 +26,7 @@ import {
   isMoistureReading,
 } from "@/hooks/use-bluetooth-meter";
 import { queueWrite } from "@/lib/nir-sync-queue";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type MoistureReadingSuccess = {
   id: string;
@@ -201,7 +202,7 @@ export function MoistureReadingEntryForm({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(
-          (data as { error?: string }).error || "Failed to save reading",
+          apiErrorMessage(data) ?? "Failed to save reading",
         );
       }
 

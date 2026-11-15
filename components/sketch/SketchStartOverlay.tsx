@@ -25,6 +25,7 @@ import {
   evaluateUnderlayAttestation,
   UNDERLAY_RIGHTS_STATEMENT,
 } from "@/lib/sketch/underlay-attestation";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export interface SketchStartOverlayProps {
   visible: boolean;
@@ -97,7 +98,7 @@ export function SketchStartOverlay({
     const result = await prepareUnderlayFile(file);
     setPreparing(false);
     if (!result.ok) {
-      setError(result.error);
+      setError(apiErrorMessage(result));
       return;
     }
     setPreview(result.dataUrl);
@@ -136,7 +137,7 @@ export function SketchStartOverlay({
     });
     setApplying(false);
     if (!result.ok) {
-      setError(result.error);
+      setError(apiErrorMessage(result));
       return;
     }
     onApplyUnderlay(result.imageUrl, opacity, result.reference);

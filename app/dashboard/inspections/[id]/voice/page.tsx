@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import type { FireWalkthroughResponse } from "@/lib/voice/fire-smoke/schema";
 import { FireWalkthrough } from "./_fire/FireWalkthrough";
 import { getFireWalkthrough } from "./_fire/fire-client";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -171,7 +172,7 @@ function WaterVoiceSession({ inspectionId }: { inspectionId: string }) {
     recognition.onerror = (event: any) => {
       setIsListening(false);
       if (event.error !== "no-speech") {
-        setError(`Mic error: ${event.error}`);
+        setError(`Mic error: ${apiErrorMessage(event.error)}`);
       }
     };
 
