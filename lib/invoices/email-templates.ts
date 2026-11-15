@@ -5,6 +5,8 @@
  * including invoice sent, payment received, overdue reminders, and receipts.
  */
 
+import { formatDate } from "@/lib/formatters";
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -211,11 +213,11 @@ export function generateInvoiceSentEmail(data: InvoiceEmailData): string {
         </div>
         <div class="detail-row">
           <span class="detail-label">Invoice Date:</span>
-          <span class="detail-value">${formatDate(invoiceDate)}</span>
+          <span class="detail-value">${formatInvoiceDate(invoiceDate)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Due Date:</span>
-          <span class="detail-value">${formatDate(dueDate)}</span>
+          <span class="detail-value">${formatInvoiceDate(dueDate)}</span>
         </div>
         <div class="divider" style="margin: 15px 0;"></div>
         <div class="detail-row">
@@ -388,7 +390,7 @@ export function generatePaymentReceivedEmail(data: PaymentEmailData): string {
         </div>
         <div class="detail-row">
           <span class="detail-label">Payment Date:</span>
-          <span class="detail-value">${formatDate(paymentDate)}</span>
+          <span class="detail-value">${formatInvoiceDate(paymentDate)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Payment Method:</span>
@@ -630,7 +632,7 @@ export function generateOverdueReminderEmail(data: ReminderEmailData): string {
         </div>
         <div class="detail-row">
           <span class="detail-label">Original Due Date:</span>
-          <span class="detail-value">${formatDate(dueDate)}</span>
+          <span class="detail-value">${formatInvoiceDate(dueDate)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Days Overdue:</span>
@@ -835,7 +837,7 @@ export function generateUpcomingPaymentReminderEmail(
         </div>
         <div class="detail-row">
           <span class="detail-label">Due Date:</span>
-          <span class="detail-value">${formatDate(dueDate)}</span>
+          <span class="detail-value">${formatInvoiceDate(dueDate)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Days Until Due:</span>
@@ -891,12 +893,9 @@ function formatCurrency(cents: number): string {
 }
 
 /**
- * Format date to readable format
+ * RA-8384: dates print through the zone-pinned owner, so a UTC server shows
+ * the Australian calendar day ("03 November 2026"), not the day before.
  */
-function formatDate(date: Date): string {
-  return new Date(date).toLocaleDateString("en-AU", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+function formatInvoiceDate(date: Date): string {
+  return formatDate(date, { month: "long" });
 }

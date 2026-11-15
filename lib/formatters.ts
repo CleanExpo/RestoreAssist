@@ -10,7 +10,28 @@
  * and return an em-dash so callers don't need sentinel checks.
  */
 
+import { getLocale, getTimeZone, type Country } from "@/lib/locale/format";
+
 const DASH = "—";
+
+/**
+ * RA-8384: every date helper names its zone. Without `timeZone` the text
+ * follows the machine's own zone — UTC on the server — so an invoice made at
+ * 08:00 Brisbane on 3 Nov printed "02 Nov". Dates picked from a calendar are
+ * stored as UTC midnight, which is still the same day in any AU/NZ zone.
+ */
+export interface DateFormatOptions {
+  /** Tenant country; picks the locale and calendar zone. Defaults to AU. */
+  country?: Country;
+  /** "2-digit" → 03/11/2026, "short" → 03 Nov 2026, "long" → 03 November 2026. */
+  month?: "2-digit" | "short" | "long";
+}
+
+function toDate(value: Date | string | null | undefined): Date | null {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 /** Prices are stored in cents across the codebase. Convert + format. */
 export function formatCurrencyCents(
@@ -28,26 +49,30 @@ export function formatCurrencyCents(
   return formatter.format(dollars);
 }
 
-/** Accept Date | ISO string | null. Returns dd/mm/yyyy. */
-export function formatDate(value: Date | string | null | undefined): string {
-  if (!value) return DASH;
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return DASH;
-  return d.toLocaleDateString("en-AU", {
+/** Accept Date | ISO string | null. Returns dd/mm/yyyy in the tenant's zone. */
+export function formatDate(
+  value: Date | string | null | undefined,
+  { country = "AU", month = "2-digit" }: DateFormatOptions = {},
+): string {
+  const d = toDate(value);
+  if (!d) return DASH;
+  return d.toLocaleDateString(getLocale(country), {
     day: "2-digit",
-    month: "2-digit",
+    month,
     year: "numeric",
+    timeZone: getTimeZone(country),
   });
 }
 
-/** dd/mm/yyyy hh:mm (24h) in AEST. */
+/** dd/mm/yyyy hh:mm (24h) in the tenant's zone (Sydney by default). */
 export function formatDateTime(
   value: Date | string | null | undefined,
+  { country = "AU" }: Pick<DateFormatOptions, "country"> = {},
 ): string {
-  if (!value) return DASH;
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return DASH;
-  return d.toLocaleString("en-AU", {
+  const d = toDate(value);
+  if (!d) return DASH;
+  return d.toLocaleString(getLocale(country), {
+    timeZone: getTimeZone(country),
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

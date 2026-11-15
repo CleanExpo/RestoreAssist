@@ -13,6 +13,7 @@ import {
   PDFPage,
   PDFImage,
 } from "pdf-lib";
+import { formatDate } from "@/lib/formatters";
 
 interface BusinessInfo {
   businessName?: string | null;
@@ -612,7 +613,7 @@ async function renderInvoiceDetails(
     color: colors.darkGray,
   });
 
-  page.drawText(formatDate(invoice.invoiceDate), {
+  page.drawText(formatInvoiceDate(invoice.invoiceDate), {
     x: detailsX + 80,
     y: detailsY,
     size: 9,
@@ -632,7 +633,7 @@ async function renderInvoiceDetails(
   });
 
   const dueDateColor = isOverdue(invoice) ? colors.red : colors.black;
-  page.drawText(formatDate(invoice.dueDate), {
+  page.drawText(formatInvoiceDate(invoice.dueDate), {
     x: detailsX + 80,
     y: detailsY,
     size: 9,
@@ -1114,7 +1115,7 @@ async function renderPaymentsSection(
   yPosition -= 20;
 
   payments.forEach((payment) => {
-    page.drawText(formatDate(payment.paymentDate), {
+    page.drawText(formatInvoiceDate(payment.paymentDate), {
       x: margin + 10,
       y: yPosition,
       size: 9,
@@ -1291,14 +1292,11 @@ function formatCurrency(cents: number): string {
 }
 
 /**
- * Format date to Australian format
+ * RA-8384: dates print through the zone-pinned owner, so a UTC server shows
+ * the Australian calendar day ("03 Nov 2026"), not the day before.
  */
-function formatDate(date: Date): string {
-  return new Date(date).toLocaleDateString("en-AU", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+function formatInvoiceDate(date: Date): string {
+  return formatDate(date, { month: "short" });
 }
 
 /**

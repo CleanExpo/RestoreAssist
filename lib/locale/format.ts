@@ -12,6 +12,15 @@ export function getLocale(country: Country): string {
   return country === "NZ" ? "en-NZ" : "en-AU";
 }
 
+/**
+ * RA-8384: the calendar zone for a tenant country. Server code runs in UTC,
+ * so every date-to-text call must name this zone or an 08:00 Brisbane moment
+ * prints as the previous day.
+ */
+export function getTimeZone(country: Country): string {
+  return country === "NZ" ? "Pacific/Auckland" : "Australia/Sydney";
+}
+
 export function getCurrency(country: Country): "AUD" | "NZD" {
   return country === "NZ" ? "NZD" : "AUD";
 }
@@ -29,6 +38,6 @@ export function formatDate(date: Date, country: Country): string {
     // Date-only values represent the tenant's local calendar date. Keep the
     // result stable across server/container timezones (and avoid UTC midnight
     // rolling back to the previous day in North American runtimes).
-    timeZone: country === "NZ" ? "Pacific/Auckland" : "Australia/Sydney",
+    timeZone: getTimeZone(country),
   }).format(date);
 }
