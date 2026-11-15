@@ -79,7 +79,7 @@ const STATUS_CONFIG: Record<
   },
   PROCESSING: {
     label: "Processing",
-    color: "text-amber-600 dark:text-amber-400",
+    color: "text-amber-700 dark:text-amber-400",
     bg: "bg-amber-50 dark:bg-amber-900/30",
   },
   CLASSIFIED: {
@@ -109,7 +109,7 @@ const STATUS_CONFIG: Record<
   },
   IN_BILLING: {
     label: "In billing",
-    color: "text-cyan-600 dark:text-cyan-400",
+    color: "text-cyan-700 dark:text-cyan-400",
     bg: "bg-cyan-50 dark:bg-cyan-900/30",
   },
   CLOSED: {
@@ -415,7 +415,7 @@ export default function InspectionsPage() {
         <div className="relative">
           <Search
             size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400"
           />
           <input
             type="text"
@@ -423,12 +423,12 @@ export default function InspectionsPage() {
             placeholder="Search by inspection number, address, or technician..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-600 dark:placeholder:text-neutral-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label htmlFor="inspections-date-from" className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
+            <label htmlFor="inspections-date-from" className="text-xs font-medium text-neutral-600 dark:text-slate-400 whitespace-nowrap">
               From
             </label>
             <input
@@ -440,7 +440,7 @@ export default function InspectionsPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <label htmlFor="inspections-date-to" className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
+            <label htmlFor="inspections-date-to" className="text-xs font-medium text-neutral-600 dark:text-slate-400 whitespace-nowrap">
               To
             </label>
             <input
@@ -458,7 +458,7 @@ export default function InspectionsPage() {
                 setDateFrom("");
                 setDateTo("");
               }}
-              className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-slate-300 transition-colors"
+              className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-slate-300 transition-colors"
             >
               Clear dates
             </button>
@@ -578,7 +578,7 @@ export default function InspectionsPage() {
                     <Link
                       href={`/dashboard/inspections/${insp.id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="font-mono text-sm font-semibold text-cyan-600 dark:text-cyan-400 rounded focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none hover:underline"
+                      className="font-mono text-sm font-semibold text-cyan-700 dark:text-cyan-400 rounded focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none hover:underline"
                     >
                       {insp.inspectionNumber}
                     </Link>
@@ -601,14 +601,14 @@ export default function InspectionsPage() {
                   <div className="flex items-center gap-1.5 text-neutral-900 dark:text-white font-medium">
                     <MapPin
                       size={14}
-                      className="text-neutral-400 flex-shrink-0"
+                      className="text-neutral-600 dark:text-neutral-400 flex-shrink-0"
                     />
                     <span className="truncate">{insp.propertyAddress}</span>
-                    <span className="text-neutral-400 dark:text-slate-500 text-sm">
+                    <span className="text-neutral-600 dark:text-slate-500 text-sm">
                       ({insp.propertyPostcode})
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500 dark:text-slate-400">
+                  <div className="flex items-center gap-4 mt-2 text-xs text-neutral-600 dark:text-slate-400">
                     <span className="flex items-center gap-1">
                       <Calendar size={12} />
                       {formatAttendanceDateEnAu(insp.inspectionDate) ??
@@ -680,7 +680,7 @@ export default function InspectionsPage() {
                     </span>
                   )}
                   {insp.status === "SUBMITTED" && (
-                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
                       Awaiting classification
                     </span>
                   )}
@@ -688,14 +688,14 @@ export default function InspectionsPage() {
                     type="button"
                     onClick={(e) => handleDeleteOne(e, insp.id)}
                     disabled={deleting}
-                    className="p-2 rounded-lg text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                    className="p-2 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                     title="Delete inspection"
                   >
                     <Trash2 size={18} />
                   </button>
                   <ChevronRight
                     size={20}
-                    className="text-neutral-300 dark:text-slate-600 group-hover:text-cyan-500 transition-colors mt-1"
+                    className="text-neutral-700 dark:text-slate-600 group-hover:text-cyan-500 transition-colors mt-1"
                   />
                 </div>
               </div>

@@ -36,12 +36,12 @@ export function PhaseProgressBar({ phases }: PhaseProgressBarProps) {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-slate-400 font-medium">Phase Progress</span>
-        <span className="text-slate-300">
+        <span className="text-slate-600 dark:text-slate-400 font-medium">Phase Progress</span>
+        <span className="text-slate-700 dark:text-slate-300">
           {completed}/{total} phases
         </span>
       </div>
-      <div className="w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
+      <div className="w-full bg-slate-200/50 dark:bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
         <div
           className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
           style={{ width: `${pct}%` }}
@@ -56,8 +56,8 @@ export function PhaseProgressBar({ phases }: PhaseProgressBarProps) {
               title={label}
               className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold transition-colors ${
                 p.completed
-                  ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                  : "bg-slate-700/50 text-slate-500 border border-slate-600/30"
+                  ? "bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-500/30"
+                  : "bg-slate-200/50 dark:bg-slate-700/50 text-slate-500 border border-slate-600/30"
               }`}
             >
               {p.phase}
@@ -86,7 +86,7 @@ export function EvaluatorScoreBadge({ scores }: EvaluatorScoreBadgeProps) {
       <Star size={11} />
       <span>{aggregate}/100</span>
       {(scores.retryCount ?? 0) > 0 && (
-        <span className="flex items-center gap-0.5 text-orange-400 ml-1 tabular-nums">
+        <span className="flex items-center gap-0.5 text-orange-700 dark:text-orange-400 ml-1 tabular-nums">
           <RefreshCw size={10} />
           {scores.retryCount}
         </span>
@@ -119,11 +119,11 @@ export function EvaluatorScoreBreakdown({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-400">
+        <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
           Evaluator Scores
         </span>
         {(scores.retryCount ?? 0) > 0 && (
-          <span className="flex items-center gap-1 text-xs text-orange-400">
+          <span className="flex items-center gap-1 text-xs text-orange-700 dark:text-orange-400">
             <RefreshCw size={11} />
             {scores.retryCount} retr{scores.retryCount === 1 ? "y" : "ies"}
           </span>
@@ -138,7 +138,7 @@ export function EvaluatorScoreBreakdown({
               className={`flex items-center justify-between px-2 py-1 rounded text-xs ${scoreBgColour(dim.score)}`}
               title={dim.feedback ?? label}
             >
-              <span className="text-slate-300">{label}</span>
+              <span className="text-slate-700 dark:text-slate-300">{label}</span>
               <span className={`font-bold ${scoreColour(dim.score)}`}>
                 {dim.score}
               </span>
@@ -162,11 +162,11 @@ const sessionStatusConfig: Record<
   FanOutSession["status"],
   { label: string; colour: string; icon: React.ElementType }
 > = {
-  pending: { label: "Pending", colour: "text-slate-400", icon: Clock },
-  running: { label: "Running", colour: "text-blue-400", icon: Clock },
+  pending: { label: "Pending", colour: "text-slate-600 dark:text-slate-400", icon: Clock },
+  running: { label: "Running", colour: "text-blue-700 dark:text-blue-400", icon: Clock },
   completed: { label: "Done", colour: "text-success", icon: CheckCircle },
   failed: { label: "Failed", colour: "text-destructive", icon: AlertTriangle },
-  retrying: { label: "Retrying", colour: "text-orange-400", icon: RefreshCw },
+  retrying: { label: "Retrying", colour: "text-orange-700 dark:text-orange-400", icon: RefreshCw },
 };
 
 export function FanOutSessionList({ sessions }: FanOutSessionListProps) {
@@ -183,7 +183,7 @@ export function FanOutSessionList({ sessions }: FanOutSessionListProps) {
         onClick={() => setExpanded((p) => !p)}
         className="flex items-center justify-between w-full text-xs group"
       >
-        <span className="flex items-center gap-1.5 text-slate-400 font-medium group-hover:text-slate-300 transition-colors">
+        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
           <GitBranch size={12} />
           {sessions.length} fan-out session{sessions.length !== 1 ? "s" : ""}
         </span>
@@ -196,7 +196,7 @@ export function FanOutSessionList({ sessions }: FanOutSessionListProps) {
       </button>
 
       {expanded && (
-        <div className="space-y-1 pl-2 border-l border-slate-700/50">
+        <div className="space-y-1 pl-2 border-l border-slate-200/50 dark:border-slate-700/50">
           {sessions.map((s) => {
             const cfg = sessionStatusConfig[s.status];
             const Icon = cfg.icon;
@@ -213,7 +213,7 @@ export function FanOutSessionList({ sessions }: FanOutSessionListProps) {
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Icon size={11} className={cfg.colour} />
                   <span
-                    className="text-slate-300 truncate max-w-[140px]"
+                    className="text-slate-700 dark:text-slate-300 truncate max-w-[140px]"
                     title={s.section}
                   >
                     {s.section}
@@ -226,7 +226,7 @@ export function FanOutSessionList({ sessions }: FanOutSessionListProps) {
                     </span>
                   )}
                   {(s.evaluatorScores?.retryCount ?? 0) > 0 && (
-                    <span className="flex items-center gap-0.5 text-orange-400">
+                    <span className="flex items-center gap-0.5 text-orange-700 dark:text-orange-400">
                       <RefreshCw size={9} />
                       {s.evaluatorScores!.retryCount}
                     </span>
@@ -279,12 +279,12 @@ export default function SessionMetadataCard({
       <div className="flex items-center gap-2 flex-wrap">
         {hasScores && <EvaluatorScoreBadge scores={evaluatorScores} />}
         {hasPhases && (
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-slate-600 dark:text-slate-400">
             {countCompletedPhases(phases).completed}/{phases.length} phases
           </span>
         )}
         {hasFanOut && (
-          <span className="flex items-center gap-1 text-xs text-slate-400">
+          <span className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
             <GitBranch size={11} />
             {fanOutSessions.length}
           </span>
@@ -294,7 +294,7 @@ export default function SessionMetadataCard({
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-slate-700/50 space-y-3">
+    <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-700/50 space-y-3">
       {hasPhases && <PhaseProgressBar phases={phases} />}
       {hasScores && <EvaluatorScoreBreakdown scores={evaluatorScores} />}
       {hasFanOut && <FanOutSessionList sessions={fanOutSessions} />}

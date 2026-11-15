@@ -126,17 +126,17 @@ export function OrganizationProfileSetting() {
   return (
     <section
       id="organisation-profile"
-      className="rounded-xl border border-slate-700/80 bg-slate-800/40 p-5 scroll-mt-24"
+      className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-100/40 dark:bg-slate-800/40 p-5 scroll-mt-24"
       aria-labelledby="organisation-profile-title"
     >
       <div className="mb-4">
-        <h2 id="organisation-profile-title" className="font-medium text-white">
+        <h2 id="organisation-profile-title" className="font-medium text-slate-900 dark:text-white">
           Organisation profile
         </h2>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           Legal name, region and branding printed on PDFs after setup. ABN and NZBN
           sit in{" "}
-          <a href="#organisation-locale-title" className="text-cyan-400 hover:underline">
+          <a href="#organisation-locale-title" className="text-cyan-700 dark:text-cyan-400 hover:underline">
             Organisation locale
           </a>
           .
@@ -144,14 +144,14 @@ export function OrganizationProfileSetting() {
       </div>
 
       {loading ? (
-        <p role="status" className="text-sm text-slate-400">
+        <p role="status" className="text-sm text-slate-600 dark:text-slate-400">
           Loading organisation profile…
         </p>
       ) : (
         <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <label htmlFor="org-legal-name" className="text-sm text-slate-200">
+              <label htmlFor="org-legal-name" className="text-sm text-slate-800 dark:text-slate-200">
                 Legal name
               </label>
               <Input
@@ -160,11 +160,11 @@ export function OrganizationProfileSetting() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, legalName: e.target.value }))
                 }
-                className="border-slate-600 bg-slate-900 text-white"
+                className="border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
               />
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="org-trading-name" className="text-sm text-slate-200">
+              <label htmlFor="org-trading-name" className="text-sm text-slate-800 dark:text-slate-200">
                 Trading name (optional)
               </label>
               <Input
@@ -173,30 +173,30 @@ export function OrganizationProfileSetting() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, tradingName: e.target.value }))
                 }
-                className="border-slate-600 bg-slate-900 text-white"
+                className="border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
               />
             </div>
             <div className="space-y-1.5 md:col-span-2">
-              <label htmlFor="org-state" className="text-sm text-slate-200">
+              <label htmlFor="org-state" className="text-sm text-slate-800 dark:text-slate-200">
                 State / region
               </label>
               <Input
                 id="org-state"
                 value={form.state}
                 onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
-                className="border-slate-600 bg-slate-900 text-white"
+                className="border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
               />
             </div>
           </div>
 
-          <div className="space-y-3 border-t border-slate-700 pt-4">
-            <h3 className="text-sm font-medium text-slate-200">Logo and colours</h3>
+          <div className="space-y-3 border-t border-slate-200 dark:border-slate-700 pt-4">
+            <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">Logo and colours</h3>
             <div className="flex flex-wrap items-center gap-4">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-slate-600 bg-slate-900"
+                className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-slate-600 bg-white dark:bg-slate-900"
               >
                 {form.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -206,7 +206,7 @@ export function OrganizationProfileSetting() {
                     className="h-full w-full object-contain p-1"
                   />
                 ) : (
-                  <span className="text-xs text-slate-400">Add logo</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">Add logo</span>
                 )}
               </button>
               <div className="flex flex-col gap-2">
@@ -235,7 +235,7 @@ export function OrganizationProfileSetting() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <label htmlFor="org-primary" className="text-sm text-slate-200">
+                <label htmlFor="org-primary" className="text-sm text-slate-800 dark:text-slate-200">
                   Primary colour
                 </label>
                 <Input
@@ -244,11 +244,11 @@ export function OrganizationProfileSetting() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, primaryColor: e.target.value }))
                   }
-                  className="border-slate-600 bg-slate-900 text-white font-mono"
+                  className="border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono"
                 />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="org-accent" className="text-sm text-slate-200">
+                <label htmlFor="org-accent" className="text-sm text-slate-800 dark:text-slate-200">
                   Accent colour
                 </label>
                 <Input
@@ -257,16 +257,16 @@ export function OrganizationProfileSetting() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, accentColor: e.target.value }))
                   }
-                  className="border-slate-600 bg-slate-900 text-white font-mono"
+                  className="border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono"
                 />
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-700 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-700 pt-4">
             <p className="text-xs text-slate-500">
               Trial accounts use Basic reports only.{" "}
-              <Link href={PAID_BASE_PLAN_UPGRADE_HREF} className="text-cyan-400 hover:underline">
+              <Link href={PAID_BASE_PLAN_UPGRADE_HREF} className="text-cyan-700 dark:text-cyan-400 hover:underline">
                 Upgrade
               </Link>{" "}
               for Enhanced, Optimised and PDF import.

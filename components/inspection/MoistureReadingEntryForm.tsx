@@ -241,7 +241,7 @@ export function MoistureReadingEntryForm({
           <button
             type="button"
             onClick={onCancel}
-            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-400"
+            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400"
           >
             <X size={16} />
           </button>
@@ -289,7 +289,7 @@ export function MoistureReadingEntryForm({
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="Describe the location"
                 aria-label="Room not on the plan"
-                className="mt-2 w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+                className="mt-2 w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-600 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
               />
             )}
           </>
@@ -300,7 +300,7 @@ export function MoistureReadingEntryForm({
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="e.g. Living Room North Wall"
-            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-600 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
           />
         )}
       </div>
@@ -462,7 +462,7 @@ export function MoistureReadingEntryForm({
         </div>
         {/* BLE source indicator */}
         {source === "ble" && (
-          <div className="flex items-center gap-1 mb-1 text-xs text-cyan-600 dark:text-cyan-400">
+          <div className="flex items-center gap-1 mb-1 text-xs text-cyan-700 dark:text-cyan-400">
             <Bluetooth size={11} />
             <span>Value from paired meter — confirm before saving</span>
           </div>
@@ -543,7 +543,7 @@ export function MoistureReadingEntryForm({
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Additional observations…"
           rows={2}
-          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 resize-none"
+          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-600 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 resize-none"
         />
       </div>
 

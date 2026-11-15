@@ -658,14 +658,14 @@ function DashboardContent({
         </div>
       )}
 
-      <header className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-indigo-950 to-cyan-950 p-6 shadow-xl shadow-cyan-950/25 sm:p-8 dark:shadow-black/50">
+      <header className="dark relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-indigo-950 to-cyan-950 p-6 shadow-xl shadow-cyan-950/25 sm:p-8 dark:shadow-black/50">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.08)_0%,transparent_42%,rgba(34,211,238,0.06)_100%)]"
         />
         <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
           <div className="min-w-0 space-y-4">
-            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-800 dark:text-cyan-200/90">
               <Sparkles className="h-3.5 w-3.5" aria-hidden />
               Workspace overview
             </p>

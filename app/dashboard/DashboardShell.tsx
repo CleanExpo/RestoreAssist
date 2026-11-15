@@ -273,7 +273,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen flex items-center justify-center",
-          "bg-slate-950",
+          "bg-slate-50 dark:bg-slate-950",
         )}
       >
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
@@ -286,7 +286,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen flex items-center justify-center",
-          "bg-slate-950",
+          "bg-slate-50 dark:bg-slate-950",
         )}
       >
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
@@ -582,7 +582,7 @@ export default function DashboardShell({
           "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-deep",
           item.adminOnly
             ? cn(
-                "text-neutral-500 dark:text-slate-500",
+                "text-neutral-600 dark:text-slate-500",
                 "hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
                 active &&
                   "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 font-medium",
@@ -621,7 +621,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen",
-          "bg-slate-950",
+          "bg-slate-50 dark:bg-slate-950",
           "text-neutral-900 dark:text-slate-50",
         )}
       >
@@ -637,9 +637,9 @@ export default function DashboardShell({
         <aside
           className={cn(
             "fixed left-0 top-0 h-screen transition-all duration-300 z-40 flex flex-col",
-            advanced ? advancedDashboardSidebarShell : "bg-brand-deep",
+            advanced ? advancedDashboardSidebarShell : "bg-white dark:bg-brand-deep",
             advanced
-              ? "border-r border-white/5"
+              ? "border-r border-black/10 dark:border-white/5"
               : "border-r border-neutral-200 dark:border-slate-800",
             // Mobile: slide in/out, always w-64 when visible
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
@@ -665,7 +665,7 @@ export default function DashboardShell({
                     className={cn(
                       "font-semibold text-sm",
                       advanced
-                        ? "text-white"
+                        ? "text-slate-900 dark:text-white"
                         : "text-neutral-900 dark:text-slate-50",
                     )}
                   >
@@ -675,8 +675,8 @@ export default function DashboardShell({
                     className={cn(
                       "text-[10px] font-normal leading-tight",
                       advanced
-                        ? "text-cyan-200/60"
-                        : "text-neutral-500 dark:text-slate-400",
+                        ? "text-cyan-800/70 dark:text-cyan-200/60"
+                        : "text-neutral-600 dark:text-slate-400",
                     )}
                   >
                     {isTechnician
@@ -726,7 +726,7 @@ export default function DashboardShell({
                         className={cn(
                           advanced
                             ? advancedDashboardSidebarGroupLabel
-                            : "text-[10px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-slate-500 mt-3 mb-1 px-2 first:mt-0",
+                            : "text-[10px] font-semibold uppercase tracking-widest text-neutral-600 dark:text-slate-500 mt-3 mb-1 px-2 first:mt-0",
                         )}
                       >
                         {group.label}
@@ -738,7 +738,7 @@ export default function DashboardShell({
                           className={cn(
                             "border-t",
                             advanced
-                              ? "border-white/10"
+                              ? "border-black/10 dark:border-white/10"
                               : "border-neutral-200 dark:border-slate-700",
                           )}
                         />
@@ -901,7 +901,7 @@ export default function DashboardShell({
                   <p className="max-w-[11rem] truncate text-sm font-medium text-neutral-900 dark:text-slate-50 lg:max-w-[14rem]">
                     {session?.user?.name}
                   </p>
-                  <p className="max-w-[11rem] truncate text-xs text-neutral-500 dark:text-slate-400 lg:max-w-[14rem]">
+                  <p className="max-w-[11rem] truncate text-xs text-neutral-600 dark:text-slate-400 lg:max-w-[14rem]">
                     {session?.user?.email}
                   </p>
                 </div>
@@ -923,12 +923,12 @@ export default function DashboardShell({
           {profileLoadError ? (
             <div
               role="alert"
-              className="flex flex-wrap items-center justify-center gap-3 border-b border-amber-500/30 bg-amber-950/80 px-4 py-2 text-sm text-amber-100"
+              className="flex flex-wrap items-center justify-center gap-3 border-b border-amber-500/30 bg-amber-50 dark:bg-amber-950/80 px-4 py-2 text-sm text-amber-900 dark:text-amber-100"
             >
               <span>{profileLoadError}</span>
               <button
                 type="button"
-                className="rounded-md border border-amber-400/50 px-2 py-0.5 text-xs font-medium hover:bg-amber-900/60"
+                className="rounded-md border border-amber-600/50 dark:border-amber-400/50 px-2 py-0.5 text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/60"
                 onClick={() => {
                   if (
                     status === "authenticated" &&
@@ -1018,7 +1018,7 @@ export default function DashboardShell({
                 )}
                 {!isTechnician && advanced && (
                   <p className="mb-4 text-xs font-medium text-muted-foreground">
-                    <span className="text-cyan-600 dark:text-cyan-400">
+                    <span className="text-cyan-700 dark:text-cyan-400">
                       Advanced workspace
                     </span>
                     {" — "}

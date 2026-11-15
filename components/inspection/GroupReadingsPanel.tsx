@@ -179,7 +179,7 @@ export function GroupReadingsPanel({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="text-xs text-neutral-500 dark:text-slate-400">
+        <div className="text-xs text-neutral-600 dark:text-slate-400">
           Auto-group readings into affected areas (IICRC S500:2021 §6)
         </div>
         <Button
@@ -204,7 +204,7 @@ export function GroupReadingsPanel({
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Sparkles
-                className="size-4 text-cyan-600 dark:text-cyan-400"
+                className="size-4 text-cyan-700 dark:text-cyan-400"
                 aria-hidden="true"
               />
               Proposed affected-area groups
@@ -222,7 +222,7 @@ export function GroupReadingsPanel({
                 >
                   <div className="flex items-center gap-2">
                     <Pencil
-                      className="size-3.5 text-neutral-400"
+                      className="size-3.5 text-neutral-600 dark:text-neutral-400"
                       aria-hidden="true"
                     />
                     <Label htmlFor={`group-name-${idx}`} className="sr-only">
@@ -264,7 +264,7 @@ export function GroupReadingsPanel({
                       </li>
                     ))}
                   </ul>
-                  <div className="text-xs text-neutral-400">
+                  <div className="text-xs text-neutral-600 dark:text-neutral-400">
                     {selectedCount} of {g.readingIds.length} selected
                   </div>
                 </div>

@@ -272,7 +272,7 @@ export default function SettingsPage() {
         <h2 className="text-2xl font-semibold text-white mb-2">
           Please log in
         </h2>
-        <p className="text-slate-400">
+        <p className="text-slate-600 dark:text-slate-400">
           You need to be logged in to view your profile.
         </p>
       </div>
@@ -315,7 +315,7 @@ export default function SettingsPage() {
               type="button"
               onClick={() => fetchProfile(true)}
               disabled={refreshing}
-              className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-600 px-4 py-2 hover:bg-slate-700/50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-600 px-4 py-2 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCw
                 className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
@@ -349,7 +349,7 @@ export default function SettingsPage() {
       {profileError && (
         <div
           role="alert"
-          className="flex items-start gap-3 p-4 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200"
+          className="flex items-start gap-3 p-4 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200"
         >
           <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
@@ -380,28 +380,28 @@ export default function SettingsPage() {
       {/* Workstream C — Connections hub entry */}
       <a
         href="/dashboard/settings/connections"
-        className="flex items-center justify-between gap-4 rounded-xl border border-slate-700/80 bg-slate-800/40 px-5 py-4 hover:bg-slate-800/70 transition-colors"
+        className="flex items-center justify-between gap-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-100/40 dark:bg-slate-800/40 px-5 py-4 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors"
       >
         <div className="flex items-start gap-3 min-w-0">
           <div className="rounded-lg bg-cyan-500/15 p-2 shrink-0">
-            <Key className="w-5 h-5 text-cyan-400" />
+            <Key className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
           </div>
           <div className="min-w-0">
-            <p className="font-medium text-white">Connections</p>
-            <p className="text-sm text-slate-400 mt-0.5">
+            <p className="font-medium text-slate-900 dark:text-white">Connections</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
               AI providers, Mailtrap email, and cloud mirror — live status in one
               place.
             </p>
           </div>
         </div>
-        <span className="text-sm text-cyan-400 shrink-0">Open →</span>
+        <span className="text-sm text-cyan-700 dark:text-cyan-400 shrink-0">Open →</span>
       </a>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Profile Information */}
         <div className="lg:col-span-2 space-y-6">
           {/* Personal Information */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <div className="p-6 rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/30 dark:bg-slate-800/30">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <User className="w-5 h-5" />
@@ -409,7 +409,7 @@ export default function SettingsPage() {
               </h2>
               <button
                 onClick={() => setEditing(!editing)}
-                className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-600 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
               >
                 <Edit className="w-4 h-4" />
                 {editing ? "Cancel" : "Edit"}
@@ -433,10 +433,10 @@ export default function SettingsPage() {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                     {profile?.name || session?.user?.name || "User Name"}
                   </h3>
-                  <p className="text-slate-400 text-sm">
+                  <p className="text-slate-600 dark:text-slate-400 text-sm">
                     {profile?.email ||
                       session?.user?.email ||
                       "user@example.com"}
@@ -455,10 +455,10 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
                   />
                 ) : (
-                  <p className="text-slate-300">
+                  <p className="text-slate-700 dark:text-slate-300">
                     {profile?.name || session?.user?.name || "Not provided"}
                   </p>
                 )}
@@ -475,10 +475,10 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
                   />
                 ) : (
-                  <p className="text-slate-300">
+                  <p className="text-slate-700 dark:text-slate-300">
                     {profile?.email || session?.user?.email || "Not provided"}
                   </p>
                 )}
@@ -488,7 +488,7 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium mb-2">
                   Member Since
                 </label>
-                <p className="text-slate-300">
+                <p className="text-slate-700 dark:text-slate-300">
                   {formatDate(profile?.createdAt) || "Recently"}
                 </p>
               </div>
@@ -503,7 +503,7 @@ export default function SettingsPage() {
                   </button>
                   <button
                     onClick={() => setEditing(false)}
-                    className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                    className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
                   >
                     Cancel
                   </button>
@@ -513,7 +513,7 @@ export default function SettingsPage() {
           </div>
 
           {/* RA-6952 — Restoration Pulse review-ask link */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <div className="p-6 rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/30 dark:bg-slate-800/30">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold">Google review link</h2>
               <button
@@ -522,12 +522,12 @@ export default function SettingsPage() {
                   setReviewUrlError(null);
                   setEditingReviewUrl(!editingReviewUrl);
                 }}
-                className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-600 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
               >
                 {editingReviewUrl ? "Cancel" : "Edit"}
               </button>
             </div>
-            <p className="text-sm text-slate-400 mb-4">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
               When set, a one-off review-ask email is sent to the client after
               a job closes, linking here. Leave blank to keep this off.
             </p>
@@ -540,7 +540,7 @@ export default function SettingsPage() {
                   onChange={(e) => setReviewUrlDraft(e.target.value)}
                 />
                 {reviewUrlError && (
-                  <p className="text-sm text-red-400">{reviewUrlError}</p>
+                  <p className="text-sm text-red-700 dark:text-red-400">{reviewUrlError}</p>
                 )}
                 <div className="flex gap-3">
                   <button
@@ -552,33 +552,33 @@ export default function SettingsPage() {
                   </button>
                   <button
                     onClick={() => setEditingReviewUrl(false)}
-                    className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                    className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
                   >
                     Cancel
                   </button>
                 </div>
               </div>
             ) : (
-              <p className="text-slate-300 break-all">
+              <p className="text-slate-700 dark:text-slate-300 break-all">
                 {reviewUrl || "Not set"}
               </p>
             )}
           </div>
 
           {/* Account Actions */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <div className="p-6 rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/30 dark:bg-slate-800/30">
             <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
               <Key className="w-5 h-5" />
               Account Actions
             </h2>
 
             <div className="space-y-4">
-              <button type="button" className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation">
+              <button type="button" className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors touch-manipulation">
                 <Bell className="w-4 h-4" />
                 <span>Notification Preferences</span>
               </button>
 
-              <button type="button" className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation">
+              <button type="button" className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors touch-manipulation">
                 <Download className="w-4 h-4" />
                 <span>Export Data</span>
               </button>
@@ -586,7 +586,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                className="w-full flex items-center gap-3 px-4 py-3 border border-red-600 text-red-400 rounded-lg hover:bg-red-600/10 transition-colors touch-manipulation"
+                className="w-full flex items-center gap-3 px-4 py-3 border border-red-600 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-600/10 transition-colors touch-manipulation"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Delete Account</span>
@@ -599,7 +599,7 @@ export default function SettingsPage() {
         <BillingGate fallback={null}>
         <div className="space-y-6">
           {/* Subscription Status */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <div className="p-6 rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/30 dark:bg-slate-800/30">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Crown className="w-5 h-5" />
               Subscription
@@ -626,7 +626,7 @@ export default function SettingsPage() {
               {profile?.subscriptionPlan && (
                 <div>
                   <label className="block text-sm font-medium mb-2">Plan</label>
-                  <p className="text-slate-300">{profile.subscriptionPlan}</p>
+                  <p className="text-slate-700 dark:text-slate-300">{profile.subscriptionPlan}</p>
                 </div>
               )}
 
@@ -635,7 +635,7 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium mb-2">
                     Trial Ends
                   </label>
-                  <p className="text-slate-300">
+                  <p className="text-slate-700 dark:text-slate-300">
                     {formatDate(profile.trialEndsAt)}
                   </p>
                 </div>
@@ -646,7 +646,7 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium mb-2">
                     Next Billing
                   </label>
-                  <p className="text-slate-300">
+                  <p className="text-slate-700 dark:text-slate-300">
                     {formatDate(profile.nextBillingDate)}
                   </p>
                 </div>
@@ -665,7 +665,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Credits */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <div className="p-6 rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/30 dark:bg-slate-800/30">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Zap className="w-5 h-5" />
               Credits
@@ -676,7 +676,7 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium mb-2">
                   Remaining
                 </label>
-                <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+                <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400 flex items-center gap-2">
                   {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
                   {profileError ? "Unavailable" : profile?.creditsRemaining || 0}
                 </div>
@@ -686,12 +686,12 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium mb-2">
                   Used This Month
                 </label>
-                <div className="text-lg text-slate-300">
+                <div className="text-lg text-slate-700 dark:text-slate-300">
                   {profileError ? "Unavailable" : profile?.totalCreditsUsed || 0}
                 </div>
               </div>
 
-              <div className="w-full bg-slate-700 rounded-full h-2">
+              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                 <div
                   className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
                   style={{
@@ -718,7 +718,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Security */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          <div className="p-6 rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/30 dark:bg-slate-800/30">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Shield className="w-5 h-5" />
               Security
@@ -726,25 +726,25 @@ export default function SettingsPage() {
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">
+                <span className="text-sm text-slate-700 dark:text-slate-300">
                   Two-Factor Authentication
                 </span>
                 <span className="text-xs text-slate-500">Not enabled</span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">Login Sessions</span>
+                <span className="text-sm text-slate-700 dark:text-slate-300">Login Sessions</span>
                 <span className="text-xs text-slate-500">1 active</span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">Last Login</span>
+                <span className="text-sm text-slate-700 dark:text-slate-300">Last Login</span>
                 <span className="text-xs text-slate-500">Today</span>
               </div>
 
               {isCapacitorIOS() && (
                 <div className="flex items-center justify-between">
-                  <label htmlFor="biometric-lock" className="text-sm text-slate-300 cursor-pointer">
+                  <label htmlFor="biometric-lock" className="text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
                     Require Face ID to unlock
                   </label>
                   <input
