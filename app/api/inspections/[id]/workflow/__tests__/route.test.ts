@@ -34,11 +34,15 @@ vi.mock("@/lib/prisma", () => ({
     inspection: { findFirst: vi.fn() },
     inspectionWorkflow: { findUnique: vi.fn(), update: vi.fn() },
     workflowStep: { update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn() },
+    evidenceItem: { findMany: vi.fn() },
+    exceptionReason: { findMany: vi.fn() },
   },
 }));
 
 import { prisma } from "@/lib/prisma";
-import { PATCH } from "../route";
+import { GET, PATCH } from "../route";
+import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
+import { countableEvidence } from "@/lib/evidence/countable-evidence";
 
 const p = prisma as unknown as {
   inspection: { findFirst: ReturnType<typeof vi.fn> };
@@ -111,6 +115,36 @@ describe("PATCH /api/inspections/[id]/workflow — step ownership", () => {
       expect.objectContaining({
         where: expect.objectContaining({ id: "step_1", workflowId: "wf_1" }),
       }),
+    );
+  });
+});
+
+// RA-8388: the capture page counts each step's progress from this list. A
+// retired reading's evidence record must not be in it, or the step reads
+// five of five with four valid readings.
+describe("GET /api/inspections/[id]/workflow — evidence that counts", () => {
+  it("loads only evidence that counts", async () => {
+    vi.mocked(assertInspectionReadable).mockResolvedValue({
+      ok: true,
+      data: {},
+    } as never);
+    const pg = prisma as unknown as {
+      inspectionWorkflow: { findUnique: ReturnType<typeof vi.fn> };
+      evidenceItem: { findMany: ReturnType<typeof vi.fn> };
+      exceptionReason: { findMany: ReturnType<typeof vi.fn> };
+    };
+    pg.inspectionWorkflow.findUnique.mockResolvedValue({ id: "wf_1", steps: [] });
+    pg.evidenceItem.findMany.mockResolvedValue([]);
+    pg.exceptionReason.findMany.mockResolvedValue([]);
+
+    const res = await GET(
+      new NextRequest("http://localhost/api/inspections/insp_1/workflow"),
+      { params: Promise.resolve({ id: "insp_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(pg.evidenceItem.findMany.mock.calls[0][0].where).toEqual(
+      countableEvidence({ inspectionId: "insp_1" }),
     );
   });
 });

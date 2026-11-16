@@ -42,6 +42,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { GET } from "../route";
+import { COUNTABLE_EVIDENCE_WHERE } from "@/lib/evidence/countable-evidence";
 
 const ORG_A = "org-a-ra7566";
 const ORG_B = "org-b-ra7566";
@@ -296,5 +297,27 @@ describe("GET /api/admin/evidence-review (RA-7566)", () => {
     expect(ids).toContain("insp-a");
     expect(ids).not.toContain("insp-b");
     await assertNoForeignLeak(res, body);
+  });
+
+  // RA-8388: a step whose fifth reading was retired is short of its minimum.
+  it("counts only evidence that counts toward each step's minimum", async () => {
+    signInAsOrgAAdmin();
+
+    await GET(request());
+
+    const arg = inspectionFindMany.mock.calls.at(-1)?.[0] as {
+      select: {
+        inspectionWorkflow: {
+          select: {
+            steps: {
+              select: { _count: { select: { evidenceItems: unknown } } };
+            };
+          };
+        };
+      };
+    };
+    expect(
+      arg.select.inspectionWorkflow.select.steps.select._count.select.evidenceItems,
+    ).toEqual({ where: COUNTABLE_EVIDENCE_WHERE });
   });
 });

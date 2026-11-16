@@ -96,9 +96,9 @@ export async function POST(
             // mistake. It must not feed the area checks, the "at least one
             // reading" check, classification or the building-code check.
             // Same rule as the PDF route.
-            // NOT covered here: the workflow's five-reading count is taken
-            // from evidence items, and retiring a reading does not retire
-            // its evidence item, so that count still includes it.
+            // The workflow's five-reading count is taken from evidence
+            // items; lib/evidence/countable-evidence.ts leaves a retired
+            // reading's record out of that count.
             where: { invalidatedAt: null },
             select: {
               id: true,

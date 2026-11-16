@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { getWorkflowTemplate, buildWorkflowStepsData } from "@/lib/evidence";
 import type { JobType } from "@/lib/evidence";
 import { apiError, fromException } from "@/lib/api-errors";
+import { countableEvidence } from "@/lib/evidence/countable-evidence";
 import {
   assertInspectionAssignedWrite,
   assertInspectionReadable,
@@ -61,8 +62,11 @@ export async function GET(
     }
 
     // Load evidence items for this inspection (grouped by step)
+    // RA-8388: the capture page counts step progress from this list, so it
+    // holds only evidence that counts. A retired reading's record stays in
+    // the database and on the evidence list; it is left out here.
     const evidenceItems = await prisma.evidenceItem.findMany({
-      where: { inspectionId },
+      where: countableEvidence({ inspectionId }),
       orderBy: { capturedAt: "desc" },
       take: 500,
     });
