@@ -408,7 +408,7 @@ export default function NewInvoicePage() {
         primaryAction={
           <Link
             href="/dashboard/invoices"
-            onClick={(e) => {
+            onNavigate={(e) => {
               if (!isDirty) return;
               e.preventDefault();
               void leaveTo("/dashboard/invoices");
