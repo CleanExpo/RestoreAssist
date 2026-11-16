@@ -1,5 +1,5 @@
 {
-  "_comment": "RA-8395. Files that send method DELETE without a shared confirm component (see scripts/check-delete-confirm.mjs). Each reason was checked by opening the file. KNOWN GAP entries are real one-click deletes waiting on their own ticket; remove the entry when fixed. The check fails on any entry that goes stale.",
+  "_comment": "RA-8395. Files that send method DELETE without a shared confirm component (see scripts/check-delete-confirm.mjs). Each reason comes from a trace of the file's trigger path (RA-8395). KNOWN GAP entries are real one-click deletes waiting on their own ticket; remove the entry when fixed. The check fails on any entry that goes stale.",
   "entries": [
     { "file": "app/dashboard/clients/[id]/portal/page.tsx", "reason": "Own inline confirm: Revoke shows a 'Yes, revoke' row before handleRevoke runs." },
     { "file": "app/dashboard/clients/page.tsx", "reason": "Single and bulk delete each open their own modal (DeleteClientModal, BulkDeleteModal) before the DELETE." },
