@@ -24,27 +24,70 @@ const moistureCreate = vi.fn();
 const environmentalFindMany = vi.fn();
 const environmentalCreate = vi.fn();
 const evidenceItemFindMany = vi.fn();
+const inspectionFindFirst = vi.fn();
+const clientSubmissionFindMany = vi.fn(
+  async (..._args: unknown[]): Promise<unknown[]> => [],
+);
+/**
+ * What the plan's reads were wrapped in. `transactionOptions` holds the
+ * options every `$transaction` was opened with; `readsOutsideTransaction`
+ * counts table reads made on the bare client, which must stay 0 for a plan.
+ */
+const snapshot = vi.hoisted(() => ({
+  transactionOptions: [] as unknown[],
+  readsOutsideTransaction: 0,
+  inside: false,
+}));
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const read =
+    (fn: (...args: unknown[]) => unknown) =>
+    (...args: unknown[]) => {
+      if (!snapshot.inside) snapshot.readsOutsideTransaction += 1;
+      return fn(...args);
+    };
+  const client = {
+    inspection: {
+      findFirst: (...args: unknown[]) => inspectionFindFirst(...args),
+    },
+    clientEvidenceSubmission: {
+      findMany: read((...args: unknown[]) => clientSubmissionFindMany(...args)),
+    },
     inspectionPhoto: {
-      findMany: (...args: unknown[]) => inspectionPhotoFindMany(...args),
+      findMany: read((...args: unknown[]) => inspectionPhotoFindMany(...args)),
       create: (...args: unknown[]) => inspectionPhotoCreate(...args),
     },
     moistureReading: {
-      findMany: (...args: unknown[]) => moistureFindMany(...args),
+      findMany: read((...args: unknown[]) => moistureFindMany(...args)),
       create: (...args: unknown[]) => moistureCreate(...args),
     },
     environmentalData: {
-      findMany: (...args: unknown[]) => environmentalFindMany(...args),
+      findMany: read((...args: unknown[]) => environmentalFindMany(...args)),
       create: (...args: unknown[]) => environmentalCreate(...args),
     },
     evidenceItem: {
-      findMany: (...args: unknown[]) => evidenceItemFindMany(...args),
+      findMany: read((...args: unknown[]) => evidenceItemFindMany(...args)),
     },
     $disconnect: vi.fn(),
-  },
-}));
+  };
+  return {
+    prisma: {
+      ...client,
+      $transaction: async (
+        fn: (tx: typeof client) => Promise<unknown>,
+        options?: unknown,
+      ) => {
+        snapshot.transactionOptions.push(options);
+        snapshot.inside = true;
+        try {
+          return await fn(client);
+        } finally {
+          snapshot.inside = false;
+        }
+      },
+    },
+  };
+});
 
 import {
   BACKFILL_PAGE,
@@ -52,6 +95,7 @@ import {
   applyInspectionBackfill,
   decideBackfill,
   environmentalFingerprint,
+  formatPlan,
   inspectionIdFromArgv,
   isOldShapeMetadata,
   moistureFingerprint,
@@ -62,6 +106,8 @@ import {
   type BackfillEvidenceItem,
   type ExistingAuthoritativeRows,
 } from "../backfill-evidence-authoritative-rows";
+import { exemptFromSigningPolicy } from "@/lib/evidence/signing-policy";
+import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
 
 const CAPTURED_AT = new Date("2026-11-14T02:15:00.000Z");
 
@@ -90,8 +136,49 @@ function item(
     thumbnailUrl: null,
     fileMimeType: null,
     fileSizeBytes: null,
+    matchesClientSubmission: false,
     ...overrides,
   };
+}
+
+/**
+ * What the promote-client route stamps on every record it writes, built by
+ * the SAME two calls that route makes (promote-client/route.ts). Not a
+ * hand-written literal: if the key or the value the sanitiser writes ever
+ * changes, this fixture changes with it and the tests below fail, instead
+ * of the backfill quietly going back to counting client photographs.
+ */
+const PROMOTED_STRUCTURED_DATA = buildEvidenceStructuredData({
+  fileSha256: null,
+  downgradeReason: exemptFromSigningPolicy("CLIENT_PORTAL_PROMOTION")
+    .downgradeReason,
+});
+
+/** A stored photograph record, in the shape `evidenceItem.findMany` returns. */
+function storedPhoto(id: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    inspectionId: "insp-1",
+    evidenceClass: "PHOTO_DAMAGE",
+    description: null,
+    roomName: null,
+    structuredData: null,
+    capturedAt: CAPTURED_AT,
+    capturedLat: null,
+    capturedLng: null,
+    fileUrl: `https://storage.example/evidence/${id}.jpg`,
+    thumbnailUrl: null,
+    fileMimeType: "image/jpeg",
+    fileSizeBytes: 100,
+    ...overrides,
+  };
+}
+
+function digestFrom(lines: string[]): string {
+  const line = lines.find((l) => l.includes("plan digest:"));
+  const match = line?.match(/plan digest: ([0-9a-f]{64})/);
+  if (!match) throw new Error(`no plan digest in: ${lines.join(" | ")}`);
+  return match[1];
 }
 
 const MOISTURE_PAYLOAD = JSON.stringify({
@@ -321,7 +408,6 @@ describe("RA-8388 authoritative-row backfill: what it refuses", () => {
         null,
       ],
       ["AUTHORITY_FORM", null, "image/jpeg"],
-      ["PHOTO_DAMAGE", null, "application/pdf"],
     ] as const) {
       const decision = decideBackfill(
         item({
@@ -338,6 +424,20 @@ describe("RA-8388 authoritative-row backfill: what it refuses", () => {
         reason: "no-authoritative-table",
       });
     }
+
+    // A PDF stored under a photograph class still writes no row, but it is
+    // no longer folded into "no authoritative table": a photograph class
+    // that does not count is listed for a person, never skipped silently.
+    const pdf = decideBackfill(
+      item({
+        id: "ev-pdf-as-photo",
+        evidenceClass: "PHOTO_DAMAGE",
+        fileMimeType: "application/pdf",
+        fileUrl: "https://storage.example/evidence/f",
+      }),
+      emptyExisting(),
+    );
+    expect(pdf).toEqual({ kind: "report", reason: "photo-not-image-type" });
   });
 
   it("reports a photo class whose file URL is missing instead of writing a row with none", () => {
@@ -564,6 +664,16 @@ describe("RA-8388 backfill: the database side", () => {
     inspectionPhotoCreate.mockResolvedValue({ id: "photo-1" });
     moistureCreate.mockResolvedValue({ id: "mr-1" });
     environmentalCreate.mockResolvedValue({ id: "ed-1" });
+    clientSubmissionFindMany.mockResolvedValue([]);
+    // Resolves whatever it is asked for, by id, unless a test says otherwise.
+    inspectionFindFirst.mockImplementation(async (args: unknown) => {
+      const where = (args as { where: { OR: Array<Record<string, string>> } })
+        .where;
+      const id = where.OR.map((clause) => clause.id).find(Boolean) ?? "insp-1";
+      return { id, inspectionNumber: "NIR-2026-11-TEST01" };
+    });
+    snapshot.transactionOptions.length = 0;
+    snapshot.readsOutsideTransaction = 0;
   });
 
   it("fingerprints an existing row and a planned row with the same function", async () => {
@@ -631,12 +741,13 @@ describe("RA-8388 backfill: the database side", () => {
     ]);
 
     const lines: string[] = [];
-    const plan = await runInspectionBackfill(
+    const result = await runInspectionBackfill(
       ["--inspection", "insp-1"],
       (line) => lines.push(line),
     );
 
-    expect(plan?.write).toHaveLength(1);
+    expect(result.ok).toBe(true);
+    expect(result.plan?.write).toHaveLength(1);
     expect(inspectionPhotoCreate).not.toHaveBeenCalled();
     expect(lines.join("\n")).toContain("dry run");
   });
@@ -664,16 +775,21 @@ describe("RA-8388 backfill: the database side", () => {
 
     const written = await applyInspectionBackfill(plan);
 
-    expect(written).toBe(1);
+    expect(written).toEqual([
+      { table: "inspectionPhoto", id: "photo-1", evidenceItemId: "ev-photo-1" },
+    ]);
     expect(inspectionPhotoCreate).toHaveBeenCalledTimes(1);
     expect(moistureCreate).not.toHaveBeenCalled();
   });
 
   it("refuses to run without --inspection, so it can never sweep every job", async () => {
     const lines: string[] = [];
-    const plan = await runInspectionBackfill([], (line) => lines.push(line));
+    const result = await runInspectionBackfill([], (line) => lines.push(line));
 
-    expect(plan).toBeNull();
+    // Not ok, so the command exits non-zero: a missing scope must never
+    // read as a clean run with nothing to do.
+    expect(result.ok).toBe(false);
+    expect(result.plan).toBeNull();
     expect(evidenceItemFindMany).not.toHaveBeenCalled();
     expect(lines.join("\n")).toContain("--inspection <id> is required");
   });
@@ -693,5 +809,302 @@ describe("RA-8388 backfill: the database side", () => {
       database: "restoreassist",
     });
     expect(JSON.stringify(target)).not.toContain("hunter2");
+  });
+});
+
+/**
+ * Founder ruling 16/11/2026: a photograph a client sent through the portal
+ * and a technician accepted is evidence, and is never a counted photograph.
+ *
+ * The promote-client route stores it as PHOTO_DAMAGE with a mime type and a
+ * URL, which is exactly what the backfill looks for. Two signals mark it,
+ * and either one is enough:
+ *   - the downgrade reason every promotion has stamped since 26/07/2026;
+ *   - a `ClientEvidenceSubmission` on the same inspection with the same file
+ *     URL, which also covers promotions made before that marker existed.
+ */
+describe("RA-8388 backfill: client-promoted photographs never count", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    inspectionPhotoFindMany.mockResolvedValue([]);
+    moistureFindMany.mockResolvedValue([]);
+    environmentalFindMany.mockResolvedValue([]);
+    evidenceItemFindMany.mockResolvedValue([]);
+    clientSubmissionFindMany.mockResolvedValue([]);
+  });
+
+  it("a record carrying the promotion marker is reported, not written", () => {
+    const decision = decideBackfill(
+      item({
+        id: "ev-client-1",
+        evidenceClass: "PHOTO_DAMAGE",
+        fileUrl: "https://storage.example/portal/front-door.jpg",
+        fileMimeType: "image/jpeg",
+        structuredData: PROMOTED_STRUCTURED_DATA,
+      }),
+      emptyExisting(),
+    );
+    expect(decision).toEqual({ kind: "report", reason: "client-promoted" });
+  });
+
+  it("a record whose file matches a portal submission is reported even with no marker", () => {
+    const decision = decideBackfill(
+      item({
+        id: "ev-client-old",
+        evidenceClass: "PHOTO_DAMAGE",
+        fileUrl: "https://storage.example/portal/old.jpg",
+        fileMimeType: "image/jpeg",
+        matchesClientSubmission: true,
+      }),
+      emptyExisting(),
+    );
+    expect(decision).toEqual({ kind: "report", reason: "client-promoted" });
+  });
+
+  it("reads the portal submissions for the job and plans only the technician's photograph", async () => {
+    clientSubmissionFindMany.mockResolvedValue([
+      { fileUrl: "https://storage.example/evidence/ev-client-old.jpg" },
+    ]);
+    evidenceItemFindMany.mockResolvedValue([
+      storedPhoto("ev-tech"),
+      storedPhoto("ev-client-marked", {
+        structuredData: PROMOTED_STRUCTURED_DATA,
+      }),
+      // Promoted before the marker existed: nothing on the record says so.
+      storedPhoto("ev-client-old"),
+    ]);
+
+    const plan = await planInspectionBackfill("insp-1");
+
+    expect(clientSubmissionFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ inspectionId: "insp-1" }),
+      }),
+    );
+    expect(plan.write.map((row) => row.evidenceItemId)).toEqual(["ev-tech"]);
+    expect(
+      plan.report.map((row) => [row.evidenceItemId, row.reason]),
+    ).toEqual([
+      ["ev-client-marked", "client-promoted"],
+      ["ev-client-old", "client-promoted"],
+    ]);
+
+    // Named in the printed plan under its own reason, with its own count.
+    const text = formatPlan(plan, null).join("\n");
+    expect(text).toContain("client-promoted\tevidence=ev-client-marked");
+    expect(text).toContain("client-promoted\tevidence=ev-client-old");
+    expect(text).toMatch(/client-promoted photographs[^\n]*: 2/);
+  });
+
+  it("refuses to plan when the portal-submission read is cut off at the cap", async () => {
+    // A truncated list would let a client photograph past the join.
+    clientSubmissionFindMany.mockResolvedValue(
+      Array.from({ length: BACKFILL_PAGE }, () => ({ fileUrl: "u" })),
+    );
+    evidenceItemFindMany.mockResolvedValue([storedPhoto("ev-tech")]);
+
+    await expect(planInspectionBackfill("insp-1")).rejects.toBeInstanceOf(
+      BackfillPageCapError,
+    );
+  });
+
+  it("a photograph whose provenance cannot be read is reported, not assumed to be the technician's", () => {
+    const decision = decideBackfill(
+      item({
+        id: "ev-photo-bad-json",
+        evidenceClass: "PHOTO_DAMAGE",
+        fileUrl: "https://storage.example/evidence/x.jpg",
+        fileMimeType: "image/jpeg",
+        structuredData: "{not json",
+      }),
+      emptyExisting(),
+    );
+    expect(decision).toEqual({
+      kind: "report",
+      reason: "unreadable-structured-data",
+    });
+  });
+});
+
+/**
+ * The conditions a production run of this script has to meet. Each one is a
+ * way the previous version could report success on the wrong thing.
+ */
+describe("RA-8388 backfill: release preconditions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    inspectionPhotoFindMany.mockResolvedValue([]);
+    moistureFindMany.mockResolvedValue([]);
+    environmentalFindMany.mockResolvedValue([]);
+    evidenceItemFindMany.mockResolvedValue([storedPhoto("ev-photo-1")]);
+    clientSubmissionFindMany.mockResolvedValue([]);
+    inspectionPhotoCreate.mockResolvedValue({ id: "photo-new-1" });
+    moistureCreate.mockResolvedValue({ id: "mr-new-1" });
+    environmentalCreate.mockResolvedValue({ id: "ed-new-1" });
+    inspectionFindFirst.mockResolvedValue({
+      id: "insp-1",
+      inspectionNumber: "NIR-2026-11-B3F306",
+    });
+    snapshot.transactionOptions.length = 0;
+    snapshot.readsOutsideTransaction = 0;
+  });
+
+  async function run(argv: string[]) {
+    const lines: string[] = [];
+    const result = await runInspectionBackfill(argv, (line) =>
+      lines.push(line),
+    );
+    return { result, lines, text: lines.join("\n") };
+  }
+
+  it("accepts the job number and plans against the inspection it resolves to", async () => {
+    const { result, text } = await run(["--inspection", "NIR-2026-11-B3F306"]);
+
+    expect(inspectionFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [
+            { id: "NIR-2026-11-B3F306" },
+            { inspectionNumber: "NIR-2026-11-B3F306" },
+          ],
+        },
+      }),
+    );
+    // The evidence is read by the resolved internal id, never by the number.
+    expect(evidenceItemFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ inspectionId: "insp-1" }),
+      }),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.plan?.inspectionId).toBe("insp-1");
+    expect(text).toContain("insp-1");
+    expect(text).toContain("NIR-2026-11-B3F306");
+  });
+
+  it("an inspection that does not exist is a failure, not an empty plan", async () => {
+    inspectionFindFirst.mockResolvedValue(null);
+
+    const { result, text } = await run(["--inspection", "NIR-2026-11-NOPE00"]);
+
+    expect(result.ok).toBe(false);
+    expect(result.plan).toBeNull();
+    expect(text).toContain("inspection not found");
+    expect(evidenceItemFindMany).not.toHaveBeenCalled();
+    expect(inspectionPhotoCreate).not.toHaveBeenCalled();
+  });
+
+  it("the dry run prints a digest of the planned writes that is stable between runs", async () => {
+    const first = await run(["--inspection", "insp-1"]);
+    // A different wall clock must not change it: `uploadedAt` is stamped at
+    // plan time and is not part of what a person approved.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2031-01-01T00:00:00.000Z"));
+    let second;
+    try {
+      second = await run(["--inspection", "insp-1"]);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(digestFrom(second.lines)).toBe(digestFrom(first.lines));
+
+    // One more photograph is a different plan, so a different digest.
+    evidenceItemFindMany.mockResolvedValue([
+      storedPhoto("ev-photo-1"),
+      storedPhoto("ev-photo-2"),
+    ]);
+    const third = await run(["--inspection", "insp-1"]);
+    expect(digestFrom(third.lines)).not.toBe(digestFrom(first.lines));
+  });
+
+  it("--apply without the digest of a dry run writes nothing and fails", async () => {
+    const { result, text } = await run(["--inspection", "insp-1", "--apply"]);
+
+    expect(result.ok).toBe(false);
+    expect(inspectionPhotoCreate).not.toHaveBeenCalled();
+    expect(text).toContain("--expect-plan");
+  });
+
+  it("--apply with a digest that no longer matches writes nothing and fails", async () => {
+    const dry = await run(["--inspection", "insp-1"]);
+    const approved = digestFrom(dry.lines);
+    // The job took another capture between the dry run and the apply.
+    evidenceItemFindMany.mockResolvedValue([
+      storedPhoto("ev-photo-1"),
+      storedPhoto("ev-photo-2"),
+    ]);
+
+    const { result, text } = await run([
+      "--inspection",
+      "insp-1",
+      "--apply",
+      "--expect-plan",
+      approved,
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(inspectionPhotoCreate).not.toHaveBeenCalled();
+    expect(text).toContain("does not match");
+  });
+
+  it("--apply with the matching digest writes, and prints one line per created row", async () => {
+    const dry = await run(["--inspection", "insp-1"]);
+
+    const { result, lines } = await run([
+      "--inspection",
+      "insp-1",
+      "--apply",
+      "--expect-plan",
+      digestFrom(dry.lines),
+    ]);
+
+    expect(result.ok).toBe(true);
+    expect(inspectionPhotoCreate).toHaveBeenCalledTimes(1);
+    // Table, the NEW row's id, and the evidence record it was derived from:
+    // what a person needs to undo exactly this run and nothing else.
+    expect(
+      lines.filter((line) => line.includes("created\t")),
+    ).toEqual([
+      "[ra-8388-backfill] created\ttable=inspectionPhoto\tid=photo-new-1\tevidence=ev-photo-1",
+    ]);
+  });
+
+  it("a run that fails part way has already printed the rows it did write", async () => {
+    evidenceItemFindMany.mockResolvedValue([
+      storedPhoto("ev-photo-1"),
+      storedPhoto("ev-photo-2"),
+    ]);
+    const dry = await run(["--inspection", "insp-1"]);
+    inspectionPhotoCreate
+      .mockResolvedValueOnce({ id: "photo-new-1" })
+      .mockRejectedValueOnce(new Error("connection lost"));
+
+    const lines: string[] = [];
+    await expect(
+      runInspectionBackfill(
+        ["--inspection", "insp-1", "--apply", "--expect-plan", digestFrom(dry.lines)],
+        (line) => lines.push(line),
+      ),
+    ).rejects.toThrow("connection lost");
+
+    expect(lines.filter((line) => line.includes("created\t"))).toEqual([
+      "[ra-8388-backfill] created\ttable=inspectionPhoto\tid=photo-new-1\tevidence=ev-photo-1",
+    ]);
+  });
+
+  it("reads the evidence and the existing rows in ONE repeatable-read snapshot", async () => {
+    await planInspectionBackfill("insp-1");
+
+    expect(evidenceItemFindMany).toHaveBeenCalledTimes(1);
+    expect(inspectionPhotoFindMany).toHaveBeenCalledTimes(1);
+    // Every table read ran inside the transaction, and there was one.
+    expect(snapshot.readsOutsideTransaction).toBe(0);
+    expect(snapshot.transactionOptions).toEqual([
+      expect.objectContaining({
+        isolationLevel: "RepeatableRead",
+        maxWait: expect.any(Number),
+        timeout: expect.any(Number),
+      }),
+    ]);
   });
 });

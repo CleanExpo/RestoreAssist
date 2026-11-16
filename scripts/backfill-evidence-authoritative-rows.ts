@@ -14,12 +14,31 @@
  * a row by hand: a backfill that writes its own idea of a row is a second
  * writer, and the point of this change was that two writers disagreed.
  *
- *   npx tsx scripts/backfill-evidence-authoritative-rows.ts --inspection <id>
- *   npx tsx scripts/backfill-evidence-authoritative-rows.ts --inspection <id> --apply
+ *   npx tsx scripts/backfill-evidence-authoritative-rows.ts --inspection <id or job number>
+ *   npx tsx scripts/backfill-evidence-authoritative-rows.ts --inspection <id or job number> --apply --expect-plan <digest>
  *
  * Dry-run by default. `--inspection` is REQUIRED and there is no "all jobs"
  * mode: this writes into insurance evidence, and a flag that can sweep every
  * claim in the database is one mistyped command away from doing it.
+ *
+ * Release preconditions built into the command (RA-8388 bench round 1):
+ *
+ * - `--inspection` takes the internal id OR the job number a person actually
+ *   has (`inspectionNumber`, for example NIR-2026-11-B3F306). It is looked
+ *   up first, and an inspection that does not exist is a FAILURE with a
+ *   non-zero exit, as is a missing `--inspection`. Neither may read as "a
+ *   clean run with nothing to do".
+ * - The dry run prints a sha256 digest of the planned writes. `--apply`
+ *   refuses to write unless `--expect-plan` carries the digest of the plan
+ *   it is about to write, so the run that writes is the run a person read.
+ * - Every created row is printed as it is written (table, new row id, source
+ *   evidence id). That list is the only record of what a run wrote into
+ *   `InspectionPhoto`, which has no link column: keep it with the release
+ *   record.
+ * - The evidence and the existing rows are read in one repeatable-read
+ *   snapshot, so a capture landing mid-plan cannot be half seen.
+ * - A photograph promoted from the client portal is never counted (founder
+ *   ruling 16/11/2026) and is listed under its own reason.
  *
  * Running it against production data is the founder's decision. It is not
  * invoked from deploy, postinstall, CI or any workflow.
@@ -44,19 +63,35 @@
  * and before anything is written.
  */
 
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+
+import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
   deriveAuthoritativeRow,
   linkPlanToEvidence,
+  photoCountDecision,
   photoRowPlan,
-  shouldWritePhotoRow,
   type AuthoritativeRowPlan,
+  type AuthoritativeTable,
 } from "@/lib/evidence/authoritative-rows";
 import { isMetadataEvidenceClass } from "@/lib/evidence/metadata-fields";
+import { DOWNGRADE_REASON_CLIENT_PORTAL_PROMOTION } from "@/lib/evidence/signing-policy";
 
 export const BACKFILL_PAGE = 5_000;
+
+/**
+ * The limits on the snapshot read. Stated, because Prisma's defaults (2
+ * seconds to get a connection, 5 seconds to run) would abort a plan over a
+ * large job part way through its reads.
+ */
+const SNAPSHOT_TRANSACTION_OPTIONS = {
+  isolationLevel: "RepeatableRead",
+  maxWait: 20_000,
+  timeout: 120_000,
+} as const;
 
 export class BackfillPageCapError extends Error {
   constructor(what: string) {
@@ -98,6 +133,33 @@ export interface BackfillEvidenceItem {
   thumbnailUrl: string | null;
   fileMimeType: string | null;
   fileSizeBytes: number | null;
+  /**
+   * A `ClientEvidenceSubmission` on the same inspection has this file URL:
+   * the file came in through the client portal. Set by the loader from the
+   * snapshot. This is the half of "client-promoted" that covers promotions
+   * made before the downgrade marker existed (before 26/07/2026), which
+   * carry nothing in `structuredData` to say where they came from.
+   */
+  matchesClientSubmission: boolean;
+}
+
+/**
+ * Whether a stored record carries the mark promote-client stamps on every
+ * record it writes.
+ *
+ * The value is imported from the signing policy, its one owner. The KEY it
+ * is stored under is written by `buildEvidenceStructuredData`
+ * (lib/evidence/structured-data.ts, `signedManifestDowngradeReason`); the
+ * test for this script builds its fixture through that function, so a
+ * renamed key fails here instead of quietly counting client photographs.
+ */
+function carriesClientPromotionMarker(structuredData: unknown): boolean {
+  return (
+    !!structuredData &&
+    typeof structuredData === "object" &&
+    (structuredData as Record<string, unknown>).signedManifestDowngradeReason ===
+      DOWNGRADE_REASON_CLIENT_PORTAL_PROMOTION
+  );
 }
 
 /**
@@ -176,7 +238,14 @@ export type BackfillDecision =
   | { kind: "skip"; reason: "already-present" | "no-authoritative-table" }
   | {
       kind: "report";
-      reason: "old-shape" | "unreadable-structured-data" | "photo-missing-url";
+      reason:
+        | "old-shape"
+        | "unreadable-structured-data"
+        | "photo-missing-url"
+        // Founder ruling 16/11/2026: evidence, never a counted photograph.
+        | "client-promoted"
+        // A photograph class whose stored file is not an image.
+        | "photo-not-image-type";
     }
   | { kind: "report"; reason: "incomplete"; missing: string[] };
 
@@ -255,6 +324,14 @@ export function decideBackfill(
         : { kind: "write", plan: linkPlanToEvidence(derived.plan, item.id) };
     }
 
+    // `deriveAuthoritativeRow` only ever plans a reading. Said out loud so
+    // the compiler checks the columns below against EnvironmentalData and
+    // not against "whatever is left of the union". (`scripts/**` is outside
+    // the project's tsc run, so this had never been type-checked.)
+    if (derived.plan.table !== "environmentalData") {
+      return { kind: "skip", reason: "no-authoritative-table" };
+    }
+
     const fingerprint = environmentalFingerprint({
       ...derived.plan.data,
       recordedAt: derived.plan.data.recordedAt ?? null,
@@ -264,32 +341,68 @@ export function decideBackfill(
       : { kind: "write", plan: linkPlanToEvidence(derived.plan, item.id) };
   }
 
-  if (shouldWritePhotoRow(item.evidenceClass, item.fileMimeType)) {
-    if (!item.fileUrl) {
-      return { kind: "report", reason: "photo-missing-url" };
-    }
-    if (existing.photoUrls.has(item.fileUrl)) {
-      return { kind: "skip", reason: "already-present" };
-    }
-    return {
-      kind: "write",
-      plan: photoRowPlan({
-        inspectionId: item.inspectionId,
-        url: item.fileUrl,
-        thumbnailUrl: item.thumbnailUrl,
-        description: item.description,
-        location: item.roomName,
-        capturedAt: item.capturedAt,
-        fileSize: item.fileSizeBytes,
-        mimeType: item.fileMimeType,
-        gpsLatitude: item.capturedLat,
-        gpsLongitude: item.capturedLng,
-      }),
-    };
+  // THE photograph rule, the same call the capture route makes. This script
+  // supplies the one input the route never needs to compute: whether the
+  // record was promoted from the client portal. Either signal is enough.
+  const provenance = parseStructuredData(item.structuredData);
+  const photo = photoCountDecision({
+    evidenceClass: item.evidenceClass,
+    mimeType: item.fileMimeType,
+    clientPromoted:
+      item.matchesClientSubmission ||
+      (provenance.ok && carriesClientPromotionMarker(provenance.value)),
+  });
+
+  if (!photo.counts && photo.reason === "not-a-photograph-class") {
+    return { kind: "skip", reason: "no-authoritative-table" };
+  }
+  // From here the record IS a photograph class, so every outcome that is
+  // not a write is listed for a person. Folding one into "no authoritative
+  // table" is the invisible non-count this change exists to remove.
+  if (!photo.counts && photo.reason === "client-promoted") {
+    return { kind: "report", reason: "client-promoted" };
+  }
+  if (!provenance.ok) {
+    // Where it came from is written in structured data this script cannot
+    // read. Not being able to see the promotion marker is not the same as
+    // there being none, so it is not assumed to be the technician's.
+    return { kind: "report", reason: "unreadable-structured-data" };
+  }
+  if (!photo.counts) {
+    return { kind: "report", reason: "photo-not-image-type" };
   }
 
-  return { kind: "skip", reason: "no-authoritative-table" };
+  if (!item.fileUrl) {
+    return { kind: "report", reason: "photo-missing-url" };
+  }
+  if (existing.photoUrls.has(item.fileUrl)) {
+    return { kind: "skip", reason: "already-present" };
+  }
+  return {
+    kind: "write",
+    plan: photoRowPlan({
+      inspectionId: item.inspectionId,
+      url: item.fileUrl,
+      thumbnailUrl: item.thumbnailUrl,
+      description: item.description,
+      location: item.roomName,
+      capturedAt: item.capturedAt,
+      fileSize: item.fileSizeBytes,
+      mimeType: item.fileMimeType,
+      gpsLatitude: item.capturedLat,
+      gpsLongitude: item.capturedLng,
+    }),
+  };
 }
+
+const REPORT_DETAIL: Record<string, string> = {
+  "old-shape":
+    "legacy measurementValue capture: no material, no depth — recapture required",
+  "client-promoted":
+    "sent by the client through the portal: kept as evidence, never counted as a photograph",
+  "photo-not-image-type":
+    "photograph class whose stored file type is not an image: not counted, check the file",
+};
 
 export interface BackfillPlan {
   inspectionId: string;
@@ -352,9 +465,7 @@ export function planFromItems(
         detail:
           decision.reason === "incomplete"
             ? decision.missing.join(", ")
-            : decision.reason === "old-shape"
-              ? "legacy measurementValue capture: no material, no depth — recapture required"
-              : "",
+            : (REPORT_DETAIL[decision.reason] ?? ""),
       });
       continue;
     }
@@ -384,39 +495,41 @@ export function planFromItems(
   return plan;
 }
 
+/** Any client the reads can run on. In practice: the snapshot transaction. */
+type ReadClient = Prisma.TransactionClient;
+
 export async function loadExistingRows(
   inspectionId: string,
+  client: ReadClient,
 ): Promise<ExistingAuthoritativeRows> {
-  const [photos, moisture, environmental] = await Promise.all([
-    prisma.inspectionPhoto.findMany({
-      where: { inspectionId },
-      select: { url: true },
-      take: BACKFILL_PAGE,
-    }),
-    prisma.moistureReading.findMany({
-      where: { inspectionId },
-      select: {
-        location: true,
-        surfaceType: true,
-        moistureLevel: true,
-        depth: true,
-        recordedAt: true,
-        evidenceItemId: true,
-      },
-      take: BACKFILL_PAGE,
-    }),
-    prisma.environmentalData.findMany({
-      where: { inspectionId },
-      select: {
-        evidenceItemId: true,
-        location: true,
-        ambientTemperature: true,
-        humidityLevel: true,
-        recordedAt: true,
-      },
-      take: BACKFILL_PAGE,
-    }),
-  ]);
+  const photos = await client.inspectionPhoto.findMany({
+    where: { inspectionId },
+    select: { url: true },
+    take: BACKFILL_PAGE,
+  });
+  const moisture = await client.moistureReading.findMany({
+    where: { inspectionId },
+    select: {
+      location: true,
+      surfaceType: true,
+      moistureLevel: true,
+      depth: true,
+      recordedAt: true,
+      evidenceItemId: true,
+    },
+    take: BACKFILL_PAGE,
+  });
+  const environmental = await client.environmentalData.findMany({
+    where: { inspectionId },
+    select: {
+      evidenceItemId: true,
+      location: true,
+      ambientTemperature: true,
+      humidityLevel: true,
+      recordedAt: true,
+    },
+    take: BACKFILL_PAGE,
+  });
 
   if (photos.length === BACKFILL_PAGE) {
     throw new BackfillPageCapError("InspectionPhoto");
@@ -442,68 +555,213 @@ export async function loadExistingRows(
   };
 }
 
-export async function planInspectionBackfill(
+/**
+ * The file URL of every portal submission on this inspection.
+ *
+ * Capped like every other read here, and for a sharper reason: a list cut
+ * off at the cap would let a client's photograph past the join and into the
+ * counted photographs. A truncated read refuses the whole plan.
+ */
+async function loadClientSubmissionFileUrls(
   inspectionId: string,
-): Promise<BackfillPlan> {
-  const existing = await loadExistingRows(inspectionId);
-  const items = await prisma.evidenceItem.findMany({
-    where: { inspectionId, status: "ACTIVE" },
-    select: {
-      id: true,
-      inspectionId: true,
-      evidenceClass: true,
-      description: true,
-      roomName: true,
-      structuredData: true,
-      capturedAt: true,
-      capturedLat: true,
-      capturedLng: true,
-      fileUrl: true,
-      thumbnailUrl: true,
-      fileMimeType: true,
-      fileSizeBytes: true,
-    },
-    orderBy: { capturedAt: "asc" },
+  client: ReadClient,
+): Promise<Set<string>> {
+  const submissions = await client.clientEvidenceSubmission.findMany({
+    where: { inspectionId, fileUrl: { not: null } },
+    select: { fileUrl: true },
     take: BACKFILL_PAGE,
   });
-  if (items.length === BACKFILL_PAGE) {
-    throw new BackfillPageCapError("EvidenceItem");
+  if (submissions.length === BACKFILL_PAGE) {
+    throw new BackfillPageCapError("ClientEvidenceSubmission");
   }
-
-  return planFromItems(
-    inspectionId,
-    items.map((item) => ({
-      ...item,
-      evidenceClass: String(item.evidenceClass),
-    })),
-    existing,
+  return new Set(
+    submissions.flatMap((row) => (row.fileUrl ? [row.fileUrl] : [])),
   );
 }
 
-export async function applyInspectionBackfill(
-  plan: BackfillPlan,
-): Promise<number> {
-  let written = 0;
-  for (const row of plan.write) {
-    switch (row.plan.table) {
-      case "moistureReading":
-        await prisma.moistureReading.create({ data: row.plan.data });
-        break;
-      case "environmentalData":
-        await prisma.environmentalData.create({ data: row.plan.data });
-        break;
-      case "inspectionPhoto":
-        await prisma.inspectionPhoto.create({ data: row.plan.data });
-        break;
+/**
+ * Read everything the plan is built from in ONE repeatable-read snapshot.
+ *
+ * It used to read the existing rows first and the evidence second, on two
+ * separate statements. A capture landing between them was seen as evidence
+ * with no photo row, so the plan wrote a second row for a photograph the
+ * route had already counted; `InspectionPhoto` has no unique key to refuse
+ * it. One snapshot means the evidence, the rows already written and the
+ * portal submissions all describe the same instant.
+ *
+ * `inspectionId` is the INTERNAL id. The command resolves a job number to
+ * it before calling this.
+ */
+export async function planInspectionBackfill(
+  inspectionId: string,
+): Promise<BackfillPlan> {
+  const snapshot = await prisma.$transaction(async (tx) => {
+    const items = await tx.evidenceItem.findMany({
+      where: { inspectionId, status: "ACTIVE" },
+      select: {
+        id: true,
+        inspectionId: true,
+        evidenceClass: true,
+        description: true,
+        roomName: true,
+        structuredData: true,
+        capturedAt: true,
+        capturedLat: true,
+        capturedLng: true,
+        fileUrl: true,
+        thumbnailUrl: true,
+        fileMimeType: true,
+        fileSizeBytes: true,
+      },
+      orderBy: { capturedAt: "asc" },
+      take: BACKFILL_PAGE,
+    });
+    if (items.length === BACKFILL_PAGE) {
+      throw new BackfillPageCapError("EvidenceItem");
     }
-    written += 1;
-  }
-  return written;
+    const clientSubmissionFileUrls = await loadClientSubmissionFileUrls(
+      inspectionId,
+      tx,
+    );
+    const existing = await loadExistingRows(inspectionId, tx);
+    return { items, clientSubmissionFileUrls, existing };
+  }, SNAPSHOT_TRANSACTION_OPTIONS);
+
+  return planFromItems(
+    inspectionId,
+    snapshot.items.map((item) => ({
+      ...item,
+      evidenceClass: String(item.evidenceClass),
+      matchesClientSubmission:
+        item.fileUrl !== null &&
+        snapshot.clientSubmissionFileUrls.has(item.fileUrl),
+    })),
+    snapshot.existing,
+  );
 }
 
+/** One row a run created: what a person needs to undo exactly that run. */
+export interface CreatedRow {
+  table: AuthoritativeTable;
+  /** The NEW row's id in `table`. */
+  id: string;
+  /** The evidence record it was derived from. */
+  evidenceItemId: string;
+}
+
+export function formatCreatedRow(row: CreatedRow): string {
+  return `[ra-8388-backfill] created\ttable=${row.table}\tid=${row.id}\tevidence=${row.evidenceItemId}`;
+}
+
+/**
+ * Write the planned rows, reporting each one AS it is written.
+ *
+ * The id every create returns used to be thrown away and only a count was
+ * printed, after the last row. `InspectionPhoto` has no column pointing back
+ * at its evidence record, so that count was the whole record of what a run
+ * had added to a claim file, and a run that failed on row 7 of 12 printed
+ * nothing at all about the first six. Each line is logged before the next
+ * create starts, so a partial run leaves its trail.
+ */
+export async function applyInspectionBackfill(
+  plan: BackfillPlan,
+  log: (line: string) => void = () => {},
+): Promise<CreatedRow[]> {
+  const created: CreatedRow[] = [];
+  for (const row of plan.write) {
+    let id: string;
+    switch (row.plan.table) {
+      case "moistureReading":
+        id = (
+          await prisma.moistureReading.create({
+            data: row.plan.data,
+            select: { id: true },
+          })
+        ).id;
+        break;
+      case "environmentalData":
+        id = (
+          await prisma.environmentalData.create({
+            data: row.plan.data,
+            select: { id: true },
+          })
+        ).id;
+        break;
+      case "inspectionPhoto":
+        id = (
+          await prisma.inspectionPhoto.create({
+            data: row.plan.data,
+            select: { id: true },
+          })
+        ).id;
+        break;
+    }
+    const entry: CreatedRow = {
+      table: row.plan.table,
+      id,
+      evidenceItemId: row.evidenceItemId,
+    };
+    created.push(entry);
+    log(formatCreatedRow(entry));
+  }
+  return created;
+}
+
+/** JSON with object keys in a fixed order and dates as ISO strings. */
+function canonical(value: unknown): unknown {
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") {
+    const source = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(source).sort()) {
+      if (source[key] !== undefined) out[key] = canonical(source[key]);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * A sha256 over exactly what `--apply` would write.
+ *
+ * `--apply` builds a FRESH plan from live data; it does not replay the dry
+ * run. On a job still taking captures, the plan a person read and the plan
+ * that gets written can differ and nothing said so. The digest covers the
+ * inspection, and for every planned row its table, its source evidence id
+ * and every column value, in a fixed order, so any difference between the
+ * two plans changes it.
+ *
+ * `uploadedAt` is left out on purpose: the photo plan stamps it with the
+ * clock at plan time, so it differs on every run and is not something a
+ * person approved.
+ */
+export function planDigest(plan: BackfillPlan): string {
+  const rows = plan.write
+    .map((row) => {
+      const { uploadedAt: _stampedAtPlanTime, ...data } = row.plan
+        .data as Record<string, unknown>;
+      return JSON.stringify([
+        row.plan.table,
+        row.evidenceItemId,
+        canonical(data),
+      ]);
+    })
+    .sort();
+  return createHash("sha256")
+    .update(JSON.stringify({ inspectionId: plan.inspectionId, rows }))
+    .digest("hex");
+}
+
+/**
+ * The printed plan.
+ *
+ * `outcome` is the line that says what happened to it: `null` for a dry
+ * run, a number for rows written, or the caller's own lines for a refusal.
+ */
 export function formatPlan(
   plan: BackfillPlan,
-  written: number | null,
+  outcome: number | null | string[],
 ): string[] {
   const counts = {
     moistureReading: 0,
@@ -511,6 +769,10 @@ export function formatPlan(
     inspectionPhoto: 0,
   };
   for (const row of plan.write) counts[row.plan.table] += 1;
+  const clientPromoted = plan.report.filter(
+    (row) => row.reason === "client-promoted",
+  ).length;
+  const digest = planDigest(plan);
 
   const lines = [
     `[ra-8388-backfill] inspection: ${plan.inspectionId}`,
@@ -518,13 +780,19 @@ export function formatPlan(
     `[ra-8388-backfill] rows to write: ${plan.write.length} (moisture ${counts.moistureReading}, ambient ${counts.environmentalData}, photo ${counts.inspectionPhoto})`,
     `[ra-8388-backfill] already present (skipped): ${plan.alreadyPresent}`,
     `[ra-8388-backfill] no authoritative table (notes, equipment logs, documents): ${plan.noAuthoritativeTable}`,
-    `[ra-8388-backfill] needs a person: ${plan.report.length}`,
+    `[ra-8388-backfill] client-promoted photographs (kept as evidence, never counted): ${clientPromoted}`,
+    `[ra-8388-backfill] needs a person: ${plan.report.length - clientPromoted}`,
+    `[ra-8388-backfill] plan digest: ${digest}`,
   ];
-  lines.push(
-    written === null
-      ? "[ra-8388-backfill] dry run — nothing written. Pass --apply to write."
-      : `[ra-8388-backfill] rows written: ${written}`,
-  );
+  if (Array.isArray(outcome)) {
+    lines.push(...outcome);
+  } else if (outcome === null) {
+    lines.push(
+      `[ra-8388-backfill] dry run — nothing written. To write exactly this plan: --apply --expect-plan ${digest}`,
+    );
+  } else {
+    lines.push(`[ra-8388-backfill] rows written: ${outcome}`);
+  }
   for (const row of plan.report) {
     lines.push(
       `  ${row.reason}\tevidence=${row.evidenceItemId}\tclass=${row.evidenceClass}\t${row.detail}`,
@@ -533,24 +801,64 @@ export function formatPlan(
   return lines;
 }
 
-export function inspectionIdFromArgv(argv: string[]): string | null {
-  const index = argv.indexOf("--inspection");
+function valueAfter(argv: string[], flag: string): string | null {
+  const index = argv.indexOf(flag);
   if (index === -1) return null;
   const value = argv[index + 1];
   if (!value || value.startsWith("--")) return null;
   return value;
 }
 
+export function inspectionIdFromArgv(argv: string[]): string | null {
+  return valueAfter(argv, "--inspection");
+}
+
+export function expectedPlanFromArgv(argv: string[]): string | null {
+  return valueAfter(argv, "--expect-plan");
+}
+
+/**
+ * Find the inspection a person named, by internal id OR by job number.
+ *
+ * The job number (`inspectionNumber`, NIR-2026-11-B3F306) is what is on the
+ * screen and in the ticket; the internal id is what every table is keyed
+ * by. The script used to filter by whatever it was handed, so the job
+ * number matched no rows and printed "0 scanned, 0 to write": a failed
+ * lookup wearing the clothes of a clean result. `null` here means the
+ * inspection does not exist, and the caller fails on it.
+ */
+export async function resolveInspection(
+  value: string,
+): Promise<{ id: string; inspectionNumber: string } | null> {
+  return prisma.inspection.findFirst({
+    where: { OR: [{ id: value }, { inspectionNumber: value }] },
+    select: { id: true, inspectionNumber: true },
+  });
+}
+
+export interface BackfillRunResult {
+  /** False means the command must exit non-zero. */
+  ok: boolean;
+  plan: BackfillPlan | null;
+  digest: string | null;
+  created: CreatedRow[];
+}
+
 export async function runInspectionBackfill(
   argv: string[] = process.argv.slice(2),
   log: (line: string) => void = console.log,
-): Promise<BackfillPlan | null> {
-  const inspectionId = inspectionIdFromArgv(argv);
-  if (!inspectionId) {
+): Promise<BackfillRunResult> {
+  const failed = (
+    plan: BackfillPlan | null = null,
+    digest: string | null = null,
+  ): BackfillRunResult => ({ ok: false, plan, digest, created: [] });
+
+  const requested = inspectionIdFromArgv(argv);
+  if (!requested) {
     log(
-      "[ra-8388-backfill] --inspection <id> is required. This script writes into insurance evidence and has no all-jobs mode.",
+      "[ra-8388-backfill] --inspection <id> is required (the internal id or the job number). This script writes into insurance evidence and has no all-jobs mode.",
     );
-    return null;
+    return failed();
   }
 
   const target = redactedDatabaseTarget();
@@ -558,12 +866,54 @@ export async function runInspectionBackfill(
     `[ra-8388-backfill] database host=${target.host} database=${target.database}`,
   );
 
-  const plan = await planInspectionBackfill(inspectionId);
-  const written = argv.includes("--apply")
-    ? await applyInspectionBackfill(plan)
-    : null;
-  for (const line of formatPlan(plan, written)) log(line);
-  return plan;
+  const inspection = await resolveInspection(requested);
+  if (!inspection) {
+    log(
+      `[ra-8388-backfill] inspection not found: "${requested}" matches no inspection id and no job number in this database. Nothing was read and nothing was written.`,
+    );
+    return failed();
+  }
+  log(
+    `[ra-8388-backfill] resolved "${requested}" to id=${inspection.id} job number=${inspection.inspectionNumber}`,
+  );
+
+  const plan = await planInspectionBackfill(inspection.id);
+  const digest = planDigest(plan);
+
+  if (!argv.includes("--apply")) {
+    for (const line of formatPlan(plan, null)) log(line);
+    return { ok: true, plan, digest, created: [] };
+  }
+
+  const expected = expectedPlanFromArgv(argv);
+  if (!expected) {
+    for (const line of formatPlan(plan, [
+      "[ra-8388-backfill] REFUSED — nothing written. --apply needs --expect-plan <digest> from a dry run a person has read.",
+    ])) {
+      log(line);
+    }
+    return failed(plan, digest);
+  }
+  if (expected !== digest) {
+    for (const line of formatPlan(plan, [
+      `[ra-8388-backfill] REFUSED — nothing written. The plan now does not match the one that was approved (--expect-plan ${expected}). The job changed since the dry run, or this is a different checkout. Read this plan and run again with its digest.`,
+    ])) {
+      log(line);
+    }
+    return failed(plan, digest);
+  }
+
+  let created: CreatedRow[];
+  try {
+    created = await applyInspectionBackfill(plan, log);
+  } catch (error) {
+    log(
+      "[ra-8388-backfill] FAILED part way. The rows listed above as created WERE written; nothing after them was. Do not delete them: run the dry run again and apply the new plan to finish.",
+    );
+    throw error;
+  }
+  for (const line of formatPlan(plan, created.length)) log(line);
+  return { ok: true, plan, digest, created };
 }
 
 const isDirectRun =
@@ -572,7 +922,13 @@ const isDirectRun =
 
 if (isDirectRun) {
   runInspectionBackfill()
-    .then(() => prisma.$disconnect())
+    .then(async (result) => {
+      await prisma.$disconnect();
+      // A missing scope, an unknown inspection and a refused apply are all
+      // failures. Exiting 0 on them is how a wrong job number read as
+      // "already counted".
+      if (!result.ok) process.exit(1);
+    })
     .catch(async (error) => {
       console.error("[ra-8388-backfill] failed:", error);
       await prisma.$disconnect();

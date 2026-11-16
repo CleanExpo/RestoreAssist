@@ -185,4 +185,35 @@ describe("DELETE evidence that backs a counted reading", () => {
     expect(db.deleteMany).toHaveBeenCalledTimes(1);
     expect(db.auditCreate).toHaveBeenCalledTimes(1);
   });
+
+  it("logs the refusal with a fixed tag, so a refused delete can be found afterwards", async () => {
+    // RA-8388 bench round 1: the 409 reached the browser and nothing else. A
+    // technician who reports "it would not let me delete it" could not be
+    // matched to a request.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      asOwner();
+      db.findFirst.mockResolvedValue({
+        id: "ev_1",
+        evidenceClass: "MOISTURE_READING",
+        moistureReading: { id: "mr_1" },
+        environmentalData: null,
+      });
+
+      const response = await remove();
+
+      expect(response.status).toBe(409);
+      const calls = warnSpy.mock.calls.filter(
+        ([tag]) => tag === "[evidence] signed-row-refused",
+      );
+      expect(calls).toHaveLength(1);
+      expect(calls[0][1]).toMatchObject({
+        inspectionId: "insp_1",
+        evidenceId: "ev_1",
+        table: "moistureReading",
+      });
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 });

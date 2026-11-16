@@ -41,15 +41,49 @@ import {
 // added that forgets a check. See lib/evidence/verified-evidence-gate.ts.
 import {
   deriveAuthoritativeRow,
+  isPhotographEvidenceClass,
   linkPlanToEvidence,
+  photoCountDecision,
   photoRowPlan,
-  shouldWritePhotoRow,
 } from "@/lib/evidence/authoritative-rows";
 import { isSignedCaptureDuplicate } from "@/lib/evidence/signed-capture-key";
 import { evidenceBacksReadingRefusal } from "@/lib/evidence/signed-row-guard";
 import { verifyEvidenceSubmission } from "@/lib/evidence/verified-evidence-gate";
 import { isVideoEvidenceClass } from "@/lib/evidence/evidence-classes";
 import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
+
+/**
+ * The limits on every interactive transaction this route opens.
+ *
+ * ONE owner. Prisma's defaults (2 seconds to get a connection, 5 seconds to
+ * run) were in force by omission, and the wait is the one that matters: with
+ * five pooled connections and a few requests in flight, a capture could wait
+ * longer than 2 seconds for a connection and be refused before its
+ * transaction had even begun.
+ *
+ * `maxWait` is deliberately BELOW the pool's own connection timeout
+ * (lib/prisma-pool-config.ts, 20 seconds). If the pool gave up first the
+ * failure would arrive as a driver error this route cannot tell from a
+ * dropped connection; when Prisma gives up first it raises the one error
+ * that proves no statement ran (see `createInsertProvablyDidNotCommit`).
+ */
+const EVIDENCE_TRANSACTION_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 10_000,
+} as const;
+
+/**
+ * The text Prisma puts on a P2028 raised because no connection came free
+ * inside `maxWait`: the transaction NEVER STARTED. Read from the installed
+ * client (@prisma/client 7.10.1, runtime/client.js, "Unable to start a
+ * transaction in the given time.").
+ *
+ * Matching on message text is brittle on purpose, in the safe direction: if
+ * a Prisma upgrade rewords it, the match fails and the error falls back to
+ * "may already have been saved", the careful answer. It can never widen.
+ */
+const PRISMA_TRANSACTION_NEVER_STARTED =
+  "Unable to start a transaction in the given time";
 
 export async function GET(
   request: NextRequest,
@@ -438,7 +472,7 @@ export async function POST(
                   break;
               }
               return created;
-            })
+            }, EVIDENCE_TRANSACTION_OPTIONS)
           : await prisma.evidenceItem.create({ data: evidenceData });
 
         return NextResponse.json({ evidenceItem }, { status: 201 });
@@ -461,6 +495,15 @@ export async function POST(
             where: duplicateKey,
           });
           if (existing) {
+            // Logged, because this answer means a first response was lost.
+            // One is a basement on 4G; a rising count is a fault somewhere
+            // between the database and the phone, and without this line it
+            // looks exactly like ordinary traffic.
+            console.warn("[evidence] already-recorded", {
+              inspectionId,
+              evidenceId: existing.id,
+              evidenceClass: existing.evidenceClass,
+            });
             return NextResponse.json(
               { evidenceItem: existing, alreadyRecorded: true },
               { status: 200 },
@@ -551,6 +594,14 @@ function ambiguousCommitResponse(request: NextRequest) {
  * and unknown errors are AMBIGUOUS — Postgres may have committed the row
  * even though the client saw an error — so callers must NOT delete storage
  * for those.
+ *
+ * RA-8388 round 1: ONE more proven case. P2028 covers every transaction
+ * failure Prisma itself raises, and most of them are ambiguous (a
+ * transaction that expired after it started may have run its inserts). The
+ * exception is the one raised when no connection came free inside `maxWait`:
+ * the transaction never began, so no statement ran and nothing can have
+ * committed. Only that message is accepted; every other P2028 stays
+ * ambiguous, exactly as before.
  */
 function createInsertProvablyDidNotCommit(err: unknown): boolean {
   if (err instanceof Prisma.PrismaClientValidationError) return true;
@@ -558,6 +609,16 @@ function createInsertProvablyDidNotCommit(err: unknown): boolean {
     typeof err === "object" && err !== null && "code" in err
       ? (err as { code?: unknown }).code
       : undefined;
+  if (code === "P2028") {
+    const message =
+      typeof err === "object" && err !== null && "message" in err
+        ? (err as { message?: unknown }).message
+        : undefined;
+    return (
+      typeof message === "string" &&
+      message.includes(PRISMA_TRANSACTION_NEVER_STARTED)
+    );
+  }
   return code === "P2000" || code === "P2002" || code === "P2003";
 }
 
@@ -684,6 +745,41 @@ async function handleMultipartEvidencePost(
         status: 400,
       });
     }
+
+    // RA-8388 round 1: the type this route RECORDS is the type the check
+    // above proved, not the type the part declared.
+    //
+    // It used to decide "is this a photograph" from the raw `file.type` and
+    // store `file.type || "image/jpeg"`. Those are two different values, so a
+    // real JPEG whose part declared no image type was saved and never
+    // counted, while the backfill, reading the stored column, would count
+    // it later: two writers, two rules. A declared type is a claim by the
+    // client; the magic bytes are what this server verified. Past the guard
+    // above, a non-video upload IS one of these four image kinds.
+    //
+    // One value, used for the stored object, `EvidenceItem.fileMimeType`,
+    // `InspectionPhoto.mimeType` and the photograph rule, so whatever reads
+    // the record later is given what this route was given.
+    const declaredType = file.type;
+    const verifiedMimeType = isVideoClass
+      ? // A video's exact subtype is not something four magic bytes settle,
+        // so a declared video type is kept. A declared type that is NOT a
+        // video type is replaced by the container the bytes proved; the old
+        // default labelled such a video "image/jpeg".
+        declaredType.toLowerCase().startsWith("video/")
+        ? declaredType
+        : buffer[0] === 0x1a
+          ? "video/webm"
+          : ftypBrand === "qt  "
+            ? "video/quicktime"
+            : "video/mp4"
+      : isJpeg
+        ? "image/jpeg"
+        : isPng
+          ? "image/png"
+          : isGif
+            ? "image/gif"
+            : "image/webp";
 
     // Server-side hash over the exact bytes that will be stored.
     const fileSha256 = crypto.createHash("sha256").update(buffer).digest("hex");
@@ -872,7 +968,7 @@ async function handleMultipartEvidencePost(
         const uploadResult = await storageProvider.upload({
           buffer,
           filename: file.name,
-          mimeType: file.type || "image/jpeg",
+          mimeType: verifiedMimeType,
           folder: "evidence",
           orgId: user?.organizationId ?? "no-org",
           inspectionId,
@@ -910,11 +1006,19 @@ async function handleMultipartEvidencePost(
         // Planned BEFORE the transaction, like the JSON branch, so the
         // decision not to write a row is explicit rather than a failure part
         // way through.
-        // The RAW mime type, not `file.type || "image/jpeg"`. Defaulting
-        // first would make an upload that declares no mime type at all count
-        // as a photograph of the property, on the strength of a default this
-        // code invented. No declared type, no InspectionPhoto row.
-        const photoPlan = shouldWritePhotoRow(evidenceClass, file.type)
+        //
+        // THE photograph rule, asked once, with the type the magic-byte
+        // check proved (see `verifiedMimeType`). A verified image under a
+        // photograph class always counts, whatever its part declared.
+        // `clientPromoted` is false by construction: this is the
+        // technician's own capture path, and a portal upload reaches
+        // EvidenceItem only through promote-client.
+        const photoDecision = photoCountDecision({
+          evidenceClass,
+          mimeType: verifiedMimeType,
+          clientPromoted: false,
+        });
+        const photoPlan = photoDecision.counts
           ? photoRowPlan({
               inspectionId,
               url: uploadResult.compressedUrl,
@@ -934,7 +1038,7 @@ async function handleMultipartEvidencePost(
                 ? new Date(verifiedManifest.capturedAt)
                 : new Date(),
               fileSize: file.size,
-              mimeType: file.type || "image/jpeg",
+              mimeType: verifiedMimeType,
               gpsLatitude: verifiedManifest
                 ? verifiedManifest.gps.lat
                 : suppliedLat !== undefined && !Number.isNaN(suppliedLat)
@@ -988,7 +1092,7 @@ async function handleMultipartEvidencePost(
                 : "WEB_BROWSER",
             fileUrl: uploadResult.compressedUrl,
             fileName: file.name,
-            fileMimeType: file.type || "image/jpeg",
+            fileMimeType: verifiedMimeType,
             fileSizeBytes: file.size,
             thumbnailUrl: uploadResult.thumbnailUrl ?? null,
             // Integrity: ALWAYS the server-computed hash over stored bytes.
@@ -1012,7 +1116,7 @@ async function handleMultipartEvidencePost(
                 });
                 await tx.inspectionPhoto.create({ data: photoPlan.data });
                 return created;
-              })
+              }, EVIDENCE_TRANSACTION_OPTIONS)
             : await prisma.evidenceItem.create({
                 data: multipartEvidenceData,
               });
@@ -1090,7 +1194,37 @@ async function handleMultipartEvidencePost(
           }
         }
 
-        return NextResponse.json({ evidenceItem }, { status: 201 });
+        // RA-8388 round 1: a photograph that is saved but NOT counted must
+        // say so. The original fault was exactly this state with nothing
+        // reporting it: 201, the photograph in the evidence list, and a
+        // submit gate still asking for photographs.
+        //
+        // False ONLY for a photograph class that wrote no counted row. A
+        // document or a video has no counted table at all, so nothing is
+        // missing for it and it is not reported as "not counted".
+        //
+        // With the rule above, this route cannot currently produce false: a
+        // verified image under a photograph class always counts. The field
+        // and the warning are here so that if the rule is ever changed to
+        // refuse something, the technician and the log both hear about it.
+        const savedButNotCounted =
+          !photoDecision.counts &&
+          photoDecision.reason !== "not-a-photograph-class";
+        if (savedButNotCounted) {
+          console.warn("[evidence] photograph-not-counted", {
+            inspectionId,
+            evidenceId: evidenceItem.id,
+            evidenceClass,
+            declaredType,
+            storedType: verifiedMimeType,
+            reason: photoDecision.reason,
+          });
+        }
+
+        return NextResponse.json(
+          { evidenceItem, countsTowardSubmission: !savedButNotCounted },
+          { status: 201 },
+        );
       },
     });
   } catch (error) {
@@ -1159,37 +1293,103 @@ export async function DELETE(
     // not cascaded away either. This answers in words, on BOTH branches
     // below, instead of letting the constraint surface as a server error.
     if (evidence.moistureReading || evidence.environmentalData) {
+      const table = evidence.moistureReading
+        ? "moistureReading"
+        : "environmentalData";
+      // Logged as well as answered. The 409 reaches one browser; without
+      // this line a technician's "it would not let me delete it" cannot be
+      // matched to a request.
+      console.warn("[evidence] signed-row-refused", {
+        inspectionId,
+        evidenceId: evidence.id,
+        evidenceClass: evidence.evidenceClass,
+        table,
+      });
       return apiError(request, {
         code: "CONFLICT",
         // Also refused when the reading has been retired: it is kept for
         // audit with its link, so the evidence behind it is kept too.
-        message: evidenceBacksReadingRefusal(
-          evidence.moistureReading ? "moistureReading" : "environmentalData",
-        ),
+        message: evidenceBacksReadingRefusal(table),
         status: 409,
       });
     }
 
-    if (!viaAssignment) {
-      await prisma.evidenceItem.delete({
-        where: {
-          id: evidenceId,
-          ...(childInspectionFilter && { inspection: childInspectionFilter }),
-        },
+    // RA-8388 round 1. A photograph is two rows: this evidence record and
+    // the `InspectionPhoto` the submit gate counts. `InspectionPhoto` has no
+    // column pointing back here, so deleting the evidence used to leave the
+    // photograph COUNTED: upload a photograph of the wrong property, delete
+    // it, and the job still passed "has photographs" on a photograph with no
+    // chain of custody.
+    //
+    // Without a migration, the join is the one both writers already share:
+    // the capture route and the backfill each set the photo row's `url` to
+    // the evidence record's `fileUrl`, and no other writer of
+    // `InspectionPhoto` copies an evidence URL. So for a photograph class
+    // with a file, the counted row is removed in the SAME transaction as
+    // the evidence record: both go or neither does.
+    //
+    // Every other record (a note, a document, a video, a photograph record
+    // with no file) keeps the single-statement delete it always had.
+    const photographUrl =
+      isPhotographEvidenceClass(evidence.evidenceClass) && evidence.fileUrl
+        ? evidence.fileUrl
+        : null;
+    /**
+     * Remove the counted row for `url`, unless another evidence record on
+     * this inspection still cites the same file. Two records for one upload
+     * share one photo row (the backfill writes one row per URL), and
+     * deleting one of them must not turn the other into an uncounted
+     * photograph. Runs AFTER the evidence delete, inside its transaction, so
+     * the record being deleted is no longer among them.
+     */
+    const removeCountedPhotograph = async (
+      tx: Prisma.TransactionClient,
+      url: string,
+    ) => {
+      const stillCited = await tx.evidenceItem.count({
+        where: { inspectionId, fileUrl: url },
       });
+      if (stillCited > 0) return;
+      await tx.inspectionPhoto.deleteMany({ where: { inspectionId, url } });
+    };
+
+    if (!viaAssignment) {
+      const ownerWhere = {
+        id: evidenceId,
+        ...(childInspectionFilter && { inspection: childInspectionFilter }),
+      };
+      if (photographUrl) {
+        await prisma.$transaction(async (tx) => {
+          await tx.evidenceItem.delete({ where: ownerWhere });
+          await removeCountedPhotograph(tx, photographUrl);
+        }, EVIDENCE_TRANSACTION_OPTIONS);
+      } else {
+        await prisma.evidenceItem.delete({ where: ownerWhere });
+      }
       return NextResponse.json({ success: true });
     }
 
     // Branch (b): every limit is re-checked inside the delete itself, so a
     // reassignment or a submit in between matches 0 rows and answers 404.
-    const deleted = await prisma.evidenceItem.deleteMany({
-      where: {
-        id: evidenceId,
-        inspectionId,
-        capturedById: session.user.id,
-        inspection: { ...childInspectionFilter, status: "DRAFT" },
-      },
-    });
+    const assigneeWhere = {
+      id: evidenceId,
+      inspectionId,
+      capturedById: session.user.id,
+      inspection: { ...childInspectionFilter, status: "DRAFT" as const },
+    };
+    const deleted = photographUrl
+      ? await prisma.$transaction(async (tx) => {
+          const result = await tx.evidenceItem.deleteMany({
+            where: assigneeWhere,
+          });
+          // Only when the evidence record really went. A delete that
+          // matched nothing answers 404 below and must remove nothing.
+          if (result.count === 1) {
+            await removeCountedPhotograph(tx, photographUrl);
+          }
+          return result;
+        }, EVIDENCE_TRANSACTION_OPTIONS)
+      : await prisma.evidenceItem.deleteMany({ where: assigneeWhere });
     if (deleted.count === 0) {
       return apiError(request, {
         code: "NOT_FOUND",

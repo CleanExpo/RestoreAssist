@@ -274,18 +274,87 @@ const PHOTO_EVIDENCE_CLASSES = new Set([
 ]);
 
 /**
- * Whether this multipart upload should also write an `InspectionPhoto`.
+ * Whether a class is one of the photograph classes above.
  *
- * BOTH conditions, because each one alone is wrong: the class alone would
- * accept a PDF uploaded as PHOTO_DAMAGE, and the mime type alone would accept
- * a scanned AUTHORITY_FORM as a photograph of the property.
+ * Exported so a caller that has to act on "this was a photograph" (the
+ * evidence DELETE, which removes the counted row) asks this module instead of
+ * keeping a second list.
+ */
+export function isPhotographEvidenceClass(evidenceClass: string): boolean {
+  return PHOTO_EVIDENCE_CLASSES.has(evidenceClass);
+}
+
+export interface PhotoCountInput {
+  evidenceClass: string;
+  /**
+   * The type of the stored file. The capture route passes the type its
+   * magic-byte check PROVED, and stores that same value, so the backfill
+   * reading the stored column later is given exactly what the route was.
+   */
+  mimeType: string | null;
+  /**
+   * Whether the record was promoted from the client portal. Required, not
+   * optional: every caller has to say so, because forgetting to is how a
+   * homeowner's upload becomes a counted photograph of the damage.
+   */
+  clientPromoted: boolean;
+}
+
+export type PhotoCountDecision =
+  | { counts: true }
+  | {
+      counts: false;
+      reason: "not-a-photograph-class" | "client-promoted" | "not-an-image-type";
+    };
+
+/**
+ * THE photograph rule: does this stored upload count as a photograph of the
+ * property, and so get an `InspectionPhoto` row?
+ *
+ * ONE owner, called by the capture route and by the backfill. Before RA-8388
+ * round 1 the two reached it with different inputs (the route with the raw
+ * declared type, the backfill with a stored, defaulted one), which is two
+ * rules wearing one function's name. The inputs are now the same value.
+ *
+ * Three conditions, in this order, and the order is the reporting order:
+ *
+ * 1. The class is a photograph class. The mime type alone would accept a
+ *    scanned AUTHORITY_FORM as a photograph of the property.
+ * 2. It was not promoted from the client portal (founder ruling 16/11/2026:
+ *    a client's photograph is evidence and never a counted photograph).
+ * 3. The stored type is an image. The class alone would accept a PDF another
+ *    writer stored as PHOTO_DAMAGE.
+ *
+ * Pure: no database, no clock. The reason is returned so a caller can say
+ * WHY a photograph-class record does not count instead of skipping it
+ * silently, which was the original fault.
+ */
+export function photoCountDecision(input: PhotoCountInput): PhotoCountDecision {
+  if (!PHOTO_EVIDENCE_CLASSES.has(input.evidenceClass)) {
+    return { counts: false, reason: "not-a-photograph-class" };
+  }
+  if (input.clientPromoted) {
+    return { counts: false, reason: "client-promoted" };
+  }
+  const isImage =
+    typeof input.mimeType === "string" &&
+    input.mimeType.toLowerCase().startsWith("image/");
+  return isImage
+    ? { counts: true }
+    : { counts: false, reason: "not-an-image-type" };
+}
+
+/**
+ * Whether this upload should also write an `InspectionPhoto`.
+ *
+ * The yes/no face of `photoCountDecision`. It adds no rule of its own.
  */
 export function shouldWritePhotoRow(
   evidenceClass: string,
   mimeType: string | null,
+  clientPromoted: boolean,
 ): boolean {
-  if (!PHOTO_EVIDENCE_CLASSES.has(evidenceClass)) return false;
-  return typeof mimeType === "string" && mimeType.toLowerCase().startsWith("image/");
+  return photoCountDecision({ evidenceClass, mimeType, clientPromoted }).counts;
 }
 
 export interface PhotoRowInput {

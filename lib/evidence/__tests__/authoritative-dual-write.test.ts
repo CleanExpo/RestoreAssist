@@ -709,6 +709,87 @@ describe("the route writes both halves in ONE transaction", () => {
     });
   });
 
+  it("logs the already-recorded answer with a fixed tag", async () => {
+    // RA-8388 bench round 1: the duplicate answer was returned and never
+    // logged, so a rising count of lost first responses was invisible.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      commitThenThrow = true;
+      await submit(MOISTURE, "MOISTURE_READING").catch(() => null);
+      commitThenThrow = false;
+      idemStore.clear();
+
+      const retry = await submit(MOISTURE, "MOISTURE_READING");
+      expect(retry.status).toBe(200);
+
+      const calls = warnSpy.mock.calls.filter(
+        ([tag]) => tag === "[evidence] already-recorded",
+      );
+      expect(calls).toHaveLength(1);
+      expect(calls[0][1]).toMatchObject({
+        inspectionId: "ins_1",
+        evidenceId: (committed.evidence[0] as { id: string }).id,
+        evidenceClass: "MOISTURE_READING",
+      });
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("gives the two-row write explicit wait and run limits", async () => {
+    await submit(MOISTURE, "MOISTURE_READING");
+    const calls = (prisma.$transaction as unknown as ReturnType<typeof vi.fn>)
+      .mock.calls;
+    expect(calls[calls.length - 1][1]).toEqual({
+      maxWait: expect.any(Number),
+      timeout: expect.any(Number),
+    });
+  });
+
+  it("a transaction that never started is not reported as 'may already have been saved'", async () => {
+    // No connection came free inside the wait limit, so Prisma gave up
+    // BEFORE the transaction began (P2028, "Unable to start"). No statement
+    // ran. Answering 409 "may already have been saved" would hold the
+    // reservation for its lease and send the technician looking for a
+    // reading that cannot exist.
+    (
+      prisma.$transaction as unknown as ReturnType<typeof vi.fn>
+    ).mockImplementationOnce(async () => {
+      const err = new Error(
+        "Transaction API error: Unable to start a transaction in the given time.",
+      ) as Error & { code?: string };
+      err.code = "P2028";
+      throw err;
+    });
+    const first = await submit(MOISTURE, "MOISTURE_READING").catch(() => null);
+
+    expect(committed.evidence).toHaveLength(0);
+    expect(first?.status).not.toBe(409);
+    expect(first?.mayHaveSaved).not.toBe(true);
+
+    // The reservation was released, so the same draft goes straight through.
+    const second = await submit(MOISTURE, "MOISTURE_READING");
+    expect(second.status).toBe(201);
+    expect(committed.moisture).toHaveLength(1);
+  });
+
+  it("a transaction that expired AFTER it started is still treated as possibly saved", async () => {
+    // The negative control for the test above: every other P2028 keeps the
+    // careful answer, because its inserts may have run.
+    (
+      prisma.$transaction as unknown as ReturnType<typeof vi.fn>
+    ).mockImplementationOnce(async () => {
+      const err = new Error(
+        "Transaction API error: A commit cannot be executed on an expired transaction.",
+      ) as Error & { code?: string };
+      err.code = "P2028";
+      throw err;
+    });
+    const first = await submit(MOISTURE, "MOISTURE_READING").catch(() => null);
+
+    expect(first?.status).toBe(409);
+  });
+
   it("the same value captured at a different moment is a second reading, not a duplicate", async () => {
     // The digest does not contain the capture time. If the guard keyed on
     // the digest alone this second reading would be swallowed as "already
@@ -831,7 +912,9 @@ describe("the photo half of the same fault", () => {
     // The real thing.
     ["PHOTO_DAMAGE", "image/jpeg", true],
     ["PHOTO_EQUIPMENT", "image/png", true],
-    ["PHOTO_PROGRESS", "image/heic", true],
+    // Was "image/heic": the route refuses HEIC by its magic bytes, so that
+    // is a value no stored record written by it can carry.
+    ["PHOTO_PROGRESS", "image/gif", true],
     ["PHOTO_COMPLETION", "image/webp", true],
     // Photographs that do not carry the PHOTO_ prefix.
     ["THERMAL_IMAGE", "image/jpeg", true],
@@ -851,18 +934,27 @@ describe("the photo half of the same fault", () => {
     // A PDF uploaded under a photo class is not a photograph either, so the
     // class alone cannot be the test.
     ["PHOTO_DAMAGE", "application/pdf", false],
-    // No declared mime type at all. The route defaults a missing type to
-    // "image/jpeg" when it stores the file; if that default reached this
-    // predicate, an upload declaring nothing would be counted as a
-    // photograph on the strength of a guess.
+    // No mime type at all. The route never passes this any more: it stores
+    // and decides from the type its magic-byte check proved. These rows are
+    // the backfill's cases, over records another writer stored with no type
+    // (a promoted portal upload, for one), where nothing vouches for the
+    // bytes and a guess must not count.
     ["PHOTO_DAMAGE", "", false],
     ["PHOTO_DAMAGE", null, false],
   ] as Array<[string, string | null, boolean]>)(
     "%s + %s writes an InspectionPhoto row: %s",
     (evidenceClass, mimeType, expected) => {
-      expect(shouldWritePhotoRow(evidenceClass, mimeType)).toBe(expected);
+      expect(shouldWritePhotoRow(evidenceClass, mimeType, false)).toBe(expected);
     },
   );
+
+  it("a photograph promoted from the client portal never counts, whatever its type", () => {
+    // Founder ruling 16/11/2026. The exclusion lives in the one shared
+    // predicate, so the capture route and the backfill cannot disagree.
+    expect(shouldWritePhotoRow("PHOTO_DAMAGE", "image/jpeg", false)).toBe(true);
+    expect(shouldWritePhotoRow("PHOTO_DAMAGE", "image/jpeg", true)).toBe(false);
+    expect(shouldWritePhotoRow("THERMAL_IMAGE", "image/png", true)).toBe(false);
+  });
 });
 
 /**
