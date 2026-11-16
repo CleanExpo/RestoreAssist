@@ -129,11 +129,39 @@ describe("HomeownerCapturePanel", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Revoke capture links" }),
     );
+    await screen.findByRole("alertdialog");
+    fireEvent.click(screen.getByRole("button", { name: "Revoke links" }));
     await waitFor(() =>
       expect(screen.getByTestId("homeowner-capture-feedback")).toHaveTextContent(
         /Revoked 3/,
       ),
     );
+  });
+
+  it("RA-8395: cancelling the revoke confirm sends no DELETE", async () => {
+    installFetch(async (url) => {
+      if (url.includes("homeowner-capture-status")) {
+        return { ok: true, json: async () => STATUS_PENDING };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    render(<HomeownerCapturePanel inspectionId="i1" />);
+    await waitFor(() =>
+      expect(screen.getByTestId("homeowner-capture-status")).toBeInTheDocument(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Revoke capture links" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("1 active capture link");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    const deletes = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([, init]) => (init as RequestInit | undefined)?.method === "DELETE",
+    );
+    expect(deletes).toHaveLength(0);
   });
 
   it("shows an error message when the invite request fails", async () => {

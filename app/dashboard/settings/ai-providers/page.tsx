@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { META_PROVIDER_DESCRIPTION } from "./meta-provider-copy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -134,6 +135,7 @@ export default function AiProvidersPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
+  const confirmDialog = useConfirmDialog();
 
   // Per-provider UI state
   const [expanded, setExpanded] = useState<AiProvider | null>(null);
@@ -263,6 +265,15 @@ export default function AiProvidersPage() {
 
   // ── Disable connection ────────────────────────────────────────────────────
   async function handleDisable(provider: AiProvider) {
+    // RA-8395: disabling switches off the workspace's AI with one click; ask first.
+    const name = PROVIDERS.find((p) => p.id === provider)?.name ?? provider;
+    const ok = await confirmDialog.ask({
+      title: `Disable ${name}?`,
+      description: `AI features in this workspace will stop using your ${name} key straight away. The saved key is kept, but the connection stays off until you set it up again.`,
+      confirmLabel: "Disable provider",
+      destructive: true,
+    });
+    if (!ok) return;
     setDisabling(provider);
     try {
       const res = await fetch("/api/workspace/provider-connections", {
@@ -306,6 +317,7 @@ export default function AiProvidersPage() {
 
   return (
     <div className="max-w-9xl mx-auto space-y-6">
+      <confirmDialog.Mount />
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-neutral-900 dark:text-white">

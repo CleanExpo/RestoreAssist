@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { ArrowLeft, Search, Trash2, Download } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 
 interface CostItem {
   id: string;
@@ -35,6 +36,7 @@ export default function CostLibraryDetailPage({
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const confirmDialog = useConfirmDialog();
 
   useEffect(() => {
     const fetchLibrary = async () => {
@@ -74,8 +76,17 @@ export default function CostLibraryDetailPage({
       })
     : [];
 
-  const handleDeleteItem = async (itemId: string) => {
+  const handleDeleteItem = async (item: CostItem) => {
     if (!library) return;
+    // RA-8395: CostItem has no deletedAt column, so this delete is permanent.
+    const ok = await confirmDialog.ask({
+      title: "Delete this price?",
+      description: `"${item.description}" (${item.category}) will be removed from ${library.name} for good. Its rate cannot be recovered.`,
+      confirmLabel: "Delete permanently",
+      destructive: true,
+    });
+    if (!ok) return;
+    const itemId = item.id;
     try {
       const res = await fetch(`/api/cost-items/${itemId}`, {
         method: "DELETE",
@@ -84,11 +95,15 @@ export default function CostLibraryDetailPage({
         toast.error("Failed to delete item");
         return;
       }
-      setLibrary({
-        ...library,
-        items: library.items.filter((i) => i.id !== itemId),
-        _count: { items: library._count.items - 1 },
-      });
+      setLibrary((prev) =>
+        prev
+          ? {
+              ...prev,
+              items: prev.items.filter((i) => i.id !== itemId),
+              _count: { items: prev._count.items - 1 },
+            }
+          : prev,
+      );
       toast.success("Item deleted");
     } catch (err) {
       console.error("Error deleting cost item:", err);
@@ -144,6 +159,7 @@ export default function CostLibraryDetailPage({
 
   return (
     <div className="space-y-6">
+      <confirmDialog.Mount />
       {/* Back link */}
       <Link
         href="/dashboard/cost-libraries"
@@ -272,7 +288,7 @@ export default function CostLibraryDetailPage({
                     <td className="px-4 py-3 text-slate-300">{item.unit}</td>
                     <td className="px-4 py-3 text-center">
                       <button
-                        onClick={() => handleDeleteItem(item.id)}
+                        onClick={() => handleDeleteItem(item)}
                         className="p-1.5 hover:bg-slate-600 rounded transition-colors"
                         title="Delete item"
                       >

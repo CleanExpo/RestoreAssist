@@ -191,6 +191,13 @@ jobs:
       - name: Lucide guard
         run: npm run check:no-lucide
 
+      # Delete-confirm guard (RA-8395). Fails if a browser file sends
+      # method "DELETE" without useConfirmDialog / ConfirmDialog / AlertDialog /
+      # DeleteConfirmationDialog, unless scripts/delete-confirm-allowlist.json
+      # names it with a reviewed reason. Stale allow-list entries also fail.
+      - name: Delete-confirm guard
+        run: npm run check:delete-confirm
+
       # Spec-docs layout guard (PR #1968 lesson). A clean merge of main silently
       # relocated the canonical master spec into docs/root-archive/ via git
       # rename detection. Fails if a CANONICAL-status doc sits in the archive,

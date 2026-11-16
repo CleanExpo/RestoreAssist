@@ -1,0 +1,20 @@
+{
+  "_comment": "RA-8395. Files that send method DELETE without a shared confirm component (see scripts/check-delete-confirm.mjs). Each reason was checked by opening the file. KNOWN GAP entries are real one-click deletes waiting on their own ticket; remove the entry when fixed. The check fails on any entry that goes stale.",
+  "entries": [
+    { "file": "app/dashboard/clients/[id]/portal/page.tsx", "reason": "Own inline confirm: Revoke shows a 'Yes, revoke' row before handleRevoke runs." },
+    { "file": "app/dashboard/clients/page.tsx", "reason": "Single and bulk delete each open their own modal (DeleteClientModal, BulkDeleteModal) before the DELETE." },
+    { "file": "app/dashboard/cost-libraries/[id]/bulk-editor/page.tsx", "reason": "Two steps: a dialog marks rows for deletion, then a separate Save Changes click sends the DELETE." },
+    { "file": "app/dashboard/cost-libraries/page.tsx", "reason": "Library and item deletes each open a bespoke modal with Cancel before the DELETE." },
+    { "file": "app/dashboard/forms/templates/page.tsx", "reason": "Own inline confirm: trash sets confirmDeleteId, then a Confirm button runs handleDelete." },
+    { "file": "app/dashboard/integrations/sync-errors/page.tsx", "reason": "Clear Resolved purges old sync log rows only; no job data. Ticket RA-8395 judged it not a defect." },
+    { "file": "app/dashboard/invoices/[id]/page.tsx", "reason": "Trash opens a bespoke delete dialog with Cancel; its Delete button runs handleDelete." },
+    { "file": "app/dashboard/scope-templates/page.tsx", "reason": "onDelete sets deletingTemplate, which opens a modal with Cancel; its button runs handleDelete." },
+    { "file": "app/dashboard/settings/email/page.tsx", "reason": "Removes a leftover unused Resend key; outbound email no longer uses it. Ticket RA-8395 judged it not a defect." },
+    { "file": "components/BulkOperationModal.tsx", "reason": "The component is itself the confirm modal; its confirm button runs handleDelete." },
+    { "file": "components/NIRTechnicianInputForm.tsx", "reason": "Native window.confirm gates photo removal; moving it to useConfirmDialog is welcome but not required." },
+    { "file": "components/notifications/NotificationBell.tsx", "reason": "Dismisses one notification; nothing of value is lost." },
+    { "file": "components/sketch/SketchEditorV2.tsx", "reason": "KNOWN GAP: evidence-pin X deletes the pin in one click (handleEvidenceRemove). Follow-up ticket filed from RA-8395." },
+    { "file": "lib/client/use-async-action.ts", "reason": "The DELETE is in a JSDoc usage example, not running code." },
+    { "file": "lib/cloud-mirror/onedrive.ts", "reason": "Server-side mirror provider revoke(); no button calls it." }
+  ]
+}

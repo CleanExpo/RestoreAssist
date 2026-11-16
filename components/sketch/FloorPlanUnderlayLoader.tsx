@@ -9,6 +9,7 @@
  */
 
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import {
   useState,
   useRef,
@@ -160,6 +161,7 @@ export function FloorPlanUnderlayLoader({
   const suggestingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const confirmDialog = useConfirmDialog();
   // Track whether we've already auto-applied so we don't re-trigger on re-renders
   const autoAppliedRef = useRef(false);
 
@@ -453,6 +455,16 @@ export function FloorPlanUnderlayLoader({
   };
 
   const handleClear = async () => {
+    // RA-8395: one click used to delete the saved underlay with no way back.
+    const ok = await confirmDialog.ask({
+      title: "Remove the reference floor plan?",
+      description: inspectionId
+        ? "The floor plan image under this floor's sketch will be deleted from the job. Your drawn rooms stay, but you would need to load the plan again to trace over it."
+        : "The floor plan image under this floor's sketch will be removed. Your drawn rooms stay.",
+      confirmLabel: "Remove floor plan",
+      destructive: true,
+    });
+    if (!ok) return;
     if (inspectionId) {
       const res = await fetch(
         `/api/inspections/${inspectionId}/sketches/underlay?floorNumber=${floorNumber}`,
@@ -481,6 +493,7 @@ export function FloorPlanUnderlayLoader({
         className,
       )}
     >
+      <confirmDialog.Mount />
       {/* Header toggle */}
       <button
         type="button"

@@ -22,6 +22,7 @@
 
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -258,6 +259,7 @@ function MappingRowEditor({
   const [code, setCode] = useState(existing?.accountCode ?? "");
   const [taxType, setTaxType] = useState(existing?.taxType ?? "OUTPUT");
   const [saving, setSaving] = useState(false);
+  const confirmDialog = useConfirmDialog();
   const [fieldError, setFieldError] = useState<string | null>(null);
 
   const displayLabel = category ?? "Default (all other categories)";
@@ -303,6 +305,17 @@ function MappingRowEditor({
   };
 
   const onReset = async () => {
+    // RA-8395: reset throws away the saved mapping with no undo; ask first.
+    const saved = existing?.accountCode
+      ? `account code ${existing.accountCode} and tax type ${existing.taxType ?? "OUTPUT"}`
+      : "account code and tax type";
+    const ok = await confirmDialog.ask({
+      title: `Reset the Xero mapping for ${displayLabel}?`,
+      description: `The saved ${saved} for ${displayLabel} will be deleted, and invoices will use the default mapping. You would need to enter them again.`,
+      confirmLabel: "Reset mapping",
+      destructive: true,
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       const params = new URLSearchParams({
@@ -331,6 +344,7 @@ function MappingRowEditor({
   return (
     <TableRow>
       <TableCell>
+        <confirmDialog.Mount />
         <div className="font-medium">{displayLabel}</div>
         <div className="text-xs text-muted-foreground">{description}</div>
       </TableCell>

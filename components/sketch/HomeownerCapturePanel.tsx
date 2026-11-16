@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import type { RoomNeedingMeasurement } from "@/lib/sketch/rooms-needing-measurement";
 
 type Busy = null | "invite" | "revoke" | "review" | "copy";
@@ -44,6 +45,7 @@ export function HomeownerCapturePanel({
   const [tone, setTone] = useState<PanelTone>("neutral");
   const [status, setStatus] = useState<CaptureStatus | null>(null);
   const [statusError, setStatusError] = useState(false);
+  const confirmDialog = useConfirmDialog();
 
   const loadStatus = useCallback(async () => {
     try {
@@ -111,6 +113,17 @@ export function HomeownerCapturePanel({
   }
 
   async function revoke() {
+    // RA-8395: revoking kills the link the homeowner already holds; ask first.
+    const count = status?.activeCaptureLinks;
+    const ok = await confirmDialog.ask({
+      title: "Revoke homeowner capture links?",
+      description: `${
+        count ? `The ${count} active capture link${count === 1 ? "" : "s"}` : "Every active capture link"
+      } for this job will stop working at once, including any link already sent to the homeowner. You would need to send a new invite.`,
+      confirmLabel: "Revoke links",
+      destructive: true,
+    });
+    if (!ok) return;
     setBusy("revoke");
     setMessage("");
     setTone("neutral");
@@ -191,6 +204,7 @@ export function HomeownerCapturePanel({
       aria-busy={busy !== null}
       aria-labelledby="homeowner-capture-heading"
     >
+      <confirmDialog.Mount />
       <h3 id="homeowner-capture-heading" className="text-sm font-semibold">
         Homeowner self-capture
       </h3>
