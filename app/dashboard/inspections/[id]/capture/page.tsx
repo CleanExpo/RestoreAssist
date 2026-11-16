@@ -92,6 +92,10 @@ import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { getQueuedDraftCount } from "@/lib/offline/inspection-store";
 import { AdaptiveGuidancePanel } from "@/components/inspections/adaptive-guidance-panel";
 import { SubmissionGatePanel } from "@/components/inspections/submission-gate-panel";
+import {
+  describeSubmitRefusal,
+  type SubmitRefusal,
+} from "@/lib/evidence/submit-refusal";
 import { FieldEvidenceChecklistPanel } from "@/components/inspections/field-evidence-checklist-panel";
 import {
   EVIDENCE_CLASS_LABELS,
@@ -288,6 +292,11 @@ export default function CaptureWorkflowPage({
 
   // Submission gate state (RA-401)
   const [submitting, setSubmitting] = useState(false);
+  // RA-8388: a refused submit stays on screen with a link to each missing
+  // item. A toast showed the raw server code and then disappeared.
+  const [submitRefusal, setSubmitRefusal] = useState<SubmitRefusal | null>(
+    null,
+  );
 
   // Sidebar collapse on mobile
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -691,14 +700,17 @@ export default function CaptureWorkflowPage({
   // [RA-401] Submit inspection with evidence validation
   const handleSubmitInspection = async () => {
     setSubmitting(true);
+    setSubmitRefusal(null);
     try {
       const res = await fetch(`/api/inspections/${inspectionId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        toast.error(data.error || "Submission failed");
+        const refusal = describeSubmitRefusal(inspectionId, data);
+        setSubmitRefusal(refusal);
+        toast.error(refusal.message);
         return;
       }
       toast.success("Inspection submitted successfully");
@@ -1489,11 +1501,47 @@ export default function CaptureWorkflowPage({
           {/* ============================================ */}
           {/* SUBMISSION GATE (RA-401) */}
           {/* ============================================ */}
+          {submitRefusal && (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-5 mb-6"
+            >
+              <p className="text-sm font-semibold text-destructive">
+                {submitRefusal.message}
+              </p>
+              {submitRefusal.items.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {submitRefusal.items.map((item) => (
+                    <li
+                      key={item.key}
+                      className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-800 dark:text-slate-200"
+                    >
+                      <span>{item.label}</span>
+                      <Link
+                        href={item.href}
+                        className="font-medium text-blue-700 dark:text-blue-300 underline underline-offset-2"
+                      >
+                        {item.action}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           <SubmissionGatePanel
             inspectionId={inspectionId}
             isReadyToSubmit={workflow.isReadyToSubmit}
             onSubmit={handleSubmitInspection}
             submitting={submitting}
+            onSelectStep={(stepKey) => {
+              const idx = workflow.steps.findIndex(
+                (s) => s.stepKey === stepKey,
+              );
+              if (idx < 0) return;
+              setActiveStepIndex(idx);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           />
 
           {/* ============================================ */}
