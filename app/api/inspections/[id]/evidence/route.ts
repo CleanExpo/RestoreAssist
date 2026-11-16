@@ -13,7 +13,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
 import { BUCKET_OPTIMISED, BUCKET_ORIGINALS } from "@/lib/storage/types";
-import { apiError, fromException } from "@/lib/api-errors";
+import { apiError, fromException, logRefusal } from "@/lib/api-errors";
 import { reportError } from "@/lib/observability";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import {
@@ -106,6 +106,11 @@ export async function GET(
     // guided-capture readback of their own save returned 404.
     const tenancy = await assertInspectionReadable(session, inspectionId);
     if (!tenancy.ok) {
+      logRefusal(request, {
+        code: "TENANCY_REFUSED",
+        status: tenancy.status,
+        stage: "tenancy",
+      });
       return NextResponse.json(
         { error: tenancy.reason },
         { status: tenancy.status },
@@ -153,6 +158,11 @@ export async function POST(
   // the assigned technician included). Deleting stays on the write gate.
   const tenancy = await assertInspectionCapturable(session, inspectionId);
   if (!tenancy.ok) {
+    logRefusal(request, {
+      code: "TENANCY_REFUSED",
+      status: tenancy.status,
+      stage: "tenancy",
+    });
     return NextResponse.json(
       { error: tenancy.reason },
       { status: tenancy.status },
@@ -1270,6 +1280,11 @@ export async function DELETE(
     // captured, and only while the job is still a DRAFT.
     const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
     if (!tenancy.ok) {
+      logRefusal(request, {
+        code: "TENANCY_REFUSED",
+        status: tenancy.status,
+        stage: "tenancy",
+      });
       return NextResponse.json(
         { error: tenancy.reason },
         { status: tenancy.status },
