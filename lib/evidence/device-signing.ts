@@ -338,3 +338,53 @@ export async function createSignedManifest(
     deviceKeyId: key.keyId,
   };
 }
+
+/**
+ * RA-8388 — sign a metadata-only submission.
+ *
+ * Mirrors `createSignedManifest` and deliberately shares its manifest shape:
+ * one vocabulary, one canonicaliser, one verifier. The only difference is
+ * what `sha256` is a digest of, and `digestKind` says so inside the signed
+ * bytes rather than leaving a reader to infer it from the evidence class.
+ *
+ * The caller passes the digest rather than the payload, because the digest
+ * must be computed from the SAME object that will be sent on the wire. A
+ * helper that re-derived it here could drift from what the request body
+ * actually carries, which is the precise failure this contract exists to
+ * prevent.
+ */
+export async function createSignedMetadataManifest(
+  context: {
+    inspectionId: string;
+    workflowStepId: string | null;
+    evidenceClass: string;
+    userId: string;
+    /** SHA-256 over the canonical metadata payload. */
+    metadataSha256: string;
+    /** ISO-8601; the moment the technician entered the reading. */
+    capturedAt: string;
+    payloadVersion: number;
+    gps?: { lat: number | null; lng: number | null; accuracy: number | null };
+  },
+  key: DeviceKeyRecord,
+): Promise<SignedManifestPayload> {
+  const manifest: SignedEvidenceManifest = {
+    inspectionId: context.inspectionId,
+    workflowStepId: context.workflowStepId,
+    evidenceClass: context.evidenceClass,
+    capturedAt: context.capturedAt,
+    gps: context.gps ?? { lat: null, lng: null, accuracy: null },
+    userId: context.userId,
+    deviceKeyId: key.keyId,
+    sha256: context.metadataSha256,
+    payloadVersion: context.payloadVersion,
+    digestKind: "metadata",
+  };
+  const signature = await signManifest(key.privateKey, manifest);
+  return {
+    manifest,
+    manifestJson: canonicalizeManifest(manifest),
+    signature,
+    deviceKeyId: key.keyId,
+  };
+}

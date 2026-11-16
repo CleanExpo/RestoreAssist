@@ -26,13 +26,20 @@ import {
   assertInspectionReadable,
 } from "@/lib/auth/assert-tenancy";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
-import {
-  checkManifestBinding,
-  parseSignedManifest,
-  verifyManifestSignature,
-} from "@/lib/evidence/manifest-verify";
 import type { SignedEvidenceManifest } from "@/lib/evidence/manifest-canonical";
-import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
+import {
+  buildEvidenceStructuredData,
+  type VerifiedManifestInput,
+} from "@/lib/evidence/structured-data";
+import {
+  canonicalMetadataPayload,
+  metadataPayloadSha256,
+} from "@/lib/evidence/metadata-payload";
+// RA-8388: this route no longer imports the signature primitives. Both of its
+// writers go through the one gate, which is what stops a sixth writer being
+// added that forgets a check. See lib/evidence/verified-evidence-gate.ts.
+import { deriveAuthoritativeRow } from "@/lib/evidence/authoritative-rows";
+import { verifyEvidenceSubmission } from "@/lib/evidence/verified-evidence-gate";
 import { isVideoEvidenceClass } from "@/lib/evidence/evidence-classes";
 import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
 
@@ -195,13 +202,83 @@ export async function POST(
         // signed-metadata contract is added (client signs the canonical JSON,
         // server canonicalise-then-verifies). Same class of interim as the
         // batch writer. Do NOT re-introduce byte-detection as a substitute.
-        const policy = await evaluateUnsignedSubmission(userId);
-        if (!policy.ok) {
-          return apiError(request, {
-            code: policy.code,
-            message: policy.message,
-            status: policy.status,
+        //
+        // RA-8388 — THE INTERIM ABOVE IS NOW CLOSED. The client can sign a
+        // metadata-only submission: `lib/evidence/metadata-payload.ts` defines
+        // the canonical payload and its digest, both sides call it, and the
+        // digest travels in the manifest's `sha256` slot with `digestKind:
+        // "metadata"` beside it. Everything the comment above describes as
+        // missing now exists. What has NOT changed, and must not: there is
+        // still no unsigned-exempt path, no metadata exemption, and no
+        // byte-detection heuristic.
+        const canonicalPayload = canonicalMetadataPayload({
+          evidenceClass,
+          title,
+          notes,
+          structuredData,
+        });
+        const metadataDigest = await metadataPayloadSha256({
+          evidenceClass,
+          title,
+          notes,
+          structuredData,
+        });
+
+        const { signedManifest, manifestSignature } = body;
+        const offersSignature =
+          signedManifest !== undefined || manifestSignature !== undefined;
+
+        let verifiedManifest: VerifiedManifestInput | null = null;
+        let persistedCapturedAt = new Date();
+        let persistedLat: number | null = capturedLat || null;
+        let persistedLng: number | null = capturedLng || null;
+        let downgradeReason: string | null = null;
+
+        if (offersSignature) {
+          // ONE gate, shared with the multipart writer. This route no longer
+          // sequences the signature checks itself — see
+          // lib/evidence/verified-evidence-gate.ts for why that matters.
+          const gate = await verifyEvidenceSubmission({
+            manifestRaw: signedManifest,
+            signatureRaw: manifestSignature,
+            userId,
+            inspectionId,
+            evidenceClass,
+            workflowStepId: workflowStepId || null,
+            submissionDigest: metadataDigest,
+            digestKind: "metadata",
+            capturedLat:
+              typeof capturedLat === "number" ? capturedLat : undefined,
+            capturedLng:
+              typeof capturedLng === "number" ? capturedLng : undefined,
           });
+          if (!gate.ok) {
+            return apiError(request, {
+              code: gate.code,
+              message: gate.message,
+              status: gate.status,
+            });
+          }
+          verifiedManifest = {
+            manifest: gate.manifest,
+            signature: gate.signature,
+            publicKeyPem: gate.publicKeyPem,
+          };
+          // Provenance comes from the SIGNED manifest, not the server clock —
+          // the dispute pack prints these columns as a device claim.
+          persistedCapturedAt = gate.capturedAt;
+          persistedLat = gate.capturedLat;
+          persistedLng = gate.capturedLng;
+        } else {
+          const policy = await evaluateUnsignedSubmission(userId);
+          if (!policy.ok) {
+            return apiError(request, {
+              code: policy.code,
+              message: policy.message,
+              status: policy.status,
+            });
+          }
+          downgradeReason = policy.downgradeReason;
         }
 
         // RA-7090 review fix (Opus #6): the old create was cast `as any`,
@@ -212,22 +289,47 @@ export async function POST(
         // excess properties on Prisma's create-input union, so the runtime
         // test asserting `"notes" in created === false` is the real guard
         // against phantom columns.
-        const evidenceItem = await prisma.evidenceItem.create({
-          data: {
+        // RA-8388 Fault B: the completion gate counts MoistureReading and
+        // EnvironmentalData, not EvidenceItem. Writing only the evidence
+        // record is why a technician could capture everything a step asked
+        // for and still be told the job had outstanding issues it could not
+        // name. Plan the authoritative row from the SAME values the evidence
+        // record was signed over, BEFORE opening the transaction, so a
+        // missing required field is a clear refusal rather than a half-write.
+        const rowPlan = deriveAuthoritativeRow(
+          evidenceClass,
+          canonicalPayload.structuredData,
+          {
+            inspectionId,
+            capturedAt: persistedCapturedAt,
+            notes: canonicalPayload.description,
+          },
+        );
+        if (!rowPlan.ok) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: rowPlan.message,
+            status: 400,
+          });
+        }
+
+        const evidenceData = {
             inspectionId,
             workflowStepId: workflowStepId || null,
             evidenceClass: evidenceClass as EvidenceClass,
-            title:
-              typeof title === "string" && title.trim()
-                ? title.trim()
-                : evidenceClass,
-            description:
-              typeof notes === "string" && notes.length > 0 ? notes : null,
+            // RA-8388: persisted VERBATIM from the canonical payload — the
+            // same object the digest was taken over. The title fallback and
+            // the notes-to-description rename used to happen here, a second
+            // time, which is precisely how the client's signed bytes and the
+            // server's stored bytes drifted apart. Normalising twice is the
+            // defect; there is now one owner and this is its output.
+            title: canonicalPayload.title,
+            description: canonicalPayload.description,
             capturedById: userId,
             capturedByName: session.user.name || "Unknown",
-            capturedAt: new Date(),
-            capturedLat: capturedLat || null,
-            capturedLng: capturedLng || null,
+            capturedAt: persistedCapturedAt,
+            capturedLat: persistedLat,
+            capturedLng: persistedLng,
             deviceId: deviceId || null,
             deviceType: deviceType || "WEB_BROWSER",
             // RA-7090 slice 2 (P0 re-review): NO file fields on this path.
@@ -242,20 +344,58 @@ export async function POST(
             // sanitiser as multipart. There is no server-computed hash here,
             // so every integrity claim is stripped rather than re-stamped.
             structuredData:
-              structuredData === undefined || structuredData === null
-                ? policy.downgradeReason
-                  ? buildEvidenceStructuredData({
-                      fileSha256: null,
-                      downgradeReason: policy.downgradeReason,
-                    })
-                  : null
+              canonicalPayload.structuredData === null &&
+              !verifiedManifest &&
+              !downgradeReason
+                ? null
                 : buildEvidenceStructuredData({
-                    clientStructuredData: structuredData,
+                    clientStructuredData:
+                      canonicalPayload.structuredData ?? undefined,
                     fileSha256: null,
-                    downgradeReason: policy.downgradeReason,
+                    // Set ONLY on a verified submission: an unsigned record
+                    // must not carry an integrity claim, and on this path the
+                    // digest is the only thing that could look like one.
+                    metadataSha256: verifiedManifest ? metadataDigest : null,
+                    verified: verifiedManifest,
+                    downgradeReason,
                   }),
-          },
-        });
+        };
+
+        // ONE transaction. A partial failure must not leave a reading the
+        // completion gate can see but the evidence pack cannot cite, or an
+        // evidence record claiming a reading the gate will never count.
+        // Either both halves of the record exist or neither does.
+        const plan = rowPlan.plan;
+        const evidenceItem = plan
+          ? await prisma.$transaction(async (tx) => {
+              const created = await tx.evidenceItem.create({
+                data: evidenceData,
+              });
+              // A switch, not a dynamic `tx[table]` lookup. Indexing the
+              // client by a string erases Prisma's input types, so a column
+              // renamed in the schema would still compile and fail at
+              // runtime on a technician's phone. Each branch is checked
+              // against the real model.
+              switch (plan.table) {
+                case "moistureReading":
+                  await tx.moistureReading.create({
+                    data: plan.data as Prisma.MoistureReadingUncheckedCreateInput,
+                  });
+                  break;
+                case "environmentalData":
+                  await tx.environmentalData.create({
+                    data: plan.data as Prisma.EnvironmentalDataUncheckedCreateInput,
+                  });
+                  break;
+                case "inspectionPhoto":
+                  await tx.inspectionPhoto.create({
+                    data: plan.data as Prisma.InspectionPhotoUncheckedCreateInput,
+                  });
+                  break;
+              }
+              return created;
+            })
+          : await prisma.evidenceItem.create({ data: evidenceData });
 
         return NextResponse.json({ evidenceItem }, { status: 201 });
       } catch (error) {
@@ -448,6 +588,17 @@ async function handleMultipartEvidencePost(
       typeof capturedLngRaw === "string" && capturedLngRaw.length > 0
         ? parseFloat(capturedLngRaw)
         : null;
+    // RA-8388: ONE variable for "what the client supplied", read by both the
+    // gate and the persisted row. Two copies of the same guard in two places
+    // is how a bound value and a persisted value drift apart.
+    //
+    // `undefined` means the field was ABSENT, which is not a conflict with a
+    // signed manifest. A present-but-unparseable coordinate stays NaN on
+    // purpose: the gate then sees a supplied value that disagrees with the
+    // signed one and refuses it, which is the pre-existing behaviour on the
+    // working photo path and must not be loosened into a silent accept.
+    const suppliedLat = capturedLat ?? undefined;
+    const suppliedLng = capturedLng ?? undefined;
 
     const structuredDataRaw = formData.get("structuredData");
     let clientStructuredData: Record<string, unknown> = {};
@@ -496,84 +647,43 @@ async function handleMultipartEvidencePost(
         });
       }
 
-      const parsedManifest = parseSignedManifest(signedManifestRaw);
-      if (!parsedManifest.ok) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: parsedManifest.message,
-          status: 400,
-        });
-      }
-
-      const signingKey = await prisma.deviceSigningKey.findUnique({
-        where: { publicKeyId: parsedManifest.manifest.deviceKeyId },
-      });
-      if (!signingKey || signingKey.userId !== session.user.id) {
-        // Unknown key and someone else's key are indistinguishable to the
-        // caller — do not leak which.
-        return apiError(request, {
-          code: "FORBIDDEN",
-          message: "Signing key is not registered for this user",
-          status: 403,
-        });
-      }
-      if (signingKey.revokedAt) {
-        return apiError(request, {
-          code: "FORBIDDEN",
-          message: "Signing key has been revoked",
-          status: 403,
-        });
-      }
-
-      if (
-        !verifyManifestSignature(
-          parsedManifest.manifest,
-          manifestSignatureRaw,
-          signingKey.publicKeyPem,
-        )
-      ) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message:
-            "Manifest signature verification failed — manifest may have been tampered with",
-          status: 400,
-        });
-      }
-
-      const binding = checkManifestBinding(parsedManifest.manifest, {
+      // RA-8388: ONE gate, shared with the JSON writer below. The five checks
+      // that used to be sequenced inline here - parse, key identity, key
+      // revocation, signature, binding - now live in exactly one place, so a
+      // new writer cannot reach a verified record while quietly omitting one
+      // of them. Omission is the defect kind review rounds 1, 2 and 3 each
+      // found, so the fix is structural rather than another careful copy.
+      const gate = await verifyEvidenceSubmission({
+        manifestRaw: signedManifestRaw,
+        signatureRaw: manifestSignatureRaw,
+        userId: session.user.id,
         inspectionId,
         evidenceClass,
-        userId: session.user.id,
         workflowStepId,
-        fileSha256,
+        submissionDigest: fileSha256,
+        digestKind: "file",
         // MUST-FIX 2: bind the location/time that actually get persisted.
         // `undefined` = the client sent no such field, which is not a
         // conflict; a SUPPLIED value that disagrees with the signed manifest
         // is rejected rather than silently overwriting the signed one.
-        capturedLat:
-          typeof capturedLatRaw === "string" && capturedLatRaw.length > 0
-            ? capturedLat
-            : undefined,
-        capturedLng:
-          typeof capturedLngRaw === "string" && capturedLngRaw.length > 0
-            ? capturedLng
-            : undefined,
+        capturedLat: suppliedLat,
+        capturedLng: suppliedLng,
         capturedAt:
           typeof capturedAtRaw === "string" && capturedAtRaw
             ? capturedAtRaw
             : undefined,
       });
-      if (!binding.ok) {
+      if (!gate.ok) {
         return apiError(request, {
-          code: "VALIDATION",
-          message: binding.message,
-          status: 400,
+          code: gate.code,
+          message: gate.message,
+          status: gate.status,
         });
       }
 
-      verifiedManifest = parsedManifest.manifest;
-      verifiedSignature = manifestSignatureRaw;
-      verifiedPublicKeyPem = signingKey.publicKeyPem;
+      verifiedManifest = gate.manifest;
+      verifiedSignature = gate.signature;
+      verifiedPublicKeyPem = gate.publicKeyPem;
     }
 
     // Round 2 MUST-FIX 2: the unsigned-submission policy now lives in ONE
@@ -682,15 +792,17 @@ async function handleMultipartEvidencePost(
               capturedAt: verifiedManifest
                 ? new Date(verifiedManifest.capturedAt)
                 : new Date(),
+              // An unsigned submission can still carry a NaN here (the gate
+              // only runs on the signed path), and NaN is not a latitude.
               capturedLat: verifiedManifest
                 ? verifiedManifest.gps.lat
-                : capturedLat !== null && !Number.isNaN(capturedLat)
-                  ? capturedLat
+                : suppliedLat !== undefined && !Number.isNaN(suppliedLat)
+                  ? suppliedLat
                   : null,
               capturedLng: verifiedManifest
                 ? verifiedManifest.gps.lng
-                : capturedLng !== null && !Number.isNaN(capturedLng)
-                  ? capturedLng
+                : suppliedLng !== undefined && !Number.isNaN(suppliedLng)
+                  ? suppliedLng
                   : null,
               deviceId:
                 typeof deviceIdRaw === "string" && deviceIdRaw

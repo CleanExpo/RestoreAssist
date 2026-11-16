@@ -77,6 +77,11 @@ import {
   ensureDeviceKeyRegistered,
   recoverFromRejectedKey,
 } from "@/lib/evidence/device-signing";
+import {
+  submitMetadataEvidence,
+  newDraftCapturedAt,
+  type MetadataEvidenceDraft,
+} from "@/lib/evidence/submit-metadata-evidence";
 import type { SignedManifestPayload } from "@/lib/evidence/device-signing";
 import { submitSignedCapture } from "@/lib/evidence/capture-submit";
 import { useSession } from "next-auth/react";
@@ -574,28 +579,61 @@ export default function CaptureWorkflowPage({
           notes = `Reading: ${value}`;
         }
 
-        const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": `meta-${stepId}-${evidenceClass}-${Date.now()}`,
+        // RA-8388: text evidence is SIGNED now, exactly like a photo. This is
+        // what closes the client-visible fault - "This account has a
+        // registered signing key" was the server correctly refusing an
+        // unsigned submission that the client had no way to sign.
+        //
+        // The page holds NO copy of how a submission is built. One module
+        // owns that (lib/evidence/submit-metadata-evidence.ts) and the route
+        // test drives the same function, so a page that sends something the
+        // server will not accept fails a test instead of a technician.
+        const userId = session?.user?.id;
+        if (!userId) {
+          throw new Error("You must be signed in to record evidence");
+        }
+        const keyMode = isNative ? "capacitor" : "web";
+        const draft: MetadataEvidenceDraft = {
+          inspectionId,
+          workflowStepId: stepId,
+          evidenceClass,
+          title,
+          notes: notes ?? null,
+          structuredData: structuredData ?? null,
+          // Minted once, here, when the technician has finished entering the
+          // reading - NOT at send time. A retry reuses this draft, so a lost
+          // response plus a second tap cannot write the measurement twice.
+          capturedAt: newDraftCapturedAt(),
+          deviceType: isNative ? "NATIVE_CAPACITOR" : "WEB_BROWSER",
+        };
+
+        const result = await submitMetadataEvidence(draft, {
+          userId,
+          ensureKey: () => ensureDeviceKeyRegistered(keyMode),
+          rotateKey: async () => {
+            await recoverFromRejectedKey(keyMode);
           },
-          body: JSON.stringify({
-            workflowStepId: stepId,
-            evidenceClass,
-            title: title.trim(),
-            notes,
-            structuredData,
-            deviceType: isNative ? "NATIVE_CAPACITOR" : "WEB_BROWSER",
-          }),
+          signedCache: signedRequestCache.current,
         });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
+
+        const data = result.data as {
+          error?: { message?: string };
+          message?: string;
+          evidenceItem?: EvidenceItem;
+        } | null;
+        if (!result.ok) {
           throw new Error(
             data?.error?.message || data?.message || apiErrorMessage(data) || "Failed to record evidence",
           );
         }
-        setEvidenceItems((prev) => [data.evidenceItem, ...prev]);
+        // A replayed idempotent response can arrive without the row echoed
+        // back. The submission still succeeded, so do not prepend `undefined`
+        // and blank the step's evidence out from under the technician - leave
+        // the list alone and let the next load reconcile it.
+        const created = data?.evidenceItem;
+        if (created) {
+          setEvidenceItems((prev) => [created, ...prev]);
+        }
         setSelectedEvidenceClass(null);
         toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} captured`);
         return;

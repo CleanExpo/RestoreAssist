@@ -32,8 +32,26 @@ export interface SignedEvidenceManifest {
   userId: string;
   /** DeviceSigningKey.publicKeyId of the key that signed this manifest. */
   deviceKeyId: string;
-  /** SHA-256 (hex) over the exact captured bytes. */
+  /**
+   * SHA-256 (hex) over whatever `digestKind` names: the exact captured bytes
+   * for a file, or the canonical metadata payload
+   * (`lib/evidence/metadata-payload.ts`) for the four classes that carry no
+   * bytes. In both cases the persisted value is one the SERVER recomputed.
+   */
   sha256: string;
+  /**
+   * RA-8388. Version of the payload shape the digest was taken over, carried
+   * inside the signed bytes so a signature stored today can still be
+   * re-verified after the shape evolves. Absent on manifests signed before
+   * this field existed, which is why it is optional.
+   */
+  payloadVersion?: number;
+  /**
+   * RA-8388. What `sha256` is a digest OF. Absent manifests are read as
+   * "file", which is what every manifest signed before this field existed
+   * was.
+   */
+  digestKind?: "file" | "metadata";
 }
 
 function canonicalize(value: unknown): string {
