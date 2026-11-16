@@ -18,21 +18,40 @@
  * is REFUSED with the missing field named, never written with a filler.
  */
 
+import type { Prisma } from "@prisma/client";
+
 import {
   METADATA_FIELDS,
   normaliseMetadataValues,
   type MetadataValues,
 } from "./metadata-fields";
 
-export type AuthoritativeTable =
-  | "moistureReading"
-  | "environmentalData"
-  | "inspectionPhoto";
+/**
+ * A planned row, typed against the REAL Prisma input for its table.
+ *
+ * This was `{ table: string; data: Record<string, unknown> }`, and the route
+ * then wrote `data: plan.data as Prisma.MoistureReadingUncheckedCreateInput`.
+ * A cast over an index signature checks nothing: a renamed column, a missing
+ * required column or a wrong type all compiled clean and failed at runtime on
+ * a technician's phone. The switch in the route now narrows this union to the
+ * right input type with no cast at all, so `tsc` actually checks the columns
+ * this module claims to write.
+ */
+export type AuthoritativeRowPlan =
+  | {
+      table: "moistureReading";
+      data: Prisma.MoistureReadingUncheckedCreateInput;
+    }
+  | {
+      table: "environmentalData";
+      data: Prisma.EnvironmentalDataUncheckedCreateInput;
+    }
+  | {
+      table: "inspectionPhoto";
+      data: Prisma.InspectionPhotoUncheckedCreateInput;
+    };
 
-export interface AuthoritativeRowPlan {
-  table: AuthoritativeTable;
-  data: Record<string, unknown>;
-}
+export type AuthoritativeTable = AuthoritativeRowPlan["table"];
 
 /**
  * The metadata classes the completion gate counts through a table of their
@@ -146,7 +165,19 @@ export function deriveAuthoritativeRow(
             surfaceType: values.surfaceType,
             moistureLevel: Number(values.moistureLevel),
             depth: values.depth,
-            unit: "PERCENT_MC",
+            // `unit` is deliberately NOT set.
+            //
+            // It was `"PERCENT_MC"`, which is a claim about the instrument's
+            // scale that nobody made. The capture form asks for "Reading" in
+            // "%", and a pin meter reading 18% WME on timber and a meter
+            // reading 18% moisture content are different measurements that
+            // IICRC S500 treats differently. The column is nullable, and the
+            // exporters already fall back to "%" when it is null, so leaving
+            // it empty costs nothing and asserts nothing.
+            //
+            // Follow-up, not invented here: if the unit matters to the claim,
+            // the field contract has to ASK for it, which changes the signed
+            // payload and so belongs in its own change.
             // The reading came from a person reading an instrument on site,
             // not from a meter integration. Saying so honestly matters when
             // the file is read back in a dispute.
@@ -189,6 +220,44 @@ export function deriveAuthoritativeRow(
   }
 }
 
+/**
+ * The classes whose uploads are PHOTOGRAPHS of the property.
+ *
+ * `validateSubmissionPayload` counts `InspectionPhoto` rows to answer
+ * "does this inspection have photographs", so writing a row for anything
+ * else answers that question wrongly. A scanned authority form, a lab PDF
+ * and a floor-plan sketch are all images by mime type and none of them is a
+ * photograph of the damage; `VIDEO_WALKTHROUGH` travels this same multipart
+ * branch and would otherwise be counted as a photo as well.
+ *
+ * Deliberately a list rather than a `startsWith("PHOTO_")` test: THERMAL_IMAGE
+ * and AFFECTED_CONTENTS are photographs and do not carry the prefix, and a
+ * future class should have to be added here on purpose.
+ */
+const PHOTO_EVIDENCE_CLASSES = new Set([
+  "PHOTO_DAMAGE",
+  "PHOTO_EQUIPMENT",
+  "PHOTO_PROGRESS",
+  "PHOTO_COMPLETION",
+  "THERMAL_IMAGE",
+  "AFFECTED_CONTENTS",
+]);
+
+/**
+ * Whether this multipart upload should also write an `InspectionPhoto`.
+ *
+ * BOTH conditions, because each one alone is wrong: the class alone would
+ * accept a PDF uploaded as PHOTO_DAMAGE, and the mime type alone would accept
+ * a scanned AUTHORITY_FORM as a photograph of the property.
+ */
+export function shouldWritePhotoRow(
+  evidenceClass: string,
+  mimeType: string | null,
+): boolean {
+  if (!PHOTO_EVIDENCE_CLASSES.has(evidenceClass)) return false;
+  return typeof mimeType === "string" && mimeType.toLowerCase().startsWith("image/");
+}
+
 export interface PhotoRowInput {
   inspectionId: string;
   url: string;
@@ -211,7 +280,9 @@ export interface PhotoRowInput {
  * way is invisible to the completion gate, which is why a backfill belongs
  * with this change and not after it.
  */
-export function photoRowPlan(input: PhotoRowInput): AuthoritativeRowPlan {
+export function photoRowPlan(
+  input: PhotoRowInput,
+): Extract<AuthoritativeRowPlan, { table: "inspectionPhoto" }> {
   return {
     table: "inspectionPhoto",
     data: {

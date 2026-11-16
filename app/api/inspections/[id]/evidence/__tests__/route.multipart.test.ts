@@ -34,10 +34,29 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 // the real lib/idempotency.ts relies on: unique cacheKey (P2002 on dupe),
 // findUnique, update, deleteMany.
 const idemStore = new Map<string, any>();
+// RA-8388: the multipart writer now writes the EvidenceItem and the
+// InspectionPhoto row in ONE transaction, so this mock needs a real
+// `$transaction`. The transaction client delegates to the SAME vi.fn
+// instances the assertions below reach through `prisma.evidenceItem.create`,
+// so every existing expectation keeps testing the write that actually
+// happened rather than a second, parallel mock.
+const dbMocks = vi.hoisted(() => ({
+  evidenceItem: { create: vi.fn() },
+  inspectionPhoto: {
+    create: vi.fn(async ({ data }: any) => data),
+  },
+  moistureReading: { create: vi.fn(async ({ data }: any) => data) },
+  environmentalData: { create: vi.fn(async ({ data }: any) => data) },
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: vi.fn(async () => ({ organizationId: "org1" })) },
-    evidenceItem: { create: vi.fn() },
+    evidenceItem: dbMocks.evidenceItem,
+    inspectionPhoto: dbMocks.inspectionPhoto,
+    moistureReading: dbMocks.moistureReading,
+    environmentalData: dbMocks.environmentalData,
+    $transaction: vi.fn(async (fn: any) => fn(dbMocks)),
     // Slice 2 review: the unsigned path probes for a registered signing key
     // to record the downgrade reason. Mocked so that probe genuinely runs
     // here rather than silently erroring into its fallback.
@@ -322,7 +341,20 @@ describe("POST /evidence (multipart, RA-7090)", () => {
           multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
           params,
         );
-        expect(res.status).toBe(500);
+        // RA-8388: 409, NOT 500. This asserted 500 until the retry contract
+        // was traced through: `withIdempotency` deletes its PENDING
+        // reservation on any 5xx (lib/idempotency.ts:433-441), so answering
+        // an AMBIGUOUS commit with 500 hands the retry a fresh slot and it
+        // uploads the same photograph a second time - giving the completion
+        // gate two InspectionPhoto rows for one photograph, both signed.
+        //
+        // The bytes are retained here because the row may exist; the
+        // reservation is retained for exactly the same reason, and the
+        // header is what stops the 409 being cached as the final answer.
+        expect(res.status).toBe(409);
+        expect(
+          res.headers.get("X-RestoreAssist-Idempotency-Uncertain"),
+        ).toBe("true");
         expect(deleteMock).not.toHaveBeenCalled();
 
         // Structured log carries every path an async GC sweep needs.

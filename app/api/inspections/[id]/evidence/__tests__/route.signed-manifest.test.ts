@@ -31,10 +31,26 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 
 // In-memory idempotencyRecord fake — same contract as the slice-1 suite.
 const idemStore = new Map<string, any>();
+// RA-8388: the evidence writers now persist the EvidenceItem and its
+// authoritative row in ONE transaction, so this mock needs a real
+// `$transaction`. The transaction client delegates to the SAME vi.fn
+// instances reached through `prisma.evidenceItem.create`, so the assertions
+// below keep testing the write that actually happened.
+const dbMocks = vi.hoisted(() => ({
+  evidenceItem: { create: vi.fn() },
+  inspectionPhoto: { create: vi.fn(async ({ data }: any) => data) },
+  moistureReading: { create: vi.fn(async ({ data }: any) => data) },
+  environmentalData: { create: vi.fn(async ({ data }: any) => data) },
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: vi.fn(async () => ({ organizationId: "org1" })) },
-    evidenceItem: { create: vi.fn() },
+    evidenceItem: dbMocks.evidenceItem,
+    inspectionPhoto: dbMocks.inspectionPhoto,
+    moistureReading: dbMocks.moistureReading,
+    environmentalData: dbMocks.environmentalData,
+    $transaction: vi.fn(async (fn: any) => fn(dbMocks)),
     deviceSigningKey: {
       findUnique: vi.fn(),
       update: vi.fn(),

@@ -83,6 +83,17 @@ export interface MetadataSubmitResult {
   data: unknown;
   /** The key this submission used; stable across retries of one draft. */
   idempotencyKey: string;
+  /**
+   * The server could not tell whether this capture committed.
+   *
+   * Set from `X-RestoreAssist-Idempotency-Uncertain`, which the evidence
+   * route returns with a 409 when a transaction may have committed before
+   * the connection dropped. It is the ONE case where retrying is the wrong
+   * move: the reading may already be in the claim file, and a second send
+   * after the reservation lease expires would record one measurement twice.
+   * The capture surface must tell the technician to CHECK, not to retry.
+   */
+  mayHaveSaved: boolean;
 }
 
 /** Mint the capture time for a NEW draft. Call once, when the entry is confirmed. */
@@ -228,5 +239,8 @@ export async function submitMetadataEvidence(
     status: response?.status ?? 0,
     data,
     idempotencyKey: usedKey,
+    mayHaveSaved:
+      response?.headers?.get("X-RestoreAssist-Idempotency-Uncertain") ===
+      "true",
   };
 }

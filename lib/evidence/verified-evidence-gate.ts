@@ -22,6 +22,7 @@
  * verified record no matter how good its signature is.
  */
 import { prisma } from "@/lib/prisma";
+import { reportError } from "@/lib/observability";
 
 import type { SignedEvidenceManifest } from "./manifest-canonical";
 import {
@@ -116,7 +117,7 @@ function reject(
  * persisted. Callers persist ONLY what this returns; they do not re-derive
  * provenance from the request.
  */
-export async function verifyEvidenceSubmission(
+async function verifyEvidenceSubmissionInner(
   input: VerifyEvidenceSubmissionInput,
 ): Promise<VerifyEvidenceSubmissionResult> {
   const { manifestRaw, signatureRaw } = input;
@@ -205,4 +206,46 @@ export async function verifyEvidenceSubmission(
     capturedLat: parsed.manifest.gps.lat,
     capturedLng: parsed.manifest.gps.lng,
   };
+}
+
+/**
+ * RA-8388 (eng-observability): every refusal this gate makes is now logged.
+ *
+ * The gate had ZERO log calls. It is fail-closed, so when it refuses, the
+ * technician sees a message and the fleet sees nothing - which means a
+ * regression that refuses EVERY capture across every account looks exactly
+ * like one technician mistyping a reading. That is the shape of outage that
+ * runs for days.
+ *
+ * Logged HERE, in one wrapper, rather than at each `reject` call site: the
+ * call sites have the reason but not the context, and a logging line copied
+ * to a dozen sites is a line that gets missed on the thirteenth. `reject`
+ * stays pure so it remains trivially testable.
+ *
+ * A refusal is not an exception - it is usually correct, and often the
+ * control working. It is reported at error level anyway because the thing
+ * worth alerting on is the RATE, and the rate cannot be measured from
+ * silence.
+ */
+export async function verifyEvidenceSubmission(
+  input: VerifyEvidenceSubmissionInput,
+): Promise<VerifyEvidenceSubmissionResult> {
+  const result = await verifyEvidenceSubmissionInner(input);
+  if (!result.ok) {
+    reportError(
+      new Error(`evidence submission refused: ${result.message}`),
+      {
+        route: `/api/inspections/${input.inspectionId}/evidence`,
+        stage: "verified-evidence-gate",
+        userId: input.userId,
+        inspectionId: input.inspectionId,
+        evidenceClass: input.evidenceClass,
+        workflowStepId: input.workflowStepId,
+        digestKind: input.digestKind,
+        refusalCode: result.code,
+        refusalStatus: result.status,
+      },
+    );
+  }
+  return result;
 }

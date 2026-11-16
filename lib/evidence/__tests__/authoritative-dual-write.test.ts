@@ -23,6 +23,20 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: async () => null,
 }));
+vi.mock("@/lib/storage", () => ({
+  getStorageProvider: async () => ({
+    upload: async () => ({
+      originalUrl: "https://cdn.example.com/orig.jpg",
+      compressedUrl: "https://cdn.example.com/a.jpg",
+      thumbnailUrl: "https://cdn.example.com/a-thumb.jpg",
+      storagePath: "originals/a.jpg",
+      compressedPath: "optimised/a.jpg",
+      thumbnailPath: "optimised/a-thumb.jpg",
+    }),
+    delete: async () => undefined,
+  }),
+}));
+
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionCapturable: vi.fn(async () => ({
     ok: true,
@@ -43,16 +57,30 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
  * buffer is discarded - which is the only way a test can tell a real
  * transaction from two sequential creates that happen to both succeed.
  */
-const committed: { evidence: unknown[]; moisture: unknown[]; env: unknown[] } = {
+const committed: {
+  evidence: unknown[];
+  moisture: unknown[];
+  env: unknown[];
+  photos: unknown[];
+} = {
   evidence: [],
   moisture: [],
   env: [],
+  photos: [],
 };
 let failAuthoritativeWrite = false;
+let failPhotoWrite = false;
+/**
+ * Models the failure the retry contract exists for: Postgres COMMITS, then
+ * the pooler connection drops before the client reads the result. The rows
+ * are durable and the caller sees an exception, so the client cannot tell
+ * this apart from a write that never happened.
+ */
+let commitThenThrow = false;
 const idemStore = new Map<string, Record<string, unknown>>();
 
 vi.mock("@/lib/prisma", () => {
-  const stage = () => ({ evidence: [] as unknown[], moisture: [] as unknown[], env: [] as unknown[] });
+  const stage = () => ({ evidence: [] as unknown[], moisture: [] as unknown[], env: [] as unknown[], photos: [] as unknown[] });
   let pending = stage();
   const txClient = {
     evidenceItem: {
@@ -80,7 +108,15 @@ vi.mock("@/lib/prisma", () => {
         return data;
       }),
     },
-    inspectionPhoto: { create: vi.fn(async ({ data }: { data: unknown }) => data) },
+    inspectionPhoto: {
+      create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        if (failPhotoWrite) {
+          throw new Error("simulated database failure writing InspectionPhoto");
+        }
+        pending.photos.push(data);
+        return data;
+      }),
+    },
   };
   return {
     prisma: {
@@ -123,7 +159,24 @@ vi.mock("@/lib/prisma", () => {
         ),
         update: vi.fn(async () => ({})),
         updateMany: vi.fn(async () => ({ count: 1 })),
-        deleteMany: vi.fn(async () => ({ count: 0 })),
+        // Faithful, because the whole question is whether the reservation is
+        // still held when the retry arrives. A deleteMany that always
+        // reported "nothing deleted" made the release path invisible, so a
+        // test could not tell a kept reservation from a released one.
+        deleteMany: vi.fn(
+          async ({ where }: { where: Record<string, unknown> }) => {
+            const key = where.cacheKey as string | undefined;
+            if (!key || !idemStore.has(key)) return { count: 0 };
+            if (
+              where.status !== undefined &&
+              idemStore.get(key)!.status !== where.status
+            ) {
+              return { count: 0 };
+            }
+            idemStore.delete(key);
+            return { count: 1 };
+          },
+        ),
       },
       $transaction: vi.fn(
         async (fn: (tx: typeof txClient) => Promise<unknown>) => {
@@ -133,6 +186,12 @@ vi.mock("@/lib/prisma", () => {
             committed.evidence.push(...pending.evidence);
             committed.moisture.push(...pending.moisture);
             committed.env.push(...pending.env);
+            committed.photos.push(...pending.photos);
+            if (commitThenThrow) {
+              throw new Error(
+                "Server has closed the connection. (committed, result unread)",
+              );
+            }
             return result;
           } finally {
             pending = stage();
@@ -151,7 +210,11 @@ import { submitMetadataEvidence } from "../submit-metadata-evidence";
 import {
   deriveAuthoritativeRow,
   photoRowPlan,
+  shouldWritePhotoRow,
 } from "../authoritative-rows";
+import { signManifest } from "../device-signing";
+import { canonicalizeManifest } from "../manifest-canonical";
+import { createHash } from "node:crypto";
 import { POST } from "@/app/api/inspections/[id]/evidence/route";
 import {
   buildMetadataStructuredData,
@@ -211,10 +274,18 @@ describe("the form contract and the authoritative row agree", () => {
       // one reading.
       moistureLevel: 18.4,
       depth: "Subsurface",
-      unit: "PERCENT_MC",
       source: "manual",
       recordedAt: CAPTURED_AT,
     });
+
+    // The row claims NO instrument scale. This assertion used to read
+    // `unit: "PERCENT_MC"`, which pinned an invention: the capture form asks
+    // for "Reading" in "%", and 18.4% moisture content and 18.4% WME are
+    // different measurements under IICRC S500. Nobody asked the technician
+    // which one the meter was set to, so the record must not answer.
+    expect(
+      (result.plan!.data as { unit?: string | null }).unit,
+    ).toBeUndefined();
   });
 
   it("an ambient reading carries BOTH temperature and humidity", () => {
@@ -499,6 +570,62 @@ describe("the route writes both halves in ONE transaction", () => {
     expect(committed.evidence).toHaveLength(0);
   });
 
+  it("a lost response does not write the reading TWICE", async () => {
+    // Daniella is in a basement on 4G. The reading commits; the response
+    // never reaches her. She taps Save again - the product gave her no other
+    // option.
+    //
+    // The content-derived idempotency key is identical on the retry, which
+    // the spec took to be sufficient. It is not: `withIdempotency` DELETES
+    // its PENDING reservation when the handler returns 5xx
+    // (lib/idempotency.ts:433-441), so the same key reserves fresh and the
+    // handler runs a second time. Neither MoistureReading nor
+    // EnvironmentalData carries a unique constraint to catch it.
+    //
+    // Two signed records of one measurement, taken at two different times,
+    // is worse than none: the dispute pack cites both.
+    commitThenThrow = true;
+    const first = await submit(MOISTURE, "MOISTURE_READING").catch(() => null);
+
+    // The row IS durable - that is what makes this hard.
+    expect(committed.moisture).toHaveLength(1);
+    expect(committed.evidence).toHaveLength(1);
+    // And the technician was NOT told it succeeded.
+    expect(first?.status).not.toBe(201);
+
+    // The retry: same draft, same capturedAt, so the same idempotency key.
+    commitThenThrow = false;
+    await submit(MOISTURE, "MOISTURE_READING").catch(() => null);
+
+    expect(committed.moisture).toHaveLength(1);
+    expect(committed.evidence).toHaveLength(1);
+  });
+
+  it("a failure BEFORE the write is not reported as 'may already have been saved'", async () => {
+    // The database drops while the gate is looking up the signing key.
+    // Nothing has been inserted, so nothing can have committed. Answering
+    // 409 "may already have been saved" here would hold the reservation,
+    // remove Retry, and send the technician looking for a reading that does
+    // not exist.
+    (
+      prisma.deviceSigningKey.findUnique as unknown as ReturnType<typeof vi.fn>
+    ).mockImplementationOnce(async () => {
+      throw new Error("Server has closed the connection.");
+    });
+    const first = await submit(MOISTURE, "MOISTURE_READING").catch(() => null);
+
+    expect(committed.evidence).toHaveLength(0);
+    expect(committed.moisture).toHaveLength(0);
+    expect(first?.status).not.toBe(409);
+    expect(first?.mayHaveSaved).not.toBe(true);
+
+    // And the same draft can be sent again straight away: the reservation
+    // was released, so the retry is not answered "already in flight".
+    const second = await submit(MOISTURE, "MOISTURE_READING");
+    expect(second.status).toBe(201);
+    expect(committed.moisture).toHaveLength(1);
+  });
+
   it("a class with no authoritative table still writes its evidence record", async () => {
     const result = await submit(
       { equipment: "LGR dehumidifier", action: "Deployed", location: "Lounge" },
@@ -544,5 +671,178 @@ describe("the photo half of the same fault", () => {
       timestamp: CAPTURED_AT,
       gpsLatitude: -33.87,
     });
+  });
+
+  // `validateSubmissionPayload` counts InspectionPhoto rows to answer "does
+  // this inspection have photographs of the damage". Every row written here
+  // is an answer to that question, so a row written for something that is
+  // not a photograph makes the completion gate pass on evidence that does
+  // not exist. These are the negative controls: the cases that must NOT
+  // write a row.
+  it.each([
+    // The real thing.
+    ["PHOTO_DAMAGE", "image/jpeg", true],
+    ["PHOTO_EQUIPMENT", "image/png", true],
+    ["PHOTO_PROGRESS", "image/heic", true],
+    ["PHOTO_COMPLETION", "image/webp", true],
+    // Photographs that do not carry the PHOTO_ prefix.
+    ["THERMAL_IMAGE", "image/jpeg", true],
+    ["AFFECTED_CONTENTS", "image/jpeg", true],
+    // A video travels this same multipart branch. Counting it as a photo is
+    // how `job-completes` would return 200 on an inspection with no
+    // photographs at all.
+    ["VIDEO_WALKTHROUGH", "video/mp4", false],
+    // Documents. Each of these is routinely a SCANNED IMAGE, so a mime-only
+    // test would count a scanned authority form as a photo of the damage.
+    ["AUTHORITY_FORM", "image/jpeg", false],
+    ["SCOPE_DOCUMENT", "image/png", false],
+    ["FLOOR_PLAN", "image/png", false],
+    ["LAB_RESULT", "application/pdf", false],
+    ["COMPLIANCE_CERTIFICATE", "image/jpeg", false],
+    ["THIRD_PARTY_REPORT", "image/jpeg", false],
+    // A PDF uploaded under a photo class is not a photograph either, so the
+    // class alone cannot be the test.
+    ["PHOTO_DAMAGE", "application/pdf", false],
+    // No declared mime type at all. The route defaults a missing type to
+    // "image/jpeg" when it stores the file; if that default reached this
+    // predicate, an upload declaring nothing would be counted as a
+    // photograph on the strength of a guess.
+    ["PHOTO_DAMAGE", "", false],
+    ["PHOTO_DAMAGE", null, false],
+  ] as Array<[string, string | null, boolean]>)(
+    "%s + %s writes an InspectionPhoto row: %s",
+    (evidenceClass, mimeType, expected) => {
+      expect(shouldWritePhotoRow(evidenceClass, mimeType)).toBe(expected);
+    },
+  );
+});
+
+/**
+ * The multipart half of the wiring.
+ *
+ * `photoRowPlan` was written, tested and had NO caller: the multipart branch
+ * created an EvidenceItem and stopped. So a technician's photo appeared in
+ * the evidence list, and `validateSubmissionPayload` - which counts
+ * InspectionPhoto - still reported MISSING_PHOTOS on a job that visibly had
+ * photographs in it.
+ *
+ * These drive the REAL route through a signed multipart upload, because the
+ * signing policy is fail-closed: an unsigned upload is refused whether or not
+ * the account holds a key, so an unsigned test here would assert a 400 and
+ * call it a dual write.
+ */
+describe("the multipart branch writes the photo row in the SAME transaction", () => {
+  const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
+  let deviceKey: DeviceKeyRecord;
+
+  const BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+
+  async function upload(evidenceClass: string, mimeType: string) {
+    // The digest the SERVER will compute over the bytes it stores. The
+    // manifest has to vouch for exactly these bytes or the gate refuses it.
+    const fileSha256 = createHash("sha256").update(BYTES).digest("hex");
+
+    const manifest = {
+      inspectionId: "ins_1",
+      workflowStepId: "step1",
+      evidenceClass,
+      capturedAt: "2026-11-15T23:30:00.000Z",
+      gps: { lat: -33.87, lng: 151.1, accuracy: 5 },
+      userId: "u1",
+      deviceKeyId: deviceKey.keyId,
+      sha256: fileSha256,
+    };
+    const signature = await signManifest(deviceKey.privateKey, manifest);
+
+    const form = new FormData();
+    form.set(
+      "file",
+      new File([BYTES], "damage.jpg", { type: mimeType }),
+      "damage.jpg",
+    );
+    form.set("evidenceClass", evidenceClass);
+    form.set("workflowStepId", "step1");
+    form.set("sha256", fileSha256);
+    form.set("capturedLat", "-33.87");
+    form.set("capturedLng", "151.1");
+    form.set("signedManifest", canonicalizeManifest(manifest));
+    form.set("manifestSignature", signature);
+    form.set(
+      "structuredData",
+      JSON.stringify({ description: "South wall", location: "Living room" }),
+    );
+
+    return POST(
+      new NextRequest("http://localhost/api/inspections/ins_1/evidence", {
+        method: "POST",
+        body: form,
+        headers: { "Idempotency-Key": `idem-${evidenceClass}-${mimeType}` },
+      }),
+      { params: Promise.resolve({ id: "ins_1" }) },
+    );
+  }
+
+  beforeEach(async () => {
+    committed.evidence = [];
+    committed.moisture = [];
+    committed.env = [];
+    committed.photos = [];
+    idemStore.clear();
+    failAuthoritativeWrite = false;
+    failPhotoWrite = false;
+    deviceKey = await generateDeviceKey();
+    mSession.mockResolvedValue({ user: { id: "u1", name: "Tech" } });
+    (
+      prisma.deviceSigningKey.findUnique as unknown as ReturnType<typeof vi.fn>
+    ).mockImplementation(async () => ({
+      id: "dk1",
+      userId: "u1",
+      publicKeyId: deviceKey.keyId,
+      publicKeyPem: deviceKey.publicKeyPem,
+      deviceUuid: null,
+      devicePlatform: "web",
+      createdAt: new Date("2026-11-01T00:00:00.000Z"),
+      revokedAt: null,
+      lastUsedAt: null,
+    }));
+  });
+
+  it("a photo writes the evidence record AND the row the gate counts", async () => {
+    const res = await upload("PHOTO_DAMAGE", "image/jpeg");
+    expect(res.status).toBe(201);
+    expect(committed.evidence).toHaveLength(1);
+    expect(committed.photos).toHaveLength(1);
+    expect(committed.photos[0]).toMatchObject({
+      inspectionId: "ins_1",
+      url: "https://cdn.example.com/a.jpg",
+      description: "South wall",
+      location: "Living room",
+      // The SIGNED capture time and position, not a server clock - the two
+      // halves must not disagree about when and where the photo was taken.
+      timestamp: new Date("2026-11-15T23:30:00.000Z"),
+      gpsLatitude: -33.87,
+      gpsLongitude: 151.1,
+    });
+  });
+
+  it("when the photo row fails, the evidence record does NOT survive", async () => {
+    // The rollback case. Without a transaction this leaves an EvidenceItem
+    // the dispute pack can cite and the completion gate cannot count - the
+    // exact split that made the original fault invisible.
+    failPhotoWrite = true;
+    const res = await upload("PHOTO_DAMAGE", "image/jpeg");
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(committed.photos).toHaveLength(0);
+    expect(committed.evidence).toHaveLength(0);
+  });
+
+  it("a scanned authority form writes NO photo row", async () => {
+    // Same multipart branch, same image mime type, and it is not a
+    // photograph of the damage. If this wrote a row, an inspection could
+    // satisfy MISSING_PHOTOS with nothing but paperwork.
+    const res = await upload("AUTHORITY_FORM", "image/jpeg");
+    expect(res.status).toBe(201);
+    expect(committed.evidence).toHaveLength(1);
+    expect(committed.photos).toHaveLength(0);
   });
 });

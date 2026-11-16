@@ -79,9 +79,11 @@ import {
 } from "@/lib/evidence/device-signing";
 import {
   submitMetadataEvidence,
-  newDraftCapturedAt,
   type MetadataEvidenceDraft,
+  type SignedRequestBytes,
 } from "@/lib/evidence/submit-metadata-evidence";
+import { MetadataCaptureForm } from "@/components/evidence/metadata-capture-form";
+import { canCaptureAnother } from "@/lib/evidence/step-reachability";
 import type { SignedManifestPayload } from "@/lib/evidence/device-signing";
 import { submitSignedCapture } from "@/lib/evidence/capture-submit";
 import { useSession } from "next-auth/react";
@@ -253,6 +255,17 @@ export default function CaptureWorkflowPage({
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [selectedEvidenceClass, setSelectedEvidenceClass] =
     useState<EvidenceClass | null>(null);
+  /**
+   * RA-8388: the open metadata form, or null.
+   *
+   * The page records WHICH class is being captured and nothing else. The
+   * draft, its capture time and its signed bytes belong to the form, so a
+   * retry replays one submission instead of minting a second.
+   */
+  const [metadataCapture, setMetadataCapture] = useState<{
+    stepId: string;
+    evidenceClass: EvidenceClass;
+  } | null>(null);
   const pickerAbortRef = useRef<AbortController | null>(null);
   const signedRequestCache = useRef(new Map<string, Pick<SignedManifestPayload, "manifestJson" | "signature">>());
   const [pickerPending, setPickerPending] = useState(false);
@@ -538,104 +551,24 @@ export default function CaptureWorkflowPage({
         evidenceClass === "EQUIPMENT_LOG";
 
       if (metadataOnly) {
-        const title =
-          window.prompt(
-            evidenceClass === "TECHNICIAN_NOTE"
-              ? "Technician note title"
-              : `${EVIDENCE_CLASS_LABELS[evidenceClass]} label`,
-            EVIDENCE_CLASS_LABELS[evidenceClass],
-          ) ?? "";
-        if (!title.trim()) {
-          setSelectedEvidenceClass(null);
-          return;
-        }
-        let notes: string | undefined;
-        let structuredData: Record<string, unknown> | undefined;
-        if (evidenceClass === "TECHNICIAN_NOTE") {
-          notes = window.prompt("Note text") ?? undefined;
-          if (!notes?.trim()) {
-            setSelectedEvidenceClass(null);
-            return;
-          }
-        } else if (
-          evidenceClass === "MOISTURE_READING" ||
-          evidenceClass === "AMBIENT_ENVIRONMENTAL"
-        ) {
-          const raw = window.prompt("Reading value (number)");
-          if (raw == null || raw.trim() === "") {
-            setSelectedEvidenceClass(null);
-            return;
-          }
-          const value = Number(raw);
-          if (!Number.isFinite(value)) {
-            toast.error("Enter a numeric reading");
-            setSelectedEvidenceClass(null);
-            return;
-          }
-          structuredData = {
-            measurementValue: value,
-            measurementUnit: evidenceClass === "MOISTURE_READING" ? "%" : "RH",
-          };
-          notes = `Reading: ${value}`;
-        }
-
-        // RA-8388: text evidence is SIGNED now, exactly like a photo. This is
-        // what closes the client-visible fault - "This account has a
-        // registered signing key" was the server correctly refusing an
-        // unsigned submission that the client had no way to sign.
+        // RA-8388 AMENDMENT 03 §M. This used to be a chain of
+        // `window.prompt` calls. A blank or cancelled prompt ran
+        // `setSelectedEvidenceClass(null); return;`, which is the client's
+        // "nothing happens after I click OK" and her lost entries - the chain
+        // had nowhere to keep what had been typed. It also could not collect
+        // `surfaceType` or `depth`, so a moisture reading could never produce
+        // a complete MoistureReading row.
         //
-        // The page holds NO copy of how a submission is built. One module
-        // owns that (lib/evidence/submit-metadata-evidence.ts) and the route
-        // test drives the same function, so a page that sends something the
-        // server will not accept fails a test instead of a technician.
-        const userId = session?.user?.id;
-        if (!userId) {
+        // The form owns the fields AND the draft. The draft must be created
+        // once and reused across retries, because the idempotency key is
+        // derived from its content plus `capturedAt`; minting that here, per
+        // tap, is what wrote one measurement into insurance evidence twice.
+        // The page deliberately holds neither.
+        if (!session?.user?.id) {
           throw new Error("You must be signed in to record evidence");
         }
-        const keyMode = isNative ? "capacitor" : "web";
-        const draft: MetadataEvidenceDraft = {
-          inspectionId,
-          workflowStepId: stepId,
-          evidenceClass,
-          title,
-          notes: notes ?? null,
-          structuredData: structuredData ?? null,
-          // Minted once, here, when the technician has finished entering the
-          // reading - NOT at send time. A retry reuses this draft, so a lost
-          // response plus a second tap cannot write the measurement twice.
-          capturedAt: newDraftCapturedAt(),
-          deviceType: isNative ? "NATIVE_CAPACITOR" : "WEB_BROWSER",
-        };
-
-        const result = await submitMetadataEvidence(draft, {
-          userId,
-          ensureKey: () => ensureDeviceKeyRegistered(keyMode),
-          rotateKey: async () => {
-            await recoverFromRejectedKey(keyMode);
-          },
-          signedCache: signedRequestCache.current,
-        });
-
-        const data = result.data as {
-          error?: { message?: string };
-          message?: string;
-          evidenceItem?: EvidenceItem;
-        } | null;
-        if (!result.ok) {
-          throw new Error(
-            data?.error?.message || data?.message || apiErrorMessage(data) || "Failed to record evidence",
-          );
-        }
-        // A replayed idempotent response can arrive without the row echoed
-        // back. The submission still succeeded, so do not prepend `undefined`
-        // and blank the step's evidence out from under the technician - leave
-        // the list alone and let the next load reconcile it.
-        const created = data?.evidenceItem;
-        if (created) {
-          setEvidenceItems((prev) => [created, ...prev]);
-        }
-        setSelectedEvidenceClass(null);
-        toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} captured`);
+        setMetadataCapture({ stepId, evidenceClass });
+        setUploadingEvidence(false);
         return;
       }
 
@@ -1335,33 +1268,47 @@ export default function CaptureWorkflowPage({
                           )}
                         </div>
                       </div>
-                      {hasCaptured ? (
-                        <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() =>
-                            handleCaptureEvidence(activeStep.id, cls)
-                          }
-                          disabled={uploadingEvidence}
-                        >
-                          {uploadingEvidence &&
-                          selectedEvidenceClass === cls ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <>
-                              {isNative ? (
-                                <Camera className="h-3 w-3 mr-1" />
-                              ) : (
-                                <Upload className="h-3 w-3 mr-1" />
-                              )}{" "}
-                              Capture
-                            </>
-                          )}
-                        </Button>
-                      )}
+                      {/* RA-8388 AMENDMENT 03 §N: the Capture control STAYS.
+                          This used to be `hasCaptured ? <tick/> : <Button/>`,
+                          so one item per class was the ceiling and
+                          moisture_survey - which asks for five - could never
+                          be satisfied. The tick now reports progress beside
+                          the button instead of replacing it. Whether the step
+                          has enough evidence is the completion gate's
+                          question, answered by counting what was captured. */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {hasCaptured && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-success">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            {captured.length}
+                          </span>
+                        )}
+                        {canCaptureAnother(cls, captured.length) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() =>
+                              handleCaptureEvidence(activeStep.id, cls)
+                            }
+                            disabled={uploadingEvidence}
+                          >
+                            {uploadingEvidence &&
+                            selectedEvidenceClass === cls ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <>
+                                {isNative ? (
+                                  <Camera className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <Upload className="h-3 w-3 mr-1" />
+                                )}{" "}
+                                {hasCaptured ? "Add another" : "Capture"}
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Show captured evidence for this class */}
@@ -1424,18 +1371,24 @@ export default function CaptureWorkflowPage({
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {optionalClasses.map((cls) => {
-                    const hasCaptured = stepEvidence.some(
+                    // Same rule as the required section, from the same
+                    // module. These were two separate ternaries holding one
+                    // idea, which is how one of them gets fixed and the other
+                    // is left behind.
+                    const capturedCount = stepEvidence.filter(
                       (e) => e.evidenceClass === cls,
-                    );
+                    ).length;
+                    const hasCaptured = capturedCount > 0;
+                    const canAdd = canCaptureAnother(cls, capturedCount);
                     return (
                       <button
                         key={cls}
                         onClick={() => {
-                          if (!hasCaptured) {
+                          if (canAdd) {
                             handleCaptureEvidence(activeStep.id, cls);
                           }
                         }}
-                        disabled={hasCaptured || uploadingEvidence}
+                        disabled={!canAdd || uploadingEvidence}
                         className={cn(
                           "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all",
                           hasCaptured
@@ -1449,6 +1402,7 @@ export default function CaptureWorkflowPage({
                           evidenceIcon(cls)
                         )}
                         {EVIDENCE_CLASS_LABELS[cls]}
+                        {capturedCount > 1 && ` (${capturedCount})`}
                       </button>
                     );
                   })}
@@ -1618,6 +1572,57 @@ export default function CaptureWorkflowPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* RA-8388: the metadata capture form. Keyed by class AND step so a
+          different entry never inherits the previous one's typed values -
+          `location` belongs to three of the four field contracts. */}
+      {metadataCapture && (
+        <MetadataCaptureForm
+          key={`${metadataCapture.stepId}:${metadataCapture.evidenceClass}`}
+          open
+          evidenceClass={metadataCapture.evidenceClass}
+          evidenceClassLabel={
+            EVIDENCE_CLASS_LABELS[metadataCapture.evidenceClass]
+          }
+          inspectionId={inspectionId}
+          workflowStepId={metadataCapture.stepId}
+          deviceType={isNative ? "NATIVE_CAPACITOR" : "WEB_BROWSER"}
+          submit={(
+            draft: MetadataEvidenceDraft,
+            signedCache: Map<string, SignedRequestBytes>,
+          ) =>
+            submitMetadataEvidence(draft, {
+              userId: session?.user?.id ?? "",
+              ensureKey: () =>
+                ensureDeviceKeyRegistered(isNative ? "capacitor" : "web"),
+              rotateKey: async () => {
+                await recoverFromRejectedKey(isNative ? "capacitor" : "web");
+              },
+              // The FORM's cache, passed through. The page's own
+              // `signedRequestCache` is cleared on unrelated events, which
+              // would force a re-sign between an attempt and its retry and
+              // turn a legitimate replay into a second submission.
+              signedCache,
+            })
+          }
+          onSaved={(result) => {
+            const created = (
+              result.data as { evidenceItem?: EvidenceItem } | null
+            )?.evidenceItem;
+            // A replayed idempotent response can arrive without the row
+            // echoed back. The submission still succeeded, so leave the list
+            // alone and let the next load reconcile it rather than prepending
+            // `undefined` and blanking the step's evidence.
+            if (created) setEvidenceItems((prev) => [created, ...prev]);
+            toast.success(
+              `${EVIDENCE_CLASS_LABELS[metadataCapture.evidenceClass]} captured`,
+            );
+          }}
+          onClose={() => {
+            setMetadataCapture(null);
+            setSelectedEvidenceClass(null);
+          }}
+        />
+      )}
       <confirm.Mount />
     </div>
   );
