@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { ArrowLeft, Search, Trash2, Download } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { toCsv } from "@/lib/csv/csv-cell";
 
 interface CostItem {
   id: string;
@@ -107,9 +108,7 @@ export default function CostLibraryDetailPage({
         i.unit,
       ]),
     ];
-    const csv = rows
-      .map((r) => r.map((cell) => `"${cell}"`).join(","))
-      .join("\n");
+    const csv = toCsv(rows);
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

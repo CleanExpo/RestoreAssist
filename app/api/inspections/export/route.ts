@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { fromException } from "@/lib/api-errors";
+import { toCsv } from "@/lib/csv/csv-cell";
 
 export async function GET(request: NextRequest) {
   try {
@@ -59,21 +60,19 @@ export async function GET(request: NextRequest) {
       "Created At",
     ];
 
-    const rows = inspections.map((i) =>
-      [
-        i.id,
-        i.inspectionNumber ?? "",
-        `"${(i.propertyAddress ?? "").replace(/"/g, '""')}"`,
-        i.propertyPostcode ?? "",
-        i.status,
-        `"${(i.technicianName ?? "").replace(/"/g, '""')}"`,
-        i._count?.moistureReadings ?? 0,
-        i._count?.photos ?? 0,
-        new Date(i.createdAt).toISOString(),
-      ].join(","),
-    );
+    const rows = inspections.map((i) => [
+      i.id,
+      i.inspectionNumber ?? "",
+      i.propertyAddress ?? "",
+      i.propertyPostcode ?? "",
+      i.status,
+      i.technicianName ?? "",
+      i._count?.moistureReadings ?? 0,
+      i._count?.photos ?? 0,
+      new Date(i.createdAt).toISOString(),
+    ]);
 
-    const csv = [headers.join(","), ...rows].join("\n");
+    const csv = toCsv([headers, ...rows]);
     const truncated = inspections.length === EXPORT_LIMIT;
 
     return new NextResponse(csv, {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { toCsv } from "@/lib/csv/csv-cell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -163,9 +164,7 @@ function exportToCSV(analyses: Analysis[], filename = "claims-analyses.csv") {
     a.batch?.folderName ?? "",
   ]);
 
-  const csv = [headers, ...rows]
-    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-    .join("\n");
+  const csv = toCsv([headers, ...rows]);
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
