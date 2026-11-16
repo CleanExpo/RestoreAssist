@@ -58,7 +58,8 @@ function itemFor(
       return {
         key,
         label: "No affected area has been added to this job",
-        href: areasHref(inspectionId),
+        // addArea=1 opens the Add Area form on arrival (job page effect).
+        href: `${areasHref(inspectionId)}&addArea=1`,
         action: "Add an affected area",
       };
     case "moistureReadings":

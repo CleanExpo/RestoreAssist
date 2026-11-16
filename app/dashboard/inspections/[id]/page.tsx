@@ -567,6 +567,20 @@ export default function InspectionDetailPage({
     Inspection["affectedAreas"]
   >([]);
   const [showAddAreaForm, setShowAddAreaForm] = useState(false);
+  // RA-8388: a refused submit with no affected area links here with
+  // ?tab=areas&addArea=1 (lib/evidence/submit-refusal.ts). Open the form so
+  // the technician lands on the thing they were sent to do, not on a tab
+  // with a button to find.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const searchParams = new URLSearchParams(window.location.search);
+    if (
+      searchParams.get("tab") === "areas" &&
+      searchParams.get("addArea") === "1"
+    ) {
+      setShowAddAreaForm(true);
+    }
+  }, []);
   const [areaForm, setAreaForm] = useState({
     roomZoneId: "",
     affectedAreaSqm: "",

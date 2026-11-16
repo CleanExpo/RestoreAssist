@@ -19,7 +19,7 @@ describe("describeSubmitRefusal", () => {
       {
         key: "affectedAreas",
         label: "No affected area has been added to this job",
-        href: "/dashboard/inspections/insp-1?tab=areas",
+        href: "/dashboard/inspections/insp-1?tab=areas&addArea=1",
         action: "Add an affected area",
       },
     ]);
@@ -71,7 +71,9 @@ describe("describeSubmitRefusal", () => {
       expect(item.action.length).toBeGreaterThan(0);
     }
     const areas = refusal.items.find((i) => i.key === "affectedAreas");
-    expect(areas?.href).toBe("/dashboard/inspections/insp-1?tab=areas");
+    expect(areas?.href).toBe(
+      "/dashboard/inspections/insp-1?tab=areas&addArea=1",
+    );
     const postcode = refusal.items.find((i) => i.key === "propertyPostcode");
     expect(postcode?.label).toBe("Missing: Property postcode");
     expect(refusal.message).toBe(

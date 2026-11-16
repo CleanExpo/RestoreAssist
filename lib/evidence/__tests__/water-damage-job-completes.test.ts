@@ -551,7 +551,7 @@ describe("a water-damage job captured in Guided Capture reaches zero blocking is
     expect(refusal.items).toEqual([
       expect.objectContaining({
         key: "affectedAreas",
-        href: `/dashboard/inspections/${INSPECTION_ID}?tab=areas`,
+        href: `/dashboard/inspections/${INSPECTION_ID}?tab=areas&addArea=1`,
         action: "Add an affected area",
       }),
     ]);
