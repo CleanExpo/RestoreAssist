@@ -92,6 +92,10 @@ export async function POST(
             },
           },
           moistureReadings: {
+            // RA-8388: a retired reading (invalidatedAt set) is a corrected
+            // mistake. It must not count toward the minimum, classification
+            // or the building-code check. Same rule as the PDF route.
+            where: { invalidatedAt: null },
             select: {
               id: true,
               location: true,

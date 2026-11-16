@@ -248,6 +248,22 @@ describe("submit route — RA-7610 SketchRoom join", () => {
     expect(findArgs.include.moistureReadings.select.sketchRoomId).toBe(true);
   });
 
+  // RA-8388: a signed reading cannot be edited, so a mistyped one is retired
+  // (invalidatedAt). Submit read every row, so the retired value still drove
+  // classification and the building-code check. The PDF route already leaves
+  // retired readings out; submit must use the same rule.
+  it("leaves retired moisture readings out of everything submit reads", async () => {
+    const { POST } = await import("../route");
+    await POST(makeSubmitRequest(), params);
+
+    const findArgs = mockInspectionFindUnique.mock.calls[0]?.[0] as {
+      include: { moistureReadings: { where?: unknown } };
+    };
+    expect(findArgs.include.moistureReadings.where).toEqual({
+      invalidatedAt: null,
+    });
+  });
+
   it.each([
     ["Bedroom", ["Bedroom 3", "Bedroom 4"]],
     ["Bedroom", ["Bedroom", "Bedroom"]],
