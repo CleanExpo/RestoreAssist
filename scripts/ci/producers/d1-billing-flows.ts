@@ -84,8 +84,8 @@ export const D1_NOT_PURCHASE_INITIATING: Record<string, string> = {
   "app/api/subscription/route.ts": "reads subscription state; sells nothing",
   "app/api/check-active-subscription/route.ts": "read-only entitlement check",
   "app/api/verify-subscription/route.ts": "read-only verification after return",
-  "app/api/addons/verify/route.ts": "read-only verification after return",
-  "app/api/addons/check-pending/route.ts": "read-only pending-state check",
+  "app/api/addons/verify/route.ts":
+    "verification after return; fulfils an already-paid session through fulfillAddonFromSession and sells nothing",
   "app/api/cancel-subscription/route.ts":
     "cancels; Apple 3.1.1 governs purchase, and blocking cancellation on iOS would trap subscribers",
   "app/api/account/delete/route.ts":
