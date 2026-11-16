@@ -22,13 +22,24 @@ import { describe, expect, it } from "vitest";
 const ROOT = join(__dirname, "..", "..", "..");
 const OWNER = "lib/billing/fulfill-one-time.ts";
 
-/** Writers that are NOT report-pack fulfilment, each with its reason. */
-const ALLOWED: Record<string, string> = {
-  "app/api/webhooks/stripe/route.ts":
-    "subscription signup bonus, granted once under the signupBonusApplied guard; not a pack purchase",
-  "scripts/upgrade-user-package.ts":
-    "operator script granting the same one-time signup bonus under signupBonusApplied; not a pack purchase",
+/**
+ * Writers that are NOT report-pack fulfilment, each with its reason and the
+ * exact writes it is allowed. Pinned per write, not per file: a marker write
+ * or a second increment added to an allowed file still fails.
+ */
+const ALLOWED: Record<string, { reason: string; writes: string[] }> = {
+  "app/api/webhooks/stripe/route.ts": {
+    reason: "subscription signup bonus, granted once under the signupBonusApplied guard; not a pack purchase",
+    writes: ["addonReports increment"],
+  },
+  "scripts/upgrade-user-package.ts": {
+    reason: "operator script granting the same one-time signup bonus under signupBonusApplied; not a pack purchase",
+    writes: ["addonReports increment"],
+  },
 };
+
+/** The kind of a hit, without its file and line: "addonReports increment". */
+const kindOf = (hit: string) => hit.slice(hit.indexOf(" ") + 1);
 
 const MARKER_WRITES = new Set(["create", "createMany", "createManyAndReturn", "upsert"]);
 
@@ -102,7 +113,7 @@ describe("add-on credits and the purchase marker have exactly one writer (RA-840
   it("no other source file writes them", () => {
     const offenders: string[] = [];
     for (const file of sourceFiles()) {
-      if (file === OWNER || file in ALLOWED) continue;
+      if (file === OWNER) continue;
       let text: string;
       try {
         text = readFileSync(join(ROOT, file), "utf8");
@@ -110,16 +121,22 @@ describe("add-on credits and the purchase marker have exactly one writer (RA-840
         continue; // deleted in the working tree but still in the index
       }
       if (!text.includes("addonReports") && !text.includes("addonPurchase")) continue;
-      offenders.push(...findWrites(file, text));
+      // An allowed file may carry its pinned writes once each; anything beyond them is an offender.
+      const remaining = [...(ALLOWED[file]?.writes ?? [])];
+      for (const hit of findWrites(file, text)) {
+        const i = remaining.indexOf(kindOf(hit));
+        if (i >= 0) remaining.splice(i, 1);
+        else offenders.push(hit);
+      }
     }
     expect(offenders, "only lib/billing/fulfill-one-time.ts may write these; call fulfillAddonFromSession").toEqual([]);
   });
 
-  it("every allow-listed file still writes, so the list cannot hide a stale entry", () => {
-    for (const [file, reason] of Object.entries(ALLOWED)) {
+  it("every allow-listed file makes exactly its pinned writes, so the list cannot hide a stale entry", () => {
+    for (const [file, { reason, writes }] of Object.entries(ALLOWED)) {
       expect(reason).toMatch(/\w/);
-      const hits = findWrites(file, readFileSync(join(ROOT, file), "utf8"));
-      expect(hits.length, `${file} is allow-listed but writes nothing`).toBeGreaterThan(0);
+      const kinds = findWrites(file, readFileSync(join(ROOT, file), "utf8")).map(kindOf);
+      expect(kinds, `${file} writes differ from its allow-list entry`).toEqual(writes);
     }
   });
 });
