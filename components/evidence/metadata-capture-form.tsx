@@ -69,8 +69,13 @@ import type {
   MetadataSubmitResult,
   SignedRequestBytes,
 } from "@/lib/evidence/submit-metadata-evidence";
-import { newDraftCapturedAt } from "@/lib/evidence/submit-metadata-evidence";
+import {
+  isDeviceSigningError,
+  newDraftCapturedAt,
+} from "@/lib/evidence/submit-metadata-evidence";
+import { isTimeLimitError } from "@/lib/evidence/capture-submit";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { reportClientError } from "@/lib/observability";
 
 /**
  * Whether a failed attempt may be retried with the SAME bytes.
@@ -106,7 +111,42 @@ export function isRetryableFailure(status: number): boolean {
 const CLOSE_INSTEAD_WARNING =
   "If you close instead, check this step's evidence before entering it again.";
 
+/**
+ * RA-8388: shown when the device could not sign the entry.
+ *
+ * It must not read as a lost connection, and it must not promise that Retry
+ * will work: a device that cannot sign fails the same way every time. It says
+ * "not saved this time" rather than "not sent", because signing can also fail
+ * while replacing a key the server has just refused - a request did go out
+ * then, and was turned away - and because an earlier attempt at the same
+ * entry may have gone out before this one failed.
+ */
+const COULD_NOT_SIGN_MESSAGE =
+  "This device could not sign your entry, so it was not saved this time. " +
+  "Your entry is kept. You can tap Retry once. " +
+  "If it fails again, the problem is with this device and Retry will not fix it - tell your office.";
+
 type FormStatus = "editing" | "sending" | "retryable" | "may-have-saved";
+
+/**
+ * RA-8388: why the form closed. It is what the form knows, not what the page
+ * should do about it.
+ *
+ * - `saved`: the server accepted the entry, and `onSaved` has been called
+ *   with its answer.
+ * - `no-attempt`: no send was started in this opening of the form. A plain
+ *   Cancel, or a close after the entry was refused on the device before
+ *   anything went out.
+ * - `attempt-not-confirmed-saved`: at least one send was started in this
+ *   opening and none was confirmed saved. It covers a lost answer, a save
+ *   that ran out of time, a signing failure, the server's "may already be
+ *   saved", and also a send the server refused outright: the form does not
+ *   try to prove that an earlier send in the same opening wrote nothing.
+ */
+export type MetadataCaptureCloseReason =
+  | "saved"
+  | "no-attempt"
+  | "attempt-not-confirmed-saved";
 
 export interface MetadataCaptureFormProps {
   open: boolean;
@@ -127,7 +167,11 @@ export interface MetadataCaptureFormProps {
     signedCache: Map<string, SignedRequestBytes>,
   ) => Promise<MetadataSubmitResult>;
   onSaved: (result: MetadataSubmitResult) => void;
-  onClose: () => void;
+  /**
+   * Called once when the form closes, with why. A handler that takes no
+   * argument is still accepted.
+   */
+  onClose: (reason: MetadataCaptureCloseReason) => void;
 }
 
 export function MetadataCaptureForm({
@@ -178,6 +222,20 @@ export function MetadataCaptureForm({
    */
   const signedCacheRef = useRef(new Map<string, SignedRequestBytes>());
 
+  /**
+   * RA-8388: a signing failure is reported ONCE per opening of the form. A
+   * device that cannot sign fails on every Retry, and one line is enough to
+   * make it visible.
+   */
+  const signingFailureReportedRef = useRef(false);
+
+  /**
+   * RA-8388: true once a send has been started in this opening of the form.
+   * Set before the first await of `send`, so it is true for every attempt
+   * whose outcome could be unknown. Read by `closeUnsaved`.
+   */
+  const sendStartedRef = useRef(false);
+
   const reset = useCallback(() => {
     setValues({});
     setErrors({});
@@ -186,6 +244,8 @@ export function MetadataCaptureForm({
     draftRef.current = null;
     inFlightRef.current = false;
     signedCacheRef.current = new Map();
+    signingFailureReportedRef.current = false;
+    sendStartedRef.current = false;
   }, []);
 
   /**
@@ -216,19 +276,44 @@ export function MetadataCaptureForm({
 
   const send = useCallback(
     async (draft: MetadataEvidenceDraft) => {
+      sendStartedRef.current = true;
       setStatus("sending");
       setFormMessage(null);
       let result: MetadataSubmitResult;
       try {
         result = await submit(draft, signedCacheRef.current);
-      } catch {
+      } catch (error) {
         // A thrown fetch leaves it unknown whether the row was written. Keep
         // the draft so the retry replays the same bytes under the same key.
+        // The same holds for a signing failure and for a save that ran out
+        // of time: the draft and the state are identical, only the words
+        // differ.
         draftRef.current = draft;
         inFlightRef.current = false;
         setStatus("retryable");
+
+        if (isDeviceSigningError(error)) {
+          if (!signingFailureReportedRef.current) {
+            signingFailureReportedRef.current = true;
+            // Fire and forget: the report is a network call with no limit of
+            // its own, so the form never waits on it.
+            void reportClientError(error, {
+              route: "/dashboard/inspections/[id]/capture",
+              stage: `metadata-capture:${error.stage}`,
+              inspectionId: draft.inspectionId,
+              workflowStepId: draft.workflowStepId,
+              evidenceClass: draft.evidenceClass,
+            });
+          }
+          setFormMessage(`${COULD_NOT_SIGN_MESSAGE} ${CLOSE_INSTEAD_WARNING}`);
+          return;
+        }
+
         setFormMessage(
-          "That did not reach the server. Your entry is kept - tap Retry. " +
+          (isTimeLimitError(error)
+            ? "The server did not answer in time. "
+            : "That did not reach the server. ") +
+            "Your entry is kept - tap Retry. " +
             "It cannot be saved twice. " +
             CLOSE_INSTEAD_WARNING,
         );
@@ -239,7 +324,7 @@ export function MetadataCaptureForm({
         const saved = result;
         reset();
         onSaved(saved);
-        onClose();
+        onClose("saved");
         return;
       }
 
@@ -326,9 +411,16 @@ export function MetadataCaptureForm({
     await send(draft);
   }, [send]);
 
-  const handleDiscard = useCallback(() => {
+  /**
+   * The one way the form closes without a save. The reason is read BEFORE
+   * `reset`, which clears the record of whether anything was sent.
+   */
+  const closeUnsaved = useCallback(() => {
+    const reason: MetadataCaptureCloseReason = sendStartedRef.current
+      ? "attempt-not-confirmed-saved"
+      : "no-attempt";
     reset();
-    onClose();
+    onClose(reason);
   }, [reset, onClose]);
 
   const locked =
@@ -348,7 +440,7 @@ export function MetadataCaptureForm({
         // or an attempt in flight, closes only via the explicit button.
         if (locked) return;
         if (Object.values(values).some((v) => v.trim() !== "")) return;
-        handleDiscard();
+        closeUnsaved();
       }}
     >
       <DialogContent className="sm:max-w-lg">
@@ -464,7 +556,7 @@ export function MetadataCaptureForm({
           {status === "may-have-saved" ? (
             // One action only. No Discard (there is nothing in flight to
             // discard) and no Retry (retrying is the hazard).
-            <Button type="button" onClick={onClose}>
+            <Button type="button" onClick={closeUnsaved}>
               Close and check
             </Button>
           ) : (
@@ -472,7 +564,7 @@ export function MetadataCaptureForm({
           <Button
             type="button"
             variant="outline"
-            onClick={handleDiscard}
+            onClick={closeUnsaved}
             disabled={status === "sending"}
           >
             {/* Not "Discard": after a lost response the reading may

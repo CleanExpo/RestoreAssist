@@ -28,7 +28,78 @@ import {
   METADATA_PAYLOAD_VERSION,
 } from "./metadata-payload";
 import { evidenceIdempotencyKey } from "./ios-capture";
-import { submitSignedCapture } from "./capture-submit";
+import {
+  EVIDENCE_POST_TIMEOUT_MS,
+  submitSignedCapture,
+  withTimeLimit,
+} from "./capture-submit";
+
+/**
+ * RA-8388: the device could not prepare a signed submission.
+ *
+ * Everything `submitMetadataEvidence` does before the evidence POST is local
+ * to the device: hashing the entry, loading or creating the key, signing the
+ * manifest, replacing a refused key. When one of those fails nothing has been
+ * sent, and a second tap will very likely fail the same way. The capture form
+ * used to show that as a lost connection, because all it had was "something
+ * threw".
+ *
+ * The rule is WHERE the failure happened, not what was thrown: a device with
+ * no WebCrypto throws a `TypeError`, exactly as a failed `fetch` does.
+ *
+ * One exception, by name: `DeviceKeyNetworkError` - the key registration call
+ * itself got no answer. That is a connection problem and is passed through
+ * unwrapped. A registration the server answered and refused IS wrapped.
+ *
+ * The message is built from the stage, the cause's name and, when the cause
+ * carries one, its HTTP status. Never from the entry, the user or the cause's
+ * own message, because this error is what gets reported.
+ */
+export type DeviceSigningStage = "digest" | "key" | "sign" | "rotate";
+
+export class DeviceSigningError extends Error {
+  readonly stage: DeviceSigningStage;
+
+  constructor(stage: DeviceSigningStage, cause: unknown) {
+    const named = cause as { name?: unknown; status?: unknown } | null;
+    const causeName =
+      typeof named?.name === "string" && named.name !== ""
+        ? named.name
+        : "UnknownError";
+    const status = named?.status;
+    super(
+      `Device signing failed at ${stage}: ${causeName}` +
+        (typeof status === "number" ? ` (${status})` : ""),
+    );
+    this.name = "DeviceSigningError";
+    this.stage = stage;
+    this.cause = cause;
+  }
+}
+
+/** By name, so it holds across a duplicated module instance. */
+export function isDeviceSigningError(
+  error: unknown,
+): error is DeviceSigningError {
+  return error instanceof Error && error.name === "DeviceSigningError";
+}
+
+function isDeviceKeyNetworkError(error: unknown): boolean {
+  return error instanceof Error && error.name === "DeviceKeyNetworkError";
+}
+
+/** Run one local step; a failure in it is a typed signing failure. */
+async function onDevice<T>(
+  stage: DeviceSigningStage,
+  step: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await step();
+  } catch (error) {
+    if (isDeviceKeyNetworkError(error)) throw error;
+    throw new DeviceSigningError(stage, error);
+  }
+}
 
 /**
  * One reading, note or equipment log as the technician entered it.
@@ -178,61 +249,78 @@ export async function submitMetadataEvidence(
   deps: SubmitMetadataDeps,
 ): Promise<MetadataSubmitResult> {
   const doFetch = deps.fetchImpl ?? fetch;
-  const digest = await metadataDraftDigest(draft);
+  const digest = await onDevice("digest", () => metadataDraftDigest(draft));
 
   let lastResponse: Response | null = null;
+  let lastData: unknown = null;
   let usedKey = "";
 
   const signAndPost = async (attempt: "initial" | "resigned") => {
-    const idempotencyKey = await metadataDraftIdempotencyKey(
-      draft,
-      attempt === "resigned" ? "resigned" : undefined,
+    const idempotencyKey = await onDevice("digest", () =>
+      metadataDraftIdempotencyKey(
+        draft,
+        attempt === "resigned" ? "resigned" : undefined,
+      ),
     );
     usedKey = idempotencyKey;
 
     let signed = deps.signedCache.get(idempotencyKey);
     if (!signed) {
-      const key = await deps.ensureKey();
-      const built = await createSignedMetadataManifest(
-        {
-          inspectionId: draft.inspectionId,
-          workflowStepId: draft.workflowStepId,
-          evidenceClass: draft.evidenceClass,
-          userId: deps.userId,
-          metadataSha256: digest,
-          capturedAt: draft.capturedAt,
-          payloadVersion: METADATA_PAYLOAD_VERSION,
-        },
-        key,
+      const key = await onDevice("key", () => deps.ensureKey());
+      const built = await onDevice("sign", () =>
+        createSignedMetadataManifest(
+          {
+            inspectionId: draft.inspectionId,
+            workflowStepId: draft.workflowStepId,
+            evidenceClass: draft.evidenceClass,
+            userId: deps.userId,
+            metadataSha256: digest,
+            capturedAt: draft.capturedAt,
+            payloadVersion: METADATA_PAYLOAD_VERSION,
+          },
+          key,
+        ),
       );
       signed = { manifestJson: built.manifestJson, signature: built.signature };
       deps.signedCache.set(idempotencyKey, signed);
     }
+    const body = JSON.stringify(metadataRequestBody(draft, signed));
 
-    lastResponse = await doFetch(
-      `/api/inspections/${draft.inspectionId}/evidence`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
-        body: JSON.stringify(metadataRequestBody(draft, signed)),
+    // RA-8388: bounded, request and answer body together. A request given up
+    // on REJECTS, so it reaches the form as an unknown outcome and the same
+    // signed bytes (cached above) are replayed under the same key.
+    const answer = await withTimeLimit(
+      "Evidence save",
+      EVIDENCE_POST_TIMEOUT_MS,
+      async (signal) => {
+        const response = await doFetch(
+          `/api/inspections/${draft.inspectionId}/evidence`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Idempotency-Key": idempotencyKey,
+            },
+            body,
+            ...(signal ? { signal } : {}),
+          },
+        );
+        const data: unknown = await response.json().catch(() => null);
+        return { response, data };
       },
     );
-    return { status: lastResponse.status, ok: lastResponse.ok };
+    lastResponse = answer.response;
+    lastData = answer.data;
+    return { status: answer.response.status, ok: answer.response.ok };
   };
 
   const outcome = await submitSignedCapture({
     signAndPost,
-    rotateKey: deps.rotateKey,
+    rotateKey: () => onDevice("rotate", () => deps.rotateKey()),
   });
 
   const response = lastResponse as Response | null;
-  let data: unknown = null;
-  if (response) {
-    data = await response.json().catch(() => null);
-  }
+  const data: unknown = response ? lastData : null;
 
   return {
     ok: outcome.ok && Boolean(response?.ok),

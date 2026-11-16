@@ -3,7 +3,13 @@
 // hidden behind a Details toggle. A technician could read what was wrong and
 // had nothing to select. Every gap that names a real step must take them there.
 import "@testing-library/jest-dom/vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import {
+  act,
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+} from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SubmissionGatePanel } from "../submission-gate-panel";
 import type {
@@ -197,5 +203,140 @@ describe("SubmissionGatePanel", () => {
     await waitFor(() =>
       expect(onSelectStep).toHaveBeenCalledWith("equipment"),
     );
+  });
+});
+
+// RA-8388: the panel validates on mount and again whenever the evidence
+// count changes, and the two answers can come back in either order. Only the
+// newest request's answer may be shown: an older "can submit" landing last
+// put the green Submit on a step that had dropped below its minimum.
+describe("SubmissionGatePanel shows only the newest validation answer", () => {
+  type FakeResponse = { ok: boolean; json: () => Promise<unknown> };
+
+  /** A fetch whose answers are released by the test, in any order. */
+  function deferredFetch() {
+    const release: Array<(response: FakeResponse) => void> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<FakeResponse>((resolve) => {
+            release.push(resolve);
+          }),
+      ),
+    );
+    return release;
+  }
+
+  function passes(): FakeResponse {
+    return {
+      ok: true,
+      json: async () => ({
+        validation: {
+          canSubmit: true,
+          score: 100,
+          blockingGaps: [],
+          warningGaps: [],
+          totalSteps: 8,
+          completedSteps: 8,
+        },
+      }),
+    };
+  }
+
+  function blocks(): FakeResponse {
+    return {
+      ok: true,
+      json: async () => ({
+        validation: {
+          canSubmit: false,
+          score: 60,
+          blockingGaps: [gap({})],
+          warningGaps: [],
+          totalSteps: 8,
+          completedSteps: 6,
+        },
+      }),
+    };
+  }
+
+  function refused(): FakeResponse {
+    return { ok: false, json: async () => ({ error: "Validation failed" }) };
+  }
+
+  function panel(revalidateKey: number) {
+    return (
+      <SubmissionGatePanel
+        inspectionId="insp-1"
+        isReadyToSubmit
+        onSubmit={() => {}}
+        submitting={false}
+        revalidateKey={revalidateKey}
+      />
+    );
+  }
+
+  /** Five readings start request 0; one is deleted, which starts request 1. */
+  async function twoRequestsInFlight() {
+    const release = deferredFetch();
+    const { rerender } = render(panel(5));
+    rerender(panel(4));
+    await waitFor(() => expect(release).toHaveLength(2));
+    return release;
+  }
+
+  it("keeps the newer answer when the older one succeeds last", async () => {
+    const release = await twoRequestsInFlight();
+
+    await act(async () => {
+      release[1](blocks());
+    });
+    await screen.findByText("1 issue must be resolved");
+    await act(async () => {
+      release[0](passes());
+    });
+
+    expect(screen.getByText("1 issue must be resolved")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Evidence validation passed"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Submit Inspection/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the newer answer when the older one fails last", async () => {
+    const release = await twoRequestsInFlight();
+
+    await act(async () => {
+      release[1](blocks());
+    });
+    await screen.findByText("1 issue must be resolved");
+    await act(async () => {
+      release[0](refused());
+    });
+
+    expect(screen.getByText("1 issue must be resolved")).toBeInTheDocument();
+    expect(screen.queryByText("Validation failed")).not.toBeInTheDocument();
+  });
+
+  it("stays on checking when the older answer lands while the newer one is still out", async () => {
+    const release = await twoRequestsInFlight();
+
+    await act(async () => {
+      release[0](passes());
+    });
+
+    expect(
+      screen.getByText("Validating evidence completeness..."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Submit Inspection/ }),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      release[1](blocks());
+    });
+    await screen.findByText("1 issue must be resolved");
   });
 });

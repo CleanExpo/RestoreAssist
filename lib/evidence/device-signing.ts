@@ -24,6 +24,51 @@ import {
   type SignedEvidenceManifest,
 } from "./manifest-canonical";
 import type { IOSCaptureResult } from "./ios-capture";
+import {
+  DEVICE_KEY_REGISTRATION_TIMEOUT_MS,
+  isTimeLimitError,
+  withTimeLimit,
+} from "./capture-submit";
+
+/**
+ * RA-8388: the registration call did not get an answer - it threw, or ran
+ * out of time. This is a CONNECTION problem. It is named so the submit path
+ * can tell it from a device that cannot sign: the first is worth a Retry,
+ * the second is not fixed by one.
+ *
+ * The message is written for a technician: the photograph path shows a
+ * thrown error's message as it stands.
+ */
+export class DeviceKeyNetworkError extends Error {
+  readonly timedOut: boolean;
+
+  constructor(cause: unknown) {
+    const timedOut = isTimeLimitError(cause);
+    super(
+      timedOut
+        ? "Setting up this device to sign evidence took too long. Check your connection and try again."
+        : "Could not reach the server to set up this device to sign evidence. Check your connection and try again.",
+    );
+    this.name = "DeviceKeyNetworkError";
+    this.timedOut = timedOut;
+    this.cause = cause;
+  }
+}
+
+/**
+ * RA-8388: the server ANSWERED the registration call and refused it. The
+ * status travels as a field so a report can carry it without parsing the
+ * message.
+ */
+export class DeviceKeyRegistrationError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "DeviceKeyRegistrationError";
+    this.status = status;
+  }
+}
 
 const DB_NAME = "ra-device-signing";
 const DB_VERSION = 1;
@@ -189,27 +234,45 @@ async function registerKey(
   record: DeviceKeyRecord,
   devicePlatform: string,
 ): Promise<{ ok: true; record: DeviceKeyRecord } | { ok: false; status: number }> {
-  const response = await fetch("/api/devices/signing-key", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      publicKeyPem: record.publicKeyPem,
-      devicePlatform,
-    }),
-  });
-  if (!response.ok) return { ok: false, status: response.status };
-
-  // The server DERIVES the authoritative key id from the SPKI bytes
-  // (MUST-FIX 3). Adopt what it returns so client and server can never
-  // disagree about which key signed a manifest.
-  let serverKeyId: string | undefined;
+  // RA-8388: bounded. This runs while the capture form has every control
+  // disabled, so a call that never answers must give the form back. The
+  // limit covers the answer's body as well as the request.
+  let answer: { ok: true; serverKeyId?: string } | { ok: false; status: number };
   try {
-    const body = await response.json();
-    const id = body?.deviceSigningKey?.publicKeyId;
-    if (typeof id === "string" && id.length > 0) serverKeyId = id;
-  } catch {
-    // Body is advisory; the locally derived id matches by construction.
+    answer = await withTimeLimit(
+      "Device key registration",
+      DEVICE_KEY_REGISTRATION_TIMEOUT_MS,
+      async (signal) => {
+        const response = await fetch("/api/devices/signing-key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            publicKeyPem: record.publicKeyPem,
+            devicePlatform,
+          }),
+          ...(signal ? { signal } : {}),
+        });
+        if (!response.ok) return { ok: false, status: response.status };
+
+        // The server DERIVES the authoritative key id from the SPKI bytes
+        // (MUST-FIX 3). Adopt what it returns so client and server can never
+        // disagree about which key signed a manifest.
+        let serverKeyId: string | undefined;
+        try {
+          const body = await response.json();
+          const id = body?.deviceSigningKey?.publicKeyId;
+          if (typeof id === "string" && id.length > 0) serverKeyId = id;
+        } catch {
+          // Body is advisory; the locally derived id matches by construction.
+        }
+        return { ok: true, serverKeyId };
+      },
+    );
+  } catch (error) {
+    throw new DeviceKeyNetworkError(error);
   }
+  if (!answer.ok) return answer;
+  const { serverKeyId } = answer;
 
   const registered: DeviceKeyRecord = {
     ...record,
@@ -248,12 +311,16 @@ export async function ensureDeviceKeyRegistered(
     const rotated = await rotateDeviceKey();
     const second = await registerKey(rotated, devicePlatform);
     if (second.ok) return second.record;
-    throw new Error(
+    throw new DeviceKeyRegistrationError(
       `Device key registration failed after rotation (${second.status})`,
+      second.status,
     );
   }
 
-  throw new Error(`Device key registration failed (${first.status})`);
+  throw new DeviceKeyRegistrationError(
+    `Device key registration failed (${first.status})`,
+    first.status,
+  );
 }
 
 /**

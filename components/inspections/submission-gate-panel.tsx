@@ -6,7 +6,7 @@
  * Shows blocking gaps, warnings, and evidence score before allowing submit.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { captureStepHref } from "@/lib/evidence/field-evidence-checklist-view";
@@ -59,8 +59,16 @@ export function SubmissionGatePanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  // RA-8388: validation runs on mount and again on every evidence change,
+  // and the answers can come back in either order. Each run takes a number;
+  // only the newest run may change what the panel shows. Without this an
+  // older "can submit" landing last put the green Submit on a step that had
+  // since dropped below its minimum.
+  const latestRunRef = useRef(0);
 
   const runValidation = useCallback(async () => {
+    const run = ++latestRunRef.current;
+    const isLatest = () => run === latestRunRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -69,10 +77,12 @@ export function SubmissionGatePanel({
       );
       if (!res.ok) {
         const data = await res.json();
+        if (!isLatest()) return;
         setError(apiErrorMessage(data) ?? "Validation failed");
         return;
       }
       const data = await res.json();
+      if (!isLatest()) return;
       setValidation(data.validation);
       // RA-8388: when something blocks, show what it is straight away. The
       // list used to sit behind "Details", so the panel read as a count with
@@ -81,9 +91,11 @@ export function SubmissionGatePanel({
         setShowDetails(true);
       }
     } catch (err) {
+      if (!isLatest()) return;
       setError("Failed to validate — check your connection");
     } finally {
-      setLoading(false);
+      // An older run finishing must not clear the newer run's loading state.
+      if (isLatest()) setLoading(false);
     }
   }, [inspectionId]);
 

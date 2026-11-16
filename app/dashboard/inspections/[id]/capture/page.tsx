@@ -87,7 +87,11 @@ import {
 import { MetadataCaptureForm } from "@/components/evidence/metadata-capture-form";
 import { canCaptureAnother } from "@/lib/evidence/step-reachability";
 import type { SignedManifestPayload } from "@/lib/evidence/device-signing";
-import { submitSignedCapture } from "@/lib/evidence/capture-submit";
+import {
+  EVIDENCE_LIST_RELOAD_TIMEOUT_MS,
+  submitSignedCapture,
+  withTimeLimit,
+} from "@/lib/evidence/capture-submit";
 import { useSession } from "next-auth/react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
@@ -166,6 +170,20 @@ interface Workflow {
 // ============================================
 // HELPER: Evidence icon by class
 // ============================================
+/**
+ * Notes and readings: captured through the metadata form as JSON, with no
+ * camera. One owner, because the capture handler and the capture controls
+ * must agree on which classes the form serves.
+ */
+function isMetadataOnlyClass(evidenceClass: EvidenceClass): boolean {
+  return (
+    evidenceClass === "TECHNICIAN_NOTE" ||
+    evidenceClass === "MOISTURE_READING" ||
+    evidenceClass === "AMBIENT_ENVIRONMENTAL" ||
+    evidenceClass === "EQUIPMENT_LOG"
+  );
+}
+
 function evidenceIcon(cls: EvidenceClass) {
   if (EVIDENCE_CATEGORIES.MEASUREMENTS.includes(cls))
     return <Thermometer className="h-4 w-4" />;
@@ -274,6 +292,25 @@ export default function CaptureWorkflowPage({
   } | null>(null);
   const pickerAbortRef = useRef<AbortController | null>(null);
   const signedRequestCache = useRef(new Map<string, Pick<SignedManifestPayload, "manifestJson" | "signature">>());
+  /**
+   * RA-8388: counts every write to `evidenceItems`. A reload takes the next
+   * number when it is sent and is applied only if the number is unchanged
+   * when its answer arrives, so an answer that left the server before a
+   * newer reload, a save or a delete can never overwrite what came after it.
+   */
+  const evidenceListVersion = useRef(0);
+  /** True once the open form's save has put its record on the list. */
+  const formSavedRecord = useRef(false);
+  /** The `evidenceListVersion` number taken by the newest reload sent. */
+  const latestReloadVersion = useRef(0);
+  /**
+   * RA-8388: the steps whose reading form is held shut while the evidence
+   * list is reloaded after "Close and check". The ref is what the capture
+   * handler reads, so a tap landing before the re-render is still refused;
+   * the state is the same list, for the notice and the disabled controls.
+   */
+  const stepsBeingChecked = useRef(new Set<string>());
+  const [stepIdsBeingChecked, setStepIdsBeingChecked] = useState<string[]>([]);
   const [pickerPending, setPickerPending] = useState(false);
   const [pendingRawFile, setPendingRawFile] = useState<{
     stepId: string;
@@ -330,6 +367,7 @@ export default function CaptureWorkflowPage({
 
       if (wfData.workflow) {
         setWorkflow(wfData.workflow);
+        evidenceListVersion.current += 1;
         setEvidenceItems(wfData.workflow.evidenceItems || []);
         setSetupMode(false);
         // Deep-link from field evidence checklist: ?step=<stepKey>
@@ -365,6 +403,90 @@ export default function CaptureWorkflowPage({
   useEffect(() => {
     fetchWorkflow();
   }, [fetchWorkflow]);
+
+  /**
+   * RA-8388: reload the evidence list, and nothing else.
+   *
+   * When a save may already have been recorded, the form tells the
+   * technician to close it and check the step's evidence. The list was
+   * loaded once, at mount, so that check showed the list from BEFORE the
+   * save and the reading was entered twice.
+   *
+   * It reads the workflow route, the same source as the first load, because
+   * that list holds only evidence that counts. GET /evidence also returns
+   * retired readings, which would inflate the step counts. It does not call
+   * `fetchWorkflow`: that resets setup mode and the open step.
+   *
+   * A failed or unusable answer leaves the list as it is and says so. It
+   * never blanks the list. An answer that has been overtaken (see
+   * `evidenceListVersion`) is never applied.
+   *
+   * While it is out, the reading form for `stepId` is held shut (see
+   * `stepsBeingChecked`): the technician was told to check the step before
+   * entering the reading again, and until the answer is in there is nothing
+   * true to check against. The hold ends when the newest reload has
+   * answered or failed, never before:
+   *
+   * - overtaken by a newer reload: this one stops, and the newer one ends
+   *   the hold for every held step, because its list is the whole job's;
+   * - overtaken by a save or a delete: the answer is from before that write
+   *   and cannot be used, so the list is asked for again;
+   * - no answer inside the time limit: a failed reload. The request is
+   *   bounded, so the hold cannot last for ever.
+   */
+  const reloadEvidenceItems = useCallback(async (stepId: string) => {
+    stepsBeingChecked.current.add(stepId);
+    setStepIdsBeingChecked([...stepsBeingChecked.current]);
+
+    let items: unknown;
+    for (;;) {
+      const version = ++evidenceListVersion.current;
+      latestReloadVersion.current = version;
+      try {
+        items = await withTimeLimit(
+          "Evidence list reload",
+          EVIDENCE_LIST_RELOAD_TIMEOUT_MS,
+          async (signal) => {
+            const res = await fetch(
+              `/api/inspections/${inspectionId}/workflow`,
+              signal ? { signal } : undefined,
+            );
+            const data = res.ok ? await res.json() : null;
+            return data?.workflow?.evidenceItems as unknown;
+          },
+        );
+      } catch {
+        items = undefined;
+      }
+      if (version === evidenceListVersion.current) break;
+      // A newer reload is out; it owns the list and the hold from here.
+      if (latestReloadVersion.current !== version) return;
+      // A save or a delete overtook this answer: ask again.
+    }
+
+    stepsBeingChecked.current.clear();
+    setStepIdsBeingChecked([]);
+    if (!Array.isArray(items)) {
+      toast.error(
+        "Could not refresh this step's evidence. Reload the page to see what is saved before entering it again.",
+      );
+      return;
+    }
+    // A record already on the list keeps the picture links it holds. A
+    // photograph taken in this session holds the signed links the evidence
+    // listing gave it; the workflow route returns the stored links, which
+    // show nothing for a private file.
+    const reloaded = items as EvidenceItem[];
+    setEvidenceItems((prev) => {
+      const held = new Map(prev.map((item) => [item.id, item]));
+      return reloaded.map((item) => {
+        const shown = held.get(item.id);
+        return shown
+          ? { ...item, fileUrl: shown.fileUrl, thumbnailUrl: shown.thumbnailUrl }
+          : item;
+      });
+    });
+  }, [inspectionId]);
 
   // ============================================
   // ACTIONS
@@ -543,6 +665,7 @@ export default function CaptureWorkflowPage({
     const verified = await verifyEvidenceReadback(inspectionId, stepId, data.evidenceItem.id);
     setPendingFailureStatus(null);
     signedRequestCache.current.clear();
+    evidenceListVersion.current += 1;
     setEvidenceItems((prev) =>
       withSavedEvidence(prev, verified as unknown as EvidenceItem),
     );
@@ -583,13 +706,14 @@ export default function CaptureWorkflowPage({
       setSelectedEvidenceClass(evidenceClass);
 
       // Metadata-first classes (notes / readings) — JSON path, no forced camera.
-      const metadataOnly =
-        evidenceClass === "TECHNICIAN_NOTE" ||
-        evidenceClass === "MOISTURE_READING" ||
-        evidenceClass === "AMBIENT_ENVIRONMENTAL" ||
-        evidenceClass === "EQUIPMENT_LOG";
-
-      if (metadataOnly) {
+      if (isMetadataOnlyClass(evidenceClass)) {
+        // RA-8388: the form stays shut on a step whose evidence is still
+        // being checked after "Close and check". Opening it now is how the
+        // same reading is entered twice.
+        if (stepsBeingChecked.current.has(stepId)) {
+          setSelectedEvidenceClass(null);
+          return;
+        }
         // RA-8388 AMENDMENT 03 §M. This used to be a chain of
         // `window.prompt` calls. A blank or cancelled prompt ran
         // `setSelectedEvidenceClass(null); return;`, which is the client's
@@ -726,6 +850,7 @@ export default function CaptureWorkflowPage({
         const body = await res.json().catch(() => null);
         throw new Error(apiErrorMessage(body) ?? "Failed to delete evidence");
       }
+      evidenceListVersion.current += 1;
       setEvidenceItems((prev) => prev.filter((e) => e.id !== evidenceId));
       toast.success("Evidence removed");
     } catch (error) {
@@ -780,6 +905,10 @@ export default function CaptureWorkflowPage({
       )
     : 0;
   const isApprentice = workflow?.experienceLevel === "APPRENTICE";
+  // RA-8388: the open step's readings are being checked after "Close and
+  // check"; its reading and note controls are held until that has answered.
+  const checkingSavedEvidence =
+    activeStep !== null && stepIdsBeingChecked.includes(activeStep.id);
 
   // ============================================
   // LOADING STATE
@@ -1278,6 +1407,25 @@ export default function CaptureWorkflowPage({
               </span>
             </h3>
 
+            {/* RA-8388: shown while the list is reloaded after "Close and
+                check". The reading and note controls below are held until
+                it has answered. */}
+            {checkingSavedEvidence && (
+              <div
+                role="status"
+                className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-slate-800 dark:text-slate-200"
+              >
+                <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                <span>
+                  Checking what was saved...
+                  <span className="block text-xs text-slate-600 dark:text-slate-400">
+                    You can add readings and notes to this step again when
+                    the check has finished.
+                  </span>
+                </span>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {requiredClasses.map((cls) => {
                 const captured = stepEvidence.filter(
@@ -1342,7 +1490,10 @@ export default function CaptureWorkflowPage({
                             onClick={() =>
                               handleCaptureEvidence(activeStep.id, cls)
                             }
-                            disabled={uploadingEvidence}
+                            disabled={
+                              uploadingEvidence ||
+                              (checkingSavedEvidence && isMetadataOnlyClass(cls))
+                            }
                           >
                             {uploadingEvidence &&
                             selectedEvidenceClass === cls ? (
@@ -1439,7 +1590,11 @@ export default function CaptureWorkflowPage({
                             handleCaptureEvidence(activeStep.id, cls);
                           }
                         }}
-                        disabled={!canAdd || uploadingEvidence}
+                        disabled={
+                          !canAdd ||
+                          uploadingEvidence ||
+                          (checkingSavedEvidence && isMetadataOnlyClass(cls))
+                        }
                         className={cn(
                           "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all",
                           hasCaptured
@@ -1705,13 +1860,27 @@ export default function CaptureWorkflowPage({
             // RA-8388: held once. The duplicate answer (`alreadyRecorded`)
             // returns a record this list may already show.
             if (created) {
+              evidenceListVersion.current += 1;
+              formSavedRecord.current = true;
               setEvidenceItems((prev) => withSavedEvidence(prev, created));
             }
             showSavedEvidenceNotice(metadataCapture.evidenceClass, result.data);
           }}
-          onClose={() => {
+          onClose={(reason) => {
+            const closedStepId = metadataCapture.stepId;
             setMetadataCapture(null);
             setSelectedEvidenceClass(null);
+            // RA-8388: "Close and check" must show what the job holds now.
+            // The form says why it closed. No attempt means nothing to
+            // check, so a plain Cancel does not reload (and cannot fail to).
+            // Any other close reloads, except the one straight after a save
+            // whose record `onSaved` has just put on the list. A close with
+            // no reason is treated as an attempt that was not confirmed
+            // saved: the safe side.
+            const alreadyListed = formSavedRecord.current;
+            formSavedRecord.current = false;
+            if (reason === "no-attempt" || alreadyListed) return;
+            void reloadEvidenceItems(closedStepId);
           }}
         />
       )}

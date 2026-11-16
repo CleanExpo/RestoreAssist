@@ -27,7 +27,15 @@
  */
 import "@testing-library/jest-dom/vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+// RA-8388: the client error sink posts with the global `fetch`, not the
+// form's injected one, so it is replaced here and asserted on directly.
+const reportClientError = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/observability", () => ({
+  reportClientError,
+  reportError: vi.fn(),
+}));
 
 import { MetadataCaptureForm } from "@/components/evidence/metadata-capture-form";
 import {
@@ -97,6 +105,8 @@ function renderForm(opts: {
   evidenceClass?: string;
   fetchImpl: typeof fetch;
   key: DeviceKeyRecord;
+  /** Replaces the key step, so a test can make signing fail on the device. */
+  ensureKey?: () => Promise<DeviceKeyRecord>;
   onSaved?: () => void;
   onClose?: () => void;
 }) {
@@ -106,7 +116,7 @@ function renderForm(opts: {
   ) =>
     submitMetadataEvidence(draft, {
       userId: USER_ID,
-      ensureKey: async () => opts.key,
+      ensureKey: opts.ensureKey ?? (async () => opts.key),
       rotateKey: async () => {},
       signedCache,
       fetchImpl: opts.fetchImpl,
@@ -144,6 +154,7 @@ function fillMoistureReading(overrides: Record<string, string> = {}) {
 let key: DeviceKeyRecord;
 beforeEach(async () => {
   key = await makeKey();
+  reportClientError.mockReset();
 });
 
 describe("the entry is never discarded", () => {
@@ -525,5 +536,322 @@ describe("the request carries the signed metadata contract", () => {
     // EnvironmentalData requires BOTH; the old screen asked for one.
     expect(body.structuredData.ambientTemperature).toBe(21.5);
     expect(body.structuredData.humidityLevel).toBe(68);
+  });
+});
+
+/**
+ * RA-8388 review finding "a device that cannot sign is invisible".
+ *
+ * Signing and key set-up run BEFORE any request leaves the device. The form
+ * caught every throw alike, said "That did not reach the server ... tap
+ * Retry", and threw the error away - so a device that cannot sign at all
+ * (no Ed25519 in the WebView, IndexedDB refused) looked like a bad
+ * connection to the technician and like nothing at all to us.
+ */
+describe("a device that cannot sign", () => {
+  const cannotSign = () =>
+    Promise.reject(
+      new DOMException("Ed25519 is not supported", "NotSupportedError"),
+    );
+
+  it("says the device could not sign, and does not blame the connection", async () => {
+    const { impl } = makeFetch([]);
+    renderForm({
+      fetchImpl: impl as unknown as typeof fetch,
+      key,
+      ensureKey: cannotSign,
+    });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+
+    await screen.findByRole("button", { name: "Retry" });
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/could not sign/i);
+    // Nothing left the device, so the form must not say a request was lost
+    // on its way to the server.
+    expect(alert).not.toHaveTextContent(/did not reach the server/i);
+    expect(impl).not.toHaveBeenCalled();
+    // Retry is offered, but not as a promise that it will work.
+    expect(alert).toHaveTextContent(/if it fails again/i);
+    // The entry is kept and locked, exactly as for any other unknown outcome.
+    expect(document.getElementById("metadata-location")).toBeDisabled();
+    expect(document.getElementById("metadata-location")).toHaveValue(
+      "Living room south wall",
+    );
+    expect(alert).toHaveTextContent(
+      "check this step's evidence before entering it again",
+    );
+  });
+
+  it("reports the failure once, however many times Retry is tapped", async () => {
+    const { impl } = makeFetch([]);
+    const ensureKey = vi.fn(cannotSign);
+    renderForm({
+      fetchImpl: impl as unknown as typeof fetch,
+      key,
+      ensureKey,
+    });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(ensureKey).toHaveBeenCalledTimes(2));
+    await screen.findByRole("button", { name: "Retry" });
+
+    expect(reportClientError).toHaveBeenCalledTimes(1);
+    const [reported] = reportClientError.mock.calls[0] as [Error];
+    // The name is what reaches the server log, so it is what is pinned.
+    expect(reported.name).toBe("DeviceSigningError");
+    // Built from the stage and the cause's name only: never the reading.
+    expect(reported.message).toContain("NotSupportedError");
+    expect(reported.message).not.toContain("Living room");
+    expect(reported.message).not.toContain("18.4");
+    expect(reported.message).not.toContain(USER_ID);
+  });
+
+  it("keeps the same draft, so a Retry that can sign saves it once", async () => {
+    const { impl, captures } = makeFetch([
+      { status: 201, body: { evidenceItem: { id: "ev_1" } } },
+    ]);
+    const ensureKey = vi
+      .fn<() => Promise<DeviceKeyRecord>>()
+      .mockRejectedValueOnce(new Error("IndexedDB open failed"))
+      .mockResolvedValue(key);
+    const onSaved = vi.fn();
+    renderForm({
+      fetchImpl: impl as unknown as typeof fetch,
+      key,
+      ensureKey,
+      onSaved,
+    });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    const retry = await screen.findByRole("button", { name: "Retry" });
+    const failedAt = Date.now();
+    fireEvent.click(retry);
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+
+    expect(captures).toHaveLength(1);
+    // Always signed: there is no unsigned fallback for a device in trouble.
+    const body = JSON.parse(captures[0].body);
+    expect(typeof body.signedManifest).toBe("string");
+    expect(typeof body.manifestSignature).toBe("string");
+    // The capture time is the confirm, not the retry.
+    const capturedAt = Date.parse(JSON.parse(body.signedManifest).capturedAt);
+    expect(capturedAt).toBeLessThanOrEqual(failedAt);
+  });
+
+  it("does not report a lost connection as a signing failure", async () => {
+    // Control for the tests above: a thrown fetch keeps its own wording and
+    // is not sent to the error sink as a device fault.
+    const { impl } = makeFetch(["throw"]);
+    renderForm({ fetchImpl: impl as unknown as typeof fetch, key });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+
+    await screen.findByRole("button", { name: "Retry" });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /did not reach the server/i,
+    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/could not sign/i);
+    expect(reportClientError).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * RA-8388 review finding "no time limit on the evidence POST".
+ *
+ * While a save is outstanding Cancel and Save are disabled and the dialog
+ * refuses to close. A request that never answers therefore left the
+ * technician with no exit but killing the app, which drops the draft that
+ * makes a retry safe.
+ */
+describe("a save that never answers", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("gives up after 30 seconds and offers Retry with the same key and bytes", async () => {
+    const captures: Capture[] = [];
+    let markSent: () => void = () => {};
+    const sent = new Promise<void>((resolve) => {
+      markSent = resolve;
+    });
+    const impl = vi.fn((_url: string, init: RequestInit) => {
+      const headers = (init.headers ?? {}) as Record<string, string>;
+      captures.push({
+        idempotencyKey: headers["Idempotency-Key"],
+        body: String(init.body),
+      });
+      if (captures.length === 1) {
+        markSent();
+        // The request left the device and nothing ever came back.
+        return new Promise<Response>(() => {});
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ evidenceItem: { id: "ev_1" } }), {
+          status: 201,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    });
+    const ensureKey = vi.fn(async () => key);
+    const onSaved = vi.fn();
+    renderForm({
+      fetchImpl: impl as unknown as typeof fetch,
+      key,
+      ensureKey,
+      onSaved,
+    });
+
+    fillMoistureReading();
+    // Only the two timer functions the time limit uses; signing is real
+    // WebCrypto. While they are faked this test uses `act` and synchronous
+    // queries only: Testing Library's `findBy` and `waitFor` wait on a
+    // `setTimeout` of their own and would never return.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    await sent;
+
+    // One millisecond short of the limit: still saving, still no exit.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(29_999);
+    });
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Saving" })).toBeDisabled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    vi.useRealTimers();
+    const retry = screen.getByRole("button", { name: "Retry" });
+    expect(screen.getByRole("button", { name: "Close and check" })).toBeEnabled();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/did not answer in time/i);
+    expect(alert).toHaveTextContent(/Your entry is kept/);
+    expect(alert).toHaveTextContent(
+      "check this step's evidence before entering it again",
+    );
+    // It is unknown whether the row was written, so the entry stays locked.
+    expect(document.getElementById("metadata-location")).toBeDisabled();
+    // A slow network is not a device fault.
+    expect(reportClientError).not.toHaveBeenCalled();
+
+    fireEvent.click(retry);
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+
+    expect(captures).toHaveLength(2);
+    expect(captures[0].idempotencyKey).toBeTruthy();
+    expect(captures[1].idempotencyKey).toBe(captures[0].idempotencyKey);
+    expect(captures[1].body).toBe(captures[0].body);
+    // The retry replayed the cached signed bytes; it did not sign again.
+    expect(ensureKey).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * RA-8388. The page reloads the step's evidence when the form closes after a
+ * send whose outcome it cannot vouch for. It could not tell that close from
+ * a plain Cancel, so a Cancel with no connection showed "Could not refresh
+ * this step's evidence" for an entry that was never sent. The form knows
+ * which close it is, so it says.
+ */
+describe("the form says why it closed", () => {
+  it("says nothing was sent when the technician cancels before saving", async () => {
+    const { impl } = makeFetch([]);
+    const onClose = vi.fn();
+    renderForm({ fetchImpl: impl as unknown as typeof fetch, key, onClose });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith("no-attempt");
+    expect(impl).not.toHaveBeenCalled();
+  });
+
+  it("says nothing was sent when the entry was refused on the device and then cancelled", async () => {
+    const { impl } = makeFetch([]);
+    const onClose = vi.fn();
+    renderForm({ fetchImpl: impl as unknown as typeof fetch, key, onClose });
+
+    fillMoistureReading({ "metadata-surfaceType": "" });
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    await screen.findByText("Material is required");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(onClose).toHaveBeenCalledWith("no-attempt");
+    expect(impl).not.toHaveBeenCalled();
+  });
+
+  it("says saved when the server accepted the entry", async () => {
+    const { impl } = makeFetch([
+      { status: 201, body: { evidenceItem: { id: "ev_1" } } },
+    ]);
+    const onClose = vi.fn();
+    renderForm({ fetchImpl: impl as unknown as typeof fetch, key, onClose });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onClose).toHaveBeenCalledWith("saved");
+  });
+
+  it("says sent but not confirmed when the answer was lost and the technician closes to check", async () => {
+    const { impl } = makeFetch(["throw"]);
+    const onClose = vi.fn();
+    renderForm({ fetchImpl: impl as unknown as typeof fetch, key, onClose });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    await screen.findByRole("button", { name: "Retry" });
+    fireEvent.click(screen.getByRole("button", { name: "Close and check" }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith("attempt-not-confirmed-saved");
+  });
+
+  it("says sent but not confirmed when the server says the entry may already be saved", async () => {
+    const { impl } = makeFetch([
+      {
+        status: 409,
+        body: { error: { message: "This capture may already have been saved." } },
+        headers: { "X-RestoreAssist-Idempotency-Uncertain": "true" },
+      },
+    ]);
+    const onClose = vi.fn();
+    renderForm({ fetchImpl: impl as unknown as typeof fetch, key, onClose });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Close and check" }),
+    );
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // The reason and nothing else: this button used to hand the page its
+    // click event.
+    expect(onClose.mock.calls[0]).toEqual(["attempt-not-confirmed-saved"]);
+  });
+
+  it("still says sent but not confirmed when a send was refused outright and the technician then cancels", async () => {
+    // A definite refusal writes nothing, but an earlier send in the same
+    // opening may have: the form does not try to prove a negative.
+    const { impl } = makeFetch([
+      { status: 400, body: { error: { message: "Reading is not valid." } } },
+    ]);
+    const onClose = vi.fn();
+    renderForm({ fetchImpl: impl as unknown as typeof fetch, key, onClose });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+    await screen.findByText("Reading is not valid.");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(onClose).toHaveBeenCalledWith("attempt-not-confirmed-saved");
   });
 });
