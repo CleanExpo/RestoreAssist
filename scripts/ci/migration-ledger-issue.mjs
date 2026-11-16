@@ -15,8 +15,11 @@
  * check-migration-ledger-parity.mjs and writes GitHub issues. It never applies,
  * resolves or inspects a migration itself.
  *
- *   PARITY_OUTCOME=failure PARITY_LOG=/tmp/parity.log GITHUB_TOKEN=... \
- *   GITHUB_REPOSITORY=owner/repo node scripts/ci/migration-ledger-issue.mjs
+ *   LEDGER_TARGET=production PARITY_OUTCOME=failure PARITY_LOG=/tmp/parity.log \
+ *   GITHUB_TOKEN=... GITHUB_REPOSITORY=owner/repo node scripts/ci/migration-ledger-issue.mjs
+ *
+ * LEDGER_TARGET (RA-8386) is the matrix leg: production or sandbox. Each keeps
+ * its own labelled issue; anything else is refused before any GitHub call.
  *
  * PARITY_OUTCOME is the GitHub step outcome of the parity check. Only the exact
  * string "success" counts as a pass; anything else (failure, skipped, empty)
@@ -29,10 +32,52 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const LABEL = "migration-ledger-behind";
-const TITLE = "Production database is missing migrations that are on main";
+/**
+ * One alarm per database (RA-8386). Each target has its own label, because a
+ * passing check closes every open issue carrying its label: if sandbox and
+ * production shared one, a green sandbox would close a live production alarm.
+ * The production values are the RA-8227 originals, unchanged.
+ */
+export const TARGETS = Object.freeze({
+  production: Object.freeze({
+    label: "migration-ledger-behind",
+    labelDescription:
+      "Production database is behind main's migrations (RA-8227 alarm)",
+    title: "Production database is missing migrations that are on main",
+    summary:
+      "The production database has not applied every migration in `main`, or the check could not read it.",
+    whatToDo:
+      "**What to do.** Apply the pending migrations through the separately approved production release step " +
+      "(see the headers of `scripts/start-production.sh` and `scripts/verify-production-migrations.sh`). " +
+      "This workflow never applies them.",
+  }),
+  sandbox: Object.freeze({
+    label: "migration-ledger-behind-sandbox",
+    labelDescription:
+      "Sandbox database is behind main's migrations (RA-8386 alarm)",
+    title: "Sandbox database is missing migrations that are on main",
+    summary:
+      "The sandbox database has fewer applied migrations than `main`, has a failed or rolled-back migration, " +
+      "or the check could not read it. Being ahead of `main` (branch migrations under test) is only a warning " +
+      "and never opens this issue.",
+    whatToDo:
+      "**What to do.** Bring the sandbox database up to `main` through the separately approved migration step " +
+      "for the sandbox. This workflow never applies, resolves or resets migrations.",
+  }),
+});
+
+export const LABEL = TARGETS.production.label;
 const MAX_LINE = 2000;
 const PER_PAGE = 100;
+
+/** The alarm settings for a matrix leg name. Unknown or missing is refused. */
+export function targetConfig(name) {
+  if (typeof name === "string" && Object.hasOwn(TARGETS, name))
+    return TARGETS[name];
+  throw new Error(
+    `LEDGER_TARGET must be one of ${Object.keys(TARGETS).join(", ")}; got ${JSON.stringify(name ?? null)}`,
+  );
+}
 
 /**
  * Decide what to do from the check outcome and the open labelled issues.
@@ -67,28 +112,32 @@ function provenance({ sha, runUrl, event, target }) {
   return `Target: ${target}; Commit: \`${sha}\`; Trigger: \`${event}\`; Run: ${runUrl}`;
 }
 
-function issueBody(line, context) {
+function issueBody(line, context, target) {
   return [
     "<!-- managed-by: .github/workflows/migration-ledger-parity.yml (RA-8227) -->",
-    "The production database has not applied every migration in `main`, or the check could not read it.",
+    target.summary,
     "",
     fencedLine(line),
     "",
     provenance(context),
     "",
-    "**What to do.** Apply the pending migrations through the separately approved production release step " +
-      "(see the headers of `scripts/start-production.sh` and `scripts/verify-production-migrations.sh`). " +
-      "This workflow never applies them.",
+    target.whatToDo,
     "",
     "Then run the **Migration ledger parity** workflow on `main` (Actions, Run workflow). " +
       "The first passing check closes this issue. Until then each check adds a comment here.",
     "",
-    `This issue is opened and closed by the workflow. Only one \`${LABEL}\` issue stays open; ` +
+    `This issue is opened and closed by the workflow. Only one \`${target.label}\` issue stays open; ` +
       "any duplicate is closed automatically. The permanent fix is RA-7942.",
   ].join("\n");
 }
 
-export async function syncLedgerIssue({ outcome, line, context, client }) {
+export async function syncLedgerIssue({
+  outcome,
+  line,
+  context,
+  client,
+  target = TARGETS.production,
+}) {
   const open = await client.listOpenLabelled();
   const actions = planIssueActions(outcome, open);
   const done = [];
@@ -96,8 +145,8 @@ export async function syncLedgerIssue({ outcome, line, context, client }) {
     if (action.type === "create") {
       await client.ensureLabel();
       const number = await client.createIssue({
-        title: TITLE,
-        body: issueBody(line, context),
+        title: target.title,
+        body: issueBody(line, context, target),
       });
       done.push(`opened #${number}`);
     } else if (action.type === "comment") {
@@ -109,7 +158,7 @@ export async function syncLedgerIssue({ outcome, line, context, client }) {
     } else if (action.type === "close-duplicate") {
       await client.comment(
         action.number,
-        `Duplicate of #${action.keep}. Only one \`${LABEL}\` issue stays open.`,
+        `Duplicate of #${action.keep}. Only one \`${target.label}\` issue stays open.`,
       );
       await client.close(action.number, "not_planned");
       done.push(`closed duplicate #${action.number}`);
@@ -131,6 +180,8 @@ export function createGitHubClient({
   repository,
   apiUrl = "https://api.github.com",
   fetchImpl = globalThis.fetch,
+  label = TARGETS.production.label,
+  labelDescription = TARGETS.production.labelDescription,
 }) {
   if (!token) throw new Error("GITHUB_TOKEN is required");
   if (!/^[\w.-]+\/[\w.-]+$/.test(repository ?? ""))
@@ -162,7 +213,7 @@ export function createGitHubClient({
       for (let page = 1; ; page += 1) {
         const query = new URLSearchParams({
           state: "open",
-          labels: LABEL,
+          labels: label,
           per_page: String(PER_PAGE),
           page: String(page),
         });
@@ -176,23 +227,22 @@ export function createGitHubClient({
     async ensureLabel() {
       const existing = await call(
         "GET",
-        `/labels/${encodeURIComponent(LABEL)}`,
+        `/labels/${encodeURIComponent(label)}`,
         null,
         { allow404: true },
       );
       if (existing) return;
       await call("POST", "/labels", {
-        name: LABEL,
+        name: label,
         color: "b60205",
-        description:
-          "Production database is behind main's migrations (RA-8227 alarm)",
+        description: labelDescription,
       });
     },
     async createIssue({ title, body }) {
       const created = await call("POST", "/issues", {
         title,
         body,
-        labels: [LABEL],
+        labels: [label],
       });
       return created.number;
     },
@@ -234,19 +284,25 @@ async function main(env) {
   }
   const context = contextFromEnv(env);
   try {
+    // Checked before any GitHub call: a missing or mistyped leg name must not
+    // fall back to another database's label.
+    const target = targetConfig(env.LEDGER_TARGET);
     const client = createGitHubClient({
       token: env.GITHUB_TOKEN,
       repository: env.GITHUB_REPOSITORY,
       apiUrl: env.GITHUB_API_URL,
+      label: target.label,
+      labelDescription: target.labelDescription,
     });
     const done = await syncLedgerIssue({
       outcome: env.PARITY_OUTCOME,
       line,
       context,
       client,
+      target,
     });
     console.log(
-      `[migration-ledger-issue] outcome ${JSON.stringify(env.PARITY_OUTCOME ?? null)}: ` +
+      `[migration-ledger-issue] ${env.LEDGER_TARGET} outcome ${JSON.stringify(env.PARITY_OUTCOME ?? null)}: ` +
         (done.length ? done.join(", ") : "no open issue, nothing to do"),
     );
     return 0;
