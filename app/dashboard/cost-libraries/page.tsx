@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import { Plus, Edit, Trash2, Download, Upload, X } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import {
+  createMutationAttempt,
+  fetchWithIdempotency,
+} from "@/lib/http/fetch-with-idempotency";
 
 interface CostItem {
   id: string;
@@ -62,6 +66,11 @@ export default function CostLibrariesPage() {
   });
 
   const csvInputRef = useRef<HTMLInputElement>(null);
+  // RA-8394: one Idempotency-Key per create action, reused on a double
+  // click or a retry after a lost reply, so the server saves it once.
+  const createLibraryAttempt = useRef(createMutationAttempt("cost-library-create"));
+  const createItemAttempt = useRef(createMutationAttempt("cost-item-create"));
+  const createInFlight = useRef(false);
   const [importingLibraryId, setImportingLibraryId] = useState<string | null>(
     null,
   );
@@ -104,11 +113,14 @@ export default function CostLibrariesPage() {
       return;
     }
 
+    if (createInFlight.current) return;
+    createInFlight.current = true;
     try {
-      const response = await fetch("/api/cost-libraries", {
+      const response = await fetchWithIdempotency("/api/cost-libraries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
+        attempt: createLibraryAttempt.current,
       });
 
       if (response.ok) {
@@ -129,6 +141,8 @@ export default function CostLibrariesPage() {
     } catch (error) {
       console.error("Error creating cost library:", error);
       toast.error("Failed to create cost library");
+    } finally {
+      createInFlight.current = false;
     }
   };
 
@@ -228,8 +242,10 @@ export default function CostLibrariesPage() {
       return;
     }
 
+    if (createInFlight.current) return;
+    createInFlight.current = true;
     try {
-      const response = await fetch("/api/cost-items", {
+      const response = await fetchWithIdempotency("/api/cost-items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -237,6 +253,7 @@ export default function CostLibrariesPage() {
           libraryId: currentLibrary.id,
           rate: parseFloat(itemFormData.rate),
         }),
+        attempt: createItemAttempt.current,
       });
 
       if (response.ok) {
@@ -261,6 +278,8 @@ export default function CostLibrariesPage() {
     } catch (error) {
       console.error("Error adding cost item:", error);
       toast.error("Failed to add cost item");
+    } finally {
+      createInFlight.current = false;
     }
   };
 
