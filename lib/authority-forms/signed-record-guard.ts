@@ -63,12 +63,15 @@ export function formSignatureRefusal(form: {
   return null;
 }
 
-/** Returns the reason the form's wording cannot change, or null. */
+/**
+ * Returns the reason a signed form cannot be edited by staff (wording or
+ * status), or null.
+ */
 export function formTextEditRefusal(form: {
   signatures: ReadonlyArray<{ signedAt: Date | string | null }>;
 }): string | null {
   if (form.signatures.some((s) => s.signedAt !== null)) {
-    return "This form has been signed; its wording can no longer be changed";
+    return "This form has been signed and can no longer be changed";
   }
   return null;
 }

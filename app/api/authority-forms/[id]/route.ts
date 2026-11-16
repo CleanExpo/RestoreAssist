@@ -132,9 +132,19 @@ export async function PUT(
       });
     }
 
-    // RA-8400: a signed form is a closed legal record. The wording cannot
-    // change once anyone has signed, and the body may only request an
-    // allowed status move (never PARTIALLY_SIGNED or COMPLETED).
+    // RA-8400: a signed form is a closed legal record. Once anyone has
+    // signed, neither the wording nor the status can change here (cancelling
+    // a partly signed form is an open founder question), and the body may
+    // only request an allowed status move (never PARTIALLY_SIGNED or
+    // COMPLETED).
+    const signedRefusal = formTextEditRefusal(existingForm);
+    if (signedRefusal) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: signedRefusal,
+        status: 409,
+      });
+    }
     const updateData: {
       authorityDescription?: string;
       status?: "CANCELLED";
@@ -145,14 +155,6 @@ export async function PUT(
           code: "VALIDATION",
           message: "authorityDescription must be a string",
           status: 400,
-        });
-      }
-      const refusal = formTextEditRefusal(existingForm);
-      if (refusal) {
-        return apiError(request, {
-          code: "CONFLICT",
-          message: refusal,
-          status: 409,
         });
       }
       updateData.authorityDescription = body.authorityDescription;
@@ -175,9 +177,7 @@ export async function PUT(
       where: {
         id,
         status: existingForm.status,
-        ...(updateData.authorityDescription !== undefined
-          ? noSignedSignatureWhere()
-          : {}),
+        ...noSignedSignatureWhere(),
         report: {
           OR: [
             { userId: session.user.id },

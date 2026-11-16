@@ -124,4 +124,26 @@ describe("PUT /api/authority-forms/:id (RA-8400)", () => {
       status: "CANCELLED",
     });
   });
+
+  it("refuses to cancel a form that already carries a signature", async () => {
+    // Staff signing leaves a PENDING_SIGNATURES form in that status, so a
+    // signed slot can sit on a form whose status still looks open.
+    instanceFindUnique.mockResolvedValueOnce(
+      form("PENDING_SIGNATURES", new Date("2026-11-01T00:00:00Z")),
+    );
+    const res = await PUT(putReq({ status: "CANCELLED" }), params());
+    expect(res.status).toBe(409);
+    expect(instanceUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("puts the no-signature rule in the cancel write too", async () => {
+    instanceFindUnique
+      .mockResolvedValueOnce(form("DRAFT", null))
+      .mockResolvedValueOnce({ id: "form-1", status: "CANCELLED" });
+    instanceUpdateMany.mockResolvedValueOnce({ count: 1 });
+    await PUT(putReq({ status: "CANCELLED" }), params());
+    expect(instanceUpdateMany.mock.calls[0][0].where).toMatchObject({
+      signatures: { none: { signedAt: { not: null } } },
+    });
+  });
 });
