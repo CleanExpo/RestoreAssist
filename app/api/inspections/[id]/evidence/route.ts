@@ -499,10 +499,24 @@ export async function POST(
             // One is a basement on 4G; a rising count is a fault somewhere
             // between the database and the phone, and without this line it
             // looks exactly like ordinary traffic.
+            //
+            // The two times tell a retry seconds after a lost response from
+            // a replay of an old capture: `capturedAt` is the signed capture
+            // time of the incoming item, and the age is measured from when
+            // the stored record was written. Times and ids only. A log line
+            // must never be the reason this answer fails, so a record with
+            // no readable timestamp logs nulls instead of throwing.
+            const existingCreatedAt =
+              existing.createdAt instanceof Date ? existing.createdAt : null;
             console.warn("[evidence] already-recorded", {
               inspectionId,
               evidenceId: existing.id,
               evidenceClass: existing.evidenceClass,
+              capturedAt: duplicateKey.capturedAt.toISOString(),
+              existingCreatedAt: existingCreatedAt?.toISOString() ?? null,
+              existingAgeSeconds: existingCreatedAt
+                ? Math.round((Date.now() - existingCreatedAt.getTime()) / 1000)
+                : null,
             });
             return NextResponse.json(
               { evidenceItem: existing, alreadyRecorded: true },

@@ -509,6 +509,53 @@ describe("a refusal can be seen and acted on", () => {
     warn.mockRestore();
   });
 
+  it("logs a save refused by validation, naming the field and never the values", async () => {
+    // RA-8388 review: a draft refused by the schema (an ambient temperature
+    // over the 55 degree cap, say) answered 400 and left nothing in the log,
+    // so a technician stuck on that refusal could not be found by search.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const response = await save({
+      lossDescription: "SENTINEL burst flexi hose under the sink",
+      environmentalData: {
+        ambientTemperature: 56,
+        humidityLevel: 60,
+        airCirculation: true,
+      },
+    });
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.code).toBe("VALIDATION");
+    const logged = warn.mock.calls.filter(
+      (call) => call[0] === "[draft-snapshot] validation-refused",
+    );
+    expect(logged).toHaveLength(1);
+    expect(logged[0][1]).toEqual({
+      inspectionId: "insp_1",
+      issueCount: 1,
+      issues: [{ path: "environmentalData.ambientTemperature", code: "too_big" }],
+    });
+    // Neither the text typed nor the number refused reaches the log.
+    expect(JSON.stringify(logged[0])).not.toContain("SENTINEL");
+    expect(JSON.stringify(logged[0])).not.toContain("56");
+    nothingWritten();
+    warn.mockRestore();
+  });
+
+  it("a save that passes validation logs nothing under the validation tag", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const response = await save({});
+
+    expect(response.status).toBe(200);
+    expect(
+      warn.mock.calls.filter(
+        (call) => call[0] === "[draft-snapshot] validation-refused",
+      ),
+    ).toHaveLength(0);
+    warn.mockRestore();
+  });
+
   it("the reload-and-retry answers keep their own code", async () => {
     // No baseIds: the form is out of date. That is not a signed-row refusal
     // and a client must be able to tell the two apart by code.

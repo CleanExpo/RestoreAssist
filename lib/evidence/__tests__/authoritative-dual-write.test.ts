@@ -121,6 +121,9 @@ vi.mock("@/lib/prisma", () => {
         }
         const row = {
           id: `ev_${committed.evidence.length + pending.evidence.length + 1}`,
+          // The schema default (`createdAt DateTime @default(now())`): a
+          // stored evidence record always carries the time it was written.
+          createdAt: new Date(),
           ...data,
         };
         pending.evidence.push(row);
@@ -160,7 +163,11 @@ vi.mock("@/lib/prisma", () => {
       user: { findUnique: vi.fn(async () => ({ organizationId: "org1" })) },
       evidenceItem: {
         create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
-          const row = { id: `ev_direct_${committed.evidence.length + 1}`, ...data };
+          const row = {
+            id: `ev_direct_${committed.evidence.length + 1}`,
+            createdAt: new Date(),
+            ...data,
+          };
           committed.evidence.push(row);
           return row;
         }),
@@ -731,6 +738,52 @@ describe("the route writes both halves in ONE transaction", () => {
         evidenceId: (committed.evidence[0] as { id: string }).id,
         evidenceClass: "MOISTURE_READING",
       });
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("the already-recorded log says when the capture was signed and how old the stored record is", async () => {
+    // RA-8388 review: the line named the record and nothing else, so a
+    // retry one second after a lost response and a replay of a day-old
+    // capture read the same in the log. The signed capture time and the age
+    // of the stored record tell the two apart.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      commitThenThrow = true;
+      await submit(MOISTURE, "MOISTURE_READING").catch(() => null);
+      commitThenThrow = false;
+      idemStore.clear();
+      // The stored record was written 90 seconds before the retry arrives.
+      // The clock is pinned at 2026-11-16T00:00:00Z and the signed capture
+      // time is 23:30 the evening before, so an age worked out from the
+      // wrong timestamp reads 1800, not 90.
+      (committed.evidence[0] as { createdAt: Date }).createdAt = new Date(
+        "2026-11-15T23:58:30.000Z",
+      );
+
+      const retry = await submit(MOISTURE, "MOISTURE_READING");
+      expect(retry.status).toBe(200);
+
+      const calls = warnSpy.mock.calls.filter(
+        ([tag]) => tag === "[evidence] already-recorded",
+      );
+      expect(calls).toHaveLength(1);
+      expect(calls[0][1]).toMatchObject({
+        capturedAt: "2026-11-15T23:30:00.000Z",
+        existingCreatedAt: "2026-11-15T23:58:30.000Z",
+        existingAgeSeconds: 90,
+      });
+      // Ids, a class, two times and a number. Nothing the technician typed.
+      expect(Object.keys(calls[0][1] as object).sort()).toEqual([
+        "capturedAt",
+        "evidenceClass",
+        "evidenceId",
+        "existingAgeSeconds",
+        "existingCreatedAt",
+        "inspectionId",
+      ]);
+      expect(JSON.stringify(calls[0])).not.toContain("Living room south wall");
     } finally {
       warnSpy.mockRestore();
     }

@@ -239,6 +239,20 @@ export async function PUT(
 
   const parsed = snapshotSchema.safeParse(body);
   if (!parsed.success) {
+    // Logged, because apiError reports nothing for a 4xx and this refusal
+    // repeats on every retry: the same draft is refused again. Field paths
+    // and zod issue codes only, never the issue message or anything that
+    // was submitted. The list is capped so one large draft cannot write an
+    // unbounded line; `issueCount` is the full number.
+    const issues = parsed.error.issues;
+    console.warn("[draft-snapshot] validation-refused", {
+      inspectionId: id,
+      issueCount: issues.length,
+      issues: issues.slice(0, 20).map((issue) => ({
+        path: issue.path.join("."),
+        code: issue.code,
+      })),
+    });
     return apiError(request, {
       code: "VALIDATION",
       message: "Invalid inspection draft data",
