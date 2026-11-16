@@ -25,8 +25,10 @@
  * handler runs classification, costing, five compliance gates, a Zoho push
  * and analytics AFTER the gate, none of which is what blocked her, and
  * mocking all of it would make this a test of the scaffolding. The route
- * returning 200 on a real database is proven by the browser run recorded
- * against this contract, not here.
+ * returning 200 on a real database is NOT proven here, and as of
+ * 2026-11-16 it is not proven anywhere: no browser or device run has been
+ * recorded. Read a pass of this file as "the capture routes produce a job
+ * the two precondition gates accept", never as "the job submits".
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -179,6 +181,7 @@ import { POST as AREA_POST } from "@/app/api/inspections/[id]/affected-areas/rou
 import { validateSubmissionPayload } from "@/lib/services/inspection/validate-submission";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { validateWorkflowEvidence } from "../submission-validator";
+import { describeSubmitRefusal } from "../submit-refusal";
 import { getWorkflowTemplate } from "../workflow-definitions";
 
 /**
@@ -529,6 +532,29 @@ describe("a water-damage job captured in Guided Capture reaches zero blocking is
     const result = validateSubmissionPayload(payload());
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("MISSING_AFFECTED_AREAS");
+  });
+
+  it("the no-affected-area refusal gives the technician somewhere to go", async () => {
+    // The same dead end, followed to the screen. The submit route answers
+    // 422 `{ error: <reason> }` for this gate (submit/route.ts), and the
+    // capture page used to toast that raw code. Feed the REAL reason the
+    // gate produced into the function the capture page now renders from.
+    for (const r of FIVE_READINGS) await capture("MOISTURE_READING", r);
+    await capturePhoto(1);
+    const result = validateSubmissionPayload(payload());
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const refusal = describeSubmitRefusal(INSPECTION_ID, {
+      error: result.reason,
+    });
+    expect(refusal.message).not.toContain(result.reason);
+    expect(refusal.items).toEqual([
+      expect.objectContaining({
+        key: "affectedAreas",
+        href: `/dashboard/inspections/${INSPECTION_ID}?tab=areas`,
+        action: "Add an affected area",
+      }),
+    ]);
   });
 
   it("with no moisture reading at all the gate refuses the submission", async () => {
