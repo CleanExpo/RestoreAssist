@@ -163,6 +163,22 @@ describe.skipIf(!HAS_DB)("RA-8388 countable evidence on a real database", () => 
     expect(inspection._count.evidenceItems).toBe(3);
   });
 
+  it("a grouped count by class leaves out only the retired record", async () => {
+    const rows = await prisma.evidenceItem.groupBy({
+      by: ["evidenceClass"],
+      where: countableEvidence({ inspectionId }),
+      _count: { id: true },
+    });
+    const byClass = Object.fromEntries(
+      rows.map((r) => [r.evidenceClass, r._count.id]),
+    );
+    expect(byClass).toEqual({
+      TECHNICIAN_NOTE: 1,
+      MOISTURE_READING: 1,
+      AMBIENT_ENVIRONMENTAL: 1,
+    });
+  });
+
   it("keeps the caller's own narrowing", async () => {
     const counted = await prisma.evidenceItem.findMany({
       where: countableEvidence({

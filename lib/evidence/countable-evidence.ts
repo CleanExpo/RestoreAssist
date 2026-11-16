@@ -7,11 +7,19 @@
  * counting toward a step minimum or a readiness verdict: otherwise a job
  * shows five of five readings with only four valid ones.
  *
- * This is the single owner of that rule. Every reader that COUNTS evidence
- * toward a minimum or a readiness verdict calls countableEvidence(). Readers
- * that LIST or EXPORT evidence (the evidence list, the dispute pack, the
- * contents manifest) deliberately do not: a retired record is still part of
- * the signed history.
+ * This is the single owner of that rule. A reader that COUNTS evidence
+ * toward a minimum or a readiness verdict uses it: the step gate
+ * (workflow/validate), the list the capture page counts from (workflow GET),
+ * the completeness snapshot (submission-gate), the field evidence checklist,
+ * the admin review step gaps and the insurer mandatory-evidence check.
+ *
+ * Readers that LIST, SCORE or EXPORT evidence deliberately do not (the
+ * evidence list, per-item quality scores, the dispute pack, the contents
+ * manifest, the knowledge index): a retired record is still part of the
+ * signed history.
+ *
+ * Known limit: POST /submit does not check step minimums at all. The
+ * five-reading floor is enforced by the step gate the capture screen shows.
  *
  * Evidence with no linked moisture reading (photos, notes, ambient readings)
  * always counts. Ambient readings have no retire marker.
