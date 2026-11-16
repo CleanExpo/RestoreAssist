@@ -40,6 +40,11 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
+import {
+  FILE_EVIDENCE_STATUS_SELECT,
+  rejectedOnlyFileUrls,
+  withoutRejectedPhotographs,
+} from "@/lib/evidence/countable-evidence";
 import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
 import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
@@ -127,7 +132,10 @@ export async function POST(
           scopeItems: { select: { id: true } },
           // `.length` plus per-stage coverage (RA-7003) are read by
           // validateTieredCompletion.
-          photos: { select: { id: true, photoStage: true } },
+          // `url` is read only to match a photograph to its evidence
+          // record (RA-8388, below); it is never returned.
+          photos: { select: { id: true, photoStage: true, url: true } },
+          evidenceItems: FILE_EVIDENCE_STATUS_SELECT,
         },
       });
 
@@ -138,6 +146,14 @@ export async function POST(
           status: 404,
         });
       }
+
+      // RA-8388: a photograph whose only evidence record is REJECTED does
+      // not count. Applied once, here, so every check below reads the same
+      // list. lib/evidence/countable-evidence.ts owns the rule.
+      inspection.photos = withoutRejectedPhotographs(
+        inspection.photos ?? [],
+        rejectedOnlyFileUrls(inspection.evidenceItems ?? []),
+      );
 
       // A linked drawing room needs its own affected-area identity. Zero
       // matches silently omits it; duplicate labels count it twice, while

@@ -35,6 +35,50 @@ export const COUNTABLE_EVIDENCE_WHERE: Prisma.EvidenceItemWhereInput = {
   ],
 };
 
+/**
+ * RA-8388 (founder ruling 17/11/2026) - the file URLs on this inspection whose
+ * ONLY evidence records are REJECTED.
+ *
+ * A counted photograph is an `InspectionPhoto` row. That table has no link to
+ * the evidence record it was written beside, so the two are matched on the
+ * file URL: the same key the evidence delete path uses to remove the counted
+ * row. A URL that a live (ACTIVE or FLAGGED) record still cites is left out,
+ * because two records for one upload share one photo row.
+ *
+ * Today no route sets REJECTED; the status exists in the schema and can be
+ * set by hand. This keeps submit honest if it ever is.
+ *
+ * Takes the inspection's file-bearing evidence records, selected with
+ * FILE_EVIDENCE_STATUS_SELECT, so the caller reads them in the query it
+ * already makes.
+ */
+export const FILE_EVIDENCE_STATUS_SELECT = {
+  where: { fileUrl: { not: null } },
+  select: { fileUrl: true, status: true },
+} satisfies Prisma.EvidenceItemFindManyArgs;
+
+export function rejectedOnlyFileUrls(
+  items: readonly { fileUrl: string | null; status: string }[],
+): Set<string> {
+  const rejected = new Set<string>();
+  const live = new Set<string>();
+  for (const item of items) {
+    if (!item.fileUrl) continue;
+    (item.status === "REJECTED" ? rejected : live).add(item.fileUrl);
+  }
+  for (const url of live) rejected.delete(url);
+  return rejected;
+}
+
+/** Drop the photographs whose only evidence record is REJECTED. */
+export function withoutRejectedPhotographs<T extends { url: string }>(
+  photos: readonly T[],
+  rejectedOnly: ReadonlySet<string>,
+): T[] {
+  if (rejectedOnly.size === 0) return [...photos];
+  return photos.filter((photo) => !rejectedOnly.has(photo.url));
+}
+
 /** Narrow an evidence query to the records that count. */
 export function countableEvidence(
   where: Prisma.EvidenceItemWhereInput = {},
