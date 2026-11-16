@@ -30,6 +30,7 @@ import { useSession } from "next-auth/react";
 import { isRecentlyIssuedCreationKey } from "@/lib/creation-attempt-key";
 import { prepareInspectionPhoto, uploadInspectionPhoto } from "@/lib/inspection-photo-upload";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { isSignedRow, signedRowRefusal } from "@/lib/evidence/signed-row-guard";
 import { cn } from "@/lib/utils";
 import {
   buildAffectedAreaPayload,
@@ -390,6 +391,10 @@ export default function NIRTechnicianInputForm({
   // after the form opened is never erased.
   const savedReadingIds = useRef<Set<string>>(new Set());
   const savedEnvironmentalId = useRef<string | null>(null);
+  // RA-8388: the server's own words when the last draft save was REFUSED (a
+  // 4xx: for example it would change a signed reading, or this person may not
+  // save the whole draft); null otherwise.
+  const draftRefusalMessage = useRef<string | null>(null);
 
   // Moisture Mapping (Visual Floor Plan)
   const [moistureMapPoints, setMoistureMapPoints] = useState<
@@ -1068,6 +1073,17 @@ export default function NIRTechnicianInputForm({
   };
 
   const handleRemoveMoistureReading = (id: string) => {
+    // RA-8388: a reading taken in Guided Capture is signed and the draft save
+    // refuses to remove it. Say so here, in the one shared wording, instead
+    // of "removed" followed by a refusal on every later save.
+    const signed = moistureReadings.find((r) => r.id === id);
+    if (signed && isSignedRow(signed as { evidenceItemId?: string | null })) {
+      toast.error(
+        signedRowRefusal("delete", "moistureReading", { ...signed }),
+        { duration: 15000 },
+      );
+      return;
+    }
     setMoistureReadings(moistureReadings.filter((r) => r.id !== id));
     toast.success("Moisture reading removed");
   };
@@ -1626,6 +1642,7 @@ export default function NIRTechnicianInputForm({
   };
 
   const saveDraftSnapshot = async (currentInspectionId: string) => {
+    draftRefusalMessage.current = null;
     if (hasPartialEnvironmentalData) {
       throw new Error(partialEnvironmentalMessage);
     }
@@ -1689,6 +1706,12 @@ export default function NIRTechnicianInputForm({
 
     if (!response.ok) {
       const data = await response.json().catch(() => null);
+      // RA-8388: a 4xx is the server refusing and saying why. Kept so Save
+      // Draft can show those words; see its toast. A 5xx is a fault, where
+      // "try again" is the right advice, so it is not kept.
+      if (response.status >= 400 && response.status < 500) {
+        draftRefusalMessage.current = apiErrorMessage(data);
+      }
       throw new Error(
         apiErrorMessage(data) ?? "Failed to synchronise inspection draft",
       );
@@ -4476,7 +4499,18 @@ export default function NIRTechnicianInputForm({
 
                 const result = await saveDraftParts(parts);
                 if (!result.ok) {
-                  toast.error(draftSaveFailureMessage(result.failures));
+                  // RA-8388: a refused draft save is shown in the server's
+                  // words (which reading, who may save, what to do). "Try
+                  // Save Draft again" cannot clear a refusal, so that line
+                  // is kept for the other parts only.
+                  const refusal = draftRefusalMessage.current;
+                  const others = refusal
+                    ? result.failures.filter((f) => f.message !== refusal)
+                    : result.failures;
+                  if (refusal) toast.error(refusal, { duration: 15000 });
+                  if (others.length > 0) {
+                    toast.error(draftSaveFailureMessage(others));
+                  }
                   return false;
                 }
 

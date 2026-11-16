@@ -78,7 +78,9 @@ import {
   recoverFromRejectedKey,
 } from "@/lib/evidence/device-signing";
 import {
+  describeSavedEvidence,
   submitMetadataEvidence,
+  withSavedEvidence,
   type MetadataEvidenceDraft,
   type SignedRequestBytes,
 } from "@/lib/evidence/submit-metadata-evidence";
@@ -529,7 +531,10 @@ export default function CaptureWorkflowPage({
       const body = lastResponse
         ? await (lastResponse as Response).json().catch(() => null)
         : null;
-      throw new Error(body?.error?.message || "Failed to record evidence");
+      // RA-8388: `apiErrorMessage` reads both error shapes the route can
+      // answer with (the envelope and the older plain string), so a refusal
+      // is never replaced by the generic line when the server said why.
+      throw new Error(apiErrorMessage(body) || "Failed to record evidence");
     }
     const data = await (lastResponse as Response).json();
     if (typeof data?.evidenceItem?.id !== "string") {
@@ -538,9 +543,34 @@ export default function CaptureWorkflowPage({
     const verified = await verifyEvidenceReadback(inspectionId, stepId, data.evidenceItem.id);
     setPendingFailureStatus(null);
     signedRequestCache.current.clear();
-    setEvidenceItems((prev) => [verified as unknown as EvidenceItem, ...prev]);
+    setEvidenceItems((prev) =>
+      withSavedEvidence(prev, verified as unknown as EvidenceItem),
+    );
     setSelectedEvidenceClass(null);
-    toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} captured`);
+    showSavedEvidenceNotice(evidenceClass, data);
+  };
+
+  /**
+   * RA-8388: say what the server actually answered. A photograph that is
+   * saved but does not count toward the photographs the job needs, and a
+   * capture the job already held, are both 2xx and neither is plain
+   * "captured". The wording has one owner, `describeSavedEvidence`.
+   */
+  const showSavedEvidenceNotice = (
+    evidenceClass: EvidenceClass,
+    data: unknown,
+  ) => {
+    const notice = describeSavedEvidence(
+      EVIDENCE_CLASS_LABELS[evidenceClass],
+      data,
+    );
+    if (notice.tone === "success") {
+      toast.success(notice.message);
+    } else {
+      // Not green, and long enough to read: this is the only time the
+      // technician is told before submit that the photograph does not count.
+      toast(notice.message, { duration: 10000 });
+    }
   };
 
   const handleCaptureEvidence = async (
@@ -689,11 +719,20 @@ export default function CaptureWorkflowPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ evidenceId }),
       });
-      if (!res.ok) throw new Error("Failed to delete evidence");
+      if (!res.ok) {
+        // RA-8388: the route says WHY (for example, this evidence is the
+        // signed record behind a reading, and what to do instead). Show
+        // that, not a generic line the technician can only retry against.
+        const body = await res.json().catch(() => null);
+        throw new Error(apiErrorMessage(body) ?? "Failed to delete evidence");
+      }
       setEvidenceItems((prev) => prev.filter((e) => e.id !== evidenceId));
       toast.success("Evidence removed");
     } catch (error) {
-      toast.error("Failed to delete evidence");
+      toast.error(
+        (error instanceof Error && error.message) ||
+          "Failed to delete evidence",
+      );
     }
   };
 
@@ -1663,10 +1702,12 @@ export default function CaptureWorkflowPage({
             // echoed back. The submission still succeeded, so leave the list
             // alone and let the next load reconcile it rather than prepending
             // `undefined` and blanking the step's evidence.
-            if (created) setEvidenceItems((prev) => [created, ...prev]);
-            toast.success(
-              `${EVIDENCE_CLASS_LABELS[metadataCapture.evidenceClass]} captured`,
-            );
+            // RA-8388: held once. The duplicate answer (`alreadyRecorded`)
+            // returns a record this list may already show.
+            if (created) {
+              setEvidenceItems((prev) => withSavedEvidence(prev, created));
+            }
+            showSavedEvidenceNotice(metadataCapture.evidenceClass, result.data);
           }}
           onClose={() => {
             setMetadataCapture(null);

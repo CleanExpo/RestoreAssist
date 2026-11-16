@@ -107,12 +107,33 @@ class InspectionNotDraftError extends Error {}
  * RA-8388: the named refusal for a save that would edit or remove a signed
  * reading. 409, like this route's other "reload and try again" answers, and
  * nothing has been written when it is returned.
+ *
+ * It has its own code because it is NOT one of those answers: reloading and
+ * saving the same thing again is refused again. `fields` names the row and
+ * the columns, and the message (worded in signed-row-guard.ts, never here)
+ * names the reading by its location and stored value.
+ *
+ * Every refusal is logged once under a fixed tag, with ids only, so a job
+ * stuck in this refusal can be found by search before the technician rings.
  */
-function signedRowRefused(request: NextRequest, error: SignedRowError) {
+function signedRowRefused(
+  request: NextRequest,
+  error: SignedRowError,
+  context: { inspectionId: string; userId: string },
+) {
+  console.warn("[draft-snapshot] signed-row-refused", {
+    inspectionId: context.inspectionId,
+    rowId: error.rowId,
+    table: error.table,
+    action: error.action,
+    fields: error.fields,
+    userId: context.userId,
+  });
   return apiError(request, {
-    code: "CONFLICT",
+    code: "SIGNED_ROW_REFUSED",
     message: error.message,
     status: 409,
+    fields: error.refusalFields(),
   });
 }
 
@@ -318,6 +339,7 @@ export async function PUT(
     // it was not. A linked row sent back unchanged is fine, and its pin, room
     // and flags still save. The rule itself lives in
     // lib/evidence/signed-row-guard.ts, never here.
+    const refusalContext = { inspectionId: id, userId: session.user.id };
     const signedReadingIds = new Set<string>();
     for (const stored of existingReadings) {
       if (!isSignedRow(stored)) continue;
@@ -348,7 +370,9 @@ export async function PUT(
             table: "moistureReading",
             rowId: stored.id,
             fields: changed,
+            stored,
           }),
+          refusalContext,
         );
       }
     }
@@ -371,7 +395,9 @@ export async function PUT(
             table: "environmentalData",
             rowId: existingEnvironmental[0].id,
             fields: changed,
+            stored: existingEnvironmental[0],
           }),
+          refusalContext,
         );
       }
     }
@@ -393,7 +419,8 @@ export async function PUT(
               id: { in: droppedReadingIds },
               evidenceItemId: { not: null },
             },
-            select: { id: true },
+            // The location and value, so the refusal can say which reading.
+            select: { id: true, location: true, moistureLevel: true },
           })
           : null,
         droppedEnvironmentalIds.length > 0
@@ -403,7 +430,12 @@ export async function PUT(
               id: { in: droppedEnvironmentalIds },
               evidenceItemId: { not: null },
             },
-            select: { id: true },
+            select: {
+              id: true,
+              ambientTemperature: true,
+              humidityLevel: true,
+              location: true,
+            },
           })
           : null,
       ]);
@@ -414,7 +446,9 @@ export async function PUT(
           action: "delete",
           table: "moistureReading",
           rowId: signedDroppedReading.id,
+          stored: signedDroppedReading,
         }),
+        refusalContext,
       );
     }
     if (signedDroppedEnvironmental) {
@@ -424,7 +458,9 @@ export async function PUT(
           action: "delete",
           table: "environmentalData",
           rowId: signedDroppedEnvironmental.id,
+          stored: signedDroppedEnvironmental,
         }),
+        refusalContext,
       );
     }
     // An ID this job does not hold must be a fresh client UUID: never let a
@@ -593,7 +629,15 @@ export async function PUT(
         };
         if (environmentalRetained) {
           const updated = await tx.environmentalData.updateMany({
-            where: { id: environmentalId, inspectionId: id },
+            where: {
+              id: environmentalId,
+              inspectionId: id,
+              // RA-8388: a row treated as unsigned is written only while it
+              // still is. A signed capture can link it between the check
+              // above and this write; the update then matches nothing and
+              // the save is refused below, not written over signed values.
+              ...(!signedEnvironmental && { evidenceItemId: null }),
+            },
             // RA-8388: on a signed row the signed columns are left exactly
             // as stored. They were already proved unchanged above.
             data: signedEnvironmental
@@ -619,7 +663,13 @@ export async function PUT(
       for (const reading of data.moistureReadings) {
         if (!reading.id || !retainedReadingIds.has(reading.id)) continue;
         const updated = await tx.moistureReading.updateMany({
-          where: { id: reading.id, inspectionId: id },
+          where: {
+            id: reading.id,
+            inspectionId: id,
+            // RA-8388: as for the ambient row above. Unsigned at the check
+            // must still be unsigned at the write.
+            ...(!signedReadingIds.has(reading.id) && { evidenceItemId: null }),
+          },
           data: {
             // RA-8388: on a signed reading the signed columns are left
             // exactly as stored. They were already proved unchanged above,

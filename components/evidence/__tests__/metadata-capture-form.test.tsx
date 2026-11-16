@@ -378,6 +378,96 @@ describe("one draft per entry", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onSaved.mock.calls[0][0]).toMatchObject({ ok: true, status: 201 });
   });
+
+  // RA-8388. Not every refusal from POST /evidence uses the
+  // `{ error: { message } }` envelope. The tenancy check and the idempotency
+  // wrapper answer `{ error: "..." }`, a plain string. The form read only the
+  // envelope, so those refusals were shown as "This entry was not saved."
+  // with the server's reason thrown away.
+  it("shows a refusal the server sent as a plain string", async () => {
+    // Twice: a 403 is also how the server rejects a device key, so the
+    // writer rotates the key and tries once more before giving up.
+    const refusal = {
+      status: 403,
+      body: { error: "You do not have access to record evidence on this job." },
+    };
+    const { impl } = makeFetch([refusal, { ...refusal }]);
+    renderForm({ fetchImpl: impl as unknown as typeof fetch, key });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+
+    await screen.findByText(
+      /You do not have access to record evidence on this job\./,
+    );
+    expect(screen.queryByText(/This entry was not saved/)).not.toBeInTheDocument();
+  });
+
+  it("shows the idempotency wrapper's plain-string 409 and keeps the entry for Retry", async () => {
+    const { impl } = makeFetch([
+      {
+        status: 409,
+        body: {
+          error:
+            "A request with this Idempotency-Key is already in progress. Retry shortly.",
+        },
+      },
+    ]);
+    renderForm({ fetchImpl: impl as unknown as typeof fetch, key });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+
+    await screen.findByText(/already in progress\. Retry shortly\./);
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("still says the entry was not saved when the refusal carries no words at all", async () => {
+    const { impl } = makeFetch([{ status: 400, body: {} }]);
+    renderForm({ fetchImpl: impl as unknown as typeof fetch, key });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+
+    await screen.findByText(/This entry was not saved\./);
+  });
+
+  // RA-8388. The duplicate answer: the server already holds this exact
+  // signed capture and returns it with 200. This PINS behaviour the form
+  // already had (any 2xx is saved); it was not watched failing here. What
+  // was wrong was the capture page's use of the answer, which is tested in
+  // app/dashboard/inspections/[id]/capture/__tests__/page.refusals.ra8388.test.tsx.
+  it("treats the duplicate answer as saved: no error, no retry, and the answer is handed on whole", async () => {
+    const { impl, captures } = makeFetch([
+      {
+        status: 200,
+        body: { evidenceItem: { id: "ev_1" }, alreadyRecorded: true },
+      },
+    ]);
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    renderForm({
+      fetchImpl: impl as unknown as typeof fetch,
+      key,
+      onSaved,
+      onClose,
+    });
+
+    fillMoistureReading();
+    fireEvent.click(screen.getByRole("button", { name: "Save entry" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(captures).toHaveLength(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument();
+    // The page decides the wording from this flag, so it must arrive.
+    expect(onSaved.mock.calls[0][0]).toMatchObject({
+      ok: true,
+      status: 200,
+      data: { evidenceItem: { id: "ev_1" }, alreadyRecorded: true },
+    });
+  });
 });
 
 describe("the request carries the signed metadata contract", () => {

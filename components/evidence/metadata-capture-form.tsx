@@ -70,6 +70,7 @@ import type {
   SignedRequestBytes,
 } from "@/lib/evidence/submit-metadata-evidence";
 import { newDraftCapturedAt } from "@/lib/evidence/submit-metadata-evidence";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 /**
  * Whether a failed attempt may be retried with the SAME bytes.
@@ -242,11 +243,12 @@ export function MetadataCaptureForm({
         return;
       }
 
-      const body = result.data as
-        | { error?: { message?: string }; message?: string }
-        | null;
+      // RA-8388: `apiErrorMessage` reads every shape this route answers
+      // with - the `{ error: { message } }` envelope AND the plain
+      // `{ error: "..." }` the tenancy check and the idempotency wrapper
+      // send. Reading only the envelope threw the plain ones away.
       const serverMessage =
-        body?.error?.message ?? body?.message ?? "This entry was not saved.";
+        apiErrorMessage(result.data) ?? "This entry was not saved.";
 
       // Checked BEFORE the retryable test, because a 409 is otherwise
       // retryable and this is the one 409 that must not be retried.

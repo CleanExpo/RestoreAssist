@@ -262,3 +262,105 @@ describe("the refusal is written for the technician", () => {
     expect(error.message).not.toContain("moistureLevel");
   });
 });
+
+// RA-8388 bench, contract seat: "This moisture reading ... cannot be changed"
+// on a job with twelve readings leaves the technician guessing which one, and
+// what it was. The refusal names the reading by where it was taken and the
+// value on the record, and the answer carries the row for a client to act on.
+describe("the refusal says which reading", () => {
+  it("names a moisture reading by its location and the stored value", () => {
+    const message = signedRowRefusal("edit", "moistureReading", STORED);
+    expect(message).toContain("Kitchen north wall");
+    expect(message).toContain("18.4%");
+    expect(message).toContain("cannot be changed");
+    expect(message).toContain("Guided Capture");
+  });
+
+  it("names an ambient reading by its stored temperature and humidity", () => {
+    const message = signedRowRefusal("edit", "environmentalData", {
+      ambientTemperature: 22.5,
+      humidityLevel: 68,
+      location: "Lounge",
+    });
+    expect(message).toContain("22.5");
+    expect(message).toContain("68% humidity");
+    expect(message).toContain("Lounge");
+    expect(message).toContain("ambient reading");
+  });
+
+  it("a refused save says how to get the form saving again: set the value back, or reload to get the reading back", () => {
+    const refused = (action: "edit" | "delete") =>
+      new SignedRowError({
+        action,
+        table: "moistureReading",
+        rowId: "mr_1",
+        stored: STORED,
+      }).message;
+    expect(refused("edit")).toContain("set it back to what is recorded");
+    expect(refused("delete")).toContain("Reload the job");
+    // A screen that stopped the change before sending it has nothing to undo.
+    expect(signedRowRefusal("edit", "moistureReading", STORED)).not.toContain(
+      "set it back",
+    );
+    expect(
+      signedRowRefusal("delete", "moistureReading", STORED),
+    ).not.toContain("Reload the job");
+  });
+
+  it("still reads as a sentence when the stored row has no location or value", () => {
+    const message = signedRowRefusal("delete", "moistureReading", {});
+    expect(message).toContain("This moisture reading");
+    expect(message).not.toContain("undefined");
+    expect(message).not.toContain("null");
+  });
+
+  it("keeps a very long location short enough to read in a notice", () => {
+    const message = signedRowRefusal("edit", "moistureReading", {
+      location: "L".repeat(200),
+      moistureLevel: 18.4,
+    });
+    expect(message).not.toContain("L".repeat(100));
+    expect(message).toContain("18.4%");
+  });
+
+  it("the error names the reading on screen and still keeps the row id and column names out of the words", () => {
+    const error = new SignedRowError({
+      action: "edit",
+      table: "moistureReading",
+      rowId: "mr_1",
+      fields: ["moistureLevel", "location"],
+      stored: STORED,
+    });
+    expect(error.message).toContain("Kitchen north wall");
+    expect(error.message).toContain("18.4%");
+    expect(error.message).not.toContain("mr_1");
+    expect(error.message).not.toContain("moistureLevel");
+  });
+
+  it("gives a client the row, the table, the action and the changed columns", () => {
+    const edit = new SignedRowError({
+      action: "edit",
+      table: "moistureReading",
+      rowId: "mr_1",
+      fields: ["moistureLevel", "location"],
+      stored: STORED,
+    });
+    expect(edit.refusalFields()).toEqual({
+      rowId: "mr_1",
+      table: "moistureReading",
+      action: "edit",
+      changedFields: "moistureLevel,location",
+    });
+    const removal = new SignedRowError({
+      action: "delete",
+      table: "environmentalData",
+      rowId: "env_1",
+    });
+    expect(removal.refusalFields()).toEqual({
+      rowId: "env_1",
+      table: "environmentalData",
+      action: "delete",
+      changedFields: "",
+    });
+  });
+});

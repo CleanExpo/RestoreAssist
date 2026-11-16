@@ -244,3 +244,67 @@ export async function submitMetadataEvidence(
       "true",
   };
 }
+
+/* ------------------------------------------------------------------ *
+ * What the capture screen says about a 2xx answer from POST /evidence.
+ *
+ * RA-8388. Two answers are a success on the wire and are NOT "captured" in
+ * the plain sense, and both used to get the same green notice as an ordinary
+ * save:
+ *
+ * - `alreadyRecorded: true` - the server already holds this exact signed
+ *   capture (a retry whose first answer was lost). It is saved, once. It is
+ *   not an error and it is not a second reading.
+ * - `countsTowardSubmission: false` - the item is saved as evidence but is
+ *   not one of the photographs the job needs before it can be submitted. A
+ *   technician who is told only "captured" will find out at submit.
+ *
+ * One owner for the wording and for the list rule, used by the photograph
+ * path and the metadata path alike.
+ * ------------------------------------------------------------------ */
+
+export interface SavedEvidenceNotice {
+  /** "success" is the ordinary green notice; "notice" must not look like one. */
+  tone: "success" | "notice";
+  message: string;
+}
+
+/**
+ * The words for a saved item. `data` is the parsed 2xx body, exactly as the
+ * server sent it. An absent `countsTowardSubmission` means counted: only an
+ * explicit `false` is a statement that it does not.
+ */
+export function describeSavedEvidence(
+  label: string,
+  data: unknown,
+): SavedEvidenceNotice {
+  const body =
+    data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  if (body.countsTowardSubmission === false) {
+    return {
+      tone: "notice",
+      message: `${label} saved, but it does not count toward the photos this job needs.`,
+    };
+  }
+  if (body.alreadyRecorded === true) {
+    return {
+      tone: "success",
+      message: `${label} was already saved. It is on the job once.`,
+    };
+  }
+  return { tone: "success", message: `${label} captured` };
+}
+
+/**
+ * The step's evidence list with one saved item at the top, held ONCE.
+ *
+ * The duplicate answer returns a record the list may already hold (the page
+ * reloaded between the lost answer and the retry). Prepending it again shows
+ * one reading as two.
+ */
+export function withSavedEvidence<T extends { id: string }>(
+  list: readonly T[],
+  saved: T,
+): T[] {
+  return [saved, ...list.filter((item) => item.id !== saved.id)];
+}

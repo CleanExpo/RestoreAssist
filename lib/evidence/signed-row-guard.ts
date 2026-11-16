@@ -117,13 +117,34 @@ export class SignedRowError extends Error {
     table: SignedRowTable;
     rowId: string;
     fields?: string[];
+    /**
+     * The row as it is stored, so the message can say WHICH reading. Only the
+     * location and the measured values are read from it; the row id and the
+     * column names stay out of the words and travel in `refusalFields`.
+     */
+    stored?: Record<string, unknown>;
   }) {
-    super(signedRowRefusal(input.action, input.table));
+    super(refusalWords(input.action, input.table, input.stored, true));
     this.name = "SignedRowError";
     this.action = input.action;
     this.table = input.table;
     this.rowId = input.rowId;
     this.fields = input.fields ?? [];
+  }
+
+  /**
+   * The machine-readable half of the refusal, for the error envelope's
+   * `fields` map: which row, in which table, what the save tried to do to it
+   * and, for an edit, which signed columns it would have changed. Ids and
+   * column names only - never what the technician typed.
+   */
+  refusalFields(): Record<string, string> {
+    return {
+      rowId: this.rowId,
+      table: this.table,
+      action: this.action,
+      changedFields: this.fields.join(","),
+    };
   }
 }
 
@@ -156,13 +177,92 @@ function readingName(table: SignedRowTable): string {
   return table === "moistureReading" ? "moisture reading" : "ambient reading";
 }
 
-/** The one wording of the refusal, so every writer says the same thing. */
+/** Longest location quoted back in a refusal; a notice has to stay readable. */
+const LOCATION_WORDS_MAX = 80;
+
+function text(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  return trimmed.length > LOCATION_WORDS_MAX
+    ? `${trimmed.slice(0, LOCATION_WORDS_MAX)}...`
+    : trimmed;
+}
+
+function number(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Which reading, in the technician's own terms: where it was taken and the
+ * value ON THE RECORD (never the value a refused save tried to write). On a
+ * job with a dozen readings "this moisture reading" names none of them.
+ *
+ * Falls back to "This ... reading" when the stored row carries neither, so
+ * the sentence always reads.
+ */
+function describeReading(
+  table: SignedRowTable,
+  stored: Record<string, unknown> | undefined,
+): string {
+  const name = readingName(table);
+  const location = text(stored?.location);
+  if (table === "moistureReading") {
+    const level = number(stored?.moistureLevel);
+    if (location && level !== null) {
+      return `The ${name} at ${location} (${level}%)`;
+    }
+    if (location) return `The ${name} at ${location}`;
+    if (level !== null) return `The ${name} of ${level}%`;
+    return `This ${name}`;
+  }
+  const temperature = number(stored?.ambientTemperature);
+  const humidity = number(stored?.humidityLevel);
+  const where = location ? ` at ${location}` : "";
+  if (temperature !== null && humidity !== null) {
+    return `The ${name} of ${temperature}°C and ${humidity}% humidity${where}`;
+  }
+  return location ? `The ${name}${where}` : `This ${name}`;
+}
+
+/**
+ * What to do on a form whose SAVE was just refused, so the rest of its work
+ * can still be saved. A refused save leaves the form holding the change the
+ * server would not take, and every later save repeats the refusal until the
+ * form stops asking for it.
+ */
+function recoveryStep(action: SignedRowAction): string {
+  return action === "delete"
+    ? "Reload the job to put it back on this form."
+    : "To save the rest of this form, set it back to what is recorded.";
+}
+
+function refusalWords(
+  action: SignedRowAction,
+  table: SignedRowTable,
+  stored: Record<string, unknown> | undefined,
+  afterRefusedSave: boolean,
+): string {
+  const verb = action === "delete" ? "removed" : "changed";
+  const recovery = afterRefusedSave ? ` ${recoveryStep(action)}` : "";
+  return `${describeReading(table, stored)} is part of the signed evidence record and cannot be ${verb} here.${recovery} ${correctionPath(table)}`;
+}
+
+/**
+ * The one wording of the refusal, so every writer says the same thing.
+ *
+ * Pass the stored row and the refusal names the reading by its location and
+ * stored value. A screen that stops the change before it is made (nothing was
+ * sent, so there is nothing to undo) calls this directly; a refused save
+ * throws `SignedRowError`, whose message adds how to get the form saving
+ * again.
+ */
 export function signedRowRefusal(
   action: SignedRowAction,
   table: SignedRowTable,
+  stored?: Record<string, unknown>,
 ): string {
-  const verb = action === "delete" ? "removed" : "changed";
-  return `This ${readingName(table)} is part of the signed evidence record and cannot be ${verb} here. ${correctionPath(table)}`;
+  return refusalWords(action, table, stored, false);
 }
 
 /**

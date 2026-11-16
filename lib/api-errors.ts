@@ -54,6 +54,9 @@ export type ApiErrorCode =
   | "PRECONDITION_FAILED"
   | "PAYLOAD_TOO_LARGE"
   | "CONFLICT"
+  // RA-8388: a 409 that reloading will not clear. The save would change or
+  // remove a reading a signature vouches for; `fields` names the row.
+  | "SIGNED_ROW_REFUSED"
   | "PAYMENT_REQUIRED"
   | "AI_SUBSCRIPTION_INACTIVE"
   | "GOVERNOR_UNAVAILABLE"

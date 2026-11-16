@@ -370,3 +370,244 @@ describe("the NIR form and a signed ambient reading", () => {
     expect("humidityLevel" in written).toBe(false);
   });
 });
+
+// RA-8388 bench (contract and observability seats). The refusal used to be
+// `code: "CONFLICT"` with a sentence that named no reading, the same code as
+// this route's "reload and try again" answers, and nothing in the log. A
+// technician could not tell which of N readings to put back, a client could
+// not tell a permanent refusal from a transient one, and a job stuck in the
+// refusal showed up nowhere until someone rang.
+describe("a refusal can be seen and acted on", () => {
+  const ambient = {
+    id: "env_signed",
+    ambientTemperature: 22.5,
+    humidityLevel: 72,
+    dewPoint: 16.2,
+    airCirculation: true,
+    weatherConditions: "Fine",
+  };
+
+  it("an edit refusal has its own code, names the reading, and echoes the row and the changed columns", async () => {
+    db.readingFindMany.mockResolvedValue([SIGNED_READING]);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const response = await save({
+      moistureReadings: [
+        { ...asSent(SIGNED_READING), moistureLevel: 22, location: "Laundry" },
+      ],
+      baseIds: { moistureReadings: ["mr_signed"] },
+    });
+
+    expect(response.status).toBe(409);
+    const { error } = await response.json();
+    expect(error.code).toBe("SIGNED_ROW_REFUSED");
+    // The stored reading, not the one the save tried to write.
+    expect(error.message).toContain("Kitchen north wall");
+    expect(error.message).toContain("18.4%");
+    expect(error.message).not.toContain("Laundry");
+    expect(error.fields).toEqual({
+      rowId: "mr_signed",
+      table: "moistureReading",
+      action: "edit",
+      changedFields: "location,moistureLevel",
+    });
+    nothingWritten();
+    warn.mockRestore();
+  });
+
+  it("a removal refusal names the reading it would have removed", async () => {
+    db.readingFindFirst.mockResolvedValue(SIGNED_READING);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const response = await save({
+      moistureReadings: [],
+      baseIds: { moistureReadings: ["mr_signed"] },
+    });
+
+    expect(response.status).toBe(409);
+    const { error } = await response.json();
+    expect(error.code).toBe("SIGNED_ROW_REFUSED");
+    expect(error.message).toContain("Kitchen north wall");
+    expect(error.message).toContain("18.4%");
+    expect(error.message).toContain("cannot be removed");
+    expect(error.fields).toMatchObject({
+      rowId: "mr_signed",
+      table: "moistureReading",
+      action: "delete",
+    });
+    // The lookup asked for the values it names, not only the id.
+    expect(db.readingFindFirst.mock.calls[0][0].select).toMatchObject({
+      id: true,
+      location: true,
+      moistureLevel: true,
+    });
+    warn.mockRestore();
+  });
+
+  it("an ambient refusal names the stored temperature and humidity", async () => {
+    db.environmentalFindMany.mockResolvedValue([SIGNED_AMBIENT]);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const response = await save({
+      environmentalData: ambient,
+      baseIds: { moistureReadings: [], environmentalData: ["env_signed"] },
+    });
+
+    expect(response.status).toBe(409);
+    const { error } = await response.json();
+    expect(error.code).toBe("SIGNED_ROW_REFUSED");
+    expect(error.message).toContain("22.5");
+    expect(error.message).toContain("68% humidity");
+    expect(error.fields).toEqual({
+      rowId: "env_signed",
+      table: "environmentalData",
+      action: "edit",
+      changedFields: "humidityLevel",
+    });
+    warn.mockRestore();
+  });
+
+  it("logs every refusal once, with ids only, under a fixed tag", async () => {
+    db.readingFindMany.mockResolvedValue([SIGNED_READING]);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await save({
+      moistureReadings: [{ ...asSent(SIGNED_READING), moistureLevel: 22 }],
+      baseIds: { moistureReadings: ["mr_signed"] },
+    });
+
+    const logged = warn.mock.calls.filter(
+      (call) => call[0] === "[draft-snapshot] signed-row-refused",
+    );
+    expect(logged).toHaveLength(1);
+    expect(logged[0][1]).toMatchObject({
+      inspectionId: "insp_1",
+      rowId: "mr_signed",
+      table: "moistureReading",
+      action: "edit",
+    });
+    // What the technician typed stays out of the log.
+    expect(JSON.stringify(logged[0])).not.toContain("Kitchen north wall");
+    warn.mockRestore();
+  });
+
+  it("a save that is not refused logs nothing under that tag", async () => {
+    db.readingFindMany.mockResolvedValue([SIGNED_READING]);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const response = await save({
+      moistureReadings: [asSent(SIGNED_READING)],
+      baseIds: { moistureReadings: ["mr_signed"] },
+    });
+
+    expect(response.status).toBe(200);
+    expect(
+      warn.mock.calls.filter(
+        (call) => call[0] === "[draft-snapshot] signed-row-refused",
+      ),
+    ).toHaveLength(0);
+    warn.mockRestore();
+  });
+
+  it("the reload-and-retry answers keep their own code", async () => {
+    // No baseIds: the form is out of date. That is not a signed-row refusal
+    // and a client must be able to tell the two apart by code.
+    const response = await PUT(
+      new NextRequest("http://localhost/api/inspections/insp_1/draft-snapshot", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          environmentalData: null,
+          moistureReadings: [],
+          affectedAreas: [],
+          scopeItems: [],
+        }),
+      }),
+      { params: Promise.resolve({ id: "insp_1" }) },
+    );
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe("CONFLICT");
+  });
+});
+
+// RA-8388 bench (concurrency seat). The check that a row is unsigned runs
+// before the transaction. A signed capture can link that same row between the
+// check and the write, and the update, which named the row by id alone, would
+// then overwrite values a signature now covers.
+describe("a row that becomes signed between the check and the write", () => {
+  const ambient = {
+    id: "env_plain",
+    ambientTemperature: 24,
+    humidityLevel: 61,
+    dewPoint: 16,
+    airCirculation: true,
+    weatherConditions: "Fine",
+  };
+
+  it("an unsigned moisture reading is updated only while it is still unsigned", async () => {
+    db.readingFindMany.mockResolvedValue([UNSIGNED_READING]);
+
+    await save({
+      moistureReadings: [{ ...asSent(UNSIGNED_READING), moistureLevel: 31 }],
+      baseIds: { moistureReadings: ["mr_plain"] },
+    });
+
+    expect(db.tx.moistureReading.updateMany.mock.calls[0][0].where).toEqual({
+      id: "mr_plain",
+      inspectionId: "insp_1",
+      evidenceItemId: null,
+    });
+  });
+
+  it("an unsigned ambient reading is updated only while it is still unsigned", async () => {
+    db.environmentalFindMany.mockResolvedValue([
+      { ...SIGNED_AMBIENT, id: "env_plain", evidenceItemId: null },
+    ]);
+
+    await save({
+      environmentalData: ambient,
+      baseIds: { moistureReadings: [], environmentalData: ["env_plain"] },
+    });
+
+    expect(db.tx.environmentalData.updateMany.mock.calls[0][0].where).toEqual({
+      id: "env_plain",
+      inspectionId: "insp_1",
+      evidenceItemId: null,
+    });
+  });
+
+  it("a signed row is still found by its id, so an unchanged resubmission keeps saving", async () => {
+    db.readingFindMany.mockResolvedValue([SIGNED_READING]);
+    db.environmentalFindMany.mockResolvedValue([SIGNED_AMBIENT]);
+
+    const response = await save({
+      moistureReadings: [{ ...asSent(SIGNED_READING), isBaseline: true }],
+      environmentalData: { ...ambient, id: "env_signed", ambientTemperature: 22.5, humidityLevel: 68 },
+      baseIds: { moistureReadings: ["mr_signed"], environmentalData: ["env_signed"] },
+    });
+
+    expect(response.status).toBe(200);
+    expect(db.tx.moistureReading.updateMany.mock.calls[0][0].where).toEqual({
+      id: "mr_signed",
+      inspectionId: "insp_1",
+    });
+    expect(db.tx.environmentalData.updateMany.mock.calls[0][0].where).toEqual({
+      id: "env_signed",
+      inspectionId: "insp_1",
+    });
+  });
+
+  it("when the row was signed in between, the save is refused and asks for a reload", async () => {
+    db.readingFindMany.mockResolvedValue([UNSIGNED_READING]);
+    // The conditional update matched nothing: the row is no longer unsigned.
+    db.tx.moistureReading.updateMany.mockResolvedValue({ count: 0 });
+
+    const response = await save({
+      moistureReadings: [{ ...asSent(UNSIGNED_READING), moistureLevel: 31 }],
+      baseIds: { moistureReadings: ["mr_plain"] },
+    });
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.message).toContain("Reload the job");
+  });
+});

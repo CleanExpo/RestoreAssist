@@ -86,6 +86,53 @@ describe("ClientEvidenceReviewPanel", () => {
     ).toBeInTheDocument();
   });
 
+  // RA-8388 bench (frontend seat). `getByText` passes as long as the words
+  // are somewhere in the DOM. These three check that a person is told.
+  it("the accept button is described by the notice, so a screen reader hears it before accepting", async () => {
+    vi.stubGlobal("fetch", fetchWith([photo], 1));
+    render(<ClientEvidenceReviewPanel inspectionId="i1" />);
+    await waitFor(() => screen.getByText(/awaiting your review/i));
+    expect(
+      screen.getByRole("button", {
+        name: /Add all client photos/i,
+        description: /do not count toward the photos your technician must capture/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("announces the confirmation in a status region that was already mounted", async () => {
+    vi.stubGlobal("fetch", fetchWith([photo], 1));
+    render(<ClientEvidenceReviewPanel inspectionId="i1" />);
+    await waitFor(() => screen.getByText(/awaiting your review/i));
+    // Mounted and empty before the accept: a region inserted with its text
+    // already in it is often not announced.
+    const before = screen.getByRole("status");
+    expect(before).toBeEmptyDOMElement();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Add all client photos/i }),
+    );
+    await waitFor(() => screen.getByText(/Added 1 item\(s\) to the report/i));
+    const after = screen.getByRole("status");
+    expect(after).toBe(before);
+    expect(after).toHaveTextContent(/Added 1 item\(s\) to the report/i);
+    expect(after).toHaveTextContent(/do not count toward the photos/i);
+  });
+
+  it("does not show the not-counted note when nothing was added", async () => {
+    // Another staff member had already accepted the batch.
+    vi.stubGlobal("fetch", fetchWith([photo], 0));
+    render(<ClientEvidenceReviewPanel inspectionId="i1" />);
+    await waitFor(() => screen.getByText(/awaiting your review/i));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Add all client photos/i }),
+    );
+    await waitFor(() => screen.getByText(/Added 0 item\(s\) to the report/i));
+    expect(
+      screen.queryByText(/do not count toward the photos your technician must capture/i),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders nothing when there is nothing to review", async () => {
     vi.stubGlobal("fetch", fetchWith([]));
     const { container } = render(
