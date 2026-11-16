@@ -249,6 +249,43 @@ describe("the NIR form and a signed moisture reading", () => {
     );
   });
 
+  it("a signed reading the form never loaded cannot block a save", async () => {
+    // The guard reasons only about ids this save names: the rows it sends and
+    // the rows it says it loaded. It never scans the job. So a signed reading
+    // the form was not given - however it is stored, retired or not - is not
+    // looked at, and cannot turn every save of the job into a refusal.
+    const response = await save({
+      moistureReadings: [],
+      baseIds: { moistureReadings: [] },
+    });
+
+    expect(response.status).toBe(200);
+    expect(db.readingFindMany).not.toHaveBeenCalled();
+    expect(db.readingFindFirst).not.toHaveBeenCalled();
+    expect(db.environmentalFindMany).not.toHaveBeenCalled();
+    expect(db.environmentalFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("asks only about the ids the save names", async () => {
+    db.readingFindMany.mockResolvedValue([SIGNED_READING]);
+
+    await save({
+      moistureReadings: [asSent(SIGNED_READING)],
+      baseIds: { moistureReadings: ["mr_signed", "mr_dropped"] },
+    });
+
+    expect(db.readingFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ["mr_signed"] }, inspectionId: "insp_1" },
+      }),
+    );
+    expect(db.readingFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { in: ["mr_dropped"] } }),
+      }),
+    );
+  });
+
   it("still lets an unsigned reading be edited", async () => {
     // The rule is narrow on purpose: a reading typed into this form is not
     // signed, and correcting it here is the form's job.

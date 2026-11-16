@@ -46,7 +46,7 @@ import {
   shouldWritePhotoRow,
 } from "@/lib/evidence/authoritative-rows";
 import { isSignedCaptureDuplicate } from "@/lib/evidence/signed-capture-key";
-import { EVIDENCE_BACKS_READING_REFUSAL } from "@/lib/evidence/signed-row-guard";
+import { evidenceBacksReadingRefusal } from "@/lib/evidence/signed-row-guard";
 import { verifyEvidenceSubmission } from "@/lib/evidence/verified-evidence-gate";
 import { isVideoEvidenceClass } from "@/lib/evidence/evidence-classes";
 import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
@@ -1161,7 +1161,11 @@ export async function DELETE(
     if (evidence.moistureReading || evidence.environmentalData) {
       return apiError(request, {
         code: "CONFLICT",
-        message: EVIDENCE_BACKS_READING_REFUSAL,
+        // Also refused when the reading has been retired: it is kept for
+        // audit with its link, so the evidence behind it is kept too.
+        message: evidenceBacksReadingRefusal(
+          evidence.moistureReading ? "moistureReading" : "environmentalData",
+        ),
         status: 409,
       });
     }

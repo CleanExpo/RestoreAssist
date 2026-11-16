@@ -13,6 +13,7 @@ import {
   SIGNED_MOISTURE_FIELDS,
   SignedRowError,
   changedSignedFields,
+  evidenceBacksReadingRefusal,
   isSignedRow,
   signedRowRefusal,
   withoutSignedFields,
@@ -193,10 +194,59 @@ describe("the refusal is written for the technician", () => {
     const edit = signedRowRefusal("edit", "moistureReading");
     expect(edit).toContain("moisture reading");
     expect(edit).toContain("cannot be changed");
-    expect(edit).toContain("invalidate");
     const remove = signedRowRefusal("delete", "environmentalData");
     expect(remove).toContain("ambient reading");
     expect(remove).toContain("cannot be removed");
+  });
+
+  // A refusal that sends the technician to something the app does not offer
+  // is a dead end with a signpost on it. Every claim below was checked against
+  // the screens that exist: Guided Capture takes a new reading; the job page's
+  // Moisture tab has a bin icon, shown to the job owner and to managers, that
+  // retires a reading and keeps it for audit. Nothing lets anyone type a
+  // reason for retiring a reading, and nothing retires an ambient reading.
+  const everyRefusal = () => [
+    signedRowRefusal("edit", "moistureReading"),
+    signedRowRefusal("delete", "moistureReading"),
+    signedRowRefusal("edit", "environmentalData"),
+    signedRowRefusal("delete", "environmentalData"),
+    evidenceBacksReadingRefusal("moistureReading"),
+    evidenceBacksReadingRefusal("environmentalData"),
+  ];
+
+  it("every refusal says to capture the correct reading again in Guided Capture", () => {
+    for (const message of everyRefusal()) {
+      expect(message).toContain("Guided Capture");
+    }
+  });
+
+  it("no refusal tells anyone to invalidate with a reason, which no screen offers", () => {
+    for (const message of everyRefusal()) {
+      expect(message.toLowerCase()).not.toContain("invalidate");
+      expect(message.toLowerCase()).not.toContain("with a reason");
+    }
+  });
+
+  it("a moisture refusal names the screen and the people who can retire the wrong reading", () => {
+    for (const message of [
+      signedRowRefusal("edit", "moistureReading"),
+      signedRowRefusal("delete", "moistureReading"),
+      evidenceBacksReadingRefusal("moistureReading"),
+    ]) {
+      expect(message).toContain("Moisture tab");
+      expect(message).toContain("job owner or a manager");
+    }
+  });
+
+  it("an ambient refusal promises no way to retire the wrong reading, because there is none", () => {
+    for (const message of [
+      signedRowRefusal("edit", "environmentalData"),
+      signedRowRefusal("delete", "environmentalData"),
+      evidenceBacksReadingRefusal("environmentalData"),
+    ]) {
+      expect(message).not.toContain("Moisture tab");
+      expect(message).toContain("stays on the record");
+    }
   });
 
   it("carries the row and the fields for the server log, not for the screen", () => {

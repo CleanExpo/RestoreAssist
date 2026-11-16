@@ -9,8 +9,9 @@
  * If another screen deletes the row, the evidence record cites a reading the
  * job no longer holds.
  *
- * So a linked row's signed values are corrected by invalidating the reading
- * and capturing it again, never by editing or removing it.
+ * So a linked row's signed values are corrected by capturing the reading
+ * again, never by editing or removing it. The wrong reading is retired, not
+ * erased: see `correctionPath` below for what the app actually offers.
  *
  * WHY THIS IS A MODULE
  *
@@ -126,21 +127,54 @@ export class SignedRowError extends Error {
   }
 }
 
+/**
+ * What a person can actually do about a wrong signed reading, in the words of
+ * the screens that exist. ONE owner, used by every refusal below, because a
+ * refusal that points at something the app does not offer is a dead end with
+ * a signpost on it.
+ *
+ * Checked against the app on 16/11/2026; change this when a screen changes.
+ *
+ * - Guided Capture takes a new signed reading of either kind.
+ * - A moisture reading can be retired (kept for audit, `invalidatedAt` set)
+ *   from the bin icon on the job page's Moisture tab. The page shows that
+ *   icon to the job owner, managers and admins only (`canUseOwnerJobActions`),
+ *   and the route behind it is owner-reach. The assigned technician has no
+ *   such control.
+ * - No screen asks for a reason. `POST .../moisture/[readingId]/invalidate`
+ *   takes one, and nothing in the app calls it.
+ * - An ambient reading cannot be retired at all: `EnvironmentalData` has no
+ *   invalidation columns. A corrected reading is captured alongside it.
+ */
+function correctionPath(table: SignedRowTable): string {
+  return table === "moistureReading"
+    ? "Capture the correct reading again in Guided Capture. The job owner or a manager can then retire the wrong one with the bin icon on the job's Moisture tab."
+    : "Capture the correct reading again in Guided Capture. The earlier reading stays on the record.";
+}
+
+function readingName(table: SignedRowTable): string {
+  return table === "moistureReading" ? "moisture reading" : "ambient reading";
+}
+
 /** The one wording of the refusal, so every writer says the same thing. */
 export function signedRowRefusal(
   action: SignedRowAction,
   table: SignedRowTable,
 ): string {
-  const what =
-    table === "moistureReading" ? "moisture reading" : "ambient reading";
   const verb = action === "delete" ? "removed" : "changed";
-  return `This ${what} is part of the signed evidence record and cannot be ${verb} here. To correct it, invalidate it with a reason and capture it again.`;
+  return `This ${readingName(table)} is part of the signed evidence record and cannot be ${verb} here. ${correctionPath(table)}`;
 }
 
 /**
- * The refusal for `DELETE /evidence` when the evidence record still backs a
- * counted reading. The database refuses that delete as well (ON DELETE NO
- * ACTION); this says why in words, instead of surfacing a constraint error.
+ * The refusal for `DELETE /evidence` when the evidence record backs a counted
+ * reading. The database refuses that delete as well (ON DELETE NO ACTION);
+ * this says why in words, instead of surfacing a constraint error.
+ *
+ * It applies whether or not the reading has since been retired. A retired
+ * reading is kept for audit and still carries the link, so the evidence
+ * behind it is kept too: the record of what was captured is the point.
  */
-export const EVIDENCE_BACKS_READING_REFUSAL =
-  "This evidence is the signed record behind a reading that counts toward this job, so it cannot be deleted. To correct the reading, invalidate it with a reason and capture it again.";
+export function evidenceBacksReadingRefusal(table: SignedRowTable): string {
+  const article = table === "moistureReading" ? "a" : "an";
+  return `This evidence is the signed record behind ${article} ${readingName(table)} on this job, so it stays on the record and cannot be deleted. ${correctionPath(table)}`;
+}

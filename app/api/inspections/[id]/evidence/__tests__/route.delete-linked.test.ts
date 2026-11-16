@@ -91,8 +91,11 @@ describe("DELETE evidence that backs a counted reading", () => {
 
     expect(response.status).toBe(409);
     const text = JSON.stringify(await response.json());
-    expect(text).toContain("signed record behind a reading");
-    expect(text).toContain("invalidate");
+    expect(text).toContain("signed record behind a moisture reading");
+    // Where to go, in words that match the screens that exist.
+    expect(text).toContain("Guided Capture");
+    expect(text).toContain("Moisture tab");
+    expect(text).not.toContain("invalidate");
     nothingDeleted();
   });
 
@@ -107,6 +110,12 @@ describe("DELETE evidence that backs a counted reading", () => {
     const response = await remove();
 
     expect(response.status).toBe(409);
+    const text = JSON.stringify(await response.json());
+    expect(text).toContain("signed record behind an ambient reading");
+    // No screen retires an ambient reading, so the refusal must not send
+    // anyone looking for one.
+    expect(text).not.toContain("Moisture tab");
+    expect(text).not.toContain("invalidate");
     nothingDeleted();
   });
 
