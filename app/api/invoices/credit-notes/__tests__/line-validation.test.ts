@@ -89,4 +89,13 @@ describe("POST /api/invoices/credit-notes: line validation", () => {
     expect(res.status).toBe(201);
     expect(creditNoteCreate).toHaveBeenCalledTimes(1);
   });
+
+  it("stores a numeric-string quantity as a number (Float column)", async () => {
+    const res = await post([{ ...good, quantity: "2" }]);
+    expect(res.status).toBe(201);
+    const data = creditNoteCreate.mock.calls[0][0].data as {
+      lineItems: { create: Array<{ quantity: unknown }> };
+    };
+    expect(data.lineItems.create[0].quantity).toBe(2);
+  });
 });

@@ -26,10 +26,17 @@ function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 }
 
-/** True when the file takes `lineItems` from the parsed request body. */
+/**
+ * True when the file takes `lineItems` from the parsed request body: from a
+ * variable named `body`, or destructured straight off `await <x>.json()`.
+ */
 function readsLineItemsFromBody(source: string): boolean {
   if (/\bbody\.lineItems\b/.test(source)) return true;
-  const destructures = source.match(/const\s*\{[^}]*\}\s*=\s*body\b/g) ?? [];
+  if (/\(await\s+\w+\.json\(\)\)\.lineItems\b/.test(source)) return true;
+  const destructures =
+    source.match(
+      /(?:const|let)\s*\{[^}]*\}\s*=\s*(?:body\b|await\s+\w+\.json\(\))/g,
+    ) ?? [];
   return destructures.some((d) => /\blineItems\b/.test(d));
 }
 

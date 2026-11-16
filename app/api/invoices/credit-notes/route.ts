@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
           lineItems: {
             create: lines.map((l, idx) => ({
               description: l.item.description,
-              quantity: l.item.quantity,
+              quantity: Number(l.item.quantity),
               unitPrice: l.unitPrice,
               gstRate: l.gstRate,
               subtotal: l.subtotal,
