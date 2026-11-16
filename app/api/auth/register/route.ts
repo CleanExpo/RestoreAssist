@@ -17,7 +17,7 @@ import {
 } from "@/lib/analytics/attribution";
 import { apiError } from "@/lib/api-errors";
 import { PRICING_CONFIG } from "@/lib/pricing";
-import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
+import { lockEmailIdentity, parseEmail } from "@/lib/email-identity";
 import { reservedEmailSignUpMessage } from "@/lib/auth/reserved-email-user-message";
 import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 import { ensureWorkspaceForUser } from "@/lib/workspace/provision";
@@ -69,7 +69,16 @@ export async function POST(request: NextRequest) {
       });
     }
     const name = sanitizeString(body.name, 200);
-    const email = canonicalEmail(sanitizeString(body.email, 320));
+    // RA-8404: an email is an identity — validated, never HTML-encoded.
+    const parsedEmail = parseEmail(body.email);
+    if (parsedEmail.ok === false && parsedEmail.reason === "invalid") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Please provide a valid email address",
+        status: 400,
+      });
+    }
+    const email = parsedEmail.ok ? parsedEmail.email : "";
     const { password, acceptedTerms } = body;
 
     const reservedMsg = reservedEmailSignUpMessage(email);
@@ -119,15 +128,6 @@ export async function POST(request: NextRequest) {
         code: "VALIDATION",
         message:
           "You must accept the Terms of Service and Privacy Policy to create an account",
-        status: 400,
-      });
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: "Please provide a valid email address",
         status: 400,
       });
     }

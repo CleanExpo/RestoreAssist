@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { sanitizeString } from "@/lib/sanitize";
+import { parseEmail } from "@/lib/email-identity";
 import { validateCsrf } from "@/lib/csrf";
 import { verifyResetCode } from "@/lib/password-reset-store";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
@@ -33,9 +34,19 @@ export async function POST(request: NextRequest) {
     if (ipLimited) return ipLimited;
 
     const body = await request.json();
-    const email = sanitizeString(body.email, 320).toLowerCase();
+    // RA-8404: the same canonical address forgot-password stored the code under.
+    const parsedEmail = parseEmail(body.email);
     const newPassword = body.newPassword;
     const code = sanitizeString(body.code, 10);
+
+    if (parsedEmail.ok === false && parsedEmail.reason === "invalid") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Please provide a valid email address",
+        status: 400,
+      });
+    }
+    const email = parsedEmail.ok ? parsedEmail.email : "";
 
     if (!email || !newPassword || !code) {
       return apiError(request, {

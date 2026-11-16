@@ -13,6 +13,7 @@ import {
   checkAndUpdateTrialStatus,
 } from "@/lib/trial-handling";
 import { sanitizeString, isValidABN } from "@/lib/sanitize";
+import { parseEmail } from "@/lib/email-identity";
 import { PRICING_CONFIG } from "@/lib/pricing";
 
 // Free-trial grant — sourced from PRICING_CONFIG (the SSOT) so the profile
@@ -407,9 +408,25 @@ export async function PUT(request: NextRequest) {
     const field = (key: string, maxLength: number): string | undefined =>
       body[key] === undefined ? undefined : sanitizeString(body[key], maxLength);
     const name = field("name", 200);
-    const email = body.email
-      ? sanitizeString(body.email, 320).toLowerCase()
-      : undefined;
+    // RA-8404: email values are validated and canonicalised, never
+    // HTML-encoded. A blank businessEmail still clears the field.
+    const parsedEmail = body.email ? parseEmail(body.email) : undefined;
+    const parsedBusinessEmail =
+      body.businessEmail === undefined ? undefined : parseEmail(body.businessEmail);
+    for (const [key, parsed] of [
+      ["email", parsedEmail],
+      ["businessEmail", parsedBusinessEmail],
+    ] as const) {
+      if (parsed?.ok === false && parsed.reason === "invalid") {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Please provide a valid email address",
+          status: 400,
+          fields: { [key]: "Please provide a valid email address" },
+        });
+      }
+    }
+    const email = parsedEmail?.ok ? parsedEmail.email : undefined;
     const businessName = field("businessName", 200);
     const businessAddress = field("businessAddress", 500);
     const businessLogo = field("businessLogo", 2000);
@@ -425,7 +442,12 @@ export async function PUT(request: NextRequest) {
       });
     }
     const businessPhone = field("businessPhone", 50);
-    const businessEmail = field("businessEmail", 320);
+    const businessEmail =
+      body.businessEmail === undefined
+        ? undefined
+        : parsedBusinessEmail?.ok
+          ? parsedBusinessEmail.email
+          : "";
 
     // Build update data object
     const updateData: any = {};

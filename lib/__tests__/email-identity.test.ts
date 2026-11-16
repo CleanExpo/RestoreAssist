@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
+import { canonicalEmail, lockEmailIdentity, parseEmail } from "@/lib/email-identity";
 
 describe("canonical email identity", () => {
   it("normalises case, whitespace and compatibility characters", () => {
@@ -41,5 +41,34 @@ describe("canonical email identity", () => {
     expect(preflight).toContain('FROM "UserInvite"');
     expect(preflight).toContain("chr(65279)");
     expect(preflight).not.toContain("restoreassist_canonical_email(");
+  });
+});
+
+describe("parseEmail (RA-8404)", () => {
+  it.each([
+    ["Sean.O'Brien@acme.com.au", "sean.o'brien@acme.com.au"],
+    ["plumbing&gas@acme.com.au", "plumbing&gas@acme.com.au"],
+    ["  Jane+jobs@Acme.COM.AU ", "jane+jobs@acme.com.au"],
+  ])("keeps %s as the canonical %s, never entity-encoded", (input, expected) => {
+    expect(parseEmail(input)).toEqual({ ok: true, email: expected });
+  });
+
+  it.each([
+    "<b>x</b>@acme.com.au",
+    'quo"te@acme.com.au',
+    "sp ace@acme.com.au",
+    "tab\t@acme.com.au",
+    "nul\u0000@acme.com.au",
+    "＜b＞@acme.com.au",
+    "no-at-sign.com.au",
+    "two@@acme.com.au",
+    "nodot@localhost",
+    `${"a".repeat(320)}@acme.com.au`,
+  ])("refuses %j as invalid", (input) => {
+    expect(parseEmail(input)).toEqual({ ok: false, reason: "invalid" });
+  });
+
+  it.each([undefined, null, 42, "", "   "])("reports %j as missing", (input) => {
+    expect(parseEmail(input)).toEqual({ ok: false, reason: "missing" });
   });
 });

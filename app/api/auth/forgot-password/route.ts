@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { generateResetCode, storeResetCode } from "@/lib/password-reset-store";
 import { sendPasswordResetEmail } from "@/lib/email";
-import { sanitizeString } from "@/lib/sanitize";
+import { parseEmail } from "@/lib/email-identity";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { verifyBotId } from "@/lib/auth/botid";
@@ -27,15 +27,20 @@ export async function POST(request: NextRequest) {
     if (ipLimited) return ipLimited;
 
     const body = await request.json();
-    const email = sanitizeString(body.email, 320).toLowerCase();
-
-    if (!email) {
+    // RA-8404: validated and canonicalised, never HTML-encoded — the reset
+    // code must reach the mailbox the person typed.
+    const parsedEmail = parseEmail(body.email);
+    if (!parsedEmail.ok) {
       return apiError(request, {
         code: "VALIDATION",
-        message: "Email is required",
+        message:
+          parsedEmail.reason === "missing"
+            ? "Email is required"
+            : "Please provide a valid email address",
         status: 400,
       });
     }
+    const email = parsedEmail.email;
 
     // RA-1286: bot-detection gate. Vercel BotID auto-bypasses in dev/preview.
     const botCheck = await verifyBotId();

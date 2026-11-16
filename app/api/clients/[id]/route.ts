@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
+import { parseEmail } from "@/lib/email-identity";
 import { validateClientNotes } from "@/lib/clients/notes";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
@@ -150,7 +151,18 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     const name = sanitizeString(body.name, 200);
-    const email = sanitizeString(body.email, 320).toLowerCase();
+    // RA-8404: validated and canonicalised, never HTML-encoded. Encoding here
+    // rewrote o'connor@... to o&#x27;connor@... on every edit of any field.
+    const parsedEmail = parseEmail(body.email);
+    if (parsedEmail.ok === false && parsedEmail.reason === "invalid") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Please provide a valid email address",
+        status: 400,
+        fields: { email: "Please provide a valid email address" },
+      });
+    }
+    const email = parsedEmail.ok ? parsedEmail.email : "";
     const phone = sanitizeString(body.phone, 50);
     const address = sanitizeString(body.address, 500);
     const company = sanitizeString(body.company, 200);
