@@ -93,8 +93,12 @@ export async function POST(
           },
           moistureReadings: {
             // RA-8388: a retired reading (invalidatedAt set) is a corrected
-            // mistake. It must not count toward the minimum, classification
-            // or the building-code check. Same rule as the PDF route.
+            // mistake. It must not feed the area checks, the "at least one
+            // reading" check, classification or the building-code check.
+            // Same rule as the PDF route.
+            // NOT covered here: the workflow's five-reading count is taken
+            // from evidence items, and retiring a reading does not retire
+            // its evidence item, so that count still includes it.
             where: { invalidatedAt: null },
             select: {
               id: true,
