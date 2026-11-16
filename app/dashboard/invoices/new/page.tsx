@@ -21,6 +21,7 @@ import {
 import { LineExIncPrices } from "@/components/invoices/LineExIncPrices";
 import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
+import { useUnsavedChangesGuard } from "@/lib/hooks/useUnsavedChangesGuard";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
@@ -49,6 +50,13 @@ export default function NewInvoicePage() {
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const [loading, setLoading] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
+  // RA-8397: set by the person typing (form change events), never by the
+  // job prefill, so an untouched prefilled form still leaves at once.
+  const [isDirty, setIsDirty] = useState(false);
+  const leaveGuard = useUnsavedChangesGuard(isDirty);
+  const leaveTo = async (href: string) => {
+    if (await leaveGuard.confirmLeave()) router.push(href);
+  };
   const {
     treatment: gstTreatment,
     ready: gstReady,
@@ -366,6 +374,7 @@ export default function NewInvoicePage() {
       if (response.ok) {
         const data = await response.json();
         toast.success("Invoice created successfully");
+        leaveGuard.markSaved();
         router.push(`/dashboard/invoices/${data.invoice.id}`);
       } else {
         const error = await response.json();
@@ -399,6 +408,11 @@ export default function NewInvoicePage() {
         primaryAction={
           <Link
             href="/dashboard/invoices"
+            onClick={(e) => {
+              if (!isDirty) return;
+              e.preventDefault();
+              void leaveTo("/dashboard/invoices");
+            }}
             className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 px-4 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800 sm:w-auto"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -407,8 +421,10 @@ export default function NewInvoicePage() {
         }
       />
 
+      <leaveGuard.Mount />
       <form method="post"
         onSubmit={handleSubmit}
+        onChange={() => setIsDirty(true)}
         className="grid grid-cols-1 lg:grid-cols-3 gap-6"
       >
         {/* Main Form */}
@@ -891,7 +907,7 @@ export default function NewInvoicePage() {
             </button>
             <button
               type="button"
-              onClick={() => router.push("/dashboard/invoices")}
+              onClick={() => void leaveTo("/dashboard/invoices")}
               disabled={loading}
               className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >

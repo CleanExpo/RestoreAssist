@@ -185,6 +185,13 @@ jobs:
       - name: Lucide guard
         run: npm run check:no-lucide
 
+      # Lost-typing guard (RA-8397). Ratchet mode: fails when a long client form
+      # (8+ typed boxes and a POST/PUT/PATCH) does not use useUnsavedChangesGuard
+      # and is not in scripts/unsaved-guard-baseline.json, or when a baseline
+      # entry is no longer needed. Wire the hook, then shrink the baseline.
+      - name: Unsaved-changes guard
+        run: npm run check:unsaved-guard
+
       # Spec-docs layout guard (PR #1968 lesson). A clean merge of main silently
       # relocated the canonical master spec into docs/root-archive/ via git
       # rename detection. Fails if a CANONICAL-status doc sits in the archive,

@@ -1,0 +1,18 @@
+[
+  "app/dashboard/contractors/profile/page.tsx",
+  "app/dashboard/cost-libraries/page.tsx",
+  "app/dashboard/inspections/[id]/page.tsx",
+  "app/dashboard/invoices/[id]/edit/page.tsx",
+  "app/dashboard/invoices/recurring/new/page.tsx",
+  "app/dashboard/whs/page.tsx",
+  "components/EstimationEngine.tsx",
+  "components/InitialDataEntryForm.tsx",
+  "components/NIRTechnicianInputForm.tsx",
+  "components/PricingConfiguration.tsx",
+  "components/ScopingEngine.tsx",
+  "components/Tier1Questions.tsx",
+  "components/Tier2Questions.tsx",
+  "components/inspection/NIRClaimAssessmentPanel.tsx",
+  "components/restoration/RestorationInvoiceForm.tsx",
+  "components/setup/BusinessDetailsCard.tsx"
+]
