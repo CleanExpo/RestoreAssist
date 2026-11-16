@@ -6,6 +6,11 @@ import { verifyBotId } from "@/lib/auth/botid";
 import { validateCsrf } from "@/lib/csrf";
 import { notifySignatoryOfSignedCopy } from "@/lib/authority-forms/notify-signatory-copy";
 import { reportError } from "@/lib/observability";
+import {
+  formAcceptsSignatureWhere,
+  formSignatureRefusal,
+  unsignedSlotWhere,
+} from "@/lib/authority-forms/signed-record-guard";
 
 const SIGNATURE_TOKEN_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -178,6 +183,7 @@ export async function POST(
         instanceId: true,
         signatoryName: true,
         signatoryEmail: true,
+        instance: { select: { status: true } },
       },
     });
 
@@ -186,6 +192,19 @@ export async function POST(
         code: "NOT_FOUND",
         message: "Invalid or expired signing link",
         status: 404,
+      });
+    }
+
+    // RA-8400: a cancelled or completed form cannot be signed. The same rule
+    // is repeated in the write below, which is what actually holds it.
+    const closedRefusal = signature.instance
+      ? formSignatureRefusal(signature.instance)
+      : null;
+    if (closedRefusal) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: closedRefusal,
+        status: 409,
       });
     }
 
@@ -200,7 +219,13 @@ export async function POST(
     // client's portal link between the lookup above and this write, the cleared
     // token must not still sign.
     const result = await prisma.authorityFormSignature.updateMany({
-      where: { id: signature.id, signatureRequestToken: token, signedAt: null },
+      where: {
+        id: signature.id,
+        signatureRequestToken: token,
+        ...unsignedSlotWhere(),
+        // RA-8400: the form status is read inside the same write.
+        instance: formAcceptsSignatureWhere(),
+      },
       data: {
         signatureData,
         signatoryName: signatoryName || signature.signatoryName,

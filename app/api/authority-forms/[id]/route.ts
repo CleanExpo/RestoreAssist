@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  formTextEditRefusal,
+  noSignedSignatureWhere,
+  statusMoveRefusal,
+} from "@/lib/authority-forms/signed-record-guard";
 
 /**
  * GET /api/authority-forms/:id
@@ -102,6 +107,7 @@ export async function PUT(
             assignedAdminId: true,
           },
         },
+        signatures: { select: { signedAt: true }, take: 100 },
       },
     });
 
@@ -126,18 +132,52 @@ export async function PUT(
       });
     }
 
-    // Update form
-    const updateData: any = {};
+    // RA-8400: a signed form is a closed legal record. The wording cannot
+    // change once anyone has signed, and the body may only request an
+    // allowed status move (never PARTIALLY_SIGNED or COMPLETED).
+    const updateData: {
+      authorityDescription?: string;
+      status?: "CANCELLED";
+    } = {};
     if (body.authorityDescription !== undefined) {
+      if (typeof body.authorityDescription !== "string") {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "authorityDescription must be a string",
+          status: 400,
+        });
+      }
+      const refusal = formTextEditRefusal(existingForm);
+      if (refusal) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: refusal,
+          status: 409,
+        });
+      }
       updateData.authorityDescription = body.authorityDescription;
     }
     if (body.status !== undefined) {
+      const refusal = statusMoveRefusal(existingForm.status, body.status);
+      if (refusal) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: refusal,
+          status: 409,
+        });
+      }
       updateData.status = body.status;
     }
 
-    const updatedForm = await prisma.authorityFormInstance.update({
+    // The same rules sit in the write itself: if a signature or status change
+    // lands between the read above and this write, nothing is written.
+    const writeResult = await prisma.authorityFormInstance.updateMany({
       where: {
         id,
+        status: existingForm.status,
+        ...(updateData.authorityDescription !== undefined
+          ? noSignedSignatureWhere()
+          : {}),
         report: {
           OR: [
             { userId: session.user.id },
@@ -147,9 +187,21 @@ export async function PUT(
         },
       },
       data: updateData,
+    });
+
+    if (writeResult.count === 0) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "This form changed while you were editing it; reload and try again",
+        status: 409,
+      });
+    }
+
+    const updatedForm = await prisma.authorityFormInstance.findUnique({
+      where: { id },
       include: {
         template: true,
-        signatures: true,
+        signatures: { take: 100 },
       },
     });
 
