@@ -13,7 +13,7 @@
     { "file": "components/BulkOperationModal.tsx", "reason": "The component is itself the confirm modal; its confirm button runs handleDelete." },
     { "file": "components/NIRTechnicianInputForm.tsx", "reason": "Native window.confirm gates photo removal; moving it to useConfirmDialog is welcome but not required." },
     { "file": "components/notifications/NotificationBell.tsx", "reason": "Dismisses one notification; nothing of value is lost." },
-    { "file": "components/sketch/SketchEditorV2.tsx", "reason": "KNOWN GAP: evidence-pin X deletes the pin in one click (handleEvidenceRemove). Follow-up ticket filed from RA-8395." },
+    { "file": "components/sketch/SketchEditorV2.tsx", "reason": "KNOWN GAP: evidence-pin X deletes the pin in one click (handleEvidenceRemove). Tracked in RA-8396." },
     { "file": "lib/client/use-async-action.ts", "reason": "The DELETE is in a JSDoc usage example, not running code." },
     { "file": "lib/cloud-mirror/onedrive.ts", "reason": "Server-side mirror provider revoke(); no button calls it." }
   ]
