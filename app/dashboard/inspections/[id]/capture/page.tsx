@@ -1204,6 +1204,7 @@ export default function CaptureWorkflowPage({
             {/* Navigation arrows */}
             <div className="flex items-center gap-2">
               <Button
+                aria-label="Previous step"
                 variant="outline"
                 size="sm"
                 disabled={activeStepIndex === 0}
@@ -1212,6 +1213,7 @@ export default function CaptureWorkflowPage({
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <Button
+                aria-label="Next step"
                 variant="outline"
                 size="sm"
                 disabled={activeStepIndex === workflow.steps.length - 1}
@@ -1364,6 +1366,7 @@ export default function CaptureWorkflowPage({
                               )}
                             </div>
                             <button
+                              aria-label="Delete evidence"
                               onClick={() => handleDeleteEvidence(ev.id)}
                               className="text-destructive hover:text-destructive p-0.5"
                             >

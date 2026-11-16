@@ -418,6 +418,7 @@ export default function EditInvoicePage({
     <div className="space-y-6 pb-12">
       <div className="flex items-center gap-4">
         <button
+          aria-label="Back to invoice"
           type="button"
           onClick={() => router.push(`/dashboard/invoices/${invoiceId}`)}
           className="p-2 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -647,6 +648,7 @@ export default function EditInvoicePage({
                   </div>
                   <div className="col-span-1 flex items-end justify-end">
                     <button
+                      aria-label="Remove line item"
                       type="button"
                       onClick={() => removeLineItem(item.id)}
                       className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded transition-colors"

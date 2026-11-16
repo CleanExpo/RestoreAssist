@@ -135,6 +135,7 @@ export function PropertyDataSetupWizard({
             </p>
           </div>
           <button
+            aria-label="Close setup wizard"
             onClick={onClose}
             className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400 transition-colors"
           >

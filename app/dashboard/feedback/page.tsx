@@ -155,6 +155,7 @@ export default function FeedbackPage() {
                 <div className="flex gap-1" role="group" aria-label="Rating">
                   {[1, 2, 3, 4, 5].map((value) => (
                     <button
+                      aria-label={`${value} star${value === 1 ? "" : "s"}`}
                       key={value}
                       type="button"
                       onClick={() => setRating(rating === value ? null : value)}

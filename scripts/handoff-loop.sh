@@ -109,6 +109,7 @@ gate_guards() {
   need_deps || return 77
   local rc=0
   npm run check:no-lucide          || rc=1
+  npm run check:icon-button-names  || rc=1
   npm run check:spec-docs          || rc=1
   npm run check:encoding           || rc=1
   npm run check:ssot               || rc=1

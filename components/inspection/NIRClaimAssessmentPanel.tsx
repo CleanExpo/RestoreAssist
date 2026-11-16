@@ -290,12 +290,16 @@ function Input({
 function Toggle({
   value,
   onChange,
+  label,
 }: {
   value: boolean;
   onChange: (v: boolean) => void;
+  label: string;
 }) {
   return (
     <button
+      aria-label={label}
+      aria-pressed={value}
       type="button"
       onClick={() => onChange(!value)}
       className={cn(
@@ -381,12 +385,14 @@ function WaterForm({
       </FieldRow>
       <FieldRow label="Loss Source Identified">
         <Toggle
+          label="Loss Source Identified"
           value={!!data.lossSourceIdentified}
           onChange={(v) => onChange("lossSourceIdentified", v)}
         />
       </FieldRow>
       <FieldRow label="Loss Source Addressed">
         <Toggle
+          label="Loss Source Addressed"
           value={!!data.lossSourceAddressed}
           onChange={(v) => onChange("lossSourceAddressed", v)}
         />
@@ -470,18 +476,21 @@ function FireSmokeForm({
           </FieldRow>
           <FieldRow label="Electrical Disconnected">
             <Toggle
+              label="Electrical Disconnected"
               value={!!data.electricalDisconnectVerified}
               onChange={(v) => onChange("electricalDisconnectVerified", v)}
             />
           </FieldRow>
           <FieldRow label="Gas Shut Off">
             <Toggle
+              label="Gas Shut Off"
               value={!!data.gasShutoffVerified}
               onChange={(v) => onChange("gasShutoffVerified", v)}
             />
           </FieldRow>
           <FieldRow label="HVAC Affected">
             <Toggle
+              label="HVAC Affected"
               value={!!data.hvacAffected}
               onChange={(v) => onChange("hvacAffected", v)}
             />
@@ -567,6 +576,7 @@ function MouldForm({
       </FieldRow>
       <FieldRow label="Visible Growth Observed">
         <Toggle
+          label="Visible Growth Observed"
           value={!!data.visibleGrowthObserved}
           onChange={(v) => onChange("visibleGrowthObserved", v)}
         />
@@ -596,12 +606,14 @@ function MouldForm({
       </FieldRow>
       <FieldRow label="Moisture Source Identified">
         <Toggle
+          label="Moisture Source Identified"
           value={!!data.moistureSourceIdentified}
           onChange={(v) => onChange("moistureSourceIdentified", v)}
         />
       </FieldRow>
       <FieldRow label="Root Cause Addressed">
         <Toggle
+          label="Root Cause Addressed"
           value={!!data.rootCauseAddressed}
           onChange={(v) => onChange("rootCauseAddressed", v)}
         />
@@ -641,6 +653,7 @@ function MouldForm({
       </FieldRow>
       <FieldRow label="Air Sampling Required">
         <Toggle
+          label="Air Sampling Required"
           value={!!data.airSamplingRequired}
           onChange={(v) => onChange("airSamplingRequired", v)}
         />
@@ -766,12 +779,14 @@ function StormForm({
       </FieldRow>
       <FieldRow label="Engineer Clearance Required">
         <Toggle
+          label="Engineer Clearance Required"
           value={!!data.engineerClearanceRequired}
           onChange={(v) => onChange("engineerClearanceRequired", v)}
         />
       </FieldRow>
       <FieldRow label="Emergency Tarping Done">
         <Toggle
+          label="Emergency Tarping Done"
           value={!!data.emergencyTarpingCompleted}
           onChange={(v) => onChange("emergencyTarpingCompleted", v)}
         />
@@ -792,6 +807,7 @@ function StormForm({
       )}
       <FieldRow label="Asbestos Risk Flag">
         <Toggle
+          label="Asbestos Risk Flag"
           value={!!data.asbestosRiskFlag}
           onChange={(v) => onChange("asbestosRiskFlag", v)}
         />
@@ -915,6 +931,7 @@ function ContentsNewItemForm({
             Pre-existing damage
           </label>
           <Toggle
+            label="Pre-existing damage"
             value={!!form.preExistingDamage}
             onChange={(v) => handleChange("preExistingDamage", v)}
           />
@@ -988,6 +1005,7 @@ function BiohazardForm({
       </FieldRow>
       <FieldRow label="SWMS Completed">
         <Toggle
+          label="SWMS Completed"
           value={!!data.swmsCompleted}
           onChange={(v) => onChange("swmsCompleted", v)}
         />
@@ -1177,6 +1195,7 @@ function HVACForm({
     <>
       <FieldRow label="System Inspected">
         <Toggle
+          label="System Inspected"
           value={!!data.hvacSystemInspected}
           onChange={(v) => onChange("hvacSystemInspected", v)}
         />
@@ -1195,12 +1214,14 @@ function HVACForm({
       </FieldRow>
       <FieldRow label="Visible Soot in Ducts">
         <Toggle
+          label="Visible Soot in Ducts"
           value={!!data.visibleSootInDucts}
           onChange={(v) => onChange("visibleSootInDucts", v)}
         />
       </FieldRow>
       <FieldRow label="Smoke Odour in Ducts">
         <Toggle
+          label="Smoke Odour in Ducts"
           value={!!data.smokeOdourInDucts}
           onChange={(v) => onChange("smokeOdourInDucts", v)}
         />
@@ -1226,6 +1247,7 @@ function HVACForm({
       </FieldRow>
       <FieldRow label="HVAC Cleaning Required">
         <Toggle
+          label="HVAC Cleaning Required"
           value={!!data.hvacCleaningRequired}
           onChange={(v) => onChange("hvacCleaningRequired", v)}
         />
@@ -1293,6 +1315,7 @@ function AsbestosForm({
       </FieldRow>
       <FieldRow label="Asbestos Risk Acknowledged">
         <Toggle
+          label="Asbestos Risk Acknowledged"
           value={!!data.asbestosRiskAcknowledged}
           onChange={(v) => onChange("asbestosRiskAcknowledged", v)}
         />
@@ -1306,6 +1329,7 @@ function AsbestosForm({
       </FieldRow>
       <FieldRow label="Work Halted">
         <Toggle
+          label="Work Halted"
           value={!!data.workHalted}
           onChange={(v) => onChange("workHalted", v)}
         />
@@ -1447,6 +1471,7 @@ function AustralianComplianceForm({
           </FieldRow>
           <FieldRow label="IICRC Certified Technician">
             <Toggle
+              label="IICRC Certified Technician"
               value={!!data.iicrcCertifiedTechnician}
               onChange={(v) => onChange("iicrcCertifiedTechnician", v)}
             />
@@ -1476,6 +1501,7 @@ function AustralianComplianceForm({
           </FieldRow>
           <FieldRow label="Separate Invoice Required">
             <Toggle
+              label="Separate Invoice Required"
               value={data.separateInvoiceRequired !== false}
               onChange={(v) => onChange("separateInvoiceRequired", v)}
             />

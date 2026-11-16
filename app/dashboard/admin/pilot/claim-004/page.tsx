@@ -476,6 +476,7 @@ export default function Claim004AdjusterSessionPage() {
                 />
                 {/* Remove */}
                 <button
+                  aria-label="Remove entry"
                   onClick={() => removeEntry(idx)}
                   disabled={entries.length === 1}
                   className="w-7 h-7 rounded flex items-center justify-center text-neutral-300 dark:text-slate-600 hover:text-destructive dark:hover:text-destructive disabled:opacity-30 transition-colors"

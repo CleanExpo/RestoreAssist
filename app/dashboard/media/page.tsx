@@ -329,6 +329,7 @@ export default function MediaPage() {
                   Embed
                 </Button>
                 <Button
+                  aria-label="Clear selection"
                   variant="ghost"
                   size="sm"
                   className="h-7 text-xs text-muted-foreground"

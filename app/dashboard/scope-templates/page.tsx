@@ -391,6 +391,7 @@ export default function ScopeTemplatesPage() {
                 {editingTemplate ? "Edit Template" : "New Template"}
               </h2>
               <button
+                aria-label="Close form"
                 onClick={closeForm}
                 className={cn(
                   "p-1 rounded-lg transition-colors",

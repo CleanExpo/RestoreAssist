@@ -159,6 +159,7 @@ export default function InspectionInvoicePage({
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
+          aria-label="Back to inspection"
           onClick={() => router.push(`/dashboard/inspections/${id}`)}
           className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors"
         >

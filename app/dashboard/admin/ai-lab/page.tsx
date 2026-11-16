@@ -305,6 +305,7 @@ export default function AILabPage() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
+          aria-label="Back to admin"
           onClick={() => router.push("/dashboard/admin")}
           className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors"
         >

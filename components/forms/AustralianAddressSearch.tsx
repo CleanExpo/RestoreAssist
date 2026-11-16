@@ -253,6 +253,7 @@ export function AustralianAddressSearch({
           )}
           {!loading && value && (
             <button
+              aria-label="Clear address"
               type="button"
               onClick={handleClear}
               className="text-neutral-400 hover:text-neutral-600 dark:hover:text-slate-300 transition-colors"

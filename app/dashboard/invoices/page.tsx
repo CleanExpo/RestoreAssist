@@ -546,6 +546,7 @@ export default function InvoicesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <button
+                        aria-label="Download invoice PDF"
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(

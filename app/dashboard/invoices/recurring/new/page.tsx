@@ -472,6 +472,7 @@ export default function NewRecurringInvoicePage() {
                 <div className="col-span-1 flex items-center justify-center pt-1">
                   {lineItems.length > 1 && (
                     <button
+                      aria-label="Remove line item"
                       type="button"
                       onClick={() => removeLineItem(idx)}
                       className="p-1.5 hover:bg-red-500/20 rounded text-slate-500 hover:text-red-400 transition-colors"

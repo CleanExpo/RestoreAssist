@@ -1027,6 +1027,7 @@ export default function WHSPage() {
           )}
           <span className="flex-1">{message.text}</span>
           <button
+            aria-label="Dismiss message"
             onClick={() => setMessage(null)}
             className="opacity-60 hover:opacity-100"
           >

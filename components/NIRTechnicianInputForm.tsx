@@ -4168,6 +4168,7 @@ export default function NIRTechnicianInputForm({
                     {eq.quantity}x {eq.type}
                   </span>
                   <button
+                    aria-label="Remove equipment"
                     type="button"
                     onClick={() => {
                       setEquipmentSelection(

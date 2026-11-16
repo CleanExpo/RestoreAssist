@@ -508,6 +508,7 @@ export default function InvoiceDetailPage({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
+            aria-label="Back to invoices"
             onClick={() => router.push("/dashboard/invoices")}
             className="p-2 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
           >

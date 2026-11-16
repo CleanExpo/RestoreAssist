@@ -681,6 +681,7 @@ export default function ClaimsAnalysisPage() {
                         {folderName || folderId}
                       </span>
                       <button
+                        aria-label="Clear selected folder"
                         onClick={() => {
                           setFolderId("");
                           setFolderName("");
@@ -874,6 +875,7 @@ export default function ClaimsAnalysisPage() {
                     Files to Analyse ({files.length})
                   </Label>
                   <Button
+                    aria-label="Refresh files"
                     variant="ghost"
                     size="sm"
                     onClick={() => fetchFiles()}

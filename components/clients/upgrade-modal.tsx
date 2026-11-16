@@ -30,6 +30,7 @@ function UpgradeModalContent({
             </h2>
           </div>
           <button
+            aria-label="Close"
             onClick={() => onOpenChange(false)}
             className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded text-neutral-600 dark:text-slate-300"
           >

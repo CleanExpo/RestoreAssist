@@ -191,6 +191,7 @@ export default function MonitoringPage({
       {/* ── Header ── */}
       <div className="flex items-start gap-4">
         <button
+          aria-label="Back to inspection"
           onClick={() => router.push(`/dashboard/inspections/${id}`)}
           className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors mt-0.5"
         >

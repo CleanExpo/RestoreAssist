@@ -136,6 +136,7 @@ export function SketchScaleModal({
             <h3 className="font-semibold text-sm">Scale Calibration</h3>
           </div>
           <button
+            aria-label="Cancel scale"
             type="button"
             onClick={handleCancel}
             className="text-white/30 hover:text-white/70"

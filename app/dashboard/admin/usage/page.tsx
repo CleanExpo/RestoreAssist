@@ -869,6 +869,7 @@ export default function AiUsageDashboardPage() {
                   </span>
                   <div className="flex gap-2">
                     <Button
+                      aria-label="Previous page"
                       variant="outline"
                       size="sm"
                       onClick={() => setPage((p) => Math.max(0, p - 1))}
@@ -877,6 +878,7 @@ export default function AiUsageDashboardPage() {
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <Button
+                      aria-label="Next page"
                       variant="outline"
                       size="sm"
                       onClick={() =>

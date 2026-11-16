@@ -520,6 +520,7 @@ export default function Tier3Questions({
                         className="w-full h-20 object-cover rounded border-2 border-slate-300 dark:border-slate-600"
                       />
                       <button
+                        aria-label="Remove photo"
                         type="button"
                         onClick={() => {
                           setPhotos(

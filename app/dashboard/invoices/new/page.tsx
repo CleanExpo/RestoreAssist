@@ -649,6 +649,7 @@ export default function NewInvoicePage() {
 
                   <div className="col-span-1 flex items-end justify-end">
                     <button
+                      aria-label="Remove line item"
                       type="button"
                       onClick={() => removeLineItem(item.id)}
                       className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded transition-colors"

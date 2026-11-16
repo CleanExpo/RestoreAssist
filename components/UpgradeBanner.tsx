@@ -129,6 +129,7 @@ function UpgradeBannerContent({
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 <button
+                  aria-label="Dismiss upgrade banner"
                   onClick={handleDismiss}
                   className="p-1.5 hover:bg-amber-500/20 rounded-lg transition-colors"
                 >
@@ -201,6 +202,7 @@ function UpgradeBannerContent({
             </div>
           </div>
           <button
+            aria-label="Dismiss upgrade banner"
             onClick={handleDismiss}
             className={cn(
               "p-2 rounded-lg transition-colors flex-shrink-0",

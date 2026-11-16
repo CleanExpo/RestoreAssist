@@ -4053,6 +4053,7 @@ export default function InitialDataEntryForm({
                         {reading.moistureLevel}% ({reading.depth})
                       </span>
                       <button
+                        aria-label="Remove moisture reading"
                         type="button"
                         onClick={() => {
                           setNirMoistureReadings(
@@ -4240,6 +4241,7 @@ export default function InitialDataEntryForm({
                         {area.waterSource}
                       </span>
                       <button
+                        aria-label="Remove affected area"
                         type="button"
                         onClick={() => {
                           setNirAffectedAreas(
@@ -4928,6 +4930,7 @@ export default function InitialDataEntryForm({
                               )}
                               <div className="flex items-center gap-2">
                                 <button
+                                  aria-label="Decrease equipment quantity"
                                   type="button"
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, -1)
@@ -4937,6 +4940,7 @@ export default function InitialDataEntryForm({
                                   <Minus className="w-4 h-4" />
                                 </button>
                                 <button
+                                  aria-label="Increase equipment quantity"
                                   type="button"
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, 1)
@@ -4986,6 +4990,7 @@ export default function InitialDataEntryForm({
                               )}
                               <div className="flex items-center gap-2">
                                 <button
+                                  aria-label="Decrease equipment quantity"
                                   type="button"
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, -1)
@@ -4995,6 +5000,7 @@ export default function InitialDataEntryForm({
                                   <Minus className="w-4 h-4" />
                                 </button>
                                 <button
+                                  aria-label="Increase equipment quantity"
                                   type="button"
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, 1)
@@ -5048,6 +5054,7 @@ export default function InitialDataEntryForm({
                               )}
                               <div className="flex items-center gap-2">
                                 <button
+                                  aria-label="Decrease equipment quantity"
                                   type="button"
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, -1)
@@ -5057,6 +5064,7 @@ export default function InitialDataEntryForm({
                                   <Minus className="w-4 h-4" />
                                 </button>
                                 <button
+                                  aria-label="Increase equipment quantity"
                                   type="button"
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, 1)

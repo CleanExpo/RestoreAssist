@@ -675,6 +675,7 @@ export default function CostLibrariesPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Create New Cost Library</h2>
               <button
+                aria-label="Close"
                 onClick={() => setShowAddModal(false)}
                 className="p-1 hover:bg-slate-700 rounded"
               >
@@ -767,6 +768,7 @@ export default function CostLibrariesPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Edit Cost Library</h2>
               <button
+                aria-label="Close"
                 onClick={() => setShowEditModal(false)}
                 className="p-1 hover:bg-slate-700 rounded"
               >
@@ -864,6 +866,7 @@ export default function CostLibrariesPage() {
                 Add Cost Item to {currentLibrary.name}
               </h2>
               <button
+                aria-label="Close"
                 onClick={() => setShowAddItemModal(false)}
                 className="p-1 hover:bg-slate-700 rounded"
               >
@@ -958,6 +961,7 @@ export default function CostLibrariesPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Edit Cost Item</h2>
               <button
+                aria-label="Close"
                 onClick={() => setShowEditItemModal(false)}
                 className="p-1 hover:bg-slate-700 rounded"
               >
@@ -1054,6 +1058,7 @@ export default function CostLibrariesPage() {
                 Delete Cost Library
               </h2>
               <button
+                aria-label="Close"
                 onClick={() => setShowDeleteModal(false)}
                 className="p-1 hover:bg-slate-700 rounded"
               >
@@ -1112,6 +1117,7 @@ export default function CostLibrariesPage() {
                 Delete Cost Item
               </h2>
               <button
+                aria-label="Close"
                 onClick={() => setShowDeleteItemModal(false)}
                 className="p-1 hover:bg-slate-700 rounded"
               >

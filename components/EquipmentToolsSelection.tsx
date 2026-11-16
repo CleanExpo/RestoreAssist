@@ -678,6 +678,7 @@ export default function EquipmentToolsSelection({
               </div>
               <div className="flex items-end">
                 <button
+                  aria-label="Add area"
                   onClick={handleAddArea}
                   className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg flex items-center justify-center"
                 >
@@ -701,6 +702,7 @@ export default function EquipmentToolsSelection({
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="font-semibold">{area.name}</h4>
                         <button
+                          aria-label="Remove area"
                           onClick={() => handleRemoveArea(area.id)}
                           className="text-destructive hover:text-destructive"
                         >
@@ -921,6 +923,7 @@ export default function EquipmentToolsSelection({
                           )}
                           <div className="flex items-center gap-2">
                             <button
+                              aria-label="Decrease equipment quantity"
                               onClick={() =>
                                 handleEquipmentQuantityChange(group.id, -1)
                               }
@@ -929,6 +932,7 @@ export default function EquipmentToolsSelection({
                               <Minus className="w-4 h-4" />
                             </button>
                             <button
+                              aria-label="Increase equipment quantity"
                               onClick={() =>
                                 handleEquipmentQuantityChange(group.id, 1)
                               }
@@ -984,6 +988,7 @@ export default function EquipmentToolsSelection({
                           )}
                           <div className="flex items-center gap-2">
                             <button
+                              aria-label="Decrease equipment quantity"
                               onClick={() =>
                                 handleEquipmentQuantityChange(group.id, -1)
                               }
@@ -992,6 +997,7 @@ export default function EquipmentToolsSelection({
                               <Minus className="w-4 h-4" />
                             </button>
                             <button
+                              aria-label="Increase equipment quantity"
                               onClick={() =>
                                 handleEquipmentQuantityChange(group.id, 1)
                               }
@@ -1049,6 +1055,7 @@ export default function EquipmentToolsSelection({
                           )}
                           <div className="flex items-center gap-2">
                             <button
+                              aria-label="Decrease equipment quantity"
                               onClick={() =>
                                 handleEquipmentQuantityChange(group.id, -1)
                               }
@@ -1057,6 +1064,7 @@ export default function EquipmentToolsSelection({
                               <Minus className="w-4 h-4" />
                             </button>
                             <button
+                              aria-label="Increase equipment quantity"
                               onClick={() =>
                                 handleEquipmentQuantityChange(group.id, 1)
                               }
@@ -1118,6 +1126,7 @@ export default function EquipmentToolsSelection({
                           )}
                           <div className="flex items-center gap-2">
                             <button
+                              aria-label="Decrease equipment quantity"
                               onClick={() =>
                                 handleEquipmentQuantityChange(group.id, -1)
                               }
@@ -1126,6 +1135,7 @@ export default function EquipmentToolsSelection({
                               <Minus className="w-4 h-4" />
                             </button>
                             <button
+                              aria-label="Increase equipment quantity"
                               onClick={() =>
                                 handleEquipmentQuantityChange(group.id, 1)
                               }

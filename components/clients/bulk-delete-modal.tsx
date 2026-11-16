@@ -25,6 +25,7 @@ export function BulkDeleteModal({
             Delete Selected Clients
           </h2>
           <button
+            aria-label="Close"
             onClick={() => onOpenChange(false)}
             className="p-1 hover:bg-slate-700 rounded"
           >

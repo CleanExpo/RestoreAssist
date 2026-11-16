@@ -699,6 +699,7 @@ export default function ContractorProfileDashboard() {
                 </div>
                 {cert.verificationStatus !== "VERIFIED" && (
                   <button
+                    aria-label="Delete certification"
                     onClick={() => deleteCertification(cert.id)}
                     className="text-destructive hover:text-destructive"
                   >
@@ -824,6 +825,7 @@ export default function ContractorProfileDashboard() {
                   </div>
                 </div>
                 <button
+                  aria-label="Delete service area"
                   onClick={() => deleteServiceArea(area.id)}
                   className="text-destructive hover:text-destructive"
                 >

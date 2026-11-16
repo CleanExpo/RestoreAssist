@@ -148,6 +148,7 @@ function AuthModal({
                         >
                             <div className="absolute right-4 top-4">
                                 <button
+                                    aria-label="Close"
                                     onClick={() => setIsOpen(false)}
                                     className="rounded-full p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-500 dark:hover:bg-zinc-900"
                                 >
@@ -202,6 +203,7 @@ function AuthModal({
                                         className="h-10 w-full rounded-full border border-zinc-200 bg-zinc-50 pl-10 pr-10 text-sm outline-none transition-all focus:border-zinc-900 focus:bg-white focus:ring-1 focus:ring-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/50 dark:focus:border-zinc-100 dark:focus:bg-zinc-900"
                                     />
                                     <button
+                                        aria-label="Continue with email"
                                         className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full h-8 w-8 flex items-center justify-center bg-zinc-900 text-zinc-50 transition-transform hover:scale-95 active:scale-90 dark:bg-zinc-50 dark:text-zinc-900"
                                     >
                                         <ArrowRight className="h-4 w-4" />

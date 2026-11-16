@@ -191,6 +191,13 @@ jobs:
       - name: Lucide guard
         run: npm run check:no-lucide
 
+      # Icon-only button name guard (RA-8393, after RA-1575 regressed from 6 to 77).
+      # Strict: fails on any <button>/<Button> whose only content is an icon and
+      # which has no aria-label. The jsx-a11y control-has-associated-label rule
+      # cannot see this case (it assumes an icon component may carry a label).
+      - name: Icon button name guard
+        run: npm run check:icon-button-names
+
       # Spec-docs layout guard (PR #1968 lesson). A clean merge of main silently
       # relocated the canonical master spec into docs/root-archive/ via git
       # rename detection. Fails if a CANONICAL-status doc sits in the archive,

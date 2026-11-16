@@ -196,6 +196,7 @@ export default function NewInterviewPage() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
+          aria-label="Back to interviews"
           onClick={() => router.push("/dashboard/interviews")}
           className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors"
         >

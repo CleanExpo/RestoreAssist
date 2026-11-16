@@ -368,6 +368,7 @@ export default function PricingConfiguration({
                 </div>
                 {canEdit && (
                   <button
+                    aria-label="Remove custom field"
                     onClick={() => removeCustomField(category, index)}
                     className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                   >

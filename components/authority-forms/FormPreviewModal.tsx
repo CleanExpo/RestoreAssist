@@ -87,6 +87,7 @@ export function FormPreviewModal({
               </DialogDescription>
             </div>
             <button
+              aria-label="Close preview"
               onClick={() => onOpenChange(false)}
               className="text-muted-foreground hover:text-foreground transition-colors"
             >

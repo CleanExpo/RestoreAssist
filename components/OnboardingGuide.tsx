@@ -150,6 +150,7 @@ export default function OnboardingGuide({
                     </p>
                   </div>
                   <button
+                    aria-label="Minimise getting started guide"
                     onClick={() => setIsMinimized(!isMinimized)}
                     className="p-1.5 hover:bg-slate-700/50 rounded-lg transition-colors"
                   >

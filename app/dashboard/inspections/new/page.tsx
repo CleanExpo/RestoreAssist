@@ -178,6 +178,7 @@ export default function NewInspectionPage() {
     >
       <div className="flex items-center gap-4">
         <button
+          aria-label="Back to inspections"
           onClick={() => router.push("/dashboard/inspections")}
           className={cn(
             "p-2 rounded-lg transition-colors",

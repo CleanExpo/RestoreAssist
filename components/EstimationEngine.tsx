@@ -1271,6 +1271,7 @@ export default function EstimationEngine({
                       }}
                       className="text-destructive hover:text-destructive"
                       disabled={item.isScopeLinked}
+                      aria-label="Remove line item"
                     >
                       <Trash2 size={14} />
                     </Button>

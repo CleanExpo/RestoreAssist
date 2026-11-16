@@ -511,6 +511,7 @@ function PhotoPanel({
       >
         {/* Close button */}
         <button
+          aria-label="Close"
           onClick={onClose}
           className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-1.5 text-neutral-400 hover:text-white"
         >
@@ -1039,6 +1040,7 @@ function PhotoPanel({
                 Equipment visible in frame
               </label>
               <button
+                aria-label="Toggle equipment visible in frame"
                 onClick={() =>
                   setPatch((p) => ({
                     ...p,

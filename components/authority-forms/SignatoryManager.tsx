@@ -225,6 +225,7 @@ export function SignatoryManager({
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium">Add Signatory</h4>
                 <button
+                  aria-label="Close add signatory form"
                   onClick={() => setShowAddForm(false)}
                   className="text-muted-foreground hover:text-foreground"
                 >

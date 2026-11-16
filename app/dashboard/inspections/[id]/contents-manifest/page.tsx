@@ -357,6 +357,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
           </div>
         ) : (
           <Button
+            aria-label="Edit quantity and value"
             size="sm"
             variant="ghost"
             onClick={() => setEditing(true)}

@@ -188,6 +188,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
               className="flex-1 outline-none text-base"
             />
             <button
+              aria-label="Close search"
               onClick={handleClose}
               className="p-1 text-slate-600 dark:text-slate-400 hover:text-slate-600"
             >

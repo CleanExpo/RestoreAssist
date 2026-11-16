@@ -24,6 +24,7 @@ export function DeleteClientModal({
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-destructive">Delete Client</h2>
           <button
+            aria-label="Close"
             onClick={() => onOpenChange(false)}
             className="p-1 hover:bg-slate-700 rounded"
           >

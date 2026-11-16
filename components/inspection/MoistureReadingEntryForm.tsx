@@ -239,6 +239,7 @@ export function MoistureReadingEntryForm({
         </div>
         {onCancel && (
           <button
+            aria-label="Cancel moisture reading"
             type="button"
             onClick={onCancel}
             className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400"
