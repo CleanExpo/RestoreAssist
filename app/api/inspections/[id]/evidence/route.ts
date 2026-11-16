@@ -41,9 +41,12 @@ import {
 // added that forgets a check. See lib/evidence/verified-evidence-gate.ts.
 import {
   deriveAuthoritativeRow,
+  linkPlanToEvidence,
   photoRowPlan,
   shouldWritePhotoRow,
 } from "@/lib/evidence/authoritative-rows";
+import { isSignedCaptureDuplicate } from "@/lib/evidence/signed-capture-key";
+import { EVIDENCE_BACKS_READING_REFUSAL } from "@/lib/evidence/signed-row-guard";
 import { verifyEvidenceSubmission } from "@/lib/evidence/verified-evidence-gate";
 import { isVideoEvidenceClass } from "@/lib/evidence/evidence-classes";
 import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
@@ -154,6 +157,14 @@ export async function POST(
       // technician to go looking for a reading that does not exist, with no
       // Retry, is its own fault.
       let writeStarted = false;
+      // RA-8388 AMENDMENT 05: the unique key of a signed capture, kept so
+      // the catch below can find the record a duplicate collided with.
+      let duplicateKey: {
+        inspectionId: string;
+        evidenceClass: EvidenceClass;
+        metadataSha256: string;
+        capturedAt: Date;
+      } | null = null;
       try {
         let body: any;
         try {
@@ -344,6 +355,15 @@ export async function POST(
             capturedLng: persistedLng,
             deviceId: deviceId || null,
             deviceType: deviceType || "WEB_BROWSER",
+            // RA-8388 AMENDMENT 05: the duplicate-guard key. Set ONLY for a
+            // verified submission, where `capturedAt` above is the SIGNED
+            // capture time. With (inspectionId, evidenceClass) these two form
+            // the unique index EvidenceItem_signed_capture_key, so Postgres
+            // refuses a second copy of one signed capture however long after
+            // the first it arrives. An unsigned record stores NULL and is
+            // never compared: its capture time is the server clock, so two
+            // attempts would not share a key anyway.
+            metadataSha256: verifiedManifest ? metadataDigest : null,
             // RA-7090 slice 2 (P0 re-review): NO file fields on this path.
             // The metadata-only boundary above rejects any file/binary field,
             // so a byte-bearing record can never be created here — it must go
@@ -378,12 +398,25 @@ export async function POST(
         // evidence record claiming a reading the gate will never count.
         // Either both halves of the record exist or neither does.
         const plan = rowPlan.plan;
+        duplicateKey = verifiedManifest
+          ? {
+              inspectionId,
+              evidenceClass: evidenceClass as EvidenceClass,
+              metadataSha256: metadataDigest,
+              capturedAt: persistedCapturedAt,
+            }
+          : null;
         writeStarted = true;
         const evidenceItem = plan
           ? await prisma.$transaction(async (tx) => {
               const created = await tx.evidenceItem.create({
                 data: evidenceData,
               });
+              // RA-8388 AMENDMENT 05: the counted row carries a real foreign
+              // key to the evidence record just created. One owner sets it
+              // (linkPlanToEvidence), because the backfill sets the same
+              // column and the two must agree on what the join is.
+              const linked = linkPlanToEvidence(plan, created.id);
               // A switch, not a dynamic `tx[table]` lookup. Indexing the
               // client by a string erases Prisma's input types, so a column
               // renamed in the schema would still compile and fail at
@@ -393,15 +426,15 @@ export async function POST(
               // the real Prisma inputs, so each case narrows to the right
               // one and tsc checks the columns. The casts that used to be
               // here made a renamed or missing column compile clean.
-              switch (plan.table) {
+              switch (linked.table) {
                 case "moistureReading":
-                  await tx.moistureReading.create({ data: plan.data });
+                  await tx.moistureReading.create({ data: linked.data });
                   break;
                 case "environmentalData":
-                  await tx.environmentalData.create({ data: plan.data });
+                  await tx.environmentalData.create({ data: linked.data });
                   break;
                 case "inspectionPhoto":
-                  await tx.inspectionPhoto.create({ data: plan.data });
+                  await tx.inspectionPhoto.create({ data: linked.data });
                   break;
               }
               return created;
@@ -410,6 +443,32 @@ export async function POST(
 
         return NextResponse.json({ evidenceItem }, { status: 201 });
       } catch (error) {
+        // RA-8388 AMENDMENT 05. Postgres refused the insert because this
+        // exact signed capture is already stored: same inspection, class,
+        // payload digest and signed capture time. That is a retry of a
+        // capture whose first response was lost, arriving after the
+        // idempotency lease below had expired. The truthful answer is that
+        // the reading IS saved, once, so the retry succeeds and returns the
+        // record that already exists.
+        //
+        // Checked BEFORE the ambiguous-commit branch: a unique violation is
+        // raised at constraint time and proves this transaction wrote
+        // nothing. And the lookup runs here, after the transaction has
+        // rolled back, on the ordinary client - an aborted Postgres
+        // transaction cannot be queried.
+        if (duplicateKey && isSignedCaptureDuplicate(error)) {
+          const existing = await prisma.evidenceItem.findFirst({
+            where: duplicateKey,
+          });
+          if (existing) {
+            return NextResponse.json(
+              { evidenceItem: existing, alreadyRecorded: true },
+              { status: 200 },
+            );
+          }
+          // The index says it exists and the read cannot find it. That is
+          // not a state to guess about: fall through and report it.
+        }
         // RA-8388 AMENDMENT 03. A Prisma throw does NOT prove the
         // transaction rolled back: a pooler connection can drop after
         // Postgres commits, so the row is durable and the client sees an
@@ -1075,6 +1134,13 @@ export async function DELETE(
 
     const evidence = await prisma.evidenceItem.findFirst({
       where: { id: evidenceId, inspectionId, ...assigneeLimits },
+      // RA-8388 AMENDMENT 05: whether a counted reading was written from
+      // this record. Read through the same query that proves the caller may
+      // see the record, so it costs no extra round trip.
+      include: {
+        moistureReading: { select: { id: true } },
+        environmentalData: { select: { id: true } },
+      },
     });
 
     if (!evidence) {
@@ -1082,6 +1148,21 @@ export async function DELETE(
         code: "NOT_FOUND",
         message: "Evidence not found",
         status: 404,
+      });
+    }
+
+    // RA-8388 AMENDMENT 05. This record is the signed evidence behind a
+    // reading the completion gate counts. Deleting it would leave that
+    // reading counted and printed with nothing to cite. The database refuses
+    // the delete as well (ON DELETE NO ACTION), deliberately: a moisture
+    // reading is retained for audit under controlled invalidation, so it is
+    // not cascaded away either. This answers in words, on BOTH branches
+    // below, instead of letting the constraint surface as a server error.
+    if (evidence.moistureReading || evidence.environmentalData) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: EVIDENCE_BACKS_READING_REFUSAL,
+        status: 409,
       });
     }
 

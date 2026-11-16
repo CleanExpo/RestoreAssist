@@ -35,6 +35,13 @@
  *
  * 2. It never invalidates, edits or deletes an existing row. The only write
  *    is a create, and only where no matching row is already present.
+ *
+ * AMENDMENT 05: every reading it writes carries `evidenceItemId`, the link to
+ * the evidence record it was derived from, through `linkPlanToEvidence` - the
+ * same function the capture route calls. So this script needs migration
+ * 20261116120000_ra_8388_evidence_link_and_duplicate_guard applied first; on
+ * a database without it every query here fails on the missing column, loudly
+ * and before anything is written.
  */
 
 import { fileURLToPath } from "node:url";
@@ -42,6 +49,7 @@ import { fileURLToPath } from "node:url";
 import { prisma } from "@/lib/prisma";
 import {
   deriveAuthoritativeRow,
+  linkPlanToEvidence,
   photoRowPlan,
   shouldWritePhotoRow,
   type AuthoritativeRowPlan,
@@ -95,14 +103,26 @@ export interface BackfillEvidenceItem {
 /**
  * The rows already in the authoritative tables for this inspection.
  *
- * There is no `evidenceItemId` column linking the two stores yet — that is a
- * migration the bench prescribed and the founder has not ruled on — so "is
- * this one already written?" is answered by VALUE, through the fingerprints
- * below. The failure direction is deliberate: a fingerprint collision means a
- * row is NOT written, which leaves a gate blocked and a person to look at it,
- * where the opposite error silently doubles a reading inside a claim file.
+ * "Is this one already written?" is answered in two steps, in this order.
+ *
+ * 1. BY LINK (AMENDMENT 05). A reading whose `evidenceItemId` is this
+ *    evidence record is this record's row. That is exact, and it is the only
+ *    answer available for a row another screen has since given a different
+ *    pin or room.
+ *
+ * 2. BY VALUE, through the fingerprints below, for everything the link cannot
+ *    answer: rows written before the link existed, and photos, which have no
+ *    link column. The failure direction is deliberate: a fingerprint
+ *    collision means a row is NOT written, which leaves a gate blocked and a
+ *    person to look at it, where the opposite error silently doubles a
+ *    reading inside a claim file. The fingerprints cover linked rows too, on
+ *    purpose: a second evidence record with the same values at the same
+ *    instant as a linked reading is a repeated submission, not a second
+ *    reading.
  */
 export interface ExistingAuthoritativeRows {
+  /** Evidence records that already have a linked reading in either table. */
+  linkedEvidenceIds: Set<string>;
   photoUrls: Set<string>;
   moistureFingerprints: Set<string>;
   environmentalFingerprints: Set<string>;
@@ -199,6 +219,12 @@ export function decideBackfill(
   existing: ExistingAuthoritativeRows,
 ): BackfillDecision {
   if (isMetadataEvidenceClass(item.evidenceClass)) {
+    // By link first. It is exact, and it must come before anything that can
+    // fail: a record whose row is already written is done, whatever shape
+    // its payload is in.
+    if (existing.linkedEvidenceIds.has(item.id)) {
+      return { kind: "skip", reason: "already-present" };
+    }
     const parsed = parseStructuredData(item.structuredData);
     if (!parsed.ok) {
       return { kind: "report", reason: "unreadable-structured-data" };
@@ -226,7 +252,7 @@ export function decideBackfill(
       });
       return existing.moistureFingerprints.has(fingerprint)
         ? { kind: "skip", reason: "already-present" }
-        : { kind: "write", plan: derived.plan };
+        : { kind: "write", plan: linkPlanToEvidence(derived.plan, item.id) };
     }
 
     const fingerprint = environmentalFingerprint({
@@ -235,7 +261,7 @@ export function decideBackfill(
     });
     return existing.environmentalFingerprints.has(fingerprint)
       ? { kind: "skip", reason: "already-present" }
-      : { kind: "write", plan: derived.plan };
+      : { kind: "write", plan: linkPlanToEvidence(derived.plan, item.id) };
   }
 
   if (shouldWritePhotoRow(item.evidenceClass, item.fileMimeType)) {
@@ -303,6 +329,7 @@ export function planFromItems(
   // A plan that would write two identical rows in one pass is the same
   // duplicate the fingerprint exists to stop, so the set grows as we go.
   const seen: ExistingAuthoritativeRows = {
+    linkedEvidenceIds: new Set(existing.linkedEvidenceIds),
     photoUrls: new Set(existing.photoUrls),
     moistureFingerprints: new Set(existing.moistureFingerprints),
     environmentalFingerprints: new Set(existing.environmentalFingerprints),
@@ -336,6 +363,7 @@ export function planFromItems(
     if (decision.plan.table === "inspectionPhoto") {
       seen.photoUrls.add(decision.plan.data.url);
     } else if (decision.plan.table === "moistureReading") {
+      seen.linkedEvidenceIds.add(item.id);
       seen.moistureFingerprints.add(
         moistureFingerprint({
           ...decision.plan.data,
@@ -343,6 +371,7 @@ export function planFromItems(
         }),
       );
     } else {
+      seen.linkedEvidenceIds.add(item.id);
       seen.environmentalFingerprints.add(
         environmentalFingerprint({
           ...decision.plan.data,
@@ -372,12 +401,14 @@ export async function loadExistingRows(
         moistureLevel: true,
         depth: true,
         recordedAt: true,
+        evidenceItemId: true,
       },
       take: BACKFILL_PAGE,
     }),
     prisma.environmentalData.findMany({
       where: { inspectionId },
       select: {
+        evidenceItemId: true,
         location: true,
         ambientTemperature: true,
         humidityLevel: true,
@@ -398,6 +429,11 @@ export async function loadExistingRows(
   }
 
   return {
+    linkedEvidenceIds: new Set(
+      [...moisture, ...environmental].flatMap((row) =>
+        row.evidenceItemId ? [row.evidenceItemId] : [],
+      ),
+    ),
     photoUrls: new Set(photos.map((row) => row.url)),
     moistureFingerprints: new Set(moisture.map(moistureFingerprint)),
     environmentalFingerprints: new Set(

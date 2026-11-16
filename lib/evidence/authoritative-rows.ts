@@ -221,6 +221,36 @@ export function deriveAuthoritativeRow(
 }
 
 /**
+ * Stamp a planned row with the evidence record it is written from.
+ *
+ * RA-8388 AMENDMENT 05. `MoistureReading` and `EnvironmentalData` carry a
+ * real foreign key to `EvidenceItem`, so a counted reading can always be
+ * traced to the signed record behind it, and no other writer can mistake a
+ * signed row for one it is free to rewrite.
+ *
+ * ONE owner, called by the route and by the backfill. The link is the join
+ * the backfill uses to answer "is this one already written?", so two writers
+ * each setting the column their own way would be two definitions of the
+ * join.
+ *
+ * `InspectionPhoto` has no such column and is returned unchanged. That is a
+ * stated limit of this change, not an oversight.
+ */
+export function linkPlanToEvidence(
+  plan: AuthoritativeRowPlan,
+  evidenceItemId: string,
+): AuthoritativeRowPlan {
+  switch (plan.table) {
+    case "moistureReading":
+      return { table: plan.table, data: { ...plan.data, evidenceItemId } };
+    case "environmentalData":
+      return { table: plan.table, data: { ...plan.data, evidenceItemId } };
+    case "inspectionPhoto":
+      return plan;
+  }
+}
+
+/**
  * The classes whose uploads are PHOTOGRAPHS of the property.
  *
  * `validateSubmissionPayload` counts `InspectionPhoto` rows to answer

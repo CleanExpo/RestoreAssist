@@ -77,15 +77,52 @@ let failPhotoWrite = false;
  * this apart from a write that never happened.
  */
 let commitThenThrow = false;
+/** Off only to show what the database index prevents. */
+let enforceSignedCaptureKey = true;
 const idemStore = new Map<string, Record<string, unknown>>();
 
 vi.mock("@/lib/prisma", () => {
   const stage = () => ({ evidence: [] as unknown[], moisture: [] as unknown[], env: [] as unknown[], photos: [] as unknown[] });
   let pending = stage();
+  /**
+   * RA-8388 AMENDMENT 05: the unique index EvidenceItem_signed_capture_key,
+   * modelled. A second row with the same inspection, class, digest and
+   * signed capture time is refused the way Prisma reports it. A NULL digest
+   * never collides, as in Postgres. The index ITSELF is proved on a real
+   * database in authoritative-link.integration.test.ts; this model exists so
+   * the route's handling of the refusal can be driven here.
+   */
+  const sameSignedCapture = (
+    a: Record<string, unknown>,
+    b: Record<string, unknown>,
+  ) =>
+    typeof a.metadataSha256 === "string" &&
+    a.metadataSha256 === b.metadataSha256 &&
+    a.inspectionId === b.inspectionId &&
+    a.evidenceClass === b.evidenceClass &&
+    (a.capturedAt as Date).getTime() === (b.capturedAt as Date).getTime();
   const txClient = {
     evidenceItem: {
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
-        const row = { id: `ev_${pending.evidence.length + 1}`, ...data };
+        const clash = [...committed.evidence, ...pending.evidence].some(
+          (row) => sameSignedCapture(row as Record<string, unknown>, data),
+        );
+        if (clash && enforceSignedCaptureKey) {
+          const err = new Error("Unique constraint failed") as Error & {
+            code?: string;
+            meta?: unknown;
+          };
+          err.code = "P2002";
+          err.meta = {
+            modelName: "EvidenceItem",
+            target: ["inspectionId", "evidenceClass", "metadataSha256", "capturedAt"],
+          };
+          throw err;
+        }
+        const row = {
+          id: `ev_${committed.evidence.length + pending.evidence.length + 1}`,
+          ...data,
+        };
         pending.evidence.push(row);
         return row;
       }),
@@ -127,6 +164,19 @@ vi.mock("@/lib/prisma", () => {
           committed.evidence.push(row);
           return row;
         }),
+        findFirst: vi.fn(
+          async ({ where }: { where: Record<string, unknown> }) =>
+            committed.evidence.find((row) => {
+              const r = row as Record<string, unknown>;
+              return (
+                r.inspectionId === where.inspectionId &&
+                r.evidenceClass === where.evidenceClass &&
+                r.metadataSha256 === where.metadataSha256 &&
+                (r.capturedAt as Date).getTime() ===
+                  (where.capturedAt as Date).getTime()
+              );
+            }) ?? null,
+        ),
       },
       moistureReading: txClient.moistureReading,
       environmentalData: txClient.environmentalData,
@@ -512,6 +562,8 @@ describe("the route writes both halves in ONE transaction", () => {
     committed.env = [];
     idemStore.clear();
     failAuthoritativeWrite = false;
+    commitThenThrow = false;
+    enforceSignedCaptureKey = true;
     deviceKey = await generateDeviceKey();
     mSession.mockResolvedValue({ user: { id: "u1", name: "Tech" } });
     (
@@ -599,6 +651,102 @@ describe("the route writes both halves in ONE transaction", () => {
 
     expect(committed.moisture).toHaveLength(1);
     expect(committed.evidence).toHaveLength(1);
+  });
+
+  it("the counted moisture row carries the link to its evidence record", async () => {
+    // AMENDMENT 05. Without the link nothing joins a counted reading to the
+    // signed record behind it, so another writer cannot tell a signed row
+    // from one it is free to rewrite.
+    await submit(MOISTURE, "MOISTURE_READING");
+    const evidence = committed.evidence[0] as { id: string };
+    expect(evidence.id).toBeTruthy();
+    expect(committed.moisture[0]).toMatchObject({ evidenceItemId: evidence.id });
+  });
+
+  it("the counted ambient row carries the link to its evidence record", async () => {
+    await submit(
+      { location: "Hallway", ambientTemperature: 22.1, humidityLevel: 61 },
+      "AMBIENT_ENVIRONMENTAL",
+    );
+    const evidence = committed.evidence[0] as { id: string };
+    expect(committed.env[0]).toMatchObject({ evidenceItemId: evidence.id });
+  });
+
+  it("a signed capture stores its digest and signed time, the two halves of the duplicate key", async () => {
+    await submit(MOISTURE, "MOISTURE_READING");
+    const evidence = committed.evidence[0] as {
+      metadataSha256: unknown;
+      capturedAt: Date;
+    };
+    expect(evidence.metadataSha256).toMatch(/^[0-9a-f]{64}$/);
+    // The SIGNED capture time from the draft, not the server clock (which
+    // these tests pin half an hour later).
+    expect(evidence.capturedAt.toISOString()).toBe("2026-11-15T23:30:00.000Z");
+  });
+
+  it("a retry AFTER the idempotency lease has gone is answered as already recorded, not written twice", async () => {
+    // The gap AMENDMENT 04 left open. The reading is stored, the response is
+    // lost, and the technician tries again more than 60 seconds later - or
+    // the reservation is released by anything else. The idempotency layer
+    // has forgotten the first attempt, so the handler runs again in full.
+    commitThenThrow = true;
+    await submit(MOISTURE, "MOISTURE_READING").catch(() => null);
+    expect(committed.evidence).toHaveLength(1);
+    commitThenThrow = false;
+    idemStore.clear();
+
+    const retry = await submit(MOISTURE, "MOISTURE_READING");
+
+    // Exactly one of each, still.
+    expect(committed.evidence).toHaveLength(1);
+    expect(committed.moisture).toHaveLength(1);
+    // And the technician is told the truth: it is saved.
+    expect(retry.status).toBe(200);
+    expect(retry.ok).toBe(true);
+    expect(retry.data).toMatchObject({
+      alreadyRecorded: true,
+      evidenceItem: { id: (committed.evidence[0] as { id: string }).id },
+    });
+  });
+
+  it("the same value captured at a different moment is a second reading, not a duplicate", async () => {
+    // The digest does not contain the capture time. If the guard keyed on
+    // the digest alone this second reading would be swallowed as "already
+    // recorded" and the survey could never reach five.
+    await submit(MOISTURE, "MOISTURE_READING");
+    const later = await submitMetadataEvidence(
+      {
+        inspectionId: "ins_1",
+        workflowStepId: "step1",
+        evidenceClass: "MOISTURE_READING",
+        title: buildMetadataTitle("MOISTURE_READING", asValues(MOISTURE)),
+        notes: buildMetadataNotes("MOISTURE_READING", asValues(MOISTURE)),
+        structuredData: MOISTURE,
+        capturedAt: "2026-11-15T23:45:00.000Z",
+        deviceType: "WEB_BROWSER",
+      },
+      {
+        userId: "u1",
+        ensureKey: async () => deviceKey,
+        rotateKey: async () => {},
+        signedCache: new Map(),
+        fetchImpl: (async (input: RequestInfo | URL, init?: RequestInit) =>
+          POST(
+            new NextRequest(
+              new URL(String(input), "http://localhost").toString(),
+              {
+                method: "POST",
+                headers: init?.headers as HeadersInit,
+                body: init?.body as BodyInit,
+              },
+            ),
+            { params: Promise.resolve({ id: "ins_1" }) },
+          )) as unknown as typeof fetch,
+      },
+    );
+    expect(later.status).toBe(201);
+    expect(committed.evidence).toHaveLength(2);
+    expect(committed.moisture).toHaveLength(2);
   });
 
   it("a failure BEFORE the write is not reported as 'may already have been saved'", async () => {

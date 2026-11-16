@@ -67,6 +67,7 @@ const CAPTURED_AT = new Date("2026-11-14T02:15:00.000Z");
 
 function emptyExisting(): ExistingAuthoritativeRows {
   return {
+    linkedEvidenceIds: new Set<string>(),
     photoUrls: new Set<string>(),
     moistureFingerprints: new Set<string>(),
     environmentalFingerprints: new Set<string>(),
@@ -351,6 +352,141 @@ describe("RA-8388 authoritative-row backfill: what it refuses", () => {
     );
 
     expect(decision).toEqual({ kind: "report", reason: "photo-missing-url" });
+  });
+});
+
+describe("RA-8388 backfill: the link to the evidence record (AMENDMENT 05)", () => {
+  it("every reading it plans carries the link to the evidence record it came from", () => {
+    // Without the link a backfilled reading is indistinguishable from one
+    // typed into the NIR form, so that form would be free to rewrite or
+    // delete a value an evidence record still vouches for.
+    const moisture = decideBackfill(
+      item({
+        id: "ev-moisture-1",
+        evidenceClass: "MOISTURE_READING",
+        structuredData: MOISTURE_PAYLOAD,
+      }),
+      emptyExisting(),
+    );
+    const ambient = decideBackfill(
+      item({
+        id: "ev-ambient-1",
+        evidenceClass: "AMBIENT_ENVIRONMENTAL",
+        structuredData: AMBIENT_PAYLOAD,
+      }),
+      emptyExisting(),
+    );
+
+    if (moisture.kind !== "write" || ambient.kind !== "write") {
+      throw new Error("expected both to be planned");
+    }
+    expect(moisture.plan.data).toMatchObject({ evidenceItemId: "ev-moisture-1" });
+    expect(ambient.plan.data).toMatchObject({ evidenceItemId: "ev-ambient-1" });
+  });
+
+  it("a record whose linked reading exists is skipped even when its values no longer match", () => {
+    // The value fingerprint cannot see this one: the stored reading is this
+    // record's row, but a fingerprint built from a different stored value
+    // would not match, and the old answer was to write a second reading.
+    const existing = emptyExisting();
+    existing.linkedEvidenceIds.add("ev-moisture-1");
+    existing.moistureFingerprints.add(
+      moistureFingerprint({
+        location: "Somewhere else entirely",
+        surfaceType: "Timber",
+        moistureLevel: 99,
+        depth: "Subsurface",
+        recordedAt: new Date("2020-01-01T00:00:00.000Z"),
+      }),
+    );
+
+    expect(
+      decideBackfill(
+        item({
+          id: "ev-moisture-1",
+          evidenceClass: "MOISTURE_READING",
+          structuredData: MOISTURE_PAYLOAD,
+        }),
+        existing,
+      ),
+    ).toEqual({ kind: "skip", reason: "already-present" });
+  });
+
+  it("a second evidence record with the same values at the same instant is still not doubled", () => {
+    // The link answers first, but it does not replace the value check: a
+    // repeated submission is a different evidence record with no link of its
+    // own, and it must not become a second counted reading.
+    const plan = planFromItems(
+      "insp-nir-2026-11-b3f306",
+      [
+        item({
+          id: "ev-first",
+          evidenceClass: "MOISTURE_READING",
+          structuredData: MOISTURE_PAYLOAD,
+        }),
+        item({
+          id: "ev-repeat",
+          evidenceClass: "MOISTURE_READING",
+          structuredData: MOISTURE_PAYLOAD,
+        }),
+      ],
+      emptyExisting(),
+    );
+
+    expect(plan.write).toHaveLength(1);
+    expect(plan.write[0].plan.data).toMatchObject({ evidenceItemId: "ev-first" });
+    expect(plan.alreadyPresent).toBe(1);
+  });
+
+  it("reads the link from the database and writes it back on apply", async () => {
+    inspectionPhotoFindMany.mockResolvedValue([]);
+    environmentalFindMany.mockResolvedValue([]);
+    // One reading already linked to ev-done; ev-todo has none.
+    moistureFindMany.mockResolvedValue([
+      {
+        location: "Edited since",
+        surfaceType: "Timber",
+        moistureLevel: 40,
+        depth: "Surface",
+        recordedAt: CAPTURED_AT,
+        evidenceItemId: "ev-done",
+      },
+    ]);
+    evidenceItemFindMany.mockResolvedValue([
+      item({
+        id: "ev-done",
+        evidenceClass: "MOISTURE_READING",
+        structuredData: MOISTURE_PAYLOAD,
+      }),
+      item({
+        id: "ev-todo",
+        evidenceClass: "MOISTURE_READING",
+        structuredData: JSON.stringify({
+          location: "Bathroom floor",
+          surfaceType: "Tile",
+          moistureLevel: 27,
+          depth: "Surface",
+        }),
+      }),
+    ]);
+    moistureCreate.mockResolvedValue({});
+
+    const plan = await planInspectionBackfill("insp-nir-2026-11-b3f306");
+    expect(moistureFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ evidenceItemId: true }),
+      }),
+    );
+    expect(plan.alreadyPresent).toBe(1);
+    expect(plan.write.map((row) => row.evidenceItemId)).toEqual(["ev-todo"]);
+
+    await applyInspectionBackfill(plan);
+
+    expect(moistureCreate).toHaveBeenCalledTimes(1);
+    expect(moistureCreate.mock.calls[0][0].data).toMatchObject({
+      evidenceItemId: "ev-todo",
+      location: "Bathroom floor",
+    });
   });
 });
 

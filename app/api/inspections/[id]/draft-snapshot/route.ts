@@ -14,6 +14,12 @@ import {
   MANUAL_OVERRIDE_REFERENCE,
 } from "@/lib/nir-classification-engine";
 import { persistInspectionClassification } from "@/lib/nir-classification-persist";
+import {
+  SignedRowError,
+  changedSignedFields,
+  isSignedRow,
+  withoutSignedFields,
+} from "@/lib/evidence/signed-row-guard";
 
 const rowIdSchema = z.string().regex(/^[A-Za-z0-9_-]{8,64}$/);
 
@@ -96,6 +102,19 @@ class AreaIdCollisionError extends Error {}
 class ReadingIdCollisionError extends Error {}
 class ReadingChangedError extends Error {}
 class InspectionNotDraftError extends Error {}
+
+/**
+ * RA-8388: the named refusal for a save that would edit or remove a signed
+ * reading. 409, like this route's other "reload and try again" answers, and
+ * nothing has been written when it is returned.
+ */
+function signedRowRefused(request: NextRequest, error: SignedRowError) {
+  return apiError(request, {
+    code: "CONFLICT",
+    message: error.message,
+    status: 409,
+  });
+}
 
 /** A client UUID that collides with a stored row is refused, never merged. */
 async function createOrCollide<T>(create: () => Promise<T>): Promise<T> {
@@ -261,20 +280,153 @@ export async function PUT(
       readingIds.length > 0
         ? prisma.moistureReading.findMany({
           where: { id: { in: readingIds }, inspectionId: id },
-          select: { id: true },
+          // RA-8388: the link and the signed columns, so a save that would
+          // change a signed reading can be refused before anything is written.
+          select: {
+            id: true,
+            evidenceItemId: true,
+            location: true,
+            surfaceType: true,
+            moistureLevel: true,
+            depth: true,
+          },
           take: readingIds.length,
         })
         : [],
       environmentalId
         ? prisma.environmentalData.findMany({
           where: { id: environmentalId, inspectionId: id },
-          select: { id: true },
+          select: {
+            id: true,
+            evidenceItemId: true,
+            ambientTemperature: true,
+            humidityLevel: true,
+            location: true,
+          },
           take: 1,
         })
         : [],
     ]);
     const retainedReadingIds = new Set(existingReadings.map((row) => row.id));
     const environmentalRetained = existingEnvironmental.length === 1;
+
+    // RA-8388 AMENDMENT 05. A row with an evidence link was written from a
+    // signed capture. This form cannot re-sign, so it may not change the
+    // values the signature covers and may not remove the row. It is refused
+    // BY NAME, before the transaction, and nothing is changed: silently
+    // skipping the row would tell the technician a correction was saved when
+    // it was not. A linked row sent back unchanged is fine, and its pin, room
+    // and flags still save. The rule itself lives in
+    // lib/evidence/signed-row-guard.ts, never here.
+    const signedReadingIds = new Set<string>();
+    for (const stored of existingReadings) {
+      if (!isSignedRow(stored)) continue;
+      signedReadingIds.add(stored.id);
+      const submitted = data.moistureReadings.find((r) => r.id === stored.id);
+      if (!submitted) continue;
+      const changed = changedSignedFields(
+        "moistureReading",
+        stored,
+        {
+          location: submitted.location,
+          surfaceType: submitted.surfaceType,
+          moistureLevel: submitted.moistureLevel,
+          depth: submitted.depth,
+        },
+        {
+          location: sanitizeString(submitted.location, 200),
+          surfaceType: sanitizeString(submitted.surfaceType, 100),
+          moistureLevel: submitted.moistureLevel,
+          depth: sanitizeString(submitted.depth, 50),
+        },
+      );
+      if (changed.length > 0) {
+        return signedRowRefused(
+          request,
+          new SignedRowError({
+            action: "edit",
+            table: "moistureReading",
+            rowId: stored.id,
+            fields: changed,
+          }),
+        );
+      }
+    }
+    const signedEnvironmental =
+      environmentalRetained && isSignedRow(existingEnvironmental[0]);
+    if (signedEnvironmental && data.environmentalData) {
+      const changed = changedSignedFields(
+        "environmentalData",
+        existingEnvironmental[0],
+        {
+          ambientTemperature: data.environmentalData.ambientTemperature,
+          humidityLevel: data.environmentalData.humidityLevel,
+        },
+      );
+      if (changed.length > 0) {
+        return signedRowRefused(
+          request,
+          new SignedRowError({
+            action: "edit",
+            table: "environmentalData",
+            rowId: existingEnvironmental[0].id,
+            fields: changed,
+          }),
+        );
+      }
+    }
+    // Rows the form loaded and no longer sends would be deleted below. Asked
+    // only when there is such a row, so a save that removes nothing costs no
+    // extra query.
+    const droppedReadingIds = data.baseIds.moistureReadings.filter(
+      (baseId) => !readingIds.includes(baseId),
+    );
+    const droppedEnvironmentalIds = (
+      data.baseIds.environmentalData ?? []
+    ).filter((baseId) => baseId !== environmentalId);
+    const [signedDroppedReading, signedDroppedEnvironmental] =
+      await Promise.all([
+        droppedReadingIds.length > 0
+          ? prisma.moistureReading.findFirst({
+            where: {
+              inspectionId: id,
+              id: { in: droppedReadingIds },
+              evidenceItemId: { not: null },
+            },
+            select: { id: true },
+          })
+          : null,
+        droppedEnvironmentalIds.length > 0
+          ? prisma.environmentalData.findFirst({
+            where: {
+              inspectionId: id,
+              id: { in: droppedEnvironmentalIds },
+              evidenceItemId: { not: null },
+            },
+            select: { id: true },
+          })
+          : null,
+      ]);
+    if (signedDroppedReading) {
+      return signedRowRefused(
+        request,
+        new SignedRowError({
+          action: "delete",
+          table: "moistureReading",
+          rowId: signedDroppedReading.id,
+        }),
+      );
+    }
+    if (signedDroppedEnvironmental) {
+      return signedRowRefused(
+        request,
+        new SignedRowError({
+          action: "delete",
+          table: "environmentalData",
+          rowId: signedDroppedEnvironmental.id,
+        }),
+      );
+    }
     // An ID this job does not hold must be a fresh client UUID: never let a
     // save claim, probe or overwrite a row by guessing its stored ID.
     if (
@@ -404,12 +556,17 @@ export async function PUT(
             in: baseIds.environmentalData ?? [],
             ...(environmentalId && { notIn: [environmentalId] }),
           },
+          // RA-8388: a signed row is never deleted by this form. The check
+          // before the transaction refuses by name; this makes it impossible
+          // rather than merely checked.
+          evidenceItemId: null,
         },
       });
       await tx.moistureReading.deleteMany({
         where: {
           inspectionId: id,
           id: { in: baseIds.moistureReadings, notIn: readingIds },
+          evidenceItemId: null,
         },
       });
       // Reconcile by stable ID. Updating in place retains roomId, photos,
@@ -437,7 +594,11 @@ export async function PUT(
         if (environmentalRetained) {
           const updated = await tx.environmentalData.updateMany({
             where: { id: environmentalId, inspectionId: id },
-            data: environmentalValues,
+            // RA-8388: on a signed row the signed columns are left exactly
+            // as stored. They were already proved unchanged above.
+            data: signedEnvironmental
+              ? withoutSignedFields("environmentalData", environmentalValues)
+              : environmentalValues,
           });
           if (updated.count !== 1) throw new ReadingChangedError();
         } else {
@@ -460,10 +621,16 @@ export async function PUT(
         const updated = await tx.moistureReading.updateMany({
           where: { id: reading.id, inspectionId: id },
           data: {
-            location: sanitizeString(reading.location, 200),
-            surfaceType: sanitizeString(reading.surfaceType, 100),
-            moistureLevel: reading.moistureLevel,
-            depth: sanitizeString(reading.depth, 50),
+            // RA-8388: on a signed reading the signed columns are left
+            // exactly as stored. They were already proved unchanged above,
+            // and writing the sanitised spelling back would itself be an
+            // edit to a value a signature covers.
+            ...(!signedReadingIds.has(reading.id) && {
+              location: sanitizeString(reading.location, 200),
+              surfaceType: sanitizeString(reading.surfaceType, 100),
+              moistureLevel: reading.moistureLevel,
+              depth: sanitizeString(reading.depth, 50),
+            }),
             ...(reading.mapX !== undefined && { mapX: reading.mapX }),
             ...(reading.mapY !== undefined && { mapY: reading.mapY }),
             ...(reading.sketchRoomId !== undefined && {

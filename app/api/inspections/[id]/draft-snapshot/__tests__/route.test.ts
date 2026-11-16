@@ -41,6 +41,10 @@ vi.mock("@/lib/prisma", () => ({
     inspection: { findUnique: inspectionFindUnique },
     affectedArea: { findMany: areaFindMany },
     sketchRoom: { findMany: sketchRoomFindMany },
+    // RA-8388: a save that drops a reading asks whether it was a signed one.
+    // None of the readings in this file are.
+    moistureReading: { findFirst: vi.fn().mockResolvedValue(null) },
+    environmentalData: { findFirst: vi.fn().mockResolvedValue(null) },
     $transaction: transaction,
   },
 }));
