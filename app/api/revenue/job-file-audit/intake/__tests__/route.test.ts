@@ -15,6 +15,10 @@ const prismaMock = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
 
+// RA-8399: the staff alert goes through the transport; mocked here.
+const emailMock = vi.hoisted(() => ({ sendTransactionalEmail: vi.fn() }));
+vi.mock("@/lib/email/send-transactional", () => emailMock);
+
 import { POST } from "../route";
 
 const validBody = {
@@ -50,7 +54,13 @@ describe("POST /api/revenue/job-file-audit/intake", () => {
         includedAudits: "1",
       },
     });
-    prismaMock.supportTicket.create.mockResolvedValue({ id: "ticket_1" });
+    prismaMock.supportTicket.create.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({ id: "ticket_1", ...data }),
+    );
+    emailMock.sendTransactionalEmail.mockResolvedValue({
+      data: { id: "msg_1" },
+      error: null,
+    });
   });
 
   it("verifies payment before creating a high-priority fulfilment ticket", async () => {
@@ -132,5 +142,26 @@ describe("POST /api/revenue/job-file-audit/intake", () => {
     expect(response.status).toBe(201);
     expect(stripeMock.checkout.sessions.retrieve).not.toHaveBeenCalled();
     expect(prismaMock.supportTicket.create).not.toHaveBeenCalled();
+    expect(emailMock.sendTransactionalEmail).not.toHaveBeenCalled();
+  });
+
+  it("RA-8399: a paid intake sends exactly one staff alert marked high priority", async () => {
+    const response = await POST(makeRequest(validBody));
+
+    expect(response.status).toBe(201);
+    expect(emailMock.sendTransactionalEmail).toHaveBeenCalledTimes(1);
+    const alert = emailMock.sendTransactionalEmail.mock.calls[0][0];
+    expect(alert.subject).toContain("[Support HIGH]");
+    expect(alert.subject).toContain("ticket_1");
+    expect(alert.subject).toContain("PAID Job File Audit");
+  });
+
+  it("RA-8399: a replayed payment sends no alert", async () => {
+    prismaMock.supportTicket.create.mockRejectedValue({ code: "P2002" });
+
+    const response = await POST(makeRequest(validBody));
+
+    expect(response.status).toBe(409);
+    expect(emailMock.sendTransactionalEmail).not.toHaveBeenCalled();
   });
 });

@@ -196,6 +196,9 @@ export const ADMIN_NAV_HREFS = [
   { label: "Governance", href: "/dashboard/governance" },
   { label: "Restoration Insights", href: "/dashboard/admin/restoration-insights" },
   { label: "Margot", href: "/dashboard/margot/home" },
+  // RA-8399: new contact-form and paid-intake tickets alert staff by email;
+  // this is where they are read.
+  { label: "Support inbox", href: "/dashboard/support" },
 ] as const;
 
 /**
@@ -293,6 +296,7 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/margot/home": "Admin",
     "/dashboard/margot/social": "Admin",
     "/dashboard/mission-control": "Admin",
+    "/dashboard/support": "Admin",
   };
 
   const groups: Record<GroupLabel, NavItem[]> = {

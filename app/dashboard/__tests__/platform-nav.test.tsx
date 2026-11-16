@@ -78,6 +78,7 @@ const PLATFORM_LABELS = [
   "Governance",
   "Restoration Insights",
   "Margot",
+  "Support inbox",
 ];
 
 function signIn(role: string, id = "owner-1") {
@@ -111,7 +112,7 @@ describe("platformNavHrefs", () => {
     expect(platformNavHrefs({ role: "USER", isPlatformOperator: true })).toEqual([]);
   });
 
-  it("lists the six platform destinations for an ADMIN platform operator", () => {
+  it("lists the seven platform destinations for an ADMIN platform operator", () => {
     expect(
       platformNavHrefs({ role: "ADMIN", isPlatformOperator: true }).map((i) => i.label),
     ).toEqual(PLATFORM_LABELS);
@@ -155,6 +156,7 @@ describe("DashboardShell sidebar", () => {
       "/dashboard/governance",
       "/dashboard/admin/restoration-insights",
       "/dashboard/margot/home",
+      "/dashboard/support",
     ]) {
       expect(document.querySelector(`a[href="${href}"]`)).not.toBeNull();
     }

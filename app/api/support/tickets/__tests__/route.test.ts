@@ -12,6 +12,12 @@ const supportTicketCreate = vi.fn();
 const analyseSupportTicket = vi.fn();
 const resolveWorkspaceAiKey = vi.fn();
 const applyRateLimit = vi.fn();
+const sendTransactionalEmail = vi.fn();
+
+// RA-8399: the staff alert goes through the transport; mocked here.
+vi.mock("@/lib/email/send-transactional", () => ({
+  sendTransactionalEmail: (...args: unknown[]) => sendTransactionalEmail(...args),
+}));
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -70,6 +76,8 @@ beforeEach(() => {
   analyseSupportTicket.mockReset();
   resolveWorkspaceAiKey.mockReset();
   applyRateLimit.mockReset();
+  sendTransactionalEmail.mockReset();
+  sendTransactionalEmail.mockResolvedValue({ data: { id: "msg_1" }, error: null });
 
   // Anonymous public submitter by default.
   getServerSession.mockResolvedValue(null);
@@ -208,6 +216,7 @@ describe("POST /api/support/tickets (public contact submission)", () => {
     expect(json.message).toMatch(/24 hours/i);
     expect(supportTicketCreate).not.toHaveBeenCalled();
     expect(analyseSupportTicket).not.toHaveBeenCalled();
+    expect(sendTransactionalEmail).not.toHaveBeenCalled();
   });
 
   it("RA-6993: honeypot empty — normal submission still creates a ticket", async () => {
@@ -215,5 +224,30 @@ describe("POST /api/support/tickets (public contact submission)", () => {
 
     expect(res.status).toBe(201);
     expect(supportTicketCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("RA-8399: a saved ticket sends exactly one staff alert carrying its id and subject", async () => {
+    const res = await POST(postRequest(validPayload));
+
+    expect(res.status).toBe(201);
+    expect(sendTransactionalEmail).toHaveBeenCalledTimes(1);
+    const alert = sendTransactionalEmail.mock.calls[0][0];
+    expect(alert.subject).toContain("ticket_test_1");
+    expect(alert.subject).toContain(validPayload.subject);
+    expect(alert.text).toContain("ticket_test_1");
+    expect(alert.text).toContain("/dashboard/support");
+  });
+
+  it("RA-8399: when the alert transport throws, the ticket is still saved and 201 returned", async () => {
+    sendTransactionalEmail.mockRejectedValue(new Error("mail provider down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await POST(postRequest(validPayload));
+
+    expect(res.status).toBe(201);
+    expect((await res.json()).id).toBe("ticket_test_1");
+    expect(supportTicketCreate).toHaveBeenCalledTimes(1);
+    expect(err.mock.calls.flat().join(" ")).toContain("ticket_test_1");
+    err.mockRestore();
   });
 });

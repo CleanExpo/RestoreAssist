@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createSupportTicket } from "@/lib/support/create-ticket";
 import {
   verifyAdminFromDb,
   verifyPlatformSupportOperator,
@@ -205,17 +206,15 @@ export async function POST(request: NextRequest) {
     // Run Claude analysis — gracefully degrade if unavailable
     const aiResult = await analyseTicketWithClaude(userId, subject, body);
 
-    const ticket = await prisma.supportTicket.create({
-      data: {
-        email,
-        name,
-        subject,
-        body,
-        category: aiResult?.category ?? providedCategory ?? "general",
-        priority: aiResult?.priority ?? "normal",
-        responseDraft: aiResult?.responseDraft ?? null,
-        ...(userId ? { userId } : {}),
-      },
+    const ticket = await createSupportTicket({
+      email,
+      name,
+      subject,
+      body,
+      category: aiResult?.category ?? providedCategory ?? "general",
+      priority: aiResult?.priority ?? "normal",
+      responseDraft: aiResult?.responseDraft ?? null,
+      ...(userId ? { userId } : {}),
     });
 
     return NextResponse.json(

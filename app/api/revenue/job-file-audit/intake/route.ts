@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, fromException } from "@/lib/api-errors";
-import { prisma } from "@/lib/prisma";
+import { createSupportTicket } from "@/lib/support/create-ticket";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { stripe } from "@/lib/stripe";
 
@@ -99,16 +99,14 @@ export async function POST(request: NextRequest) {
 
     let ticket: { id: string };
     try {
-      ticket = await prisma.supportTicket.create({
-        data: {
-          externalReference: `stripe:job-file-audit:${checkoutSession.id}`,
-          email: data.email,
-          name: data.name,
-          subject: `PAID Job File Audit — ${data.businessName}`,
-          body,
-          category: "general",
-          priority: "high",
-        },
+      ticket = await createSupportTicket({
+        externalReference: `stripe:job-file-audit:${checkoutSession.id}`,
+        email: data.email,
+        name: data.name,
+        subject: `PAID Job File Audit — ${data.businessName}`,
+        body,
+        category: "general",
+        priority: "high",
       });
     } catch (error) {
       if ((error as { code?: string })?.code === "P2002") {

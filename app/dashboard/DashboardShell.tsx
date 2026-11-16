@@ -87,7 +87,7 @@ import {
   simpleDashboardMeshGradient,
 } from "@/lib/dashboard/simple-dashboard-theme";
 
-/** Icons for the six Admin destinations — shared by Advanced + Simple mode. */
+/** Icons for the seven Admin destinations — shared by Advanced + Simple mode. */
 const ADMIN_NAV_ICONS: Record<
   (typeof ADMIN_NAV_HREFS)[number]["label"],
   typeof Shield
@@ -98,6 +98,7 @@ const ADMIN_NAV_ICONS: Record<
   Governance: Activity,
   "Restoration Insights": BarChart3,
   Margot: Bot,
+  "Support inbox": Inbox,
 };
 
 export default function DashboardShell({

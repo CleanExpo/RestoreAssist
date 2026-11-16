@@ -65,7 +65,6 @@ const ALLOWLIST: Record<string, string> = {
   "/dashboard/settings/floor-plan": PRE_EXISTING,
   "/dashboard/settings/insurer-profiles": PRE_EXISTING,
   "/dashboard/settings/xero-mapping": PRE_EXISTING,
-  "/dashboard/support": PRE_EXISTING,
   "/dashboard/team/[id]": PRE_EXISTING,
   "/dashboard/telemetry": PRE_EXISTING,
   "/evidence-score": PRE_EXISTING,
