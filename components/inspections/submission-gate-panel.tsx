@@ -38,6 +38,12 @@ interface SubmissionGatePanelProps {
    * gap is a link to the capture page at that step.
    */
   onSelectStep?: (stepKey: string) => void;
+  /**
+   * RA-8388: validation re-runs whenever this value changes. The capture
+   * page passes its evidence count, so adding the missing reading clears the
+   * issue without a reload. Without it the list stayed red after the fix.
+   */
+  revalidateKey?: string | number;
 }
 
 export function SubmissionGatePanel({
@@ -46,6 +52,7 @@ export function SubmissionGatePanel({
   onSubmit,
   submitting,
   onSelectStep,
+  revalidateKey,
 }: SubmissionGatePanelProps) {
   const [validation, setValidation] =
     useState<SubmissionValidationResult | null>(null);
@@ -85,7 +92,7 @@ export function SubmissionGatePanel({
     if (isReadyToSubmit) {
       runValidation();
     }
-  }, [isReadyToSubmit, runValidation]);
+  }, [isReadyToSubmit, runValidation, revalidateKey]);
 
   if (!isReadyToSubmit) return null;
 

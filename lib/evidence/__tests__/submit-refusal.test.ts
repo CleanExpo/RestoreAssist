@@ -95,6 +95,64 @@ describe("describeSubmitRefusal", () => {
     expect(refusal.items).toEqual([]);
   });
 
+  // The bodies below are copied from what the submit route builds for each
+  // gate after the two above (app/api/inspections/[id]/submit/route.ts), so
+  // none of them can fall through to "Please try again".
+  it("names each stabilisation blocker instead of dropping the list", () => {
+    const refusal = describeSubmitRefusal(ID, {
+      error:
+        "Stabilisation checklist incomplete — required per ANSI/IICRC S500:2021",
+      blockers: [
+        { action: "ELECTRICAL_ISOLATION", label: "Electrical isolation" },
+        { action: "WATER_SHUTOFF", label: "Water shut-off" },
+      ],
+    });
+    expect(refusal.message).toBe(
+      "Stabilisation checklist incomplete — required per ANSI/IICRC S500:2021",
+    );
+    expect(refusal.items).toEqual([
+      { key: "blocker-0", label: "Electrical isolation" },
+      { key: "blocker-1", label: "Water shut-off" },
+    ]);
+    // No screen is known for these, so no link is invented.
+    expect(refusal.items.every((i) => i.href === undefined)).toBe(true);
+  });
+
+  it("names sentence blockers from the scope-variation and NZ building gates", () => {
+    const variation = describeSubmitRefusal(ID, {
+      error: "Scope variations pending approval",
+      blockers: ["Variation pending approval: extra drying (delta: $120.00)"],
+    });
+    expect(variation.message).toBe("Scope variations pending approval");
+    expect(variation.items).toEqual([
+      {
+        key: "blocker-0",
+        label: "Variation pending approval: extra drying (delta: $120.00)",
+      },
+    ]);
+    const nz = describeSubmitRefusal(ID, {
+      error: "NZBS clauses not addressed",
+      blockers: ["NZBC E2 (External moisture) must be evaluated before submission"],
+      requiredClauses: [],
+    });
+    expect(nz.items).toHaveLength(1);
+  });
+
+  it("passes the fire walkthrough and tenancy sentences through unchanged", () => {
+    const fire = describeSubmitRefusal(ID, {
+      error:
+        "The fire and smoke walkthrough has not been signed off by the technician.",
+      code: "UNSIGNED",
+      openSectionIds: [],
+    });
+    expect(fire.message).toBe(
+      "The fire and smoke walkthrough has not been signed off by the technician.",
+    );
+    expect(fire.message).not.toContain("UNSIGNED");
+    const tenancy = describeSubmitRefusal(ID, { error: "Inspection not found" });
+    expect(tenancy.message).toBe("Inspection not found");
+  });
+
   it("never shows an unknown raw code", () => {
     for (const body of [
       { error: "SOME_NEW_CODE" },

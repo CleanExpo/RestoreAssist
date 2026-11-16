@@ -1517,12 +1517,14 @@ export default function CaptureWorkflowPage({
                       className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-800 dark:text-slate-200"
                     >
                       <span>{item.label}</span>
-                      <Link
-                        href={item.href}
-                        className="font-medium text-blue-700 dark:text-blue-300 underline underline-offset-2"
-                      >
-                        {item.action}
-                      </Link>
+                      {item.href && item.action && (
+                        <Link
+                          href={item.href}
+                          className="font-medium text-blue-700 dark:text-blue-300 underline underline-offset-2"
+                        >
+                          {item.action}
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -1534,6 +1536,7 @@ export default function CaptureWorkflowPage({
             isReadyToSubmit={workflow.isReadyToSubmit}
             onSubmit={handleSubmitInspection}
             submitting={submitting}
+            revalidateKey={evidenceItems.length}
             onSelectStep={(stepKey) => {
               const idx = workflow.steps.findIndex(
                 (s) => s.stepKey === stepKey,

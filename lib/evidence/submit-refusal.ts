@@ -22,10 +22,14 @@ export interface SubmitRefusalItem {
   key: string;
   /** What is missing, in plain words. */
   label: string;
-  /** Where it is fixed. */
-  href: string;
-  /** The words on the link. */
-  action: string;
+  /**
+   * Where it is fixed. Absent for a blocker whose screen this module does
+   * not know (stabilisation, scope variation, NZ building code): the item is
+   * still named, and no link is invented for it.
+   */
+  href?: string;
+  /** The words on the link. Present exactly when `href` is. */
+  action?: string;
 }
 
 export interface SubmitRefusal {
@@ -101,6 +105,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * The compliance gates (stabilisation, scope variation, NZ building code)
+ * refuse with `{ error: <sentence>, blockers: [...] }`. A blocker is either
+ * a sentence or `{ action, label }`. The old toast dropped them, so the
+ * technician was told a checklist was incomplete and not which lines.
+ */
+function blockerItems(blockers: unknown): SubmitRefusalItem[] {
+  if (!Array.isArray(blockers)) return [];
+  const items: SubmitRefusalItem[] = [];
+  blockers.forEach((entry, index) => {
+    const label =
+      typeof entry === "string"
+        ? entry
+        : isRecord(entry) && typeof entry.label === "string"
+          ? entry.label
+          : "";
+    if (label.length > 0 && !looksLikeCode(label)) {
+      items.push({ key: `blocker-${index}`, label });
+    }
+  });
+  return items;
+}
+
 export function describeSubmitRefusal(
   inspectionId: string,
   body: unknown,
@@ -146,10 +173,11 @@ export function describeSubmitRefusal(
         items: [],
       };
     }
+    const blockers = blockerItems(body.blockers);
     if (error.length > 0 && !looksLikeCode(error)) {
-      return { message: error, items: [] };
+      return { message: error, items: blockers };
     }
-    return { message: FALLBACK_MESSAGE, items: [] };
+    return { message: FALLBACK_MESSAGE, items: blockers };
   }
 
   // Shared apiError envelope: { error: { code, message } }.

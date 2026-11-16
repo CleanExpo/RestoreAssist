@@ -131,6 +131,37 @@ describe("SubmissionGatePanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("checks again when the evidence count changes, so a fixed issue clears without a reload", async () => {
+    mockValidation({ blockingGaps: [gap({})] });
+    const { rerender } = render(
+      <SubmissionGatePanel
+        inspectionId="insp-1"
+        isReadyToSubmit
+        onSubmit={() => {}}
+        submitting={false}
+        revalidateKey={4}
+      />,
+    );
+    await screen.findByText("1 issue must be resolved");
+
+    // The fifth reading is captured: the page's evidence count goes up and
+    // the server now reports nothing blocking.
+    mockValidation({ canSubmit: true, blockingGaps: [] });
+    rerender(
+      <SubmissionGatePanel
+        inspectionId="insp-1"
+        isReadyToSubmit
+        onSubmit={() => {}}
+        submitting={false}
+        revalidateKey={5}
+      />,
+    );
+    await screen.findByText("Evidence validation passed");
+    expect(
+      screen.queryByText("1 issue must be resolved"),
+    ).not.toBeInTheDocument();
+  });
+
   it("keeps warnings folded away when nothing blocks, and makes them selectable once opened", async () => {
     mockValidation({
       canSubmit: true,
