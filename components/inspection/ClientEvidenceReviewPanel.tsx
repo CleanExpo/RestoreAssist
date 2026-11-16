@@ -26,6 +26,12 @@ interface Submission {
   viewUrl: string | null;
 }
 
+// RA-8388 (founder ruling 16/11/2026): photos a client sends through the
+// portal are evidence, but they are not signed captures by the technician, so
+// they stay out of the count of required photos at submit. Say so on screen.
+const NOT_COUNTED_NOTE =
+  "Client photos do not count toward the photos your technician must capture before the job can be submitted.";
+
 export function ClientEvidenceReviewPanel({
   inspectionId,
 }: {
@@ -52,6 +58,8 @@ export function ClientEvidenceReviewPanel({
     load();
   }, [load]);
 
+  const [accepted, setAccepted] = useState(false);
+
   async function acceptAll() {
     setBusy(true);
     setMessage("");
@@ -64,6 +72,7 @@ export function ClientEvidenceReviewPanel({
       if (!res.ok) throw new Error();
       setSubmissions([]);
       setMessage(`Added ${body.data.promoted} item(s) to the report.`);
+      setAccepted(true);
     } catch {
       setMessage("Couldn’t add those to the report. Try again.");
     } finally {
@@ -77,6 +86,9 @@ export function ClientEvidenceReviewPanel({
     return message ? (
       <p role="status" className="text-xs text-success">
         {message}
+        {accepted && (
+          <span className="block text-slate-500">{NOT_COUNTED_NOTE}</span>
+        )}
       </p>
     ) : null;
   }
@@ -94,6 +106,7 @@ export function ClientEvidenceReviewPanel({
           Your client sent these through their portal link. Review them, then
           add them to the report’s evidence record.
         </p>
+        <p className="text-xs text-slate-500 mt-1">{NOT_COUNTED_NOTE}</p>
       </div>
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">

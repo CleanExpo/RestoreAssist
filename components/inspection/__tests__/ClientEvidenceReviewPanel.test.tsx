@@ -67,6 +67,25 @@ describe("ClientEvidenceReviewPanel", () => {
     expect(postCall).toBeTruthy();
   });
 
+  // RA-8388 (founder ruling 16/11/2026): client photos stay uncounted at
+  // submit, and the screen says so before and after they are accepted.
+  it("says client photos do not count toward the technician's required photos", async () => {
+    vi.stubGlobal("fetch", fetchWith([photo], 1));
+    render(<ClientEvidenceReviewPanel inspectionId="i1" />);
+    await waitFor(() => screen.getByText(/awaiting your review/i));
+    expect(
+      screen.getByText(/do not count toward the photos your technician must capture/i),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Add all client photos/i }),
+    );
+    await waitFor(() => screen.getByText(/Added 1 item\(s\) to the report/i));
+    expect(
+      screen.getByText(/do not count toward the photos your technician must capture/i),
+    ).toBeInTheDocument();
+  });
+
   it("renders nothing when there is nothing to review", async () => {
     vi.stubGlobal("fetch", fetchWith([]));
     const { container } = render(
