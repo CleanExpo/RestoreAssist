@@ -13,6 +13,7 @@ import {
   resolveLineGstRate,
 } from "@/lib/invoices/inherit-gst-rate";
 import { validateAdjustments } from "@/lib/invoices/validate-adjustments";
+import { validateMoneyLines } from "@/lib/invoices/validate-money-lines";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { assertFinancialWriter } from "@/lib/auth/assert-tenancy";
@@ -195,45 +196,16 @@ export async function POST(
         terms,
       } = body;
 
-      if (!Array.isArray(lineItems) || lineItems.length === 0) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: "At least one line item is required",
-          status: 400,
-        });
-      }
+      // RA-8398: the one shared line check. A variation may carry a
+      // negative unit price (a credit variation); see the decision in
+      // lib/invoices/validate-money-lines.ts.
+      const lineError = validateMoneyLines(request, lineItems, {
+        allowNegativePrice: true,
+      });
+      if (lineError) return lineError;
 
       for (let index = 0; index < lineItems.length; index++) {
         const item = lineItems[index];
-        const quantity = parseFloat(item.quantity);
-        const unitPriceDollars = parseFloat(item.unitPrice);
-        if (!Number.isFinite(quantity) || quantity < 0) {
-          return apiError(request, {
-            code: "VALIDATION",
-            message: `Line item ${index + 1} has an invalid quantity — must be a non-negative number`,
-            status: 400,
-          });
-        }
-        if (!Number.isFinite(unitPriceDollars)) {
-          return apiError(request, {
-            code: "VALIDATION",
-            message: `Line item ${index + 1} has an invalid unit price`,
-            status: 400,
-          });
-        }
-        // Allow omitted gstRate (resolved via parent inherit below). Explicit
-        // 0 must remain valid — never coerce with `|| 10` (RA-7096).
-        if (
-          item.gstRate !== undefined &&
-          item.gstRate !== null &&
-          (!Number.isFinite(Number(item.gstRate)) || Number(item.gstRate) < 0)
-        ) {
-          return apiError(request, {
-            code: "VALIDATION",
-            message: `Line item ${index + 1} has an invalid GST rate`,
-            status: 400,
-          });
-        }
         if (
           typeof item.description !== "string" ||
           !item.description.trim()

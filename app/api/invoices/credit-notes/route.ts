@@ -10,6 +10,7 @@ import {
   resolveLineGstRatePercent,
 } from "@/lib/gst-rules";
 import { lineAmountsCents } from "@/lib/invoices/calc";
+import { validateMoneyLines } from "@/lib/invoices/validate-money-lines";
 
 export async function GET(request: NextRequest) {
   try {
@@ -107,6 +108,12 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-8398: the one shared line check. Before this, quantity and unit
+      // price were not checked here, so a negative or non-numeric value
+      // saved a negative or NaN total, and an empty list saved a zero total.
+      const lineError = validateMoneyLines(request, lineItems);
+      if (lineError) return lineError;
+
       // Verify the invoice belongs to this user
       const invoice = await prisma.invoice.findFirst({
         where: { id: invoiceId, userId },
@@ -136,19 +143,6 @@ export async function POST(request: NextRequest) {
         unitPrice: number;
         gstRate?: number;
       }> = Array.isArray(lineItems) ? lineItems : [];
-
-      const invalidGstIndex = items.findIndex((item) => {
-        if (item.gstRate === null || item.gstRate === undefined) return false;
-        const rate = Number(item.gstRate);
-        return !Number.isFinite(rate) || rate < 0;
-      });
-      if (invalidGstIndex >= 0) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: `Line item ${invalidGstIndex + 1} has an invalid GST rate`,
-          status: 400,
-        });
-      }
 
       // RA-7705: the invoice rule — each line rounded to cents in decimal,
       // GST on the rounded line, header = sum of the lines.

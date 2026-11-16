@@ -7,7 +7,9 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { resolveLineGstRatePercent } from "@/lib/gst-rules";
 import { lineAmountsCents } from "@/lib/invoices/calc";
+import { validateMoneyLines } from "@/lib/invoices/validate-money-lines";
 import { assertFinancialWriter, canLinkRecord } from "@/lib/auth/assert-tenancy";
+import { RecurringFrequency } from "@prisma/client";
 
 function nextDateFromFrequency(start: Date, frequency: string): Date {
   const d = new Date(start);
@@ -140,7 +142,23 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      if (!Object.values(RecurringFrequency).includes(frequency)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `frequency must be one of ${Object.values(RecurringFrequency).join(", ")}`,
+          status: 400,
+          fields: { frequency: "Unknown frequency" },
+        });
+      }
       const start = new Date(startDate);
+      if (Number.isNaN(start.getTime())) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "startDate must be a valid date",
+          status: 400,
+          fields: { startDate: "Invalid date" },
+        });
+      }
       const nextInvoiceDate = nextDateFromFrequency(start, frequency);
       const gstTreatment = await resolveUserGstTreatment(userId);
 
@@ -149,20 +167,14 @@ export async function POST(request: NextRequest) {
         quantity: number;
         unitPrice: number;
         gstRate?: number;
+        category?: string | null;
       }> = Array.isArray(lineItems) ? lineItems : [];
 
-      const invalidGstIndex = items.findIndex((item) => {
-        if (item.gstRate === null || item.gstRate === undefined) return false;
-        const rate = Number(item.gstRate);
-        return !Number.isFinite(rate) || rate < 0;
-      });
-      if (invalidGstIndex >= 0) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: `Line item ${invalidGstIndex + 1} has an invalid GST rate`,
-          status: 400,
-        });
-      }
+      // RA-8398: the one shared line check. Before this, quantity and unit
+      // price were not checked here, so a negative or non-numeric value
+      // saved a negative or NaN total, and an empty list saved a zero total.
+      const lineError = validateMoneyLines(request, lineItems);
+      if (lineError) return lineError;
 
       // RA-7705: the invoice rule — each line rounded to cents in decimal,
       // GST on the rounded line.
@@ -194,8 +206,13 @@ export async function POST(request: NextRequest) {
           subtotalExGST,
           gstAmount,
           totalIncGST,
+          // RA-8398: store only the template fields (schema comment on
+          // lineItemsTemplate), never whatever extra keys the caller sent.
           lineItemsTemplate: items.map((item) => ({
-            ...item,
+            description: item.description,
+            category: item.category ?? null,
+            quantity: Number(item.quantity),
+            unitPrice: Math.round(Number(item.unitPrice)),
             gstRate: resolveLineGstRatePercent(item.gstRate, gstTreatment),
           })),
           dueInDays: dueInDays ?? 30,
