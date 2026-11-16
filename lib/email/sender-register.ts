@@ -54,8 +54,8 @@ export const EMAIL_SENDERS: Readonly<Record<string, RegisterRow<SenderClass>>> =
       why: "Notice about the recipient's own failed payment.",
     },
     sendSubscriptionCancelledEmail: {
-      class: "service",
-      why: "Confirms the recipient's own cancellation.",
+      class: "sales",
+      why: "Confirms the cancellation but also promotes a paid resubscribe with a Resubscribe Now button; promotional content makes it commercial (ACMA), so it carries the opt-out.",
     },
     sendTrialExpiringEmail: {
       class: "sales",

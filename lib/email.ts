@@ -650,6 +650,9 @@ export async function sendSubscriptionCancelledEmail(
   }
 
   const fromEmail = getFromEmail();
+  // RA-8356 review round 1: this email offers a paid resubscribe, so it is a
+  // sales email (lib/email/sender-register.ts) and must carry the opt-out.
+  const optOut = buildMarketingOptOut();
 
   const html = `
     <!DOCTYPE html>
@@ -696,11 +699,25 @@ export async function sendSubscriptionCancelledEmail(
         <!-- Footer -->
         <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
           <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          ${optOut.htmlFooter}
           <p style="margin: 10px 0 0 0; color: #cbd5e1;">© ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
         </div>
       </body>
     </html>
   `;
+
+  const text = [
+    `Hi ${data.recipientName},`,
+    "",
+    `Your ${data.subscriptionPlan} subscription has been cancelled. You'll continue to have access to your account until ${data.expiresAt}.`,
+    "",
+    "After this date, you'll lose access to premium features. Your data will be preserved, and you can resubscribe at any time to regain full access.",
+    "",
+    `Resubscribe: ${data.resubscribeUrl}`,
+    "",
+    "This is an automated email from Restore Assist.",
+    optOut.textFooter,
+  ].join("\n");
 
   try {
     console.log(
@@ -714,6 +731,9 @@ export async function sendSubscriptionCancelledEmail(
         to: data.recipientEmail,
         subject: "Your RestoreAssist Subscription Has Been Cancelled",
         html,
+        text,
+        replyTo: optOut.replyTo,
+        headers: optOut.headers,
       }),
     );
     if (!reportEmailFailure(result, "email-cancellation")) return null;

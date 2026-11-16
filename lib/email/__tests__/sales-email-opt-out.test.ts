@@ -30,6 +30,13 @@ const SAMPLES: Record<string, unknown> = {
     daysRemaining: 3,
     subscribeUrl: "https://restoreassist.app/dashboard/pricing",
   },
+  sendSubscriptionCancelledEmail: {
+    recipientEmail: "cancelled@example.com",
+    recipientName: "Cancelled User",
+    subscriptionPlan: "Monthly",
+    expiresAt: "30 November 2026",
+    resubscribeUrl: "https://restoreassist.app/dashboard/pricing",
+  },
   sendWinbackEmail: {
     recipientEmail: "lapsed@example.com",
     recipientName: "Lapsed User",

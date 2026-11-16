@@ -51,6 +51,35 @@ function callsSendDirectly(source: string): boolean {
   );
 }
 
+/**
+ * Wording that asks the reader to buy, resume or upgrade. Review round 1
+ * found a "service" email with a Resubscribe Now button; promotional content
+ * inside a service email makes it commercial, so a service sender whose body
+ * carries any of these must be reclassed "sales" (and get the opt-out).
+ * A word list is a known limit: it catches the wording this codebase uses,
+ * not every way to sell.
+ */
+const SALES_WORDING =
+  /resubscribe|subscribe now|upgrade|come back|reactivate|special offer|discount|\d+\s*% off/i;
+
+/** The source of one exported sender, up to the next export. */
+function senderBody(source: string, name: string): string {
+  const clean = stripComments(source);
+  const start = clean.search(
+    new RegExp(
+      `export\\s+(?:async\\s+)?function\\s+${name}\\b|export\\s+const\\s+${name}\\s*=`,
+    ),
+  );
+  if (start < 0) return "";
+  const next = clean.indexOf("\nexport ", start + 1);
+  return clean.slice(start, next < 0 ? undefined : next);
+}
+
+function salesWordingIn(body: string): string | null {
+  const hit = body.match(SALES_WORDING);
+  return hit ? hit[0] : null;
+}
+
 function walk(dir: string, out: string[]): void {
   for (const name of readdirSync(dir)) {
     if (name === "node_modules" || name === "__tests__" || name.startsWith("."))
@@ -96,6 +125,19 @@ describe("email sender register (RA-8356)", () => {
     }
   });
 
+  it("keeps sales wording out of every service email", () => {
+    const source = readFileSync(path.join(ROOT, "lib/email.ts"), "utf8");
+    const offenders: string[] = [];
+    for (const [name, row] of Object.entries(EMAIL_SENDERS)) {
+      if (row.class !== "service") continue;
+      const body = senderBody(source, name);
+      expect(body.length, `${name} found in lib/email.ts`).toBeGreaterThan(0);
+      const hit = salesWordingIn(body);
+      if (hit) offenders.push(`${name}: "${hit}"`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("never classes a direct send site as sales", () => {
     for (const row of Object.values(DIRECT_SEND_SITES)) {
       expect(["service", "internal"]).toContain(row.class);
@@ -114,6 +156,21 @@ describe("register scanners catch what they claim to (controls)", () => {
     expect(exportedSenders("// export async function sendGhost() {}\n")).toEqual(
       [],
     );
+  });
+
+  it("finds sales wording in a sender body and stops at the next export", () => {
+    const source =
+      'export async function sendA(d) { const h = "Resubscribe Now"; }\n' +
+      'export async function sendB(d) { const h = "Your receipt"; }\n';
+    expect(salesWordingIn(senderBody(source, "sendA"))).toBe("Resubscribe");
+    expect(salesWordingIn(senderBody(source, "sendB"))).toBeNull();
+    expect(senderBody(source, "sendMissing")).toBe("");
+  });
+
+  it("ignores sales wording that only appears in a comment", () => {
+    const source =
+      'export async function sendC(d) {\n  // upgrade later\n  const h = "Done";\n}\n';
+    expect(salesWordingIn(senderBody(source, "sendC"))).toBeNull();
   });
 
   it("sees a direct call but not a call written in a comment", () => {
