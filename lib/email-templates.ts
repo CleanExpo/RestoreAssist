@@ -289,6 +289,11 @@ export interface ReengagementData {
   activityNote?: string;
   /** Optional personal sign-off (e.g. "Phill"). Falls back to the brand name. */
   senderName?: string;
+  /**
+   * Opt-out block from buildMarketingOptOut().htmlFooter, already escaped.
+   * Passed by sendReengagementEmail (RA-8356); shown under the sign-off.
+   */
+  optOutHtml?: string;
 }
 
 /**
@@ -322,6 +327,7 @@ export function reengagementEmail(data: ReengagementData): string {
       Any feedback on what is working — or what is not — is genuinely useful. Just reply to this email.
     </p>
     <p style="margin:16px 0 0;font-size:15px;color:#1C2E47;font-weight:600;">${signoff}</p>
+    ${data.optOutHtml ? `<div style="margin:24px 0 0;font-size:12px;color:#64748b;">${data.optOutHtml}</div>` : ""}
   `;
   return layout("Pick up where you left off — RestoreAssist", body);
 }

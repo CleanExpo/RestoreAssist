@@ -13,7 +13,11 @@ export interface EmailPayload {
   to: string;
   subject: string;
   html: string;
+  /** Plain-text part. */
+  text?: string;
   replyTo?: string;
+  /** Extra message headers, e.g. List-Unsubscribe (RA-8356). */
+  headers?: Record<string, string>;
   organizationId?: string | null;
 }
 
@@ -39,7 +43,9 @@ export async function sendEmail(payload: EmailPayload): Promise<string | null> {
     to: payload.to,
     subject: payload.subject,
     html: payload.html,
+    ...(payload.text ? { text: payload.text } : {}),
     replyTo: payload.replyTo,
+    ...(payload.headers ? { headers: payload.headers } : {}),
     organizationId: payload.organizationId,
   });
 

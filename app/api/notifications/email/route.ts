@@ -10,9 +10,8 @@ import {
   invoiceGeneratedEmail,
   dryingGoalAchievedEmail,
   reportReadyEmail,
-  reengagementEmail,
 } from "@/lib/email-templates";
-import { BRAND } from "@/lib/brand";
+import { sendReengagementEmail } from "@/lib/email";
 import {
   verifyAdminFromDb,
   verifyPlatformSupportOperator,
@@ -121,17 +120,12 @@ export async function POST(req: NextRequest) {
         if (operator.response) return operator.response;
 
         const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
-        const replyTo =
-          process.env.EMAIL_REPLY_TO || BRAND.company.supportEmail;
-        const messageId = await sendEmail({
-          to: recipientEmail,
-          subject: "Pick up where you left off — RestoreAssist",
-          html: reengagementEmail({
-            recipientName: body.recipientName?.trim() || "there",
-            ctaUrl: `${baseUrl}/dashboard/pricing?utm_source=reengagement`,
-            senderName: session.user.name ?? undefined,
-          }),
-          replyTo,
+        // RA-8356: one sales sender owns this email and its opt-out.
+        const messageId = await sendReengagementEmail({
+          recipientEmail,
+          recipientName: body.recipientName?.trim() || "there",
+          ctaUrl: `${baseUrl}/dashboard/pricing?utm_source=reengagement`,
+          senderName: session.user.name ?? undefined,
         });
         if (!messageId) {
           return NextResponse.json(

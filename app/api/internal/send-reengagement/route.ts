@@ -19,9 +19,7 @@
 
 import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { sendEmail } from "@/lib/email-send";
-import { reengagementEmail } from "@/lib/email-templates";
-import { BRAND } from "@/lib/brand";
+import { sendReengagementEmail } from "@/lib/email";
 import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
 
 /** Constant-time bearer check; fails closed when the token is unset. */
@@ -81,18 +79,15 @@ export async function POST(request: NextRequest) {
     body.ctaPath && body.ctaPath.startsWith("/")
       ? body.ctaPath
       : "/dashboard/pricing";
-  const replyTo = process.env.EMAIL_REPLY_TO || BRAND.company.supportEmail;
 
   try {
-    const messageId = await sendEmail({
-      to: recipientEmail,
-      subject: "Pick up where you left off — RestoreAssist",
-      html: reengagementEmail({
-        recipientName: body.recipientName?.trim() || "there",
-        ctaUrl: `${baseUrl}${ctaPath}?utm_source=reengagement`,
-        senderName: "Phill",
-      }),
-      replyTo,
+    // RA-8356: one sales sender owns this email and its opt-out
+    // (reply-to, List-Unsubscribe, visible unsubscribe line, text part).
+    const messageId = await sendReengagementEmail({
+      recipientEmail,
+      recipientName: body.recipientName?.trim() || "there",
+      ctaUrl: `${baseUrl}${ctaPath}?utm_source=reengagement`,
+      senderName: "Phill",
     });
     if (!messageId) {
       return NextResponse.json(

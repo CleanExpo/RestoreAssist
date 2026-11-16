@@ -1,6 +1,7 @@
 import { RESET_CODE_TTL_MINUTES } from "@/lib/auth/recovery-policy";
 import { reportError } from "@/lib/observability";
 import { sanitiseEmailField } from "@/lib/email/sanitise-header";
+import { buildMarketingOptOut } from "@/lib/email/marketing-opt-out";
 import { BRAND } from "@/lib/brand";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import {
@@ -15,6 +16,8 @@ import {
   EmailDeliveryNotAttempted,
   EmailDeliveryRejected,
 } from "@/lib/email-delivery-errors";
+import { sendEmail } from "@/lib/email-send";
+import { reengagementEmail } from "@/lib/email-templates";
 
 /** Hard ceiling on any single email send so a hung upstream cannot pin a serverless function. */
 export const EMAIL_SEND_TIMEOUT_MS = TX_EMAIL_TIMEOUT_MS;
@@ -743,6 +746,10 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
   }
 
   const fromEmail = getFromEmail();
+  // RA-8356: the trial reminder asks the user to subscribe, so it is a sales
+  // email (see lib/email/sender-register.ts) and must carry the opt-out.
+  const optOut = buildMarketingOptOut();
+  const daysLabel = `${data.daysRemaining} day${data.daysRemaining !== 1 ? "s" : ""}`;
 
   const html = `
     <!DOCTYPE html>
@@ -787,11 +794,28 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
         <!-- Footer -->
         <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
           <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          ${optOut.htmlFooter}
           <p style="margin: 10px 0 0 0; color: #cbd5e1;">© ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
         </div>
       </body>
     </html>
   `;
+
+  const text = [
+    `Hi ${data.recipientName},`,
+    "",
+    `Your free trial of RestoreAssist ends in ${daysLabel}.`,
+    "",
+    "Subscribe to keep:",
+    `- ${PRICING_CONFIG.pricing.monthly.reportLimit} inspection reports every month`,
+    "- All your saved reports and data",
+    "- Premium features and integrations",
+    "",
+    `Subscribe: ${data.subscribeUrl}`,
+    "",
+    "This is an automated email from Restore Assist.",
+    optOut.textFooter,
+  ].join("\n");
 
   try {
     console.log(
@@ -805,6 +829,9 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
         to: data.recipientEmail,
         subject: `Your RestoreAssist Trial Expires in ${data.daysRemaining} Day${data.daysRemaining !== 1 ? "s" : ""}`,
         html,
+        text,
+        replyTo: optOut.replyTo,
+        headers: optOut.headers,
       }),
     );
     if (!reportEmailFailure(result, "email-trial-expiring")) return null;
@@ -1358,6 +1385,8 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
     return null;
   }
   const fromEmail = getFromEmail();
+  // RA-8355: a sales email must carry a working opt-out. One owner builds it.
+  const optOut = buildMarketingOptOut();
 
   const html = `
     <!DOCTYPE html>
@@ -1396,18 +1425,34 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
 
           <div style="border-top: 1px solid #e2e8f0; padding-top: 25px; margin-top: 30px;">
             <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 0 0 12px 0;">
-              Not coming back? That's OK — reply to this email with any feedback and we'll stop sending these. No sales pitches, just curious.
+              Not coming back? That's OK. Reply to this email with any feedback, or unsubscribe using the details below.
             </p>
           </div>
         </div>
 
         <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
           <p style="margin: 5px 0;">This is a one-time win-back email from Restore Assist.</p>
+          ${optOut.htmlFooter}
           <p style="margin: 10px 0 0 0; color: #cbd5e1;">© ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
         </div>
       </body>
     </html>
   `;
+
+  const text = [
+    `Hi ${data.recipientName},`,
+    "",
+    `It's been ${data.daysSinceExpired} days since your RestoreAssist subscription ended. Your account, reports, and client data are all still safe.`,
+    "",
+    "If water-damage work crosses your desk again, come back in one click. Everything's where you left it.",
+    "",
+    `Restart my subscription: ${data.resubscribeUrl}`,
+    "",
+    "Not coming back? That's OK. Reply to this email with any feedback.",
+    "",
+    "This is a one-time win-back email from Restore Assist.",
+    optOut.textFooter,
+  ].join("\n");
 
   try {
     const result = await withEmailTimeout(
@@ -1416,6 +1461,9 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
         to: data.recipientEmail,
         subject: "We miss you at RestoreAssist",
         html,
+        text,
+        replyTo: optOut.replyTo,
+        headers: optOut.headers,
       }),
     );
     assertEmailSuccess(result, "winback");
@@ -1509,6 +1557,63 @@ Restore Assist — Australia's compliance platform for water damage restoration`
     }),
   );
   return assertEmailSuccess(result, "support-reply");
+}
+
+// ── Re-engagement Email (sales) ──
+
+export interface ReengagementSendData {
+  recipientEmail: string;
+  recipientName: string;
+  ctaUrl: string;
+  /** Optional personal sign-off, e.g. the operator's name. */
+  senderName?: string;
+}
+
+/**
+ * RA-8356: the one sender for the re-engagement email. It asks a lapsed user
+ * to restart a paid subscription, so it is a sales email and carries the
+ * opt-out from buildMarketingOptOut(). Both the token-authed internal route
+ * and the admin notifications route call this; neither builds the email.
+ *
+ * Returns the provider message id, or null when the send did not happen.
+ * Never throws (same contract as sendEmail).
+ */
+export async function sendReengagementEmail(
+  data: ReengagementSendData,
+): Promise<string | null> {
+  const optOut = buildMarketingOptOut();
+  const name = data.recipientName.trim() || "there";
+  const signoff = data.senderName?.trim()
+    ? `${data.senderName.trim()}, RestoreAssist`
+    : "The RestoreAssist team";
+
+  const text = [
+    `Hi ${name}, your RestoreAssist account is still active. Every inspection, report and setting is where you left it.`,
+    "",
+    "Your trial has ended, so report generation and a few paid features are currently capped. Restart anytime and carry on mid-job; nothing has been reset.",
+    "",
+    `Restart my subscription: ${data.ctaUrl}`,
+    "",
+    "Any feedback on what is working, or what is not, is useful. Just reply to this email.",
+    "",
+    signoff,
+    "",
+    optOut.textFooter,
+  ].join("\n");
+
+  return sendEmail({
+    to: data.recipientEmail,
+    subject: "Pick up where you left off — RestoreAssist",
+    html: reengagementEmail({
+      recipientName: name,
+      ctaUrl: data.ctaUrl,
+      senderName: data.senderName?.trim() || undefined,
+      optOutHtml: optOut.htmlFooter,
+    }),
+    text,
+    replyTo: optOut.replyTo,
+    headers: optOut.headers,
+  });
 }
 
 export { sanitiseEmailField };
