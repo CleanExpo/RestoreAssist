@@ -36,8 +36,39 @@
 -- ADDITIVE
 --   Every statement is ADD COLUMN, CREATE UNIQUE INDEX or ADD CONSTRAINT.
 --   Nothing is dropped, renamed, retyped, made NOT NULL or rewritten. ADD
---   COLUMN without a default is metadata-only. Each CREATE UNIQUE INDEX scans
---   its table once and holds a write lock on it for that scan.
+--   COLUMN without a default is metadata-only.
+--
+-- LOCKS, AND WHY THE FILE STARTS WITH A 5 SECOND LOCK TIMEOUT
+--   `prisma migrate deploy` (7.10.1) sends this file one statement at a time
+--   and each statement commits on its own. It is NOT one transaction. So each
+--   lock lasts for its own statement:
+--     ADD COLUMN           ACCESS EXCLUSIVE on its table: reads and writes
+--                          wait. Brief, no scan.
+--     CREATE UNIQUE INDEX  SHARE on its table: writes wait for one full scan.
+--     ADD CONSTRAINT       SHARE ROW EXCLUSIVE on its table and on
+--                          EvidenceItem: writes wait while every row is checked.
+--   Applied by hand in ONE transaction instead (psql --single-transaction),
+--   all three tables stay under ACCESS EXCLUSIVE until the commit, through
+--   all three index scans and both foreign-key checks.
+--   Either way, a statement that has to WAIT for its lock makes every later
+--   query on that table queue behind it. lock_timeout stops that: a statement
+--   that cannot get its lock within 5 seconds fails instead of stalling the
+--   reading pages.
+--   Plain SET, not SET LOCAL: with one transaction per statement, SET LOCAL
+--   would end with its own statement and protect nothing. The setting lasts
+--   for the rest of the migrate session (later migrations in the same deploy
+--   also get 5 seconds) and ends when that session closes.
+--
+-- IF A STATEMENT TIMES OUT
+--   Statements before it stay applied; the rest have not run. Prisma marks
+--   the migration failed, refuses every later deploy (P3009), and
+--   /api/health/migrations reports drift. To recover: run down.sql (every
+--   drop there is IF EXISTS), then
+--   `prisma migrate resolve --rolled-back
+--   20261116120000_ra_8388_evidence_link_and_duplicate_guard`, then deploy
+--   again. scripts/ci/ra-8388-migration-applied.sql says which state the
+--   database is in. Proven in
+--   scripts/ci/__tests__/ra-8388-migration-preconditions.test.ts.
 --
 -- REVERSIBLE
 --   down.sql drops exactly these objects, in reverse order.
@@ -46,6 +77,8 @@
 --   Apply this BEFORE the code that reads these columns is deployed. Startup
 --   does not apply migrations (scripts/start-production.sh). Not applied
 --   anywhere; applying to production is the owner's step.
+
+SET lock_timeout = '5s';
 
 ALTER TABLE "MoistureReading" ADD COLUMN "evidenceItemId" TEXT;
 

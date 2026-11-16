@@ -7,6 +7,14 @@
 --
 -- Revert the application code BEFORE running this: code built from the new
 -- schema names these columns in every query on the three tables.
+--
+-- Every drop here needs an ACCESS EXCLUSIVE lock on its table. A statement
+-- that cannot get its lock within 5 seconds fails instead of making every
+-- other query on that table wait behind it. Every drop is IF EXISTS, so the
+-- file can be run again after a failure, and after a partly applied forward
+-- migration.
+
+SET lock_timeout = '5s';
 
 ALTER TABLE "EnvironmentalData" DROP CONSTRAINT IF EXISTS "EnvironmentalData_evidenceItemId_fkey";
 
