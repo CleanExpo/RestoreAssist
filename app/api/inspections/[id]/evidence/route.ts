@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
 import { BUCKET_OPTIMISED, BUCKET_ORIGINALS } from "@/lib/storage/types";
 import { apiError, fromException, logRefusal } from "@/lib/api-errors";
+import { bodyField, requiredIdentifier } from "@/lib/request-identifier";
 import { reportError } from "@/lib/observability";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import {
@@ -1292,18 +1293,14 @@ export async function DELETE(
   // on the job, and left every photograph counted with nothing behind it.
   // Exactly one record is named, in text, or nothing is looked up or removed.
   const body: unknown = await request.json().catch(() => null);
-  const evidenceIdRaw =
-    body !== null && typeof body === "object" && !Array.isArray(body)
-      ? (body as Record<string, unknown>).evidenceId
-      : undefined;
-  if (typeof evidenceIdRaw !== "string" || evidenceIdRaw.length === 0) {
+  const evidenceId = requiredIdentifier(bodyField(body, "evidenceId"));
+  if (evidenceId === null) {
     return apiError(request, {
       code: "VALIDATION",
       message: "evidenceId is required",
       status: 400,
     });
   }
-  const evidenceId: string = evidenceIdRaw;
 
   try {
     // RA-1711 batch 4 — adopt shared tenancy helper.

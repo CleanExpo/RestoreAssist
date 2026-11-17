@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { getWorkflowTemplate, buildWorkflowStepsData } from "@/lib/evidence";
 import type { JobType } from "@/lib/evidence";
 import { apiError, fromException } from "@/lib/api-errors";
+import { bodyField, requiredIdentifier } from "@/lib/request-identifier";
 import { countableEvidence } from "@/lib/evidence/countable-evidence";
 import {
   assertInspectionAssignedWrite,
@@ -198,8 +199,7 @@ export async function PATCH(
 
   const { id: inspectionId } = await params;
   const body = await request.json();
-  const { stepId, status, skipReason, skipNotes } = body as {
-    stepId: string;
+  const { status, skipReason, skipNotes } = body as {
     status: "IN_PROGRESS" | "COMPLETED" | "SKIPPED" | "BLOCKED";
     skipReason?: string;
     skipNotes?: string;
@@ -208,7 +208,8 @@ export async function PATCH(
   // `undefined`, so without a `stepId` the scoped `updateMany` below matched
   // every step of the workflow. One step is named, in text, or nothing is
   // written.
-  if (typeof stepId !== "string" || stepId.length === 0) {
+  const stepId = requiredIdentifier(bodyField(body, "stepId"));
+  if (stepId === null) {
     return apiError(request, {
       code: "VALIDATION",
       message: "stepId is required",

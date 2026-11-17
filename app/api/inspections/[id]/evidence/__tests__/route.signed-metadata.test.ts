@@ -125,6 +125,7 @@ import { prisma } from "@/lib/prisma";
 import { canonicalizeManifest } from "@/lib/evidence/manifest-canonical";
 import type { SignedEvidenceManifest } from "@/lib/evidence/manifest-canonical";
 import { metadataPayloadSha256 } from "@/lib/evidence/metadata-payload";
+import { expectRefused } from "@/tests/helpers/expect-refused";
 import { POST } from "../route";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
@@ -244,11 +245,6 @@ function canon(manifest: SignedEvidenceManifest): string {
  * cannot tell "the binding caught the swap" from "the manifest was malformed":
  * both are 400.
  */
-async function expectRefused(res: Response, status: number, reason: RegExp) {
-  expect(res.status).toBe(status);
-  expect(JSON.stringify(await res.json())).toMatch(reason);
-}
-
 function signCanonical(json: string): string {
   return crypto
     .sign(null, Buffer.from(json, "utf8"), DEVICE_KEYS.privateKey)
@@ -413,9 +409,7 @@ describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
   describe("negative controls — the policy must still bite", () => {
     it("refuses a submission with no manifest at all", async () => {
       const res = await post(MOISTURE_BODY);
-      expect(res.status).toBe(400);
-      const json = await res.json();
-      expect(JSON.stringify(json)).toMatch(/signed manifest/i);
+      await expectRefused(res, 400, /signed manifest/i);
       expect(mCreate).not.toHaveBeenCalled();
     });
 
@@ -495,14 +489,22 @@ describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
     it("refuses another user's signing key with 403", async () => {
       mKeyFind.mockResolvedValue({ ...REGISTERED_KEY_ROW, userId: "someone" });
       const res = await signedPost(MOISTURE_BODY);
-      expect(res.status).toBe(403);
+      await expectRefused(
+        res,
+        403,
+        /Signing key is not registered for this user/,
+      );
       expect(mCreate).not.toHaveBeenCalled();
     });
 
     it("refuses an unregistered signing key with 403", async () => {
       mKeyFind.mockResolvedValue(null);
       const res = await signedPost(MOISTURE_BODY);
-      expect(res.status).toBe(403);
+      await expectRefused(
+        res,
+        403,
+        /Signing key is not registered for this user/,
+      );
       expect(mCreate).not.toHaveBeenCalled();
     });
 
@@ -512,7 +514,7 @@ describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
         revokedAt: new Date("2026-11-10T00:00:00.000Z"),
       });
       const res = await signedPost(MOISTURE_BODY);
-      expect(res.status).toBe(403);
+      await expectRefused(res, 403, /Signing key has been revoked/);
       expect(mCreate).not.toHaveBeenCalled();
     });
 
@@ -566,7 +568,7 @@ describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
         },
       };
       const res = await post(body);
-      expect(res.status).toBe(400);
+      await expectRefused(res, 400, /signed manifest/i);
       expect(mCreate).not.toHaveBeenCalled();
     });
   });
