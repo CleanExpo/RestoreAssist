@@ -419,6 +419,20 @@ describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
       expect(mCreate).not.toHaveBeenCalled();
     });
 
+    it("refuses a manifest sent without its signature", async () => {
+      const manifestJson = canon(await manifestFor(MOISTURE_BODY));
+      const res = await post(MOISTURE_BODY, { manifestJson });
+      await expectRefused(res, 400, /manifestSignature is required/);
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+
+    it("refuses a signature sent without its manifest", async () => {
+      const signature = signCanonical(canon(await manifestFor(MOISTURE_BODY)));
+      const res = await post(MOISTURE_BODY, { signature });
+      await expectRefused(res, 400, /signedManifest is required/);
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+
     it("refuses a manifest whose digest does not match the submitted payload", async () => {
       // Sign an honest manifest for the real reading, then swap the value.
       // The signature still verifies; the BINDING must catch the swap.
