@@ -28,8 +28,28 @@ async function backgroundForSixMinutes() {
   });
 }
 
+// Own in-memory storage: on Node 25+ the runtime's experimental localStorage
+// global shadows jsdom's and is undefined without --localstorage-file.
+function memoryStorage(): Storage {
+  const data = new Map<string, string>();
+  return {
+    get length() {
+      return data.size;
+    },
+    clear: () => data.clear(),
+    getItem: (k) => data.get(k) ?? null,
+    key: (i) => Array.from(data.keys())[i] ?? null,
+    removeItem: (k) => {
+      data.delete(k);
+    },
+    setItem: (k, v) => {
+      data.set(k, String(v));
+    },
+  };
+}
+
 beforeEach(() => {
-  window.localStorage.clear();
+  vi.stubGlobal("localStorage", memoryStorage());
   authenticateBiometric.mockClear();
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-18T00:00:00Z"));
@@ -37,6 +57,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 /**
