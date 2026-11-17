@@ -174,7 +174,7 @@ Recording this so it is not rebuilt.
 **Offline field capture (§9.3, §17) — largely exists.** `public/sw.js` (cache strategies, offline
 API stub, Background Sync tags), `lib/nir-sync-queue.ts` (756 lines: typed queue entries, retry
 backoff, conflict store, stale-write rejection), `lib/evidence-upload-queue.ts`,
-`lib/voice-note-queue.ts`, `lib/offline/inspection-store.ts`, with
+`lib/voice-note-queue.ts` (the unused draft store was removed in RA-8434), with
 `components/nir-offline-provider.tsx` mounted app-wide in `app/layout.tsx`. Two caveats worth
 recording rather than discovering later: `capacitor.config.ts` sets `server.url`, so the native
 shells are remote WebViews whose offline ability depends on a prior online session having cached

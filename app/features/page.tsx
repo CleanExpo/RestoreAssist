@@ -4,6 +4,10 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import {
+  offlineQueuesHeadline,
+  offlineQueuesList,
+} from "@/lib/marketing/offline-queues";
+import {
   MarketingShell,
   MarketingPageHero,
 } from "@/components/landing/home";
@@ -45,9 +49,9 @@ type FeatureGroup = {
  *   - 13 job-type workflows ........... lib/evidence/workflow-definitions.ts
  *   - photo label schema .............. prisma/schema.prisma (RA-446 block)
  *   - signing / custody ............... lib/evidence/device-signing.ts, manifest-canonical.ts
- *   - offline queues .................. lib/evidence-upload-queue.ts, lib/nir-sync-queue.ts,
- *                                       lib/offline/inspection-store.ts, lib/voice-note-queue.ts,
- *                                       lib/sketch/roomplan-custody-queue.ts
+ *   - offline queues .................. lib/marketing/offline-queues.ts (count and list are
+ *                                       rendered from it; lib/__tests__/features-offline-queues
+ *                                       .test.ts fails if a listed queue has no caller)
  *   - region pin ...................... vercel.json ("regions": ["syd1"])
  *   - AI key resolution / budget ...... lib/ai/resolve-workspace-ai-key.ts, lib/ai/budget-guard.ts
  *   - AU tax / ABN / ABR .............. lib/gst-rules.ts, lib/abn/checksum.ts,
@@ -141,9 +145,8 @@ const GROUPS: readonly FeatureGroup[] = [
       "Restoration work happens in basements, in car parks and behind concrete. Nothing in the capture path assumes a connection.",
     items: [
       {
-        label: "Five separate offline queues",
-        detail:
-          "Evidence uploads, inspection writes, inspection drafts, voice notes and room-scan custody records. Each is its own IndexedDB database on the device, so one stalled queue cannot block another.",
+        label: offlineQueuesHeadline(),
+        detail: `${offlineQueuesList()} Each is its own IndexedDB database on the device, so one stalled queue cannot block another.`,
       },
       {
         label: "The evidence queue holds 50 captures and retries 5 times",
@@ -163,7 +166,7 @@ const GROUPS: readonly FeatureGroup[] = [
       {
         label: "Background Sync on the evidence and inspection queues",
         detail:
-          "Those two register a sync tag the service worker handles, so the browser can drain them without the page open, and both fall back to an online-event listener where it does not. The other three do not have that: the voice-note queue registers a tag the service worker does not yet handle, so it drains on the online event alone; inspection drafts flush on the native network-status listener; room-scan custody records are held as a pending list a caller drains.",
+          "Those two register a sync tag the service worker handles, so the browser can drain them without the page open, and both fall back to an online-event listener where it does not. The other two do not have that: the voice-note queue registers a tag the service worker does not yet handle, so it drains on the online event alone; room-scan custody records are held as a pending list a caller drains.",
       },
       {
         label: "Native iOS and Android builds",

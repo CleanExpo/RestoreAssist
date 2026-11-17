@@ -53,9 +53,6 @@ vi.mock("@/components/providers/CapacitorProvider", () => ({
 vi.mock("@/components/ConfirmDialog", () => ({
   useConfirmDialog: () => ({ ask: vi.fn(), Mount: () => null }),
 }));
-vi.mock("@/lib/offline/inspection-store", () => ({
-  getQueuedDraftCount: vi.fn(async () => 0),
-}));
 vi.mock("@/components/inspections/adaptive-guidance-panel", () => ({
   AdaptiveGuidancePanel: () => null,
 }));

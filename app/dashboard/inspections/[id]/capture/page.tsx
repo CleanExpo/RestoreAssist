@@ -96,7 +96,6 @@ import {
 import { useSession } from "next-auth/react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
-import { getQueuedDraftCount } from "@/lib/offline/inspection-store";
 import { AdaptiveGuidancePanel } from "@/components/inspections/adaptive-guidance-panel";
 import { SubmissionGatePanel } from "@/components/inspections/submission-gate-panel";
 import {
@@ -243,7 +242,6 @@ export default function CaptureWorkflowPage({
   const confirm = useConfirmDialog();
   const { isNative } = useCapacitor();
   const { data: session } = useSession();
-  const [offlineCount, setOfflineCount] = useState(0);
 
   // Core state
   const [loading, setLoading] = useState(true);
@@ -575,11 +573,6 @@ export default function CaptureWorkflowPage({
       setSkipping(false);
     }
   };
-
-  useEffect(() => {
-    if (!isNative) return;
-    getQueuedDraftCount().then(setOfflineCount);
-  }, [isNative]);
 
   /**
    * Upload a captured/selected file to Cloudinary via the signed multipart
@@ -1387,12 +1380,6 @@ export default function CaptureWorkflowPage({
             stepStatus={activeStep.status}
             onConfirmationsComplete={setConfirmationsComplete}
           />
-
-          {isNative && offlineCount > 0 && (
-            <div className="bg-amber-900/30 border border-amber-600/50 rounded-lg px-4 py-2 text-sm text-amber-300 mb-4">
-              Working offline — {offlineCount} item{offlineCount > 1 ? "s" : ""} queued
-            </div>
-          )}
 
           {/* ============================================ */}
           {/* REQUIRED EVIDENCE SECTION */}
