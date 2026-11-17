@@ -42,9 +42,16 @@ function estimateTotalling(total: number): CostEstimateResult {
 }
 
 /** A fake transaction client that records every call in order. */
-function fakeTx(saved: { description: string; total: number }[] = []) {
+function fakeTx(
+  saved: { description: string; total: number; lineKind: string | null }[] = [],
+) {
   const calls: string[] = [];
-  const created: { description: string; total: number; inspectionId: string }[] = [];
+  const created: {
+    description: string;
+    total: number;
+    inspectionId: string;
+    lineKind: string | null;
+  }[] = [];
   let lockSql = "";
   const tx = {
     $queryRaw: async (q: { sql?: string; strings?: string[] }) => {
@@ -71,8 +78,8 @@ function fakeTx(saved: { description: string; total: number }[] = []) {
   return { tx, calls, created, lockSql: () => lockSql };
 }
 
-const spmRows = (rows: { description: string }[]) =>
-  rows.filter((r) => r.description === SPM_LINE_DESCRIPTION);
+const spmRows = (rows: { lineKind: string | null }[]) =>
+  rows.filter((r) => r.lineKind === "SPM");
 
 describe("RA-8419 saveEstimateRows: one locked writer", () => {
   it("locks the inspection row before reading saved rows (append)", async () => {
@@ -100,7 +107,7 @@ describe("RA-8419 saveEstimateRows: one locked writer", () => {
   });
 
   it("append: saved work counts towards the threshold", async () => {
-    const f = fakeTx([{ description: "Earlier work", total: 1500 }]);
+    const f = fakeTx([{ description: "Earlier work", total: 1500, lineKind: null }]);
     const priced = await saveEstimateRows(f.tx as never, {
       inspectionId: "i1",
       estimate: estimateTotalling(1200),
@@ -114,8 +121,8 @@ describe("RA-8419 saveEstimateRows: one locked writer", () => {
 
   it("append: a saved SPM row is never charged again", async () => {
     const f = fakeTx([
-      { description: "Earlier work", total: 3000 },
-      { description: SPM_LINE_DESCRIPTION, total: 350 },
+      { description: "Earlier work", total: 3000, lineKind: null },
+      { description: SPM_LINE_DESCRIPTION, total: 350, lineKind: "SPM" },
     ]);
     await saveEstimateRows(f.tx as never, {
       inspectionId: "i1",
@@ -127,7 +134,9 @@ describe("RA-8419 saveEstimateRows: one locked writer", () => {
   });
 
   it("replace: saved rows are ignored (they are deleted first)", async () => {
-    const f = fakeTx([{ description: SPM_LINE_DESCRIPTION, total: 350 }]);
+    const f = fakeTx([
+      { description: SPM_LINE_DESCRIPTION, total: 350, lineKind: "SPM" },
+    ]);
     await saveEstimateRows(f.tx as never, {
       inspectionId: "i1",
       estimate: estimateTotalling(4000),
@@ -135,6 +144,31 @@ describe("RA-8419 saveEstimateRows: one locked writer", () => {
       replace: true,
     });
     expect(spmRows(f.created)).toHaveLength(1);
+  });
+
+  it("append: a saved WORK row worded like the SPM line counts as work, not as the SPM charge", async () => {
+    const f = fakeTx([
+      { description: SPM_LINE_DESCRIPTION, total: 1500, lineKind: null },
+    ]);
+    const priced = await saveEstimateRows(f.tx as never, {
+      inspectionId: "i1",
+      estimate: estimateTotalling(1200),
+      country: "AU",
+      replace: false,
+    });
+    expect(spmRows(f.created)).toHaveLength(1);
+    expect(priced.total).toBe(1550);
+  });
+
+  it("writes lineKind SPM on the SPM row only", async () => {
+    const f = fakeTx();
+    await saveEstimateRows(f.tx as never, {
+      inspectionId: "i1",
+      estimate: estimateTotalling(3000),
+      country: "AU",
+      replace: true,
+    });
+    expect(f.created.map((r) => r.lineKind)).toEqual([null, "SPM"]);
   });
 
   it("NZ: no SPM row", async () => {

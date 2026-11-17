@@ -88,7 +88,7 @@ function inspection(propertyCountry: string | null) {
 /** Run the route; returns the rows it asked the database to create. */
 async function post(opts: {
   replace: boolean;
-  savedRows?: { description: string; total: number }[];
+  savedRows?: { description: string; total: number; lineKind: string | null }[];
 }) {
   const createMany = vi.fn();
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
@@ -111,13 +111,13 @@ async function post(opts: {
     }),
     { params: Promise.resolve({ id: "i1" }) },
   );
-  const rows: { description: string; total: number }[] =
+  const rows: { description: string; total: number; lineKind: string | null }[] =
     createMany.mock.calls[0]?.[0]?.data ?? [];
   return { res, rows };
 }
 
-const spmRows = (rows: { description: string }[]) =>
-  rows.filter((r) => r.description === SPM_LINE_DESCRIPTION);
+const spmRows = (rows: { lineKind: string | null }[]) =>
+  rows.filter((r) => r.lineKind === "SPM");
 
 describe("RA-8419 cost-estimates route: SPM line", () => {
   beforeEach(() => {
@@ -155,7 +155,7 @@ describe("RA-8419 cost-estimates route: SPM line", () => {
     mockEstimateCosts.mockResolvedValue(engineResult(1200));
     const { rows } = await post({
       replace: false,
-      savedRows: [{ description: "Earlier work", total: 1500 }],
+      savedRows: [{ description: "Earlier work", total: 1500, lineKind: null }],
     });
     expect(spmRows(rows)).toHaveLength(1);
   });
@@ -166,8 +166,8 @@ describe("RA-8419 cost-estimates route: SPM line", () => {
     const { rows } = await post({
       replace: false,
       savedRows: [
-        { description: "Earlier work", total: 3000 },
-        { description: SPM_LINE_DESCRIPTION, total: 350 },
+        { description: "Earlier work", total: 3000, lineKind: null },
+        { description: SPM_LINE_DESCRIPTION, total: 350, lineKind: "SPM" },
       ],
     });
     expect(spmRows(rows)).toHaveLength(0);

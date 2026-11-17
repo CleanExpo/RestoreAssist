@@ -88,6 +88,7 @@ describe("RA-8419 SPM line: the $2,500 threshold", () => {
     expect(spm[0].rate).toBe(175);
     expect(spm[0].subtotal).toBe(350);
     expect(spm[0].isEstimated).toBe(false);
+    expect(spm[0].lineKind).toBe("SPM");
     expect(after.subtotal).toBe(2850.01);
     expect(after.total).toBe(2850.01);
   });
@@ -180,6 +181,39 @@ describe("RA-8419 SPM line: applied once, measured before itself", () => {
       spmAlreadyCharged: true,
     });
     expect(spmLines(alreadyCharged)).toHaveLength(0);
+  });
+});
+
+describe("RA-8419 SPM line: identified by its marker, never by wording (review round 2)", () => {
+  it("a $3,000 work line worded exactly like the SPM line is kept, priced, and gets an SPM line", () => {
+    const work = { ...item(3000), description: SPM_LINE_DESCRIPTION };
+    const before: CostEstimateResult = {
+      ...estimateTotalling(3000),
+      items: [work],
+    };
+    const after = withSpmLine(before, { country: "AU" });
+    expect(after.items).toHaveLength(2);
+    expect(after.items[0]).toEqual(work);
+    expect(spmLines(after)).toHaveLength(1);
+    expect(after.total).toBe(3350);
+    expect(after.subtotal).toBe(3350);
+  });
+
+  it("a work line worded like the SPM line is not removed when under the threshold", () => {
+    const work = { ...item(1000), description: SPM_LINE_DESCRIPTION };
+    const before: CostEstimateResult = {
+      ...estimateTotalling(1000),
+      items: [work],
+    };
+    const after = withSpmLine(before, { country: "AU" });
+    expect(after.items).toEqual([work]);
+    expect(after.total).toBe(1000);
+  });
+
+  it("isSpmLine reads the marker only", () => {
+    expect(isSpmLine({ lineKind: "SPM" })).toBe(true);
+    expect(isSpmLine({ lineKind: null })).toBe(false);
+    expect(isSpmLine({})).toBe(false);
   });
 });
 

@@ -35,9 +35,16 @@ export const SPM_THRESHOLD_EX_GST = 2500;
 export const SPM_HOURS = 2;
 /** Default SPM hourly rate ex GST; each company may set its own. */
 export const SPM_DEFAULT_HOURLY_RATE = 175;
-/** The line's fixed wording. It identifies the line, so do not edit it. */
+/** The line's wording, for people. It does NOT identify the line. */
 export const SPM_LINE_DESCRIPTION =
   "Senior Project Manager: site visit and scope";
+/**
+ * The marker that identifies the SPM line (CostEstimate.lineKind). Only this
+ * module sets it. A description can be typed by a user, so a work line may
+ * carry the SPM wording; it must never be mistaken for the SPM line (Codex
+ * review round 2, P1).
+ */
+export const SPM_LINE_KIND = "SPM";
 
 export interface SpmOptions {
   /** The property's country. Missing means Australia (RestoreAssist's default). */
@@ -53,9 +60,9 @@ export interface SpmOptions {
   spmAlreadyCharged?: boolean;
 }
 
-/** True when a line (estimate item or saved row) is the SPM line. */
-export function isSpmLine(line: { description: string }): boolean {
-  return line.description === SPM_LINE_DESCRIPTION;
+/** True when a line (estimate item or saved row) carries the SPM marker. */
+export function isSpmLine(line: { lineKind?: string | null }): boolean {
+  return line.lineKind === SPM_LINE_KIND;
 }
 
 function isNewZealand(country: string | null | undefined): boolean {
@@ -124,6 +131,7 @@ export function withSpmLine(
     nrpgCompliant: true,
     rateSource: "spm-standard",
     isEstimated: false,
+    lineKind: SPM_LINE_KIND,
   };
 
   return {

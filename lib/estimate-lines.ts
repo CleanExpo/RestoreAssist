@@ -35,6 +35,8 @@ export interface EstimateLinesInput {
     subtotal: number;
     costDatabaseId?: string | null;
     isEstimated: boolean;
+    /** RA-8419: "SPM" on the system Senior Project Manager line only. */
+    lineKind?: string | null;
   }>;
   contingency: number;
   contingencyPercentage?: number;
@@ -51,6 +53,8 @@ export interface PersistedEstimateLine {
   subtotal: number;
   costDatabaseId: string | null;
   isEstimated: boolean;
+  /** RA-8419: "SPM" marks the Senior Project Manager line; null otherwise. */
+  lineKind: string | null;
   contingency: number;
   total: number;
 }
@@ -78,6 +82,7 @@ export function buildEstimateLines(
     subtotal: costItem.subtotal,
     costDatabaseId: costItem.costDatabaseId || null,
     isEstimated: costItem.isEstimated,
+    lineKind: costItem.lineKind ?? null,
     contingency: 0,
     total: costItem.subtotal,
   }));
@@ -94,6 +99,7 @@ export function buildEstimateLines(
       subtotal: 0,
       costDatabaseId: null,
       isEstimated: true,
+      lineKind: null,
       contingency: estimate.contingency,
       total: estimate.contingency,
     });

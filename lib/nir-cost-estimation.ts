@@ -58,6 +58,12 @@ export interface CostEstimateItem {
    * "spm-standard" = the Senior Project Manager line, RA-8419, lib/billing/spm-line.ts)
    */
   rateSource: "company-config" | "nrpg-midpoint" | "none" | "spm-standard";
+  /**
+   * RA-8419: "SPM" on the system Senior Project Manager line only (set by
+   * lib/billing/spm-line.ts); absent on every engine line. Persisted as
+   * CostEstimate.lineKind.
+   */
+  lineKind?: "SPM";
   costDatabaseId?: string;
   isEstimated: boolean;
   /**

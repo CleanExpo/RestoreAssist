@@ -47,7 +47,7 @@ export async function saveEstimateRows(
   } else {
     const saved = await tx.costEstimate.findMany({
       where: { inspectionId },
-      select: { description: true, total: true },
+      select: { total: true, lineKind: true },
     });
     for (const row of saved) {
       if (isSpmLine(row)) spmAlreadyCharged = true;
