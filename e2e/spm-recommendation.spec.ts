@@ -44,7 +44,8 @@ for (const width of [1440, 390]) {
       await expect(page.getByRole("status").filter({ hasText: /Estimate total/ })).toContainText("3,000.00");
       const before = await page.getByRole("table", { name: "Cost estimates", exact: true }).innerText();
       await page.route(`**/api/inspections/${job.id}/cost-estimates/spm`, route => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Internal server error" }) }));
-      await add.click(); await expect(page.getByRole("alert").filter({ hasText: /SPM|Internal server error/ })).toBeVisible();
+      // Anchored: the page also carries an unrelated "Inspection completion" alert whose text can mention SPM.
+      await add.click(); await expect(page.getByRole("alert").filter({ hasText: /^Internal server error$/ })).toBeVisible();
       expect(await page.getByRole("table", { name: "Cost estimates", exact: true }).innerText()).toBe(before);
       const saved = await prisma.costEstimate.findMany({ where: { inspectionId: job.id }, select: { lineKind: true }, take: 100 });
       expect(saved.filter(row => row.lineKind === "SPM")).toHaveLength(0);
