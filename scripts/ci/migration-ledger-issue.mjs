@@ -80,6 +80,10 @@ function issueBody(line, context) {
       "(see the headers of `scripts/start-production.sh` and `scripts/verify-production-migrations.sh`). " +
       "This workflow never applies them.",
     "",
+    "**Then redeploy.** A production server refuses to boot while a migration in its revision is unapplied (RA-7942), " +
+      "so the deployment for this commit will have failed and production is still on the previous revision. " +
+      "Applying the migrations does not redeploy it: start the deployment for `main` again afterwards.",
+    "",
     "Then run the **Migration ledger parity** workflow on `main` (Actions, Run workflow). " +
       "The first passing check closes this issue. Until then each check adds a comment here.",
     "",

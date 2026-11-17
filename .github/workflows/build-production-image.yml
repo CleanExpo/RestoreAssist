@@ -200,6 +200,43 @@ jobs:
             --file Dockerfile \
             .
 
+      # RA-7942. A throwaway Postgres whose migration ledger holds one finished
+      # row for every migration folder in this revision. The ledger is all the
+      # boot guard reads, so no schema is needed. Same pinned image as
+      # pr-checks.yml.
+      - name: Start a database with this revision's migration ledger (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          docker network create ra-guard
+          docker run -d --name ra-guard-pg --network ra-guard \
+            -e POSTGRES_USER=ci -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=ci \
+            pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+          READY=0
+          for _ in $(seq 1 30); do
+            if docker exec ra-guard-pg pg_isready -U ci -d ci >/dev/null 2>&1; then
+              READY=1
+              break
+            fi
+            sleep 1
+          done
+          test "${READY}" -eq 1 || { echo "::error::throwaway Postgres did not become ready." >&2; exit 1; }
+          {
+            echo 'CREATE TABLE "_prisma_migrations" (id text PRIMARY KEY, migration_name text NOT NULL, finished_at timestamptz, rolled_back_at timestamptz);'
+            for dir in prisma/migrations/*/; do
+              name="$(basename "${dir}")"
+              echo "INSERT INTO \"_prisma_migrations\" VALUES ('${name}', '${name}', now(), NULL);"
+            done
+          } > /tmp/ra-guard-ledger.sql
+          docker exec -i ra-guard-pg psql -v ON_ERROR_STOP=1 -q -U ci -d ci < /tmp/ra-guard-ledger.sql
+          ROWS="$(docker exec ra-guard-pg psql -At -U ci -d ci -c 'SELECT count(*) FROM "_prisma_migrations"')"
+          FOLDERS="$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+          test "${ROWS}" -gt 0 && test "${ROWS}" -eq "${FOLDERS}" || {
+            echo "::error::ledger has ${ROWS} rows for ${FOLDERS} migration folders." >&2
+            exit 1
+          }
+          echo "ledger seeded with ${ROWS} finished migrations."
+
       - name: Confirm the image runs its entrypoint (PR only)
         if: github.event_name == 'pull_request'
         env:
@@ -234,8 +271,12 @@ jobs:
           # blocks on a listening server until the job timeout. Exit 124 is the
           # expected outcome — only the captured output is under test.
           set +e
+          # RA-7942: the server now refuses to boot unless every migration in
+          # this revision is applied, so "still running at the timeout" needs a
+          # database whose ledger holds them. The step above started one.
           timeout 60 docker run --rm --name ra-entrypoint-check \
-            -e DATABASE_URL=postgresql://u:p@127.0.0.1:5432/db \
+            --network ra-guard \
+            -e DATABASE_URL=postgresql://ci:ci@ra-guard-pg:5432/ci \
             -e CREDENTIAL_ENCRYPTION_KEY=ci-not-a-real-key \
             -e NEXTAUTH_SECRET=ci-not-a-real-secret \
             -e NEXTAUTH_URL=http://127.0.0.1:3000 \
@@ -268,6 +309,10 @@ jobs:
             echo "::error::entrypoint did not reach its startup banner with a full environment." >&2
             exit 1
           fi
+          if ! printf '%s' "${OK}" | grep -q '\[boot-guard\] PASS'; then
+            echo "::error::the server stayed up without the boot guard reporting PASS; the guard did not run." >&2
+            exit 1
+          fi
           echo "entrypoint refuses an empty environment and proceeds with a full one."
 
           # Runtime content that is read from disk per request, not bundled by
@@ -288,6 +333,58 @@ jobs:
             echo "runtime content present: ${n} help articles, help-index.json $(wc -c < public/help-index.json) bytes"
           '
           echo "image carries the content its dynamic routes read at request time."
+
+      # RA-7942, on the real image. On 17 Nov 2026 a merge went live about six
+      # minutes before its migration was applied. The step above proved the
+      # server boots when the ledger is complete; this one proves it refuses
+      # when one migration is missing, and when the ledger cannot be read.
+      - name: Confirm the image refuses to boot ahead of its migrations (PR only)
+        if: github.event_name == 'pull_request'
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          boot() {
+            # $1 = DATABASE_URL, $2 = log file. Prints the container exit code.
+            set +e
+            timeout 90 docker run --rm --network ra-guard \
+              -e DATABASE_URL="$1" \
+              -e CREDENTIAL_ENCRYPTION_KEY=ci-not-a-real-key \
+              -e NEXTAUTH_SECRET=ci-not-a-real-secret \
+              -e NEXTAUTH_URL=http://127.0.0.1:3000 \
+              -e GOOGLE_CLIENT_ID=ci-not-real \
+              -e GOOGLE_CLIENT_SECRET=ci-not-real \
+              -e NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=ci-not-real \
+              -e STRIPE_WEBHOOK_SECRET=ci-not-real \
+              "${IMAGE}:${SHA}" > "$2" 2>&1
+            echo $?
+            set -e
+          }
+
+          # One migration missing: the newest folder's row is removed.
+          NEWEST="$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort | tail -n 1)"
+          docker exec ra-guard-pg psql -v ON_ERROR_STOP=1 -q -U ci -d ci \
+            -c "DELETE FROM \"_prisma_migrations\" WHERE migration_name = '${NEWEST}'"
+          CODE="$(boot postgresql://ci:ci@ra-guard-pg:5432/ci /tmp/boot-missing.log)"
+          cat /tmp/boot-missing.log
+          if [ "${CODE}" -ne 78 ]; then
+            echo "::error::with ${NEWEST} unapplied the server exited ${CODE}; it must refuse with 78." >&2
+            exit 1
+          fi
+          grep -q 'REFUSING TO BOOT' /tmp/boot-missing.log
+          grep -q "not applied: ${NEWEST}" /tmp/boot-missing.log
+
+          # Ledger unreadable: nothing listens on this address in the container.
+          CODE="$(boot postgresql://u:p@127.0.0.1:5432/db /tmp/boot-unreadable.log)"
+          cat /tmp/boot-unreadable.log
+          if [ "${CODE}" -ne 75 ]; then
+            echo "::error::with an unreachable database the server exited ${CODE}; it must refuse with 75." >&2
+            exit 1
+          fi
+          grep -q 'could not read the migration ledger' /tmp/boot-unreadable.log
+          docker rm -f ra-guard-pg >/dev/null 2>&1 || true
+          echo "image refuses to boot with a migration missing (78) and with an unreadable ledger (75)."
 
       - name: Push and capture the digest
         id: push

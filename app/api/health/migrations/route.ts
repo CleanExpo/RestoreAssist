@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { classifyMigrationLedger } from "@/lib/startup/migration-ledger";
 import { createHash } from "node:crypto";
 
 interface MigrationRow {
@@ -119,33 +120,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const attemptsByName = new Map<string, MigrationRow[]>();
-  for (const row of rows) {
-    const attempts = attemptsByName.get(row.migration_name) ?? [];
-    attempts.push(row);
-    attemptsByName.set(row.migration_name, attempts);
-  }
-
-  const failed: string[] = [];
-  const rolledBackOnly: string[] = [];
-  const applied: string[] = [];
-  for (const [name, attempts] of attemptsByName) {
-    const hasUnresolvedAttempt = attempts.some(
-      (attempt) =>
-        attempt.finished_at === null && attempt.rolled_back_at === null,
-    );
-    const hasSuccessfulAttempt = attempts.some(
-      (attempt) =>
-        attempt.finished_at !== null && attempt.rolled_back_at === null,
-    );
-    if (hasUnresolvedAttempt) failed.push(name);
-    else if (hasSuccessfulAttempt) applied.push(name);
-    else rolledBackOnly.push(name);
-  }
+  // One owner for the applied / failed / rolled-back rule, shared with the
+  // boot guard (lib/startup/migration-boot-guard.ts).
+  const { applied, failed, rolledBackOnly, total } =
+    classifyMigrationLedger(rows);
 
   // An empty ledger means migration state is unknown, not healthy.
   const drifted =
-    attemptsByName.size === 0 || failed.length > 0 || rolledBackOnly.length > 0;
+    total === 0 || failed.length > 0 || rolledBackOnly.length > 0;
   if (drifted) {
     console.error("[health.migrations] execution-history drift", {
       failed,
@@ -159,7 +141,7 @@ export async function GET(request: NextRequest) {
       applied: applied.length,
       failed: failed.length,
       rolled_back: rolledBackOnly.length,
-      total: attemptsByName.size,
+      total,
     },
     databaseFingerprint:
       rows.length > 0 ? fingerprintLogicalDatabase(rows[0]) : null,
