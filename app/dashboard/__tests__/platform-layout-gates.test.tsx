@@ -1,6 +1,9 @@
 /**
- * /dashboard/admin/** and /dashboard/margot/** are RestoreAssist staff
- * surfaces. `role: "ADMIN"` is every self-registered business owner, so the
+ * Every /dashboard/<segment> layout gated through `@/lib/admin-auth` is a
+ * RestoreAssist staff surface (admin, margot, governance, mission-control).
+ * The segments are DISCOVERED from disk, not typed by hand (RA-8420: a
+ * hand-typed list left mission-control on requireAdminPage() alone), so a new
+ * admin-gated segment layout is tested the moment it exists. `role: "ADMIN"` is every self-registered business owner, so the
  * segment layouts must require the PLATFORM_SUPPORT_USER_IDS allowlist on top
  * of requireAdminPage(), as /dashboard/governance and
  * /dashboard/admin/founding-trial already do. An owner not on the allowlist
@@ -11,6 +14,8 @@
  * role re-check and next/navigation are doubled, so the refusal paths are the
  * production ones. Positive control: an allowlisted ADMIN renders the segment.
  */
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -40,8 +45,6 @@ vi.mock("@/components/admin/MargotSectionChrome", () => ({
   MargotSectionChrome: ({ children }: { children: ReactNode }) => children,
 }));
 
-import AdminSegmentLayout from "@/app/dashboard/admin/layout";
-import MargotSectionLayout from "@/app/dashboard/margot/layout";
 
 const OPERATOR = "staff_operator_1";
 const OWNER = "business_owner_1";
@@ -52,17 +55,44 @@ function signIn(id: string, role: string) {
 }
 
 /** Unwraps the rendered tree to the children the layout passed through. */
-async function rendered(layout: (p: { children: ReactNode }) => Promise<unknown>) {
+async function rendered(layout: Layout) {
   const out = (await layout({ children: "SEGMENT" })) as
     | string
     | { props: { children: unknown } };
   return typeof out === "string" ? out : out.props.children;
 }
 
-const LAYOUTS = [
-  ["/dashboard/admin", AdminSegmentLayout],
-  ["/dashboard/margot", MargotSectionLayout],
-] as const;
+type Layout = (p: { children: ReactNode }) => Promise<unknown>;
+
+const DASHBOARD = path.resolve(__dirname, "..");
+
+/** Segments whose layout imports the admin gate: these are staff surfaces. */
+const STAFF_SEGMENTS = readdirSync(DASHBOARD, { withFileTypes: true })
+  .filter((d) => d.isDirectory() && !d.name.startsWith("_") && d.name !== "__tests__")
+  .map((d) => d.name)
+  .filter((name) => {
+    const file = path.join(DASHBOARD, name, "layout.tsx");
+    return existsSync(file) && /@\/lib\/admin-auth/.test(readFileSync(file, "utf8"));
+  })
+  .sort();
+
+const LAYOUTS: (readonly [string, Layout])[] = await Promise.all(
+  STAFF_SEGMENTS.map(
+    async (name) =>
+      [
+        `/dashboard/${name}`,
+        (await import(`../${name}/layout.tsx`)).default as Layout,
+      ] as const,
+  ),
+);
+
+it("discovery floor: the known staff segment layouts are all found", () => {
+  // Guards the discovery itself: if the scan broke and found nothing, the
+  // describe.each below would silently test nothing.
+  expect(STAFF_SEGMENTS).toEqual(
+    expect.arrayContaining(["admin", "governance", "margot", "mission-control"]),
+  );
+});
 
 beforeEach(() => {
   getServerSession.mockReset();
