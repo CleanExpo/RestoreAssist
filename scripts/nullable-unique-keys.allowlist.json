@@ -1,0 +1,39 @@
+{
+  "_about": "Decisions for composite unique keys in prisma/schema.prisma that contain an optional column. Postgres lets rows with NULL in such a column repeat. Checked by scripts/check-nullable-unique-keys.mjs (RA-8440).",
+  "keys": {
+    "StorageMirrorJob(inspectionId,invoiceId,kind,orgId,photoId,reportId)": {
+      "kind": "known-defect",
+      "ticket": "RA-8440",
+      "reason": "Each row sets one of the four ID columns, so the other three are NULL and the idempotency key never matches; duplicate enqueues create new jobs."
+    },
+    "Integration(provider,userId,workspaceId)": {
+      "kind": "known-defect",
+      "ticket": "RA-8439",
+      "reason": "Rows with NULL workspaceId are not de-duplicated, so one user can hold two connections to one provider."
+    },
+    "Invoice(externalInvoiceId,externalSyncProvider)": {
+      "kind": "exempt",
+      "reason": "An invoice never synced to Xero, QuickBooks or MYOB has both columns NULL; many such invoices must coexist."
+    },
+    "EvidenceItem(capturedAt,evidenceClass,inspectionId,metadataSha256)": {
+      "kind": "exempt",
+      "reason": "metadataSha256 is set only for a signed metadata submission (RA-8388); unsigned evidence items are meant to be outside the duplicate guard."
+    },
+    "WebhookEvent(externalEventId,provider)": {
+      "kind": "exempt",
+      "reason": "An event without a provider event id has nothing to de-duplicate on, so it cannot be de-duplicated by this key."
+    },
+    "XeroAccountCodeMapping(category,integrationId)": {
+      "kind": "undecided",
+      "ticket": "RA-8441"
+    },
+    "WorkspaceRole(name,workspaceId)": {
+      "kind": "undecided",
+      "ticket": "RA-8441"
+    },
+    "FieldCaptureEvent(eventId,workspaceId)": {
+      "kind": "undecided",
+      "ticket": "RA-8441"
+    }
+  }
+}
