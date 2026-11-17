@@ -93,6 +93,7 @@ async function post(opts: {
   const createMany = vi.fn();
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
     fn({
+      $queryRaw: vi.fn().mockResolvedValue([]),
       costEstimate: {
         deleteMany: vi.fn(),
         createMany,

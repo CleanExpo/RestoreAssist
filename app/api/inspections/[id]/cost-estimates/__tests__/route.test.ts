@@ -108,6 +108,8 @@ describe("cost-estimates POST", () => {
     ];
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
       const tx = {
+        // RA-8419: the locked writer takes the inspection row lock first.
+        $queryRaw: vi.fn().mockResolvedValue([]),
         costEstimate: {
           deleteMany: vi.fn(),
           createMany: vi.fn(),

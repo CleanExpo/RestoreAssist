@@ -16,8 +16,7 @@ import {
   estimateCosts,
   resolveInspectionRates,
 } from "@/lib/nir-cost-estimation";
-import { buildEstimateLines } from "@/lib/estimate-lines";
-import { isSpmLine, withSpmLine } from "@/lib/billing/spm-line";
+import { saveEstimateRows } from "@/lib/billing/spm-estimate-rows";
 import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
 import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
@@ -170,37 +169,15 @@ export async function POST(
       });
     }
 
-    // RA-8419: the Senior Project Manager line (lib/billing/spm-line.ts) is
-    // applied inside the transaction, because when rows are appended
-    // (replace=false) the saved rows count towards the $2,500 threshold and
-    // an SPM row already saved must not be charged twice.
+    // RA-8419: rows are written by the one locked writer, which applies the
+    // Senior Project Manager line with saved rows counted when appending.
     let pricedEstimate = costEstimate;
     const costEstimates = await prisma.$transaction(async (tx) => {
-      let priorTotalExGst = 0;
-      let spmAlreadyCharged = false;
-      if (replace) {
-        await tx.costEstimate.deleteMany({ where: { inspectionId: id } });
-      } else {
-        const saved = await tx.costEstimate.findMany({
-          where: { inspectionId: id },
-          select: { description: true, total: true },
-        });
-        for (const row of saved) {
-          if (isSpmLine(row)) spmAlreadyCharged = true;
-          else priorTotalExGst += Number(row.total);
-        }
-      }
-      pricedEstimate = withSpmLine(costEstimate, {
+      pricedEstimate = await saveEstimateRows(tx, {
+        inspectionId: id,
+        estimate: costEstimate,
         country: inspection.propertyCountry,
-        priorTotalExGst,
-        spmAlreadyCharged,
-      });
-
-      await tx.costEstimate.createMany({
-        data: buildEstimateLines(pricedEstimate).map((line) => ({
-          inspectionId: id,
-          ...line,
-        })),
+        replace,
       });
 
       // Advance status when still pre-estimate (don't regress later states).

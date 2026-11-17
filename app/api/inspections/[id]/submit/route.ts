@@ -17,8 +17,7 @@ import {
   resolveInspectionRates,
 } from "@/lib/nir-cost-estimation";
 import { isBlockedResult } from "@/lib/pricing/blocked-line";
-import { buildEstimateLines } from "@/lib/estimate-lines";
-import { withSpmLine } from "@/lib/billing/spm-line";
+import { saveEstimateRows } from "@/lib/billing/spm-estimate-rows";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
 import {
@@ -777,21 +776,18 @@ async function processInspectionComplete(
     return { pricingRefused: true as const };
   }
 
-  // RA-8419: a claim over $2,500 ex GST (AU) carries the Senior Project
-  // Manager line. The rule lives in lib/billing/spm-line.ts; apply it here,
-  // just before the rows are built, never copy it.
-  const pricedEstimate = withSpmLine(costEstimate, {
-    country: inspection.propertyCountry,
-  });
-
-  // Save cost estimates — rows built by the shared line helper (RA-7708).
-  // One batched write instead of N sequential creates.
-  await prisma.costEstimate.createMany({
-    data: buildEstimateLines(pricedEstimate).map((line) => ({
+  // Save cost estimates through the one locked writer (RA-8419), which builds
+  // rows with the shared line helper (RA-7708) and applies the Senior Project
+  // Manager line. Submit has always added to any saved rows (replace: false),
+  // so saved work counts and a saved SPM row is never charged twice.
+  const pricedEstimate = await prisma.$transaction((tx) =>
+    saveEstimateRows(tx, {
       inspectionId,
-      ...line,
-    })),
-  });
+      estimate: costEstimate,
+      country: inspection.propertyCountry,
+      replace: false,
+    }),
+  );
 
   // Update status to ESTIMATED — terminal state of the AI submit
   // pipeline. Promotion to the COMPLETED terminal state is owned by

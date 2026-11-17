@@ -125,6 +125,13 @@ vi.mock("@/lib/prisma", () => ({
           findFirst: async () => null,
           create: (...a: unknown[]) => mockClassificationCreate(...a),
         },
+        // RA-8419: estimate rows are written by the locked writer
+        // (lib/billing/spm-estimate-rows.ts) inside a transaction.
+        $queryRaw: async () => [],
+        costEstimate: {
+          findMany: async () => [],
+          createMany: (...a: unknown[]) => mockCostEstimateCreateMany(...a),
+        },
       }),
     affectedArea: { update: vi.fn().mockResolvedValue({}) },
     scopeItem: {
