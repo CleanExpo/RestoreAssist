@@ -124,6 +124,12 @@ import { getServerSession } from "next-auth";
 import { assertInspectionCapturable } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { BUCKET_OPTIMISED, BUCKET_ORIGINALS } from "@/lib/storage/types";
+import { EvidenceClass } from "@prisma/client";
+import {
+  evidenceClassAllowedOnPath,
+  wrongSubmissionPathMessage,
+} from "@/lib/evidence/submission-path-classes";
+import { expectRefused } from "@/tests/helpers/expect-refused";
 import { POST } from "../route";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
@@ -941,4 +947,49 @@ describe("POST /evidence (multipart): one photograph rule (RA-8388)", () => {
       }
     });
   });
+});
+
+// RA-8388, founder ruling 17/11/2026. The file path stores a file and has no
+// typed values, so it cannot build the record behind a note or reading. Every
+// class is tried, so a class added to the schema later is covered on the day
+// it is added.
+describe("POST /evidence (multipart): one path per evidence class (RA-8388)", () => {
+  const classes = Object.values(EvidenceClass);
+  const notForFiles = classes.filter(
+    (cls) => !evidenceClassAllowedOnPath(cls, "file"),
+  );
+  const forFiles = classes.filter((cls) =>
+    evidenceClassAllowedOnPath(cls, "file"),
+  );
+  const FILE_REFUSAL = /is a note or reading, so it cannot be sent as a file/;
+
+  function formFor(evidenceClass: string) {
+    const form = baseForm(FIXTURE_BYTES, FIXTURE_SHA256);
+    form.set("evidenceClass", evidenceClass);
+    return form;
+  }
+
+  it("splits the classes it is given, so neither list below is empty", () => {
+    expect(notForFiles.length).toBeGreaterThan(0);
+    expect(forFiles.length).toBeGreaterThan(0);
+    expect(wrongSubmissionPathMessage("file")).toMatch(FILE_REFUSAL);
+  });
+
+  it.each(notForFiles)(
+    "refuses %s sent as a file and stores nothing",
+    async (evidenceClass) => {
+      const res = await POST(multipartRequest(formFor(evidenceClass)), params);
+      await expectRefused(res, 400, FILE_REFUSAL);
+      expect(uploadMock).not.toHaveBeenCalled();
+      expect(mCreate).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(forFiles)(
+    "does not turn %s away for being sent as a file",
+    async (evidenceClass) => {
+      const res = await POST(multipartRequest(formFor(evidenceClass)), params);
+      expect(JSON.stringify(await res.json())).not.toMatch(FILE_REFUSAL);
+    },
+  );
 });

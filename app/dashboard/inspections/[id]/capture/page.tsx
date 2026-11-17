@@ -85,6 +85,7 @@ import {
   type SignedRequestBytes,
 } from "@/lib/evidence/submit-metadata-evidence";
 import { MetadataCaptureForm } from "@/components/evidence/metadata-capture-form";
+import { isMetadataOnlyEvidenceClass } from "@/lib/evidence/submission-path-classes";
 import { canCaptureAnother } from "@/lib/evidence/step-reachability";
 import type { SignedManifestPayload } from "@/lib/evidence/device-signing";
 import {
@@ -176,12 +177,9 @@ interface Workflow {
  * must agree on which classes the form serves.
  */
 function isMetadataOnlyClass(evidenceClass: EvidenceClass): boolean {
-  return (
-    evidenceClass === "TECHNICIAN_NOTE" ||
-    evidenceClass === "MOISTURE_READING" ||
-    evidenceClass === "AMBIENT_ENVIRONMENTAL" ||
-    evidenceClass === "EQUIPMENT_LOG"
-  );
+  // RA-8388: the list lives with the route's own check, so the screen and
+  // the server cannot disagree about which path a class takes.
+  return isMetadataOnlyEvidenceClass(evidenceClass);
 }
 
 function evidenceIcon(cls: EvidenceClass) {

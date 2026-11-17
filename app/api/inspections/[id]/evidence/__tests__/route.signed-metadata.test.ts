@@ -125,6 +125,11 @@ import { prisma } from "@/lib/prisma";
 import { canonicalizeManifest } from "@/lib/evidence/manifest-canonical";
 import type { SignedEvidenceManifest } from "@/lib/evidence/manifest-canonical";
 import { metadataPayloadSha256 } from "@/lib/evidence/metadata-payload";
+import { EvidenceClass } from "@prisma/client";
+import {
+  evidenceClassAllowedOnPath,
+  wrongSubmissionPathMessage,
+} from "@/lib/evidence/submission-path-classes";
 import { expectRefused } from "@/tests/helpers/expect-refused";
 import { POST } from "../route";
 
@@ -572,4 +577,41 @@ describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
       expect(mCreate).not.toHaveBeenCalled();
     });
   });
+});
+
+// RA-8388, founder ruling 17/11/2026. The JSON path has no file, so it cannot
+// hold a photograph, a video or a document. Every class is tried, signed, so
+// the refusal is not the signing gate's.
+describe("POST /evidence (JSON): one path per evidence class (RA-8388)", () => {
+  const classes = Object.values(EvidenceClass);
+  const notForJson = classes.filter(
+    (cls) => !evidenceClassAllowedOnPath(cls, "json"),
+  );
+  const forJson = classes.filter((cls) =>
+    evidenceClassAllowedOnPath(cls, "json"),
+  );
+  const JSON_REFUSAL = /needs its file, so it cannot be sent as a note or reading/;
+
+  it("splits the classes it is given, so neither list below is empty", () => {
+    expect(notForJson.length).toBeGreaterThan(0);
+    expect(forJson.length).toBeGreaterThan(0);
+    expect(wrongSubmissionPathMessage("json")).toMatch(JSON_REFUSAL);
+  });
+
+  it.each(notForJson)(
+    "refuses a signed %s with no file and stores nothing",
+    async (evidenceClass) => {
+      const res = await signedPost({ evidenceClass, title: "No file" });
+      await expectRefused(res, 400, JSON_REFUSAL);
+      expect(mCreate).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(forJson)(
+    "does not turn %s away for being sent as JSON",
+    async (evidenceClass) => {
+      const res = await signedPost({ evidenceClass, title: "Typed in" });
+      expect(JSON.stringify(await res.json())).not.toMatch(JSON_REFUSAL);
+    },
+  );
 });

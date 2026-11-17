@@ -47,6 +47,10 @@ import {
   photoCountDecision,
   photoRowPlan,
 } from "@/lib/evidence/authoritative-rows";
+import {
+  evidenceClassAllowedOnPath,
+  wrongSubmissionPathMessage,
+} from "@/lib/evidence/submission-path-classes";
 import { isSignedCaptureDuplicate } from "@/lib/evidence/signed-capture-key";
 import { evidenceBacksReadingRefusal } from "@/lib/evidence/signed-row-guard";
 import { verifyEvidenceSubmission } from "@/lib/evidence/verified-evidence-gate";
@@ -245,6 +249,15 @@ export async function POST(
           return apiError(request, {
             code: "VALIDATION",
             message: "Valid evidenceClass is required",
+            status: 400,
+          });
+        }
+        // RA-8388 (ruling 17/11/2026): this path has no file, so it stores
+        // only the classes it can build a record for. One owner decides.
+        if (!evidenceClassAllowedOnPath(evidenceClass, "json")) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: wrongSubmissionPathMessage("json"),
             status: 400,
           });
         }
@@ -718,6 +731,15 @@ async function handleMultipartEvidencePost(
       });
     }
     const evidenceClass = evidenceClassRaw as EvidenceClass;
+    // RA-8388 (ruling 17/11/2026): this path has a file and no typed values,
+    // so it does not store a note or reading. One owner decides.
+    if (!evidenceClassAllowedOnPath(evidenceClass, "file")) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: wrongSubmissionPathMessage("file"),
+        status: 400,
+      });
+    }
     const isVideoClass = isVideoEvidenceClass(evidenceClass);
 
     // Guard before arrayBuffer() — multipart bypasses Next.js body size limits.
