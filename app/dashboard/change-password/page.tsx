@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock, CheckCircle, AlertCircle } from "lucide-react";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { passwordRuleError } from "@/lib/auth/password-policy";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
@@ -41,23 +42,6 @@ export default function ChangePasswordPage() {
     }
   }, [status, session, router]);
 
-  const validatePassword = (password: string): string[] => {
-    const errors: string[] = [];
-    if (password.length < 8) {
-      errors.push("Password must be at least 8 characters long");
-    }
-    if (!/[A-Z]/.test(password)) {
-      errors.push("Password must contain at least one uppercase letter");
-    }
-    if (!/[a-z]/.test(password)) {
-      errors.push("Password must contain at least one lowercase letter");
-    }
-    if (!/[0-9]/.test(password)) {
-      errors.push("Password must contain at least one number");
-    }
-    return errors;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -70,9 +54,10 @@ export default function ChangePasswordPage() {
       newErrors.currentPassword = "Current password is required";
     }
 
-    const passwordValidationErrors = validatePassword(newPassword);
-    if (passwordValidationErrors.length > 0) {
-      newErrors.newPassword = passwordValidationErrors[0];
+    // RA-8417 — same rule the server enforces; never a local copy.
+    const ruleError = passwordRuleError(newPassword);
+    if (ruleError) {
+      newErrors.newPassword = ruleError;
     }
 
     if (newPassword !== confirmPassword) {
@@ -146,7 +131,8 @@ export default function ChangePasswordPage() {
     return null;
   }
 
-  const passwordValidationErrors = validatePassword(newPassword);
+  const liveRuleError = passwordRuleError(newPassword);
+  const passwordValidationErrors = liveRuleError ? [liveRuleError] : [];
   const passwordMeetsRequirements =
     newPassword.length > 0 && passwordValidationErrors.length === 0;
   const passwordsMatch =

@@ -7,6 +7,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -63,10 +64,10 @@ export async function POST(request: NextRequest) {
       // RA-1342 — aligned to registration min (12). Matches reset-password +
       // registration so the policy can't be bypassed by setting a weak
       // password via change-password after registering strong.
-      if (newPassword.length < 12) {
+      if (newPassword.length < PASSWORD_MIN_LENGTH) {
         return apiError(request, {
           code: "VALIDATION",
-          message: "New password must be at least 12 characters long",
+          message: `New password must be at least ${PASSWORD_MIN_LENGTH} characters long`,
           status: 400,
         });
       }
