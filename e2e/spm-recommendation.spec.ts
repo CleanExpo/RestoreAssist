@@ -1,4 +1,5 @@
 /** Run by lead against a local migrated DB and ALLOW_TEST_HELPERS=true dev server. */
+import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { prisma } from "../lib/prisma";
 import { saveEstimateRows } from "../lib/billing/spm-estimate-rows";
@@ -6,7 +7,10 @@ import { applySessionCookieFromResponse } from "./helpers/session-cookie";
 import { assertLocalTestDatabase } from "../scripts/ci/assert-local-test-db.mjs";
 
 for (const width of [1440, 390]) {
-  test(`SPM opt-in recommendation at ${width}px @smoke`, async ({ page, context, baseURL }) => {
+  test(`SPM opt-in recommendation at ${width}px @smoke`, async ({ page, context, baseURL }, testInfo) => {
+    // One user and job per run: browser projects run in parallel, and width plus a millisecond
+    // clock collided, so two runs raced the test sign-in's find-then-create on the same email.
+    const runId = `${testInfo.project.name}-${width}-${randomUUID()}`;
     expect(["localhost", "127.0.0.1", "[::1]"]).toContain(new URL(baseURL!).hostname);
     assertLocalTestDatabase(process.env);
     expect(process.env.DATABASE_URL, "Supply the local seeded database URL").toBeTruthy();
@@ -17,11 +21,11 @@ for (const width of [1440, 390]) {
       // The deliberately injected HTTP 500 below produces a browser resource error.
       if (message.type() === "error" && !message.text().includes("the server responded with a status of 500")) errors.push(message.text());
     });
-    const signIn = await page.request.post("/api/test/sign-in-as", { data: { role: "USER", email: `spm-e2e-${width}-${Date.now()}@test.local` } });
+    const signIn = await page.request.post("/api/test/sign-in-as", { data: { role: "USER", email: `spm-e2e-${runId}@test.local` } });
     expect(signIn.ok()).toBe(true);
     await applySessionCookieFromResponse(context, signIn);
     const { userId } = await signIn.json();
-    const job = await prisma.inspection.create({ data: { userId, inspectionNumber: `SPM-${width}-${Date.now()}`, propertyAddress: "Local SPM test", propertyPostcode: "4000", propertyCountry: "AU", status: "ESTIMATED" }, select: { id: true } });
+    const job = await prisma.inspection.create({ data: { userId, inspectionNumber: `SPM-${runId}`, propertyAddress: "Local SPM test", propertyPostcode: "4000", propertyCountry: "AU", status: "ESTIMATED" }, select: { id: true } });
     try {
       await prisma.$transaction(tx => saveEstimateRows(tx, { inspectionId: job.id, replace: true, country: "AU", estimate: {
         items: [{ category: "Labour", description: "Water extraction", quantity: 1, unit: "job", rate: 3000, subtotal: 3000, nrpgField: null, nrpgCompliant: true, rateSource: "company-config", isEstimated: true }],
