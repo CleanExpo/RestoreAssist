@@ -29,6 +29,7 @@ import {
 } from "@/lib/integrations/nir-sync-orchestrator";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { computeGstCents } from "@/lib/gst-rules";
+import { isSpmLine } from "@/lib/billing/spm-line";
 
 export async function POST(request: NextRequest) {
   try {
@@ -149,7 +150,22 @@ export async function POST(request: NextRequest) {
             0) * 100,
         ),
         iicrcRef: item.justification ?? undefined,
-      })),
+      })).concat(
+        // RA-8419: the Senior Project Manager row has no scope item, so the
+        // mapping above never carries it. Hand it over as its own taxed
+        // labour line, identified by its marker (never by its wording), so
+        // the invoice lines add up to totalExGST.
+        costEstimates.filter(isSpmLine).map((ce) => ({
+          description: ce.description,
+          category: "LABOUR",
+          quantity: ce.quantity,
+          unit: ce.unit,
+          unitPriceExGST: Math.round(ce.rate * 100),
+          gstRate: gstTreatment.ratePercent,
+          subtotalExGST: Math.round(ce.subtotal * 100),
+          iicrcRef: undefined,
+        })),
+      ),
       // RA-7736: the contingency row has no scope item (RA-7708), so the
       // scope mapping above never carries it. Hand it over separately.
       contingencyExGST: Math.round(
