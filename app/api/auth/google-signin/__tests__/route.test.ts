@@ -8,7 +8,11 @@ const userCreate = vi.fn();
 const userUpdate = vi.fn();
 const executeRaw = vi.fn();
 const deliverEmailOnce = vi.fn();
+const track = vi.fn();
 
+vi.mock("@/lib/analytics/track", () => ({
+  track: (...args: unknown[]) => track(...args),
+}));
 vi.mock("@/lib/firebase-admin", () => ({
   getAdminAuth: vi.fn(async () => ({ verifyIdToken })),
 }));
@@ -169,5 +173,53 @@ describe("Firebase Google identity boundary", () => {
     const response = await pending;
     expect(response.status).toBe(200);
     expect(deliverEmailOnce).toHaveBeenCalledOnce();
+  });
+
+  it("RA-8435 — counts a NEW Google sign-up once, with first-touch attribution", async () => {
+    verifyIdToken.mockResolvedValue({
+      email: "new@acme-restoration.com.au",
+      email_verified: true,
+      firebase: { sign_in_provider: "google.com" },
+    });
+    userFindUnique.mockResolvedValueOnce(null);
+    userCreate.mockResolvedValueOnce({
+      id: "new-user",
+      email: "new@acme-restoration.com.au",
+      name: "New User",
+      image: null,
+      role: "ADMIN",
+    });
+    const req = new NextRequest("http://localhost/api/auth/google-signin", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer valid-token",
+        cookie: `ra_ft=${encodeURIComponent(JSON.stringify({ source: "newsletter" }))}`,
+      },
+      body: JSON.stringify({ name: "New User" }),
+    });
+
+    const response = await POST(req);
+
+    expect(response.status).toBe(200);
+    const signups = track.mock.calls.filter((c) => c[1] === "signup_completed");
+    expect(signups).toEqual([
+      [
+        "new-user",
+        "signup_completed",
+        { hasOrganization: false, method: "oauth", attribution: { source: "newsletter" } },
+      ],
+    ]);
+  });
+
+  it("RA-8435 — an EXISTING Google sign-in is not counted as a sign-up", async () => {
+    verifyIdToken.mockResolvedValue({
+      email: "victim@example.com",
+      email_verified: true,
+      firebase: { sign_in_provider: "google.com" },
+    });
+    const response = await POST(request());
+    expect(response.status).toBe(200);
+    expect(userCreate).not.toHaveBeenCalled();
+    expect(track.mock.calls.filter((c) => c[1] === "signup_completed")).toHaveLength(0);
   });
 });

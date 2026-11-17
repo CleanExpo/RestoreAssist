@@ -40,6 +40,8 @@ import { PRICING_CONFIG } from "@/lib/pricing";
 import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
 import { reservedEmailSignUpMessage } from "@/lib/auth/reserved-email-user-message";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { FIRST_TOUCH_COOKIE } from "@/lib/analytics/attribution";
+import { recordOAuthSignupCompleted } from "@/lib/auth/oauth-signup";
 
 // Free-trial grant — sourced from PRICING_CONFIG (the SSOT) so the native iOS
 // signup path grants the identical 15-day / 30-credit trial as email/register
@@ -335,7 +337,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Find-or-create user. PrismaAdapter normally handles this for OAuth;
   // for our native flow we replicate the same shape — including the
-  // exact field set events.createUser stamps in lib/auth.ts:317-338.
+  // exact field set events.createUser stamps in lib/auth.ts. The adapter
+  // event never fires here, so the signup_completed event is recorded
+  // below through lib/auth/oauth-signup.ts (RA-8435).
   let user: any;
   let isNewUser = false;
   try {
@@ -450,6 +454,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       "USER_CREATE_FAILED",
       USER_CREATE_FAILED_MESSAGE,
       email ?? undefined,
+    );
+  }
+
+  // RA-8435: count the app sign-up in the activation funnel, once, only for
+  // a NEW account, after the transaction committed. Never throws.
+  if (isNewUser) {
+    await recordOAuthSignupCompleted(
+      user.id,
+      request.cookies.get(FIRST_TOUCH_COOKIE)?.value,
     );
   }
 

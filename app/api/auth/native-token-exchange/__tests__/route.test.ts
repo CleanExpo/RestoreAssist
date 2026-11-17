@@ -13,7 +13,11 @@ const nonceFindFirst = vi.fn();
 const accountFindUnique = vi.fn();
 const accountCreate = vi.fn();
 const applyRateLimit = vi.fn();
+const track = vi.fn();
 
+vi.mock("@/lib/analytics/track", () => ({
+  track: (...args: unknown[]) => track(...args),
+}));
 vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "jwks"),
   jwtVerify: (...args: unknown[]) => jwtVerify(...args),
@@ -79,13 +83,23 @@ beforeEach(() => {
   accountCreate.mockResolvedValue({ id: "account-1" });
   applyRateLimit.mockReset();
   applyRateLimit.mockResolvedValue(null);
+  track.mockReset();
+  track.mockResolvedValue(undefined);
 });
 
-function postRequest(body: Record<string, unknown>) {
+function postRequest(
+  body: Record<string, unknown>,
+  headers?: Record<string, string>,
+) {
   return new NextRequest("http://localhost/api/auth/native-token-exchange", {
     method: "POST",
     body: JSON.stringify(body),
+    headers,
   });
+}
+
+function signupCalls() {
+  return track.mock.calls.filter((call) => call[1] === "signup_completed");
 }
 
 const VALID_BODY = {
@@ -222,6 +236,8 @@ describe("POST /api/auth/native-token-exchange", () => {
     });
     expect(userCreate).not.toHaveBeenCalled();
     expect(accountCreate).not.toHaveBeenCalled();
+    // RA-8435: a returning (LINKED) sign-in is not a new sign-up.
+    expect(signupCalls()).toHaveLength(0);
   });
 
   it.each([
@@ -435,6 +451,8 @@ describe("POST /api/auth/native-token-exchange — persistence contract", () => 
     expect(cookie!.httpOnly).toBe(true);
     expect(cookie!.sameSite).toBe("lax");
     expect(cookie!.path).toBe("/");
+    // RA-8435: linking a provider to an EXISTING account is not a sign-up.
+    expect(signupCalls()).toHaveLength(0);
   });
 
   it("encodes the session JWT with rememberMe=true and a ~90-day customExp", async () => {
@@ -489,6 +507,51 @@ describe("POST /api/auth/native-token-exchange — persistence contract", () => 
     expect(cookie).toBeDefined();
     expect(cookie!.maxAge).toBe(NINETY_DAYS_S);
     expect(cookie!.httpOnly).toBe(true);
+  });
+
+  it("RA-8435 — counts a NEW app sign-up once, with first-touch attribution", async () => {
+    jwtVerify.mockResolvedValueOnce({ payload: VALID_CLAIMS });
+    userFindUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ organization: { setupCompletedAt: null } });
+    userCreate.mockResolvedValueOnce({ ...EXISTING_USER, needsOnboarding: true });
+    encodeJwt.mockResolvedValueOnce("encoded.session.jwt");
+
+    const firstTouch = encodeURIComponent(
+      JSON.stringify({ source: "google", medium: "cpc", campaign: "launch" }),
+    );
+    const response = await POST(
+      postRequest(VALID_BODY, { cookie: `ra_ft=${firstTouch}` }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(signupCalls()).toHaveLength(1);
+    expect(signupCalls()[0]).toEqual([
+      EXISTING_USER.id,
+      "signup_completed",
+      {
+        hasOrganization: false,
+        method: "oauth",
+        attribution: { source: "google", medium: "cpc", campaign: "launch" },
+      },
+    ]);
+  });
+
+  it("RA-8435 — a tracking failure does not fail the NEW app sign-in", async () => {
+    jwtVerify.mockResolvedValueOnce({ payload: VALID_CLAIMS });
+    userFindUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ organization: { setupCompletedAt: null } });
+    userCreate.mockResolvedValueOnce({ ...EXISTING_USER, needsOnboarding: true });
+    encodeJwt.mockResolvedValueOnce("encoded.session.jwt");
+    track.mockRejectedValueOnce(new Error("analytics down"));
+
+    const response = await POST(postRequest(VALID_BODY));
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).isNewUser).toBe(true);
+    expect(signupCalls()).toHaveLength(1);
+    expect(findSessionCookie(response)).toBeDefined();
   });
 
   it("RA-8156 — rejects reserved .test email on native new-user signup", async () => {

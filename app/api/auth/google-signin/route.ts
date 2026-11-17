@@ -15,6 +15,8 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
 import { reservedEmailSignUpMessage } from "@/lib/auth/reserved-email-user-message";
 import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
+import { FIRST_TOUCH_COOKIE } from "@/lib/analytics/attribution";
+import { recordOAuthSignupCompleted } from "@/lib/auth/oauth-signup";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -276,6 +278,11 @@ export async function POST(request: NextRequest) {
       }),
       // RA-1239: demo data seed so Google signups don't land on empty dashboard.
       seedDemoDataForNewUser(newUser.id),
+      // RA-8435: count the sign-up in the activation funnel (never throws).
+      recordOAuthSignupCompleted(
+        newUser.id,
+        request.cookies.get(FIRST_TOUCH_COOKIE)?.value,
+      ),
     ]);
     for (const [index, result] of sideEffects.entries()) {
       if (result.status === "rejected") {
