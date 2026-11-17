@@ -42,6 +42,10 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 vi.mock("@/lib/prisma", () => {
   const matches = (row: Row, where: Row): boolean =>
     Object.entries(where).every(([key, value]) => {
+      // Prisma ignores a filter whose value is `undefined`: `{ id: undefined }`
+      // matches every row. The mock must do the same, or a request with no
+      // identifier looks harmless here and removes everything in production.
+      if (value === undefined) return true;
       if (key === "inspection") return true; // tenancy filter: not modelled
       if (key === "NOT") return !matches(row, value as Row);
       if (value && typeof value === "object" && "not" in (value as Row)) {
@@ -254,5 +258,72 @@ describe("DELETE of a photograph's evidence record", () => {
     expect(state.transactionOptions).toEqual([
       { maxWait: expect.any(Number), timeout: expect.any(Number) },
     ]);
+  });
+
+  // RA-8388 review round 2. The handler read `evidenceId` straight from the
+  // body. With none supplied, the assigned technician's `deleteMany` matched
+  // every record they had captured on the draft job, and because more than
+  // one went, no photograph row was removed: every photograph stayed counted
+  // with no evidence behind it.
+  describe("a delete that does not name one record removes nothing", () => {
+    const twoPhotographs = () =>
+      seed(
+        [
+          photoEvidence({ id: "ev_1", fileUrl: URL_A }),
+          photoEvidence({ id: "ev_2", fileUrl: `${URL_A}?2` }),
+        ],
+        [
+          { id: "ph_1", inspectionId: "insp_1", url: URL_A },
+          { id: "ph_2", inspectionId: "insp_1", url: `${URL_A}?2` },
+        ],
+      );
+
+    const send = (body: string) =>
+      DELETE(
+        new NextRequest("http://localhost/api/inspections/insp_1/evidence", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body,
+        }),
+        { params: Promise.resolve({ id: "insp_1" }) },
+      );
+
+    const BODIES: Array<[string, string]> = [
+      ["an empty object", "{}"],
+      ["a null identifier", '{"evidenceId":null}'],
+      ["an empty identifier", '{"evidenceId":""}'],
+      ["an identifier that is not text", '{"evidenceId":{"not":"x"}}'],
+      ["a list of identifiers", '{"evidenceId":["ev_1","ev_2"]}'],
+      ["a body that is not an object", "null"],
+      ["a body that is not JSON", "{"],
+    ];
+
+    for (const [name, body] of BODIES) {
+      it(`the assigned technician sending ${name} is refused with 400`, async () => {
+        asAssignedTechnician();
+        twoPhotographs();
+
+        const response = await send(body);
+
+        expect(response.status).toBe(400);
+        expect(JSON.stringify(await response.json())).toMatch(
+          /evidenceId is required/,
+        );
+        expect(state.evidence).toHaveLength(2);
+        expect(state.photos).toHaveLength(2);
+        expect(state.auditCreate).not.toHaveBeenCalled();
+      });
+
+      it(`the owner sending ${name} is refused with 400`, async () => {
+        asOwner();
+        twoPhotographs();
+
+        const response = await send(body);
+
+        expect(response.status).toBe(400);
+        expect(state.evidence).toHaveLength(2);
+        expect(state.photos).toHaveLength(2);
+      });
+    }
   });
 });

@@ -1270,8 +1270,25 @@ export async function DELETE(
   }
 
   const { id: inspectionId } = await params;
-  const body = await request.json();
-  const { evidenceId } = body;
+  // RA-8388 review round 2. The identifier is checked BEFORE it reaches any
+  // query. Prisma ignores a filter whose value is `undefined`, so a body with
+  // no `evidenceId` made `{ id: evidenceId }` match every record: the assigned
+  // technician's `deleteMany` below removed all the evidence they had captured
+  // on the job, and left every photograph counted with nothing behind it.
+  // Exactly one record is named, in text, or nothing is looked up or removed.
+  const body: unknown = await request.json().catch(() => null);
+  const evidenceIdRaw =
+    body !== null && typeof body === "object" && !Array.isArray(body)
+      ? (body as Record<string, unknown>).evidenceId
+      : undefined;
+  if (typeof evidenceIdRaw !== "string" || evidenceIdRaw.length === 0) {
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "evidenceId is required",
+      status: 400,
+    });
+  }
+  const evidenceId: string = evidenceIdRaw;
 
   try {
     // RA-1711 batch 4 — adopt shared tenancy helper.
