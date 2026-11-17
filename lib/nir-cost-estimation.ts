@@ -53,8 +53,11 @@ export interface CostEstimateItem {
   nrpgField: string | null;
   /** Whether this item's rate falls within NRPG guidelines */
   nrpgCompliant: boolean;
-  /** Where the rate came from ("none" = no rate configured for this item type) */
-  rateSource: "company-config" | "nrpg-midpoint" | "none";
+  /**
+   * Where the rate came from ("none" = no rate configured for this item type;
+   * "spm-standard" = the Senior Project Manager line, RA-8419, lib/billing/spm-line.ts)
+   */
+  rateSource: "company-config" | "nrpg-midpoint" | "none" | "spm-standard";
   costDatabaseId?: string;
   isEstimated: boolean;
   /**

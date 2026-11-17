@@ -217,7 +217,19 @@ describe("submit route — RA-7893 business pricing", () => {
     mockScopeItemCreateMany.mockResolvedValue({ count: 0 });
     mockCostEstimateCreateMany.mockResolvedValue({ count: 0 });
     mockLiveTeacherFindFirst.mockResolvedValue(null);
-    mockEstimateCosts.mockResolvedValue({ items: [], contingency: 0 });
+    // RA-8419: the full CostEstimateResult shape; the SPM rule reads it.
+    mockEstimateCosts.mockResolvedValue({
+      items: [],
+      subtotal: 0,
+      contingency: 0,
+      contingencyPercentage: 0,
+      total: 0,
+      currency: "AUD",
+      breakdown: { equipment: 0, labour: 0, materials: 0, other: 0 },
+      nrpgCompliant: true,
+      nrpgViolations: [],
+      pricingSource: "company-config",
+    });
   });
 
   it("estimates at the business's rates, resolved from the creator and creation time", async () => {

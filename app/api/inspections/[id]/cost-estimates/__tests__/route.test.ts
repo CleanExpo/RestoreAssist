@@ -84,10 +84,15 @@ describe("cost-estimates POST", () => {
         },
       ],
       contingency: 8,
+      contingencyPercentage: 10,
       subtotal: 80,
       total: 88,
+      currency: "AUD",
+      // RA-8419: the full CostEstimateResult shape; the SPM rule reads it.
+      breakdown: { equipment: 80, labour: 0, materials: 0, other: 0 },
       pricingSource: "nrpg-midpoint",
       nrpgCompliant: true,
+      nrpgViolations: [],
     });
     const saved = [
       {

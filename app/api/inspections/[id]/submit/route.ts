@@ -18,6 +18,7 @@ import {
 } from "@/lib/nir-cost-estimation";
 import { isBlockedResult } from "@/lib/pricing/blocked-line";
 import { buildEstimateLines } from "@/lib/estimate-lines";
+import { withSpmLine } from "@/lib/billing/spm-line";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
 import {
@@ -776,10 +777,17 @@ async function processInspectionComplete(
     return { pricingRefused: true as const };
   }
 
+  // RA-8419: a claim over $2,500 ex GST (AU) carries the Senior Project
+  // Manager line. The rule lives in lib/billing/spm-line.ts; apply it here,
+  // just before the rows are built, never copy it.
+  const pricedEstimate = withSpmLine(costEstimate, {
+    country: inspection.propertyCountry,
+  });
+
   // Save cost estimates — rows built by the shared line helper (RA-7708).
   // One batched write instead of N sequential creates.
   await prisma.costEstimate.createMany({
-    data: buildEstimateLines(costEstimate).map((line) => ({
+    data: buildEstimateLines(pricedEstimate).map((line) => ({
       inspectionId,
       ...line,
     })),
@@ -804,6 +812,6 @@ async function processInspectionComplete(
   return {
     classification: savedClassification,
     scopeItems,
-    costEstimate,
+    costEstimate: pricedEstimate,
   };
 }

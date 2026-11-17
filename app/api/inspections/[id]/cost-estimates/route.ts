@@ -17,6 +17,7 @@ import {
   resolveInspectionRates,
 } from "@/lib/nir-cost-estimation";
 import { buildEstimateLines } from "@/lib/estimate-lines";
+import { isSpmLine, withSpmLine } from "@/lib/billing/spm-line";
 import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
 import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
@@ -85,6 +86,7 @@ export async function POST(
         id: true,
         status: true,
         propertyPostcode: true,
+        propertyCountry: true,
         createdAt: true,
         scopeItems: {
           where: { isSelected: true },
@@ -168,13 +170,34 @@ export async function POST(
       });
     }
 
+    // RA-8419: the Senior Project Manager line (lib/billing/spm-line.ts) is
+    // applied inside the transaction, because when rows are appended
+    // (replace=false) the saved rows count towards the $2,500 threshold and
+    // an SPM row already saved must not be charged twice.
+    let pricedEstimate = costEstimate;
     const costEstimates = await prisma.$transaction(async (tx) => {
+      let priorTotalExGst = 0;
+      let spmAlreadyCharged = false;
       if (replace) {
         await tx.costEstimate.deleteMany({ where: { inspectionId: id } });
+      } else {
+        const saved = await tx.costEstimate.findMany({
+          where: { inspectionId: id },
+          select: { description: true, total: true },
+        });
+        for (const row of saved) {
+          if (isSpmLine(row)) spmAlreadyCharged = true;
+          else priorTotalExGst += Number(row.total);
+        }
       }
+      pricedEstimate = withSpmLine(costEstimate, {
+        country: inspection.propertyCountry,
+        priorTotalExGst,
+        spmAlreadyCharged,
+      });
 
       await tx.costEstimate.createMany({
-        data: buildEstimateLines(costEstimate).map((line) => ({
+        data: buildEstimateLines(pricedEstimate).map((line) => ({
           inspectionId: id,
           ...line,
         })),
@@ -199,9 +222,9 @@ export async function POST(
           entityType: "CostEstimate",
           userId: session.user.id,
           changes: JSON.stringify({
-            itemCount: costEstimate.items.length,
-            total: costEstimate.total,
-            pricingSource: costEstimate.pricingSource,
+            itemCount: pricedEstimate.items.length,
+            total: pricedEstimate.total,
+            pricingSource: pricedEstimate.pricingSource,
           }),
         },
       });
@@ -218,11 +241,11 @@ export async function POST(
       {
         costEstimates,
         summary: {
-          subtotal: costEstimate.subtotal,
-          contingency: costEstimate.contingency,
-          total: costEstimate.total,
-          pricingSource: costEstimate.pricingSource,
-          nrpgCompliant: costEstimate.nrpgCompliant,
+          subtotal: pricedEstimate.subtotal,
+          contingency: pricedEstimate.contingency,
+          total: pricedEstimate.total,
+          pricingSource: pricedEstimate.pricingSource,
+          nrpgCompliant: pricedEstimate.nrpgCompliant,
         },
       },
       { status: 201 },
