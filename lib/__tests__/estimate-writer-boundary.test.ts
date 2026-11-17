@@ -4,9 +4,10 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 import { saveEstimateRows } from "@/lib/billing/spm-estimate-rows";
 
+// Tracked files via git (always present where the repo is), not a separately installed search tool.
 function writers() {
-  const files = execFileSync("rg", ["--files", "app", "lib", "scripts"], { encoding: "utf8" }).trim().split("\n");
-  return files.filter(file => /\.[cm]?[jt]sx?$/.test(file) && !/(?:__tests__|\.test\.|\.spec\.)/.test(file) && file !== "lib/billing/spm-estimate-rows.ts").filter(file => {
+  const files = execFileSync("git", ["ls-files", "--", "app", "lib", "scripts"], { encoding: "utf8" }).trim().split("\n");
+  return files.filter(file => /\.[cm]?[jt]sx?$/.test(file) && !/(?:__tests__|\.test\.|\.spec\.)/.test(file)).filter(file => {
     const tree = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
     let found = false;
     function visit(node: ts.Node) {
@@ -20,7 +21,8 @@ function writers() {
   });
 }
 describe("CostEstimate writer boundary", () => {
-  it("has exactly one production writer module", () => { expect(writers()).toEqual([]); });
+  // The owner module must be found: proves the scan reads files and can fire, so an empty list cannot pass.
+  it("has exactly one production writer module", () => { expect(writers()).toEqual(["lib/billing/spm-estimate-rows.ts"]); });
   it("generated marked input cannot write an SPM row or inflate totals", async () => {
     const created: Array<{ lineKind: string | null; total: number }> = [];
     const tx = { $queryRaw: async () => [], costEstimate: { createMany: async ({ data }: { data: typeof created }) => { created.push(...data); }, findMany: async () => created } };
