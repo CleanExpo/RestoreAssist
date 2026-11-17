@@ -17,6 +17,7 @@ import {
   type MutableRefObject,
 } from "react";
 import { cn } from "@/lib/utils";
+import { useHideBilling } from "@/components/capacitor/use-hide-billing";
 import {
   MapPin,
   ImageIcon,
@@ -128,6 +129,8 @@ export function FloorPlanUnderlayLoader({
   openUploadRef,
   className,
 }: FloorPlanUnderlayLoaderProps) {
+  // RA-8437 / App Review 3.1.1: no price or buy button in the iOS shell.
+  const hideBilling = useHideBilling();
   const [expanded, setExpanded] = useState(autoFetch && !!defaultAddress);
   const [address, setAddress] = useState(defaultAddress);
   const [listingUrl, setListingUrl] = useState("");
@@ -661,7 +664,25 @@ export function FloorPlanUnderlayLoader({
               works without it. The price is derived, never typed: this copy
               quoted $9.95 for the life of the $9.95 era and would have gone
               stale the moment the amount moved. */}
-          {upgradeRequired && (
+          {/* RA-8437 — in the iOS shell the add-on cannot be bought in the
+              app (App Review 3.1.1; the checkout route refuses the shell
+              anyway). Say what is needed, with no price, link or button, and
+              keep the manual upload path below. */}
+          {upgradeRequired && hideBilling && (
+            <div
+              role="status"
+              className="flex flex-col gap-1 p-3 rounded-lg bg-cyan-500/10 border border-cyan-400/30 text-xs"
+            >
+              <p className="font-medium text-neutral-700 dark:text-slate-200">
+                Automatic floor plan fetch is not part of your workspace plan
+              </p>
+              <p className="text-neutral-500 dark:text-slate-400">
+                Your workspace administrator manages add-ons. You can upload a
+                floor plan image manually below.
+              </p>
+            </div>
+          )}
+          {upgradeRequired && !hideBilling && (
             <div className="flex flex-col gap-2 p-3 rounded-lg bg-cyan-500/10 border border-cyan-400/30 text-xs">
               <p className="font-medium text-neutral-700 dark:text-slate-200">
                 Automatic floor plan fetch needs the Floor Plan Underlay add-on

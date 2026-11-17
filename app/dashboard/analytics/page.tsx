@@ -29,6 +29,7 @@ import {
   AreaChart,
 } from "recharts";
 import toast from "react-hot-toast";
+import { useHideBilling } from "@/components/capacitor/use-hide-billing";
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ComponentType } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -174,6 +175,9 @@ interface ActivityFeedData {
 }
 
 export default function AnalyticsPage() {
+  // RA-8437: the billing overview reads a route the server refuses in the
+  // iOS shell (App Review 3.1.1), so it is not shown there.
+  const hideBilling = useHideBilling();
   const { data: session } = useSession();
   const [filters, setFilters] = useState<AnalyticsFiltersType>({
     dateRange: "30days",
@@ -886,7 +890,7 @@ export default function AnalyticsPage() {
             </DashboardPanel>
           )}
 
-          {isAdmin && (
+          {isAdmin && !hideBilling && (
             <DashboardPanel padded={false}>
               <BillingOverview />
             </DashboardPanel>

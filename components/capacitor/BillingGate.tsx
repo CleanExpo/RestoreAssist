@@ -21,7 +21,8 @@
 //   1. capacitor.config.ts ios.appendUserAgent adds IOS_SHELL_UA_TOKEN
 //   2. app/layout.tsx (server) reads the request UA and computes isIosShell
 //   3. ShellPlatformProvider carries that verdict into the client tree
-//   4. this component prefers the server verdict over its client read
+//   4. useHideBilling (this component's owner hook) prefers the server
+//      verdict over its client read
 // Break any link and the paint window reopens with every test still green,
 // which is why __tests__/BillingGate.test.tsx has an explicit wiring guard.
 //
@@ -34,19 +35,7 @@
 
 "use client";
 
-import { useSyncExternalStore } from "react";
-import { shouldHideBillingUI } from "@/lib/capacitor";
-import { useServerIosShell } from "./ShellPlatformProvider";
-
-// The platform never changes within a session, so there is nothing to
-// subscribe to — this store exists purely to read the platform SYNCHRONOUSLY
-// during render with a distinct server snapshot.
-const noopSubscribe = () => () => {};
-// A server request is never an iOS Capacitor shell, so SSR must render the
-// children: that is what keeps the public /pricing page crawlable and avoids
-// flashing a placeholder at web users. React tolerates the server/client
-// snapshot difference here by design — that is what getServerSnapshot is for.
-const getServerSnapshot = () => false;
+import { useHideBilling } from "./use-hide-billing";
 
 interface BillingGateProps {
   children: React.ReactNode;
@@ -59,24 +48,10 @@ interface BillingGateProps {
 }
 
 export default function BillingGate({ children, fallback }: BillingGateProps) {
-  // Read synchronously during render. The previous implementation set this in
-  // useEffect, so on iOS the real billing UI was COMMITTED for one render
-  // before being hidden — an App Review 3.1.1 exposure at every call site.
-  // Server verdict from the request user-agent (null when the provider is
-  // absent, e.g. an isolated unit test).
-  const serverVerdict = useServerIosShell();
-
-  // Client-side synchronous read. When the server already said "iOS shell",
-  // that wins for BOTH the SSR pass and hydration, which is what closes the
-  // paint window. Otherwise fall back to detecting on the client — that still
-  // covers client-side navigation and older shells built before the UA token.
-  const clientHide = useSyncExternalStore(
-    noopSubscribe,
-    shouldHideBillingUI,
-    getServerSnapshot,
-  );
-
-  const hideBilling = serverVerdict === true || clientHide;
+  // The rule lives in useHideBilling (RA-8437): server verdict first, so
+  // the shell never paints billing UI during SSR or hydration, then the
+  // synchronous client read for client navigation and older shells.
+  const hideBilling = useHideBilling();
 
   if (!hideBilling) {
     return <>{children}</>;

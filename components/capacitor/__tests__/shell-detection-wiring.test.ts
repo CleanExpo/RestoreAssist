@@ -87,11 +87,15 @@ describe("iOS shell detection — cross-file wiring", () => {
     },
   );
 
-  it("link 4: BillingGate prefers the server verdict over its client read", () => {
+  it("link 4: the owner hook prefers the server verdict over its client read", () => {
+    // RA-8437: the rule moved from BillingGate into useHideBilling, its one
+    // client owner. BillingGate must call the hook, not re-derive the rule.
+    const hook = read("components/capacitor/use-hide-billing.ts");
     const gate = read("components/capacitor/BillingGate.tsx");
 
-    expect(gate).toContain("useServerIosShell");
-    expect(gate).toMatch(/serverVerdict\s*===\s*true\s*\|\|/u);
+    expect(hook).toContain("useServerIosShell");
+    expect(hook).toMatch(/serverVerdict\s*===\s*true\s*\|\|/u);
+    expect(gate).toMatch(/useHideBilling\(\)/u);
   });
 
   it("matches a real shell user-agent and rejects ordinary browsers", () => {

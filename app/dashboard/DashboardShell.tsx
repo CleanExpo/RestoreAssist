@@ -6,8 +6,7 @@ import type React from "react";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useServerIosShell } from "@/components/capacitor/ShellPlatformProvider";
-import { shouldHideBillingUI } from "@/lib/capacitor";
+import { useHideBilling } from "@/components/capacitor/use-hide-billing";
 import {
   LayoutDashboard,
   FileText,
@@ -121,10 +120,9 @@ export default function DashboardShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // RA-1842 / App Review 3.1.1 — prefer the SERVER iOS-shell verdict so billing
   // nav never paints for one frame before a client useEffect flips it off.
-  const serverIosShell = useServerIosShell();
-  const hideBillingNav =
-    serverIosShell === true ||
-    (serverIosShell === null && shouldHideBillingUI());
+  // RA-8437: one owner for the rule; it also hides for older shells whose
+  // server verdict reads false but whose client runtime says iOS.
+  const hideBillingNav = useHideBilling();
 
   // On mount, collapse sidebar by default for tablet-class viewports
   // (768px ≤ width < 1280px). Covers iPad portrait (1024px), iPad Pro 11"

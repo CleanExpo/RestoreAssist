@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { useHideBilling } from "@/components/capacitor/use-hide-billing";
 
 type AuditPackage = "single" | "three";
 
@@ -24,6 +25,10 @@ const DELIVERABLES = [
 
 export default function JobFileAuditPage() {
   const darkMode = false;
+  // RA-8437 / App Review 3.1.1: no prices or buy buttons in the iOS shell.
+  // No in-app link reaches this public page, and its segment supplies no
+  // server verdict, so this is the client read: defence in depth.
+  const hideBilling = useHideBilling();
   const [loading, setLoading] = useState<AuditPackage | null>(null);
   const [error, setError] = useState("");
 
@@ -128,63 +133,65 @@ export default function JobFileAuditPage() {
           </div>
         </section>
 
-        <section className="px-6 py-20">
-          <div className="mx-auto max-w-6xl">
-            <div className="mb-10 max-w-3xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-gold">Founding offer</p>
-              <h2 className={`mt-3 text-3xl font-bold md:text-4xl ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>
-                Start with a real file, not another software demo.
-              </h2>
-              <p className={`mt-4 text-lg ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>
-                Pay securely, complete the intake, then we request the relevant
-                report, photographs, moisture/drying records and supporting
-                documentation through the approved file-sharing channel.
-              </p>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2">
-              <article className="rounded-3xl border border-brand-slate/25 p-7">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-gold">Single audit</p>
-                <p className={`mt-3 text-5xl font-bold ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>A$149</p>
-                <p className={`mt-1 text-sm ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>ex GST</p>
-                <p className={`mt-5 min-h-14 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>
-                  One restoration job-file review with a prioritised findings summary.
+        {!hideBilling && (
+          <section className="px-6 py-20">
+            <div className="mx-auto max-w-6xl">
+              <div className="mb-10 max-w-3xl">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-gold">Founding offer</p>
+                <h2 className={`mt-3 text-3xl font-bold md:text-4xl ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>
+                  Start with a real file, not another software demo.
+                </h2>
+                <p className={`mt-4 text-lg ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>
+                  Pay securely, complete the intake, then we request the relevant
+                  report, photographs, moisture/drying records and supporting
+                  documentation through the approved file-sharing channel.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => startCheckout("single")}
-                  disabled={loading !== null}
-                  className="mt-7 w-full rounded-xl bg-brand-cta px-5 py-3 font-semibold text-brand-cloud transition-colors hover:bg-brand-cta-hover disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {loading === "single" ? "Opening secure checkout…" : "Buy one audit"}
-                </button>
-              </article>
+              </div>
 
-              <article className="rounded-3xl border border-brand-gold/60 bg-brand-bronze/10 p-7">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-gold">Three-job pack</p>
-                <p className={`mt-3 text-5xl font-bold ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>A$399</p>
-                <p className={`mt-1 text-sm ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>ex GST</p>
-                <p className={`mt-5 min-h-14 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>
-                  Three job-file reviews for teams that want to compare recurring evidence gaps.
+              <div className="grid gap-6 md:grid-cols-2">
+                <article className="rounded-3xl border border-brand-slate/25 p-7">
+                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-gold">Single audit</p>
+                  <p className={`mt-3 text-5xl font-bold ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>A$149</p>
+                  <p className={`mt-1 text-sm ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>ex GST</p>
+                  <p className={`mt-5 min-h-14 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>
+                    One restoration job-file review with a prioritised findings summary.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => startCheckout("single")}
+                    disabled={loading !== null}
+                    className="mt-7 w-full rounded-xl bg-brand-cta px-5 py-3 font-semibold text-brand-cloud transition-colors hover:bg-brand-cta-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loading === "single" ? "Opening secure checkout…" : "Buy one audit"}
+                  </button>
+                </article>
+
+                <article className="rounded-3xl border border-brand-gold/60 bg-brand-bronze/10 p-7">
+                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-gold">Three-job pack</p>
+                  <p className={`mt-3 text-5xl font-bold ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>A$399</p>
+                  <p className={`mt-1 text-sm ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>ex GST</p>
+                  <p className={`mt-5 min-h-14 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>
+                    Three job-file reviews for teams that want to compare recurring evidence gaps.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => startCheckout("three")}
+                    disabled={loading !== null}
+                    className="mt-7 w-full rounded-xl bg-brand-cta px-5 py-3 font-semibold text-brand-cloud transition-colors hover:bg-brand-cta-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loading === "three" ? "Opening secure checkout…" : "Buy the three-job pack"}
+                  </button>
+                </article>
+              </div>
+
+              {error ? (
+                <p role="alert" className="mt-5 rounded-xl bg-destructive-subtle p-4 text-destructive-subtle-foreground">
+                  {error}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => startCheckout("three")}
-                  disabled={loading !== null}
-                  className="mt-7 w-full rounded-xl bg-brand-cta px-5 py-3 font-semibold text-brand-cloud transition-colors hover:bg-brand-cta-hover disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {loading === "three" ? "Opening secure checkout…" : "Buy the three-job pack"}
-                </button>
-              </article>
+              ) : null}
             </div>
-
-            {error ? (
-              <p role="alert" className="mt-5 rounded-xl bg-destructive-subtle p-4 text-destructive-subtle-foreground">
-                {error}
-              </p>
-            ) : null}
-          </div>
-        </section>
+          </section>
+        )}
 
         <section className={darkMode ? "bg-brand-deep px-6 py-16" : "bg-white px-6 py-16"}>
           <div className="mx-auto max-w-4xl text-center">

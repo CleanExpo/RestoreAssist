@@ -99,8 +99,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatInviteExpiry } from "./invite-expiry";
 import { SeatLimitPanel } from "./components/SeatLimitPanel";
-import { useServerIosShell } from "@/components/capacitor/ShellPlatformProvider";
-import { isCapacitorIOS } from "@/lib/capacitor";
+import { useHideBilling } from "@/components/capacitor/use-hide-billing";
 import {
   clearInviteDraft,
   readInviteDraft,
@@ -194,7 +193,7 @@ export default function TeamPage() {
   const searchParams = useSearchParams();
   const returningToInvite = searchParams?.get("invite") === "1";
   const checkoutCancelled = searchParams?.get("checkout") === "cancelled";
-  const iosShell = useServerIosShell();
+  const hideBilling = useHideBilling();
   const [seatLimitHit, setSeatLimitHit] = useState(false);
   const [seatPaymentDue, setSeatPaymentDue] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);
@@ -628,7 +627,7 @@ export default function TeamPage() {
 
       {seatPaymentDue && (
         <SeatLimitPanel
-          audience={iosShell === true || isCapacitorIOS() ? "ios" : "owner"}
+          audience={hideBilling ? "ios" : "owner"}
           headline="Your free trial seat has ended, and your technician can't work until it is paid for. Nothing has been deleted."
           onBeforeBuy={() => undefined}
           onSeatAdded={() => void load()}
@@ -907,7 +906,7 @@ export default function TeamPage() {
                     <SeatLimitPanel
                       addingTechnician
                       audience={
-                        iosShell === true || isCapacitorIOS()
+                        hideBilling
                           ? "ios"
                           : isAdmin
                             ? "owner"
