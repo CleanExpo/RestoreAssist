@@ -3,7 +3,13 @@
  * RestoreAssist staff surface (admin, margot, governance, mission-control).
  * The segments are DISCOVERED from disk, not typed by hand (RA-8420: a
  * hand-typed list left mission-control on requireAdminPage() alone), so a new
- * admin-gated segment layout is tested the moment it exists. `role: "ADMIN"` is every self-registered business owner, so the
+ * admin-gated segment layout is tested the moment it exists.
+ *
+ * Two layers. (1) A source-level coverage check over every top-level segment
+ * layout.tsx AND page.tsx that imports the admin gate: each must also apply the
+ * staff allowlist. This covers page-gated segments such as telemetry, which has
+ * no layout and its own behavioural test. (2) The behavioural suite below runs
+ * on every admin-gated segment LAYOUT. `role: "ADMIN"` is every self-registered business owner, so the
  * segment layouts must require the PLATFORM_SUPPORT_USER_IDS allowlist on top
  * of requireAdminPage(), as /dashboard/governance and
  * /dashboard/admin/founding-trial already do. An owner not on the allowlist
@@ -86,12 +92,33 @@ const LAYOUTS: (readonly [string, Layout])[] = await Promise.all(
   ),
 );
 
-it("discovery floor: the known staff segment layouts are all found", () => {
-  // Guards the discovery itself: if the scan broke and found nothing, the
-  // describe.each below would silently test nothing.
-  expect(STAFF_SEGMENTS).toEqual(
-    expect.arrayContaining(["admin", "governance", "margot", "mission-control"]),
-  );
+/** Top-level segment layout/page files that import the admin gate. */
+const GATED_FILES = readdirSync(DASHBOARD, { withFileTypes: true })
+  .filter((d) => d.isDirectory() && !d.name.startsWith("_") && d.name !== "__tests__")
+  .flatMap((d) => ["layout.tsx", "page.tsx"].map((f) => `${d.name}/${f}`))
+  .filter((rel) => {
+    const file = path.join(DASHBOARD, rel);
+    return existsSync(file) && /@\/lib\/admin-auth/.test(readFileSync(file, "utf8"));
+  })
+  .sort();
+
+describe("staff segment coverage (discovered, not hand-typed)", () => {
+  it("discovery floor: every known staff segment is found", () => {
+    // Guards the discovery itself: if the scan broke and found nothing, the
+    // checks below would silently test nothing.
+    const segments = new Set(GATED_FILES.map((rel) => rel.split("/")[0]));
+    for (const name of ["admin", "governance", "margot", "mission-control", "telemetry"]) {
+      expect(segments, `staff segment ${name} not discovered`).toContain(name);
+    }
+    expect(STAFF_SEGMENTS).toEqual(
+      expect.arrayContaining(["admin", "governance", "margot", "mission-control"]),
+    );
+  });
+
+  it.each(GATED_FILES)("%s applies the staff allowlist, not requireAdminPage() alone", (rel) => {
+    const src = readFileSync(path.join(DASHBOARD, rel), "utf8");
+    expect(src).toMatch(/requirePlatformSupportPage|isAllowlistedPlatformSupportOperator/);
+  });
 });
 
 beforeEach(() => {
