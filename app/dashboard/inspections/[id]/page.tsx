@@ -24,6 +24,10 @@ import {
   failedResponseMessage,
 } from "@/lib/inspections/job-actions";
 import {
+  inspectionStatusAllowsDisputePack,
+  inspectionStatusAllowsNirReport,
+} from "@/lib/inspections/active-status";
+import {
   ATTENDANCE_NOT_RECORDED_LABEL,
   formatAttendanceDateEnAu,
 } from "@/lib/inspections/format-attendance-date";
@@ -1343,9 +1347,7 @@ export default function InspectionDetailPage({
   const canGenerateInvoice =
     (inspection.status === "SUBMITTED" && Boolean(inspection.signedAt)) ||
     inspection.status === "IN_BILLING";
-  const canGenerateReport = ["ESTIMATED", "SUBMITTED", "COMPLETED"].includes(
-    inspection.status,
-  );
+  const canGenerateReport = inspectionStatusAllowsNirReport(inspection.status);
 
   const TABS: {
     key: Tab;
@@ -1524,8 +1526,7 @@ export default function InspectionDetailPage({
           )}
           <ExportPdfButton inspectionId={inspection.id} />
           {disputePackAction &&
-            (inspection.status === "SUBMITTED" ||
-              inspection.status === "COMPLETED") && (
+            inspectionStatusAllowsDisputePack(inspection.status) && (
             <Button
               variant="outline"
               size="sm"
