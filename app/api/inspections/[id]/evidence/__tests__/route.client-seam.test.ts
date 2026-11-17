@@ -368,6 +368,14 @@ describe("client-to-server seam: what the capture page actually sends", () => {
     mKeyFind.mockResolvedValue(null);
     const result = await submitMetadataEvidence(draft(), deps());
     expect(result.ok).toBe(false);
+    // The gate's own refusal, so any other failure cannot satisfy this.
+    expect(result.status).toBe(403);
+    expect(result.data).toMatchObject({
+      error: {
+        code: "FORBIDDEN",
+        message: "Signing key is not registered for this user",
+      },
+    });
     expect(createdRows).toHaveLength(0);
   });
 
@@ -389,6 +397,14 @@ describe("client-to-server seam: what the capture page actually sends", () => {
       deps({ fetchImpl: tampering }),
     );
     expect(result.ok).toBe(false);
+    // The digest-binding refusal, not just any failure.
+    expect(result.status).toBe(400);
+    expect(result.data).toMatchObject({
+      error: {
+        code: "VALIDATION",
+        message: expect.stringContaining("does not match the signature"),
+      },
+    });
     expect(createdRows).toHaveLength(0);
   });
 });

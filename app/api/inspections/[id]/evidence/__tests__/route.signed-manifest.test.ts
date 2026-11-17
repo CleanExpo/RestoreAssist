@@ -466,6 +466,9 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
       params,
     );
     expect(res.status).toBe(403);
+    // The unregistered-key refusal, not the revoked-key 403 beside it.
+    const body = await res.json();
+    expect(JSON.stringify(body)).toContain("not registered for this user");
     expect(uploadMock).not.toHaveBeenCalled();
     expect(mCreate).not.toHaveBeenCalled();
   });
@@ -496,6 +499,9 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
       params,
     );
     expect(res.status).toBe(403);
+    // Ownership, not revocation: this key row is not revoked.
+    const body = await res.json();
+    expect(JSON.stringify(body)).toContain("not registered for this user");
     expect(mCreate).not.toHaveBeenCalled();
   });
 
@@ -527,13 +533,19 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
   });
 
   it("rejects a signedManifest that is not valid JSON / not an object (400)", async () => {
-    for (const bad of ["not json {", JSON.stringify(["array"])]) {
+    for (const [bad, reason] of [
+      ["not json {", "must be valid JSON"],
+      [JSON.stringify(["array"]), "must be a JSON object"],
+    ]) {
       const form = signedForm(manifestFixture(), {
         manifestJson: bad,
         signature: signCanonical(bad),
       });
       const res = await POST(multipartRequest(form), params);
       expect(res.status).toBe(400);
+      // An array would also fail the required-field checks with a 400, so
+      // the parse reason is what shows which guard refused it.
+      expect(JSON.stringify(await res.json())).toContain(reason);
     }
     expect(mCreate).not.toHaveBeenCalled();
   });

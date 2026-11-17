@@ -374,9 +374,12 @@ describe("RA-8388 authoritative-row backfill: what it refuses", () => {
       emptyExisting(),
     );
 
-    expect(decision.kind).toBe("report");
-    if (decision.kind !== "report" || decision.reason !== "incomplete") return;
-    expect(decision.missing).toEqual(["Material"]);
+    // Compared whole so a different report reason cannot slip past silently.
+    expect(decision).toEqual({
+      kind: "report",
+      reason: "incomplete",
+      missing: ["Material"],
+    });
   });
 
   it("reports structured data it cannot read rather than guessing at it", () => {

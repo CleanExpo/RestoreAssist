@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import {
+  act,
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+} from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ClientEvidenceReviewPanel } from "../ClientEvidenceReviewPanel";
 
@@ -134,10 +140,17 @@ describe("ClientEvidenceReviewPanel", () => {
   });
 
   it("renders nothing when there is nothing to review", async () => {
-    vi.stubGlobal("fetch", fetchWith([]));
+    const f = fetchWith([]);
+    vi.stubGlobal("fetch", f);
     const { container } = render(
       <ClientEvidenceReviewPanel inspectionId="i1" />,
     );
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    // The panel is also empty while the fetch is pending, so wait for the
+    // empty list to arrive and be handled before asserting.
+    await waitFor(() => expect(f).toHaveBeenCalled());
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(container).toBeEmptyDOMElement();
   });
 });

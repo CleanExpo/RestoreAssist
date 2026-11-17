@@ -180,6 +180,10 @@ describe("the NIR form and a signed moisture reading", () => {
     });
 
     expect(response.status).toBe(409);
+    // This route's other 409 is CONFLICT; the signed-row refusal has its own.
+    expect(JSON.stringify(await response.json())).toContain(
+      "SIGNED_ROW_REFUSED",
+    );
     nothingWritten();
   });
 
@@ -315,6 +319,9 @@ describe("the NIR form and a signed moisture reading", () => {
     });
 
     expect(response.status).toBe(409);
+    expect(JSON.stringify(await response.json())).toContain(
+      "SIGNED_ROW_REFUSED",
+    );
     nothingWritten();
   });
 });

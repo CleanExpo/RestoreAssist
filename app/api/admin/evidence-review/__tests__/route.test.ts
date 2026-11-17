@@ -197,6 +197,9 @@ describe("GET /api/admin/evidence-review (RA-7566)", () => {
     const body = await res.json();
 
     expect(res.status).toBe(403);
+    // Refused on the session's own role: the database re-check, which would
+    // also answer 403 for an unknown user, was never needed.
+    expect(userFindUnique).not.toHaveBeenCalled();
     expect(inspectionFindMany).not.toHaveBeenCalled();
     await assertNoForeignLeak(res, body);
   });

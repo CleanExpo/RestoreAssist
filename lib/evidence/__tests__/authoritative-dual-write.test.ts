@@ -623,8 +623,13 @@ describe("the route writes both halves in ONE transaction", () => {
     // would show a reading the completion gate can never count, and nobody
     // could tell why the job would not close.
     failAuthoritativeWrite = true;
-    await submit(MOISTURE, "MOISTURE_READING").catch(() => null);
+    const result = await submit(MOISTURE, "MOISTURE_READING").catch(() => null);
 
+    // The write was reached and failed: the route's own uncertain-commit
+    // answer. An earlier refusal gives a different status, and would leave
+    // these empty arrays true for the wrong reason.
+    expect(result?.status).toBe(409);
+    expect(result?.mayHaveSaved).toBe(true);
     expect(committed.moisture).toHaveLength(0);
     expect(committed.evidence).toHaveLength(0);
   });
@@ -1076,6 +1081,11 @@ describe("the multipart branch writes the photo row in the SAME transaction", ()
   }
 
   beforeEach(async () => {
+    // The signed capture time is 2026-11-15 and the route refuses a capture
+    // more than 30 days old, so an unpinned clock turns every upload here
+    // into a 400 from mid December and the refusal tests pass for that.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-16T00:00:00.000Z"));
     committed.evidence = [];
     committed.moisture = [];
     committed.env = [];
@@ -1098,6 +1108,10 @@ describe("the multipart branch writes the photo row in the SAME transaction", ()
       revokedAt: null,
       lastUsedAt: null,
     }));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("a photo writes the evidence record AND the row the gate counts", async () => {
@@ -1124,7 +1138,12 @@ describe("the multipart branch writes the photo row in the SAME transaction", ()
     // exact split that made the original fault invisible.
     failPhotoWrite = true;
     const res = await upload("PHOTO_DAMAGE", "image/jpeg");
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    // The route's own answer to a failed photo write (409, uncertain), so a
+    // 400 refusal from anywhere earlier cannot satisfy this.
+    expect(res.status).toBe(409);
+    expect(res.headers.get("X-RestoreAssist-Idempotency-Uncertain")).toBe(
+      "true",
+    );
     expect(committed.photos).toHaveLength(0);
     expect(committed.evidence).toHaveLength(0);
   });

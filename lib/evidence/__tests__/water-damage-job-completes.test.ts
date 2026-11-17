@@ -30,7 +30,7 @@
  * recorded. Read a pass of this file as "the capture routes produce a job
  * the two precondition gates accept", never as "the job submits".
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
@@ -405,6 +405,11 @@ describe("a water-damage job captured in Guided Capture reaches zero blocking is
   }
 
   beforeEach(async () => {
+    // Every capture here is dated 2026-11-15 and the route refuses one more
+    // than 30 days old, so a live clock makes each capture a 400 from mid
+    // December and the refusal tests below would pass with nothing captured.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-16T00:00:00.000Z"));
     store.evidence = [];
     store.moisture = [];
     store.env = [];
@@ -427,6 +432,10 @@ describe("a water-damage job captured in Guided Capture reaches zero blocking is
       revokedAt: null,
       lastUsedAt: null,
     }));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   async function captureTheWholeJob() {
@@ -526,6 +535,9 @@ describe("a water-damage job captured in Guided Capture reaches zero blocking is
   it("with no affected area the gate refuses the submission", async () => {
     for (const r of FIVE_READINGS) await capture("MOISTURE_READING", r);
     await capturePhoto(1);
+    // Everything else WAS captured, so the refusal below is about the area.
+    expect(store.moisture).toHaveLength(5);
+    expect(store.photos).toHaveLength(1);
     // The dead end recorded in AMENDMENT 03 §R: Guided Capture never
     // creates an AffectedArea, and the job cannot close without one.
     expect(store.areas).toHaveLength(0);
@@ -541,6 +553,8 @@ describe("a water-damage job captured in Guided Capture reaches zero blocking is
     // gate produced into the function the capture page now renders from.
     for (const r of FIVE_READINGS) await capture("MOISTURE_READING", r);
     await capturePhoto(1);
+    expect(store.moisture).toHaveLength(5);
+    expect(store.photos).toHaveLength(1);
     const result = validateSubmissionPayload(payload());
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -560,6 +574,11 @@ describe("a water-damage job captured in Guided Capture reaches zero blocking is
   it("with no moisture reading at all the gate refuses the submission", async () => {
     await capturePhoto(1);
     await addArea();
+    // The photograph and the area WERE captured, so the refusal below is
+    // about the missing readings and nothing else.
+    expect(store.photos).toHaveLength(1);
+    expect(store.areas).toHaveLength(1);
+    expect(store.moisture).toHaveLength(0);
     const result = validateSubmissionPayload(payload());
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("MISSING_MOISTURE_READINGS");
