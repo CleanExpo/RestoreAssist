@@ -7,6 +7,7 @@ import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import { isLiveBaseSubscription, ownerAllows } from "@/lib/billing/live-base-subscription";
+import { subscriptionStatusFromStripe } from "@/lib/billing/stripe-status";
 
 function subPeriodEnd(sub: import("stripe").Stripe.Subscription): number {
   return (
@@ -166,7 +167,8 @@ export async function POST(request: NextRequest) {
         // checkout.session.completed webhook (atomic, guarded on
         // signupBonusApplied) — this browser path no longer grants it.
         const updateData: any = {
-          subscriptionStatus: "ACTIVE",
+          // RA-8431: the owner's reading; the live-base filter above makes it ACTIVE.
+          subscriptionStatus: subscriptionStatusFromStripe(activeSubscription),
           subscriptionPlan: subscriptionPlan,
           stripeCustomerId: customerId,
           subscriptionId: activeSubscription.id,

@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { PRICING_CONFIG } from "@/lib/pricing";
+import { subscriptionStatusFromStripe } from "./stripe-status";
 
 /**
  * May this Stripe subscription activate the account's base plan from the
@@ -12,11 +12,8 @@ import { PRICING_CONFIG } from "@/lib/pricing";
  * (app/api/webhooks/stripe/route.ts applyRecurringAddonSubscription).
  */
 export function isLiveBaseSubscription(sub: Stripe.Subscription): boolean {
-  if (sub.status === "active") return true;
-  if (sub.status !== "trialing") return false;
-  return sub.items.data.some(
-    (item) => item.price?.id === PRICING_CONFIG.prices.monthly,
-  );
+  // RA-8431: the rule lives in the one owner; this is its "is it ACTIVE" view.
+  return subscriptionStatusFromStripe(sub) === "ACTIVE";
 }
 
 /**

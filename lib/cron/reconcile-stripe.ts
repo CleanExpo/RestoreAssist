@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { downgradeUserToCanceled } from "@/app/api/webhooks/stripe/route";
+import { subscriptionStatusFromStripe } from "@/lib/billing/stripe-status";
 import {
   TECHNICIAN_SEATS_ADDON_SUBSCRIPTION_TYPE,
   TECHNICIAN_SEATS_SKU,
@@ -126,7 +127,8 @@ export async function reconcileStripe(): Promise<CronJobResult> {
 
     try {
       const sub = await stripe.subscriptions.retrieve(user.subscriptionId);
-      if (sub.status === "canceled") {
+      // RA-8431: the one owner decides; this cron still acts only on CANCELED.
+      if (subscriptionStatusFromStripe(sub) === "CANCELED") {
         await downgradeUserToCanceled(user.id);
         downgraded++;
       }

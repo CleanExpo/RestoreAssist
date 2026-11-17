@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { syncRecurringAddonsFromStripe } from "@/lib/billing/fulfill-recurring-addon";
 import { resolveLocalSubscriptionPlanDisplay } from "@/lib/pricing";
-import { isLiveBaseSubscription, ownerAllows } from "@/lib/billing/live-base-subscription";
+import { ownerAllows } from "@/lib/billing/live-base-subscription";
+import { subscriptionStatusFromStripe } from "@/lib/billing/stripe-status";
 
 export async function GET(request: NextRequest) {
   try {
@@ -86,19 +87,13 @@ export async function GET(request: NextRequest) {
         const periodEnd = item?.current_period_end ?? null;
         const periodStart = item?.current_period_start ?? null;
 
-        // A trialing BASE plan is live: a Founding Trial customer who upgrades
-        // early trials until day 60 (create-checkout-session trial_end), and the
-        // webhook already maps it to ACTIVE. Syncing it as EXPIRED here would lock
-        // the free period on the first dashboard load.
-        const live = isLiveBaseSubscription(subscription);
+        // RA-8431: one owner translates Stripe status. A trialing BASE plan is
+        // ACTIVE (Founding Trial early upgrade); `unpaid` is PAST_DUE (keeps the
+        // fix-your-card paywall); incomplete/paused leave the stored status alone.
+        const mapped = subscriptionStatusFromStripe(subscription);
+        const live = mapped === "ACTIVE";
         const updateData: Prisma.UserUpdateInput = {
-          subscriptionStatus: live
-            ? "ACTIVE"
-            : subscription.status === "canceled"
-              ? "CANCELED"
-              : subscription.status === "past_due"
-                ? "PAST_DUE"
-                : "EXPIRED",
+          subscriptionStatus: mapped ?? undefined,
           creditsRemaining: live ? 999999 : user.creditsRemaining,
         };
         if (periodEnd !== null) {

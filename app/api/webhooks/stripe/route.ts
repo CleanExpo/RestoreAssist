@@ -9,6 +9,7 @@ import { warnIfZeroRows } from "@/lib/prisma-assert";
 import { reconcileInvoicePaymentIntent } from "@/lib/invoices/reconcile-stripe-payment-intent";
 import { isInvoiceOnlinePaymentEnabled } from "@/lib/invoices/online-payment";
 import { recordSubscriptionEvent } from "@/lib/billing/subscription-event";
+import { subscriptionStatusFromStripe } from "@/lib/billing/stripe-status";
 import {
   fulfillLifetimeFromSession,
   fulfillAddonFromSession,
@@ -685,29 +686,6 @@ export async function handleCheckoutCompleted(
 export const handleRecurringAddonSubscription = applyRecurringAddonSubscription;
 
 /**
- * Maps Stripe's subscription status spectrum to our internal enum.
- * Returns null for statuses we don't translate (e.g. "incomplete" → no flip).
- */
-function stripeStatusToOurs(
-  s: Stripe.Subscription.Status,
-): "ACTIVE" | "PAST_DUE" | "CANCELED" | "EXPIRED" | null {
-  switch (s) {
-    case "active":
-    case "trialing":
-      return "ACTIVE";
-    case "past_due":
-    case "unpaid":
-      return "PAST_DUE";
-    case "canceled":
-      return "CANCELED";
-    case "incomplete_expired":
-      return "EXPIRED";
-    default:
-      return null;
-  }
-}
-
-/**
  * SP-3 T8 — customer.subscription.updated handler.
  *
  * Reads the Stripe subscription status, maps to our internal enum, and
@@ -740,7 +718,8 @@ export async function handleSubscriptionUpdated(
       ? new Date(periodEnd * 1000)
       : undefined;
 
-  const mapped = stripeStatusToOurs(stripeStatus);
+  // RA-8431: the one owner (lib/billing/stripe-status.ts) decides; null = no change.
+  const mapped = subscriptionStatusFromStripe(sub);
   if (mapped === null) return;
   if (mapped === user.subscriptionStatus) {
     // trialing -> active is ACTIVE -> ACTIVE here, but the period end moves from the

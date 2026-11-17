@@ -135,6 +135,38 @@ describe("GET /api/subscription — dahlia dates (RA-6968/6967)", () => {
     expect(data.creditsRemaining).toBe(5);
   });
 
+  // RA-8431: the webhook maps `unpaid` to PAST_DUE (fix-your-card paywall); the
+  // dashboard sync used to rewrite it to EXPIRED on every load.
+  it("syncs an unpaid subscription as PAST_DUE, never EXPIRED", async () => {
+    stripeMock.subscriptions.retrieve.mockResolvedValue({
+      id: "sub_1",
+      status: "unpaid",
+      metadata: { userId: "u1" },
+      cancel_at_period_end: false,
+      items: { data: [{ price: { id: PRICING_CONFIG.prices.monthly }, current_period_end: 2_000_000_000 }] },
+    });
+    expect((await GET(makeRequest())).status).toBe(200);
+    const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as any;
+    expect(data.subscriptionStatus).toBe("PAST_DUE");
+    expect(data.creditsRemaining).toBe(5);
+  });
+
+  it.each(["incomplete", "paused"])(
+    "leaves the stored status alone for %s (no EXPIRED rewrite)",
+    async (status) => {
+      stripeMock.subscriptions.retrieve.mockResolvedValue({
+        id: "sub_1",
+        status,
+        metadata: { userId: "u1" },
+        cancel_at_period_end: false,
+        items: { data: [{ price: { id: PRICING_CONFIG.prices.monthly }, current_period_end: 2_000_000_000 }] },
+      });
+      expect((await GET(makeRequest())).status).toBe(200);
+      const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as any;
+      expect(data.subscriptionStatus).toBeUndefined();
+    },
+  );
+
   it("does NOT fabricate dates when Stripe omits the item period", async () => {
     stripeMock.subscriptions.retrieve.mockResolvedValue({
       id: "sub_1",

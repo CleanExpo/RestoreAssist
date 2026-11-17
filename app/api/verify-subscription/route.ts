@@ -7,6 +7,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { fulfillLifetimeFromSession } from "@/lib/billing/fulfill-one-time";
 import { apiError, fromException } from "@/lib/api-errors";
 import { isLiveBaseSubscription, ownerAllows } from "@/lib/billing/live-base-subscription";
+import { subscriptionStatusFromStripe } from "@/lib/billing/stripe-status";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -159,7 +160,7 @@ export async function POST(request: NextRequest) {
         // resurrect a cancelled/incomplete subscription or re-gift usage.
         // "trialing" is live too: a Founding Trial customer who subscribes early
         // starts trialing until day 60 (create-checkout-session trial_end), and
-        // the webhook already maps trialing -> ACTIVE (stripeStatusToOurs).
+        // the webhook maps a trialing base plan to ACTIVE (lib/billing/stripe-status.ts).
         if (!isLiveBaseSubscription(stripeSubscription)) {
           return apiError(request, {
             code: "VALIDATION",
@@ -278,7 +279,8 @@ export async function POST(request: NextRequest) {
         // checkout.session.completed webhook (atomic, guarded on
         // signupBonusApplied) — this browser path no longer grants it.
         const updateData: any = {
-          subscriptionStatus: "ACTIVE",
+          // RA-8431: the owner's reading; the live-base gate above makes it ACTIVE.
+          subscriptionStatus: subscriptionStatusFromStripe(stripeSubscription),
           subscriptionPlan: subscriptionPlan,
           stripeCustomerId: checkoutSession.customer as string,
           subscriptionId: subscriptionId as string,
