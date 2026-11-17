@@ -55,7 +55,9 @@ export const XERO_DRAIN_INVOICE_PAID_TYPES = [
 
 /**
  * Selected by processQboMyobPendingPayments (lib/integrations/webhook-processor.ts),
- * run by /api/cron/sync-qbo-myob-payments.
+ * run by /api/cron/sync-qbo-myob-payments. That drain still carries its own
+ * literal (RA-8426 edits the same lines); the guard test fails if the two
+ * differ. Import this constant there once RA-8426 has merged.
  */
 export const QBO_MYOB_DRAIN_EVENT_TYPES = [
   "invoice.paid",

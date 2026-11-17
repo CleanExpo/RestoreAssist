@@ -15,6 +15,7 @@ import { PRODUCTION_ENABLED } from "@/lib/cron/production-schedule";
 import {
   DRAIN_ACCEPTS,
   INGEST_ROUTE_DIR,
+  QBO_MYOB_DRAIN_EVENT_TYPES,
   WEBHOOK_EVENT_TYPES,
   type WebhookEventTypeEntry,
   type WebhookProvider,
@@ -116,6 +117,14 @@ describe("webhook event-type registry (RA-8427)", () => {
 
   it("matches what the ingest routes store, and drained types reach a production drain", () => {
     expect(compareWithRegistry(storedByProvider(), WEBHOOK_EVENT_TYPES, PRODUCTION_CRONS)).toEqual([]);
+  });
+
+  it("the QuickBooks/MYOB drain selects exactly the registry's list", () => {
+    // Exact generated text, not a parse: RA-8426 owns these lines until it merges.
+    const source = readFileSync(join(REPO_ROOT, "lib", "integrations", "webhook-processor.ts"), "utf8");
+    const expected = `eventType: { in: ${JSON.stringify(QBO_MYOB_DRAIN_EVENT_TYPES).replace(/,/g, ", ")} },`;
+    const inLists = source.match(/eventType: \{ in: [^}]*\},/g) ?? [];
+    expect(inLists).toEqual([expected]);
   });
 
   it("lists each (provider, eventType) once", () => {
