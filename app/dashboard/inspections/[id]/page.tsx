@@ -1,5 +1,8 @@
 "use client";
 
+import { formatMoney } from "@/lib/locale/format";
+import { isSpmLine, type SpmRecommendation } from "@/lib/billing/spm-line";
+
 import { useState, useEffect, use, useRef, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -224,6 +227,8 @@ const ADVANCED_INSPECTION_TABS: Tab[] = [
 ];
 
 interface Inspection {
+  propertyCountry?: string | null;
+  spmRecommendation?: SpmRecommendation;
   id: string;
   inspectionNumber: string;
   propertyAddress: string;
@@ -297,6 +302,7 @@ interface Inspection {
   }[];
   costEstimates: {
     id: string;
+    lineKind: string | null;
     category: string;
     description: string;
     quantity: number;
@@ -607,7 +613,19 @@ export default function InspectionDetailPage({
     justification: "",
   });
   const [savingClass, setSavingClass] = useState(false);
-  const [generatingCosts, setGeneratingCosts] = useState(false);
+  const [estimateBusy, setEstimateBusy] = useState(false);
+  const estimateInFlight = useRef(false);
+  const addSpmButton = useRef<HTMLButtonElement>(null);
+  const removeSpmButton = useRef<HTMLButtonElement>(null);
+  const estimateFocus = useRef<"add" | "remove" | null>(null);
+  const [estimateError, setEstimateError] = useState<string | null>(null);
+  const [estimateStatus, setEstimateStatus] = useState("");
+  const [estimateNote, setEstimateNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (estimateBusy || !estimateFocus.current) return;
+    (estimateFocus.current === "remove" ? removeSpmButton : addSpmButton).current?.focus();
+    estimateFocus.current = null;
+  }, [estimateBusy, inspection]);
   const [blockedCosts, setBlockedCosts] = useState<BlockedPricing | null>(null);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [photoCaptionDraft, setPhotoCaptionDraft] = useState("");
@@ -870,8 +888,37 @@ export default function InspectionDetailPage({
     }
   };
 
+  const estimateMoney = (amount: number) => formatMoney(Math.round(amount * 100), inspection?.propertyCountry === "NZ" ? "NZ" : "AU");
+  const announceEstimateTotal = (rows: Inspection["costEstimates"]) => {
+    const total = rows.reduce((sum, row) => sum + Number(row.total), 0);
+    setEstimateStatus(`Estimate total ${estimateMoney(total)} ex GST`);
+  };
+  const handleSpm = async (add: boolean) => {
+    if (estimateInFlight.current) return;
+    estimateInFlight.current = true;
+    setEstimateBusy(true);
+    setEstimateError(null);
+    try {
+      const response = await fetch(`/api/inspections/${id}/cost-estimates/spm`, { method: add ? "POST" : "DELETE" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(apiErrorMessage(data) ?? "Could not update the SPM line");
+      setInspection(prev => prev ? { ...prev, costEstimates: data.costEstimates, spmRecommendation: data.spmRecommendation } : prev);
+      setEstimateNote(data.note ?? null);
+      announceEstimateTotal(data.costEstimates);
+      estimateFocus.current = add ? "remove" : "add";
+    } catch (error) {
+      setEstimateError(error instanceof Error ? error.message : "Could not update the SPM line");
+    } finally {
+      estimateInFlight.current = false;
+      setEstimateBusy(false);
+    }
+  };
+
   const handleGenerateCosts = async () => {
-    setGeneratingCosts(true);
+    if (estimateInFlight.current) return;
+    estimateInFlight.current = true;
+    setEstimateBusy(true);
+    setEstimateError(null);
     try {
       const res = await fetch(`/api/inspections/${id}/cost-estimates`, {
         method: "POST",
@@ -892,6 +939,7 @@ export default function InspectionDetailPage({
           ? {
               ...prev,
               costEstimates: data.costEstimates,
+              spmRecommendation: data.spmRecommendation,
               status:
                 prev.status === "SCOPED" || prev.status === "CLASSIFIED"
                   ? "ESTIMATED"
@@ -899,6 +947,7 @@ export default function InspectionDetailPage({
             }
           : prev,
       );
+      announceEstimateTotal(data.costEstimates);
       toast.success(
         `Generated ${data.costEstimates.length} cost line${data.costEstimates.length === 1 ? "" : "s"}`,
       );
@@ -907,7 +956,8 @@ export default function InspectionDetailPage({
         err instanceof Error ? err.message : "Failed to generate costs",
       );
     } finally {
-      setGeneratingCosts(false);
+      estimateInFlight.current = false;
+      setEstimateBusy(false);
     }
   };
 
@@ -3607,12 +3657,12 @@ export default function InspectionDetailPage({
                 type="button"
                 onClick={handleGenerateCosts}
                 disabled={
-                  generatingCosts ||
+                  estimateBusy ||
                   scopeItems.filter((s) => s.isSelected).length === 0
                 }
                 className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
               >
-                {generatingCosts ? (
+                {estimateBusy ? (
                   <Loader2 size={14} className="animate-spin" />
                 ) : (
                   <DollarSign size={14} />
@@ -3630,9 +3680,24 @@ export default function InspectionDetailPage({
                 />
               </div>
             )}
+            <div role="status" aria-live="polite" className="text-sm">{estimateStatus}</div>
+            {estimateNote && <p className="text-sm text-neutral-600 dark:text-neutral-400">{estimateNote}</p>}
+            {inspection.spmRecommendation?.recommended && inspection.spmRecommendation.line && (
+              <div className="rounded-xl border border-neutral-200 dark:border-slate-700/50 p-4 space-y-2">
+                <h4 className="font-semibold">Highly recommended: Senior Project Manager</h4>
+                <p className="text-sm">{inspection.spmRecommendation.reason}</p>
+                {estimateError && <p role="alert" className="text-sm text-red-600">{estimateError}</p>}
+                <p className="text-sm font-medium">
+                  {inspection.spmRecommendation.line.quantity} hrs at {estimateMoney(inspection.spmRecommendation.line.rate)} = {estimateMoney(inspection.spmRecommendation.line.total)} ex GST
+                </p>
+                <Button ref={addSpmButton} type="button" disabled={estimateBusy} onClick={() => handleSpm(true)}>
+                  {estimateBusy && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}Add to estimate
+                </Button>
+              </div>
+            )}
             {inspection.costEstimates.length > 0 ? (
               <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-slate-700/50">
-                <table className="w-full">
+                <table aria-label="Cost estimates" className="w-full">
                   <thead className="bg-neutral-50 dark:bg-slate-800/50">
                     <tr>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
@@ -3656,6 +3721,7 @@ export default function InspectionDetailPage({
                     {inspection.costEstimates.map((cost) => (
                       <tr
                         key={cost.id}
+                        data-spm-row={isSpmLine(cost) ? "true" : undefined}
                         className="hover:bg-neutral-50 dark:hover:bg-slate-800/30"
                       >
                         <td className="px-4 py-3 text-sm">
@@ -3665,15 +3731,19 @@ export default function InspectionDetailPage({
                         </td>
                         <td className="px-4 py-3 text-sm font-medium">
                           {cost.description}
+                          {isSpmLine(cost) && estimateError && <p role="alert" className="text-sm text-red-600">{estimateError}</p>}
+                          {isSpmLine(cost) && (
+                            <Button ref={removeSpmButton} type="button" variant="outline" size="sm" className="ml-2" disabled={estimateBusy} onClick={() => handleSpm(false)}>Remove</Button>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-sm text-right">
                           {cost.quantity} {cost.unit}
                         </td>
                         <td className="px-4 py-3 text-sm text-right">
-                          ${cost.rate.toFixed(2)}
+                          {estimateMoney(Number(cost.rate))}
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-semibold">
-                          ${cost.total.toFixed(2)}
+                          {estimateMoney(Number(cost.total))}
                         </td>
                       </tr>
                     ))}
@@ -3687,10 +3757,7 @@ export default function InspectionDetailPage({
                         Total
                       </td>
                       <td className="px-4 py-3 text-sm font-bold text-right text-success">
-                        $
-                        {totalCost.toLocaleString("en-AU", {
-                          minimumFractionDigits: 2,
-                        })}
+                        {estimateMoney(totalCost)}
                       </td>
                     </tr>
                   </tfoot>

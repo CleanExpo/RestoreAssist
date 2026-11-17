@@ -1,3 +1,4 @@
+import { logSpmRecommendation } from "@/lib/billing/spm-line";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -401,6 +402,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           },
         },
         costEstimates: {
+          take: 10000,
           orderBy: { createdAt: "asc" },
           select: {
             id: true,
@@ -413,6 +415,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             rate: true,
             subtotal: true,
             costDatabaseId: true,
+            lineKind: true,
             isEstimated: true,
             contingency: true,
             total: true,
@@ -490,7 +493,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       });
     }
 
-    return NextResponse.json({ inspection });
+    return NextResponse.json({ inspection: { ...inspection, spmRecommendation: logSpmRecommendation(id, inspection.costEstimates, inspection.propertyCountry) } });
   } catch (error) {
     return fromException(request, error, { stage: "inspection:get" });
   }

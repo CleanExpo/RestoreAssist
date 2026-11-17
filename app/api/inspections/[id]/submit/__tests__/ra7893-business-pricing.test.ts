@@ -224,7 +224,7 @@ describe("submit route — RA-7893 business pricing", () => {
     mockScopeItemCreateMany.mockResolvedValue({ count: 0 });
     mockCostEstimateCreateMany.mockResolvedValue({ count: 0 });
     mockLiveTeacherFindFirst.mockResolvedValue(null);
-    // RA-8419: the full CostEstimateResult shape; the SPM rule reads it.
+    // RA-8419: the full CostEstimateResult shape for the locked writer.
     mockEstimateCosts.mockResolvedValue({
       items: [],
       subtotal: 0,
@@ -258,6 +258,21 @@ describe("submit route — RA-7893 business pricing", () => {
     // No id handed over, so estimateCosts cannot look pricing up by itself.
     expect(userId).toBeNull();
     expect(statusesWritten()).toContain("ESTIMATED");
+  });
+
+  it("submits an AU $3,000 estimate successfully with work rows only", async () => {
+    mockResolveInspectionRates.mockResolvedValue({ ok: true, rates: BUSINESS_RATES });
+    mockEstimateCosts.mockResolvedValue({
+      items: [{ category: "Labour", description: "Water extraction", quantity: 1, unit: "job", rate: 3000, subtotal: 3000, isEstimated: true }],
+      subtotal: 3000, contingency: 0, total: 3000, currency: "AUD",
+      breakdown: { equipment: 0, labour: 3000, materials: 0, other: 0 },
+      nrpgCompliant: true, nrpgViolations: [], pricingSource: "company-config",
+    });
+    const { POST } = await import("../route");
+    expect((await POST(submit(), params)).status).toBe(200);
+    expect(statusesWritten()).toContain("ESTIMATED");
+    const rows = mockCostEstimateCreateMany.mock.calls.flatMap(([arg]) => arg.data);
+    expect(rows).toEqual([expect.objectContaining({ description: "Water extraction", total: 3000, lineKind: null })]);
   });
 
   it("prices nothing when the inspection's business cannot be proven", async () => {

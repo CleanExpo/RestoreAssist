@@ -1,144 +1,49 @@
-/**
- * RA-8419 slice a: the Senior Project Manager (SPM) line.
- *
- * Founder rule (Phill, 17/11/2026): every claim over $2,500 carries a Senior
- * Project Manager line, 2 hrs at $175/hr = $350 ex GST, covering the site
- * visit and scope. The SPM step is a required part of the process, because
- * larger and more complex claims need the extra data it produces (Decision 5:
- * no waiver).
- *
- * - The threshold is measured ex GST on the estimate total (subtotal plus
- *   contingency) BEFORE the SPM line, so the fee never pushes a job over the
- *   line by itself. "Over $2,500" means strictly greater than 2,500.00.
- * - The SPM line is its own line. Contingency is not charged on it, and no
- *   project-management percentage is added on top (the SPM line replaces the
- *   8% "Project mgmt" setting on these jobs; nothing in the estimate path
- *   applies that percentage today).
- * - Australia only for now. NZ is excluded until the AU jobs prove the rule.
- * - $175/hr is the default; a company rate may be passed in.
- *
- * This module is the one owner of the rule. Every writer of CostEstimate rows
- * calls withSpmLine() just before buildEstimateLines(); never copy the rule.
- *
- * Design note: ~/Documents/RestoreAssist-design-references/
- * SPM-REQUIREMENT-DESIGN-2026-11-17.md (Mini).
- */
+/** RA-8419: the business chooses to add this priced recommendation. */
 import Decimal from "decimal.js";
-import type {
-  CostEstimateItem,
-  CostEstimateResult,
-} from "@/lib/nir-cost-estimation";
 
-/** A claim must be strictly over this amount, ex GST, to need an SPM. */
 export const SPM_THRESHOLD_EX_GST = 2500;
-/** Fixed minimum SPM time: site visit and scope. */
 export const SPM_HOURS = 2;
-/** Default SPM hourly rate ex GST; each company may set its own. */
+/** Fixed rate for this slice; no company override is accepted by the route. */
 export const SPM_DEFAULT_HOURLY_RATE = 175;
-/** The line's wording, for people. It does NOT identify the line. */
-export const SPM_LINE_DESCRIPTION =
-  "Senior Project Manager: site visit and scope";
-/**
- * The marker that identifies the SPM line (CostEstimate.lineKind). Only this
- * module sets it. A description can be typed by a user, so a work line may
- * carry the SPM wording; it must never be mistaken for the SPM line (Codex
- * review round 2, P1).
- */
+export const SPM_LINE_DESCRIPTION = "Senior Project Manager: site visit and scope";
 export const SPM_LINE_KIND = "SPM";
+export const SPM_REASON = "Claims over $2,500 run more smoothly with a senior project manager on site: a full scope, complete evidence, fewer complaints and faster payment.";
 
-export interface SpmOptions {
-  /** The property's country. Missing means Australia (RestoreAssist's default). */
-  country?: string | null;
-  /** Company SPM hourly rate ex GST. Defaults to SPM_DEFAULT_HOURLY_RATE. */
-  hourlyRate?: number;
-  /**
-   * Total ex GST of rows already saved for this job that this estimate is
-   * being added to (excluding any SPM row). Counts towards the threshold.
-   */
-  priorTotalExGst?: number;
-  /** True when a saved row for this job is already the SPM line. */
-  spmAlreadyCharged?: boolean;
-}
-
-/** True when a line (estimate item or saved row) carries the SPM marker. */
 export function isSpmLine(line: { lineKind?: string | null }): boolean {
   return line.lineKind === SPM_LINE_KIND;
 }
 
-function isNewZealand(country: string | null | undefined): boolean {
-  if (country == null) return false;
-  const c = country.trim().toUpperCase();
-  return c === "NZ" || c === "NZL" || c === "NEW ZEALAND";
+export function isNewZealand(country: string | null | undefined): boolean {
+  return ["NZ", "NZL", "NEW ZEALAND"].includes(country?.trim().toUpperCase() ?? "");
 }
 
-function money(n: Decimal): number {
-  return n.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+export interface SpmRecommendation {
+  recommended: boolean;
+  workTotalExGst: number;
+  line: { description: string; quantity: number; unit: string; rate: number; total: number } | null;
+  reason: string | null;
 }
 
-/**
- * Return the estimate with the SPM line applied: added when the job is over
- * the threshold, removed when a stale one is present and the job is not. The
- * input is never mutated.
- */
-export function withSpmLine(
-  estimate: CostEstimateResult,
-  options: SpmOptions = {},
-): CostEstimateResult {
-  const hourlyRate = options.hourlyRate ?? SPM_DEFAULT_HOURLY_RATE;
-  if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
-    throw new Error(
-      `SPM hourly rate must be a positive amount, got ${hourlyRate}`,
-    );
-  }
-
-  // Measure before the SPM line: take out any SPM line already present.
-  const existing = estimate.items.filter(isSpmLine);
-  const workItems = estimate.items.filter((i) => !isSpmLine(i));
-  const existingSpm = existing.reduce(
-    (s, i) => s.plus(i.subtotal),
-    new Decimal(0),
-  );
-  const subtotal = new Decimal(estimate.subtotal).minus(existingSpm);
-  const total = new Decimal(estimate.total).minus(existingSpm);
-  const other = new Decimal(estimate.breakdown.other).minus(existingSpm);
-
-  const jobTotalExGst = total.plus(options.priorTotalExGst ?? 0);
-  const applies =
-    !isNewZealand(options.country) &&
-    !options.spmAlreadyCharged &&
-    jobTotalExGst.greaterThan(SPM_THRESHOLD_EX_GST);
-
-  if (!applies) {
-    if (existing.length === 0) return estimate;
-    return {
-      ...estimate,
-      items: workItems,
-      subtotal: money(subtotal),
-      total: money(total),
-      breakdown: { ...estimate.breakdown, other: money(other) },
-    };
-  }
-
-  const fee = new Decimal(SPM_HOURS).mul(hourlyRate);
-  const spmItem: CostEstimateItem = {
-    category: "Other",
-    description: SPM_LINE_DESCRIPTION,
-    quantity: SPM_HOURS,
-    unit: "hr",
-    rate: hourlyRate,
-    subtotal: money(fee),
-    nrpgField: null,
-    nrpgCompliant: true,
-    rateSource: "spm-standard",
-    isEstimated: false,
-    lineKind: SPM_LINE_KIND,
-  };
-
+/** Pure recommendation over saved rows. Identity is the marker, never wording. */
+export function spmRecommendation(
+  rows: ReadonlyArray<{ total: Decimal.Value; lineKind?: string | null }>,
+  country: string | null | undefined,
+  hourlyRate = SPM_DEFAULT_HOURLY_RATE,
+): SpmRecommendation {
+  if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) throw new Error("SPM hourly rate must be positive and finite");
+  const work = rows.filter(row => !isSpmLine(row)).reduce((sum, row) => sum.plus(row.total), new Decimal(0));
+  const recommended = !isNewZealand(country) && !rows.some(isSpmLine) && work.greaterThan(SPM_THRESHOLD_EX_GST);
   return {
-    ...estimate,
-    items: [...workItems, spmItem],
-    subtotal: money(subtotal.plus(fee)),
-    total: money(total.plus(fee)),
-    breakdown: { ...estimate.breakdown, other: money(other.plus(fee)) },
+    recommended,
+    workTotalExGst: work.toNumber(),
+    line: recommended ? { description: SPM_LINE_DESCRIPTION, quantity: SPM_HOURS, unit: "hr", rate: hourlyRate, total: new Decimal(SPM_HOURS).mul(hourlyRate).toDecimalPlaces(2).toNumber() } : null,
+    reason: recommended ? SPM_REASON : null,
   };
+}
+
+/** One structured, non-personal log for each served recommendation. */
+export function logSpmRecommendation(inspectionId: string, rows: Parameters<typeof spmRecommendation>[0], country: string | null | undefined): SpmRecommendation {
+  const recommendation = spmRecommendation(rows, country);
+  console.info("[spm] recommendation", { inspectionId, recommended: recommendation.recommended, workTotalExGst: recommendation.workTotalExGst, hasLine: rows.some(isSpmLine) });
+  return recommendation;
 }

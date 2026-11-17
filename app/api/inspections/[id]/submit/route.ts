@@ -776,11 +776,8 @@ async function processInspectionComplete(
     return { pricingRefused: true as const };
   }
 
-  // Save cost estimates through the one locked writer (RA-8419), which builds
-  // rows with the shared line helper (RA-7708) and applies the Senior Project
-  // Manager line. Submit has always added to any saved rows (replace: false),
-  // so saved work counts and a saved SPM row is never charged twice.
-  const pricedEstimate = await prisma.$transaction((tx) =>
+  // Submit appends work through the locked writer, without adding an SPM charge.
+  const { estimate: pricedEstimate } = await prisma.$transaction((tx) =>
     saveEstimateRows(tx, {
       inspectionId,
       estimate: costEstimate,

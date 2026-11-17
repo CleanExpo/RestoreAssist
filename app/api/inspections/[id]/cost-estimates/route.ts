@@ -2,7 +2,7 @@
  * Cost estimates for an inspection.
  *
  * GET  — list CostEstimate rows
- * POST — generate from selected scope items via estimateCosts (replaces prior rows)
+ * POST — generate work from selected scope; summary.total describes generated work only.
  */
 
 import { isBlockedResult } from "@/lib/pricing/blocked-line";
@@ -16,7 +16,9 @@ import {
   estimateCosts,
   resolveInspectionRates,
 } from "@/lib/nir-cost-estimation";
-import { saveEstimateRows } from "@/lib/billing/spm-estimate-rows";
+import { logSpmRecommendation } from "@/lib/billing/spm-line";
+import { assertEstimateWriter } from "@/lib/auth/assert-estimate-writer";
+import { estimateRowSelect, saveEstimateRows } from "@/lib/billing/spm-estimate-rows";
 import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
 import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
@@ -41,10 +43,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: { id: true },
-    });
+    const inspection = await assertEstimateWriter(session, id);
     if (!inspection) {
       return apiError(request, {
         code: "NOT_FOUND",
@@ -55,10 +54,12 @@ export async function GET(
 
     const costEstimates = await prisma.costEstimate.findMany({
       where: { inspectionId: id },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: estimateRowSelect,
+      take: 10000,
     });
 
-    return NextResponse.json({ costEstimates });
+    return NextResponse.json({ costEstimates, spmRecommendation: logSpmRecommendation(id, costEstimates, inspection.propertyCountry) });
   } catch (error) {
     return fromException(request, error, { stage: "cost-estimates-get" });
   }
@@ -79,28 +80,7 @@ export async function POST(
     }
 
     const { id } = await params;
-    const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: {
-        id: true,
-        status: true,
-        propertyPostcode: true,
-        propertyCountry: true,
-        createdAt: true,
-        scopeItems: {
-          where: { isSelected: true },
-          select: {
-            id: true,
-            itemType: true,
-            description: true,
-            quantity: true,
-            unit: true,
-            specification: true,
-            justification: true,
-          },
-        },
-      },
-    });
+    const inspection = await assertEstimateWriter(session, id);
 
     if (!inspection) {
       return apiError(request, {
@@ -169,16 +149,16 @@ export async function POST(
       });
     }
 
-    // RA-8419: rows are written by the one locked writer, which applies the
-    // Senior Project Manager line with saved rows counted when appending.
+    // Generation saves work only; an explicitly added SPM row survives replace.
     let pricedEstimate = costEstimate;
     const costEstimates = await prisma.$transaction(async (tx) => {
-      pricedEstimate = await saveEstimateRows(tx, {
+      const saved = await saveEstimateRows(tx, {
         inspectionId: id,
         estimate: costEstimate,
         country: inspection.propertyCountry,
         replace,
       });
+      pricedEstimate = saved.estimate;
 
       // Advance status when still pre-estimate (don't regress later states).
       if (
@@ -200,7 +180,9 @@ export async function POST(
           userId: session.user.id,
           changes: JSON.stringify({
             itemCount: pricedEstimate.items.length,
-            total: pricedEstimate.total,
+            generatedTotal: pricedEstimate.total,
+            savedTotal: saved.savedTotalExGst,
+            spmRowKept: saved.spmRowKept,
             pricingSource: pricedEstimate.pricingSource,
           }),
         },
@@ -208,7 +190,9 @@ export async function POST(
 
       return tx.costEstimate.findMany({
         where: { inspectionId: id },
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: estimateRowSelect,
+      take: 10000,
       });
     });
 
@@ -217,6 +201,7 @@ export async function POST(
     return NextResponse.json(
       {
         costEstimates,
+        spmRecommendation: logSpmRecommendation(id, costEstimates, inspection.propertyCountry),
         summary: {
           subtotal: pricedEstimate.subtotal,
           contingency: pricedEstimate.contingency,

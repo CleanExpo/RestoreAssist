@@ -1,9 +1,3 @@
-/**
- * RA-8419: the cost-estimates route saves the Senior Project Manager line on
- * a claim over $2,500 ex GST, counts saved rows when appending, and never
- * charges the SPM line twice. The rule itself is tested in
- * lib/__tests__/spm-line.test.ts; this file proves the route applies it.
- */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { SPM_LINE_DESCRIPTION } from "@/lib/billing/spm-line";
@@ -126,14 +120,14 @@ describe("RA-8419 cost-estimates route: SPM line", () => {
     mockResolveInspectionRates.mockResolvedValue({ ok: true, rates: null });
   });
 
-  it("saves one $350 SPM row on an AU claim over $2,500 and reports the new total", async () => {
+  it.each([true, false])("AU $3,000 generate replace=%s writes only work and reports its total", async (replace) => {
     mockFindFirst.mockResolvedValue(inspection("AU"));
-    mockEstimateCosts.mockResolvedValue(engineResult(2500.01));
-    const { res, rows } = await post({ replace: true });
+    mockEstimateCosts.mockResolvedValue(engineResult(3000));
+    const { res, rows } = await post({ replace });
     expect(res.status).toBe(201);
-    expect(spmRows(rows)).toHaveLength(1);
-    expect(spmRows(rows)[0].total).toBe(350);
-    expect((await res.json()).summary.total).toBe(2850.01);
+    expect(rows).toEqual([expect.objectContaining({ description: "Water extraction", total: 3000, lineKind: null })]);
+    expect(spmRows(rows)).toHaveLength(0);
+    expect((await res.json()).summary.total).toBe(3000);
   });
 
   it("saves no SPM row at exactly $2,500", async () => {
@@ -150,14 +144,14 @@ describe("RA-8419 cost-estimates route: SPM line", () => {
     expect(spmRows(rows)).toHaveLength(0);
   });
 
-  it("appending: saved rows count towards the threshold", async () => {
+  it("appending: crossing the recommendation threshold never inserts a charge", async () => {
     mockFindFirst.mockResolvedValue(inspection("AU"));
     mockEstimateCosts.mockResolvedValue(engineResult(1200));
     const { rows } = await post({
       replace: false,
       savedRows: [{ description: "Earlier work", total: 1500, lineKind: null }],
     });
-    expect(spmRows(rows)).toHaveLength(1);
+    expect(spmRows(rows)).toHaveLength(0);
   });
 
   it("appending: an SPM row already saved is not charged again", async () => {

@@ -1,14 +1,4 @@
-/**
- * RA-8419 review round 1 (Codex P1): two concurrent estimate writes for one
- * job could each see no saved SPM row and each add one, charging $700.
- *
- * Fix: saveEstimateRows() is the one writer of CostEstimate rows. Inside the
- * caller's transaction it locks the inspection row FIRST, so concurrent
- * writers queue, and only then reads the saved rows and applies the SPM rule.
- * These tests pin the order (lock before any read or delete) and the
- * counting; a real-database concurrency check is not possible in unit tests.
- */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { CostEstimateResult } from "@/lib/nir-cost-estimation";
 import { SPM_LINE_DESCRIPTION } from "@/lib/billing/spm-line";
 import { saveEstimateRows } from "@/lib/billing/spm-estimate-rows";
@@ -41,144 +31,42 @@ function estimateTotalling(total: number): CostEstimateResult {
   };
 }
 
-/** A fake transaction client that records every call in order. */
-function fakeTx(
-  saved: { description: string; total: number; lineKind: string | null }[] = [],
-) {
+/** Unit oracles for lock order, NULL-safe replacement and choice preservation. */
+function fakeTx(saved: Array<{ id: string; total: number; lineKind: string | null }> = []) {
   const calls: string[] = [];
-  const created: {
-    description: string;
-    total: number;
-    inspectionId: string;
-    lineKind: string | null;
-  }[] = [];
-  let lockSql = "";
+  const createMany = vi.fn(async (_arg: { data: Array<{ lineKind: string | null; total: number }> }) => { calls.push("write"); });
+  const deleteMany = vi.fn(async (_arg: unknown) => { calls.push("delete"); });
   const tx = {
-    $queryRaw: async (q: { sql?: string; strings?: string[] }) => {
-      lockSql = q.sql ?? (q.strings ?? []).join("?");
-      calls.push("lock");
-      return [{ id: "i1" }];
-    },
-    costEstimate: {
-      deleteMany: async () => {
-        calls.push("deleteMany");
-        return { count: saved.length };
-      },
-      findMany: async () => {
-        calls.push("findMany");
-        return saved;
-      },
-      createMany: async ({ data }: { data: typeof created }) => {
-        calls.push("createMany");
-        created.push(...data);
-        return { count: data.length };
-      },
-    },
+    $queryRaw: vi.fn(async (_arg: { sql: string }) => { calls.push("lock"); return []; }),
+    costEstimate: { createMany, deleteMany, findMany: vi.fn(async () => { calls.push("read"); return saved; }) },
   };
-  return { tx, calls, created, lockSql: () => lockSql };
+  return { tx, calls, createMany, deleteMany };
 }
-
-const spmRows = (rows: { lineKind: string | null }[]) =>
-  rows.filter((r) => r.lineKind === "SPM");
-
-describe("RA-8419 saveEstimateRows: one locked writer", () => {
-  it("locks the inspection row before reading saved rows (append)", async () => {
-    const f = fakeTx();
-    await saveEstimateRows(f.tx as never, {
-      inspectionId: "i1",
-      estimate: estimateTotalling(3000),
-      country: "AU",
-      replace: false,
-    });
-    expect(f.calls).toEqual(["lock", "findMany", "createMany"]);
-    expect(f.lockSql()).toMatch(/FROM "Inspection"/);
-    expect(f.lockSql()).toMatch(/FOR UPDATE/);
+const savedSpm = { id: "spm", total: 350, lineKind: "SPM" };
+describe("saveEstimateRows saves generated work only", () => {
+  it.each([true, false])("locks first and never inserts a fee: replace=%s", async replace => {
+    const f = fakeTx([{ id: "work", total: 3000, lineKind: null }]);
+    const result = await saveEstimateRows(f.tx as never, { inspectionId: "i1", estimate: estimateTotalling(3000), country: "AU", replace });
+    expect(f.calls).toEqual(replace ? ["lock", "delete", "write", "read"] : ["lock", "write", "read"]);
+    expect(f.tx.$queryRaw.mock.calls[0][0].sql).toMatch(/FROM "Inspection".*FOR UPDATE/);
+    expect(f.createMany.mock.calls[0][0].data).toEqual([expect.objectContaining({ inspectionId: "i1", total: 3000, lineKind: null })]);
+    expect(result.estimate.total).toBe(3000); expect(result.savedTotalExGst).toBe(3000); expect(result.spmRowKept).toBe(false);
   });
-
-  it("locks the inspection row before deleting saved rows (replace)", async () => {
-    const f = fakeTx();
-    await saveEstimateRows(f.tx as never, {
-      inspectionId: "i1",
-      estimate: estimateTotalling(3000),
-      country: "AU",
-      replace: true,
-    });
-    expect(f.calls).toEqual(["lock", "deleteMany", "createMany"]);
+  it("replace uses the exact NULL-safe work filter, preserving the added row", async () => {
+    const f = fakeTx([{ id: "work", total: 4000, lineKind: null }, savedSpm]);
+    const result = await saveEstimateRows(f.tx as never, { inspectionId: "i1", estimate: estimateTotalling(4000), country: "AU", replace: true });
+    expect(f.deleteMany).toHaveBeenCalledWith({ where: { inspectionId: "i1", OR: [{ lineKind: null }, { lineKind: { not: "SPM" } }] } });
+    expect(result.savedTotalExGst).toBe(4350); expect(result.spmRowKept).toBe(true);
+    expect(f.createMany.mock.calls[0][0].data.map((row: { lineKind: string | null }) => row.lineKind)).toEqual([null]);
   });
-
-  it("append: saved work counts towards the threshold", async () => {
-    const f = fakeTx([{ description: "Earlier work", total: 1500, lineKind: null }]);
-    const priced = await saveEstimateRows(f.tx as never, {
-      inspectionId: "i1",
-      estimate: estimateTotalling(1200),
-      country: "AU",
-      replace: false,
-    });
-    expect(spmRows(f.created)).toHaveLength(1);
-    expect(priced.total).toBe(1550);
-    expect(f.created.every((r) => r.inspectionId === "i1")).toBe(true);
+  it("append never deletes or re-adds a saved SPM row", async () => {
+    const f = fakeTx([savedSpm]);
+    await saveEstimateRows(f.tx as never, { inspectionId: "i1", estimate: estimateTotalling(4000), country: "AU", replace: false });
+    expect(f.deleteMany).not.toHaveBeenCalled(); expect(f.createMany.mock.calls[0][0].data).toHaveLength(1);
   });
-
-  it("append: a saved SPM row is never charged again", async () => {
-    const f = fakeTx([
-      { description: "Earlier work", total: 3000, lineKind: null },
-      { description: SPM_LINE_DESCRIPTION, total: 350, lineKind: "SPM" },
-    ]);
-    await saveEstimateRows(f.tx as never, {
-      inspectionId: "i1",
-      estimate: estimateTotalling(4000),
-      country: "AU",
-      replace: false,
-    });
-    expect(spmRows(f.created)).toHaveLength(0);
-  });
-
-  it("replace: saved rows are ignored (they are deleted first)", async () => {
-    const f = fakeTx([
-      { description: SPM_LINE_DESCRIPTION, total: 350, lineKind: "SPM" },
-    ]);
-    await saveEstimateRows(f.tx as never, {
-      inspectionId: "i1",
-      estimate: estimateTotalling(4000),
-      country: "AU",
-      replace: true,
-    });
-    expect(spmRows(f.created)).toHaveLength(1);
-  });
-
-  it("append: a saved WORK row worded like the SPM line counts as work, not as the SPM charge", async () => {
-    const f = fakeTx([
-      { description: SPM_LINE_DESCRIPTION, total: 1500, lineKind: null },
-    ]);
-    const priced = await saveEstimateRows(f.tx as never, {
-      inspectionId: "i1",
-      estimate: estimateTotalling(1200),
-      country: "AU",
-      replace: false,
-    });
-    expect(spmRows(f.created)).toHaveLength(1);
-    expect(priced.total).toBe(1550);
-  });
-
-  it("writes lineKind SPM on the SPM row only", async () => {
-    const f = fakeTx();
-    await saveEstimateRows(f.tx as never, {
-      inspectionId: "i1",
-      estimate: estimateTotalling(3000),
-      country: "AU",
-      replace: true,
-    });
-    expect(f.created.map((r) => r.lineKind)).toEqual([null, "SPM"]);
-  });
-
-  it("NZ: no SPM row", async () => {
-    const f = fakeTx();
-    await saveEstimateRows(f.tx as never, {
-      inspectionId: "i1",
-      estimate: estimateTotalling(9000),
-      country: "NZ",
-      replace: true,
-    });
-    expect(spmRows(f.created)).toHaveLength(0);
+  it("a work row with SPM wording remains work", async () => {
+    const f = fakeTx(); const estimate = estimateTotalling(3000); estimate.items[0].description = SPM_LINE_DESCRIPTION;
+    await saveEstimateRows(f.tx as never, { inspectionId: "i1", estimate, country: "AU", replace: true });
+    expect(f.createMany.mock.calls[0][0].data[0]).toMatchObject({ description: SPM_LINE_DESCRIPTION, total: 3000, lineKind: null });
   });
 });

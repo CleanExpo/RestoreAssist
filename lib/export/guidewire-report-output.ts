@@ -1,3 +1,4 @@
+import { isSpmLine } from "@/lib/billing/spm-line";
 import { prisma } from "@/lib/prisma";
 import {
   type NirReportOutput,
@@ -98,6 +99,7 @@ export async function fetchInspectionForGuidewire(id: string) {
       },
       costEstimates: {
         select: {
+          lineKind: true,
           description: true,
           rate: true,
         },
@@ -248,7 +250,7 @@ export function buildNirReportOutput(
   // but not a direct foreign key in the current schema)
   const scopeLineItems: NirScopeLineItem[] = inspection.scopeItems.map((si) => {
     const costMatch = inspection.costEstimates.find(
-      (ce) => ce.description === si.description,
+      (ce) => !isSpmLine(ce) && ce.description === si.description,
     );
     return {
       lineItemId: si.id,

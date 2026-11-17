@@ -117,7 +117,21 @@ beforeEach(() => {
     createdAt: new Date("2026-10-10T00:00:00Z"),
     scopeItems: SCOPE_ITEMS,
   });
-  transaction.mockResolvedValue([{ id: "ce1" }, { id: "ce2" }]);
+  // Exercise the transaction callback: the response now derives its recommendation
+  // from saved totals, so id-only placeholder rows are not a valid fixture.
+  transaction.mockImplementation(async fn => {
+    let saved: Array<Record<string, unknown>> = [];
+    return fn({
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      costEstimate: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn(async ({ data }) => { saved = data.map((row: Record<string, unknown>, i: number) => ({ id: `ce${i}`, ...row })); }),
+        findMany: vi.fn(async () => saved),
+      },
+      inspection: { update: vi.fn() },
+      auditLog: { create: vi.fn() },
+    });
+  });
 });
 
 describe("POST cost-estimates: a rate that is not set (RA-8281 B2)", () => {
