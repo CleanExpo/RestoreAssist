@@ -106,7 +106,9 @@ describe("cron routes against a database that has not applied the Zoho migration
       status: "completed",
       metadata: { zohoProcessed: 0, zohoFailed: 0 },
     });
-    expect(integrationFindMany).toHaveBeenCalledTimes(1);
+    // RA-8428: two integration reads per run, never-swept first, then the
+    // least recently swept, so the round-robin reaches every integration.
+    expect(integrationFindMany).toHaveBeenCalledTimes(2);
     // The drain is attempted and its P2021 is contained by drainZoho.
     expect(zohoSyncJobFindMany).toHaveBeenCalledTimes(1);
   });

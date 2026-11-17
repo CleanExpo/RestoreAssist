@@ -1283,6 +1283,9 @@ model Integration {
   syncLogs            IntegrationSyncLog[]
   webhookEvents       WebhookEvent[]
   xeroAccountMappings XeroAccountCodeMapping[] @relation("IntegrationXeroMappings")
+  // RA-8428: the hourly invoice-sync backstop's own cursor. Never lastSyncAt,
+  // which the manual Sync button, client import and OAuth callback also write.
+  invoiceSyncCursor   InvoiceSyncCursor?
 
   // RA-1226: widened from (userId, provider) to include workspaceId so a user
   // can connect Xero to two separate workspaces without hitting a unique violation.
@@ -1422,6 +1425,22 @@ model IntegrationSyncLog {
 
   @@index([integrationId])
   @@index([startedAt])
+}
+
+// RA-8428: keyset cursor for GET /api/cron/sync-invoices, one row per
+// accounting integration. Written only by that cron. (cursorAt, cursorId) is
+// the (updatedAt, id) of the last invoice the backstop queued; sweptAt is when
+// the cron last visited the integration and orders the round-robin, so every
+// integration is reached even when more than one batch is connected.
+model InvoiceSyncCursor {
+  integrationId String      @id
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  cursorAt DateTime
+  cursorId String?
+  sweptAt  DateTime
+
+  @@index([sweptAt])
 }
 
 // Webhook Event (two-way sync from accounting systems)

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { OAUTH_CANDIDATE_WHERE } from "@/lib/services/integrations/select-oauth";
 import { isOAuthIntegration } from "@/lib/integrations/identity";
@@ -42,26 +43,51 @@ export async function POST(request: NextRequest) {
   return GET(request);
 }
 
-async function syncInvoicesOnce() {
-  const integrations = await prisma.integration.findMany({
-    where: {
-      ...OAUTH_CANDIDATE_WHERE,
-      status: "CONNECTED",
-      provider: {
-        in: ["XERO", "QUICKBOOKS", "MYOB"],
-      },
-    },
-    select: {
-      name: true, icon: true, config: true, workspaceId: true,
-      tokenExpiresAt: true, realmId: true, companyId: true,
-      id: true,
-      provider: true,
-      userId: true,
-      tenantId: true, lastSyncAt: true,
-    },
-    orderBy: { createdAt: "asc" },
+const ACCOUNTING_INTEGRATION_WHERE = {
+  ...OAUTH_CANDIDATE_WHERE,
+  status: "CONNECTED",
+  provider: {
+    in: ["XERO", "QUICKBOOKS", "MYOB"],
+  },
+} satisfies Prisma.IntegrationWhereInput;
+
+const INTEGRATION_SELECT = {
+  name: true, icon: true, config: true, workspaceId: true,
+  tokenExpiresAt: true, realmId: true, companyId: true,
+  id: true,
+  provider: true,
+  userId: true,
+  tenantId: true, lastSyncAt: true,
+  invoiceSyncCursor: { select: { cursorAt: true, cursorId: true } },
+} satisfies Prisma.IntegrationSelect;
+
+/**
+ * RA-8428: integrations never visited come first, then the least recently
+ * swept, so every connected integration is reached even past the per-run cap.
+ */
+async function selectIntegrationsToSweep() {
+  const unswept = await prisma.integration.findMany({
+    where: { ...ACCOUNTING_INTEGRATION_WHERE, invoiceSyncCursor: { is: null } },
+    select: INTEGRATION_SELECT,
+    orderBy: { id: "asc" },
     take: MAX_INTEGRATIONS_PER_CRON_RUN,
   });
+  const room = MAX_INTEGRATIONS_PER_CRON_RUN - unswept.length;
+  if (room <= 0) return unswept;
+  const swept = await prisma.integration.findMany({
+    where: {
+      ...ACCOUNTING_INTEGRATION_WHERE,
+      invoiceSyncCursor: { isNot: null },
+    },
+    select: INTEGRATION_SELECT,
+    orderBy: [{ invoiceSyncCursor: { sweptAt: "asc" } }, { id: "asc" }],
+    take: room,
+  });
+  return [...unswept, ...swept];
+}
+
+async function syncInvoicesOnce() {
+  const integrations = await selectIntegrationsToSweep();
 
   const zoho = await drainZoho();
 
@@ -81,69 +107,74 @@ async function syncInvoicesOnce() {
   let totalQueued = 0;
 
   for (const integration of integrations) {
-    if (!isOAuthIntegration(integration)) continue;
+    const sweptAt = new Date();
+    // RA-8428: the cursor is this cron's own (updatedAt, id) keyset position.
+    // Integration.lastSyncAt is written by the manual Sync button, client
+    // import and OAuth too, so it only seeds a cursor that does not exist yet.
+    let cursorAt =
+      integration.invoiceSyncCursor?.cursorAt ??
+      integration.lastSyncAt ??
+      new Date(sweptAt.getTime() - 24 * 60 * 60 * 1000);
+    let cursorId = integration.invoiceSyncCursor?.cursorId ?? null;
+
     try {
-      const syncWindow =
-        integration.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-      const invoices = await prisma.invoice.findMany({
-        where: {
-          userId: integration.userId,
-          workspaceId: integration.workspaceId,
-          status: {
-            not: "DRAFT",
+      if (isOAuthIntegration(integration)) {
+        const invoices = await prisma.invoice.findMany({
+          where: {
+            userId: integration.userId,
+            workspaceId: integration.workspaceId,
+            status: {
+              not: "DRAFT",
+            },
+            OR:
+              cursorId === null
+                ? [{ updatedAt: { gte: cursorAt } }]
+                : [
+                    { updatedAt: { gt: cursorAt } },
+                    { updatedAt: cursorAt, id: { gt: cursorId } },
+                  ],
           },
-          updatedAt: {
-            gte: syncWindow,
+          select: {
+            id: true,
+            updatedAt: true,
           },
-          OR: [
-            {
-              externalInvoiceId: null,
-            },
-            {
-              externalSyncProvider: {
-                not: integration.provider,
-              },
-            },
-            {
-              updatedAt: {
-                gte: integration.lastSyncAt || new Date(0),
-              },
-            },
-          ],
-        },
-        select: {
-          id: true,
-          invoiceNumber: true,
-          status: true,
-        },
-        orderBy: { updatedAt: "asc" },
-        take: MAX_INVOICES_PER_INTEGRATION,
-      });
+          orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+          take: MAX_INVOICES_PER_INTEGRATION,
+        });
 
-      if (invoices.length === 0) {
-        continue;
-      }
-
-      for (const invoice of invoices) {
-        try {
-          await queueInvoiceSync(invoice.id, integration.provider, "NORMAL");
+        for (const invoice of invoices) {
+          try {
+            await queueInvoiceSync(invoice.id, integration.provider, "NORMAL");
+          } catch (error) {
+            // Stop here so the cursor never moves past an invoice that was
+            // not queued; the next run starts again from this invoice.
+            console.error(
+              `[Invoice Sync Cron] Failed to queue invoice ${invoice.id}:`,
+              error,
+            );
+            break;
+          }
           totalQueued++;
-        } catch (error) {
-          console.error(
-            `[Invoice Sync Cron] Failed to queue invoice ${invoice.id}:`,
-            error,
-          );
+          cursorAt = invoice.updatedAt;
+          cursorId = invoice.id;
         }
       }
-
-      await prisma.integration.update({
-        where: { id: integration.id },
-        data: { lastSyncAt: new Date() },
-      });
     } catch (error) {
       console.error(
         `[Invoice Sync Cron] Error processing integration ${integration.id}:`,
+        error,
+      );
+    }
+
+    try {
+      await prisma.invoiceSyncCursor.upsert({
+        where: { integrationId: integration.id },
+        create: { integrationId: integration.id, cursorAt, cursorId, sweptAt },
+        update: { cursorAt, cursorId, sweptAt },
+      });
+    } catch (error) {
+      console.error(
+        `[Invoice Sync Cron] Failed to save cursor for integration ${integration.id}:`,
         error,
       );
     }
