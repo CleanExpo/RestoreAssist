@@ -61,6 +61,7 @@ export default function PublicSigningPage() {
 
   const [pageState, setPageState] = useState<PageState>("loading");
   const [errorMessage, setErrorMessage] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [signatory, setSignatory] = useState<SignatoryInfo | null>(null);
   const [form, setForm] = useState<FormData | null>(null);
   const [signatoryName, setSignatoryName] = useState("");
@@ -102,6 +103,7 @@ export default function PublicSigningPage() {
   const handleSubmit = async () => {
     if (!signatureData || !agreed || !signatoryName.trim()) return;
 
+    setSubmitError(null);
     setPageState("signing");
     try {
       const res = await fetch(`/api/authority-forms/sign/${token}`, {
@@ -115,14 +117,20 @@ export default function PublicSigningPage() {
 
       if (res.ok) {
         setPageState("success");
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setErrorMessage(apiErrorMessage(data) ?? "Failed to submit signature");
-        setPageState("error");
+        return;
       }
+      const data = await res.json().catch(() => ({}));
+      if (data?.error?.code === "CONFLICT") {
+        setPageState("already_signed");
+        return;
+      }
+      // RA-8418 — keep the form (and the drawn signature) on screen so the
+      // person can press submit again; the load-error screen discarded both.
+      setSubmitError(apiErrorMessage(data) ?? "Failed to submit signature");
+      setPageState("ready");
     } catch {
-      setErrorMessage("Unable to submit. Please try again.");
-      setPageState("error");
+      setSubmitError("Unable to connect. Check your connection and try again.");
+      setPageState("ready");
     }
   };
 
@@ -382,6 +390,25 @@ export default function PublicSigningPage() {
               onClear={() => setSignatureData(null)}
             />
           </div>
+
+          {submitError && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+            >
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
+              <div>
+                <p className="font-medium">
+                  Your signature was not submitted.
+                </p>
+                <p className="mt-0.5">{submitError}</p>
+                <p className="mt-1 text-amber-800">
+                  Your signature is still below. Press Sign &amp; Submit to try
+                  again.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Submit */}
           <button

@@ -20,6 +20,7 @@ import { AnnouncerProvider } from "@/components/LiveRegion";
 import { ConvaiWidget } from "@/components/support/ConvaiWidget";
 import { PublicAssistantOrb } from "@/components/avatar";
 import { BotIdClient } from "botid/client";
+import { BOTID_PROTECTED_ROUTES } from "@/lib/auth/botid-routes";
 import { IOS_SHELL_LAUNCH_GUARD } from "@/lib/capacitor";
 import { FIRST_TOUCH_SCRIPT } from "@/lib/analytics/attribution";
 import "@/lib/env-check";
@@ -30,11 +31,8 @@ import "./globals.css";
 // 16's "script tag while rendering" error AND the script never executes, so
 // the bot signal silently fails. One mount here covers every protected route.
 // Docs: node_modules/botid/README.md ("Mount the <BotIdClient/> in your layout").
-const BOTID_PROTECTED_ROUTES = [
-  { path: "/api/auth/register", method: "POST" },
-  { path: "/api/auth/forgot-password", method: "POST" },
-  { path: "/api/auth/reset-password", method: "POST" },
-];
+// RA-8418 — the protect list lives in lib/auth/botid-routes.ts, where a test
+// checks it covers every route that calls verifyBotId().
 
 // RA — /_not-found export was failing with "TypeError: Invalid URL" because
 // metadataBase received an empty or malformed NEXTAUTH_URL at build time
@@ -151,7 +149,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: IOS_SHELL_LAUNCH_GUARD }} />
         {/* First-touch campaign attribution for signups (lib/analytics/attribution.ts). */}
         <script dangerouslySetInnerHTML={{ __html: FIRST_TOUCH_SCRIPT }} />
-        <BotIdClient protect={BOTID_PROTECTED_ROUTES} />
+        <BotIdClient protect={[...BOTID_PROTECTED_ROUTES]} />
         {/* Dev-only: unregister leftover NIR SWs early. Do not force-reload —
             that races the Next router. SW v2.1 also self-destructs on localhost. */}
         {process.env.NODE_ENV !== "production" ? (
