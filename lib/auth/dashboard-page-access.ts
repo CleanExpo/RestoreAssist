@@ -15,24 +15,18 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 
-export const DASHBOARD_PAGE_ACCESS = {
-  "/dashboard/subscription": ["ADMIN"],
-  "/dashboard/addons": ["ADMIN"],
-  "/dashboard/team": ["ADMIN", "MANAGER"],
-  "/dashboard/pricing-config": ["ADMIN", "MANAGER"],
-  "/dashboard/integrations": ["ADMIN", "MANAGER"],
-  "/dashboard/operations/completeness-inbox": ["ADMIN", "MANAGER"],
-} as const satisfies Record<string, readonly string[]>;
+import {
+  canOpenDashboardPage,
+  type GuardedDashboardPage,
+} from "@/lib/auth/dashboard-page-rules";
 
-export type GuardedDashboardPage = keyof typeof DASHBOARD_PAGE_ACCESS;
-
-export function canOpenDashboardPage(
-  role: string | undefined,
-  page: GuardedDashboardPage,
-): boolean {
-  if (!role) return false;
-  return (DASHBOARD_PAGE_ACCESS[page] as readonly string[]).includes(role);
-}
+// The role table lives in a client-safe module so link lists read the same
+// rule this guard enforces (RA-8432). Re-exported for existing importers.
+export {
+  DASHBOARD_PAGE_ACCESS,
+  canOpenDashboardPage,
+  type GuardedDashboardPage,
+} from "@/lib/auth/dashboard-page-rules";
 
 /** Server-side guard for a page layout. Redirects when the role is refused. */
 export async function requireDashboardPageAccess(

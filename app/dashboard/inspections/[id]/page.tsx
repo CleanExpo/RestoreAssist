@@ -1691,7 +1691,7 @@ export default function InspectionDetailPage({
           inspectionId={inspection.id}
           clientId={inspection.clientId}
           reportId={inspection.reportId}
-          showCompletenessInbox={isManagerOps}
+          role={session?.user?.role}
         />
       </section>
 

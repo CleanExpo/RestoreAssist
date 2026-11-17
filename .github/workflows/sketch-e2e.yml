@@ -38,6 +38,8 @@ on:
       - "lib/billing/technician-seats-addon.ts"
       - "lib/auth/assert-tenancy.ts"
       - "lib/auth/dashboard-page-access.ts"
+      - "lib/auth/dashboard-page-rules.ts"
+      - "lib/auth/financial-writer-roles.ts"
       - "lib/evidence/**"
       - "lib/compliance/**"
       - "lib/completeness/**"

@@ -23,6 +23,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getMembershipStart } from "@/lib/organization-credits";
+import { canWriteFinancialRecords } from "@/lib/auth/financial-writer-roles";
 import type { Prisma } from "@prisma/client";
 
 export type TenancyResult<T> =
@@ -707,15 +708,6 @@ export async function resolveInspectionFinancialReach(
 }
 
 /**
- * Roles that may create money records (invoices, credit notes, recurring
- * templates, variation invoices) and spend the business's credits.
- *
- * Tested as a capability the role HAS, never as `role !== "USER"`: the
- * negative form silently hands money to whatever role is added next.
- */
-const FINANCIAL_WRITER_ROLES: readonly string[] = ["ADMIN", "MANAGER"];
-
-/**
  * Gate for a handler that creates money records or spends credits. The role is
  * re-read from the DATABASE, never taken from the session claim: the JWT
  * carries a role for up to 90 days and a demotion does not rewrite it.
@@ -731,7 +723,7 @@ export async function assertFinancialWriter(
     where: { id: session.user.id },
     select: { id: true, role: true },
   });
-  if (!user || !FINANCIAL_WRITER_ROLES.includes(String(user.role))) {
+  if (!user || !canWriteFinancialRecords(String(user.role))) {
     return {
       ok: false,
       status: 403,
