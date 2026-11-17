@@ -389,6 +389,91 @@ describe("IndexedDB persistence + registration", () => {
     expect(record.registered).toBe(false);
   });
 
+  // RA-8388 review finding "no time limit": key registration is a network
+  // call with no `signal` and no timer, made while the capture form has every
+  // control disabled.
+  describe("RA-8388: registration is a bounded network call", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("gives up 30 seconds after a registration that never answers, and aborts it", async () => {
+      const seen: RequestInit[] = [];
+      let markSent: () => void = () => {};
+      const sent = new Promise<void>((resolve) => {
+        markSent = resolve;
+      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((_url: string, init: RequestInit) => {
+          seen.push(init);
+          markSent();
+          return new Promise<Response>(() => {});
+        }),
+      );
+
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      const state: { settled: string; error?: any } = { settled: "pending" };
+      ensureDeviceKeyRegistered("ios").then(
+        () => {
+          state.settled = "resolved";
+        },
+        (error) => {
+          state.settled = "rejected";
+          state.error = error;
+        },
+      );
+      await sent;
+
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(state.settled).toBe("pending");
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(state.settled).toBe("rejected");
+      // A connection problem, named so the submit path does not mistake it
+      // for a device that cannot sign.
+      expect(state.error.name).toBe("DeviceKeyNetworkError");
+      expect(state.error.timedOut).toBe(true);
+      expect(seen[0].signal).toBeInstanceOf(AbortSignal);
+      expect((seen[0].signal as AbortSignal).aborted).toBe(true);
+
+      vi.useRealTimers();
+      // Nothing was acknowledged, so the key is not marked registered.
+      const record = await getOrCreateDeviceKey();
+      expect(record.registered).toBe(false);
+    });
+
+    it("names a registration call that could not be made as a network failure", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          throw new TypeError("Failed to fetch");
+        }),
+      );
+      const error: any = await ensureDeviceKeyRegistered("ios").then(
+        () => null,
+        (err) => err,
+      );
+      expect(error.name).toBe("DeviceKeyNetworkError");
+      expect(error.timedOut).toBe(false);
+    });
+
+    it("carries the status of a registration the server refused", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response("{}", { status: 500 })),
+      );
+      const error: any = await ensureDeviceKeyRegistered("ios").then(
+        () => null,
+        (err) => err,
+      );
+      // An answer, not a connection problem: this one IS a signing failure.
+      expect(error.name).toBe("DeviceKeyRegistrationError");
+      expect(error.status).toBe(500);
+      expect(error.message).toBe("Device key registration failed (500)");
+    });
+  });
+
   describe("MUST-FIX 4: a revoked key must not brick the device", () => {
     it("rotates to a FRESH key when registration is refused 403 (revoked)", async () => {
       const first = await getOrCreateDeviceKey();

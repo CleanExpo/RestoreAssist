@@ -34,10 +34,29 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 // the real lib/idempotency.ts relies on: unique cacheKey (P2002 on dupe),
 // findUnique, update, deleteMany.
 const idemStore = new Map<string, any>();
+// RA-8388: the multipart writer now writes the EvidenceItem and the
+// InspectionPhoto row in ONE transaction, so this mock needs a real
+// `$transaction`. The transaction client delegates to the SAME vi.fn
+// instances the assertions below reach through `prisma.evidenceItem.create`,
+// so every existing expectation keeps testing the write that actually
+// happened rather than a second, parallel mock.
+const dbMocks = vi.hoisted(() => ({
+  evidenceItem: { create: vi.fn() },
+  inspectionPhoto: {
+    create: vi.fn(async ({ data }: any) => data),
+  },
+  moistureReading: { create: vi.fn(async ({ data }: any) => data) },
+  environmentalData: { create: vi.fn(async ({ data }: any) => data) },
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: vi.fn(async () => ({ organizationId: "org1" })) },
-    evidenceItem: { create: vi.fn() },
+    evidenceItem: dbMocks.evidenceItem,
+    inspectionPhoto: dbMocks.inspectionPhoto,
+    moistureReading: dbMocks.moistureReading,
+    environmentalData: dbMocks.environmentalData,
+    $transaction: vi.fn(async (fn: any) => fn(dbMocks)),
     // Slice 2 review: the unsigned path probes for a registered signing key
     // to record the downgrade reason. Mocked so that probe genuinely runs
     // here rather than silently erroring into its fallback.
@@ -105,6 +124,12 @@ import { getServerSession } from "next-auth";
 import { assertInspectionCapturable } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { BUCKET_OPTIMISED, BUCKET_ORIGINALS } from "@/lib/storage/types";
+import { EvidenceClass } from "@prisma/client";
+import {
+  evidenceClassAllowedOnPath,
+  wrongSubmissionPathMessage,
+} from "@/lib/evidence/submission-path-classes";
+import { expectRefused } from "@/tests/helpers/expect-refused";
 import { POST } from "../route";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
@@ -322,7 +347,20 @@ describe("POST /evidence (multipart, RA-7090)", () => {
           multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
           params,
         );
-        expect(res.status).toBe(500);
+        // RA-8388: 409, NOT 500. This asserted 500 until the retry contract
+        // was traced through: `withIdempotency` deletes its PENDING
+        // reservation on any 5xx (lib/idempotency.ts:433-441), so answering
+        // an AMBIGUOUS commit with 500 hands the retry a fresh slot and it
+        // uploads the same photograph a second time - giving the completion
+        // gate two InspectionPhoto rows for one photograph, both signed.
+        //
+        // The bytes are retained here because the row may exist; the
+        // reservation is retained for exactly the same reason, and the
+        // header is what stops the 409 being cached as the final answer.
+        expect(res.status).toBe(409);
+        expect(
+          res.headers.get("X-RestoreAssist-Idempotency-Uncertain"),
+        ).toBe("true");
         expect(deleteMock).not.toHaveBeenCalled();
 
         // Structured log carries every path an async GC sweep needs.
@@ -693,4 +731,265 @@ describe("POST /evidence (multipart, RA-7090)", () => {
       expect(created.verifiedAt).toBeUndefined();
     });
   });
+});
+
+/**
+ * RA-8388 bench round 1: ONE photograph rule.
+ *
+ * The route decided "is this a photograph" from the raw declared type and
+ * stored a defaulted one, while the backfill read the stored value. A JPEG
+ * whose part declared no type was saved, never counted, and would later be
+ * counted by the backfill: two writers, two rules. The route now stores and
+ * decides from the type its own magic-byte check proved.
+ */
+describe("POST /evidence (multipart): one photograph rule (RA-8388)", () => {
+  const mPhotoCreate = prisma.inspectionPhoto.create as unknown as ReturnType<
+    typeof vi.fn
+  >;
+  const mTransaction = prisma.$transaction as unknown as ReturnType<
+    typeof vi.fn
+  >;
+  const PNG_BYTES = new Uint8Array([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4,
+  ]);
+
+  function formWithFile(bytes: Uint8Array, declaredType: string) {
+    const form = new FormData();
+    form.append("file", new File([bytes], "capture-1", { type: declaredType }));
+    form.append("evidenceClass", "PHOTO_DAMAGE");
+    form.append("workflowStepId", "step1");
+    return form;
+  }
+
+  it("a verified JPEG that declares no type is stored as image/jpeg and counted", async () => {
+    // A blob with an empty type is what the web picker can hand over. The
+    // multipart encoding turns that into "application/octet-stream" by the
+    // time the server reads the part, so this is the shape the fault takes
+    // on the wire: a real JPEG, a declared type that is not image/*.
+    const res = await POST(
+      multipartRequest(formWithFile(FIXTURE_BYTES, "")),
+      params,
+    );
+    expect(res.status).toBe(201);
+
+    // The row the submit gate counts exists.
+    expect(mPhotoCreate).toHaveBeenCalledTimes(1);
+    // And all three places that record the type say what the bytes proved.
+    expect(mCreate.mock.calls[0][0].data.fileMimeType).toBe("image/jpeg");
+    expect(mPhotoCreate.mock.calls[0][0].data.mimeType).toBe("image/jpeg");
+    expect(uploadMock.mock.calls[0][0].mimeType).toBe("image/jpeg");
+  });
+
+  it("a verified PNG declared as something else is stored as image/png and counted", async () => {
+    const res = await POST(
+      multipartRequest(formWithFile(PNG_BYTES, "application/octet-stream")),
+      params,
+    );
+    expect(res.status).toBe(201);
+
+    expect(mPhotoCreate).toHaveBeenCalledTimes(1);
+    expect(mCreate.mock.calls[0][0].data.fileMimeType).toBe("image/png");
+    expect(mPhotoCreate.mock.calls[0][0].data.mimeType).toBe("image/png");
+  });
+
+  it("the backfill reaches the SAME decision from what the route stored", async () => {
+    // The parity control. Whatever the route decided at capture time, the
+    // backfill must decide from the stored record: a row the route refused
+    // must not be written later, and a row it wrote must have been due.
+    //
+    // A control, not the red guard for this fix: it also held on the old
+    // code for these inputs (both sides refused the untyped JPEG). The two
+    // tests above are the ones that failed first. This one fails if the two
+    // writers are ever given different inputs again.
+    const { decideBackfill } = await import(
+      "@/scripts/backfill-evidence-authoritative-rows"
+    );
+    for (const [bytes, declared] of [
+      [FIXTURE_BYTES, ""],
+      [FIXTURE_BYTES, "image/jpeg"],
+      [PNG_BYTES, "application/octet-stream"],
+    ] as Array<[Uint8Array, string]>) {
+      mCreate.mockClear();
+      mPhotoCreate.mockClear();
+      const res = await POST(
+        multipartRequest(formWithFile(bytes, declared)),
+        params,
+      );
+      expect(res.status).toBe(201);
+      const stored = mCreate.mock.calls[0][0].data;
+      const routeCounted = mPhotoCreate.mock.calls.length === 1;
+
+      const decision = decideBackfill(
+        {
+          id: "e1",
+          inspectionId: "i1",
+          evidenceClass: stored.evidenceClass,
+          description: null,
+          roomName: null,
+          structuredData: stored.structuredData,
+          capturedAt: stored.capturedAt,
+          capturedLat: null,
+          capturedLng: null,
+          fileUrl: stored.fileUrl,
+          thumbnailUrl: stored.thumbnailUrl,
+          fileMimeType: stored.fileMimeType,
+          fileSizeBytes: stored.fileSizeBytes,
+          matchesClientSubmission: false,
+        },
+        {
+          linkedEvidenceIds: new Set<string>(),
+          photoUrls: new Set<string>(),
+          moistureFingerprints: new Set<string>(),
+          environmentalFingerprints: new Set<string>(),
+        },
+      );
+      expect([declared, decision.kind === "write"]).toEqual([
+        declared,
+        routeCounted,
+      ]);
+    }
+  });
+
+  it("the 201 says the photograph counts toward submission", async () => {
+    const res = await POST(
+      multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+      params,
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.countsTowardSubmission).toBe(true);
+  });
+
+  describe("the transaction that never started", () => {
+    function p2028(message: string) {
+      const err: any = new Error(`Transaction API error: ${message}`);
+      err.code = "P2028";
+      return err;
+    }
+
+    it("gives the two-row write explicit wait and run limits", async () => {
+      await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+        params,
+      );
+      expect(mTransaction).toHaveBeenCalledTimes(1);
+      expect(mTransaction.mock.calls[0][1]).toEqual({
+        maxWait: expect.any(Number),
+        timeout: expect.any(Number),
+      });
+    });
+
+    it("a P2028 raised before the transaction started is NOT 'may already have been saved'", async () => {
+      // No connection was free inside the wait limit, so no statement ran.
+      // Nothing can have committed: the bytes are cleaned up and the
+      // technician is free to retry at once.
+      mTransaction.mockRejectedValueOnce(
+        p2028("Unable to start a transaction in the given time."),
+      );
+
+      const res = await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+        params,
+      );
+
+      expect(res.status).not.toBe(409);
+      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(res.headers.get("X-RestoreAssist-Idempotency-Uncertain")).toBeNull();
+      expect(deleteMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("the same photograph can be sent again at once after a transaction that never started", async () => {
+      // The point of the fix, on the keyed path a real capture uses: the
+      // reservation is released, so the retry with the SAME key and bytes is
+      // written, not answered "already in progress" for the 60 second lease.
+      mTransaction.mockRejectedValueOnce(
+        p2028("Unable to start a transaction in the given time."),
+      );
+      const first = await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256), "idem-p2028"),
+        params,
+      );
+      expect(first.status).toBeGreaterThanOrEqual(500);
+
+      const retry = await POST(
+        multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256), "idem-p2028"),
+        params,
+      );
+      expect(retry.status).toBe(201);
+      expect(mPhotoCreate).toHaveBeenCalledTimes(1);
+    });
+
+    it("any OTHER P2028 is still ambiguous: 409, bytes retained", async () => {
+      // The negative control. A transaction that expired after it started
+      // may have run its inserts, so it keeps the careful answer.
+      const errorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      try {
+        mTransaction.mockRejectedValueOnce(
+          p2028(
+            "A commit cannot be executed on an expired transaction. The timeout for this transaction was 10000 ms, however 10050 ms passed since the start of the transaction.",
+          ),
+        );
+
+        const res = await POST(
+          multipartRequest(baseForm(FIXTURE_BYTES, FIXTURE_SHA256)),
+          params,
+        );
+
+        expect(res.status).toBe(409);
+        expect(
+          res.headers.get("X-RestoreAssist-Idempotency-Uncertain"),
+        ).toBe("true");
+        expect(deleteMock).not.toHaveBeenCalled();
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+  });
+});
+
+// RA-8388, founder ruling 17/11/2026. The file path stores a file and has no
+// typed values, so it cannot build the record behind a note or reading. Every
+// class is tried, so a class added to the schema later is covered on the day
+// it is added.
+describe("POST /evidence (multipart): one path per evidence class (RA-8388)", () => {
+  const classes = Object.values(EvidenceClass);
+  const notForFiles = classes.filter(
+    (cls) => !evidenceClassAllowedOnPath(cls, "file"),
+  );
+  const forFiles = classes.filter((cls) =>
+    evidenceClassAllowedOnPath(cls, "file"),
+  );
+  const FILE_REFUSAL = /is a note or reading, so it cannot be sent as a file/;
+
+  function formFor(evidenceClass: string) {
+    const form = baseForm(FIXTURE_BYTES, FIXTURE_SHA256);
+    form.set("evidenceClass", evidenceClass);
+    return form;
+  }
+
+  it("splits the classes it is given, so neither list below is empty", () => {
+    expect(notForFiles.length).toBeGreaterThan(0);
+    expect(forFiles.length).toBeGreaterThan(0);
+    expect(wrongSubmissionPathMessage("file")).toMatch(FILE_REFUSAL);
+  });
+
+  it.each(notForFiles)(
+    "refuses %s sent as a file and stores nothing",
+    async (evidenceClass) => {
+      const res = await POST(multipartRequest(formFor(evidenceClass)), params);
+      await expectRefused(res, 400, FILE_REFUSAL);
+      expect(uploadMock).not.toHaveBeenCalled();
+      expect(mCreate).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(forFiles)(
+    "does not turn %s away for being sent as a file",
+    async (evidenceClass) => {
+      const res = await POST(multipartRequest(formFor(evidenceClass)), params);
+      expect(JSON.stringify(await res.json())).not.toMatch(FILE_REFUSAL);
+    },
+  );
 });

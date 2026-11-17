@@ -9,6 +9,7 @@ import {
   formatValidationSummary,
 } from "@/lib/evidence/submission-validator";
 import type { WorkflowForValidation } from "@/lib/evidence/submission-validator";
+import { COUNTABLE_EVIDENCE_WHERE } from "@/lib/evidence/countable-evidence";
 
 /**
  * GET /api/inspections/[id]/workflow/validate
@@ -58,8 +59,9 @@ export async function GET(
             riskTier: true,
             minimumEvidenceCount: true,
             requiredEvidenceClasses: true,
+            // RA-8388: a retired reading's evidence record does not count.
             _count: {
-              select: { evidenceItems: true },
+              select: { evidenceItems: { where: COUNTABLE_EVIDENCE_WHERE } },
             },
           },
         },

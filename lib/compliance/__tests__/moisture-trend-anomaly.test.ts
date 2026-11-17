@@ -35,6 +35,19 @@ beforeEach(() => {
 });
 
 describe("detectMoistureTrendAnomalies", () => {
+  // RA-8388: a retired reading is a corrected mistake and must not shape the
+  // drying trend.
+  it("asks only for readings that have not been retired", async () => {
+    mockFindMany.mockResolvedValue([] as any);
+
+    await detectMoistureTrendAnomalies("insp-000");
+
+    expect((mockFindMany.mock.calls.at(-1)?.[0] as any)?.where).toEqual({
+      inspectionId: "insp-000",
+      invalidatedAt: null,
+    });
+  });
+
   it("test 1: fewer than 3 readings → no anomalies", async () => {
     mockFindMany.mockResolvedValue([
       reading("Living Room", 60, 0),
@@ -45,6 +58,18 @@ describe("detectMoistureTrendAnomalies", () => {
 
     expect(result.hasAnomalies).toBe(false);
     expect(result.anomalies).toHaveLength(0);
+
+    // Two readings 72h apart pass the 48h span check and would read as rising
+    // if counted, so only the three-reading minimum can keep this clean.
+    mockFindMany.mockResolvedValue([
+      reading("Living Room", 40, 0),
+      reading("Living Room", 60, 72),
+    ] as any);
+
+    const spanning = await detectMoistureTrendAnomalies("insp-001");
+
+    expect(spanning.hasAnomalies).toBe(false);
+    expect(spanning.anomalies).toHaveLength(0);
   });
 
   it("test 2: clear declining trend (60 → 40 → 20) → no anomalies", async () => {
