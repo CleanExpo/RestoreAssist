@@ -23,35 +23,37 @@ export type StripeDerivedStatus = "ACTIVE" | "PAST_DUE" | "CANCELED" | "EXPIRED"
  *   (lib/billing/trial-expired-pay-route.ts) instead of "your trial expired".
  * - `incomplete` (first payment pending) and `paused` change nothing.
  */
+// The SDK types Status as an open union (`string & {}` catch-all). Dropping it
+// leaves the known literals, so the table below fails type-check when a future
+// SDK adds a status nobody has decided on. (tsconfig excludes __tests__, so this
+// check has to live here, not in the test.)
+type Literal<T> = T extends string ? (string extends T ? never : T) : never;
+type KnownStatus = Literal<Stripe.Subscription.Status>;
+
+// "BASE_TRIAL": ACTIVE only when an item is the base plan, otherwise no change.
+const BY_STATUS: Record<KnownStatus, StripeDerivedStatus | "BASE_TRIAL" | null> = {
+  active: "ACTIVE",
+  trialing: "BASE_TRIAL",
+  past_due: "PAST_DUE",
+  unpaid: "PAST_DUE",
+  canceled: "CANCELED",
+  incomplete_expired: "EXPIRED",
+  incomplete: null,
+  paused: null,
+};
+
 export function subscriptionStatusFromStripe(
   sub: Pick<Stripe.Subscription, "status"> & {
     items?: { data?: Array<{ price?: { id?: string } | null }> } | null;
   },
 ): StripeDerivedStatus | null {
-  const status = sub.status;
-  switch (status) {
-    case "active":
-      return "ACTIVE";
-    case "trialing":
-      return (sub.items?.data ?? []).some(
-        (item) => item.price?.id === PRICING_CONFIG.prices.monthly,
-      )
-        ? "ACTIVE"
-        : null;
-    case "past_due":
-    case "unpaid":
-      return "PAST_DUE";
-    case "canceled":
-      return "CANCELED";
-    case "incomplete_expired":
-      return "EXPIRED";
-    case "incomplete":
-    case "paused":
-      return null;
-    default:
-      // The SDK types Status as an open union (OtherString), so a status Stripe
-      // adds later lands here: change nothing until someone decides its meaning.
-      // The table test (Record<Stripe.Subscription.Status, …>) pins every known one.
-      return null;
-  }
+  // An unknown status (not an own key) changes nothing until someone decides.
+  if (!Object.hasOwn(BY_STATUS, sub.status)) return null;
+  const mapped = BY_STATUS[sub.status as KnownStatus];
+  if (mapped !== "BASE_TRIAL") return mapped;
+  return (sub.items?.data ?? []).some(
+    (item) => item.price?.id === PRICING_CONFIG.prices.monthly,
+  )
+    ? "ACTIVE"
+    : null;
 }

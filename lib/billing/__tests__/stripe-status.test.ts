@@ -1,8 +1,8 @@
 /**
  * RA-8431 — one owner turns a Stripe subscription into User.subscriptionStatus.
  *
- * The table is typed `Record<Stripe.Subscription.Status, …>`, so a status Stripe
- * adds in a future SDK fails type-check here until someone decides what it means.
+ * Exhaustiveness is enforced at type-check time in the owner (BY_STATUS); this
+ * table pins each known status's meaning at run time, plus unknown statuses.
  * `null` means "no change": the caller leaves the stored status alone.
  */
 import { describe, it, expect } from "vitest";
@@ -12,6 +12,7 @@ import { subscriptionStatusFromStripe } from "../stripe-status";
 import { isLiveBaseSubscription } from "../live-base-subscription";
 
 type Mapped = ReturnType<typeof subscriptionStatusFromStripe>;
+
 
 const BASE = PRICING_CONFIG.prices.monthly;
 
@@ -23,7 +24,7 @@ function sub(status: Stripe.Subscription.Status, priceId = BASE) {
 }
 
 // Base-plan subscription, every status Stripe defines.
-const EXPECTED: Record<Stripe.Subscription.Status, Mapped> = {
+const EXPECTED: Record<string, Mapped> = {
   active: "ACTIVE",
   trialing: "ACTIVE",
   past_due: "PAST_DUE",
@@ -53,6 +54,13 @@ describe("subscriptionStatusFromStripe (RA-8431)", () => {
       subscriptionStatusFromStripe({ status: "trialing" } as Stripe.Subscription),
     ).toBeNull();
   });
+
+  it.each(["some_future_status", "constructor", "toString"])(
+    "an unknown status %s is no change",
+    (status) => {
+      expect(subscriptionStatusFromStripe(sub(status))).toBeNull();
+    },
+  );
 
   it("an active subscription is ACTIVE whatever its price", () => {
     expect(subscriptionStatusFromStripe(sub("active", "price_other"))).toBe("ACTIVE");
