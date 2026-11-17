@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
+import { hasAnyOAuthIntegration, selectOAuthIntegrationForRequest } from "@/lib/services/integrations/select-oauth-request";
 import {
   PROVIDER_CONFIG,
   type IntegrationProvider,
@@ -75,29 +75,16 @@ export async function POST(
 
     // Find integration — allow ERROR/SYNCING so a failed sync can be retried
     // without forcing a full OAuth reconnect (tokens are still present).
-    const selection = await selectOAuthIntegration({
+    const selection = await selectOAuthIntegrationForRequest(request, {
       prisma, userId: session.user.id, provider, requireReady: true,
       workspaceId: subscriptionCheck.foundingTrialWorkspaceId,
     });
-    if (!selection.ok && selection.reason !== "NOT_FOUND") {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: selection.reason === "AMBIGUOUS"
-          ? "Multiple connections require an explicit workspace selection."
-          : selection.reason === "NOT_READY"
-            ? "This connection needs valid credentials and an authorised organisation before syncing."
-            : "This provider is not supported by the OAuth integration route.",
-        status: selection.reason === "INVALID_PROVIDER" ? 400 : 409,
-      });
-    }
-    const integration = selection.ok ? selection.data : null;
+    if (selection.response) return selection.response;
+    const integration = selection.integration;
 
     if (!integration) {
       if (subscriptionCheck.foundingTrialWorkspaceId) {
-        const existing = await selectOAuthIntegration({
-          prisma, userId: session.user.id, provider, requireReady: false,
-        });
-        if (existing.ok || existing.reason === "AMBIGUOUS") {
+        if (await hasAnyOAuthIntegration({ prisma, userId: session.user.id, provider })) {
           return apiError(request, {
             code: "VALIDATION",
             message: "This connection needs an explicit workspace selection before syncing.",

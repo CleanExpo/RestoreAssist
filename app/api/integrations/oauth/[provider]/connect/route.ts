@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { OAUTH_IDENTITY_SELECT, selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
+import { hasAnyOAuthIntegration, OAUTH_IDENTITY_SELECT, selectOAuthIntegrationForRequest } from "@/lib/services/integrations/select-oauth-request";
 import {
   generateOAuthState,
   generatePKCE,
@@ -106,29 +106,18 @@ export async function POST(
       }
 
       // Check if integration already exists for this user/provider
-      const selection = await selectOAuthIntegration({
+      const selection = await selectOAuthIntegrationForRequest(request, {
         prisma, userId: userId, provider, requireReady: false,
         workspaceId: subscriptionCheck.foundingTrialWorkspaceId,
       });
-      if (!selection.ok && selection.reason !== "NOT_FOUND") {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: selection.reason === "AMBIGUOUS"
-            ? "Multiple connections require an explicit workspace selection."
-            : selection.reason === "NOT_READY"
-              ? "This connection needs valid credentials and an authorised organisation before syncing."
-              : "This provider is not supported by the OAuth integration route.",
-          status: selection.reason === "INVALID_PROVIDER" ? 400 : 409,
-        });
-      }
-      let integration = selection.ok ? selection.data : null;
+      if (selection.response) return selection.response;
+      let integration = selection.integration;
 
       // A Founding Trial grant belongs to one READY workspace. An older
       // unbound row or another workspace's connection needs an explicit owner
       // choice; creating a second row here would make the UI ambiguous.
       if (!integration && subscriptionCheck.foundingTrialWorkspaceId) {
-        const existing = await selectOAuthIntegration({ prisma, userId, provider });
-        if (existing.ok || existing.reason === "AMBIGUOUS") {
+        if (await hasAnyOAuthIntegration({ prisma, userId, provider })) {
           return apiError(request, {
             code: "VALIDATION",
             message: "An existing connection needs an explicit workspace selection before reconnecting.",

@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
+import { selectStateBoundOAuthIntegration } from "@/lib/services/integrations/select-oauth-request";
 import {
   validateOAuthState,
   storeTokens,
@@ -67,11 +67,10 @@ export async function GET(
 
     // Find the exact integration bound to this one-time state. The fallback
     // keeps callbacks issued before the PKCE-context migration valid.
-    const selection = await selectOAuthIntegration({
+    const integration = await selectStateBoundOAuthIntegration({
       prisma, userId: stateData.userId, provider,
       integrationId: stateData.integrationId ?? undefined,
     });
-    const integration = selection.ok ? selection.data : null;
 
     if (!integration) {
       return redirectWithError("Integration not found", providerParam);
@@ -159,10 +158,10 @@ export async function GET(
       }
     }
 
-    const ready = await selectOAuthIntegration({
+    const ready = await selectStateBoundOAuthIntegration({
       prisma, userId: stateData.userId, provider, integrationId: integration.id, requireReady: true,
     });
-    if (!ready.ok) {
+    if (!ready) {
       return redirectWithError("Connection needs valid credentials and an authorised organisation", providerParam);
     }
 

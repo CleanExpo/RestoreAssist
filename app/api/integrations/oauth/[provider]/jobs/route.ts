@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
+import { selectOAuthIntegrationForRequest } from "@/lib/services/integrations/select-oauth-request";
 import {
   PROVIDER_CONFIG,
   type IntegrationProvider,
@@ -59,22 +59,12 @@ export async function GET(
     }
 
     // Find integration
-    const selection = await selectOAuthIntegration({
+    const selection = await selectOAuthIntegrationForRequest(request, {
       prisma, userId: session.user.id, provider, requireReady: false,
       workspaceId: subscriptionCheck.foundingTrialWorkspaceId,
     });
-    if (!selection.ok && selection.reason !== "NOT_FOUND") {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: selection.reason === "AMBIGUOUS"
-          ? "Multiple connections require an explicit workspace selection."
-          : selection.reason === "NOT_READY"
-            ? "This connection needs valid credentials and an authorised organisation before syncing."
-            : "This provider is not supported by the OAuth integration route.",
-        status: selection.reason === "INVALID_PROVIDER" ? 400 : 409,
-      });
-    }
-    const integration = selection.ok ? selection.data : null;
+    if (selection.response) return selection.response;
+    const integration = selection.integration;
 
     if (!integration) {
       return apiError(request, {
@@ -166,22 +156,12 @@ export async function POST(
     }
 
     // Find integration
-    const selection = await selectOAuthIntegration({
+    const selection = await selectOAuthIntegrationForRequest(request, {
       prisma, userId: session.user.id, provider, requireReady: false,
       workspaceId: subscriptionCheck.foundingTrialWorkspaceId,
     });
-    if (!selection.ok && selection.reason !== "NOT_FOUND") {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: selection.reason === "AMBIGUOUS"
-          ? "Multiple connections require an explicit workspace selection."
-          : selection.reason === "NOT_READY"
-            ? "This connection needs valid credentials and an authorised organisation before syncing."
-            : "This provider is not supported by the OAuth integration route.",
-        status: selection.reason === "INVALID_PROVIDER" ? 400 : 409,
-      });
-    }
-    const integration = selection.ok ? selection.data : null;
+    if (selection.response) return selection.response;
+    const integration = selection.integration;
 
     if (!integration) {
       return apiError(request, {
