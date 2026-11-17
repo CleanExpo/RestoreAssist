@@ -3253,6 +3253,10 @@ model CostEstimate {
   // Source
   costDatabaseId String? // Link to CostDatabase entry if used
   isEstimated    Boolean @default(true) // True if from database, false if custom
+  // RA-8419: "SPM" marks the Senior Project Manager line, which the business
+  // adds itself (addSpmRow); generate and submit never write it. Null for
+  // every other line. Never identify the SPM line by its description.
+  lineKind       String?
 
   // Totals
   contingency Float? // Contingency percentage applied
