@@ -228,6 +228,27 @@ async function manifestFor(
   };
 }
 
+/**
+ * Canonicalise a manifest that has already been built. The parameter is typed
+ * on purpose: `canonicalizeManifest` takes `unknown`, so handing it the
+ * un-awaited promise from `manifestFor` compiled, canonicalised to `{}` and
+ * made every negative control below pass for the wrong reason. Through this
+ * helper a missing `await` is a type error.
+ */
+function canon(manifest: SignedEvidenceManifest): string {
+  return canonicalizeManifest(manifest);
+}
+
+/**
+ * A refusal counts only when it is the refusal the test set up. Status alone
+ * cannot tell "the binding caught the swap" from "the manifest was malformed":
+ * both are 400.
+ */
+async function expectRefused(res: Response, status: number, reason: RegExp) {
+  expect(res.status).toBe(status);
+  expect(JSON.stringify(await res.json())).toMatch(reason);
+}
+
 function signCanonical(json: string): string {
   return crypto
     .sign(null, Buffer.from(json, "utf8"), DEVICE_KEYS.privateKey)
@@ -401,54 +422,59 @@ describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
     it("refuses a manifest whose digest does not match the submitted payload", async () => {
       // Sign an honest manifest for the real reading, then swap the value.
       // The signature still verifies; the BINDING must catch the swap.
-      const manifestJson = canonicalizeManifest(manifestFor(MOISTURE_BODY));
+      const manifestJson = canon(await manifestFor(MOISTURE_BODY));
       const signature = signCanonical(manifestJson);
       const tampered: MetadataBody = {
         ...MOISTURE_BODY,
         structuredData: { measurementValue: 2.0, measurementUnit: "%" },
       };
       const res = await post(tampered, { manifestJson, signature });
-      expect(res.status).toBe(400);
+      await expectRefused(
+        res,
+        400,
+        /does not match the signature it was sent with/,
+      );
       expect(mCreate).not.toHaveBeenCalled();
     });
 
     it("refuses a manifest altered after signing", async () => {
-      const signature = signCanonical(
-        canonicalizeManifest(manifestFor(MOISTURE_BODY)),
-      );
-      const altered = canonicalizeManifest(
-        manifestFor(MOISTURE_BODY, { inspectionId: "ins_1", userId: "u2" }),
+      const signature = signCanonical(canon(await manifestFor(MOISTURE_BODY)));
+      const altered = canon(
+        await manifestFor(MOISTURE_BODY, {
+          inspectionId: "ins_1",
+          userId: "u2",
+        }),
       );
       const res = await post(MOISTURE_BODY, {
         manifestJson: altered,
         signature,
       });
-      expect(res.status).toBe(400);
+      await expectRefused(res, 400, /signature verification failed/);
       expect(mCreate).not.toHaveBeenCalled();
     });
 
     it("refuses a manifest bound to a different workflow step", async () => {
       const body = { ...MOISTURE_BODY };
-      const manifestJson = canonicalizeManifest(
-        manifestFor(body, { workflowStepId: "step-other" }),
+      const manifestJson = canon(
+        await manifestFor(body, { workflowStepId: "step-other" }),
       );
       const res = await post(body, {
         manifestJson,
         signature: signCanonical(manifestJson),
       });
-      expect(res.status).toBe(400);
+      await expectRefused(res, 400, /bound to a different workflow step/);
       expect(mCreate).not.toHaveBeenCalled();
     });
 
     it("refuses a manifest bound to a different evidence class", async () => {
-      const manifestJson = canonicalizeManifest(
-        manifestFor(MOISTURE_BODY, { evidenceClass: "TECHNICIAN_NOTE" }),
+      const manifestJson = canon(
+        await manifestFor(MOISTURE_BODY, { evidenceClass: "TECHNICIAN_NOTE" }),
       );
       const res = await post(MOISTURE_BODY, {
         manifestJson,
         signature: signCanonical(manifestJson),
       });
-      expect(res.status).toBe(400);
+      await expectRefused(res, 400, /bound to a different evidence class/);
       expect(mCreate).not.toHaveBeenCalled();
     });
 
@@ -478,7 +504,7 @@ describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
 
     it("refuses a signature made by a key that is not the registered one", async () => {
       const other = crypto.generateKeyPairSync("ed25519");
-      const manifestJson = canonicalizeManifest(manifestFor(MOISTURE_BODY));
+      const manifestJson = canon(await manifestFor(MOISTURE_BODY));
       const foreign = crypto
         .sign(null, Buffer.from(manifestJson, "utf8"), other.privateKey)
         .toString("base64");
@@ -486,7 +512,7 @@ describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
         manifestJson,
         signature: foreign,
       });
-      expect(res.status).toBe(400);
+      await expectRefused(res, 400, /signature verification failed/);
       expect(mCreate).not.toHaveBeenCalled();
     });
 
