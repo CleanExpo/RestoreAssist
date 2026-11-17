@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { FloorPlanUnderlayLoader } from "../FloorPlanUnderlayLoader";
 import { FLOORPLAN_UNDERLAY_ADDON } from "@/lib/billing/floorplan-underlay-addon";
+import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
 
 beforeEach(() => vi.restoreAllMocks());
 
@@ -60,6 +61,62 @@ describe("FloorPlanUnderlayLoader — 402 handling (RA-6922 add-on)", () => {
           "i",
         ),
       ),
+    ).toBeInTheDocument();
+  });
+});
+
+/**
+ * RA-8437 / App Review 3.1.1 — in the iOS shell the same 402 must show no
+ * price and no buy button, while the manual upload stays available. Driven
+ * through the real useHideBilling hook via the server verdict provider.
+ */
+describe("FloorPlanUnderlayLoader — 402 in the iOS shell (RA-8437)", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_UNDERLAY_URL_IMPORT", "1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 402,
+        json: async () => ({ error: { code: "PAYMENT_REQUIRED" } }),
+      }),
+    );
+  });
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  const renderIn = (isIosShell: boolean) =>
+    render(
+      <ShellPlatformProvider isIosShell={isIosShell}>
+        <FloorPlanUnderlayLoader
+          defaultAddress="12 Smith St"
+          inspectionId="i1"
+          onApply={() => {}}
+          onClear={() => {}}
+          autoFetch
+        />
+      </ShellPlatformProvider>,
+    );
+
+  it("shows no price and no buy button, and keeps the manual upload", async () => {
+    renderIn(true);
+
+    expect(
+      await screen.findByText(/workspace administrator manages add-ons/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /add floor plan underlay/i }),
+    ).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/\$\d/u);
+    expect(document.body.textContent).not.toMatch(/GST/u);
+    expect(screen.getByText("Upload a floor plan")).toBeInTheDocument();
+  });
+
+  it("keeps the priced button on the web", async () => {
+    renderIn(false);
+
+    expect(
+      await screen.findByRole("button", { name: /add floor plan underlay/i }),
     ).toBeInTheDocument();
   });
 });

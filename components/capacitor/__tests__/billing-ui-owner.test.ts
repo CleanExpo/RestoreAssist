@@ -95,11 +95,11 @@ export function findUngatedCallers(sources: SourceMap, urls: string[]): string[]
     }
   }
 
-  const callRes = urls.map((u) => new RegExp(`["'\`]${escapeRe(u)}["'\`?]`, "u"));
   const memo = new Map<string, boolean>();
   const covered = (file: string, stack: Set<string>): boolean => {
     if (memo.has(file)) return memo.get(file)!;
-    if (OWNER_USE.test(sources.get(file) ?? "")) return true;
+    // Comments are stripped here too: a comment naming the owner is not a use.
+    if (OWNER_USE.test(stripComments(sources.get(file) ?? ""))) return true;
     // A cycle with no owner on it proves nothing: fail closed.
     if (stack.has(file)) return false;
     const parents = [...(importers.get(file) ?? [])];
@@ -110,14 +110,21 @@ export function findUngatedCallers(sources: SourceMap, urls: string[]): string[]
     return ok;
   };
 
-  const ungated: string[] = [];
+  return findCallers(sources, urls)
+    .filter((file) => !covered(file, new Set()))
+    .sort();
+}
+
+/** Every non-API file that names a guarded URL in a string literal. */
+export function findCallers(sources: SourceMap, urls: string[]): string[] {
+  const callRes = urls.map((u) => new RegExp(`["'\`]${escapeRe(u)}["'\`?]`, "u"));
+  const callers: string[] = [];
   for (const [file, src] of sources) {
     if (file.startsWith("app/api/")) continue;
     const code = stripComments(src);
-    if (!callRes.some((re) => re.test(code))) continue;
-    if (!covered(file, new Set())) ungated.push(file);
+    if (callRes.some((re) => re.test(code))) callers.push(file);
   }
-  return ungated.sort();
+  return callers.sort();
 }
 
 function loadTree(): SourceMap {
@@ -162,6 +169,16 @@ describe("detector (synthetic tree — proves it can fail)", () => {
     expect(findUngatedCallers(tree, [url])).toEqual([]);
   });
 
+  it("does not count a comment that names the owner as a gate", () => {
+    const tree: SourceMap = new Map([
+      [
+        "components/Buy.tsx",
+        `// wrap in <BillingGate> or call useHideBilling() later\nfetch("/api/addons/checkout")`,
+      ],
+    ]);
+    expect(findUngatedCallers(tree, [url])).toEqual(["components/Buy.tsx"]);
+  });
+
   it("flags a caller when only one of two render paths is gated", () => {
     const tree: SourceMap = new Map([
       ["components/B.tsx", `fetch(\`/api/addons/checkout?x=1\`)`],
@@ -182,6 +199,16 @@ describe("real tree", () => {
         "/api/addons/checkout",
         "/api/create-checkout-session",
         "/api/subscription/portal",
+      ]),
+    );
+  });
+
+  it("finds the known callers (an empty scan must not pass)", () => {
+    expect(findCallers(tree, urls)).toEqual(
+      expect.arrayContaining([
+        "components/sketch/FloorPlanUnderlayLoader.tsx",
+        "app/dashboard/team/components/SeatLimitPanel.tsx",
+        "components/billing/PastDueBanner.tsx",
       ]),
     );
   });
