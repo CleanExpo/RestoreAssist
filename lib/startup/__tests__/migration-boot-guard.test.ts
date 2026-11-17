@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { parse as parseYaml } from "yaml";
 
 import { expectedMigrationLedger } from "../../../scripts/ci/expected-migration-ledger.mjs";
 import {
@@ -252,6 +253,30 @@ describe("one rule, not two", () => {
     expect(alarm).not.toMatch(/is still on the previous revision/);
     expect(alarm).toMatch(/does not read the deployment/);
     expect(alarm).toMatch(/redeploy/i);
+  });
+
+  it("the real-image boot check runs on every pull request", () => {
+    // Review round 2 (P1): the image check sat behind a pull_request path
+    // allow-list that named neither the boot hook, lib/startup nor
+    // prisma/migrations, so it never ran on the changes it guards. The boot
+    // path is the whole server bundle, so any path list is incomplete: the
+    // trigger carries no filter at all.
+    const workflow = parseYaml(
+      readFileSync(
+        join(repoRoot, ".github/workflows/build-production-image.yml"),
+        "utf8",
+      ),
+    ) as { on: Record<string, unknown> };
+    expect(Object.keys(workflow.on)).toContain("pull_request");
+    const trigger = (workflow.on.pull_request ?? {}) as Record<string, unknown>;
+    for (const filter of ["paths", "paths-ignore", "branches", "branches-ignore"]) {
+      expect(trigger).not.toHaveProperty(filter);
+    }
+    const steps = readFileSync(
+      join(repoRoot, ".github/workflows/build-production-image.yml"),
+      "utf8",
+    );
+    expect(steps).toContain("Confirm the image refuses to boot ahead of its migrations");
   });
 
   it("classifies a mixed ledger", () => {

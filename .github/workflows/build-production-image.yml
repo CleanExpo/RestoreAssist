@@ -19,21 +19,20 @@ name: Build production image
 on:
   push:
     branches: [main]
-  # Build (but never publish) on any PR that touches the image inputs, so the
-  # Dockerfile is exercised BEFORE merge rather than discovered broken after.
-  # Without this the container path is unverified until it is already on main,
-  # which is the position this repo has been in all day with production.
+  # Build (but never publish) on EVERY PR, so the container path is exercised
+  # BEFORE merge rather than discovered broken after.
+  #
+  # No path filter, on purpose (RA-7942). This job used to run only when a
+  # short list of image inputs changed. It now also proves that the real image
+  # refuses to boot ahead of its migrations, and what decides that is the boot
+  # hook, everything the server bundle imports, and the migration folders. A
+  # path list for "everything the server imports" is always incomplete: the
+  # old list named neither instrumentation.ts nor prisma/migrations, so the
+  # check would not have run on the change that added it, or on a PR that adds
+  # a migration. lib/startup/__tests__/migration-boot-guard.test.ts fails if
+  # a filter is put back. Cost: one image build per PR push (public repository,
+  # standard runners).
   pull_request:
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - docker/**
-      - next.config.mjs
-      - package.json
-      - package-lock.json
-      - prisma/schema.prisma
-      - scripts/build.sh
-      - .github/workflows/build-production-image.yml
   workflow_dispatch:
     inputs:
       ref:
