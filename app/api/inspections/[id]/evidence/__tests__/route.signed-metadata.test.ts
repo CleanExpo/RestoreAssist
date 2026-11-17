@@ -530,6 +530,30 @@ describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
       expect(mCreate).not.toHaveBeenCalled();
     });
 
+    it("refuses a measurement that is not a finite number with 400, not a server error", async () => {
+      // `1e999` is valid JSON and parses to Infinity, which the canonical
+      // payload cannot hold. That is the sender's mistake, so it is a 400
+      // with a sentence, not an unexplained 500.
+      const raw = JSON.stringify(MOISTURE_BODY).replace(
+        '"moistureLevel":18.4',
+        '"moistureLevel":1e999',
+      );
+      expect(raw).toContain("1e999");
+      const res = await POST(
+        new NextRequest("http://localhost/api/inspections/ins_1/evidence", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "Idempotency-Key": `signed-meta-${idemCounter++}`,
+          },
+          body: raw,
+        }),
+        { params: Promise.resolve({ id: "ins_1" }) },
+      );
+      await expectRefused(res, 400, /finite number/);
+      expect(mCreate).not.toHaveBeenCalled();
+    });
+
     it("cannot be talked into a verified stamp by the request body", async () => {
       // A caller asserting its own verification must not be believed.
       const body: MetadataBody = {

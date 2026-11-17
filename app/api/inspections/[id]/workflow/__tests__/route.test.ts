@@ -117,6 +117,37 @@ describe("PATCH /api/inspections/[id]/workflow — step ownership", () => {
       }),
     );
   });
+
+  // RA-8388 review round 2, same kind as the evidence DELETE: Prisma ignores
+  // an `undefined` filter, so a body with no `stepId` made the scoped
+  // `updateMany` match EVERY step of the workflow and mark them all with the
+  // one status sent.
+  for (const [name, body] of [
+    ["no stepId", { status: "COMPLETED" }],
+    ["a null stepId", { stepId: null, status: "COMPLETED" }],
+    ["an empty stepId", { stepId: "", status: "COMPLETED" }],
+    [
+      "a stepId that is not text",
+      { stepId: { not: "x" }, status: "COMPLETED" },
+    ],
+  ] as Array<[string, Record<string, unknown>]>) {
+    it(`refuses ${name} with 400 and writes nothing`, async () => {
+      p.inspectionWorkflow.findUnique.mockResolvedValue({
+        id: "wf_1",
+        totalSteps: 3,
+        steps: [],
+      });
+      p.workflowStep.updateMany.mockResolvedValue({ count: 3 });
+      p.workflowStep.findMany.mockResolvedValue([]);
+
+      const res = await patch("insp_1", body);
+
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(await res.json())).toMatch(/stepId is required/);
+      expect(p.workflowStep.updateMany).not.toHaveBeenCalled();
+      expect(p.inspectionWorkflow.update).not.toHaveBeenCalled();
+    });
+  }
 });
 
 // RA-8388: the capture page counts each step's progress from this list. A

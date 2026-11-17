@@ -204,6 +204,17 @@ export async function PATCH(
     skipReason?: string;
     skipNotes?: string;
   };
+  // RA-8388 review round 2. Prisma ignores a filter whose value is
+  // `undefined`, so without a `stepId` the scoped `updateMany` below matched
+  // every step of the workflow. One step is named, in text, or nothing is
+  // written.
+  if (typeof stepId !== "string" || stepId.length === 0) {
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "stepId is required",
+      status: 400,
+    });
+  }
 
   try {
     // RA-7721: the owner's reach or the assigned technician.

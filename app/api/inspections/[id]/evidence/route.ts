@@ -284,12 +284,27 @@ export async function POST(
           notes,
           structuredData,
         });
-        const metadataDigest = await metadataPayloadSha256({
-          evidenceClass,
-          title,
-          notes,
-          structuredData,
-        });
+        // The canonical form refuses a value it cannot write the same way
+        // twice. JSON can carry one: `1e999` parses to Infinity. That is the
+        // sender's mistake, so it is answered in words as a 400 instead of
+        // surfacing from the catch below as an unexplained 500. Nothing has
+        // been looked up or written at this point.
+        let metadataDigest: string;
+        try {
+          metadataDigest = await metadataPayloadSha256({
+            evidenceClass,
+            title,
+            notes,
+            structuredData,
+          });
+        } catch {
+          return apiError(request, {
+            code: "VALIDATION",
+            message:
+              "This submission holds a value that cannot be recorded (every number must be a finite number), so it was not saved.",
+            status: 400,
+          });
+        }
 
         const { signedManifest, manifestSignature } = body;
         const offersSignature =
