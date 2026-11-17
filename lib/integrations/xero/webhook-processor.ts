@@ -17,6 +17,11 @@ import { isOAuthIntegration } from "@/lib/integrations/identity";
 import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
+import {
+  XERO_DRAIN_INVOICE_PAID_TYPES,
+  XERO_DRAIN_INVOICE_UPDATE_TYPES,
+  isOneOf,
+} from "@/lib/integrations/webhook-event-types";
 
 /** Identity metadata only. Legacy config stays internal: never log or serialize it. */
 export const XERO_WEBHOOK_INTEGRATION_SELECT = {
@@ -161,12 +166,10 @@ export async function processXeroWebhookBatch(
         throw new Error("Xero webhook tenant/integration binding is no longer valid");
       }
 
-      if (eventType === "invoice.updated" || eventType === "invoice.created") {
+      // RA-8427: accept lists are owned by lib/integrations/webhook-event-types.ts.
+      if (isOneOf(XERO_DRAIN_INVOICE_UPDATE_TYPES, eventType)) {
         await handleInvoiceUpdated(payload, integration);
-      } else if (
-        eventType === "invoice.paid" ||
-        eventType === "payment.created"
-      ) {
+      } else if (isOneOf(XERO_DRAIN_INVOICE_PAID_TYPES, eventType)) {
         await handleInvoicePaid(payload, integration);
       } else {
         // Unrecognised event type — skip cleanly, no retry needed

@@ -8,6 +8,7 @@ import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-process
 import { createQuickBooksClient } from "@/lib/integrations/quickbooks/client";
 import { createMYOBClient } from "@/lib/integrations/myob/client";
 import { isOAuthIntegration } from "./identity";
+import { QBO_MYOB_DRAIN_EVENT_TYPES } from "@/lib/integrations/webhook-event-types";
 
 const WEBHOOK_INTEGRATION_IDENTITY_SELECT = {
   provider: true, name: true, icon: true, config: true,
@@ -819,7 +820,8 @@ export async function processQboMyobPendingPayments(
   const events = await prisma.webhookEvent.findMany({
     where: {
       provider: { in: ["QUICKBOOKS", "MYOB"] },
-      eventType: { in: ["invoice.paid", "payment.created"] },
+      // RA-8427: owned by lib/integrations/webhook-event-types.ts.
+      eventType: { in: [...QBO_MYOB_DRAIN_EVENT_TYPES] },
       status: "PENDING",
     },
     select: QBO_MYOB_PAYMENT_EVENT_SELECT,
