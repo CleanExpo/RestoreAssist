@@ -226,6 +226,34 @@ describe("one rule, not two", () => {
     expect(hook).toContain("assertRevisionMigrationsApplied(");
   });
 
+  it("does not count an attempt that finished and was then rolled back", () => {
+    const finishedThenRolledBack = {
+      migration_name: "a",
+      finished_at: DONE,
+      rolled_back_at: DONE,
+    };
+    expect(classifyMigrationLedger([finishedThenRolledBack])).toEqual({
+      applied: [],
+      failed: [],
+      rolledBackOnly: ["a"],
+      total: 1,
+    });
+  });
+
+  it("the ledger alarm states only what the ledger check observed", () => {
+    // Review round 1 (P1): the alarm opens on an unreadable probe and before
+    // any deploy, and never reads deployment status, so it must not assert
+    // that a deployment failed or which revision is serving.
+    const alarm = readFileSync(
+      join(repoRoot, "scripts/ci/migration-ledger-issue.mjs"),
+      "utf8",
+    );
+    expect(alarm).not.toMatch(/will have failed/);
+    expect(alarm).not.toMatch(/is still on the previous revision/);
+    expect(alarm).toMatch(/does not read the deployment/);
+    expect(alarm).toMatch(/redeploy/i);
+  });
+
   it("classifies a mixed ledger", () => {
     expect(
       classifyMigrationLedger([
