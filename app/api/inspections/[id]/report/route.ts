@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { InspectionStatus } from "@prisma/client";
+import { inspectionStatusAllowsNirReport } from "@/lib/inspections/active-status";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -43,12 +43,6 @@ const AU_DATE = (d: Date | string | null | undefined): string =>
 
 const AU_DATETIME = (d: Date | string | null | undefined): string =>
   d ? new Date(d).toLocaleString("en-AU") : "—";
-
-const REPORT_READY_STATUSES = new Set<InspectionStatus>([
-  InspectionStatus.ESTIMATED,
-  InspectionStatus.SUBMITTED,
-  InspectionStatus.COMPLETED,
-]);
 
 // The PDF now downloads the inspection's photos, so the ceiling is set here
 // rather than left to a platform default; the photo stage stops well inside it.
@@ -235,7 +229,7 @@ export async function GET(
       });
     }
 
-    if (!REPORT_READY_STATUSES.has(inspection.status)) {
+    if (!inspectionStatusAllowsNirReport(inspection.status)) {
       return apiError(request, {
         code: "VALIDATION",
         message: "Inspection must be review-ready before generating report",
