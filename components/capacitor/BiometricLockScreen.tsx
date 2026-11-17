@@ -3,9 +3,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { authenticateBiometric, isBiometricAvailable } from "@/lib/auth/biometric";
+import { isBiometricLockEnabled } from "@/lib/auth/biometric-lock-setting";
 import { Lock } from "lucide-react";
 
-const STORAGE_KEY = "ra-biometric-lock";
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 export function BiometricLockScreen() {
@@ -21,28 +21,30 @@ export function BiometricLockScreen() {
   // don't constantly re-prompt.
   const { status } = useSession();
 
+  // RA-8436: the setting is read at the time of each event, never cached at
+  // mount, so the settings switch takes effect without restarting the app.
+  // Listeners are registered whenever the user is signed in; they do nothing
+  // while the setting is off.
   useEffect(() => {
-    const enabled = localStorage.getItem(STORAGE_KEY) === "true";
-    if (!enabled) return;
+    if (status !== "authenticated") return;
 
-    if (
-      !coldLaunchHandled.current &&
-      status === "authenticated" &&
-      typeof window !== "undefined"
-    ) {
+    if (!coldLaunchHandled.current) {
       coldLaunchHandled.current = true;
-      isBiometricAvailable().then((available) => {
-        if (available) setLocked(true);
-      });
+      if (isBiometricLockEnabled()) {
+        isBiometricAvailable().then((available) => {
+          if (available) setLocked(true);
+        });
+      }
     }
 
     const handleResume = async () => {
+      if (!isBiometricLockEnabled()) return;
       const elapsed = backgroundedAt.current
         ? Date.now() - backgroundedAt.current
         : Infinity;
       if (elapsed < IDLE_TIMEOUT_MS) return;
       const available = await isBiometricAvailable();
-      if (available) setLocked(true);
+      if (available && isBiometricLockEnabled()) setLocked(true);
     };
 
     const handlePause = () => {

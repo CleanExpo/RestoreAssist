@@ -23,6 +23,10 @@ import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { AppearanceSetting } from "@/components/settings/AppearanceSetting";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import {
+  isBiometricLockEnabled,
+  setBiometricLockEnabled,
+} from "@/lib/auth/biometric-lock-setting";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -133,7 +137,7 @@ export default function SettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [biometricLock, setBiometricLock] = useState(false);
   useEffect(() => {
-    setBiometricLock(localStorage.getItem("ra-biometric-lock") === "true");
+    setBiometricLock(isBiometricLockEnabled());
   }, []);
 
   useEffect(() => {
@@ -749,10 +753,7 @@ export default function SettingsPage() {
                     type="checkbox"
                     checked={biometricLock}
                     onChange={(e) => {
-                      localStorage.setItem(
-                        "ra-biometric-lock",
-                        String(e.target.checked),
-                      );
+                      setBiometricLockEnabled(e.target.checked);
                       setBiometricLock(e.target.checked);
                     }}
                     className="w-4 h-4 accent-cyan-500 cursor-pointer"
