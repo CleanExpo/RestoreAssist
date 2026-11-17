@@ -117,13 +117,11 @@ export async function POST(request: NextRequest) {
         cancel_at_period_end: true,
       });
 
-      // RA-6939: sync local DB so the app reflects the scheduled cancel
-      // without waiting for the webhook. Matches the status the subscription
-      // route reads as cancelAtPeriodEnd.
-      await prisma.user.update({
-        where: { id: userId },
-        data: { subscriptionStatus: "CANCELED" },
-      });
+      // RA-8430: no local status write here. Stripe keeps the plan live
+      // until the period ends, and the webhook, /api/subscription and
+      // /api/check-active-subscription all map that to ACTIVE. Writing
+      // CANCELED now locked a paid-up owner out whenever those follow-ups
+      // failed, and the reconcile cron never repairs CANCELED rows.
 
       // Persist churn feedback (best-effort — never block the cancel on this).
       if (parsed.data.reason) {

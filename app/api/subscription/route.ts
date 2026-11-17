@@ -153,7 +153,10 @@ export async function GET(request: NextRequest) {
               currentPeriodEnd: user.nextBillingDate
                 ? Math.floor(new Date(user.nextBillingDate).getTime() / 1000)
                 : null,
-              cancelAtPeriodEnd: user.subscriptionStatus === "CANCELED",
+              // RA-8430: CANCELED means the plan has already ended; a
+              // scheduled cancel stays ACTIVE. With no stored flag, the
+              // database fallback cannot know about a scheduled cancel.
+              cancelAtPeriodEnd: false,
               plan: {
                 name: localPlan.name,
                 amount: localPlan.amountCents,
