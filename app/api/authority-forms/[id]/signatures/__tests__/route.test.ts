@@ -19,6 +19,8 @@ const instanceUpdate = vi.fn();
 const signatureUpdateMany = vi.fn();
 const signatureFindUniqueOrThrow = vi.fn();
 const signatureFindMany = vi.fn();
+const instanceUpdateMany = vi.fn();
+const signatureCount = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -27,20 +29,25 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: (...args: unknown[]) => withIdempotency(...args),
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const client = {
     authorityFormInstance: {
       findUnique: (...args: unknown[]) => instanceFindUnique(...args),
       update: (...args: unknown[]) => instanceUpdate(...args),
+      updateMany: (...args: unknown[]) => instanceUpdateMany(...args),
     },
     authorityFormSignature: {
       updateMany: (...args: unknown[]) => signatureUpdateMany(...args),
       findUniqueOrThrow: (...args: unknown[]) =>
         signatureFindUniqueOrThrow(...args),
       findMany: (...args: unknown[]) => signatureFindMany(...args),
+      count: (...args: unknown[]) => signatureCount(...args),
     },
-  },
-}));
+    // RA-8438: signature + status run in one interactive transaction.
+    $transaction: (fn: (tx: unknown) => unknown) => fn(client),
+  };
+  return { prisma: client };
+});
 
 import { POST } from "../route";
 
@@ -74,6 +81,8 @@ beforeEach(() => {
   signatureUpdateMany.mockReset();
   signatureFindUniqueOrThrow.mockReset();
   signatureFindMany.mockReset();
+  instanceUpdateMany.mockReset();
+  signatureCount.mockReset();
 
   getServerSession.mockResolvedValue({ user: { id: "user-1" } });
   withIdempotency.mockImplementation(
@@ -96,7 +105,8 @@ describe("POST /api/authority-forms/[id]/signatures", () => {
       signedAt: new Date("2026-07-01T00:00:00.000Z"),
     };
     signatureFindUniqueOrThrow.mockResolvedValueOnce(signedRow);
-    signatureFindMany.mockResolvedValueOnce([signedRow]);
+    signatureCount.mockResolvedValueOnce(1).mockResolvedValueOnce(0); // 1 slot, 0 unsigned
+    instanceUpdateMany.mockResolvedValueOnce({ count: 1 });
 
     const res = await POST(
       makeRequest({ signatureId: "sig-1", signatureData: "data:image/png;base64,abc" }),
@@ -113,9 +123,9 @@ describe("POST /api/authority-forms/[id]/signatures", () => {
       }),
     );
     // All signatures signed → form transitions to COMPLETED.
-    expect(instanceUpdate).toHaveBeenCalledWith(
+    expect(instanceUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "form-1" },
+        where: expect.objectContaining({ id: "form-1" }),
         data: expect.objectContaining({ status: "COMPLETED" }),
       }),
     );
@@ -144,8 +154,9 @@ describe("POST /api/authority-forms/[id]/signatures", () => {
     );
     // Nothing downstream ran: no re-fetch, no completion check, no status write.
     expect(signatureFindUniqueOrThrow).not.toHaveBeenCalled();
-    expect(signatureFindMany).not.toHaveBeenCalled();
+    expect(signatureCount).not.toHaveBeenCalled();
     expect(instanceUpdate).not.toHaveBeenCalled();
+    expect(instanceUpdateMany).not.toHaveBeenCalled();
   });
 
   it("403 when the caller has no relationship to the form", async () => {

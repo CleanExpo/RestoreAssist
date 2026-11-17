@@ -26,8 +26,9 @@ const sigUpdateMany = vi.fn();
 const sigCount = vi.fn();
 const instanceUpdate = vi.fn();
 const instanceFindUnique = vi.fn();
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+const instanceUpdateMany = vi.fn();
+vi.mock("@/lib/prisma", () => {
+  const client = {
     authorityFormSignature: {
       findUnique: (...a: unknown[]) => sigFindUnique(...a),
       updateMany: (...a: unknown[]) => sigUpdateMany(...a),
@@ -36,9 +37,13 @@ vi.mock("@/lib/prisma", () => ({
     authorityFormInstance: {
       update: (...a: unknown[]) => instanceUpdate(...a),
       findUnique: (...a: unknown[]) => instanceFindUnique(...a),
+      updateMany: (...a: unknown[]) => instanceUpdateMany(...a),
     },
-  },
-}));
+    // RA-8438: signature + status run in one interactive transaction.
+    $transaction: (fn: (tx: unknown) => unknown) => fn(client),
+  };
+  return { prisma: client };
+});
 
 import { POST } from "../route";
 
@@ -62,6 +67,7 @@ beforeEach(() => {
   sigCount.mockReset();
   instanceUpdate.mockReset();
   instanceFindUnique.mockReset();
+  instanceUpdateMany.mockReset();
 });
 
 describe("POST /api/authority-forms/sign/[token]", () => {
@@ -78,12 +84,10 @@ describe("POST /api/authority-forms/sign/[token]", () => {
   });
 
   it("signs successfully on the first submission (atomic guard on signedAt=null)", async () => {
-    sigFindUnique
-      .mockResolvedValueOnce({ id: "s_1", instanceId: "f_1", signatoryName: "Margaret" })
-      .mockResolvedValueOnce({ id: "s_1", instanceId: "f_1" });
+    sigFindUnique.mockResolvedValueOnce({ id: "s_1", instanceId: "f_1", signatoryName: "Margaret" });
     sigUpdateMany.mockResolvedValueOnce({ count: 1 });
-    sigCount.mockResolvedValueOnce(0); // no remaining unsigned → form complete
-    instanceUpdate.mockResolvedValueOnce({});
+    sigCount.mockResolvedValueOnce(1).mockResolvedValueOnce(0); // 1 slot, 0 unsigned → complete
+    instanceUpdateMany.mockResolvedValueOnce({ count: 1 });
 
     const res = await POST(postReq({ signatureData: "data:image/png;base64,AA" }), ctx());
     expect(res.status).toBe(200);
@@ -107,5 +111,6 @@ describe("POST /api/authority-forms/sign/[token]", () => {
     expect(json.error).toMatch(/already been signed/i);
     // No completion side-effects fire on a rejected duplicate.
     expect(instanceUpdate).not.toHaveBeenCalled();
+    expect(instanceUpdateMany).not.toHaveBeenCalled();
   });
 });

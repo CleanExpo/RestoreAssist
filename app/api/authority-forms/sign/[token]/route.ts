@@ -5,6 +5,7 @@ import { apiError } from "@/lib/api-errors";
 import { verifyBotId } from "@/lib/auth/botid";
 import { validateCsrf } from "@/lib/csrf";
 import { notifySignatoryOfSignedCopy } from "@/lib/authority-forms/notify-signatory-copy";
+import { settleAuthorityFormStatus } from "@/lib/authority-forms/form-status";
 import { reportError } from "@/lib/observability";
 
 const SIGNATURE_TOKEN_PATTERN =
@@ -199,18 +200,30 @@ export async function POST(
     // The token is re-checked here too (RA-7634): if staff revoke or rotate the
     // client's portal link between the lookup above and this write, the cleared
     // token must not still sign.
-    const result = await prisma.authorityFormSignature.updateMany({
-      where: { id: signature.id, signatureRequestToken: token, signedAt: null },
-      data: {
-        signatureData,
-        signatoryName: signatoryName || signature.signatoryName,
-        signedAt: new Date(),
-        ipAddress,
-        userAgent,
-      },
+    //
+    // RA-8438: the signature and the status that follows it are one
+    // transaction. If the status write fails the signature rolls back, so the
+    // client's retry can still sign instead of hitting "already signed".
+    const outcome = await prisma.$transaction(async (tx) => {
+      const result = await tx.authorityFormSignature.updateMany({
+        where: {
+          id: signature.id,
+          signatureRequestToken: token,
+          signedAt: null,
+        },
+        data: {
+          signatureData,
+          signatoryName: signatoryName || signature.signatoryName,
+          signedAt: new Date(),
+          ipAddress,
+          userAgent,
+        },
+      });
+      if (result.count === 0) return null;
+      return settleAuthorityFormStatus(tx, signature.instanceId);
     });
 
-    if (result.count === 0) {
+    if (!outcome) {
       return apiError(request, {
         code: "CONFLICT",
         message: "This form has already been signed",
@@ -218,51 +231,7 @@ export async function POST(
       });
     }
 
-    // Fetch the updated record for instanceId-based checks below
-    const updated = await prisma.authorityFormSignature.findUnique({
-      where: { id: signature.id },
-    });
-    if (!updated) {
-      return apiError(request, {
-        code: "INTERNAL",
-        message: "Internal server error",
-        status: 500,
-      });
-    }
-
-    // Check if all signatures for this form are now complete
-    const unsignedSignatureCount = await prisma.authorityFormSignature.count({
-      where: { instanceId: signature.instanceId, signedAt: null },
-    });
-
-    const allSigned = unsignedSignatureCount === 0;
-
-    if (allSigned) {
-      await prisma.authorityFormInstance.update({
-        where: { id: signature.instanceId },
-        data: {
-          status: "COMPLETED",
-          completedAt: new Date(),
-        },
-      });
-    } else {
-      // Update to PARTIALLY_SIGNED if not already
-      const form = await prisma.authorityFormInstance.findUnique({
-        where: { id: signature.instanceId },
-        select: { status: true },
-      });
-
-      if (
-        form &&
-        form.status !== "PARTIALLY_SIGNED" &&
-        form.status !== "COMPLETED"
-      ) {
-        await prisma.authorityFormInstance.update({
-          where: { id: signature.instanceId },
-          data: { status: "PARTIALLY_SIGNED" },
-        });
-      }
-    }
+    const { allSigned } = outcome;
 
     // Copy to the signatory only on this unsigned → signed transition.
     // Email failure must not undo or fail the already-recorded signature.

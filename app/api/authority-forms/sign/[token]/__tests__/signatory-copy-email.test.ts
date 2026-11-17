@@ -45,8 +45,9 @@ const sigUpdateMany = vi.fn();
 const sigCount = vi.fn();
 const instanceUpdate = vi.fn();
 const instanceFindUnique = vi.fn();
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+const instanceUpdateMany = vi.fn();
+vi.mock("@/lib/prisma", () => {
+  const client = {
     authorityFormSignature: {
       findUnique: (...a: unknown[]) => sigFindUnique(...a),
       updateMany: (...a: unknown[]) => sigUpdateMany(...a),
@@ -55,9 +56,13 @@ vi.mock("@/lib/prisma", () => ({
     authorityFormInstance: {
       update: (...a: unknown[]) => instanceUpdate(...a),
       findUnique: (...a: unknown[]) => instanceFindUnique(...a),
+      updateMany: (...a: unknown[]) => instanceUpdateMany(...a),
     },
-  },
-}));
+    // RA-8438: signature + status run in one interactive transaction.
+    $transaction: (fn: (tx: unknown) => unknown) => fn(client),
+  };
+  return { prisma: client };
+});
 
 import { POST } from "../route";
 
@@ -119,12 +124,10 @@ function signedForm() {
 }
 
 function mockSuccessfulSign() {
-  sigFindUnique
-    .mockResolvedValueOnce(unsignedSignature())
-    .mockResolvedValueOnce({ id: "s_1", instanceId: "f_1" });
+  sigFindUnique.mockResolvedValueOnce(unsignedSignature());
   sigUpdateMany.mockResolvedValueOnce({ count: 1 });
-  sigCount.mockResolvedValueOnce(0);
-  instanceUpdate.mockResolvedValueOnce({});
+  sigCount.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+  instanceUpdateMany.mockResolvedValueOnce({ count: 1 });
   instanceFindUnique.mockResolvedValueOnce(signedForm());
   renderAuthorityFormPdf.mockResolvedValueOnce({
     bytes: PDF_BYTES,
@@ -142,6 +145,7 @@ beforeEach(() => {
   sigCount.mockReset();
   instanceUpdate.mockReset();
   instanceFindUnique.mockReset();
+  instanceUpdateMany.mockReset();
   sendSignedFormEmail.mockReset();
   renderAuthorityFormPdf.mockReset();
   reportError.mockReset();

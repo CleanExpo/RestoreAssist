@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { settleAuthorityFormStatus } from "@/lib/authority-forms/form-status";
 
 /**
  * POST /api/authority-forms/:id/signatures
@@ -134,18 +135,26 @@ export async function POST(
       // Update signature — scope by instanceId (RA-6961). signatureId is
       // client-supplied; without this guard a caller who owns formId could
       // pass a foreign signatureId and overwrite another tenant's signature.
-      const updateResult = await prisma.authorityFormSignature.updateMany({
-        where: { id: signatureId, instanceId: formId },
-        data: {
-          signatureData,
-          signatoryName: signatoryName || undefined,
-          signedAt: new Date(),
-          ipAddress,
-          userAgent,
-        },
+      // RA-8438: the signature and the status that follows it are written in
+      // one transaction, and the status comes from the shared owner. Before,
+      // this route only moved DRAFT forms to PARTIALLY_SIGNED, so a form that
+      // had been emailed and was then signed in person stayed "Sent".
+      const outcome = await prisma.$transaction(async (tx) => {
+        const updateResult = await tx.authorityFormSignature.updateMany({
+          where: { id: signatureId, instanceId: formId },
+          data: {
+            signatureData,
+            signatoryName: signatoryName || undefined,
+            signedAt: new Date(),
+            ipAddress,
+            userAgent,
+          },
+        });
+        if (updateResult.count === 0) return null;
+        return settleAuthorityFormStatus(tx, formId);
       });
 
-      if (updateResult.count === 0) {
+      if (!outcome) {
         return apiError(request, {
           code: "NOT_FOUND",
           message: "Signature not found",
@@ -158,38 +167,7 @@ export async function POST(
         { where: { id: signatureId } },
       );
 
-      // Check if all signatures are complete
-      const allSignatures = await prisma.authorityFormSignature.findMany({
-        where: { instanceId: formId },
-        orderBy: { createdAt: "asc" },
-        take: 100,
-      });
-
-      const allSigned = allSignatures.every((sig) => sig.signedAt !== null);
-
-      // Update form status if all signatures are complete
-      if (allSigned) {
-        await prisma.authorityFormInstance.update({
-          where: { id: formId },
-          data: {
-            status: "COMPLETED",
-            completedAt: new Date(),
-          },
-        });
-      } else {
-        // Update to partially signed if at least one signature exists
-        const hasAnySignature = allSignatures.some(
-          (sig) => sig.signedAt !== null,
-        );
-        if (hasAnySignature && form.status === "DRAFT") {
-          await prisma.authorityFormInstance.update({
-            where: { id: formId },
-            data: { status: "PARTIALLY_SIGNED" },
-          });
-        }
-      }
-
-      return NextResponse.json({ signature, allSigned });
+      return NextResponse.json({ signature, allSigned: outcome.allSigned });
     } catch (error) {
       console.error("Error adding signature:", error);
       return fromException(request, error, { stage: "add-signature" });
