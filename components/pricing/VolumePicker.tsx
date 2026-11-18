@@ -60,7 +60,7 @@ const AUD = new Intl.NumberFormat("en-AU", {
 });
 
 const FOCUS =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white";
 
 const MONTHLY = PRICING_CONFIG.pricing.monthly;
 
@@ -256,7 +256,7 @@ export function VolumePicker({
         id={`${fieldId}-heading`}
         className={cn(
           FONT_DISPLAY,
-          "text-2xl font-semibold tracking-tight text-[#0B1F3A] sm:text-3xl",
+          "text-2xl font-semibold tracking-tight text-brand-navy sm:text-3xl",
         )}
       >
         What will your month cost?
@@ -271,7 +271,7 @@ export function VolumePicker({
       <div className="mt-8">
         <label
           htmlFor={fieldId}
-          className="block text-sm font-semibold text-[#0B1F3A]"
+          className="block text-sm font-semibold text-brand-navy"
         >
           Reports per month
         </label>
@@ -295,7 +295,7 @@ export function VolumePicker({
             aria-controls={fieldId}
             className={cn(
               "inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
-              "border border-slate-300/90 bg-white text-2xl font-semibold text-[#0B1F3A]",
+              "border border-slate-300/90 bg-white text-2xl font-semibold text-brand-navy",
               "transition-colors duration-150 ease-out hover:border-slate-400 hover:bg-[#F3F5F7]",
               atMin &&
                 "cursor-not-allowed opacity-40 hover:border-slate-300/90 hover:bg-white",
@@ -320,7 +320,7 @@ export function VolumePicker({
             className={cn(
               FONT_DISPLAY,
               "h-12 w-28 rounded-xl border border-slate-300/90 bg-white text-center",
-              "text-2xl font-semibold tracking-tight text-[#0B1F3A]",
+              "text-2xl font-semibold tracking-tight text-brand-navy",
               "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
               mismatch && "border-[#B4471F] text-[#B4471F]",
               FOCUS,
@@ -345,7 +345,7 @@ export function VolumePicker({
             aria-controls={fieldId}
             className={cn(
               "inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
-              "border border-slate-300/90 bg-white text-2xl font-semibold text-[#0B1F3A]",
+              "border border-slate-300/90 bg-white text-2xl font-semibold text-brand-navy",
               "transition-colors duration-150 ease-out hover:border-slate-400 hover:bg-[#F3F5F7]",
               atMax &&
                 "cursor-not-allowed opacity-40 hover:border-slate-300/90 hover:bg-white",
@@ -384,7 +384,7 @@ export function VolumePicker({
         ) : null}
 
         <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-harbour">
             Common volumes
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -399,8 +399,8 @@ export function VolumePicker({
                   className={cn(
                     "min-h-11 rounded-xl px-4 text-sm font-semibold tracking-tight transition-colors duration-150 ease-out",
                     active
-                      ? "bg-[#0B1F3A] text-white"
-                      : "border border-slate-300/90 bg-white text-[#0B1F3A] hover:border-slate-400 hover:bg-[#F3F5F7]",
+                      ? "bg-brand-navy text-white"
+                      : "border border-slate-300/90 bg-white text-brand-navy hover:border-slate-400 hover:bg-[#F3F5F7]",
                     FOCUS,
                   )}
                 >
@@ -425,13 +425,13 @@ export function VolumePicker({
         {buysPacks ? (
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-harbour">
                 Your first month
               </p>
               <p
                 className={cn(
                   FONT_DISPLAY,
-                  "mt-2 text-4xl font-semibold tracking-tight text-[#0B1F3A] sm:text-5xl",
+                  "mt-2 text-4xl font-semibold tracking-tight text-brand-navy sm:text-5xl",
                 )}
               >
                 {AUD.format(quote.firstMonthAud)}
@@ -443,13 +443,13 @@ export function VolumePicker({
             </div>
 
             <div className="sm:text-right">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-harbour">
                 Every month after
               </p>
               <p
                 className={cn(
                   FONT_DISPLAY,
-                  "mt-2 text-4xl font-semibold tracking-tight text-[#0B1F3A] sm:text-5xl",
+                  "mt-2 text-4xl font-semibold tracking-tight text-brand-navy sm:text-5xl",
                 )}
               >
                 {AUD.format(quote.ongoingMonthlyAud)}
@@ -463,13 +463,13 @@ export function VolumePicker({
         ) : (
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-harbour">
                 Plan and packs, per report
               </p>
               <p
                 className={cn(
                   FONT_DISPLAY,
-                  "mt-2 text-4xl font-semibold tracking-tight text-[#0B1F3A] sm:text-5xl",
+                  "mt-2 text-4xl font-semibold tracking-tight text-brand-navy sm:text-5xl",
                 )}
               >
                 {ongoingRate}
@@ -482,13 +482,13 @@ export function VolumePicker({
             </div>
 
             <div className="sm:text-right">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-harbour">
                 Total each month
               </p>
               <p
                 className={cn(
                   FONT_DISPLAY,
-                  "mt-2 text-4xl font-semibold tracking-tight text-[#0B1F3A] sm:text-5xl",
+                  "mt-2 text-4xl font-semibold tracking-tight text-brand-navy sm:text-5xl",
                 )}
               >
                 {AUD.format(quote.ongoingMonthlyAud)}
@@ -516,7 +516,7 @@ export function VolumePicker({
         <ul className="mt-6 space-y-2 border-t border-slate-200/90 pt-5 text-sm">
           <li className="flex items-start justify-between gap-4 text-slate-600">
             <span className="flex items-start gap-2">
-              <span className="mt-0.5 text-[#3B6D8C]">
+              <span className="mt-0.5 text-brand-harbour">
                 <RAIcon name="report" size={16} decorative />
               </span>
               <span>
@@ -524,7 +524,7 @@ export function VolumePicker({
                 included
               </span>
             </span>
-            <span className="shrink-0 font-semibold text-[#0B1F3A]">
+            <span className="shrink-0 font-semibold text-brand-navy">
               {AUD.format(MONTHLY.amount)} a month
             </span>
           </li>
@@ -540,7 +540,7 @@ export function VolumePicker({
                 className="flex items-start justify-between gap-4 text-slate-600"
               >
                 <span className="flex items-start gap-2">
-                  <span className="mt-0.5 text-[#3B6D8C]">
+                  <span className="mt-0.5 text-brand-harbour">
                     <RAIcon name="task" size={16} decorative />
                   </span>
                   <span>
@@ -558,13 +558,13 @@ export function VolumePicker({
                 Report packs to cover the {quote.overage}{" "}
                 {reportWord(quote.overage)} beyond your plan allowance
               </span>
-              <span className="shrink-0 font-semibold text-[#0B1F3A]">
+              <span className="shrink-0 font-semibold text-brand-navy">
                 {AUD.format(quote.packsTotalAud)} once
               </span>
             </li>
           ) : (
             <li className="flex items-start gap-2 text-slate-600">
-              <span className="mt-0.5 text-[#3B6D8C]">
+              <span className="mt-0.5 text-brand-harbour">
                 <RAIcon name="success" size={16} decorative />
               </span>
               <span>
@@ -577,9 +577,9 @@ export function VolumePicker({
 
         {/* Honest overshoot disclosure — pack-caused spare. */}
         {packSpare ? (
-          <div className="mt-5 rounded-xl border border-[#3B6D8C]/25 bg-white p-4">
-            <p className="flex items-start gap-2 text-sm font-semibold text-[#0B1F3A]">
-              <span className="mt-0.5 text-[#3B6D8C]">
+          <div className="mt-5 rounded-xl border border-brand-harbour/25 bg-white p-4">
+            <p className="flex items-start gap-2 text-sm font-semibold text-brand-navy">
+              <span className="mt-0.5 text-brand-harbour">
                 <RAIcon name="moisture" size={16} decorative />
               </span>
               <span>
@@ -628,9 +628,9 @@ export function VolumePicker({
 
         {/* Honest disclosure — spare that comes from the plan, with no pack bought. */}
         {planSpare ? (
-          <div className="mt-5 rounded-xl border border-[#3B6D8C]/25 bg-white p-4">
-            <p className="flex items-start gap-2 text-sm font-semibold text-[#0B1F3A]">
-              <span className="mt-0.5 text-[#3B6D8C]">
+          <div className="mt-5 rounded-xl border border-brand-harbour/25 bg-white p-4">
+            <p className="flex items-start gap-2 text-sm font-semibold text-brand-navy">
+              <span className="mt-0.5 text-brand-harbour">
                 <RAIcon name="moisture" size={16} decorative />
               </span>
               <span>
@@ -670,7 +670,7 @@ export function VolumePicker({
 
       {/* ── Rate ladder ─────────────────────────────────────────────────── */}
       <div className="mt-8 border-t border-slate-200/90 pt-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-harbour">
           Why the rate moves
         </p>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -683,7 +683,7 @@ export function VolumePicker({
                 {rung.label}
                 <span className="text-slate-500"> &mdash; {rung.detail}</span>
               </span>
-              <span className="shrink-0 font-semibold text-[#0B1F3A]">
+              <span className="shrink-0 font-semibold text-brand-navy">
                 {formatPerReport(rung.rate)}
               </span>
             </li>

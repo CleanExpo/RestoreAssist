@@ -507,7 +507,7 @@ export function SketchDockToolbar({
                 className={cn(
                   "h-8 w-8 rounded-lg border text-[9px] font-semibold uppercase tracking-wide",
                   damageKind === kind
-                    ? "border-[#D4A574] ring-1 ring-[#D4A574]"
+                    ? "border-brand-gold ring-1 ring-brand-gold"
                     : "border-white/10 opacity-70 hover:opacity-100",
                 )}
                 style={{ background: DAMAGE_KIND_STYLES[kind].fill }}
@@ -541,7 +541,7 @@ export function SketchDockToolbar({
                 className={cn(
                   "h-8 min-w-8 px-1 rounded-lg border text-[9px] font-semibold tracking-wide",
                   equipmentKind === kind
-                    ? "border-[#D4A574] ring-1 ring-[#D4A574] text-white"
+                    ? "border-brand-gold ring-1 ring-brand-gold text-white"
                     : "border-white/10 opacity-70 hover:opacity-100 text-white/80",
                 )}
                 style={{
@@ -584,7 +584,7 @@ export function SketchDockToolbar({
                 className={cn(
                   "h-8 min-w-8 px-1.5 rounded-lg border text-[10px] font-semibold tracking-wide",
                   roomTemplateKind === kind
-                    ? "border-[#D4A574] ring-1 ring-[#D4A574] text-brand-gold bg-brand-gold/15"
+                    ? "border-brand-gold ring-1 ring-brand-gold text-brand-gold bg-brand-gold/15"
                     : "border-white/10 text-white/70 hover:opacity-100",
                 )}
               >

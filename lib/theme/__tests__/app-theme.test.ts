@@ -10,21 +10,28 @@ const layoutSource = readFileSync(
 );
 
 describe("appThemeProviderProps", () => {
-  it.each(["/dashboard", "/dashboard/settings", "/dashboard/inspections/abc"])(
-    "honours the stored choice on %s",
-    (path) => {
-      const props = appThemeProviderProps(path);
-      expect(props.forcedTheme).toBeUndefined();
-      expect(props.enableSystem).toBe(true);
-      expect(props.defaultTheme).toBe("dark");
-      expect(props.attribute).toBe("class");
-    },
-  );
+  it.each([
+    "/dashboard",
+    "/dashboard/settings",
+    "/dashboard/inspections/abc",
+    "/",
+    "/pricing",
+    "/login",
+    null,
+  ])("honours the stored choice and defaults to light on %s", (path) => {
+    const props = appThemeProviderProps(path) as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(props.forcedTheme).toBeUndefined();
+    expect(props.enableSystem).toBe(true);
+    expect(props.defaultTheme).toBe("light");
+    expect(props.attribute).toBe("class");
+  });
 
   it.each(["/", "/pricing", "/login", "/dashboards-fake", null])(
-    "keeps public route %s dark",
+    "does not treat public route %s as the signed-in workspace",
     (path) => {
-      expect(appThemeProviderProps(path).forcedTheme).toBe("dark");
       expect(isUserThemedPath(path)).toBe(false);
     },
   );

@@ -397,7 +397,7 @@ export function VoiceAssistant({
         <div>
           <h2 className="text-base font-semibold text-neutral-900 dark:text-white">
             Live Teacher{" "}
-            <span className="align-middle text-xs font-medium text-[#8A6B4E] dark:text-[#D4A574]">
+            <span className="align-middle text-xs font-medium text-brand-bronze dark:text-brand-gold">
               Preview
             </span>
           </h2>

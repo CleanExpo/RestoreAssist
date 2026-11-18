@@ -76,8 +76,8 @@ function ProgressRing({
     percentage === 100
       ? "#10b981"
       : percentage >= 50
-        ? "#d4a574"
-        : "#8a6b4e";
+        ? "var(--color-brand-cta)"
+        : "var(--color-brand-bronze)";
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
@@ -96,7 +96,7 @@ function ProgressRing({
           r={radius}
           fill="none"
           strokeWidth={10}
-          stroke={strokeColor}
+          style={{ stroke: strokeColor }}
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"

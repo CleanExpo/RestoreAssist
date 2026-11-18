@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
-  simpleDashboardHeroShell,
+  simpleDashboardHeroShellThemed,
   simpleDashboardHeroShine,
-  simpleDashboardShortcutLink,
+  simpleDashboardShortcutLinkThemed,
 } from "@/lib/dashboard/simple-dashboard-theme";
 
 type SecondaryLink = {
@@ -74,26 +74,26 @@ export function DashboardListPageHeader({
   }
 
   return (
-    <header className={cn(simpleDashboardHeroShell, className)}>
-      <div aria-hidden className={simpleDashboardHeroShine} />
+    <header className={cn(simpleDashboardHeroShellThemed, className)}>
+      <div aria-hidden className={cn(simpleDashboardHeroShine, "hidden dark:block")} />
       <div className="relative space-y-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 space-y-2">
             {eyebrow ? (
-              <p className="text-xs font-semibold uppercase tracking-wider text-cyan-800 dark:text-cyan-200/90">
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-cta dark:text-brand-harbour-light">
                 {eyebrow}
               </p>
             ) : null}
-            <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+            <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-brand-navy sm:text-3xl dark:text-white">
               {icon ? (
-                <span className="text-cyan-700 dark:text-cyan-300 [&>svg]:h-7 [&>svg]:w-7">
+                <span className="text-brand-cta dark:text-brand-harbour-light [&>svg]:h-7 [&>svg]:w-7 [&>svg]:text-current">
                   {icon}
                 </span>
               ) : null}
               {title}
             </h1>
             {description ? (
-              <p className="max-w-3xl text-sm leading-relaxed text-white/65">
+              <p className="max-w-3xl text-sm leading-relaxed text-brand-slate dark:text-white/65">
                 {description}
               </p>
             ) : null}
@@ -105,10 +105,10 @@ export function DashboardListPageHeader({
         {secondaryLinks && secondaryLinks.length > 0 ? (
           <nav
             aria-label="Related pages"
-            className="grid grid-cols-2 gap-2 border-t border-white/10 pt-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+            className="grid grid-cols-2 gap-2 border-t border-brand-mist pt-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 dark:border-white/10"
           >
             {secondaryLinks.map((link) => (
-              <Link key={link.href} href={link.href} className={simpleDashboardShortcutLink}>
+              <Link key={link.href} href={link.href} className={simpleDashboardShortcutLinkThemed}>
                 {link.label}
               </Link>
             ))}

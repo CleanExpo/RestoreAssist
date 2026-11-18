@@ -26,7 +26,7 @@ export function LandingHero() {
 
   return (
     <section className="relative pt-[4.25rem]">
-      <div className="relative min-h-[min(92dvh,56rem)] overflow-hidden bg-[#0B1F3A]">
+      <div className="relative min-h-[min(92dvh,56rem)] overflow-hidden bg-brand-navy">
         <motion.div
           initial={reduce ? false : { opacity: 0, scale: 1.06 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -42,11 +42,11 @@ export function LandingHero() {
             className="object-cover object-[42%_55%]"
           />
           <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0B1F3A]/90 via-[#0B1F3A]/50 to-[#0B1F3A]/20 sm:via-[#0B1F3A]/42 sm:to-transparent"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-navy/90 via-brand-navy/50 to-brand-navy/20 sm:via-brand-navy/42 sm:to-transparent"
             aria-hidden
           />
           <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B1F3A]/65 via-transparent to-[#0B1F3A]/30"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-brand-navy/65 via-transparent to-brand-navy/30"
             aria-hidden
           />
         </motion.div>
@@ -87,13 +87,13 @@ export function LandingHero() {
             >
               <Link
                 href={BRAND.cta.primary.href}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-7 py-3.5 text-[15px] font-semibold tracking-tight text-[#0B1F3A] shadow-[0_1px_2px_rgba(11,31,58,0.12),0_8px_24px_rgba(11,31,58,0.18)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-[#F0F3F6] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-7 py-3.5 text-[15px] font-semibold tracking-tight text-brand-navy shadow-[0_1px_2px_rgba(11,31,58,0.12),0_8px_24px_rgba(11,31,58,0.18)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-[#F0F3F6] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-navy"
               >
                 {HOME.hero.primaryCta}
               </Link>
               <Link
                 href={BRAND.cta.secondary.href}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/55 bg-[#0B1F3A]/55 px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white backdrop-blur-sm transition-[background-color,border-color,transform] duration-200 ease-out hover:border-white/80 hover:bg-[#0B1F3A]/75 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/55 bg-brand-navy/55 px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white backdrop-blur-sm transition-[background-color,border-color,transform] duration-200 ease-out hover:border-white/80 hover:bg-brand-navy/75 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-navy"
               >
                 {HOME.hero.secondaryCta}
               </Link>
@@ -124,7 +124,7 @@ export function LandingHero() {
               className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.02em] text-slate-500"
             >
               <span
-                className="h-1 w-1 shrink-0 rounded-full bg-[#3B6D8C]"
+                className="h-1 w-1 shrink-0 rounded-full bg-brand-harbour"
                 aria-hidden
               />
               {item}

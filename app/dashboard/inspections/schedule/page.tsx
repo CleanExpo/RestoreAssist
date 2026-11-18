@@ -322,11 +322,11 @@ export default function InspectionSchedulePage() {
         eyebrow="Simple workspace"
         title="Job schedule"
         description="Scheduled site visits from each job’s appointments — add visits on the job detail page."
-        icon={<CalendarDays className="text-cyan-500" size={26} aria-hidden />}
+        icon={<CalendarDays size={26} aria-hidden />}
         primaryAction={
           <div className="inline-flex overflow-hidden rounded-lg border border-neutral-200 text-sm dark:border-slate-700">
             <span
-              className="flex min-h-11 items-center gap-1.5 bg-cyan-500 px-3 font-medium text-white"
+              className="flex min-h-11 items-center gap-1.5 bg-brand-cta px-3 font-medium text-white"
               aria-current="page"
             >
               <CalendarDays size={14} aria-hidden />
@@ -335,7 +335,7 @@ export default function InspectionSchedulePage() {
             <button
               type="button"
               onClick={() => router.push("/dashboard/inspections")}
-              className="flex min-h-11 items-center gap-1.5 px-3 text-neutral-600 hover:bg-neutral-50 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="flex min-h-11 items-center gap-1.5 bg-white px-3 text-neutral-600 hover:bg-neutral-50 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <List size={14} aria-hidden />
               List
@@ -435,7 +435,7 @@ export default function InspectionSchedulePage() {
                         !isCurrentMonth &&
                           "bg-neutral-50/70 dark:bg-slate-900/30",
                         isToday &&
-                          "ring-2 ring-inset ring-cyan-400 dark:ring-cyan-500",
+                          "ring-2 ring-inset ring-brand-harbour dark:ring-brand-harbour-light",
                       )}
                     >
                       {/* Day number */}
@@ -443,7 +443,7 @@ export default function InspectionSchedulePage() {
                         className={cn(
                           "text-xs font-semibold self-end leading-none px-1 py-0.5 rounded-full",
                           isToday
-                            ? "bg-cyan-500 text-white"
+                            ? "bg-brand-cta text-white"
                             : isCurrentMonth
                               ? "text-neutral-700 dark:text-slate-200"
                               : "text-neutral-300 dark:text-slate-600",

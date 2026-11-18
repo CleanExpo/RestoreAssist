@@ -36,7 +36,7 @@ export default function SignupError({ error, retry }: SignupErrorProps) {
     <div className="min-h-[40vh] flex items-center justify-center p-6">
       <Card
         className="w-full max-w-md"
-        style={{ backgroundColor: "#1C2E47", borderColor: "#2d4566" }}
+        style={{ backgroundColor: "var(--color-brand-navy)", borderColor: "var(--color-brand-navy-hover)" }}
       >
         <CardHeader>
           <div className="flex items-center gap-3">
