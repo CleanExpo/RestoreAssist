@@ -7,10 +7,7 @@ import {
   portalFetch,
 } from "@/lib/portal/client-session";
 import { ClientPortalAccountLayout } from "@/components/portal/ClientPortalAccountLayout";
-import {
-  clientPortalPanelPadding,
-  clientPortalPrimaryLink,
-} from "@/lib/portal/client-portal-theme";
+import { clientPortalPanelPadding } from "@/lib/portal/client-portal-theme";
 import {
   ArrowLeft,
   FileText,
@@ -34,6 +31,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { PortalApprovalAction } from "@/components/portal/PortalApprovalAction";
+import { portalApprovalState } from "@/lib/portal/approval-state";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Report {
@@ -164,18 +163,6 @@ export default function PortalReportDetail({
     }
   };
 
-  const getApprovalForType = (type: string) => {
-    return report?.approvals.find(
-      (a) => a.approvalType === type && a.status !== "PENDING",
-    );
-  };
-
-  const getPendingApprovalForType = (type: string) => {
-    return report?.approvals.find(
-      (a) => a.approvalType === type && a.status === "PENDING",
-    );
-  };
-
   const handleDownloadPdf = async () => {
     if (!report) return;
     setDownloadingPdf(true);
@@ -266,10 +253,14 @@ export default function PortalReportDetail({
     );
   }
 
-  const scopeApproval = getApprovalForType("SCOPE_OF_WORK");
-  const costApproval = getApprovalForType("COST_ESTIMATE");
-  const pendingScopeApproval = getPendingApprovalForType("SCOPE_OF_WORK");
-  const pendingCostApproval = getPendingApprovalForType("COST_ESTIMATE");
+  // RA-8455: an open restorer request wins over an older answer, so the
+  // homeowner always has a control while a request is pending.
+  const scopeState = portalApprovalState(report.approvals, "SCOPE_OF_WORK");
+  const costState = portalApprovalState(report.approvals, "COST_ESTIMATE");
+  const scopeApproval =
+    scopeState.kind === "answered" ? scopeState.approval : undefined;
+  const costApproval =
+    costState.kind === "answered" ? costState.approval : undefined;
 
   const contractorName =
     report.user.businessName || report.user.name || "Your Contractor";
@@ -396,28 +387,10 @@ export default function PortalReportDetail({
             <div className="rounded-lg border border-white/10 bg-slate-950/30 p-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-white/90">Scope of Work</h3>
-                {scopeApproval ? (
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(scopeApproval.status).bg} ${getStatusBadge(scopeApproval.status).text}`}
-                  >
-                    {getStatusBadge(scopeApproval.status).icon}
-                    {scopeApproval.status.replace("_", " ")}
-                  </div>
-                ) : pendingScopeApproval ? (
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge("PENDING").bg} ${getStatusBadge("PENDING").text}`}
-                  >
-                    {getStatusBadge("PENDING").icon}
-                    PENDING
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleApprovalClick("SCOPE_OF_WORK")}
-                    className={`${clientPortalPrimaryLink} !min-h-10 text-sm`}
-                  >
-                    Review & Approve
-                  </button>
-                )}
+                <PortalApprovalAction
+                  state={scopeState}
+                  onRespond={() => handleApprovalClick("SCOPE_OF_WORK")}
+                />
               </div>
               <p className="text-sm text-slate-400">
                 Review and approve the proposed scope of work for this
@@ -457,28 +430,10 @@ export default function PortalReportDetail({
             <div className="rounded-lg border border-white/10 bg-slate-950/30 p-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-white/90">Cost Estimate</h3>
-                {costApproval ? (
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(costApproval.status).bg} ${getStatusBadge(costApproval.status).text}`}
-                  >
-                    {getStatusBadge(costApproval.status).icon}
-                    {costApproval.status.replace("_", " ")}
-                  </div>
-                ) : pendingCostApproval ? (
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge("PENDING").bg} ${getStatusBadge("PENDING").text}`}
-                  >
-                    {getStatusBadge("PENDING").icon}
-                    PENDING
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleApprovalClick("COST_ESTIMATE")}
-                    className={`${clientPortalPrimaryLink} !min-h-10 text-sm`}
-                  >
-                    Review & Approve
-                  </button>
-                )}
+                <PortalApprovalAction
+                  state={costState}
+                  onRespond={() => handleApprovalClick("COST_ESTIMATE")}
+                />
               </div>
               <p className="text-sm text-slate-400">
                 Review whether you agree to proceed — dollar amounts are shared

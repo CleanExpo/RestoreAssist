@@ -138,4 +138,20 @@ describe("POST /api/portal/reports/[id]/approvals", () => {
     expect(approvalUpdate.mock.calls[0][0].where).toEqual({ id: "ap_old" });
     expect(approvalCreate).not.toHaveBeenCalled();
   });
+
+  // RA-8455: the portal page now lets the homeowner answer a restorer's
+  // PENDING request. The page sends no amount, so the update branch must not
+  // write one, or the restorer's requested figure is wiped.
+  it("keeps the restorer's requested amount when the client answers a pending request", async () => {
+    reportFindFirst.mockResolvedValueOnce({ id: "r_1", clientId: "c_1" });
+    approvalFindFirst.mockResolvedValueOnce({ id: "ap_req", amount: 5000 });
+    approvalUpdate.mockResolvedValueOnce({ id: "ap_req", amount: 5000 });
+
+    const res = await POST(
+      postReq({ approvalType: "COST_ESTIMATE", status: "APPROVED" }),
+      ctx,
+    );
+    expect(res.status).toBe(201);
+    expect(approvalUpdate.mock.calls[0][0].data).not.toHaveProperty("amount");
+  });
 });

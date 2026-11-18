@@ -89,7 +89,9 @@ export async function POST(
             status,
             respondedAt: new Date(),
             clientComments: clientComments || null,
-            amount: amount || null,
+            // RA-8455: keep the restorer's requested amount. The portal page
+            // answers a pending request without one, so writing the body's
+            // value here would wipe it.
           },
         });
       } else {
