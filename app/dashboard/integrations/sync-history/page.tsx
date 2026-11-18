@@ -30,6 +30,9 @@ import {
 interface ProviderHealth {
   provider: string;
   status: string;
+  // RA-8445: the readiness owner's answer. null = not judged on this screen.
+  connected: boolean | null;
+  attention: string | null;
   lastSyncAt: string | null;
   totalSyncs: number;
   successfulSyncs: number;
@@ -157,12 +160,16 @@ function StatusBadge({ status }: { status: string }) {
   }
 }
 
-function IntegrationStatusDot({ status }: { status: string }) {
-  if (status === "CONNECTED")
-    return <span className="inline-block w-2 h-2 rounded-full bg-green-500" />;
-  if (status === "ERROR")
+// RA-8445: green only when the readiness owner says the connection can sync.
+// `health.status` is the owner's card state, never the raw Integration.status.
+function IntegrationStatusDot({ health }: { health: ProviderHealth }) {
+  if (health.connected === false && health.attention)
+    return <span className="inline-block w-2 h-2 rounded-full bg-warning" />;
+  if (health.connected !== true)
+    return <span className="inline-block w-2 h-2 rounded-full bg-slate-400" />;
+  if (health.status === "ERROR")
     return <span className="inline-block w-2 h-2 rounded-full bg-red-500" />;
-  return <span className="inline-block w-2 h-2 rounded-full bg-slate-400" />;
+  return <span className="inline-block w-2 h-2 rounded-full bg-green-500" />;
 }
 
 function HealthCardSkeleton() {
@@ -307,11 +314,14 @@ function HealthSummaryRow({
           <Card key={slug}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <IntegrationStatusDot status={data.status} />
+                <IntegrationStatusDot health={data} />
                 {label}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1">
+              {data.attention && (
+                <p className="text-xs text-destructive">{data.attention}</p>
+              )}
               <p className="text-xs text-muted-foreground">
                 Last sync:{" "}
                 <span className="font-medium text-foreground">

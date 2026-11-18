@@ -7,6 +7,7 @@ import { getSyncQueueStats } from "@/lib/integrations/sync-queue";
 import { circuitBreakerManager } from "@/lib/integrations/circuit-breaker";
 import { rateLimiterManager } from "@/lib/integrations/rate-limiter";
 import { apiError } from "@/lib/api-errors";
+import { describeProviderReadiness } from "@/lib/services/integrations/provider-readiness";
 
 const MAX_INTEGRATIONS_FOR_METRICS = 100;
 const MAX_SYNC_LOGS_FOR_METRICS = 1_000;
@@ -34,20 +35,50 @@ export async function GET(request: NextRequest) {
     const windowStart = new Date();
     windowStart.setHours(windowStart.getHours() - timeWindow);
 
-    // Get user's integrations
-    const integrations = await prisma.integration.findMany({
+    // Get user's integrations. Identity fields feed the readiness owner
+    // (RA-8445); token presence is tested in SQL so no token is read here.
+    const fetched = await prisma.integration.findMany({
       where: {
         userId: session.user.id,
       },
       select: {
         id: true,
         provider: true,
+        name: true,
+        icon: true,
+        config: true,
         status: true,
+        tenantId: true,
+        realmId: true,
+        companyId: true,
+        tokenExpiresAt: true,
         lastSyncAt: true,
       },
       orderBy: { updatedAt: "desc" },
-      take: MAX_INTEGRATIONS_FOR_METRICS,
+      take: MAX_INTEGRATIONS_FOR_METRICS + 1,
     });
+    const truncated = fetched.length > MAX_INTEGRATIONS_FOR_METRICS;
+    const integrations = fetched.slice(0, MAX_INTEGRATIONS_FOR_METRICS);
+    const withAccess = integrations.length
+      ? await prisma.integration.findMany({
+          where: {
+            userId: session.user.id,
+            id: { in: integrations.map((i) => i.id) },
+            accessToken: { not: null, notIn: [""] },
+          },
+          select: { id: true },
+        })
+      : [];
+    const hasAccess = new Set(withAccess.map((i) => i.id));
+    const readiness = describeProviderReadiness(
+      integrations.map((i) => ({
+        ...i,
+        lastSyncAt: i.lastSyncAt?.toISOString(),
+        hasOAuthCredentials: hasAccess.has(i.id),
+      })),
+      truncated,
+    );
+    const providerStates = Object.values(readiness);
 
     // Sync metrics (last N hours)
     const syncLogs = await prisma.integrationSyncLog.findMany({
@@ -105,12 +136,14 @@ export async function GET(request: NextRequest) {
     const byProvider: Record<string, any> = {};
 
     integrations.forEach((integration) => {
+      // Rows are newest first; the newest row speaks for its provider.
+      if (integration.provider in byProvider) return;
       const providerLogs = syncLogs.filter(
         (log) => log.integration.provider === integration.provider,
       );
 
       byProvider[integration.provider] = {
-        status: integration.status,
+        ...readiness[integration.provider],
         lastSyncAt: integration.lastSyncAt,
         totalSyncs: providerLogs.length,
         successfulSyncs: providerLogs.filter((log) => log.status === "SUCCESS")
@@ -168,10 +201,13 @@ export async function GET(request: NextRequest) {
       timeWindow,
       integrations: {
         total: integrations.length,
-        connected: integrations.filter((i) => i.status === "CONNECTED").length,
-        disconnected: integrations.filter((i) => i.status === "DISCONNECTED")
+        // Counts come from the readiness owner, one per provider (RA-8445).
+        connected: providerStates.filter((p) => p.connected === true).length,
+        disconnected: providerStates.filter((p) => p.connected === false)
           .length,
-        error: integrations.filter((i) => i.status === "ERROR").length,
+        error: providerStates.filter(
+          (p) => p.connected === true && p.status === "ERROR",
+        ).length,
         byProvider,
       },
       syncs: {

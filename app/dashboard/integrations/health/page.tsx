@@ -46,6 +46,8 @@ interface HealthData {
 
 interface ProviderMetric {
   status: string;
+  // RA-8445: the readiness owner's answer. null = not judged by this API.
+  connected?: boolean | null;
   lastSyncAt: string | null;
   totalSyncs: number;
   successfulSyncs: number;
@@ -138,6 +140,8 @@ function providerStatusFromMetric(
 ): "HEALTHY" | "DEGRADED" | "DOWN" | "NOT_CONNECTED" {
   if (!metric) return "NOT_CONNECTED";
   if (metric.status === "DISCONNECTED") return "NOT_CONNECTED";
+  // Connected but unusable (no organisation, no credentials, ambiguous).
+  if (metric.connected === false) return "DEGRADED";
   if (metric.status === "ERROR") return "DOWN";
   if (metric.successRate < 80) return "DEGRADED";
   return "HEALTHY";
