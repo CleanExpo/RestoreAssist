@@ -76,13 +76,17 @@ export async function POST(
         });
       }
 
+      // RA-8456: a dispute only flags the review for a decision. It stays
+      // PUBLISHED (and in the cached rating) while PENDING_REVIEW; only a
+      // decision that moves disputeStatus to UNDER_INVESTIGATION or
+      // RESOLVED_REMOVED hides it. Setting status here let a contractor hide
+      // any review the moment they disputed it.
       const updated = await prisma.contractorReview.update({
         where: { id },
         data: {
           disputeStatus: "PENDING_REVIEW",
           disputeReason,
           disputeSubmittedAt: new Date(),
-          status: "DISPUTED",
         },
       });
 
