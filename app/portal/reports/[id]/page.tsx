@@ -389,6 +389,7 @@ export default function PortalReportDetail({
                 <h3 className="font-semibold text-white/90">Scope of Work</h3>
                 <PortalApprovalAction
                   state={scopeState}
+                  statusIcon={(status) => getStatusBadge(status).icon}
                   onRespond={() => handleApprovalClick("SCOPE_OF_WORK")}
                 />
               </div>
@@ -432,6 +433,7 @@ export default function PortalReportDetail({
                 <h3 className="font-semibold text-white/90">Cost Estimate</h3>
                 <PortalApprovalAction
                   state={costState}
+                  statusIcon={(status) => getStatusBadge(status).icon}
                   onRespond={() => handleApprovalClick("COST_ESTIMATE")}
                 />
               </div>
