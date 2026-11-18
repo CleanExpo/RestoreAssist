@@ -43,17 +43,17 @@ for (const width of [1440, 390]) {
       const remove = page.getByRole("button", { name: "Remove", exact: true });
       await expect(add).toBeVisible();
       await expect(page.getByText("Highly recommended: Senior Project Manager", { exact: true })).toBeVisible();
-      const saved = (method: "POST" | "DELETE") => page.waitForResponse(
+      const spmResponse = (method: "POST" | "DELETE") => page.waitForResponse(
         response => response.url().endsWith(`/api/inspections/${job.id}/cost-estimates/spm`) && response.request().method() === method,
         { timeout: 60_000 },
       );
-      const added = saved("POST"); await add.click(); expect((await added).ok()).toBe(true);
+      const added = spmResponse("POST"); await add.click(); expect((await added).ok()).toBe(true);
       await expect(remove).toBeFocused(); await expect(add).toHaveCount(0);
       await expect(page.getByRole("status").filter({ hasText: /Estimate total/ })).toContainText("3,350.00");
       const spmRows = page.locator('tr[data-spm-row="true"]');
       await expect(spmRows).toHaveCount(1); await expect(spmRows).toContainText("350.00");
       await page.reload(); await openCosts(); await expect(remove).toBeVisible(); await expect(add).toHaveCount(0);
-      const removed = saved("DELETE"); await remove.click(); expect((await removed).ok()).toBe(true);
+      const removed = spmResponse("DELETE"); await remove.click(); expect((await removed).ok()).toBe(true);
       await expect(add).toBeFocused(); await expect(spmRows).toHaveCount(0);
       await expect(page.getByText("If this estimate was already sent to Xero or an insurer system, update or void it there.", { exact: true })).toBeVisible();
       await expect(page.getByRole("status").filter({ hasText: /Estimate total/ })).toContainText("3,000.00");
