@@ -9,12 +9,14 @@ import {
   signClientPortalJwt,
   verifyClientPortalJwt,
 } from "@/lib/portal/client-jwt";
+import { credentialFingerprint } from "@/lib/portal/credential-fingerprint";
 
 const INPUT = {
   clientUserId: "cu_1",
   clientId: "client_1",
   email: "homeowner@example.com",
   name: "Home Owner",
+  passwordHash: "$2a$10$hash-for-password-A",
 };
 
 beforeEach(() => {
@@ -30,6 +32,20 @@ describe("client portal JWT", () => {
     expect(claims!.clientId).toBe("client_1");
     expect(claims!.email).toBe(INPUT.email);
     expect(claims!.typ).toBe("client-portal");
+  });
+
+  it("binds the token to the password it was signed for (RA-8461)", async () => {
+    const claims = await verifyClientPortalJwt(
+      await signClientPortalJwt(INPUT),
+    );
+    expect(claims!.credentialFingerprint).toBe(
+      credentialFingerprint(INPUT.passwordHash),
+    );
+    expect(claims!.credentialFingerprint).not.toBe(
+      credentialFingerprint("$2a$10$hash-for-password-B"),
+    );
+    // The password hash itself never travels in the token.
+    expect(JSON.stringify(claims)).not.toContain(INPUT.passwordHash);
   });
 
   it("rejects a tampered token", async () => {
