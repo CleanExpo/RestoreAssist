@@ -42,9 +42,12 @@ export async function GET(request: NextRequest) {
     // refresh it on the next call when a refresh token is stored
     // (lib/integrations/base-client.ts). Token presence is tested in SQL, so
     // no token value is read into this route.
-    const statuses = ["CONNECTED", "SYNCING", "ERROR"];
+    // The same connected set getOAuthReadiness accepts.
     const connected = await prisma.integration.findMany({
-      where: { userId: session.user.id, status: { in: statuses } },
+      where: {
+        userId: session.user.id,
+        status: { in: ["CONNECTED", "SYNCING", "ERROR"] },
+      },
       select: {
         id: true,
         provider: true,
