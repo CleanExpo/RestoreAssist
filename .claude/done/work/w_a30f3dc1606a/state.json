@@ -1,8 +1,65 @@
 {
   "schema": "done/1",
-  "criterion_evidence": "UNPROVEN",
-  "verification_status": "BLOCKED",
+  "criterion_evidence": "FAILED",
+  "verification_status": "FAIL",
   "delivery_status": "NOT_STARTED",
   "verified_head": null,
-  "updated_at_utc": "2026-11-18T19:09:59Z"
+  "updated_at_utc": "2026-11-18T19:11:41Z",
+  "last_verify": {
+    "head": "d03d22866211449922a7d80a972c5228b2be1b73",
+    "at_utc": "2026-11-18T19:11:41Z",
+    "matrix": [
+      {
+        "id": "C1",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "npx vitest run --config config/vitest.config.js app/api/admin/contractor-certifications",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 0.8,
+        "output_digest": "1998c1e404e1c35079c1d64e12c2b39fefda24bd4e1a0a6cc6c665371cd01216",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_a30f3dc1606a/d03d22866211/C1-ab861dc170dc-1998c1e404e1c350.log",
+        "output_tail": "npm warn Unknown project config \"puppeteer_skip_download\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/private/var/folders/r_/0yvybgpj4sv6m_gtv0gv2x500000gn/T/mesh-RA-8457-4847a464\u001b[39m\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrequires a note on rejection\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"1qup5er9\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrefuses any decision value other than VERIFIED or REJECTED\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"joa4kpm2\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrefuses any decision value other than VERIFIED or REJECTED\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"w0phbzq0\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrefuses any decision value other than VERIFIED or REJECTED\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"g895dl5t\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrefuses any decision value other than VERIFIED or REJECTED\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"5ov6b88v\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrefuses any decision value other than VERIFIED or REJECTED\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"0av327y3\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mreturns 409 and changes nothing when the certification is not PENDING\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"CONFLICT\",\"status\":409,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"00xr69ab\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mreturns 404 for an unknown certification\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"NOT_FOUND\",\"status\":404,\"route\":\"/api/admin/contractor-certifications/missing/decision\",\"eventId\":\"kjgpq97w\"}\n\n \u001b[32m✓\u001b[39m app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m8 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 8\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m8 passed\u001b[39m\u001b[22m\u001b[90m (8)\u001b[39m\n\u001b[2m   Start at \u001b[22m 05:10:46\n\u001b[2m   Duration \u001b[22m 223ms\u001b[2m (transform 65ms, setup 57ms, import 81ms, tests 8ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "C2",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "npx vitest run --config config/vitest.config.js 'app/api/contractors/certifications/[id]/__tests__'",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 0.5,
+        "output_digest": "b890199117eec6433ad5b47e5985dc0540c95b271ca5a6f2b16f8a3468607a85",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_a30f3dc1606a/d03d22866211/C2-9685eb765661-b890199117eec643.log",
+        "output_tail": "npm warn Unknown project config \"puppeteer_skip_download\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/private/var/folders/r_/0yvybgpj4sv6m_gtv0gv2x500000gn/T/mesh-RA-8457-4847a464\u001b[39m\n\n\u001b[90mstderr\u001b[2m | app/api/contractors/certifications/[id]/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPATCH /api/contractors/certifications/[id] (RA-8457)\u001b[2m > \u001b[22m\u001b[2mstill refuses to edit a VERIFIED certification\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/contractors/certifications/cert-1\",\"eventId\":\"n3hrz8mi\"}\n\n \u001b[32m✓\u001b[39m app/api/contractors/certifications/[id]/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 6\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m4 passed\u001b[39m\u001b[22m\u001b[90m (4)\u001b[39m\n\u001b[2m   Start at \u001b[22m 05:10:47\n\u001b[2m   Duration \u001b[22m 117ms\u001b[2m (transform 27ms, setup 24ms, import 35ms, tests 6ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "C3",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "npx vitest run --config config/vitest.config.js 'app/api/contractors/[slug]/__tests__'",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 0.5,
+        "output_digest": "b3734faf09e8fa02827aa02a50d15b58ee7735d538441f26a933d67a984dda12",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_a30f3dc1606a/d03d22866211/C3-8a214cef6d47-b3734faf09e8fa02.log",
+        "output_tail": "npm warn Unknown project config \"puppeteer_skip_download\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/private/var/folders/r_/0yvybgpj4sv6m_gtv0gv2x500000gn/T/mesh-RA-8457-4847a464\u001b[39m\n\n \u001b[32m✓\u001b[39m app/api/contractors/[slug]/__tests__/certifications.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m   Start at \u001b[22m 05:10:47\n\u001b[2m   Duration \u001b[22m 123ms\u001b[2m (transform 26ms, setup 26ms, import 36ms, tests 4ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "C4",
+        "required": true,
+        "evidence": "FAILED",
+        "recipe": "npx tsc --noEmit -p tsconfig.json",
+        "exit_code": -6,
+        "timeout_s": 900,
+        "duration_s": 53.4,
+        "output_digest": "c4f7478bd9ab7fa211c6c9798e93b77592ff55b55edde0681395ef2f0ed91326",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_a30f3dc1606a/d03d22866211/C4-08d1623c441b-c4f7478bd9ab7fa2.log",
+        "output_tail": "n-arm64/bin/node]\n61: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n62: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n63: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n64: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n65: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n66: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n67: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n68: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n69: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n70: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n71: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n72: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n73: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n74: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n75: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n76: 0x101ec8bec Builtins_InterpreterEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n77: 0x101ec68cc Builtins_JSEntryTrampoline [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n78: 0x101ec6570 Builtins_JSEntry [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n79: 0x1013e246c v8::internal::(anonymous namespace)::Invoke(v8::internal::Isolate*, v8::internal::(anonymous namespace)::InvokeParams const&) [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n80: 0x1013e1dd0 v8::internal::Execution::Call(v8::internal::Isolate*, v8::internal::DirectHandle<v8::internal::Object>, v8::internal::DirectHandle<v8::internal::Object>, v8::base::Vector<v8::internal::DirectHandle<v8::internal::Object> const>) [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n81: 0x101256754 v8::Function::Call(v8::Isolate*, v8::Local<v8::Context>, v8::Local<v8::Value>, int, v8::Local<v8::Value>*) [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n82: 0x100f7ab10 node::builtins::BuiltinLoader::CompileAndCall(v8::Local<v8::Context>, char const*, node::Realm*) [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n83: 0x101062ac0 node::Realm::ExecuteBootstrapper(char const*) [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n84: 0x100f543c4 node::StartExecution(node::Environment*, char const*) [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n85: 0x100f54318 node::StartExecution(node::Environment*, std::__1::function<v8::MaybeLocal<v8::Value> (node::StartExecutionCallbackInfoWithModule const&)>) [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n86: 0x100e7d7d8 node::LoadEnvironment(node::Environment*, std::__1::function<v8::MaybeLocal<v8::Value> (node::StartExecutionCallbackInfoWithModule const&)>, std::__1::function<void (node::Environment*, v8::Local<v8::Value>, v8::Local<v8::Value>)>) [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n87: 0x1010077c4 node::NodeMainInstance::Run() [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n88: 0x100f57dfc node::Start(int, char**) [/Users/phillmcgurk/.local/node-v24.22.1-darwin-arm64/bin/node]\n89: 0x182ec04e4 start [/usr/lib/dyld]"
+      }
+    ],
+    "blockers": [
+      "the tree moved while recipes ran (HEAD d03d22866 -> d03d22866, or new dirt) - evidence does not bind to one revision"
+    ]
+  }
 }

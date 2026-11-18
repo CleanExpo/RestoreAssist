@@ -1,0 +1,10 @@
+{
+  "schema": "done/1",
+  "work_id": "w_3806e8af0fa0",
+  "contract_digest": "c24d1206ce286ce5c140913c9b919c3bbeda8b412d2ec06cf416e519ecc6606d",
+  "baseline_head": "d03d22866211449922a7d80a972c5228b2be1b73",
+  "identity_key": "mesh/phills-macbook-pro/ra-8457-4847a464@/Users/phillmcgurk/RestoreAssist/.git/worktrees/mesh-RA-8457-4847a464",
+  "locked_at_utc": "2026-11-18T19:12:05Z",
+  "criteria_count": 4,
+  "recipe_pins": {}
+}
