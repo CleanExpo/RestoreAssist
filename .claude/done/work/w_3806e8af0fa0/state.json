@@ -1,8 +1,65 @@
 {
   "schema": "done/1",
   "criterion_evidence": "UNPROVEN",
-  "verification_status": "NOT_RUN",
+  "verification_status": "BLOCKED",
   "delivery_status": "NOT_STARTED",
   "verified_head": null,
-  "updated_at_utc": "2026-11-18T19:12:04Z"
+  "updated_at_utc": "2026-11-18T19:13:06Z",
+  "last_verify": {
+    "head": "feb94ed7213f876b00106c455789e125c4078b93",
+    "at_utc": "2026-11-18T19:13:06Z",
+    "matrix": [
+      {
+        "id": "C1",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "npx vitest run --config config/vitest.config.js app/api/admin/contractor-certifications",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 1.0,
+        "output_digest": "76d4024b4171c2c2a778e2a8cff93f9e95bd1a4b1f40372e6b30e544677620f3",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_3806e8af0fa0/feb94ed7213f/C1-ab861dc170dc-76d4024b4171c2c2.log",
+        "output_tail": "npm warn Unknown project config \"puppeteer_skip_download\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/private/var/folders/r_/0yvybgpj4sv6m_gtv0gv2x500000gn/T/mesh-RA-8457-4847a464\u001b[39m\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrequires a note on rejection\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"q70bsx5i\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrefuses any decision value other than VERIFIED or REJECTED\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"rd3nvnib\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrefuses any decision value other than VERIFIED or REJECTED\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"4k2tyrnb\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrefuses any decision value other than VERIFIED or REJECTED\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"kclqso24\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrefuses any decision value other than VERIFIED or REJECTED\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"ln4s5gix\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mrefuses any decision value other than VERIFIED or REJECTED\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"xefdty2g\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mreturns 409 and changes nothing when the certification is not PENDING\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"CONFLICT\",\"status\":409,\"route\":\"/api/admin/contractor-certifications/cert-1/decision\",\"eventId\":\"ulzrwl1a\"}\n\n\u001b[90mstderr\u001b[2m | app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPOST /api/admin/contractor-certifications/[id]/decision (RA-8457)\u001b[2m > \u001b[22m\u001b[2mreturns 404 for an unknown certification\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"NOT_FOUND\",\"status\":404,\"route\":\"/api/admin/contractor-certifications/missing/decision\",\"eventId\":\"8971gyb3\"}\n\n \u001b[32m✓\u001b[39m app/api/admin/contractor-certifications/[id]/decision/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m8 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 11\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m8 passed\u001b[39m\u001b[22m\u001b[90m (8)\u001b[39m\n\u001b[2m   Start at \u001b[22m 05:12:14\n\u001b[2m   Duration \u001b[22m 273ms\u001b[2m (transform 76ms, setup 37ms, import 140ms, tests 11ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "C2",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "npx vitest run --config config/vitest.config.js 'app/api/contractors/certifications/[id]/__tests__'",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 0.5,
+        "output_digest": "b0a59f805f56cc56b89c6a6f19588788e7347c37477575721035b76b180875ab",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_3806e8af0fa0/feb94ed7213f/C2-9685eb765661-b0a59f805f56cc56.log",
+        "output_tail": "npm warn Unknown project config \"puppeteer_skip_download\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/private/var/folders/r_/0yvybgpj4sv6m_gtv0gv2x500000gn/T/mesh-RA-8457-4847a464\u001b[39m\n\n\u001b[90mstderr\u001b[2m | app/api/contractors/certifications/[id]/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPATCH /api/contractors/certifications/[id] (RA-8457)\u001b[2m > \u001b[22m\u001b[2mstill refuses to edit a VERIFIED certification\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/contractors/certifications/cert-1\",\"eventId\":\"nk3mjfos\"}\n\n \u001b[32m✓\u001b[39m app/api/contractors/certifications/[id]/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 7\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m4 passed\u001b[39m\u001b[22m\u001b[90m (4)\u001b[39m\n\u001b[2m   Start at \u001b[22m 05:12:15\n\u001b[2m   Duration \u001b[22m 132ms\u001b[2m (transform 30ms, setup 27ms, import 39ms, tests 7ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "C3",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "npx vitest run --config config/vitest.config.js 'app/api/contractors/[slug]/__tests__'",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 0.5,
+        "output_digest": "cab50f2cc712fd2b54ddcf853d06d4cc841e482e0b944844b61c68e0a818d33c",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_3806e8af0fa0/feb94ed7213f/C3-8a214cef6d47-cab50f2cc712fd2b.log",
+        "output_tail": "npm warn Unknown project config \"puppeteer_skip_download\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/private/var/folders/r_/0yvybgpj4sv6m_gtv0gv2x500000gn/T/mesh-RA-8457-4847a464\u001b[39m\n\n \u001b[32m✓\u001b[39m app/api/contractors/[slug]/__tests__/certifications.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m   Start at \u001b[22m 05:12:16\n\u001b[2m   Duration \u001b[22m 123ms\u001b[2m (transform 28ms, setup 27ms, import 35ms, tests 4ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "C4",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "node scripts/type-check.mjs",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 49.8,
+        "output_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "output_log": "/Users/phillmcgurk/.cache/donectl/w_3806e8af0fa0/feb94ed7213f/C4-08d1623c441b-e3b0c44298fc1c14.log",
+        "output_tail": ""
+      }
+    ],
+    "blockers": [
+      "the tree moved while recipes ran (HEAD feb94ed72 -> feb94ed72, or new dirt) - evidence does not bind to one revision"
+    ]
+  }
 }
