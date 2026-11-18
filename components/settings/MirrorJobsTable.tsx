@@ -4,15 +4,18 @@
  * SP-E: Mirror jobs table.
  *
  * Lazy-fetches `/api/storage/mirror-jobs` on mount, renders the table,
- * and exposes a Retry button on each FAILED row. Retries optimistically
- * flip the status to PENDING.
+ * and exposes a Retry button on each FAILED or DEAD_LETTER row. A row
+ * shows PENDING only once the server confirms the retry (RA-8451).
  */
 
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
-type Status = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+type Status = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "DEAD_LETTER";
+
+const RETRYABLE: ReadonlySet<Status> = new Set(["FAILED", "DEAD_LETTER"]);
 
 interface MirrorJob {
   id: string;
@@ -34,6 +37,7 @@ interface Stats {
   processing: number;
   completed: number;
   failed: number;
+  deadLettered: number;
   lastCompletedAt: string | null;
 }
 
@@ -42,6 +46,7 @@ const STATUS_TONE: Record<Status, string> = {
   PROCESSING: "bg-info-subtle text-info-subtle-foreground",
   COMPLETED: "bg-success-subtle text-success-subtle-foreground",
   FAILED: "bg-destructive-subtle text-destructive-subtle-foreground",
+  DEAD_LETTER: "bg-destructive text-destructive-foreground",
 };
 
 export function MirrorJobsTable() {
@@ -73,20 +78,31 @@ export function MirrorJobsTable() {
 
   async function onRetry(jobId: string) {
     setRetrying(jobId);
-    // Optimistic flip — PENDING straight away.
-    setJobs((current) =>
-      current.map((j) => (j.id === jobId ? { ...j, status: "PENDING" } : j)),
-    );
     try {
       const res = await fetch(`/api/storage/mirror-jobs/retry/${jobId}`, {
         method: "POST",
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body: unknown = await res.json().catch(() => null);
+      const retried =
+        res.ok &&
+        (body as { data?: { retried?: unknown } } | null)?.data?.retried ===
+          true;
+      if (!retried) {
+        toast.error(apiErrorMessage(body) ?? "Retry was not queued");
+        // The row may have moved on; show its real state.
+        await refresh();
+        return;
+      }
+      // Only now that the server has reset the row do we show PENDING.
+      setJobs((current) =>
+        current.map((j) =>
+          j.id === jobId ? { ...j, status: "PENDING", attempts: 0 } : j,
+        ),
+      );
       toast.success("Retry queued — will run on the next minute tick");
     } catch (err) {
       toast.error("Retry failed");
       console.error(err);
-      // Roll back the optimistic flip.
       await refresh();
     } finally {
       setRetrying(null);
@@ -102,12 +118,13 @@ export function MirrorJobsTable() {
   return (
     <div className="space-y-4">
       {stats && (
-        <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-6">
           <Stat label="Total" value={stats.total} />
           <Stat label="Pending" value={stats.pending} />
           <Stat label="Processing" value={stats.processing} />
           <Stat label="Completed" value={stats.completed} />
           <Stat label="Failed" value={stats.failed} />
+          <Stat label="Stopped retrying" value={stats.deadLettered} />
         </div>
       )}
 
@@ -145,7 +162,7 @@ export function MirrorJobsTable() {
                     {job.lastError?.slice(0, 80) ?? "—"}
                   </td>
                   <td className="py-2 pr-4">
-                    {job.status === "FAILED" ? (
+                    {RETRYABLE.has(job.status) ? (
                       <Button
                         size="sm"
                         variant="outline"

@@ -1,8 +1,10 @@
 /**
- * SP-E: Retry a FAILED StorageMirrorJob.
+ * SP-E: Retry a FAILED or DEAD_LETTER StorageMirrorJob.
  *
  * POST /api/storage/mirror-jobs/retry/[jobId]
- *   → { data: { retried: boolean } }
+ *   → 200 { data: { retried: true } }
+ *   → 409 { error } when the job was not FAILED or DEAD_LETTER (RA-8451:
+ *     a no-op used to answer 200 and the table showed it as queued)
  *
  * Auth: only the org owner or members of the same org may retry.
  * We verify by re-reading the job's orgId and matching against the
@@ -44,6 +46,15 @@ export async function POST(
     }
 
     const retried = await retryJob(jobId);
+    if (!retried) {
+      return NextResponse.json(
+        {
+          error:
+            "This job is no longer waiting for a retry. Refresh the list to see its current status.",
+        },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ data: { retried } });
   } catch (err) {
     return fromException(_request, err, { stage: "mirror-jobs/retry:post" });

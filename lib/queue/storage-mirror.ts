@@ -390,10 +390,12 @@ export async function getMirrorQueueStats(orgId: string): Promise<{
   processing: number;
   completed: number;
   failed: number;
+  /** RA-8451: jobs the recovery sweep gave up on; they need a manual Retry. */
+  deadLettered: number;
   lastCompletedAt: Date | null;
   totalBytesMirrored: number;
 }> {
-  const [total, pending, processing, completed, failed, last] =
+  const [total, pending, processing, completed, failed, deadLettered, last] =
     await Promise.all([
       prisma.storageMirrorJob.count({ where: { orgId } }),
       prisma.storageMirrorJob.count({
@@ -408,6 +410,9 @@ export async function getMirrorQueueStats(orgId: string): Promise<{
       prisma.storageMirrorJob.count({
         where: { orgId, status: MirrorJobStatus.FAILED },
       }),
+      prisma.storageMirrorJob.count({
+        where: { orgId, status: MirrorJobStatus.DEAD_LETTER },
+      }),
       prisma.storageMirrorJob.findFirst({
         where: { orgId, status: MirrorJobStatus.COMPLETED },
         orderBy: { completedAt: "desc" },
@@ -421,6 +426,7 @@ export async function getMirrorQueueStats(orgId: string): Promise<{
     processing,
     completed,
     failed,
+    deadLettered,
     lastCompletedAt: last?.completedAt ?? null,
     // We don't store sizeBytes on the job row in v1 — this is a placeholder
     // that the Workspace Health tile can light up once we backfill from
@@ -429,9 +435,18 @@ export async function getMirrorQueueStats(orgId: string): Promise<{
   };
 }
 
+/**
+ * Reset a FAILED or DEAD_LETTER job to PENDING so the next tick runs it.
+ * RA-8451: DEAD_LETTER is included because the recovery sweep tells admins
+ * to retry those from Settings > Storage. Returns false when the row was in
+ * any other state (nothing was changed).
+ */
 export async function retryJob(jobId: string): Promise<boolean> {
   const result = await prisma.storageMirrorJob.updateMany({
-    where: { id: jobId, status: MirrorJobStatus.FAILED },
+    where: {
+      id: jobId,
+      status: { in: [MirrorJobStatus.FAILED, MirrorJobStatus.DEAD_LETTER] },
+    },
     data: {
       status: MirrorJobStatus.PENDING,
       attempts: 0,
