@@ -15,9 +15,7 @@ import {
   FileText,
   Sparkles,
   Zap,
-  Home,
 } from "lucide-react";
-import { PropertyDataSetupWizard } from "@/components/property-data/PropertyDataSetupWizard";
 
 interface OnboardingStatus {
   isComplete: boolean;
@@ -39,13 +37,6 @@ interface OnboardingStatus {
       route: string;
     };
     pricing_config: {
-      completed: boolean;
-      required: boolean;
-      title: string;
-      description: string;
-      route: string;
-    };
-    property_data: {
       completed: boolean;
       required: boolean;
       title: string;
@@ -76,8 +67,6 @@ export default function OnboardingModal({
   const router = useRouter();
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showPropertyWizard, setShowPropertyWizard] = useState(false);
-  const [skippedPropertyData, setSkippedPropertyData] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -294,46 +283,6 @@ export default function OnboardingModal({
                 You've completed all required setup steps.
               </p>
 
-              {/* Optional: Connect Property Data */}
-              {status.steps.property_data &&
-                !status.steps.property_data.completed &&
-                !skippedPropertyData && (
-                  <div className="mb-6 text-left p-4 rounded-xl border border-slate-700 bg-slate-800/50">
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="p-2 bg-cyan-500/10 rounded-lg">
-                        <Home className="w-5 h-5 text-cyan-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-white text-sm">
-                            {status.steps.property_data.title}
-                          </h4>
-                          <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded-full">
-                            Optional
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-400">
-                          {status.steps.property_data.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowPropertyWizard(true)}
-                        className="flex-1 px-3 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all"
-                      >
-                        Connect Now
-                      </button>
-                      <button
-                        onClick={() => setSkippedPropertyData(true)}
-                        className="px-3 py-2 border border-slate-600 text-slate-400 rounded-lg text-sm hover:bg-slate-700 transition-colors"
-                      >
-                        Skip
-                      </button>
-                    </div>
-                  </div>
-                )}
-
               <button
                 onClick={onClose}
                 className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl hover:shadow-cyan-500/30 flex items-center justify-center gap-2 group mx-auto"
@@ -346,17 +295,6 @@ export default function OnboardingModal({
           ) : null}
         </div>
       </div>
-
-      {/* Property Data Setup Wizard (launched from optional step) */}
-      {showPropertyWizard && (
-        <PropertyDataSetupWizard
-          onClose={() => setShowPropertyWizard(false)}
-          onComplete={() => {
-            setShowPropertyWizard(false);
-            fetchOnboardingStatus();
-          }}
-        />
-      )}
     </div>
   );
 }
