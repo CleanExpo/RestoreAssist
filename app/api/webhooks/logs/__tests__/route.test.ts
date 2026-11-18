@@ -95,7 +95,7 @@ describe("GET /api/webhooks/logs (RA-8447)", () => {
     expect(args.select.signature).toBeFalsy();
   });
 
-  it("never returns signature, externalEventId or updatedAt on any event", async () => {
+  it("never returns signature or other unrendered fields on any event", async () => {
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -104,6 +104,8 @@ describe("GET /api/webhooks/logs (RA-8447)", () => {
       expect(event).not.toHaveProperty("signature");
       expect(event).not.toHaveProperty("externalEventId");
       expect(event).not.toHaveProperty("updatedAt");
+      expect(event).not.toHaveProperty("processedAt");
+      expect(event).not.toHaveProperty("integration");
     }
   });
 
@@ -117,9 +119,7 @@ describe("GET /api/webhooks/logs (RA-8447)", () => {
       status: "FAILED",
       retryCount: 2,
       errorMessage: "boom",
-      processedAt: null,
       payload: { invoiceId: "inv-9", amount: 110 },
-      integration: { provider: "XERO", status: "CONNECTED" },
     });
     expect(event.createdAt).toBe("2026-11-18T00:00:00.000Z");
   });

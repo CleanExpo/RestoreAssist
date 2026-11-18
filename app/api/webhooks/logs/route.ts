@@ -76,11 +76,12 @@ export async function GET(request: NextRequest) {
       prisma.webhookEvent.findMany({
         where,
         // RA-8447: only the fields the webhooks page renders. `signature`
-        // (the provider's signature header), `externalEventId` and
-        // `updatedAt` stay on the server. `payload` stays in the list because
-        // the viewer dialog reads it from the listed row and no per-event
-        // endpoint exists; moving it would add a route for no reduction in
-        // what the owner can already see.
+        // (the provider's signature header), `externalEventId`, `updatedAt`,
+        // `processedAt` and the integration relation stay on the server.
+        // `payload` stays in the list: the viewer dialog reads it from the
+        // listed row and no per-event endpoint exists. Trade-off: an event
+        // filed under the wrong integration (RA-8073) still shows its payload
+        // here; that is fixed at the receiver, not by this select.
         select: {
           id: true,
           provider: true,
@@ -88,12 +89,8 @@ export async function GET(request: NextRequest) {
           status: true,
           retryCount: true,
           errorMessage: true,
-          processedAt: true,
           createdAt: true,
           payload: true,
-          integration: {
-            select: { provider: true, status: true },
-          },
         },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,

@@ -58,14 +58,9 @@ interface WebhookEvent {
   eventType: string;
   payload: unknown;
   status: WebhookEventStatus;
-  processedAt: string | null;
   errorMessage: string | null;
   retryCount: number;
   createdAt: string;
-  integration: {
-    provider: IntegrationProvider;
-    status: string;
-  };
 }
 
 interface LogsResponse {
