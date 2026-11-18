@@ -38,6 +38,7 @@ import {
 import { useSession } from "next-auth/react";
 import { clearOfflineContext, getOfflineOwner, setOfflineSession, refreshOfflineOwner, listenForOfflineInvalidation, OFFLINE_CONTEXT_EVENT } from "@/lib/offline/account-boundary";
 import { SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline/sync-status-event";
+import { DRAFT_SAVE_STATUS_EVENT, type DraftSaveStatusDetail } from "@/lib/offline/draft-save-status";
 
 import {
   getSyncStatus,
@@ -70,6 +71,8 @@ interface NirOfflineContextValue {
   /** An authenticated session needs a server-verified offline owner before a green status is trustworthy. */
   ownerVerificationRequired: boolean;
   ownerVerified: boolean;
+  /** RA-8330: the last draft save on this page did not write everything. */
+  draftSaveFailed: boolean;
   /** Manually trigger a sync drain of queued writes. */
   triggerSync: () => Promise<void>;
 }
@@ -83,6 +86,7 @@ const NirOfflineContext = createContext<NirOfflineContextValue>({
   statusCheckFailed: false,
   ownerVerificationRequired: false,
   ownerVerified: false,
+  draftSaveFailed: false,
   triggerSync: async () => {},
 });
 
@@ -123,12 +127,14 @@ const STATUS_CONFIG: Record<
  * Satisfies OFFLINE_REQUIREMENTS.syncStatusIndicator: "Always visible — persistent status bar element"
  */
 export function NirSyncStatusBadge() {
-  const { syncStatus, queueStats, pendingEvidenceUploads, pendingVoiceNotes, statusCheckFailed, ownerVerificationRequired, ownerVerified } =
+  const { syncStatus, queueStats, pendingEvidenceUploads, pendingVoiceNotes, statusCheckFailed, ownerVerificationRequired, ownerVerified, draftSaveFailed } =
     useNirOffline();
   const unverifiedOwner = ownerVerificationRequired && !ownerVerified;
   const totalPending = unverifiedOwner ? 0 :
     queueStats.pending + pendingEvidenceUploads + pendingVoiceNotes;
-  const config = statusCheckFailed || (unverifiedOwner && typeof navigator !== "undefined" && navigator.onLine)
+  const config = draftSaveFailed
+    ? { label: "Draft not saved", className: STATUS_CONFIG.SYNC_CONFLICT.className, dot: STATUS_CONFIG.SYNC_CONFLICT.dot }
+    : statusCheckFailed || (unverifiedOwner && typeof navigator !== "undefined" && navigator.onLine)
     ? { label: "Sync status unavailable", className: STATUS_CONFIG.PENDING_SYNC.className, dot: STATUS_CONFIG.PENDING_SYNC.dot }
     : queueStats.failed > 0
       ? { label: "Sync needs attention", className: STATUS_CONFIG.SYNC_CONFLICT.className, dot: STATUS_CONFIG.SYNC_CONFLICT.dot }
@@ -180,6 +186,33 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
   const [pendingVoiceNotes, setPendingVoiceNotes] = useState(0);
   const [statusCheckFailed, setStatusCheckFailed] = useState(false);
   const [ownerVerified, setOwnerVerified] = useState(false);
+  const [draftSaveFailed, setDraftSaveFailed] = useState(false);
+
+  useEffect(() => {
+    const onDraftSave = (event: Event) => {
+      setDraftSaveFailed(!(event as CustomEvent<DraftSaveStatusDetail>).detail?.ok);
+    };
+    window.addEventListener(DRAFT_SAVE_STATUS_EVENT, onDraftSave);
+    return () => window.removeEventListener(DRAFT_SAVE_STATUS_EVENT, onDraftSave);
+  }, []);
+
+  // A draft-save failure belongs to the account that made the save (RA-8330 round 7).
+  // Clear it only on a real sign-out or a switch to a different account. A
+  // next-auth refresh sets the status to "loading", which briefly makes
+  // sessionUserId null for the same account; that must not clear the failure.
+  const draftSaveAccount = useRef<string | null>(null);
+  useEffect(() => {
+    if (sessionStatus === "unauthenticated") {
+      draftSaveAccount.current = null;
+      setDraftSaveFailed(false);
+      return;
+    }
+    if (!sessionUserId) return;
+    if (draftSaveAccount.current !== null && draftSaveAccount.current !== sessionUserId) {
+      setDraftSaveFailed(false);
+    }
+    draftSaveAccount.current = sessionUserId;
+  }, [sessionStatus, sessionUserId]);
   const statusReadVersion = useRef(0);
 
   const refreshStatus = useCallback(async () => {
@@ -343,6 +376,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
         statusCheckFailed,
         ownerVerificationRequired: sessionStatus === "authenticated",
         ownerVerified,
+        draftSaveFailed,
         triggerSync,
       }}
     >

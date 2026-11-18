@@ -20,6 +20,10 @@ import {
   Clock,
   CheckCircle,
 } from "lucide-react";
+import {
+  RATE_NOT_SET_LABEL,
+  sumOrNull,
+} from "@/lib/reports/stored-equipment-pricing";
 
 interface VisualReportData {
   header: {
@@ -576,7 +580,12 @@ function DetailedReportPages({
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  // RA-8281 B1 class fix: a null amount is a line whose price-list rate is
+  // not set. Intl would print null as $0.00; it reads "Rate not set" instead.
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (typeof amount !== "number" || !Number.isFinite(amount)) {
+      return RATE_NOT_SET_LABEL;
+    }
     return new Intl.NumberFormat("en-AU", {
       style: "currency",
       currency: "AUD",
@@ -1225,10 +1234,8 @@ function DetailedReportPages({
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-2xl text-success">
                       {formatCurrency(
-                        fullData.equipment.reduce(
-                          (sum: number, item: any) =>
-                            sum + (item.totalCost || 0),
-                          0,
+                        sumOrNull(
+                          fullData.equipment.map((item: any) => item.totalCost),
                         ),
                       )}
                     </td>
@@ -1298,9 +1305,8 @@ function DetailedReportPages({
                       </td>
                       <td className="px-6 py-4 text-right font-bold text-2xl text-success">
                         {formatCurrency(
-                          fullData.costEstimates.reduce(
-                            (sum: number, item: any) => sum + (item.total || 0),
-                            0,
+                          sumOrNull(
+                            fullData.costEstimates.map((item: any) => item.total),
                           ),
                         )}
                       </td>

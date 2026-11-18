@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notifyClientDryingChange } from "@/lib/pulse/notify-client-change";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -128,6 +129,8 @@ export async function POST(
         }),
       },
     });
+
+    void notifyClientDryingChange(id);
 
     return NextResponse.json({
       success: true,

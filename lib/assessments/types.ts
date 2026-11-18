@@ -56,7 +56,8 @@ export interface ScopeItem {
   /** Human-readable line. e.g. "LGR dehumidifier — 24h on standard". */
   description: string;
   category: ScopeCategory;
-  quantity: number;
+  /** null when the inspection has no quantity yet ("quantity needed", RA-8275). */
+  quantity: number | null;
   unit: string; // e.g. "ea", "hr", "m²", "kg"
   /** IICRC or AS-NZS reference that justifies the item. Required for audit. */
   iicrcRef: string;
@@ -66,32 +67,68 @@ export interface ScopeItem {
 
 // ─── Estimate ─────────────────────────────────────────────────────────────────
 
+/** RA-8275: why an estimate line is or is not priced. */
+export type EstimateLinePricingStatus =
+  | "priced"
+  | "rate_not_set"
+  | "rate_out_of_range"
+  | "needs_price_list_field"
+  | "quantity_needed"
+  | "included_in_labour";
+
 export interface EstimateLine {
   description: string;
   category: ScopeCategory;
-  quantity: number;
+  quantity: number | null;
   unit: string;
-  /** Per-unit rate in workspace's billing currency (default AUD ex GST). */
-  rate: number;
-  /** quantity × rate, ex GST. */
-  lineTotalExGst: number;
-  /** GST (10% AU default) on lineTotalExGst. */
-  gstAmount: number;
-  /** lineTotalExGst + gstAmount. */
-  lineTotalIncGst: number;
+  /**
+   * Per-unit rate in workspace's billing currency (default AUD ex GST), from
+   * the contractor's own price list. null when the line is not priced
+   * (RA-8275); an unpriced line is never shown as $0.
+   */
+  rate: number | null;
+  /** quantity × rate, ex GST. null when not priced. */
+  lineTotalExGst: number | null;
+  /** GST on lineTotalExGst, from lib/gst-rules. null when not priced. */
+  gstAmount: number | null;
+  /** lineTotalExGst + gstAmount. null when not priced. */
+  lineTotalIncGst: number | null;
   /** CostItem.id when matched against the workspace's CostLibrary; null when free-typed. */
   costItemId?: string | null;
+  /** RA-8275: pricing state. Absent on domains that price every line. */
+  pricingStatus?: EstimateLinePricingStatus;
+  /** RA-8275: plain-English note for an unpriced line. */
+  pricingNote?: string;
 }
 
 export interface EstimateTotals {
-  subtotalExGst: number;
-  gstTotal: number;
-  totalIncGst: number;
+  /** null when a line still needs a rate, field or quantity (RA-8275). */
+  subtotalExGst: number | null;
+  gstTotal: number | null;
+  totalIncGst: number | null;
+  /** RA-8275: "blocked" while any line is unpriced. */
+  status?: "complete" | "blocked";
+  /** RA-8275: the lines blocking the total. */
+  missing?: { description: string; note: string }[];
+  /** RA-8275: customer-facing pricing basis. */
+  basis?: string;
   /** GST rate applied (0.10 in AU). */
   gstRate: number;
   /** ISO 4217 currency code. AUD by default. */
   currency: string;
 }
+
+/** A scope item whose quantity is known (domains that always quantify). */
+export type QuantifiedScopeItem = ScopeItem & { quantity: number };
+
+/** An estimate line that is fully priced (domains that price every line). */
+export type PricedEstimateLine = EstimateLine & {
+  quantity: number;
+  rate: number;
+  lineTotalExGst: number;
+  gstAmount: number;
+  lineTotalIncGst: number;
+};
 
 export interface AssessmentEstimate {
   lines: EstimateLine[];

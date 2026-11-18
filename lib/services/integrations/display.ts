@@ -25,9 +25,15 @@ export interface AiIntegrationCard {
 const names: Record<AiProvider, string> = {
   ANTHROPIC: "Anthropic Claude", OPENAI: "OpenAI GPT", GOOGLE: "Google Gemini",
   GEMMA: "Self-hosted Gemma", OPENROUTER: "OpenRouter", ELEVENLABS: "ElevenLabs",
+  META: "Meta Llama",
 };
 function keyType(provider: AiProvider): UiAiKeyType | null {
-  return provider === "ANTHROPIC" ? "anthropic" : provider === "OPENAI" ? "openai" : provider === "GOOGLE" ? "gemini" : null;
+  // META and OPENROUTER are edited on the AI providers settings page.
+  // A null key type routes that card to the settings page.
+  if (provider === "ANTHROPIC") return "anthropic";
+  if (provider === "OPENAI") return "openai";
+  if (provider === "GOOGLE") return "gemini";
+  return null;
 }
 /** Canonical state is authoritative, including a deliberate disable or failure. */
 export function mergeAiIntegrationCards(legacy: LegacyIntegrationMetadata[], canonical: ConfiguredAiConnectionMetadata[]): AiIntegrationCard[] {
@@ -70,7 +76,9 @@ export function describeOAuthCard(rows: LegacyIntegrationMetadata[], provider: s
   if (!readiness.ready) {
     if (readiness.reason === "DISCONNECTED") return { status: "DISCONNECTED", connected: false };
     return { status: "ATTENTION", connected: false, syncError: readiness.reason === "ORGANISATION_REQUIRED"
-      ? "No organisation is selected for this connection. Reconnect and authorise a single organisation before syncing."
+      ? provider === "ZOHO"
+        ? "Choose a Zoho region and reconnect before syncing."
+        : "No organisation is selected for this connection. Reconnect and authorise a single organisation before syncing."
       : "This connection needs authorisation before it can sync." };
   }
   return { status: row.status === "ERROR" ? "ERROR" : row.status === "SYNCING" ? "SYNCING" : "CONNECTED", connected: true, lastSyncAt: row.lastSyncAt, syncError: row.syncError };

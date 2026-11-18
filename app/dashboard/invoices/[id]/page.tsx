@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   FileText,
@@ -30,13 +31,13 @@ import {
   type InvoiceStatus,
 } from "@/lib/invoice-status";
 import { getVariationAmountDisplay } from "@/lib/invoices/variation-amount";
-import { INVOICE_ONLINE_PAYMENT_ENABLED } from "@/lib/invoices/online-payment";
 import { formatDate } from "@/lib/formatters";
 import {
   parseApiError,
   type ParsedApiError,
 } from "@/lib/client/parse-api-error";
 import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface LineItem {
   id: string;
@@ -120,6 +121,10 @@ interface Invoice {
   payments: Payment[];
   auditLogs: AuditLog[];
 
+  // P1-MNY-01: computed by GET /api/invoices/[id] (flag, workspace, PAYMENTS
+  // add-on, connected Stripe account with charges enabled).
+  onlinePayment?: { available: boolean; reason?: string };
+
   contact?: {
     id: string;
     fullName: string;
@@ -151,6 +156,7 @@ export default function InvoiceDetailPage({
   const [paymentNotes, setPaymentNotes] = useState("");
   const [recordingPayment, setRecordingPayment] = useState(false);
   const [creatingCheckout, setCreatingCheckout] = useState(false);
+  const [connectingStripe, setConnectingStripe] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [showSyncMenu, setShowSyncMenu] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
@@ -259,8 +265,12 @@ export default function InvoiceDetailPage({
         // Redirect to Stripe Checkout
         window.location.href = data.url;
       } else {
-        const error = await response.json();
-        toast.error(error.message || "Failed to create checkout session");
+        const error = await response.json().catch(() => ({}));
+        toast.error(
+          error.error?.message ||
+            error.message ||
+            "Failed to create checkout session",
+        );
         setCreatingCheckout(false);
       }
     } catch (error) {
@@ -268,6 +278,30 @@ export default function InvoiceDetailPage({
       toast.error("An error occurred while creating the checkout session");
       setCreatingCheckout(false);
     }
+  };
+
+  // P1-MNY-01: Stripe-hosted onboarding for the firm's own Stripe account.
+  const handleConnectStripe = async () => {
+    try {
+      setConnectingStripe(true);
+      const response = await fetch("/api/billing/connect/onboard", {
+        method: "POST",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      toast.error(
+        data.error?.message ||
+          (typeof data.error === "string" ? data.error : null) ||
+          "Could not start Stripe setup",
+      );
+    } catch (error) {
+      console.error("Failed to start Stripe Connect onboarding:", error);
+      toast.error("An error occurred while starting Stripe setup");
+    }
+    setConnectingStripe(false);
   };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
@@ -379,7 +413,7 @@ export default function InvoiceDetailPage({
       const res = await fetch(`/api/invoices/${invoiceId}/pdf`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Failed to generate PDF (${res.status})`);
+        throw new Error(apiErrorMessage(err) || `Failed to generate PDF (${res.status})`);
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -500,8 +534,9 @@ export default function InvoiceDetailPage({
           )}
           {canRecordPayment && (
             <>
-              {/* P1-MNY-00: hidden until firms are paid into their own Stripe account. */}
-              {INVOICE_ONLINE_PAYMENT_ENABLED && (
+              {/* P1-MNY-01: shown only when the server says card payment goes to
+                  this firm's own connected Stripe account. */}
+              {invoice.onlinePayment?.available === true && (
                 <button
                   onClick={handlePayOnline}
                   disabled={creatingCheckout}
@@ -509,6 +544,23 @@ export default function InvoiceDetailPage({
                 >
                   <CreditCard className="h-4 w-4" />
                   <span>{creatingCheckout ? "Loading..." : "Pay Online"}</span>
+                </button>
+              )}
+              {(invoice.onlinePayment?.reason === "NOT_CONNECTED" ||
+                invoice.onlinePayment?.reason === "CHARGES_DISABLED") && (
+                <button
+                  onClick={handleConnectStripe}
+                  disabled={connectingStripe}
+                  className="flex items-center gap-2 px-4 py-2 border border-purple-500 text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  <span>
+                    {connectingStripe
+                      ? "Loading..."
+                      : invoice.onlinePayment.reason === "NOT_CONNECTED"
+                        ? "Set up card payments"
+                        : "Finish Stripe setup"}
+                  </span>
                 </button>
               )}
               <button
@@ -570,6 +622,17 @@ export default function InvoiceDetailPage({
             )}
             <span>{generatingPdf ? "Generating PDF..." : "Download PDF"}</span>
           </button>
+          {/* RA-8081: the credit-note form lists only SENT and PAID invoices
+              and does not read a preselected invoice, so this is a plain link
+              shown only where the invoice will appear in that list. */}
+          {(invoice.status === "SENT" || invoice.status === "PAID") && (
+            <Link
+              href="/dashboard/invoices/credit-notes/new"
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            >
+              Issue credit note
+            </Link>
+          )}
           {canEdit && (
             <button
               onClick={() =>
@@ -884,6 +947,12 @@ export default function InvoiceDetailPage({
                   {variations.length}
                 </span>
               )}
+              <Link
+                href={`/dashboard/invoices/${invoice.id}/variations`}
+                className="ml-auto text-sm font-medium text-cyan-500 hover:text-cyan-600 transition-colors"
+              >
+                Manage variations
+              </Link>
             </div>
             {loadingVariations ? (
               <div className="space-y-3">

@@ -1,0 +1,17 @@
+name: check-visuals
+on:
+  pull_request:
+    paths: ["**/*.tsx", "**/*.jsx", "**/*.ts", "**/*.css", "**/*.scss", "**/*.mdx", "**/public/**", "media.manifest.json", "visuals.config.json", "scripts/premium-visuals/**", ".github/workflows/check-visuals.yml"]
+permissions:
+  contents: read
+jobs:
+  check-visuals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      # Mode comes from visuals.config.json ("report" = list violations, don't fail; "enforce" = fail the PR).
+      - run: node scripts/premium-visuals/check-visuals.mjs --root .

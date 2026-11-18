@@ -14,9 +14,11 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import { useAsyncAction } from "@/lib/client/use-async-action";
 import { parseApiError } from "@/lib/client/parse-api-error";
 import { ContractorsBackLink } from "../ContractorsBackLink";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface ContractorProfile {
   id: string;
@@ -235,7 +237,7 @@ export default function ContractorProfileDashboard() {
         const data = await res.json();
         setMessage({
           type: "error",
-          text: data.error || "Failed to add certification",
+          text: apiErrorMessage(data) || "Failed to add certification",
         });
       }
     } catch (error) {
@@ -300,7 +302,7 @@ export default function ContractorProfileDashboard() {
         const data = await res.json();
         setMessage({
           type: "error",
-          text: data.error || "Failed to add service area",
+          text: apiErrorMessage(data) || "Failed to add service area",
         });
       }
     } catch (error) {
@@ -646,7 +648,9 @@ export default function ContractorProfileDashboard() {
         {/* Certifications List */}
         {certifications.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
-            No certifications added yet
+            {isConfirmedEmpty(loadError, certifications.length)
+              ? "No certifications added yet"
+              : "Certifications could not be loaded"}
           </div>
         ) : (
           <div className="space-y-4">
@@ -798,7 +802,9 @@ export default function ContractorProfileDashboard() {
         {/* Service Areas List */}
         {serviceAreas.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
-            No service areas added yet
+            {isConfirmedEmpty(loadError, serviceAreas.length)
+              ? "No service areas added yet"
+              : "Service areas could not be loaded"}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

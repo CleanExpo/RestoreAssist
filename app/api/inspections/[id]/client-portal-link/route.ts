@@ -3,8 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveClientRecipient } from "@/lib/client-recipient";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import { isDemoOrReservedRecipient } from "@/lib/email/reserved-recipient";
 import { sendEmail } from "@/lib/email-send";
 import { getAppUrl } from "@/lib/app-url";
 import {
@@ -65,14 +67,23 @@ export async function POST(
       });
     }
     const client =
-      inspection?.client ??
-      inspection?.report?.client ??
-      null;
+      resolveClientRecipient({
+        reportClient: inspection.report?.client,
+        inspectionClient: inspection.client,
+      })?.client ?? null;
     if (!client?.id || !client.email) {
       return apiError(request, {
         code: "VALIDATION",
         message:
           "This claim has no client email on file — add the client's email first.",
+        status: 422,
+      });
+    }
+    if (isDemoOrReservedRecipient(client.email)) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "This client email is a sample or reserved address and cannot receive a portal link.",
         status: 422,
       });
     }

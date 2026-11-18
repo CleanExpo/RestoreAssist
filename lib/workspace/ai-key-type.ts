@@ -32,6 +32,8 @@ export function aiProviderToCallProvider(
       return "gemini";
     case "OPENROUTER":
       return "openrouter";
+    case "META":
+      return "meta";
     default:
       return null;
   }

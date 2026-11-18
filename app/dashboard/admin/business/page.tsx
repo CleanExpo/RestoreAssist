@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Metrics {
   generatedAt: string;
@@ -75,7 +76,7 @@ export default function BusinessMetricsPage() {
       setHidden(false);
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || `HTTP ${res.status}`);
+        throw new Error(apiErrorMessage(body) || `HTTP ${res.status}`);
       }
       const json = (await res.json()) as Metrics;
       setData(json);

@@ -9,6 +9,11 @@
  */
 
 import type { EvidenceClass } from "@/lib/types/evidence";
+import { standardCite } from "@/lib/nir-standards-mapping";
+import { ASBESTOS_PRESUMPTION_YEAR } from "@/lib/compliance/asbestos-era";
+
+/** RA-8327: the asbestos years come from the registry, never a copy here. */
+const ASBESTOS_ERA = `before ${ASBESTOS_PRESUMPTION_YEAR.AU} in AU, ${ASBESTOS_PRESUMPTION_YEAR.NZ} in NZ`;
 
 /** Supported job types — maps to InspectionWorkflow.jobType */
 export const JOB_TYPES = [
@@ -58,6 +63,12 @@ export interface WorkflowStepDefinition {
   isMandatory: boolean;
   riskTier: 1 | 2 | 3;
   escalationNote?: string;
+  /**
+   * RA-8276: the step only makes sense when water is present (psychrometric
+   * baseline, moisture mapping, drying monitoring). The Claim Pathway engine
+   * leaves these out of a pathway with no water.
+   */
+  waterOnly?: boolean;
 }
 
 /** Full workflow template for a job type */
@@ -133,6 +144,7 @@ const STEP_ENVIRONMENTAL_READINGS: WorkflowStepDefinition = {
   minimumEvidenceCount: 2,
   isMandatory: true,
   riskTier: 1,
+  waterOnly: true,
 };
 
 const STEP_MOISTURE_SURVEY: WorkflowStepDefinition = {
@@ -152,6 +164,7 @@ const STEP_MOISTURE_SURVEY: WorkflowStepDefinition = {
   riskTier: 2,
   escalationNote:
     "Elevated: Accurate moisture mapping is critical for drying scope.",
+  waterOnly: true,
 };
 
 const STEP_THERMAL_IMAGING: WorkflowStepDefinition = {
@@ -169,6 +182,7 @@ const STEP_THERMAL_IMAGING: WorkflowStepDefinition = {
   minimumEvidenceCount: 2,
   isMandatory: false,
   riskTier: 1,
+  waterOnly: true,
 };
 
 const STEP_FLOOR_PLAN_SKETCH: WorkflowStepDefinition = {
@@ -200,6 +214,8 @@ const STEP_EQUIPMENT_DEPLOYMENT: WorkflowStepDefinition = {
   minimumEvidenceCount: 2,
   isMandatory: true,
   riskTier: 1,
+  // RA-8276: drying equipment; the Claim Pathway leaves it out with no water.
+  waterOnly: true,
 };
 
 const STEP_SCOPE_OF_WORKS: WorkflowStepDefinition = {
@@ -233,6 +249,97 @@ const STEP_COMPLETION_VERIFICATION: WorkflowStepDefinition = {
     "AUTHORITY_FORM",
   ],
   optionalEvidenceClasses: ["TECHNICIAN_NOTE"],
+  minimumEvidenceCount: 3,
+  isMandatory: true,
+  riskTier: 2,
+  escalationNote:
+    "Elevated: Completion verification is insurance audit trigger.",
+};
+
+/**
+ * RA-8276: fire/smoke versions of three shared steps whose wording was
+ * written for water (moisture boundaries, drying equipment, drying scope).
+ * Same stepKey, evidence classes and counts as the shared steps, so existing
+ * workflows, guidance lookups and the submission gate are unchanged; only the
+ * instructions a fire technician reads change.
+ */
+const STEP_FIRE_FLOOR_PLAN_SKETCH: WorkflowStepDefinition = {
+  ...STEP_FLOOR_PLAN_SKETCH,
+  stepDescription:
+    "Create or annotate a floor plan showing all affected areas, the fire " +
+    "origin, smoke spread, equipment placement and where each residue test " +
+    "was taken. Mark room dimensions if creating from scratch. This becomes " +
+    "the reference document for the cleaning plan.",
+  stepDescriptionShort:
+    "Annotated floor plan: affected areas, origin, test points, equipment.",
+};
+
+const STEP_FIRE_EQUIPMENT_DEPLOYMENT: WorkflowStepDefinition = {
+  ...STEP_EQUIPMENT_DEPLOYMENT,
+  // Own key for the same reason: the shared key's guidance is for drying
+  // equipment (air movers, dehumidifiers) and cites S500.
+  stepKey: "equipment_setup",
+  stepTitle: "Air Filtration & Equipment Setup",
+  stepDescription:
+    "Deploy air filtration (HEPA air scrubbers, with carbon filtration where " +
+    "odour is present) and any odour control equipment. Photograph each piece " +
+    "of equipment in position showing serial number/asset tag. Record " +
+    "equipment type, serial number, and placement location. " +
+    `Per IICRC ${standardCite("S700")}.`,
+  // Air filtration is fire work, needed with or without water.
+  waterOnly: false,
+};
+
+const STEP_FIRE_SCOPE_OF_WORKS: WorkflowStepDefinition = {
+  ...STEP_SCOPE_OF_WORKS,
+  stepDescription:
+    "Document the full scope of restoration works required. Include " +
+    "cleaning by surface type, contents handling, odour control, removal " +
+    "of anything the test patches show cannot be cleaned, and any specialist " +
+    "works. Reference affected areas and evidence collected. This forms the " +
+    "basis of the cost estimate.",
+};
+
+/**
+ * RA-8276 review P1: the shared environmental step establishes a
+ * psychrometric baseline for drying (S500). A fire job records site
+ * conditions instead. Same key, evidence class and count, so the submission
+ * gate is unchanged.
+ */
+const STEP_FIRE_ENVIRONMENTAL_READINGS: WorkflowStepDefinition = {
+  ...STEP_ENVIRONMENTAL_READINGS,
+  // Own key: guidance and validator references are looked up by stepKey,
+  // and the shared key carries psychrometric/S500 wording (review round 2).
+  stepKey: "site_conditions",
+  stepTitle: "Site Conditions Recording",
+  stepDescription:
+    "Record ambient temperature and relative humidity for each affected room " +
+    "and at least one unaffected reference room. Use a calibrated " +
+    "thermo-hygrometer. Note air circulation status (HVAC, windows). These " +
+    "readings record the site conditions the cleaning was carried out in.",
+  stepDescriptionShort: "Temp/RH per room + reference room.",
+  waterOnly: false,
+};
+
+/**
+ * RA-8276: fire/smoke completion. The shared step above requires
+ * MOISTURE_READING, which a dry fire job cannot honestly supply. Fire
+ * completion is proven by clearance (residue and odour) and completion
+ * photos. Where water is also present, the Claim Pathway engine adds the
+ * final moisture readings as a separate item.
+ */
+const STEP_FIRE_COMPLETION_VERIFICATION: WorkflowStepDefinition = {
+  stepKey: "completion_verification",
+  stepTitle: "Completion Verification & Sign-Off",
+  stepDescription:
+    "Repeat the residue test in each treated room and record the odour " +
+    "clearance result against the baseline. Photograph restored areas " +
+    "showing completion standard. Obtain client sign-off on completed works. " +
+    `Per IICRC ${standardCite("S700")}.`,
+  stepDescriptionShort:
+    "Clearance residue + odour results + completion photos + client sign-off.",
+  requiredEvidenceClasses: ["PHOTO_COMPLETION", "AUTHORITY_FORM"],
+  optionalEvidenceClasses: ["TECHNICIAN_NOTE", "LAB_RESULT"],
   minimumEvidenceCount: 3,
   isMandatory: true,
   riskTier: 2,
@@ -301,7 +408,7 @@ const STEP_HAZMAT_ASSESSMENT: WorkflowStepDefinition = {
   stepKey: "hazmat_assessment",
   stepTitle: "Hazardous Materials Assessment",
   stepDescription:
-    "Identify potential hazardous materials: asbestos (buildings before 2004 in AU, 2000 in NZ), " +
+    `Identify potential hazardous materials: asbestos (buildings ${ASBESTOS_ERA}), ` +
     "lead paint, chemical contamination, biological hazards. " +
     "Do NOT disturb suspected asbestos — photograph and note location only. " +
     "Arrange licensed assessor if asbestos suspected. Record PPE worn.",
@@ -382,6 +489,7 @@ const STEP_PROGRESS_MONITORING: WorkflowStepDefinition = {
   minimumEvidenceCount: 3,
   isMandatory: true,
   riskTier: 1,
+  waterOnly: true,
 };
 
 const STEP_STRATA_COMMON_AREAS: WorkflowStepDefinition = {
@@ -424,7 +532,7 @@ const WORKFLOW_WATER_DAMAGE: WorkflowTemplate = {
   ],
   riskEscalationTriggers: [
     "Category 3 water detected — upgrade contamination step to risk tier 3",
-    "Asbestos-era building (before 2004 in AU, 2000 in NZ) — add hazmat assessment step",
+    `Asbestos-era building (${ASBESTOS_ERA}) — add hazmat assessment step`,
     "Loss > 72 hours old — upgrade mould risk assessment",
   ],
 };
@@ -465,11 +573,11 @@ const WORKFLOW_FIRE_SMOKE: WorkflowTemplate = {
     STEP_STRUCTURAL_ASSESSMENT,
     STEP_HAZMAT_ASSESSMENT,
     STEP_CONTENTS_INVENTORY,
-    STEP_ENVIRONMENTAL_READINGS,
-    STEP_FLOOR_PLAN_SKETCH,
-    STEP_EQUIPMENT_DEPLOYMENT,
-    STEP_SCOPE_OF_WORKS,
-    STEP_COMPLETION_VERIFICATION,
+    STEP_FIRE_ENVIRONMENTAL_READINGS,
+    STEP_FIRE_FLOOR_PLAN_SKETCH,
+    STEP_FIRE_EQUIPMENT_DEPLOYMENT,
+    STEP_FIRE_SCOPE_OF_WORKS,
+    STEP_FIRE_COMPLETION_VERIFICATION,
   ],
   riskEscalationTriggers: [
     "Structural damage detected — engineer referral mandatory",

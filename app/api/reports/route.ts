@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getApiSession } from "@/lib/auth/get-api-session";
 import { prisma } from "@/lib/prisma";
+import { withCurrentEquipment } from "@/lib/reports/report-equipment-response";
 import { generateDetailedReport } from "@/lib/anthropic";
 import { withIdempotency } from "@/lib/idempotency";
 import { track, isFirstTime } from "@/lib/analytics/track";
@@ -461,7 +462,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         {
-          ...report,
+          ...(await withCurrentEquipment(report)),
           detailedReportGenerated: !!detailedReport,
           detailedReportLength: detailedReport?.length || 0,
           aiGenerationStatus: detailedReport ? "success" : "failed",

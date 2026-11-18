@@ -222,7 +222,7 @@ export default function InspectionEvidenceReadinessPanel({
           data-testid="evidence-readiness-meter"
         >
           <div className="flex items-baseline justify-between gap-4">
-            <span className="text-sm text-neutral-500 dark:text-slate-400">
+            <span className="text-sm text-neutral-600 dark:text-slate-400">
               Ready
             </span>
             <span className="text-2xl font-bold text-neutral-900 dark:text-white">
@@ -242,11 +242,11 @@ export default function InspectionEvidenceReadinessPanel({
               style={{ width: `${percent ?? 0}%` }}
             />
           </div>
-          <p className="mt-2 text-xs text-neutral-500 dark:text-slate-400">
+          <p className="mt-2 text-xs text-neutral-600 dark:text-slate-400">
             {completeCount}/{actionableItems.length} job sections recorded
           </p>
           {requiredEvidence !== undefined && (
-            <p className="text-xs text-neutral-500 dark:text-slate-400">
+            <p className="text-xs text-neutral-600 dark:text-slate-400">
               {requiredEvidence === null
                 ? "Required field evidence not loaded"
                 : `${requiredEvidence.present}/${requiredEvidence.total} required field evidence captured`}

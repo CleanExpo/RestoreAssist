@@ -118,6 +118,35 @@ describe("ClientDetailPage — route params (Next 16 async-params regression)", 
   });
 });
 
+describe("ClientDetailPage — money figures (RA-8146)", () => {
+  it("averages per invoice and never shows a hidden report cost as $0", async () => {
+    vi.stubGlobal(
+      "fetch",
+      routeFetch({
+        client: () =>
+          okJson({
+            ...CLIENT_A,
+            totalRevenue: 900,
+            invoicedCount: 3,
+            reportsCount: 2,
+            reports: [
+              { id: "r1", title: "Colleague report", status: "COMPLETED", totalCost: null, createdAt: "2026-01-01T00:00:00.000Z" },
+              { id: "r2", title: "Own report", status: "COMPLETED", totalCost: 111, createdAt: "2026-01-01T00:00:00.000Z" },
+            ],
+          }),
+      }),
+    );
+
+    renderPage("client-a");
+
+    expect(await screen.findByText("Invoiced")).toBeInTheDocument();
+    expect(screen.getByText("$300")).toBeInTheDocument();
+    expect(screen.getByText("Unavailable")).toBeInTheDocument();
+    expect(screen.getByText("$111")).toBeInTheDocument();
+    expect(screen.queryByText("$0")).toBeNull();
+  });
+});
+
 describe("ClientDetailPage — plain-text notes", () => {
   it("renders ampersands and markup-looking notes as text", async () => {
     const notes = "R&D <img src=x onerror=alert(1)>";

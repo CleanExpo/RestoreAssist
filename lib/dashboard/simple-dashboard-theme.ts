@@ -7,27 +7,32 @@ export const DASHBOARD_PAGE_MAX_WIDTH = SIMPLE_DASHBOARD_MAX_WIDTH;
 
 export const ADVANCED_WORKSPACE_EYEBROW = "Advanced workspace";
 
-/** Advanced-mode sidebar — depth + cyan accent rail. */
+/** Advanced-mode sidebar — depth + cyan accent rail (light pair: RA-8305). */
 export const advancedDashboardSidebarShell =
-  "bg-gradient-to-b from-slate-950 via-indigo-950/95 to-slate-950 border-r border-white/5";
+  "bg-gradient-to-b from-white via-indigo-50/70 to-white dark:from-slate-950 dark:via-indigo-950/95 dark:to-slate-950 border-r border-black/10 dark:border-white/5";
 
 export const advancedDashboardSidebarGroupLabel =
-  "text-[10px] font-semibold uppercase tracking-widest text-cyan-400/75 mt-3 mb-1 px-2 first:mt-0";
+  "text-[10px] font-semibold uppercase tracking-widest text-cyan-700 dark:text-cyan-400/75 mt-3 mb-1 px-2 first:mt-0";
 
 export const advancedDashboardNavActive =
-  "bg-gradient-to-r from-cyan-500/15 to-indigo-500/10 text-cyan-100 font-medium ring-1 ring-inset ring-cyan-400/25 shadow-sm shadow-cyan-950/20";
+  "bg-gradient-to-r from-cyan-500/15 to-indigo-500/10 text-cyan-900 dark:text-cyan-100 font-medium ring-1 ring-inset ring-cyan-600/30 dark:ring-cyan-400/25 shadow-sm shadow-cyan-950/5 dark:shadow-cyan-950/20";
 
 export const advancedDashboardNavIdle =
-  "text-slate-300 hover:bg-white/5 hover:text-white";
+  "text-slate-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white";
 
 export const advancedDashboardModeToggleActive =
-  "bg-gradient-to-r from-cyan-600/20 to-indigo-600/20 text-cyan-100 ring-1 ring-inset ring-cyan-400/30";
+  "bg-gradient-to-r from-cyan-600/20 to-indigo-600/20 text-cyan-900 dark:text-cyan-100 ring-1 ring-inset ring-cyan-600/30 dark:ring-cyan-400/30";
 
 export const simpleDashboardMeshGradient =
   "pointer-events-none absolute inset-x-0 top-0 -z-10 h-[min(560px,75vh)] bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,hsl(var(--primary)/0.22),transparent_58%),radial-gradient(ellipse_55%_45%_at_100%_0%,rgba(6,182,212,0.14),transparent_55%),radial-gradient(ellipse_50%_40%_at_0%_15%,rgba(99,102,241,0.12),transparent_50%)] dark:bg-[radial-gradient(ellipse_100%_80%_at_50%_-20%,hsl(var(--primary)/0.28),transparent_58%),radial-gradient(ellipse_55%_45%_at_100%_0%,rgba(34,211,238,0.12),transparent_55%),radial-gradient(ellipse_50%_40%_at_0%_15%,rgba(129,140,248,0.14),transparent_50%)]";
 
+/**
+ * Brand hero band. Deliberately dark in BOTH themes: the leading `dark` class
+ * makes it a dark island, so its own `dark:` children and the theme tokens
+ * inside it resolve to dark even when the app is in Light (RA-8305).
+ */
 export const simpleDashboardHeroShell =
-  "relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-indigo-950 to-cyan-950 p-5 shadow-xl shadow-cyan-950/20 sm:p-7 dark:shadow-black/40";
+  "dark relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-indigo-950 to-cyan-950 p-5 shadow-xl shadow-cyan-950/20 sm:p-7 dark:shadow-black/40";
 
 export const simpleDashboardHeroShine =
   "pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.08)_0%,transparent_42%,rgba(34,211,238,0.06)_100%)]";

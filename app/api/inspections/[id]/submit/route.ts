@@ -16,9 +16,14 @@ import {
   estimateCosts,
   resolveInspectionRates,
 } from "@/lib/nir-cost-estimation";
+import { isBlockedResult } from "@/lib/pricing/blocked-line";
 import { buildEstimateLines } from "@/lib/estimate-lines";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
+import {
+  checkFireSubmitGate,
+  claimSubmitWithFireGate,
+} from "@/lib/voice/fire-smoke/server";
 import { ensureMakeSafeSeeded } from "@/lib/compliance/seed-make-safe";
 import { checkScopeVariationGate } from "@/lib/compliance/scope-variation-gate";
 import { checkNzMoistureGate } from "@/lib/compliance/nz-moisture-gate";
@@ -29,13 +34,20 @@ import { detectDuplicateJob } from "@/lib/compliance/duplicate-detector";
 import { withIdempotency } from "@/lib/idempotency";
 import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
+import { scheduleZohoInspectionPush } from "@/lib/integrations/zoho/queue";
 import { validateSubmissionPayload } from "@/lib/services/inspection/validate-submission";
 import { apiError, fromException } from "@/lib/api-errors";
 import { recordFirstReportSaved } from "@/lib/analytics/first-report-saved";
 import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
+import {
+  FILE_EVIDENCE_STATUS_SELECT,
+  rejectedOnlyFileUrls,
+  withoutRejectedPhotographs,
+} from "@/lib/evidence/countable-evidence";
 import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
+import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
 import { linkedReadingsAreaConflict, readingMatchesArea, unlinkedReadingsAreaAmbiguity } from "@/lib/moisture/reading-room-join";
 
 // POST - Submit inspection for processing
@@ -85,6 +97,14 @@ export async function POST(
             },
           },
           moistureReadings: {
+            // RA-8388: a retired reading (invalidatedAt set) is a corrected
+            // mistake. It must not feed the area checks, the "at least one
+            // reading" check, classification or the building-code check.
+            // Same rule as the PDF route.
+            // The workflow's five-reading count is taken from evidence
+            // items; lib/evidence/countable-evidence.ts leaves a retired
+            // reading's record out of that count.
+            where: { invalidatedAt: null },
             select: {
               id: true,
               location: true,
@@ -112,7 +132,10 @@ export async function POST(
           scopeItems: { select: { id: true } },
           // `.length` plus per-stage coverage (RA-7003) are read by
           // validateTieredCompletion.
-          photos: { select: { id: true, photoStage: true } },
+          // `url` is read only to match a photograph to its evidence
+          // record (RA-8388, below); it is never returned.
+          photos: { select: { id: true, photoStage: true, url: true } },
+          evidenceItems: FILE_EVIDENCE_STATUS_SELECT,
         },
       });
 
@@ -123,6 +146,14 @@ export async function POST(
           status: 404,
         });
       }
+
+      // RA-8388: a photograph whose only evidence record is REJECTED does
+      // not count. Applied once, here, so every check below reads the same
+      // list. lib/evidence/countable-evidence.ts owns the rule.
+      inspection.photos = withoutRejectedPhotographs(
+        inspection.photos ?? [],
+        rejectedOnlyFileUrls(inspection.evidenceItems ?? []),
+      );
 
       // A linked drawing room needs its own affected-area identity. Zero
       // matches silently omits it; duplicate labels count it twice, while
@@ -212,6 +243,21 @@ export async function POST(
         );
       }
 
+      // ── Fire and smoke Voice Copilot walkthrough gate ─────────────────────────
+      // A walkthrough that has started must be complete and signed by the
+      // technician. Keyed on the walkthrough, not claimType, which later
+      // assessment routes overwrite (lib/voice/fire-smoke/server.ts).
+      // Runs before every write below, so a refusal leaves no side effects.
+      const fireGate = await checkFireSubmitGate({
+        id,
+        claimType: inspection.claimType,
+        propertyCountry: inspection.propertyCountry,
+        propertyPostcode: inspection.propertyPostcode,
+      });
+      if (fireGate.blocked) {
+        return NextResponse.json(fireGate.body, { status: fireGate.status });
+      }
+
       // ── CLAIM-003 auto-detection ────────────────────────────────────────────
       // If the inspection was previously processed (status != DRAFT), this submission
       // represents a re-inspection event. Record it automatically so no admin action
@@ -248,8 +294,8 @@ export async function POST(
       // All applicable hazard-control actions must be completed before submission.
       // Seed N/A placeholders when intake never created rows (otherwise every
       // new-inspection submit 422s with five "missing" blockers).
-      await ensureMakeSafeSeeded(id);
-      const makeSafeResult = await checkMakeSafeGate(id);
+      await ensureMakeSafeSeeded(id, inspection.claimType ?? null);
+      const makeSafeResult = await checkMakeSafeGate(id, inspection.claimType);
       if (!makeSafeResult.canSubmit) {
         return NextResponse.json(
           {
@@ -312,19 +358,38 @@ export async function POST(
       // OR admin. Status-DRAFT predicate still serialises submits.
       // `updatedAt` pins the row submit validated above: a draft save that
       // committed in between bumps it, so stale children cannot be submitted.
-      const submitGuard = await prisma.inspection.updateMany({
-        where: {
-          ...tenancy.data.inspectionManyWhere,
-          status: "DRAFT",
-          updatedAt: inspection.updatedAt,
+      // The fire gate is read again inside the claim's transaction, after
+      // the claim holds the row lock that every fire write also takes, so a
+      // fire edit cannot slip in between the gate and the claim.
+      const submitGuard = await claimSubmitWithFireGate(
+        prisma,
+        {
+          id,
+          claimType: inspection.claimType,
+          propertyCountry: inspection.propertyCountry,
+          propertyPostcode: inspection.propertyPostcode,
         },
-        data: { status: "SUBMITTED", submittedAt: new Date() },
-      });
+        (tx) =>
+          tx.inspection.updateMany({
+            where: {
+              ...tenancy.data.inspectionManyWhere,
+              status: "DRAFT",
+              updatedAt: inspection.updatedAt,
+            },
+            data: { status: "SUBMITTED", submittedAt: new Date() },
+          }),
+      );
+      if (submitGuard.fireBlock) {
+        return NextResponse.json(submitGuard.fireBlock.body, {
+          status: submitGuard.fireBlock.status ?? 422,
+        });
+      }
       // P1 #11.1 — fire-and-forget next-action nudge (CLAUDE.md rule #13).
       if (submitGuard.count > 0) {
         void onNextAction(id, InspectionStatus.SUBMITTED).catch((err) =>
           console.error("[next-action] SUBMITTED nudge failed:", err),
         );
+        scheduleZohoInspectionPush(id);
       }
       if (submitGuard.count === 0) {
         return apiError(request, {
@@ -421,6 +486,10 @@ export async function POST(
         // Don't fail the submission, but log the error
         // In production, would retry via queue
       }
+
+      // After processing, so the client gets one email for where the job
+      // landed rather than one per internal status it passed through.
+      void notifyClientStepChange({ inspectionId: id, fromStatus: "DRAFT" });
 
       // After successful submit — trigger integration sync (non-blocking)
       // Only fires if the inspection is linked to a Report (reportId is nullable).
@@ -694,6 +763,18 @@ async function processInspectionComplete(
     pricing.rates,
     null,
   );
+  // RA-8281 (B2): a line whose price-list rate is not set blocks the
+  // estimate. Nothing is saved, so the inspection stays SCOPED, the same as
+  // unproven pricing. The blocked lines are shown when the contractor
+  // generates the estimate from the inspection page. Never estimated at $0.
+  if (isBlockedResult(costEstimate)) {
+    console.warn(
+      `[submit] ${inspectionId}: ${costEstimate.totalNote} (${costEstimate.missing
+        .map((m) => m.field)
+        .join(", ")})`,
+    );
+    return { pricingRefused: true as const };
+  }
 
   // Save cost estimates — rows built by the shared line helper (RA-7708).
   // One batched write instead of N sequential creates.

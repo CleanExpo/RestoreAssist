@@ -5,16 +5,16 @@ category: "billing"
 order: 1
 audience: ["admin"]
 readTimeMin: 4
-updatedAt: "2026-05-15"
+updatedAt: "2026-11-02"
 status: "published"
 heroImage: "ra-help/billing/upgrade-from-trial-hero"
 relatedSlugs: []
-aiSummary: "Explains the 15-day trial, the three paid tiers (STANDARD $99, PREMIUM $199, ENTERPRISE Contact us), how to reach /billing/upgrade, what each tier unlocks, and what happens to your data when the trial ends without upgrading."
+aiSummary: "Explains the 15-day trial, the $99 Monthly Plan, how to reach /billing/upgrade, how technician seats are billed, and what happens to your data when the trial ends without upgrading."
 userIntents:
   - "how do I upgrade"
   - "upgrade from trial"
   - "paid plan"
-  - "what does each tier include"
+  - "what does the plan include"
   - "trial expired"
 successCriteria:
   - "User has opened /billing/upgrade"
@@ -36,23 +36,21 @@ Click the **Upgrade** button in the dashboard top bar, or go directly to `/billi
 
 <Screenshot
   src="ra-help/billing/upgrade-page"
-  alt="The /billing/upgrade page showing three tier cards"
-  caption="STANDARD, PREMIUM, and ENTERPRISE cards side by side."
+  alt="The /billing/upgrade page"
+  caption="The upgrade page."
 />
 
-## Pick a tier
+## The plan
 
-| Tier           | Price        | Best for                                                                                        |
-| -------------- | ------------ | ----------------------------------------------------------------------------------------------- |
-| **STANDARD**   | $99 / month  | Solo tradie · 1 user · unlimited inspections · standard AI reports                              |
-| **PREMIUM**    | $199 / month | Small crew · up to 5 users · premium AI model routing · Xero + MYOB integrations · BYOK support |
-| **ENTERPRISE** | Contact us   | Multi-site or franchise · SSO · custom integrations · dedicated support                         |
+There is one plan: **$99 a month with 50 inspection reports**. Report packs and optional add-ons, including the Xero bookkeeping connection, are billed on top.
+
+Each field technician needs a paid seat at $11 a month per seat. The plan comes with no technician seats. The [pricing page](/pricing) itemises every charge.
 
 All prices are AUD and include 10% GST per Australian Tax Office rules. Invoices are issued monthly to the ABN on file.
 
 ## Checkout
 
-Click **Upgrade to STANDARD** (or PREMIUM). RestoreAssist sends you to Stripe Checkout. After payment your subscription status flips to `ACTIVE` immediately — no waiting on webhooks for the UI to unlock.
+Choose the plan on the upgrade page. RestoreAssist sends you to Stripe Checkout. After payment your subscription status flips to `ACTIVE` immediately — no waiting on webhooks for the UI to unlock.
 
 ## What happens to my data if the trial expires
 
@@ -62,4 +60,4 @@ Click **Upgrade to STANDARD** (or PREMIUM). RestoreAssist sends you to Stripe Ch
 
 ## Cancel or downgrade
 
-From **Settings → Billing → Manage subscription** you can cancel or switch tiers. Cancellation takes effect at the end of the current billing period. Downgrades from PREMIUM to STANDARD pro-rate the difference as account credit.
+From **Settings → Billing → Manage subscription** you can cancel. Cancellation takes effect at the end of the current billing period.

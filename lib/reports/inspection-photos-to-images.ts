@@ -54,7 +54,9 @@ export type PhotoOmissionReason =
   | "fetch_failed"
   | "timeout"
   | "empty"
-  | "over_limit";
+  | "over_limit"
+  /** The caller's signal fired before this photo was started. */
+  | "stopped";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_CONCURRENCY = 6;
@@ -263,6 +265,8 @@ export async function prepareReportPhotos(
     evidenceLabelsByPhotoId?: ReadonlyMap<string, string[]>;
     timeoutMs?: number;
     concurrency?: number;
+    /** Once aborted, no further photo is started; each one left is `stopped`. */
+    signal?: AbortSignal;
   } = {},
 ): Promise<{
   photos: ReportPhoto[];
@@ -338,6 +342,10 @@ export async function prepareReportPhotos(
     Array.from({ length: Math.min(concurrency, photos.length) }, async () => {
       while (next < photos.length) {
         const i = next++;
+        if (options.signal?.aborted) {
+          results[i] = "stopped";
+          continue;
+        }
         try {
           results[i] = await prepare(photos[i]);
         } catch {

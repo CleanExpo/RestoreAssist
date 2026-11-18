@@ -7,7 +7,12 @@ const update = vi.hoisted(() => vi.fn());
 vi.mock("next-auth", () => ({ getServerSession: session }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { client: { findFirst, update } },
+  prisma: {
+    client: { findFirst, update },
+    user: { findUnique: vi.fn(async () => ({ role: "ADMIN", organizationId: null, email: "o@example.test" })) },
+    invoice: { aggregate: vi.fn(async () => ({ _sum: { totalIncGST: null }, _count: 0 })) },
+    report: { findMany: vi.fn(async () => []) },
+  },
 }));
 
 import { GET, PUT } from "../route";
@@ -45,6 +50,12 @@ describe("Client Notes persistence contract", () => {
     expect(res.status).toBe(200);
     expect(update.mock.calls[0][0].data.notes).toBe(notes);
     expect((await res.json()).notes).toBe(notes);
+  });
+
+  it("does not state figures an edit never read (RA-8146)", async () => {
+    const saved = await (await PUT(put("note"), params)).json();
+    expect(saved).not.toHaveProperty("totalRevenue");
+    expect(saved).not.toHaveProperty("lastJob");
   });
 
   it("rejects 5,001 characters clearly before any write", async () => {

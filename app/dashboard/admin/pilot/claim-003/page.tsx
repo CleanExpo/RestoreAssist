@@ -43,6 +43,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -150,7 +151,7 @@ export default function Claim003ReInspectionPage() {
         } else {
           const body = await res.json().catch(() => ({}));
           failed.push(
-            `Row ${i + 1}: ${(body as { error?: string }).error ?? `HTTP ${res.status}`}`,
+            `Row ${i + 1}: ${apiErrorMessage(body) ?? `HTTP ${res.status}`}`,
           );
         }
       } catch {
@@ -220,7 +221,7 @@ export default function Claim003ReInspectionPage() {
         else {
           const body = await res.json().catch(() => ({}));
           failed.push(
-            `Item ${i}: ${(body as { error?: string }).error ?? `HTTP ${res.status}`}`,
+            `Item ${i}: ${apiErrorMessage(body) ?? `HTTP ${res.status}`}`,
           );
         }
       } catch {

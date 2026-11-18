@@ -28,6 +28,10 @@ import {
   viewerLeadComplianceProse,
   viewerOpeningStatement,
 } from "@/lib/reports/viewer-compliance-prose";
+import {
+  RATE_NOT_SET_LABEL,
+  sumOrNull,
+} from "@/lib/reports/stored-equipment-pricing";
 
 interface RestorationInspectionReportData {
   type: string;
@@ -183,9 +187,10 @@ interface RestorationInspectionReportData {
     name: string;
     type: string;
     quantity: number;
-    dailyRate: number;
+    /** RA-8281 B1: null when the price-list rate is not set. */
+    dailyRate: number | null;
     estimatedDuration: number;
-    totalCost: number;
+    totalCost: number | null;
   }>;
   photos: Array<{
     url: string;
@@ -350,7 +355,12 @@ export default function RestorationInspectionReportViewer({
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  // RA-8281 B1 class fix: a null amount is a line whose price-list rate is
+  // not set. Intl would print null as $0.00; it reads "Rate not set" instead.
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (typeof amount !== "number" || !Number.isFinite(amount)) {
+      return RATE_NOT_SET_LABEL;
+    }
     return new Intl.NumberFormat("en-AU", {
       style: "currency",
       currency: "AUD",
@@ -2126,10 +2136,7 @@ export default function RestorationInspectionReportViewer({
                       </td>
                       <td className="p-3 print:p-2 border border-slate-300 text-right text-sm print:text-xs">
                         {formatCurrency(
-                          data.equipment.reduce(
-                            (sum, item) => sum + item.totalCost,
-                            0,
-                          ),
+                          sumOrNull(data.equipment.map((item) => item.totalCost)),
                         )}
                       </td>
                     </tr>

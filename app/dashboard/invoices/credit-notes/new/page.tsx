@@ -9,6 +9,7 @@ import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 import { dollarsToCents, lineAmountsCents } from "@/lib/invoices/calc";
 import { LineExIncPrices } from "@/components/invoices/LineExIncPrices";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const REASONS = [
   { value: "CUSTOMER_REFUND", label: "Customer Refund" },
@@ -151,7 +152,7 @@ export default function NewCreditNotePage() {
       });
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to create credit note");
+        throw new Error(apiErrorMessage(data) || "Failed to create credit note");
       }
       toast.success("Credit note created");
       router.push("/dashboard/invoices/credit-notes");

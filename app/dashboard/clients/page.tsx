@@ -281,7 +281,10 @@ export default function ClientsPage() {
       if (response.ok) {
         const updatedClient = await response.json();
         setClients(
-          clients.map((c) => (c.id === selectedClient.id ? updatedClient : c)),
+          // The edit response has no figures, so the listed ones stay.
+          clients.map((c) =>
+            c.id === selectedClient.id ? { ...c, ...updatedClient } : c,
+          ),
         );
         setShowEditModal(false);
         setSelectedClient(null);
@@ -588,6 +591,12 @@ export default function ClientsPage() {
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
         </div>
+      ) : loadError && clients.length === 0 ? (
+        // RA-8084: a failed load with nothing held is unknown, not empty. The
+        // banner above carries Retry; never invite the user to add a "first" client.
+        <p className="py-12 text-center text-sm text-neutral-600 dark:text-slate-400">
+          Your client list could not be loaded.
+        </p>
       ) : (
         <>
           {/* Clients Table */}
@@ -710,7 +719,8 @@ export default function ClientsPage() {
                           $
                           {client.totalRevenue
                             ? client.totalRevenue.toLocaleString()
-                            : "0"}
+                            : "0"}{" "}
+                          invoiced
                         </span>
                         <span className="text-neutral-500 dark:text-slate-500 truncate">
                           {client.lastJob || "No jobs yet"}
@@ -778,7 +788,7 @@ export default function ClientsPage() {
                         "text-neutral-700 dark:text-slate-400",
                       )}
                     >
-                      Total Revenue
+                      Invoiced
                     </th>
                     <th
                       className={cn(

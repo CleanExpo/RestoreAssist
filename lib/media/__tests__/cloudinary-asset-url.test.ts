@@ -11,9 +11,9 @@ describe("cloudinary-asset-url", () => {
   });
 
   it("detects absolute URLs", () => {
-    expect(isAbsoluteMediaUrl("https://res.cloudinary.com/x/image/upload/a.jpg")).toBe(
-      true,
-    );
+    expect(
+      isAbsoluteMediaUrl("https://res.cloudinary.com/x/image/upload/a.jpg"),
+    ).toBe(true);
     expect(isAbsoluteMediaUrl("inspection-photos/org/a")).toBe(false);
   });
 

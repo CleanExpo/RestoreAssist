@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import {
   ChevronDown,
   ChevronRight,
@@ -500,6 +501,11 @@ export default function CreditNotesPage() {
             </TableBody>
           </Table>
         </div>
+      ) : filteredNotes.length === 0 && !isConfirmedEmpty(loadError, 0) ? (
+        // RA-8084: a failed load is unknown, not empty. The banner above carries Retry.
+        <p className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+          Credit notes could not be loaded.
+        </p>
       ) : filteredNotes.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
           <FileX className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />

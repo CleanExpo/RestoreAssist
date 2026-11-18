@@ -14,15 +14,27 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 const FINGERPRINT_CONTEXT = "restoreassist:client-portal:credential:v1";
 
-/** The one place the portal signing secret is resolved. */
-export function getClientPortalSecret(): Uint8Array {
-  const secret =
-    process.env.CLIENT_PORTAL_JWT_SECRET || process.env.NEXTAUTH_SECRET;
-  if (!secret) {
-    // Fail closed: with no secret we can neither mint nor verify.
-    throw new Error(
-      "CLIENT_PORTAL_JWT_SECRET (or NEXTAUTH_SECRET) must be set for portal auth",
+/** RA-7509: missing portal JWT config must not masquerade as an invalid token (401). */
+export class ClientPortalJwtConfigError extends Error {
+  readonly code = "PORTAL_JWT_SECRET_MISSING" as const;
+
+  constructor() {
+    super(
+      "CLIENT_PORTAL_JWT_SECRET must be set for portal auth (see lib/env-check.ts)",
     );
+    this.name = "ClientPortalJwtConfigError";
+  }
+}
+
+/**
+ * The one place the portal signing secret is resolved. RA-7509: no fallback
+ * to NEXTAUTH_SECRET; a missing secret throws ClientPortalJwtConfigError so
+ * callers answer 503, not 401.
+ */
+export function getClientPortalSecret(): Uint8Array {
+  const secret = process.env.CLIENT_PORTAL_JWT_SECRET?.trim();
+  if (!secret) {
+    throw new ClientPortalJwtConfigError();
   }
   return new TextEncoder().encode(secret);
 }

@@ -213,9 +213,11 @@ export default function InvoicesPage() {
             New invoice
           </Link>
         }
-        secondaryLinks={workspaceHubLinks({
-          omitHref: "/dashboard/invoices",
-        })}
+        secondaryLinks={[
+          ...workspaceHubLinks({ omitHref: "/dashboard/invoices" }),
+          // RA-8081: credit notes had no link from the Invoices list.
+          { href: "/dashboard/invoices/credit-notes", label: "Credit notes" },
+        ]}
       />
 
       {/* Stats Cards (amounts in cents, divide by 100 for display) */}

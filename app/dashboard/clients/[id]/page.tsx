@@ -62,14 +62,17 @@ interface Client {
   status: string;
   createdAt: string;
   updatedAt: string;
+  // Dollars invoiced (not drafts or cancelled), across `invoicedCount` invoices.
   totalRevenue: number;
+  invoicedCount: number;
   lastJob: string;
   reportsCount: number;
   reports: Array<{
     id: string;
     title: string;
     status: string;
-    totalCost: number;
+    // Null when the report's money is outside the caller's reach.
+    totalCost: number | null;
     createdAt: string;
     reportNumber?: string;
     waterCategory?: string;
@@ -332,6 +335,13 @@ export default function ClientDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* RA-8081: the client portal page had no link anywhere */}
+          <Link
+            href={`/dashboard/clients/${client.id}/portal`}
+            className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+          >
+            Client portal
+          </Link>
           <Link
             href={`/dashboard/clients/${client.id}/edit`}
             className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
@@ -426,7 +436,7 @@ export default function ClientDetailPage() {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Total Revenue</span>
+              <span className="text-slate-400">Invoiced</span>
               <span className="text-2xl font-bold text-success">
                 ${client.totalRevenue.toLocaleString()}
               </span>
@@ -436,12 +446,12 @@ export default function ClientDetailPage() {
               <span className="text-slate-300">{client.lastJob}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Avg. Job Value</span>
+              <span className="text-slate-400">Avg. per invoice</span>
               <span className="text-slate-300">
                 $
-                {client.reportsCount > 0
+                {client.invoicedCount > 0
                   ? Math.round(
-                      client.totalRevenue / client.reportsCount,
+                      client.totalRevenue / client.invoicedCount,
                     ).toLocaleString()
                   : "0"}
               </span>
@@ -608,9 +618,13 @@ export default function ClientDetailPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="text-lg font-bold text-cyan-400">
-                    ${(report.totalCost || 0).toLocaleString()}
-                  </span>
+                  {report.totalCost === null ? (
+                    <span className="text-sm text-slate-400">Unavailable</span>
+                  ) : (
+                    <span className="text-lg font-bold text-cyan-400">
+                      ${report.totalCost.toLocaleString()}
+                    </span>
+                  )}
                   <StatusBadge
                     tone={
                       REPORT_STATUS_TONES[report.status.toLowerCase()] ??

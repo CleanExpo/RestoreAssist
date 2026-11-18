@@ -45,6 +45,7 @@ function serveReportAuthoredBy(
   inspectionFindUnique.mockImplementation(async (args: Args) => ({
     inspectionNumber: "INSP-001",
     propertyAddress: "12 Test St, Brisbane",
+    inspectionDate: new Date("2026-10-01T00:00:00.000Z"),
     createdAt: new Date("2026-06-01T00:00:00Z"),
     status: "IN_PROGRESS",
     technicianName: "Tess Tech",
@@ -97,5 +98,16 @@ describe("GET /api/portal/[token]/pdf — business name (RA-7727)", () => {
     );
     await GET(req(), params);
     expect(contractorName()).toBe("Tess Tech");
+  });
+
+  it("passes inspectionDate as attendanceDate, not job createdAt", async () => {
+    serveReportAuthoredBy("owner-a");
+    await GET(req(), params);
+    const input = generateConsumerReportPdf.mock.calls[0][0] as {
+      attendanceDate: Date | null;
+    };
+    expect(input.attendanceDate?.toISOString()).toBe(
+      "2026-10-01T00:00:00.000Z",
+    );
   });
 });

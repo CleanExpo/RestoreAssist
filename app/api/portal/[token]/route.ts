@@ -86,7 +86,7 @@ export async function GET(
       inspectionNumber: inspection.inspectionNumber,
       propertyAddress: inspection.propertyAddress,
       technicianName: inspection.technicianName,
-      inspectionDate: inspection.createdAt,
+      inspectionDate: inspection.inspectionDate,
       status: inspection.status,
       affectedAreas: inspection.affectedAreas.map((a) => ({
         id: a.id,

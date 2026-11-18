@@ -8,6 +8,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { sqmToSqft } from "@/lib/units";
 
+// Fire walkthrough gate: not under test here (see lib/voice/fire-smoke/__tests__/gate.test.ts).
+vi.mock("@/lib/voice/fire-smoke/server", () => ({
+  checkFireSubmitGate: async () => ({ blocked: false }),
+  claimSubmitWithFireGate: (db: unknown, _inspection: unknown, claim: (tx: unknown) => unknown) =>
+    claim(db),
+}));
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
@@ -240,6 +246,87 @@ describe("submit route — RA-7610 SketchRoom join", () => {
       };
     };
     expect(findArgs.include.moistureReadings.select.sketchRoomId).toBe(true);
+  });
+
+  // RA-8388: a signed reading cannot be edited, so a mistyped one is retired
+  // (invalidatedAt). Submit read every row, so the retired value still drove
+  // classification and the building-code check. The PDF route already leaves
+  // retired readings out; submit must use the same rule.
+  it("leaves retired moisture readings out of everything submit reads", async () => {
+    const { POST } = await import("../route");
+    await POST(makeSubmitRequest(), params);
+
+    const findArgs = mockInspectionFindUnique.mock.calls[0]?.[0] as {
+      include: { moistureReadings: { where?: unknown } };
+    };
+    expect(findArgs.include.moistureReadings.where).toEqual({
+      invalidatedAt: null,
+    });
+  });
+
+  // RA-8388 (founder ruling 17/11/2026): a photograph whose only evidence
+  // record is REJECTED must not count at submit. The photo row has no link to
+  // its evidence record, so the two are matched on the file URL, the same key
+  // the delete path uses. A file a live record still cites keeps counting.
+  it("leaves out a photograph whose only evidence record is rejected", async () => {
+    const photos = [
+      { id: "p-live", photoStage: "BEFORE", url: "https://files/live.jpg" },
+      { id: "p-rejected", photoStage: "BEFORE", url: "https://files/rejected.jpg" },
+      { id: "p-shared", photoStage: "BEFORE", url: "https://files/shared.jpg" },
+      { id: "p-legacy", photoStage: "BEFORE", url: "https://files/no-evidence.jpg" },
+    ];
+    mockInspectionFindUnique.mockResolvedValueOnce({
+      id: "insp-1",
+      status: "DRAFT",
+      claimType: "WATER",
+      propertyAddress: "1 Test St",
+      propertyPostcode: "4000",
+      inspectionDate: new Date(),
+      reportId: null,
+      environmentalData,
+      moistureReadings: [linkedReading],
+      affectedAreas: [livingRoomArea],
+      scopeItems: [],
+      photos,
+      evidenceItems: [
+        { fileUrl: "https://files/live.jpg", status: "ACTIVE" },
+        { fileUrl: "https://files/rejected.jpg", status: "REJECTED" },
+        { fileUrl: "https://files/shared.jpg", status: "REJECTED" },
+        { fileUrl: "https://files/shared.jpg", status: "FLAGGED" },
+      ],
+      waterDamageClassification: null,
+    });
+
+    const { POST } = await import("../route");
+    await POST(makeSubmitRequest(), params);
+
+    const findArgs = mockInspectionFindUnique.mock.calls[0]?.[0] as {
+      include: {
+        photos: { select: { url?: boolean } };
+        evidenceItems?: { where: unknown; select: unknown };
+      };
+    };
+    expect(findArgs.include.photos.select.url).toBe(true);
+    expect(findArgs.include.evidenceItems).toEqual({
+      where: { fileUrl: { not: null } },
+      select: { fileUrl: true, status: true },
+    });
+
+    const counted = ["p-live", "p-shared", "p-legacy"];
+    const { validateSubmissionPayload } = await import(
+      "@/lib/services/inspection/validate-submission"
+    );
+    const payload = vi.mocked(validateSubmissionPayload).mock.calls[0]?.[0] as {
+      photos: { id: string }[];
+    };
+    expect(payload.photos.map((p) => p.id)).toEqual(counted);
+    const { validateTieredCompletion } = await import(
+      "@/lib/nir-tiered-completion"
+    );
+    const tiered = vi.mocked(validateTieredCompletion).mock.calls[0]?.[0] as {
+      photos: { id: string }[];
+    };
+    expect(tiered.photos.map((p) => p.id)).toEqual(counted);
   });
 
   it.each([

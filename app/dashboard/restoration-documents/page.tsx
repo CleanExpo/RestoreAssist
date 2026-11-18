@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import { FileText, Plus, Loader2, Receipt, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -262,6 +263,11 @@ export default function RestorationDocumentsPage() {
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-teal-600 dark:text-teal-400" />
             </div>
+          ) : filteredDocuments.length === 0 && !isConfirmedEmpty(loadError, 0) ? (
+            // RA-8084: a failed load is unknown, not empty. The banner above carries Retry.
+            <p className="py-12 text-center text-sm text-neutral-600 dark:text-slate-400">
+              Restoration documents could not be loaded.
+            </p>
           ) : filteredDocuments.length === 0 ? (
             <div className="py-16 text-center">
               <Receipt className="mx-auto h-12 w-12 text-neutral-300 dark:text-slate-600" />

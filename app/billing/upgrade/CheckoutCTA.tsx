@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RAIcon } from "@/components/brand/RAIcon";
 import { ChromeRefresh } from "@/components/brand/chrome-icons";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 /**
  * The price on this button is the last number a buyer reads before Stripe
@@ -48,7 +49,7 @@ export default function CheckoutCTA() {
 
       if (!res.ok || !body.url) {
         throw new Error(
-          body.error?.message ?? body.error ?? "Checkout failed",
+          body.error?.message ?? apiErrorMessage(body) ?? "Checkout failed",
         );
       }
       window.location.href = body.url;

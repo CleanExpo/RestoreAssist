@@ -123,7 +123,7 @@ function CustomTooltip({ active, payload, label }: any) {
               entry.value <= DRY_STANDARD
                 ? "text-success"
                 : entry.value <= 25
-                  ? "text-amber-600 dark:text-amber-400"
+                  ? "text-amber-700 dark:text-amber-400"
                   : "text-destructive",
             )}
           >
@@ -137,7 +137,7 @@ function CustomTooltip({ active, payload, label }: any) {
           )}
         </div>
       ))}
-      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1 text-slate-400 dark:text-slate-500">
+      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1 text-slate-600 dark:text-slate-500">
         <span>Dry standard: ≤{DRY_STANDARD}%</span>
       </div>
     </div>
@@ -194,14 +194,14 @@ export default function MoistureTrendChart({
         <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
           <AlertTriangle
             size={16}
-            className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
+            className="text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5"
           />
           <div className="text-sm">
             <p className="font-medium text-amber-700 dark:text-amber-400">
               {alerts.length} location{alerts.length > 1 ? "s" : ""} above dry
               standard
             </p>
-            <p className="text-amber-600 dark:text-amber-500 text-xs mt-0.5">
+            <p className="text-amber-700 dark:text-amber-500 text-xs mt-0.5">
               {alerts.map((a) => a.location).join(", ")} — readings above{" "}
               {DRY_STANDARD}%
             </p>
@@ -324,7 +324,7 @@ export default function MoistureTrendChart({
                       level <= DRY_STANDARD
                         ? "text-success"
                         : level <= 25
-                          ? "text-amber-600 dark:text-amber-400"
+                          ? "text-amber-700 dark:text-amber-400"
                           : "text-destructive",
                     )}
                   >

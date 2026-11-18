@@ -2,24 +2,21 @@
 
 /**
  * Homeowner self-capture page (Homeowner Phase 4).
- *
- * Public, token-gated — NO dashboard auth. The capture token is validated by
- * GET /api/capture/[token]; on success the homeowner gets a guided (reduced)
- * sketch editor that auto-saves to the quarantine route. Invalid/expired tokens
- * show a friendly dead-end, never the editor.
  */
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { SketchEditorV2 } from "@/components/sketch/SketchEditorV2";
+import type { CaptureHydrationFloor } from "@/lib/sketch/capture-floor-hydration";
 
-type LoadState = "loading" | "ready" | "invalid";
+type LoadState = "loading" | "ready" | "invalid" | "network";
 
 export default function HomeownerCapturePage() {
   const params = useParams<{ token: string }>();
   const token = params?.token ?? "";
   const [state, setState] = useState<LoadState>("loading");
   const [address, setAddress] = useState("");
+  const [floors, setFloors] = useState<CaptureHydrationFloor[] | undefined>();
 
   useEffect(() => {
     if (!token) {
@@ -35,11 +32,15 @@ export default function HomeownerCapturePage() {
           setState("invalid");
           return;
         }
-        const data = (await res.json()) as { propertyAddress?: string };
+        const data = (await res.json()) as {
+          propertyAddress?: string;
+          floors?: CaptureHydrationFloor[];
+        };
         setAddress(data.propertyAddress ?? "");
+        setFloors(data.floors);
         setState("ready");
       } catch {
-        if (!cancelled) setState("invalid");
+        if (!cancelled) setState("network");
       }
     })();
     return () => {
@@ -49,8 +50,33 @@ export default function HomeownerCapturePage() {
 
   if (state === "loading") {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-brand-deep text-white/60">
-        Loading…
+      <main
+        className="min-h-screen flex items-center justify-center bg-brand-deep text-white/60"
+        role="status"
+        aria-live="polite"
+      >
+        Loading your capture session…
+      </main>
+    );
+  }
+
+  if (state === "network") {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-brand-deep px-6 text-center">
+        <div className="max-w-sm space-y-3">
+          <h1 className="text-lg font-semibold text-white">Connection problem</h1>
+          <p className="text-sm text-white/60" role="alert">
+            We couldn’t reach the server. Check your connection and refresh the
+            page.
+          </p>
+          <button
+            type="button"
+            className="min-h-11 px-4 py-2 rounded-lg bg-cyan-600 text-white text-sm font-medium"
+            onClick={() => window.location.reload()}
+          >
+            Try again
+          </button>
+        </div>
       </main>
     );
   }
@@ -62,7 +88,7 @@ export default function HomeownerCapturePage() {
           <h1 className="text-lg font-semibold text-white">
             This capture link isn’t valid
           </h1>
-          <p className="text-sm text-white/60">
+          <p className="text-sm text-white/60" role="alert">
             The link may have expired or been revoked. Please ask your assessor
             for a new capture link.
           </p>
@@ -85,6 +111,7 @@ export default function HomeownerCapturePage() {
         <SketchEditorV2
           mode="guided"
           captureToken={token}
+          captureInitialFloors={floors}
           className="!h-full min-h-0 rounded-none"
         />
       </div>

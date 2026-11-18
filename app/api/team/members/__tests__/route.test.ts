@@ -31,6 +31,10 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+vi.mock("@/lib/billing/technician-seats", () => ({
+  isTrialSeatLocked: vi.fn(async () => false),
+}));
+
 import { GET } from "../route";
 
 beforeEach(() => {
@@ -68,6 +72,7 @@ describe("team/members GET — error envelope", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       members: [{ id: "u1", name: "A", email: "a@x.com", role: "USER" }],
+      seatPaymentDue: false,
     });
     expect(fromException).not.toHaveBeenCalled();
   });

@@ -363,9 +363,13 @@ const call = {
     postWorkflow(jsonReq(id, "workflow", "POST", { jobType: "WATER_DAMAGE" }), c2(id)),
   patchStep: (id: string, stepId: string, status = "COMPLETED") =>
     patchWorkflow(jsonReq(id, "workflow", "PATCH", { stepId, status }), c2(id)),
+  // RA-8388: a body with no file is the note-and-reading path, so these cases
+  // send a class that path stores. A photograph class sent this way is
+  // refused with 400 (lib/evidence/submission-path-classes.ts), which would
+  // hide the tenancy answer these cases measure.
   postEvidence: (id: string, title: string) =>
     postEvidence(
-      jsonReq(id, "evidence", "POST", { evidenceClass: "PHOTO_DAMAGE", title }),
+      jsonReq(id, "evidence", "POST", { evidenceClass: "TECHNICIAN_NOTE", title }),
       c2(id),
     ),
   deleteEvidence: (id: string, evidenceId: string) =>

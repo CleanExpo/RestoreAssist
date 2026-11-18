@@ -70,6 +70,35 @@ describe("Guidewire photo manifest", () => {
     expect(photo.standardRef).toBe("IICRC S500:2021 §12.2");
   });
 
+  it("does not stamp capture time with now when timestamp is missing (RA-7880)", () => {
+    const before = Date.now();
+    const out = buildNirReportOutput(
+      makeInspection({
+        photos: [
+          {
+            id: "photo_no_ts",
+            timestamp: null,
+            gpsLatitude: null,
+            gpsLongitude: null,
+            damageCategory: null,
+          },
+        ],
+      }),
+      "Tech",
+      "user_1",
+    );
+    const photo = out.photoManifest.photos[0];
+    expect(photo.capturedAt).toBeNull();
+    expect(out.submittedAt).toBe("2026-01-02T00:00:00.000Z");
+    const noSubmit = buildNirReportOutput(
+      makeInspection({ submittedAt: null, photos: [] }),
+      "Tech",
+      "user_1",
+    );
+    expect(noSubmit.submittedAt).toBeNull();
+    expect(Date.now() - before).toBeLessThan(60_000);
+  });
+
   it("reports null, not 0, when the photo carries no GPS fix", () => {
     const inspection = makeInspection({
       photos: [

@@ -15,6 +15,10 @@ import {
   latestEnvironmentalReading,
   type EnvironmentalReading,
 } from "@/lib/inspections/latest-environmental-reading";
+import {
+  ATTENDANCE_NOT_RECORDED_LABEL,
+  formatAttendanceDateEnAu,
+} from "@/lib/inspections/format-attendance-date";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -80,6 +84,7 @@ interface Inspection {
   technicianName: string | null;
   status: string;
   claimType: string | null;
+  inspectionDate: string | null;
   createdAt: string;
   submittedAt: string | null;
   environmentalData: EnvironmentalReading | EnvironmentalReading[] | null;
@@ -411,7 +416,8 @@ export default function InspectionPrintPage({
                   Inspection Date
                 </div>
                 <div className="text-sm font-medium text-neutral-900 mt-0.5">
-                  {fmtDate(inspection.createdAt)}
+                  {formatAttendanceDateEnAu(inspection.inspectionDate) ??
+                    ATTENDANCE_NOT_RECORDED_LABEL}
                 </div>
               </div>
               {classification && (

@@ -10,7 +10,7 @@
 
 import { redirect } from "next/navigation";
 import { requireAdminPage } from "@/lib/admin-auth";
-import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
+import { isAllowlistedPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 import { computeAllFunnels, type FunnelStat } from "@/lib/telemetry/funnels";
 import {
   computeOverrideRate,
@@ -30,7 +30,7 @@ export default async function ProgressTelemetryPage() {
   // are RestoreAssist staff data. `role: "ADMIN"` is every firm owner; only the
   // platform support allowlist may see them.
   const admin = await requireAdminPage();
-  if (!isPlatformSupportOperator(admin.id)) {
+  if (!isAllowlistedPlatformSupportOperator(admin.id)) {
     redirect("/dashboard");
   }
 

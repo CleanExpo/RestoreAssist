@@ -45,8 +45,8 @@ const CLASS_LABEL: Record<ClassifySuggestion["waterClass"], string> = {
 
 function confidenceTone(c: number): string {
   if (c >= 85) return "text-success";
-  if (c >= 65) return "text-cyan-600 dark:text-cyan-400";
-  if (c >= 40) return "text-amber-600 dark:text-amber-400";
+  if (c >= 65) return "text-cyan-700 dark:text-cyan-400";
+  if (c >= 40) return "text-amber-700 dark:text-amber-400";
   return "text-destructive";
 }
 
@@ -98,7 +98,7 @@ export default function AutoClassifyPanel({ inspectionId, onApply }: Props) {
           <h3 className="text-sm font-semibold text-neutral-700 dark:text-slate-300">
             AI classification assistant
           </h3>
-          <p className="text-xs text-neutral-500 dark:text-slate-500">
+          <p className="text-xs text-neutral-600 dark:text-slate-500">
             Uses moisture readings and affected-area data to suggest IICRC
             S500:2021 Category and Class. Review before applying.
           </p>
@@ -141,7 +141,7 @@ export default function AutoClassifyPanel({ inspectionId, onApply }: Props) {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-800/50 dark:bg-amber-900/10">
-                <div className="text-xs font-semibold uppercase text-amber-600 dark:text-amber-400">
+                <div className="text-xs font-semibold uppercase text-amber-700 dark:text-amber-400">
                   Water Category
                 </div>
                 <div className="mt-1 text-sm font-medium text-neutral-800 dark:text-slate-200">
@@ -159,14 +159,14 @@ export default function AutoClassifyPanel({ inspectionId, onApply }: Props) {
             </div>
 
             <div>
-              <div className="text-xs font-semibold uppercase text-neutral-500 dark:text-slate-400">
+              <div className="text-xs font-semibold uppercase text-neutral-600 dark:text-slate-400">
                 Reasoning
               </div>
               <p className="mt-1 text-sm text-neutral-700 dark:text-slate-300">
                 {suggestion.reasoning}
               </p>
               {suggestion.inputSummary && (
-                <p className="mt-2 text-xs text-neutral-500 dark:text-slate-500">
+                <p className="mt-2 text-xs text-neutral-600 dark:text-slate-500">
                   Based on {suggestion.inputSummary.moistureReadings} moisture
                   reading(s) and {suggestion.inputSummary.affectedAreas}{" "}
                   affected area(s).

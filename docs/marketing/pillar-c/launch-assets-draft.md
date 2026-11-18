@@ -94,7 +94,7 @@ If the next claim dispute lands at 9pm and asks for photo evidence, the answer i
 
 ## (b) Launch email — free-tier list
 
-Send time: T-day 09:30 AEST. Recipients: all users with `Organization.setupCompletedAt = null` (grandfathered to the new wizard via `scripts/backfill-setup-wizard.ts`). From: `phill@restoreassist.com.au` (fallback `phill@unite-group.in` per T-6 DNS check).
+Send time: T-day 09:30 AEST. Recipients: all users with `Organization.setupCompletedAt = null` (grandfathered to the new wizard via `scripts/backfill-setup-wizard.ts`). From: `phill@restoreassist.app` (fallback `phill@unite-group.in` per T-6 DNS check).
 
 ### Subject lines — A/B/C split (33 / 33 / 34)
 
@@ -132,7 +132,7 @@ Decide a winner at 48 hours by setup-wizard completion rate, not by open rate. O
 >
 > — Phill
 > Founder, RestoreAssist
-> phill@restoreassist.com.au
+> phill@restoreassist.app
 
 Body word count: 173 words. No urgency manufacturing. No corporate-announcement opener. One CTA. One reply path.
 
@@ -212,7 +212,7 @@ Read aloud, top to bottom. Cadence is short. Every technical term has a plain-En
 ### Notes flagged for Phill's editorial pass
 
 - LinkedIn Variant 3 names a A$5,300 figure attributed to an operator conversation. Confirm the figure and the consent to publish before scheduling — if the operator did not agree to be referenced even anonymously, rewrite the opener around a composite case.
-- The email signature uses `phill@restoreassist.com.au`. If the T-6 DNS check (per `launch-runbook.md`) fails, swap to `phill@unite-group.in` here and in the email From header.
+- The email signature uses `phill@restoreassist.app`. If the T-6 DNS check (per `launch-runbook.md`) fails, swap to `phill@unite-group.in` here and in the email From header.
 - The RIA column closes with "Honest feedback welcome." That is editorial. RIA may want it removed for tone. Hold a backup line: "Live now at https://restoreassist.app/setup."
 - Thumbnail 3 references a "high-vis sleeve". If Phill prefers a more neutral hand, drop the sleeve and use a bare wrist. Either reads.
 - All three LinkedIn variants reference "live today" and "It is live today" in the closing third. Pick one variant for the post that goes out — running all three on rotation would read as duplicate content to LinkedIn's feed algorithm.

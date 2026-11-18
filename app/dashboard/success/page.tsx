@@ -24,11 +24,18 @@ import {
   simpleDashboardHeroShine,
 } from "@/lib/dashboard/simple-dashboard-theme";
 import { cn } from "@/lib/utils";
+import { TeamInviteReturn } from "./TeamInviteReturn";
 
 // Module-level flag to prevent verification from running multiple times across remounts
 let globalVerificationComplete = false;
 
 export default function SuccessPage() {
+  const searchParams = useSearchParams();
+  if (searchParams?.get("next") === "team-invite") return <TeamInviteReturn />;
+  return <PurchaseSuccess />;
+}
+
+function PurchaseSuccess() {
   const router = useRouter();
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const { data: session, update } = useSession();

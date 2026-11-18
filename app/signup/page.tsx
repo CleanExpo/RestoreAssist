@@ -21,6 +21,7 @@ import {
   Key,
 } from "lucide-react";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { reservedEmailSignUpMessage } from "@/lib/auth/reserved-email-user-message";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import {
@@ -80,6 +81,13 @@ export default function SignupPage() {
     setError("");
 
     // Validation
+    const reservedMsg = reservedEmailSignUpMessage(email);
+    if (reservedMsg) {
+      setError(reservedMsg);
+      setIsLoading(false);
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setIsLoading(false);

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type ClaimType = "water_damage" | "fire_smoke" | "storm" | "mould" | "contents";
 
@@ -221,7 +222,7 @@ export default function AILabPage() {
         body: JSON.stringify({ batchSize: 50 }),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error ?? "Vectorisation failed");
+      if (!resp.ok) throw new Error(apiErrorMessage(data) ?? "Vectorisation failed");
       setVectoriseResult(data);
     } catch (err) {
       setVectoriseError(err instanceof Error ? err.message : "Unknown error");
@@ -266,7 +267,7 @@ export default function AILabPage() {
         body: JSON.stringify(body),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error ?? "Evaluation failed");
+      if (!resp.ok) throw new Error(apiErrorMessage(data) ?? "Evaluation failed");
       setEvalReport(data.report);
     } catch (err) {
       setEvalError(err instanceof Error ? err.message : "Unknown error");
@@ -290,7 +291,7 @@ export default function AILabPage() {
         }),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error ?? "Optimisation failed");
+      if (!resp.ok) throw new Error(apiErrorMessage(data) ?? "Optimisation failed");
       setOptResult(data.result);
     } catch (err) {
       setOptError(err instanceof Error ? err.message : "Unknown error");

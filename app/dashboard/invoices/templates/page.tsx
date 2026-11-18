@@ -38,6 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface InvoiceTemplate {
   id: string;
@@ -148,7 +149,7 @@ export default function InvoiceTemplatesPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error ?? "Failed to create template");
+        throw new Error(apiErrorMessage(err) ?? "Failed to create template");
       }
       const data = await res.json();
       // If new template is default, clear old defaults in local state
@@ -198,7 +199,7 @@ export default function InvoiceTemplatesPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error ?? "Failed to update template");
+        throw new Error(apiErrorMessage(err) ?? "Failed to update template");
       }
       const data = await res.json();
       let updated = templates.map((t) =>
@@ -240,7 +241,7 @@ export default function InvoiceTemplatesPage() {
       );
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error ?? "Failed to delete template");
+        throw new Error(apiErrorMessage(err) ?? "Failed to delete template");
       }
       setTemplates((prev) => prev.filter((t) => t.id !== deletingTemplate.id));
       setDeleteOpen(false);
@@ -266,7 +267,7 @@ export default function InvoiceTemplatesPage() {
       );
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error ?? "Failed to duplicate template");
+        throw new Error(apiErrorMessage(err) ?? "Failed to duplicate template");
       }
       const data = await res.json();
       setTemplates((prev) => [...prev, data.template]);
@@ -291,7 +292,7 @@ export default function InvoiceTemplatesPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error ?? "Failed to set default");
+        throw new Error(apiErrorMessage(err) ?? "Failed to set default");
       }
       setTemplates((prev) =>
         prev.map((t) => ({

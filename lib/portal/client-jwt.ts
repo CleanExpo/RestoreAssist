@@ -15,9 +15,13 @@
 import { SignJWT, jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
 import {
+  ClientPortalJwtConfigError,
   credentialFingerprint,
   getClientPortalSecret as getSecret,
 } from "@/lib/portal/credential-fingerprint";
+
+/** RA-7509: re-exported so callers keep importing it from client-jwt. */
+export { ClientPortalJwtConfigError };
 
 const TOKEN_TYPE = "client-portal" as const;
 const TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
@@ -63,8 +67,9 @@ export async function signClientPortalJwt(input: {
 export async function verifyClientPortalJwt(
   token: string,
 ): Promise<ClientPortalClaims | null> {
+  const secret = getSecret();
   try {
-    const { payload } = await jwtVerify(token, getSecret(), {
+    const { payload } = await jwtVerify(token, secret, {
       algorithms: ["HS256"],
     });
     if (

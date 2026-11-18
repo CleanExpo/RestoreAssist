@@ -54,6 +54,9 @@ export type ApiErrorCode =
   | "PRECONDITION_FAILED"
   | "PAYLOAD_TOO_LARGE"
   | "CONFLICT"
+  // RA-8388: a 409 that reloading will not clear. The save would change or
+  // remove a reading a signature vouches for; `fields` names the row.
+  | "SIGNED_ROW_REFUSED"
   | "PAYMENT_REQUIRED"
   | "AI_SUBSCRIPTION_INACTIVE"
   | "GOVERNOR_UNAVAILABLE"
@@ -93,6 +96,36 @@ function routeFromRequest(req?: NextRequest): string | undefined {
   }
 }
 
+/**
+ * RA-8388: the one owner of the "a request was refused" log line.
+ *
+ * A 4xx is not an error, so it stays out of `reportError` and the error feed.
+ * It still has to be visible: three review rounds each found a refusal that
+ * left nothing behind, because the line existed only where a route author
+ * remembered to write one. `apiError` calls this for every 4xx it answers.
+ * A route that answers a refusal in its own body shape calls it directly.
+ *
+ * Logs the code, status, route path, stage and event id. Never the message,
+ * the query string, the context or any submitted value.
+ */
+export function logRefusal(
+  request: NextRequest | string | undefined,
+  refusal: { code: string; status: number; stage?: string; eventId?: string },
+): string {
+  const eventId = refusal.eventId ?? newEventId();
+  console.warn(
+    "[api-refusal]",
+    JSON.stringify({
+      code: refusal.code,
+      status: refusal.status,
+      route: typeof request === "string" ? request : routeFromRequest(request),
+      stage: refusal.stage,
+      eventId,
+    }),
+  );
+  return eventId;
+}
+
 export function apiError(
   request: NextRequest | undefined,
   input: ApiErrorInput,
@@ -103,6 +136,15 @@ export function apiError(
   // Only call reportError for 5xx and unexpected UPSTREAM_FAILED — 4xx
   // are expected client errors and would drown the observability feed.
   const shouldReport = input.status >= 500 || input.code === "UPSTREAM_FAILED";
+
+  if (!shouldReport && !input.err && input.status >= 400) {
+    logRefusal(request, {
+      code: input.code,
+      status: input.status,
+      stage: input.stage,
+      eventId,
+    });
+  }
 
   if (shouldReport || input.err) {
     reportError(input.err ?? new Error(input.message), {

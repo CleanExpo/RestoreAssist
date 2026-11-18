@@ -138,7 +138,8 @@ export function generateBiohazardScope(params: {
       iicrcReference: S500_CAT3,
       quantity: area,
       unit: "m²",
-      unitCostAud: pricingConfig.biohazardTreatmentRate,
+      unitCostAud: pricingConfig.biohazardTreatmentRate ?? undefined,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({
@@ -149,7 +150,8 @@ export function generateBiohazardScope(params: {
       iicrcReference: S500_CAT3,
       quantity: area,
       unit: "m²",
-      unitCostAud: pricingConfig.biohazardTreatmentRate,
+      unitCostAud: pricingConfig.biohazardTreatmentRate ?? undefined,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({
@@ -160,7 +162,8 @@ export function generateBiohazardScope(params: {
       iicrcReference: S500_CAT3,
       quantity: area,
       unit: "m²",
-      unitCostAud: pricingConfig.biohazardTreatmentRate,
+      unitCostAud: pricingConfig.biohazardTreatmentRate ?? undefined,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({
@@ -171,7 +174,8 @@ export function generateBiohazardScope(params: {
       iicrcReference: S520_HEPA,
       quantity: 1,
       unit: "job",
-      unitCostAud: pricingConfig.afdUnitLargeDailyRate,
+      unitCostAud: pricingConfig.afdUnitLargeDailyRate ?? undefined,
+      // RA-8281: not tagged. This line is once per job and the field is $/day.
       isRequired: true,
     });
   }
@@ -185,7 +189,8 @@ export function generateBiohazardScope(params: {
       iicrcReference: S540_TRAUMA,
       quantity: area,
       unit: "m²",
-      unitCostAud: pricingConfig.biohazardTreatmentRate,
+      unitCostAud: pricingConfig.biohazardTreatmentRate ?? undefined,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({
@@ -240,7 +245,8 @@ export function generateBiohazardScope(params: {
       iicrcReference: ISO_31000_RISK,
       quantity: area,
       unit: "m²",
-      unitCostAud: pricingConfig.biohazardTreatmentRate,
+      unitCostAud: pricingConfig.biohazardTreatmentRate ?? undefined,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({
@@ -274,7 +280,8 @@ export function generateBiohazardScope(params: {
       iicrcReference: S540_TRAUMA,
       quantity: area,
       unit: "m²",
-      unitCostAud: pricingConfig.biohazardTreatmentRate,
+      unitCostAud: pricingConfig.biohazardTreatmentRate ?? undefined,
+      rateField: "biohazardTreatmentRate",
       isRequired: true,
     });
     items.push({

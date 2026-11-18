@@ -93,7 +93,7 @@ export function ClientPortalLinkButton({
           complete approvals. Same checklist as report delivery.
         </p>
         {readiness?.portalLinkEmailedAt && (
-          <p className="mt-2 text-xs text-cyan-300/90">
+          <p className="mt-2 text-xs text-cyan-700 dark:text-cyan-300/90">
             Portal link emailed{" "}
             {new Date(readiness.portalLinkEmailedAt).toLocaleString("en-AU", {
               dateStyle: "medium",
@@ -104,9 +104,9 @@ export function ClientPortalLinkButton({
         )}
       </div>
 
-      <ul className="space-y-2 rounded-lg border border-white/10 bg-slate-950/40 p-3">
+      <ul className="space-y-2 rounded-lg border border-black/10 dark:border-white/10 bg-slate-50/40 dark:bg-slate-950/40 p-3">
         {readinessLoading ? (
-          <li className="flex items-center gap-2 text-xs text-slate-400">
+          <li className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
             <ChromeSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden />
             Checking send readiness…
           </li>
@@ -115,7 +115,7 @@ export function ClientPortalLinkButton({
             <li key={item.id} className="flex gap-2 text-xs">
               {item.ok ? (
                 <ChromeCheck
-                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400"
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400"
                   aria-hidden
                 />
               ) : (
@@ -128,7 +128,7 @@ export function ClientPortalLinkButton({
                 <p
                   className={cn(
                     "font-medium",
-                    item.ok ? "text-slate-200" : "text-slate-400",
+                    item.ok ? "text-slate-800 dark:text-slate-200" : "text-slate-600 dark:text-slate-400",
                   )}
                 >
                   {item.label}
@@ -137,7 +137,7 @@ export function ClientPortalLinkButton({
                 {item.href && !item.ok && (
                   <Link
                     href={item.href}
-                    className="text-cyan-400/90 underline-offset-2 hover:underline"
+                    className="text-cyan-700 dark:text-cyan-400/90 underline-offset-2 hover:underline"
                   >
                     Open settings
                   </Link>
@@ -158,7 +158,7 @@ export function ClientPortalLinkButton({
         {busy ? "Sending…" : "Send portal link"}
       </button>
       {!readinessLoading && !canSend && (
-        <p className="text-xs text-amber-300/90">
+        <p className="text-xs text-amber-700 dark:text-amber-300/90">
           Fix the items above before sending — the client won&apos;t receive a
           link until email is on file and outbound mail is configured.
         </p>
@@ -177,7 +177,7 @@ export function ClientPortalLinkButton({
             value={url}
             aria-label="Client portal link"
             onFocus={(e) => e.currentTarget.select()}
-            className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-2 py-1.5 text-xs text-slate-200"
+            className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-slate-50/50 dark:bg-slate-950/50 px-2 py-1.5 text-xs text-slate-800 dark:text-slate-200"
           />
         </div>
       )}

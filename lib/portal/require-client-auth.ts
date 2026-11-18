@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   authenticateClientRequest,
+  ClientPortalJwtConfigError,
   type ClientPortalClaims,
 } from "@/lib/portal/client-jwt";
 import { credentialFingerprintMatches } from "@/lib/portal/credential-fingerprint";
@@ -37,10 +38,26 @@ function unauthorizedResult(): ClientAuthResult {
   };
 }
 
+function portalAuthUnavailableResult(message: string, code: string): ClientAuthResult {
+  return {
+    ok: false,
+    response: NextResponse.json({ error: message, code }, { status: 503 }),
+  };
+}
+
 export async function requireClientAuth(
   request: NextRequest,
 ): Promise<ClientAuthResult> {
-  const claims = await authenticateClientRequest(request);
+  let claims: ClientPortalClaims | null;
+  try {
+    claims = await authenticateClientRequest(request);
+  } catch (error) {
+    if (error instanceof ClientPortalJwtConfigError) {
+      return portalAuthUnavailableResult(error.message, error.code);
+    }
+    throw error;
+  }
+
   if (!claims) {
     return unauthorizedResult();
   }
@@ -64,7 +81,10 @@ export async function requireClientAuth(
     }
   } catch (error) {
     console.error("Portal client auth revalidation failed", error);
-    return unauthorizedResult();
+    return portalAuthUnavailableResult(
+      "Portal sign-in could not be verified — try again shortly",
+      "UPSTREAM_FAILED",
+    );
   }
 
   return { ok: true, claims };

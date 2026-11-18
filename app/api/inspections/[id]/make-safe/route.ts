@@ -11,12 +11,42 @@ import {
   assertInspectionReadable,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
-import { MAKE_SAFE_ACTIONS } from "@/lib/compliance/make-safe-actions";
+import type { StoredMakeSafeRow } from "@/lib/compliance/make-safe-actions";
+import {
+  decideMakeSafeListForInspection,
+  MAKE_SAFE_DECISION_SELECT,
+} from "@/lib/compliance/make-safe-list";
 
 // RA-1136a: Make-Safe compliance gate
 // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+// RA-8327: the list this job is checked against (fire or standard), decided
+// by the same owner as the submit gate and the intake seed. `history` is the
+// rows recorded on the other list: shown read-only, never accepted for write.
+async function jobActionList<R extends StoredMakeSafeRow>(
+  inspectionId: string,
+  rows?: readonly R[],
+) {
+  const [inspection, stored] = await Promise.all([
+    prisma.inspection.findUnique({
+      where: { id: inspectionId },
+      select: { claimType: true },
+    }),
+    rows ??
+      prisma.makeSafeAction.findMany({
+        where: { inspectionId },
+        select: MAKE_SAFE_DECISION_SELECT,
+        take: 20,
+      }),
+  ]);
+  return decideMakeSafeListForInspection(
+    inspectionId,
+    inspection?.claimType ?? null,
+    stored as readonly R[],
+  );
+}
 
 // ── Auth + ownership guard ─────────────────────────────────────────────────
 
@@ -77,10 +107,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const auth = await authorise(request, id, "read");
     if (auth.error) return auth.error;
 
-    const actions = await prisma.makeSafeAction.findMany({
+    const rows = await prisma.makeSafeAction.findMany({
       where: { inspectionId: id },
       orderBy: { action: "asc" },
-      take: 10,
+      take: 20,
       select: {
         id: true,
         action: true,
@@ -94,7 +124,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       },
     });
 
-    return NextResponse.json({ data: actions });
+    // `actions` names the list the checklist draws; `history` holds the rows
+    // recorded on the other list (read-only); `data` is unchanged.
+    const { actions, history } = await jobActionList(id, rows);
+    return NextResponse.json({ data: rows, actions, history });
   } catch (err) {
     return fromException(request, err, { stage: "make-safe-get" });
   }
@@ -130,13 +163,11 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         notes?: string;
       };
 
-      if (
-        !action ||
-        !(MAKE_SAFE_ACTIONS as readonly string[]).includes(action)
-      ) {
+      const allowed: readonly string[] = (await jobActionList(id)).actions;
+      if (!action || !allowed.includes(action)) {
         return apiError(request, {
           code: "VALIDATION",
-          message: `Invalid action. Must be one of: ${MAKE_SAFE_ACTIONS.join(", ")}`,
+          message: `Invalid action. Must be one of: ${allowed.join(", ")}`,
           status: 400,
         });
       }
@@ -231,13 +262,12 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     }
 
     // Validate all action names up-front before any DB writes
-    const invalid = actions.filter(
-      (a) => !(MAKE_SAFE_ACTIONS as readonly string[]).includes(a.action),
-    );
+    const allowed: readonly string[] = (await jobActionList(id)).actions;
+    const invalid = actions.filter((a) => !allowed.includes(a.action));
     if (invalid.length > 0) {
       return apiError(request, {
         code: "VALIDATION",
-        message: `Invalid action names: ${invalid.map((a) => a.action).join(", ")}. Must be one of: ${MAKE_SAFE_ACTIONS.join(", ")}`,
+        message: `Invalid action names: ${invalid.map((a) => a.action).join(", ")}. Must be one of: ${allowed.join(", ")}`,
         status: 400,
       });
     }

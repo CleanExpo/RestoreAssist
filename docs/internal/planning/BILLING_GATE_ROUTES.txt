@@ -14,6 +14,9 @@ app/dashboard/settings/page.tsx
 app/dashboard/subscription/page.tsx
 app/dashboard/success/page.tsx
 app/pricing/page.tsx
+# Rendered by app/setup/page.tsx (SetupShell, Field Add-Ons step) and
+# app/dashboard/addons (AddonsClient). app/setup/layout.tsx supplies the verdict.
+components/addons/AddonCardDeck.tsx
 components/clients/upgrade-modal.tsx
 components/forms/guided-interview/GuidedInterviewPanel.tsx
 components/live-teacher/InspectionSidekick.tsx
