@@ -75,7 +75,22 @@ export async function GET(request: NextRequest) {
     const [events, total] = await Promise.all([
       prisma.webhookEvent.findMany({
         where,
-        include: {
+        // RA-8447: only the fields the webhooks page renders. `signature`
+        // (the provider's signature header), `externalEventId` and
+        // `updatedAt` stay on the server. `payload` stays in the list because
+        // the viewer dialog reads it from the listed row and no per-event
+        // endpoint exists; moving it would add a route for no reduction in
+        // what the owner can already see.
+        select: {
+          id: true,
+          provider: true,
+          eventType: true,
+          status: true,
+          retryCount: true,
+          errorMessage: true,
+          processedAt: true,
+          createdAt: true,
+          payload: true,
           integration: {
             select: { provider: true, status: true },
           },

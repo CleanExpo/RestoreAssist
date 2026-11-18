@@ -51,19 +51,17 @@ type IntegrationProvider =
   | "SERVICEM8"
   | "ASCORA";
 
+// Matches the `select` in app/api/webhooks/logs/route.ts (RA-8447).
 interface WebhookEvent {
   id: string;
   provider: IntegrationProvider;
-  integrationId: string;
   eventType: string;
   payload: unknown;
-  signature: string | null;
   status: WebhookEventStatus;
   processedAt: string | null;
   errorMessage: string | null;
   retryCount: number;
   createdAt: string;
-  updatedAt: string;
   integration: {
     provider: IntegrationProvider;
     status: string;

@@ -150,6 +150,8 @@ tools/videos/*.mp4
 !tools/videos/.gitkeep
 tools/remotion/output/*.mp4
 logs/
+# The webhook log API is source, not log output (RA-8447: its tests were hidden).
+!app/api/webhooks/logs/
 
 # Local-only property-based soak harness (run.ts header: "NOT a repo artifact —
 # never committed"). Source + 9MB run logs/ledgers stay on the operator's machine.
