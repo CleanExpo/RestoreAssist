@@ -80,7 +80,8 @@ export async function verifyClientPortalJwt(
       email: typeof payload.email === "string" ? payload.email : "",
       name: typeof payload.name === "string" ? payload.name : "",
       typ: TOKEN_TYPE,
-      credentialFingerprint: typeof payload.cfp === "string" ? payload.cfp : null,
+      credentialFingerprint:
+        typeof payload.cfp === "string" ? payload.cfp : null,
     };
   } catch {
     return null;

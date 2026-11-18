@@ -95,15 +95,24 @@ describe("requireClientAuth", () => {
     expect(await requireClientAuth(request())).toEqual({ ok: true, claims: fresh });
   });
 
-  it("rejects a token issued before credential binding existed (RA-8461)", async () => {
-    authenticateClientRequest.mockResolvedValue({ ...CLAIMS, credentialFingerprint: null });
+  // Interim (RA-8461 slice 1): nothing can change a portal password yet, so a
+  // token minted before binding cannot be stale. Refusing it would sign out
+  // homeowners who have forgotten their password before recovery exists.
+  // The change that first writes ClientUser.passwordHash must flip this test
+  // to a refusal in the same commit.
+  it("still accepts a token issued before credential binding existed (RA-8461 interim)", async () => {
+    const legacy = { ...CLAIMS, credentialFingerprint: null };
+    authenticateClientRequest.mockResolvedValue(legacy);
     clientUserFindUnique.mockResolvedValue({
       id: "client_user_1",
       clientId: "client_1",
       passwordHash: OLD_HASH,
     });
 
-    await expectSafeUnauthorized(await requireClientAuth(request()));
+    expect(await requireClientAuth(request())).toEqual({
+      ok: true,
+      claims: legacy,
+    });
   });
 
   it("rejects a valid JWT after its ClientUser is deleted", async () => {

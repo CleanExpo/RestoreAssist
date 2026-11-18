@@ -5,8 +5,14 @@
  * RA-8461 — this is the one owner of "a token outlives a credential change".
  * A token is refused unless it carries the fingerprint of the account's
  * current password hash, so setting the password again ends every earlier
- * session. Tokens minted before binding existed carry no fingerprint and are
- * refused too: the homeowner signs in once more.
+ * session.
+ *
+ * Interim (RA-8461 slice 1): a token minted before binding carries no
+ * fingerprint and is still accepted. Nothing can change a portal password
+ * yet, so such a token cannot be stale, and refusing it would sign out
+ * homeowners who have forgotten their password before recovery exists.
+ * The change that first writes ClientUser.passwordHash (recovery) must make
+ * a missing fingerprint a refusal in the same commit.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -48,10 +54,11 @@ export async function requireClientAuth(
     if (
       !clientUser ||
       clientUser.clientId !== claims.clientId ||
-      !credentialFingerprintMatches(
-        claims.credentialFingerprint,
-        clientUser.passwordHash,
-      )
+      (claims.credentialFingerprint !== null &&
+        !credentialFingerprintMatches(
+          claims.credentialFingerprint,
+          clientUser.passwordHash,
+        ))
     ) {
       return unauthorizedResult();
     }
