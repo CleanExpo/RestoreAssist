@@ -396,17 +396,20 @@ export default function TeamPage() {
       resendIdempotencyKeys.current.set(invite.id, idempotencyKey);
     }
     setResendingEmail(invite.id);
-    let receivedResponse = false;
-    let completedResponse = false;
+    let definitiveResponse = false;
     try {
       const res = await fetch(`/api/team/invites/${invite.id}/resend`, {
         method: "POST",
         headers: { "Idempotency-Key": idempotencyKey },
       });
-      receivedResponse = true;
-      completedResponse = res.ok;
 
       const data = await res.json().catch(() => ({}));
+      // A success or a plain refusal (no free seat, invite cancelled, another
+      // live invite) is final for this key. The server caches 4xx answers
+      // under the key, so reusing it would replay a stale refusal after the
+      // owner fixes the cause (RA-8462). A partial (email outcome unknown) or
+      // a 5xx keeps the key, so a retry replays rather than re-sends.
+      definitiveResponse = res.status < 500 && !data.partial;
       if (data.partial) {
         toast.error(
           data.message ?? "Invite updated, but the email could not be sent.",
@@ -427,7 +430,7 @@ export default function TeamPage() {
       // A rejected fetch is ambiguous: the server may have committed and the
       // response may have been lost. Retain the same key so the next click
       // replays the server receipt instead of sending a duplicate email.
-      if (receivedResponse && completedResponse) {
+      if (definitiveResponse) {
         resendIdempotencyKeys.current.delete(invite.id);
       }
       setResendingEmail(null);

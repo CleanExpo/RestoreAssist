@@ -247,6 +247,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       role: true,
       expiresAt: true,
       usedAt: true,
+      revokedAt: true,
       organization: { select: { name: true } },
       createdBy: { select: { name: true } },
     },
@@ -272,6 +273,15 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     return apiError(req, {
       code: "GONE",
       message: "This invite has already been used. Please sign in instead.",
+      status: 410,
+    });
+  }
+
+  // RA-8462: cancel also rotates the token, so this is defence in depth.
+  if (invite.revokedAt) {
+    return apiError(req, {
+      code: "GONE",
+      message: "This invite was cancelled by the business that sent it.",
       status: 410,
     });
   }
@@ -421,6 +431,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       managedById: true,
       expiresAt: true,
       usedAt: true,
+      revokedAt: true,
       acceptedUserId: true,
       acceptanceProvider: true,
       acceptancePayloadHash: true,
@@ -469,6 +480,14 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return apiError(req, {
       code: "GONE",
       message: "This invite has already been used",
+      status: 410,
+    });
+  }
+
+  if (invite.revokedAt) {
+    return apiError(req, {
+      code: "GONE",
+      message: "This invite was cancelled by the business that sent it.",
       status: 410,
     });
   }
@@ -581,6 +600,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
             token,
             organizationId: invite.organizationId,
             usedAt: null,
+            revokedAt: null,
             expiresAt: { gt: now },
           },
           data: { usedAt: now },
@@ -754,6 +774,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
           token,
           organizationId: invite.organizationId,
           usedAt: null,
+          revokedAt: null,
           expiresAt: { gt: now },
         },
         data: { usedAt: now },

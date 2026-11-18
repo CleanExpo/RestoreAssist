@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import crypto from "node:crypto";
-import { POST } from "../route";
+import { GET, POST } from "../route";
 import { TechnicianSeatLimitReached } from "@/lib/billing/technician-seats";
 
 const validateCsrf = vi.fn();
@@ -917,5 +917,74 @@ describe("POST /api/invites/[token] (extended)", () => {
     expect(userCreate).not.toHaveBeenCalled();
     expect(inviteUpdate).not.toHaveBeenCalled();
     expect(cloudinaryDeleteImage).toHaveBeenCalledWith("headshots/jamie-1");
+  });
+});
+
+// RA-8462: once an owner cancels an invite, its link must be refused even if
+// it is somehow presented again. Cancel rotates the token (old link: 404) and
+// records revokedAt (refused before any account work, and in the claim).
+describe("cancelled team invite (RA-8462)", () => {
+  const cancelledInvite = {
+    id: "inv_1",
+    token: INVITE_TOKEN,
+    email: "wrong@example.com",
+    role: "USER",
+    organizationId: "org_1",
+    managedById: null,
+    // Future expiry on purpose: the refusal must come from revokedAt alone.
+    expiresAt: new Date(Date.now() + 86400000),
+    usedAt: null,
+    revokedAt: new Date(Date.now() - 1000),
+    organization: { name: "Org" },
+    createdBy: { name: "Owner" },
+  };
+
+  it("GET refuses the old link once the token has been rotated", async () => {
+    inviteFindUnique.mockResolvedValueOnce(null);
+    const res = await GET(
+      new NextRequest(`http://localhost/api/invites/${INVITE_TOKEN}`),
+      await ctx(),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("GET refuses a cancelled invite", async () => {
+    inviteFindUnique.mockResolvedValueOnce(cancelledInvite);
+    const res = await GET(
+      new NextRequest(`http://localhost/api/invites/${INVITE_TOKEN}`),
+      await ctx(),
+    );
+    expect(res.status).toBe(410);
+  });
+
+  it("POST refuses a cancelled invite before creating an account", async () => {
+    inviteFindUnique.mockResolvedValueOnce(cancelledInvite);
+    const res = await POST(makeReq(baseBody), await ctx());
+    expect(res.status).toBe(410);
+    expect(userCreate).not.toHaveBeenCalled();
+    expect(inviteUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("POST refuses the old link once the token has been rotated", async () => {
+    inviteFindUnique.mockResolvedValueOnce(null);
+    const res = await POST(makeReq(baseBody), await ctx());
+    expect(res.status).toBe(404);
+    expect(userCreate).not.toHaveBeenCalled();
+  });
+
+  it("the acceptance claim only matches an uncancelled invite", async () => {
+    inviteFindUnique.mockResolvedValueOnce({ ...cancelledInvite, revokedAt: null });
+    userFindUnique.mockResolvedValueOnce(null);
+    cloudinaryUploadDataUrl.mockResolvedValueOnce({
+      url: "https://res.cloudinary.com/.../x.jpg",
+      publicId: "headshots/x",
+    });
+    userCreate.mockResolvedValueOnce({ id: "u_new", email: "wrong@example.com" });
+    await POST(makeReq(baseBody), await ctx());
+    expect(inviteUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ revokedAt: null, usedAt: null }),
+      }),
+    );
   });
 });
