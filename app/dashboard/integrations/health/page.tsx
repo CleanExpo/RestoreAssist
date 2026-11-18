@@ -251,19 +251,25 @@ function TokenValidityRow({
   if (!tokenCheck)
     return <span className="text-xs text-muted-foreground">—</span>;
 
+  // RA-8443: details lists only connections that cannot sync, with the same
+  // plain-English reason the integrations page shows. A lapsed access token
+  // with a stored refresh token is not listed: the app refreshes it.
   const details = tokenCheck.details as
-    | { provider: string; expiredAt: string }[]
+    | { provider: string; reason: string; message: string }[]
     | undefined;
-  const expired =
-    Array.isArray(details) &&
-    details.some(
-      (d) => d.provider.toLowerCase() === providerSlug.toLowerCase(),
-    );
+  const failing = Array.isArray(details)
+    ? details.find(
+        (d) => d.provider.toLowerCase() === providerSlug.toLowerCase(),
+      )
+    : undefined;
 
-  if (expired) {
+  if (failing) {
     return (
-      <span className="flex items-center gap-1 text-xs text-destructive">
-        <XCircle className="h-3 w-3" /> Expired
+      <span
+        className="flex items-center gap-1 text-xs text-destructive"
+        title={failing.message}
+      >
+        <XCircle className="h-3 w-3" /> Needs attention
       </span>
     );
   }

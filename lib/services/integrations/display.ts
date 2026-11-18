@@ -59,6 +59,13 @@ export type OAuthCardState =
   | { status: "UNAVAILABLE" | "AMBIGUOUS" | "DISCONNECTED"; connected: false; syncError?: string }
   | { status: "ATTENTION"; connected: false; syncError: string }
   | { status: "CONNECTED" | "SYNCING" | "ERROR"; connected: true; lastSyncAt?: string; syncError?: string };
+/** Plain-English reason a connected OAuth row cannot sync. One owner for every screen that reports it. */
+export function describeOAuthAttention(reason: string): string {
+  return reason === "ORGANISATION_REQUIRED"
+    ? "No organisation is selected for this connection. Reconnect and authorise a single organisation before syncing."
+    : "This connection needs authorisation before it can sync.";
+}
+
 /** Identity is independent of readiness; never choose an arbitrary connection. */
 export function describeOAuthCard(rows: LegacyIntegrationMetadata[], provider: string, truncated = false): OAuthCardState {
   const matches = rows.filter(row => isOAuthIntegration(row, provider));
@@ -69,9 +76,7 @@ export function describeOAuthCard(rows: LegacyIntegrationMetadata[], provider: s
   const readiness = getOAuthReadiness(row, provider);
   if (!readiness.ready) {
     if (readiness.reason === "DISCONNECTED") return { status: "DISCONNECTED", connected: false };
-    return { status: "ATTENTION", connected: false, syncError: readiness.reason === "ORGANISATION_REQUIRED"
-      ? "No organisation is selected for this connection. Reconnect and authorise a single organisation before syncing."
-      : "This connection needs authorisation before it can sync." };
+    return { status: "ATTENTION", connected: false, syncError: describeOAuthAttention(readiness.reason) };
   }
   return { status: row.status === "ERROR" ? "ERROR" : row.status === "SYNCING" ? "SYNCING" : "CONNECTED", connected: true, lastSyncAt: row.lastSyncAt, syncError: row.syncError };
 }

@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-errors";
+import {
+  getOAuthReadiness,
+  isOAuthIntegration,
+} from "@/lib/integrations/identity";
+import { describeOAuthAttention } from "@/lib/services/integrations/display";
 
 const MAX_INTEGRATIONS_FOR_HEALTH = 100;
 const MAX_SYNC_LOGS_FOR_HEALTH = 1_000;
@@ -31,38 +36,89 @@ export async function GET(request: NextRequest) {
     const checks: any[] = [];
     let overallStatus: "healthy" | "degraded" | "unhealthy" = "healthy";
 
-    // Check 1: Active integrations have valid tokens
-    const integrations = await prisma.integration.findMany({
-      where: {
-        userId: session.user.id,
-        status: "CONNECTED",
-      },
+    // Check 1: every connected accounting connection can be used (RA-8443).
+    // The verdict comes from the readiness owner, getOAuthReadiness, not from
+    // tokenExpiresAt: a lapsed access token is normal and the provider clients
+    // refresh it on the next call when a refresh token is stored
+    // (lib/integrations/base-client.ts). Token presence is tested in SQL, so
+    // no token value is read into this route.
+    const statuses = ["CONNECTED", "SYNCING", "ERROR"];
+    const connected = await prisma.integration.findMany({
+      where: { userId: session.user.id, status: { in: statuses } },
       select: {
+        id: true,
         provider: true,
+        name: true,
+        icon: true,
+        config: true,
+        status: true,
+        tenantId: true,
+        realmId: true,
+        companyId: true,
         tokenExpiresAt: true,
       },
       orderBy: { updatedAt: "desc" },
       take: MAX_INTEGRATIONS_FOR_HEALTH,
     });
+    const oauthRows = connected.filter((row) => isOAuthIntegration(row));
+    const ids = oauthRows.map((row) => row.id);
+    const [withAccess, withRefresh] = ids.length
+      ? await Promise.all(
+          (["accessToken", "refreshToken"] as const).map((column) =>
+            prisma.integration.findMany({
+              where: {
+                userId: session.user.id,
+                id: { in: ids },
+                [column]: { not: null, notIn: [""] },
+              },
+              select: { id: true },
+            }),
+          ),
+        )
+      : [[], []];
+    const hasAccess = new Set(withAccess.map((row) => row.id));
+    const hasRefresh = new Set(withRefresh.map((row) => row.id));
+    const now = Date.now();
 
-    const expiredTokens = integrations.filter(
-      (i) => i.tokenExpiresAt && i.tokenExpiresAt < new Date(),
-    );
+    const failing = oauthRows.flatMap((row) => {
+      const readiness = getOAuthReadiness({
+        ...row,
+        hasOAuthCredentials: hasAccess.has(row.id),
+      });
+      if (!readiness.ready) {
+        return [
+          {
+            provider: row.provider,
+            reason: readiness.reason,
+            message: describeOAuthAttention(readiness.reason),
+          },
+        ];
+      }
+      const lapsed =
+        row.tokenExpiresAt != null && row.tokenExpiresAt.getTime() <= now;
+      if (lapsed && !hasRefresh.has(row.id)) {
+        return [
+          {
+            provider: row.provider,
+            reason: "REFRESH_REQUIRED",
+            message: describeOAuthAttention("REFRESH_REQUIRED"),
+          },
+        ];
+      }
+      return [];
+    });
 
     checks.push({
       name: "Token Validity",
-      status: expiredTokens.length === 0 ? "pass" : "fail",
+      status: failing.length === 0 ? "pass" : "fail",
       message:
-        expiredTokens.length === 0
-          ? `All ${integrations.length} integrations have valid tokens`
-          : `${expiredTokens.length} integration(s) have expired tokens`,
-      details: expiredTokens.map((i) => ({
-        provider: i.provider,
-        expiredAt: i.tokenExpiresAt,
-      })),
+        failing.length === 0
+          ? `All ${oauthRows.length} connected integration(s) can sync`
+          : `${failing.length} integration(s) need attention before they can sync`,
+      details: failing,
     });
 
-    if (expiredTokens.length > 0) {
+    if (failing.length > 0) {
       overallStatus = "degraded";
     }
 
