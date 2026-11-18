@@ -41,6 +41,8 @@ describe("iOS shell detection — cross-file wiring", () => {
     "app/compliance/layout.tsx",
     "app/login/layout.tsx",
     "app/signup/layout.tsx",
+    // RA-8271: the setup wizard's Field Add-Ons step renders the add-on deck.
+    "app/setup/layout.tsx",
   ];
 
   it.each(["app/login/page.tsx", "app/signup/page.tsx"])(
@@ -147,7 +149,7 @@ describe("iOS shell detection — cross-file wiring", () => {
       found,
       "BILLING_GATE_ROUTES.txt is stale. Every file rendering a <BillingGate> " +
         "must be listed AND must render under app/dashboard, app/pricing, " +
-        "app/compliance or app/billing — those are the only segments whose layout " +
+        "app/compliance, app/billing or app/setup — those are the only segments whose layout " +
         "supplies the server platform verdict.",
     ).toEqual(listed);
   });
@@ -166,6 +168,7 @@ describe("iOS shell detection — cross-file wiring", () => {
       "app/pricing/",
       "app/compliance/",
       "app/billing/",
+      "app/setup/",
     ];
     for (const file of listed) {
       if (!file.startsWith("app/")) continue; // component — checked by importer

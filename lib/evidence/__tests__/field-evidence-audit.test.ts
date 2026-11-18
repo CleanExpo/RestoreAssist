@@ -20,6 +20,7 @@ import {
   type PsychrometricReadingForAudit,
   type AffectedAreaForAudit,
 } from "../field-evidence-audit";
+import { countableEvidence } from "../countable-evidence";
 
 const p = prisma as unknown as {
   inspection: { findUnique: ReturnType<typeof vi.fn> };
@@ -437,6 +438,20 @@ describe("auditInspectionById", () => {
     expect(p.affectedArea.findMany).toHaveBeenCalledTimes(1);
     expect(result.inspectionId).toBe("insp-1");
     expect(result.claimType).toBe("WATER_DAMAGE");
+  });
+
+  // RA-8388: a retired reading, and the evidence record behind it, must not
+  // make the checklist read as complete.
+  it("asks only for evidence that counts and readings that are not retired", async () => {
+    await auditInspectionById("insp-1");
+
+    expect(p.evidenceItem.findMany.mock.calls[0][0].where).toEqual(
+      countableEvidence({ inspectionId: "insp-1" }),
+    );
+    expect(p.moistureReading.findMany.mock.calls[0][0].where).toEqual({
+      inspectionId: "insp-1",
+      invalidatedAt: null,
+    });
   });
 
   it("throws when the inspection does not exist", async () => {

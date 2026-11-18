@@ -20,6 +20,7 @@ vi.mock("../BrandCard", () => ({ BrandCard: () => <div>BRAND_BODY</div> }));
 vi.mock("../PricingCard", () => ({ PricingCard: () => <div>PRICING_BODY</div> }));
 vi.mock("../IntegrationsCard", () => ({ IntegrationsCard: () => <div>INTEG_BODY</div> }));
 vi.mock("../FeatureHealthCard", () => ({ FeatureHealthCard: () => <div>HEALTH_BODY</div> }));
+vi.mock("@/components/addons/AddonCardDeck", () => ({ AddonCardDeck: () => <div>ADDON_DECK_BODY</div> }));
 
 const storeState: {
   org: Record<string, unknown> | null;
@@ -94,7 +95,7 @@ describe("SetupShell — resume where the business left off (J-05)", () => {
   it("reopens on the first unfinished optional step once business details are complete", async () => {
     const done = { ...base, legalName: "Synthetic Drying Pty Ltd", abn: "51824753556", state: "QLD", pricingConfig: { labour: 999 } };
     render(<SetupShell initial={done as never} />);
-    expect(await screen.findByText(/Step 4 of 7: Branding/)).toBeInTheDocument();
+    expect(await screen.findByText(/Step 4 of 8: Branding/)).toBeInTheDocument();
   });
 
   it("never reopens on the finish step before the AI-key requirement is known", async () => {
@@ -109,26 +110,56 @@ describe("SetupShell — resume where the business left off (J-05)", () => {
       pricingConfig: { labour: 999 },
     };
     render(<SetupShell initial={everything as never} />);
-    expect(await screen.findByText(/Step 6 of 7: Integrations/)).toBeInTheDocument();
+    expect(await screen.findByText(/Step 6 of 8: Field Add-Ons/)).toBeInTheDocument();
+    // RA-8271: the step shows the pack cards.
+    expect(screen.getByText("ADDON_DECK_BODY")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Generate your first report/ })).not.toBeInTheDocument();
   });
 
   it("reopens on Business details when it was started but not finished", async () => {
     const partial = { ...base, legalName: "Synthetic Drying Pty Ltd" };
     render(<SetupShell initial={partial as never} />);
-    expect(await screen.findByText(/Step 3 of 7: Business details/)).toBeInTheDocument();
+    expect(await screen.findByText(/Step 3 of 8: Business details/)).toBeInTheDocument();
   });
 
   it("still starts a brand-new business at Welcome", async () => {
     render(<SetupShell initial={base as never} />);
-    expect(await screen.findByText(/Step 1 of 7: Welcome/)).toBeInTheDocument();
+    expect(await screen.findByText(/Step 1 of 8: Welcome/)).toBeInTheDocument();
+  });
+});
+
+describe("SetupShell — Field Add-Ons step (RA-8271)", () => {
+  it("comes straight after Pricing, shows the pack cards, never blocks, and leads to Integrations", async () => {
+    const pricingNext = {
+      id: "o1",
+      hydrationJobs: [],
+      country: "AU",
+      timezone: "Australia/Brisbane",
+      legalName: "Synthetic Drying Pty Ltd",
+      abn: "51824753556",
+      nzbn: null,
+      state: "QLD",
+      logoUrl: null,
+      primaryColor: "#1C2E47",
+      pricingConfig: null,
+    };
+    render(<SetupShell initial={pricingNext as never} />);
+    expect(await screen.findByText(/Step 5 of 8: Pricing/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    expect(screen.getByText(/Step 6 of 8: Field Add-Ons/)).toBeInTheDocument();
+    expect(screen.getByText("ADDON_DECK_BODY")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    expect(screen.getByText(/Step 7 of 8: Integrations/)).toBeInTheDocument();
   });
 });
 
 describe("SetupShell — one-step wizard wiring", () => {
   it("renders the wizard starting at the Welcome step (one step visible)", async () => {
     render(<SetupShell initial={initial} />);
-    expect(await screen.findByText(/Step 1 of 7: Welcome/)).toBeInTheDocument();
+    expect(await screen.findByText(/Step 1 of 8: Welcome/)).toBeInTheDocument();
     expect(screen.getByText("VIDEO_BODY")).toBeInTheDocument();
     // Later steps' bodies are NOT mounted yet (locked one-step-at-a-time).
     expect(screen.queryByText("AIKEY_BODY")).not.toBeInTheDocument();
@@ -146,9 +177,9 @@ describe("SetupShell — one-step wizard wiring", () => {
       }),
     );
     render(<SetupShell initial={initial} />);
-    await screen.findByText(/Step 1 of 7: Welcome/);
+    await screen.findByText(/Step 1 of 8: Welcome/);
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
-    expect(screen.getByText(/Step 2 of 7: Add your AI key/)).toBeInTheDocument();
+    expect(screen.getByText(/Step 2 of 8: Add your AI key/)).toBeInTheDocument();
     expect(screen.getByText("AIKEY_BODY")).toBeInTheDocument();
     // Paid / expired: server says required:true → Next locks. title stays required.
     await waitFor(() => {
@@ -161,10 +192,10 @@ describe("SetupShell — one-step wizard wiring", () => {
 
   it("RA-7569: does not lock Next when status omits required (do not re-lock a trial)", async () => {
     render(<SetupShell initial={initial} />);
-    await screen.findByText(/Step 1 of 7: Welcome/);
+    await screen.findByText(/Step 1 of 8: Welcome/);
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
     expect(
-      screen.getByText(/Step 2 of 7: Your own AI key \(optional\)/),
+      screen.getByText(/Step 2 of 8: Your own AI key \(optional\)/),
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
@@ -193,11 +224,11 @@ describe("SetupShell — one-step wizard wiring", () => {
       }),
     );
     render(<SetupShell initial={initial} />);
-    await screen.findByText(/Step 1 of 7: Welcome/);
+    await screen.findByText(/Step 1 of 8: Welcome/);
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
     await waitFor(() => {
       expect(
-        screen.getByText(/Step 2 of 7: Trial report generation is not ready/),
+        screen.getByText(/Step 2 of 8: Trial report generation is not ready/),
       ).toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
@@ -219,11 +250,11 @@ describe("SetupShell — one-step wizard wiring", () => {
       }),
     );
     render(<SetupShell initial={initial} />);
-    await screen.findByText(/Step 1 of 7: Welcome/);
+    await screen.findByText(/Step 1 of 8: Welcome/);
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
     await waitFor(() => {
       expect(
-        screen.getByText(/Step 2 of 7: Your own AI key \(optional\)/),
+        screen.getByText(/Step 2 of 8: Your own AI key \(optional\)/),
       ).toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
@@ -315,8 +346,8 @@ describe("SetupShell — the finish CTA completes setup", () => {
   /** Walk the locked wizard to its last step with both required steps done. */
   async function reachFinalStep() {
     render(<SetupShell initial={initial} />);
-    await screen.findByText(/Step 1 of 7/);
-    for (let i = 0; i < 6; i++) {
+    await screen.findByText(/Step 1 of 8/);
+    for (let i = 0; i < 7; i++) {
       fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     }
     return screen.findByRole("button", {

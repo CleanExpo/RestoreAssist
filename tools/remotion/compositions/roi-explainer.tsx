@@ -52,7 +52,7 @@ export const ROIExplainer = () => {
         </ScreenContainer>
       </div>
       <div style={{position:'absolute',inset:0,opacity:o,zIndex:o>0?100:0}}>
-        <OutroSlide title="87% less admin. More billable hours." subtitle="Calculate your ROI at restoreassist.com.au" />
+        <OutroSlide title="87% less admin. More billable hours." subtitle="Calculate your ROI at restoreassist.app" />
       </div>
     </AbsoluteFill>
   );

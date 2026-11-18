@@ -43,14 +43,39 @@ import {
 } from "lucide-react";
 import {
   enqueueSketchSave,
+  discardSupersededSketchSaves,
   getPendingEntries,
   getFailedEntries,
   retryFailedEntry,
   removeFailedEntry,
   type SyncQueueEntry,
   type SketchSavePayload,
+  SKETCH_SAVE_REPLAYED_EVENT,
+  type SketchSaveReplayedDetail,
 } from "@/lib/nir-sync-queue";
+import {
+  FLOOR_REVISION_HEADER,
+  NEW_FLOOR_REVISION,
+  isFloorRevisionConflict,
+  readFloorRevision,
+} from "@/lib/sketch/floor-revision";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import { importSketchUserMessage } from "@/lib/sketch/import-sketch-user-message";
+import {
+  omitRoomsAlreadyOnCanvas,
+  referenceImportFailureMessage,
+  requestReferenceRooms,
+  type UnderlayReferenceBinding,
+} from "@/lib/sketch/reference-room-import";
+import {
+  captureFloorsHaveDrawableContent,
+  sketchDataForCaptureEditor,
+} from "@/lib/sketch/capture-floor-hydration";
+import {
+  ImportSketchStatusBanner,
+  type ImportSketchBannerProps,
+} from "./ImportSketchStatusBanner";
 import { prepareInspectionPhoto, uploadInspectionPhoto } from "@/lib/inspection-photo-upload";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { startRoomPlanCapture } from "@/lib/capacitor-roomplan-bridge";
@@ -66,7 +91,14 @@ import {
   fabricObjectToSelected,
 } from "@/lib/sketch/selected-object";
 import { applyRoomModifiedGeometry } from "@/lib/sketch/room-modified-geometry";
-import { confirmAiSuggestedMeasurement } from "@/lib/sketch/ai-suggested-confirm";
+import {
+  applyServerRoomProvenance,
+  provenanceAfterRefusedMeasurement,
+  roomMeasurementRejectionToast,
+  confirmAiSuggestedMeasurement,
+  roomShapeSnapshot,
+  type RoomMeasurementInput,
+} from "@/lib/sketch/ai-suggested-confirm";
 import { shoelaceArea, PX_PER_METRE } from "@/lib/sketch/extract-rooms";
 import { polygonAbsolutePoints } from "@/lib/sketch/fabric-absolute";
 import {
@@ -94,6 +126,13 @@ import {
   roomAreaM2,
   DEFAULT_PX_PER_METRE,
 } from "@/lib/sketch/tool-objects";
+import {
+  canonicalRoomAreaFields,
+  confirmRoomAreaFields,
+  DIMENSIONS_AREA_SOURCE,
+  GEOMETRY_AREA_SOURCE,
+} from "@/lib/sketch/room-area-from-geometry";
+import { withCalibrationHistory } from "@/lib/sketch/scale-calibration";
 import {
   clampWallThicknessM,
   wallThicknessPx,
@@ -244,6 +283,11 @@ export interface SketchEditorV2Props {
   autoFetchFloorPlan?: boolean;
   /** After a durable online save — parent can refresh sketch room lists. */
   onSketchPersisted?: () => void;
+  /**
+   * Bump when authoritative sketch data changed elsewhere (e.g. homeowner
+   * promote). The editor reloads floors from the API when this token changes.
+   */
+  sketchReloadToken?: number;
   /** Deep-link: select a room on the active floor (Fabric room id). */
   focusSketchRoomId?: string | null;
   /** When true with focusSketchRoomId, open the room moisture map tool. */
@@ -253,6 +297,11 @@ export interface SketchEditorV2Props {
    * `fullscreen` — legacy viewport-tall panel (capture / dedicated routes).
    */
   embedMode?: "hub" | "fullscreen";
+  /**
+   * RA-8241 — floors from GET /api/capture/[token] so homeowners resume
+   * quarantined work. Only used with captureToken + mode guided.
+   */
+  captureInitialFloors?: import("@/lib/sketch/capture-floor-hydration").CaptureHydrationFloor[];
 }
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -278,6 +327,15 @@ export function nextSaveIndicator(input: {
   };
 }
 
+
+/** RA-8056 — one id per load of the plan in a mounted editor. */
+function newEditorSessionId(): string {
+  return typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function SketchEditorV2({
   inspectionId,
   propertyAddress,
@@ -290,9 +348,11 @@ export function SketchEditorV2({
   height = 820,
   autoFetchFloorPlan = false,
   onSketchPersisted,
+  sketchReloadToken,
   focusSketchRoomId = null,
   mapMoistureForRoom = false,
   embedMode = "fullscreen",
+  captureInitialFloors,
 }: SketchEditorV2Props) {
   const hubEmbed = embedMode === "hub";
   const guided = mode === "guided";
@@ -506,9 +566,14 @@ export function SketchEditorV2({
   const [showScaleModal, setShowScaleModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  // RA-8236: the reference applied in this session, bound to its exact floor.
+  const [underlayReference, setUnderlayReference] =
+    useState<UnderlayReferenceBinding | null>(null);
   // Capture mode (homeowner self-capture) has no offline queue, so a failed
   // save must surface as an explicit error rather than a false "Saved".
   const [captureSaveFailed, setCaptureSaveFailed] = useState(false);
+  const [importSketchBanner, setImportSketchBanner] =
+    useState<ImportSketchBannerProps | null>(null);
   // RA-1762 — running count of sketch saves currently held in the
   // offline queue (this tab's enqueues only; cross-tab counts come
   // from useNirOffline if the parent provider exposes them). Surfaced
@@ -528,14 +593,47 @@ export function SketchEditorV2({
   // Don't mount Fabric until GET /sketches finishes — avoids an empty canvas
   // winning the race against restore on full page refresh.
   const [sketchesHydrated, setSketchesHydrated] = useState(
-    () => !inspectionId || captureMode,
+    () => (captureMode ? false : !inspectionId),
   );
   const [loadedInspectionId, setLoadedInspectionId] = useState<string | null>(null);
   const [sketchLoadError, setSketchLoadError] = useState(false);
   const [sketchLoadAttempt, setSketchLoadAttempt] = useState(0);
+  const sketchReloadTokenSeen = useRef<number | undefined>(undefined);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // RA-8056: the revision of each floor (by clientKey) this editor loaded or
+  // last saved. Sent with every save so the route refuses one based on an
+  // older floor (another tab or device saved since) instead of letting its
+  // room snapshot delete or detach the newer rooms. No entry = a floor this
+  // editor created (`none`); `null` = loaded without a revision (send none).
+  const floorRevisionRef = useRef(new Map<string, string | null>());
+  // One id per mounted editor; the offline queue coalesces only its own saves.
+  // It is renewed on every load of the plan (see the load effect).
+  const editorSessionIdRef = useRef("");
+  if (!editorSessionIdRef.current) {
+    editorSessionIdRef.current = newEditorSessionId();
+  }
+  // RA-8056: floors (by clientKey) whose save was refused as a revision
+  // conflict. Saving pauses on them until the plan is reloaded.
+  const revisionConflictRef = useRef(new Set<string>());
+  const [revisionConflictLabels, setRevisionConflictLabels] = useState<
+    string[]
+  >([]);
+  // False when a refused edit could not be stored on the device; the notice
+  // then says it exists only on this screen.
+  const [revisionConflictKept, setRevisionConflictKept] = useState(true);
   const confirmedFabricObjectIdsRef = useRef<Set<string>>(new Set());
+  /**
+   * RA-8233 — on-site measurements entered at Confirm for AI-suggested
+   * rooms, sent with the next save of the room's floor. Cleared once the
+   * server answers for them, so a later geometry edit is never re-bound to
+   * an old measurement.
+   */
+  const pendingRoomMeasurementsRef = useRef<Map<string, RoomMeasurementInput>>(
+    new Map(),
+  );
+  /** RA-8233 — room shape when each pending measurement was entered. */
+  const pendingMeasurementShapeRef = useRef<Map<string, string>>(new Map());
   /** RA-7091 — run pending RoomPlan custody recovery once per inspection. */
   const roomPlanRecoveryKeyRef = useRef<string | null>(null);
 
@@ -543,13 +641,21 @@ export function SketchEditorV2({
   useEffect(() => {
     // RA-7542 — job change must not keep the previous job's selection chrome.
     setSelectedObj(null);
-    if (!inspectionId || captureMode) {
+    if (captureMode) return;
+    if (!inspectionId) {
       setSketchesHydrated(true);
       return;
     }
     let cancelled = false;
     setSketchesHydrated(false);
     setSketchLoadError(false);
+    revisionConflictRef.current = new Set();
+    setRevisionConflictLabels([]);
+    setRevisionConflictKept(true);
+    // RA-8056: each load is a new editor session. The canvas is replaced by
+    // the stored plan, so saves queued before it are not part of what this
+    // editor saves next and must not be dropped as superseded by it.
+    editorSessionIdRef.current = newEditorSessionId();
     (async () => {
       try {
         const res = await fetch(`/api/inspections/${inspectionId}/sketches`);
@@ -567,6 +673,7 @@ export function SketchEditorV2({
             backgroundImageOffsetY?: number | null;
             moisturePoints?: unknown[] | null;
             country?: "AU" | "NZ" | null;
+            revision?: string;
           }>;
         };
         if (!Array.isArray(sketches)) throw new Error("Floor plan response is invalid");
@@ -624,6 +731,9 @@ export function SketchEditorV2({
             };
           });
 
+          floorRevisionRef.current = new Map(
+            sketches.map((s) => [s.id, readFloorRevision(s)]),
+          );
           setFloorsData(loaded);
           // Existing geometry → skip the empty-canvas start chooser.
           if (
@@ -665,6 +775,7 @@ export function SketchEditorV2({
         } else {
           // A successful empty response is a genuinely new plan. In a mounted
           // job switch, never retain the previous job's floor in this editor.
+          floorRevisionRef.current = new Map();
           setFloorsData([{
             floor: { id: `${uid}-f0`, floorNumber: 0, floorLabel: "Ground Floor" },
             clientKey: allocFloorClientKey(), canvasRef: makeFabricCanvas(),
@@ -691,6 +802,73 @@ export function SketchEditorV2({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inspectionId, sketchLoadAttempt]);
+
+  // RA-8241 — resume homeowner session from token GET payload.
+  useEffect(() => {
+    if (!captureMode) return;
+    if (!captureInitialFloors?.length) {
+      setSketchesHydrated(true);
+      return;
+    }
+    let cancelled = false;
+    setSketchesHydrated(false);
+
+    const loaded: FloorData[] = captureInitialFloors.map((s, i) => {
+      const canvasRef = makeFabricCanvas();
+      const stored = sketchDataForCaptureEditor(s);
+      const pendingSketchData = fabricJsonFromStoredSketchData(stored);
+      return {
+        floor: {
+          id: `${uid}-cf${s.floorNumber}`,
+          floorNumber: s.floorNumber,
+          floorLabel: s.floorLabel,
+        },
+        clientKey: `capture-${s.floorNumber}`,
+        canvasRef,
+        moisturePins: [],
+        evidencePins: [],
+        damageMarkers: parseDamageMarkers(
+          damageMarkersFromStoredSketchData(stored),
+        ),
+        backgroundUrl: null,
+        backgroundOpacity: 0.35,
+        backgroundScale: null,
+        backgroundOffsetX: null,
+        backgroundOffsetY: null,
+        backgroundLockAspect: true,
+        scaleConfig:
+          (scaleConfigFromStoredSketchData(
+            stored,
+          ) as ScaleConfig | null) ?? null,
+        pendingSketchData,
+        sketchSnapshot: pendingSketchData,
+        fieldComplete: isSketchFieldComplete(stored),
+        roomMoistureCrop: roomMoistureCropFromStoredSketchData(stored),
+      };
+    });
+
+    if (cancelled) return;
+    setFloorsData(loaded.length ? loaded : floorsData);
+    setActiveIdx(0);
+    if (captureFloorsHaveDrawableContent(captureInitialFloors)) {
+      setStartOverlayDismissed(true);
+      setPlanReadyBannerDismissed(true);
+      setPlanReadyAck(true);
+    }
+    setSketchesHydrated(true);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [captureMode, captureInitialFloors, uid]);
+
+  useEffect(() => {
+    if (sketchReloadToken === undefined) return;
+    if (sketchReloadTokenSeen.current === sketchReloadToken) return;
+    sketchReloadTokenSeen.current = sketchReloadToken;
+    if (sketchReloadToken < 1) return;
+    setSketchLoadAttempt((attempt) => attempt + 1);
+  }, [sketchReloadToken]);
 
   useEffect(() => {
     if (!inspectionId || captureMode) {
@@ -845,11 +1023,14 @@ export function SketchEditorV2({
       if (!obj) return false;
       fc?.setActiveObject?.(obj);
       fc?.renderAll?.();
-      const sel = fabricObjectToSelected(obj);
+      const sel = fabricObjectToSelected(
+        obj,
+        activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE,
+      );
       if (sel) setSelectedObj(sel);
       return true;
     },
-    [activeFloor?.canvasRef],
+    [activeFloor?.canvasRef, activeFloor?.scaleConfig?.pxPerMetre],
   );
 
   const focusFirstUnconfirmedRoom = useCallback(() => {
@@ -984,12 +1165,7 @@ export function SketchEditorV2({
           (canvas as { getObjects?: () => unknown[] }).getObjects?.() ?? [],
         ).find((r) => r.id === crop.roomId)?.points ??
         [];
-      const inRoom = filterPinsInRoom(
-        activeFloor.moisturePins,
-        roomPoints,
-        viewport.width,
-        viewport.height,
-      );
+      const inRoom = filterPinsInRoom(activeFloor.moisturePins, roomPoints);
       toast.success(
         inRoom.length
           ? `Exported room crop (${inRoom.length} moisture pin${inRoom.length === 1 ? "" : "s"} in room)`
@@ -1021,7 +1197,20 @@ export function SketchEditorV2({
   // it immediately and resolves after server acknowledgment — call flushSaveNow
   // before a floor switch, PDF export, or scope generation so no edits are lost
   // (RA-6762: the old `await scheduleSave()` returned void and never waited).
-  const performSave = useCallback(
+  // RA-7656: floors (by clientKey) whose rooms the user removed on purpose -
+  // Clear Canvas, or deleting a room. The route keeps the stored rooms when a
+  // save arrives without any, because a disposed or partly loaded canvas
+  // posts exactly that; `userRemovedRooms` tells it this one is deliberate.
+  // The value is a counter so a save only clears the mark it carried, and
+  // every save keeps the mark until one is acknowledged online (queued saves
+  // coalesce per floor, so the newest queued save must carry it too).
+  const userRemovedRoomsRef = useRef(new Map<string, number>());
+  const markUserRemovedRooms = useCallback((clientKey: string) => {
+    const marks = userRemovedRoomsRef.current;
+    marks.set(clientKey, (marks.get(clientKey) ?? 0) + 1);
+  }, []);
+
+  const performSaveNow = useCallback(
     async (renderImage = false) => {
       setSaving(true);
       let queuedThisTick = 0;
@@ -1030,6 +1219,9 @@ export function SketchEditorV2({
       const tickStartedAt = Date.now();
 
       const floorPromises = floorsDataRef.current.map(async (fd) => {
+        // RA-8056: a floor refused as a revision conflict saves nothing more
+        // until the plan is reloaded; its refused edit is already kept.
+        if (revisionConflictRef.current.has(fd.clientKey)) return;
         const canvas = fd.canvasRef.current;
         let liveJson: Record<string, unknown> | null = null;
         if (canvas) {
@@ -1055,9 +1247,72 @@ export function SketchEditorV2({
             : {}),
         };
         const clientUpdatedAt = Date.now();
+        // RA-8056: the revision this save is based on. Capture-link saves go
+        // to their own route and carry none.
+        const baseRevision = captureToken
+          ? undefined
+          : floorRevisionRef.current.has(fd.clientKey)
+            ? (floorRevisionRef.current.get(fd.clientKey) ?? undefined)
+            : NEW_FLOOR_REVISION;
+        const editorSessionId = editorSessionIdRef.current;
+        const removalMark = userRemovedRoomsRef.current.get(fd.clientKey) ?? 0;
         const { resolveSketchCaptureAdapter } =
           await import("@/lib/sketch/ingest-roomplan");
         const captureAdapter = resolveSketchCaptureAdapter({ sketchData });
+
+        // RA-8233: only this floor's rooms, so the server does not refuse a
+        // measurement for a room that lives on another floor.
+        const floorObjects = (sketchData as { objects?: unknown }).objects;
+        const floorRoomIds = new Set(
+          (Array.isArray(floorObjects)
+            ? (floorObjects as Array<{ data?: { id?: unknown } } | null>)
+            : []
+          )
+            .map((o) => o?.data?.id)
+            .filter((v): v is string => typeof v === "string"),
+        );
+        // A room reshaped (or the floor rescaled) after Confirm no longer
+        // matches what the technician measured: drop the measurement and put
+        // the room back to AI-suggested rather than bind it to the new shape.
+        const liveObjects =
+          (
+            fd.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+            } | null
+          )?.getObjects() ?? [];
+        for (const pending of [...pendingRoomMeasurementsRef.current.values()]) {
+          if (!floorRoomIds.has(pending.fabricObjectId)) continue;
+          const live = liveObjects.find(
+            (o) =>
+              (o as { data?: { id?: unknown } }).data?.id ===
+              pending.fabricObjectId,
+          ) as { data?: Record<string, unknown> } | undefined;
+          const shapeAtConfirm = pendingMeasurementShapeRef.current.get(
+            pending.fabricObjectId,
+          );
+          if (
+            live?.data &&
+            shapeAtConfirm !== undefined &&
+            roomShapeSnapshot(live, fd.scaleConfig?.pxPerMetre) !==
+              shapeAtConfirm
+          ) {
+            pendingRoomMeasurementsRef.current.delete(pending.fabricObjectId);
+            pendingMeasurementShapeRef.current.delete(pending.fabricObjectId);
+            confirmedFabricObjectIdsRef.current.delete(pending.fabricObjectId);
+            live.data.provenance = "ai_suggested";
+            setSelectedObj((prev) =>
+              prev && prev.id === pending.fabricObjectId
+                ? { ...prev, provenance: "ai_suggested" }
+                : prev,
+            );
+            toast.error(
+              "The room changed after it was measured. Measure it again and confirm.",
+            );
+          }
+        }
+        const sentMeasurements = [
+          ...pendingRoomMeasurementsRef.current.values(),
+        ].filter((m) => floorRoomIds.has(m.fabricObjectId));
 
         const body = {
           floorNumber: fd.floor.floorNumber,
@@ -1077,6 +1332,10 @@ export function SketchEditorV2({
           confirmedFabricObjectIds: [
             ...confirmedFabricObjectIdsRef.current,
           ],
+          ...(sentMeasurements.length > 0
+            ? { roomMeasurements: sentMeasurements }
+            : {}),
+          ...(removalMark > 0 ? { userRemovedRooms: true as const } : {}),
         };
 
         const saveUrl = captureToken
@@ -1088,13 +1347,158 @@ export function SketchEditorV2({
             headers: {
               "Content-Type": "application/json",
               "x-client-updated-at": String(clientUpdatedAt),
+              ...(baseRevision ? { [FLOOR_REVISION_HEADER]: baseRevision } : {}),
             },
             body: JSON.stringify(body),
           });
           if (res.ok) {
+            if (
+              removalMark > 0 &&
+              userRemovedRoomsRef.current.get(fd.clientKey) === removalMark
+            ) {
+              userRemovedRoomsRef.current.delete(fd.clientKey);
+            }
             const savedSketch = (await res.json().catch(() => null)) as {
               id?: string;
+              revision?: string;
+              roomMeasurements?: Array<{
+                fabricObjectId?: unknown;
+                accepted?: unknown;
+              }>;
             } | null;
+            // RA-8233: settle the measurements this save carried. A refused
+            // one puts the room back to AI-suggested on screen, matching
+            // what the server stored and bills.
+            const answered = Array.isArray(savedSketch?.roomMeasurements)
+              ? (savedSketch.roomMeasurements as Array<{
+                  fabricObjectId?: unknown;
+                  accepted?: unknown;
+                  reason?: unknown;
+                }>)
+              : [];
+            for (const sent of sentMeasurements) {
+              const answer = answered.find(
+                (a) => a?.fabricObjectId === sent.fabricObjectId,
+              );
+              if (!answer) continue;
+              if (
+                pendingRoomMeasurementsRef.current.get(sent.fabricObjectId) ===
+                sent
+              ) {
+                pendingRoomMeasurementsRef.current.delete(sent.fabricObjectId);
+                pendingMeasurementShapeRef.current.delete(sent.fabricObjectId);
+              }
+              const fcMeasure = fd.canvasRef.current?.getFabricCanvas() as {
+                getObjects: () => unknown[];
+                renderAll: () => void;
+              } | null;
+              const liveObj = fcMeasure
+                ?.getObjects()
+                .find(
+                  (o) =>
+                    (
+                      (o as Record<string, unknown>).data as
+                        | Record<string, unknown>
+                        | undefined
+                    )?.id === sent.fabricObjectId,
+                ) as Record<string, unknown> | undefined;
+              const liveData = liveObj?.data as
+                | Record<string, unknown>
+                | undefined;
+              const captureAdapter = liveData?.captureAdapter;
+
+              if (answer.accepted === true) {
+                toast.success(
+                  captureAdapter === "homeowner"
+                    ? "Homeowner room measurement recorded."
+                    : "On-site measurement recorded.",
+                  { duration: 3500 },
+                );
+                continue;
+              }
+              confirmedFabricObjectIdsRef.current.delete(sent.fabricObjectId);
+              if (liveData) {
+                liveData.provenance = provenanceAfterRefusedMeasurement(
+                  liveData,
+                );
+                fcMeasure?.renderAll();
+              }
+              const rolledBack = liveData
+                ? provenanceAfterRefusedMeasurement(liveData)
+                : "ai_suggested";
+              setSelectedObj((prev) =>
+                prev && prev.id === sent.fabricObjectId
+                  ? {
+                      ...prev,
+                      provenance:
+                        rolledBack === "underlay_reference" ||
+                        rolledBack === "ai_suggested"
+                          ? rolledBack
+                          : prev.provenance,
+                    }
+                  : prev,
+              );
+              toast.error(
+                roomMeasurementRejectionToast(answer.reason, captureAdapter),
+              );
+            }
+            // RA-8233: show every room as the server stored it, including a
+            // room whose measurement an edit invalidated on this save. A room
+            // confirmed while this save was in flight waits for its own save.
+            const fcSynced = fd.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+            } | null;
+            if (fcSynced) {
+              const inFlightConfirms = new Set(
+                [...pendingRoomMeasurementsRef.current.keys()].filter(
+                  (pid) => !sentMeasurements.some((s) => s.fabricObjectId === pid),
+                ),
+              );
+              const synced = applyServerRoomProvenance(
+                fcSynced.getObjects(),
+                (savedSketch as { roomProvenance?: unknown } | null)
+                  ?.roomProvenance,
+                inFlightConfirms,
+              );
+              if (synced.length > 0) {
+                fcSynced.renderAll();
+                const syncedObjects = fcSynced.getObjects();
+                setSelectedObj((prev) => {
+                  if (!prev || !synced.includes(prev.id)) return prev;
+                  const live = syncedObjects.find(
+                    (o) =>
+                      (o as { data?: { id?: unknown } }).data?.id === prev.id,
+                  ) as { data?: { provenance?: unknown } } | undefined;
+                  const provenance = live?.data?.provenance;
+                  return provenance === "ai_suggested" ||
+                    provenance === "operator_measured" ||
+                    provenance === "underlay_reference"
+                    ? {
+                        ...prev,
+                        provenance: provenance as SelectedObject["provenance"],
+                      }
+                    : prev;
+                });
+                for (const sid of synced) {
+                  confirmedFabricObjectIdsRef.current.delete(sid);
+                }
+              }
+            }
+            // RA-8056: the next save of this floor is based on this one.
+            const savedRevision = readFloorRevision(savedSketch);
+            if (!captureToken && savedRevision) {
+              floorRevisionRef.current.set(fd.clientKey, savedRevision);
+            }
+            // This save carried the newest canvas for the floor, so the
+            // session's own older queued saves for it are superseded.
+            if (inspectionId && !captureMode) {
+              void discardSupersededSketchSaves(
+                inspectionId,
+                fd.floor.floorNumber,
+                editorSessionId,
+              ).catch(() => undefined);
+            }
             if (savedSketch?.id && fd.floor.id.startsWith(uid)) {
               // A locally-created floor cannot accept evidence pins until the
               // server assigns its ClaimSketch id. Keep both the mutable ref
@@ -1124,6 +1528,35 @@ export function SketchEditorV2({
               stale?: boolean;
             } | null;
             if (payload?.stale === true) return;
+            // RA-8056: the floor changed elsewhere after this editor loaded
+            // it. Nothing was written. Pause saving this floor, tell the user,
+            // and keep the refused edit on the device: queued with its
+            // original revision, the replay is refused the same way and lands
+            // in the failed list (retry, export, discard), so a reload never
+            // throws it away.
+            if (isFloorRevisionConflict(payload) && inspectionId) {
+              revisionConflictRef.current.add(fd.clientKey);
+              setRevisionConflictLabels((prev) =>
+                prev.includes(fd.floor.floorLabel)
+                  ? prev
+                  : [...prev, fd.floor.floorLabel],
+              );
+              try {
+                await enqueueSketchSave(inspectionId, {
+                  ...body,
+                  clientUpdatedAt,
+                  baseRevision,
+                  editorSessionId,
+                  refusedAsConflict: true,
+                });
+                queuedThisTick++;
+              } catch {
+                // IDB unavailable: the edit stays on the open canvas only,
+                // and the conflict notice says to keep this tab open.
+                setRevisionConflictKept(false);
+              }
+              return;
+            }
           }
           throw new Error(`save ${res.status}`);
         } catch {
@@ -1139,6 +1572,8 @@ export function SketchEditorV2({
             await enqueueSketchSave(inspectionId, {
               ...body,
               clientUpdatedAt,
+              baseRevision,
+              editorSessionId,
             });
             queuedThisTick++;
           } catch {
@@ -1195,6 +1630,53 @@ export function SketchEditorV2({
       onSketchPersisted,
     ],
   );
+
+  // RA-8056: saves run one after another. Each sends the revision the one
+  // before it returned; two in flight together (a debounced save and a flush
+  // for a floor switch or PDF export) would send the same revision, and the
+  // second would be refused as a conflict with this editor's own save.
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+  const performSave = useCallback(
+    (renderImage = false) => {
+      const run = saveChainRef.current.then(() => performSaveNow(renderImage));
+      saveChainRef.current = run.catch(() => undefined);
+      return run;
+    },
+    [performSaveNow],
+  );
+
+  // RA-8056: a save this editor queued offline and the queue replayed moved
+  // the floor to a new revision. Adopt it, but only when this editor is still
+  // on the revision that save was based on; anything else is another editor's
+  // change and must stay a conflict.
+  useEffect(() => {
+    if (!inspectionId || captureMode) return;
+    const onReplayed = (event: Event) => {
+      const detail = (event as CustomEvent<SketchSaveReplayedDetail>).detail;
+      if (
+        !detail ||
+        detail.inspectionId !== inspectionId ||
+        detail.editorSessionId !== editorSessionIdRef.current ||
+        !detail.revision
+      ) {
+        return;
+      }
+      const floor = floorsDataRef.current.find(
+        (fd) => fd.floor.floorNumber === detail.floorNumber,
+      );
+      if (!floor) return;
+      const revisions = floorRevisionRef.current;
+      const current = revisions.has(floor.clientKey)
+        ? (revisions.get(floor.clientKey) ?? null)
+        : NEW_FLOOR_REVISION;
+      if (current === (detail.baseRevision ?? null)) {
+        revisions.set(floor.clientKey, detail.revision);
+      }
+    };
+    window.addEventListener(SKETCH_SAVE_REPLAYED_EVENT, onReplayed);
+    return () =>
+      window.removeEventListener(SKETCH_SAVE_REPLAYED_EVENT, onReplayed);
+  }, [inspectionId, captureMode]);
 
   // PR4b freshness: debounced saves persist sketchData but NOT a fresh render
   // (performSave(false)), so after an edit the stored renderedPngUrl is stale
@@ -1571,7 +2053,12 @@ export function SketchEditorV2({
 
   // ── Background ──────────────────────────────────────────
   const handleApplyBackground = useCallback(
-    (url: string, opacity: number) => {
+    (
+      url: string,
+      opacity: number,
+      reference?: UnderlayReferenceBinding,
+    ) => {
+      setUnderlayReference(reference ?? null);
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
@@ -1612,6 +2099,7 @@ export function SketchEditorV2({
   );
 
   const handleClearBackground = useCallback(() => {
+    setUnderlayReference(null);
     setFloorsData((prev) =>
       prev.map((fd, i) =>
         i === activeIdx ? { ...fd, backgroundUrl: null } : fd,
@@ -1891,9 +2379,30 @@ export function SketchEditorV2({
     setPendingExistingPin(null);
   };
 
+  // RA-8088: move and delete change the screen first. When the server refuses
+  // or cannot be reached, put the pin back and say so; otherwise the technician
+  // believes a pin is gone (or moved) that is still on the report.
+  //
+  // Requests for one pin run one at a time, so the server always ends on the
+  // last request and the screen can be put back to a known state: `saved`, the
+  // last position the server accepted. While a request runs, newer moves
+  // replace `queued` (only the newest is sent next), and a delete waits for
+  // the running request, so a late response can never undo a newer edit.
+  const pinSyncRef = useRef(
+    new Map<
+      string,
+      {
+        saved: Pick<EvidencePinView, "x" | "y" | "nx" | "ny">;
+        queued?: { x: number; y: number; nx: number; ny: number; w: number; h: number };
+        done: Promise<void>;
+      }
+    >(),
+  );
+
   const handleEvidenceMove = useCallback(
-    (id: string, x: number, y: number, nx: number, ny: number) => {
+    async (id: string, x: number, y: number, nx: number, ny: number) => {
       const sketchId = floorsData[activeIdx]?.floor.id;
+      const previous = floorsData[activeIdx]?.evidencePins.find((p) => p.id === id);
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
@@ -1907,60 +2416,126 @@ export function SketchEditorV2({
         ),
       );
       if (!inspectionId || !sketchId || sketchId.startsWith(uid)) return;
-      void fetch(
-        `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            x,
-            y,
-            nx,
-            ny,
-            canvasWidth: width,
-            canvasHeight: height,
-          }),
-        },
-      )
-        .then(async (res) => {
-          if (!res.ok) return;
-          const json = (await res.json()) as {
-            pin?: {
-              sketchRoomId?: string | null;
-              roomName?: string | null;
-              captureAdapter?: string | null;
-            };
-          };
-          const updated = json.pin;
-          if (!updated) return;
+      const syncs = pinSyncRef.current;
+      const next = { x, y, nx, ny, w: width, h: height };
+      const running = syncs.get(id);
+      if (running) {
+        running.queued = next;
+        return;
+      }
+      const state: NonNullable<ReturnType<typeof syncs.get>> = {
+        saved: previous
+          ? { x: previous.x, y: previous.y, nx: previous.nx, ny: previous.ny }
+          : { x, y, nx, ny },
+        queued: next,
+        done: Promise.resolve(),
+      };
+      syncs.set(id, state);
+
+      const sendOne = async (c: NonNullable<typeof state.queued>) => {
+        const fail = (message: string) => {
+          // Only undo this request: if the pin shows other coordinates, a newer
+          // move owns the screen.
           setFloorsData((prev) =>
-            prev.map((fd, i) =>
-              i === activeIdx
+            prev.map((fd) =>
+              fd.floor.id === sketchId
                 ? {
                     ...fd,
                     evidencePins: fd.evidencePins.map((p) =>
-                      p.id === id
-                        ? {
-                            ...p,
-                            sketchRoomId: updated.sketchRoomId ?? null,
-                            roomName: updated.roomName ?? null,
-                            captureAdapter: updated.captureAdapter ?? null,
-                          }
+                      p.id === id && p.x === c.x && p.y === c.y && p.nx === c.nx && p.ny === c.ny
+                        ? { ...p, ...state.saved }
                         : p,
                     ),
                   }
                 : fd,
             ),
           );
-        })
-        .catch(() => {});
+          toast.error(message);
+        };
+        let res: Response;
+        try {
+          res = await fetch(
+            `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                x: c.x,
+                y: c.y,
+                nx: c.nx,
+                ny: c.ny,
+                canvasWidth: c.w,
+                canvasHeight: c.h,
+              }),
+            },
+          );
+        } catch {
+          fail("Photo pin not moved: no connection. It is back in its saved place.");
+          return;
+        }
+        if (!res.ok) {
+          fail(`Photo pin not moved (${res.status}). It is back in its saved place.`);
+          return;
+        }
+        state.saved = { x: c.x, y: c.y, nx: c.nx, ny: c.ny };
+        let updated:
+          | {
+              sketchRoomId?: string | null;
+              roomName?: string | null;
+              captureAdapter?: string | null;
+            }
+          | undefined;
+        try {
+          updated = ((await res.json()) as { pin?: typeof updated }).pin;
+        } catch {
+          // The move saved; only the room label refresh is lost.
+          return;
+        }
+        if (!updated) return;
+        const room = updated;
+        setFloorsData((prev) =>
+          prev.map((fd) =>
+            fd.floor.id === sketchId
+              ? {
+                  ...fd,
+                  evidencePins: fd.evidencePins.map((p) =>
+                    p.id === id
+                      ? {
+                          ...p,
+                          sketchRoomId: room.sketchRoomId ?? null,
+                          roomName: room.roomName ?? null,
+                          captureAdapter: room.captureAdapter ?? null,
+                        }
+                      : p,
+                  ),
+                }
+              : fd,
+          ),
+        );
+      };
+
+      state.done = (async () => {
+        try {
+          while (state.queued) {
+            const c = state.queued;
+            state.queued = undefined;
+            await sendOne(c);
+          }
+        } finally {
+          if (syncs.get(id) === state) syncs.delete(id);
+        }
+      })();
+      await state.done;
     },
     [activeIdx, floorsData, height, inspectionId, uid, width],
   );
 
   const handleEvidenceRemove = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const sketchId = floorsData[activeIdx]?.floor.id;
+      const pinsBefore = floorsData[activeIdx]?.evidencePins ?? [];
+      const removedIndex = pinsBefore.findIndex((p) => p.id === id);
+      const removed = removedIndex >= 0 ? pinsBefore[removedIndex] : undefined;
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
@@ -1972,10 +2547,46 @@ export function SketchEditorV2({
         ),
       );
       if (!inspectionId || !sketchId || sketchId.startsWith(uid)) return;
-      void fetch(
-        `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
-        { method: "DELETE" },
-      );
+      // A move still on its way is dropped or finished first, so the server
+      // sees the requests in order and we know where it holds the pin.
+      const running = pinSyncRef.current.get(id);
+      if (running) {
+        running.queued = undefined;
+        await running.done;
+      }
+      const restore = (message: string) => {
+        if (removed) {
+          const back = running ? { ...removed, ...running.saved } : removed;
+          setFloorsData((prev) =>
+            prev.map((fd) =>
+              fd.floor.id === sketchId && !fd.evidencePins.some((p) => p.id === id)
+                ? {
+                    ...fd,
+                    evidencePins: [
+                      ...fd.evidencePins.slice(0, removedIndex),
+                      back,
+                      ...fd.evidencePins.slice(removedIndex),
+                    ],
+                  }
+                : fd,
+            ),
+          );
+        }
+        toast.error(message);
+      };
+      let res: Response;
+      try {
+        res = await fetch(
+          `/api/inspections/${inspectionId}/sketches/${sketchId}/evidence-pins/${id}`,
+          { method: "DELETE" },
+        );
+      } catch {
+        restore("Photo pin not deleted: no connection. It is still on the report.");
+        return;
+      }
+      if (!res.ok) {
+        restore(`Photo pin not deleted (${res.status}). It is still on the report.`);
+      }
     },
     [activeIdx, floorsData, inspectionId, uid],
   );
@@ -1985,7 +2596,17 @@ export function SketchEditorV2({
     (config: ScaleConfig) => {
       setFloorsData((prev) =>
         prev.map((fd, i) =>
-          i === activeIdx ? { ...fd, scaleConfig: config } : fd,
+          i === activeIdx
+            ? {
+                ...fd,
+                // RA-8237: keep the replaced calibration as source history.
+                scaleConfig: withCalibrationHistory(
+                  fd.scaleConfig,
+                  config,
+                  new Date().toISOString(),
+                ),
+              }
+            : fd,
         ),
       );
       scheduleSave();
@@ -2081,114 +2702,240 @@ export function SketchEditorV2({
   }, [activeFloor]);
 
   // ── RA-1607: Import hand-drawn sketch via Claude Vision ─
-  const handleImportSketch = useCallback(
-    async (file: File) => {
+  const runRoomImport = useCallback(
+    async ({
+      send,
+      failureMessage,
+      emptyReferenceMessage,
+    }: {
+      send: () => Promise<Response>;
+      failureMessage: (
+        status: number,
+        body: unknown,
+        retryAfter: string | null,
+      ) => string;
+      /** RA-8236: set for a reference read, whose caller shows the error. */
+      emptyReferenceMessage?: string;
+    }) => {
       if (!inspectionId) return;
+      const loadingToast = toast.loading("Reading sketch image…");
+      try {
+        const res = await send();
+        const body = (await res.json().catch(() => ({}))) as {
+          rooms?: {
+            id?: string;
+            label: string;
+            vertices: { x: number; y: number }[];
+          }[];
+          reader?: { vendor: "anthropic" | "abliteration"; model: string };
+          primaryFailure?: { reason: string; detail?: string };
+        };
+        if (!res.ok) {
+          const msg = failureMessage(
+            res.status,
+            body,
+            res.headers.get("Retry-After"),
+          );
+          throw new Error(msg);
+        }
+        const { reader, primaryFailure } = body;
+        if (!body.rooms?.length) {
+          if (emptyReferenceMessage) throw new Error(emptyReferenceMessage);
+          const emptyMsg =
+            "No rooms found in that image. Try a clearer photo with room outlines visible.";
+          toast.error(emptyMsg);
+          throw new Error(emptyMsg);
+        }
+
+        const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+          add: (...objs: unknown[]) => void;
+          renderAll: () => void;
+          getObjects: () => { data?: { id?: string } }[];
+        } | null;
+        if (!fc) {
+          toast.error("Canvas not ready — try import again in a moment.");
+          throw new Error("Canvas not ready");
+        }
+
+        // RA-8236: a replayed read returns the same ids; never place one twice.
+        const rooms = omitRoomsAlreadyOnCanvas(
+          body.rooms,
+          new Set(
+            fc
+              .getObjects()
+              .map((o) => o.data?.id)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+        if (rooms.length === 0) {
+          toast("These suggested rooms are already on the plan.");
+          return;
+        }
+
+        const vendor = reader?.vendor ?? "anthropic";
+        setImportSketchBanner({
+          roomCount: rooms.length,
+          vendor,
+          primaryFailureDetail: primaryFailure?.detail ?? primaryFailure?.reason,
+        });
+
+        if (reader?.vendor === "abliteration") {
+          toast(
+            primaryFailure
+              ? "Primary reader was busy — rooms came from the backup reader. Measure and confirm each on site before billing."
+              : "Rooms imported via the backup reader — measure and confirm each on site before billing.",
+            { duration: 6000 },
+          );
+        } else {
+          toast.success(
+            `Imported ${rooms.length} room${rooms.length === 1 ? "" : "s"} — measure and confirm each before billing.`,
+            { duration: 5000 },
+          );
+        }
+
+        const fabric = await import("fabric");
+        const FabricPolygon = (
+          fabric as unknown as {
+            Polygon: new (
+              pts: { x: number; y: number }[],
+              opts: object,
+            ) => unknown;
+          }
+        ).Polygon;
+        const FabricText = (
+          fabric as unknown as {
+            IText: new (text: string, opts: object) => unknown;
+          }
+        ).IText;
+
+        rooms.forEach((room, i) => {
+          const color = ROOM_COLORS[i % ROOM_COLORS.length];
+          const pts = room.vertices.map((v) => ({
+            x: v.x * width,
+            y: v.y * height,
+          }));
+          // RA-8237: size at this floor's calibrated scale, not 100 px/m.
+          const areaM2 =
+            canonicalRoomAreaFields(
+              { type: "polygon", points: pts, data: {} },
+              activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE,
+            )?.areaM2 ?? 0;
+
+          const polygon = new FabricPolygon(pts, {
+            fill: color.fill,
+            stroke: color.stroke,
+            strokeWidth: 2,
+            selectable: true,
+            evented: true,
+            data: {
+              id: room.id ?? `imported-${Date.now()}-${i}`,
+              label: room.label,
+              type: "room",
+              // RA-7611: Vision-imported geometry is an AI suggestion until a
+              // technician confirms it. Distinct from underlay_reference (plans /
+              // pending LiDAR) so Confirm can keep correction history on SketchRoom.
+              provenance: "ai_suggested",
+              captureAdapter: "cloud_ai",
+              areaM2,
+              areaSource: GEOMETRY_AREA_SOURCE,
+              originalAreaM2: areaM2,
+              originalPoints: pts,
+              originalLabel: room.label,
+              correctionHistory: [],
+            },
+          });
+
+          const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+          const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+          const label = new FabricText(room.label, {
+            left: cx,
+            top: cy,
+            originX: "center",
+            originY: "center",
+            fontSize: 13,
+            fill: color.stroke,
+            selectable: true,
+            evented: true,
+            data: { id: `imported-label-${Date.now()}-${i}`, type: "text" },
+          });
+
+          fc.add(polygon, label);
+        });
+
+        fc.renderAll();
+        // Flush immediately so the ai_suggested SketchRoom row exists before
+        // Confirm. A debounced save here coalesces with Confirm within 1.5 s
+        // into one POST that already carries operator_measured.
+        await flushSaveNow();
+
+        const firstRoomId = rooms[0]?.id;
+        if (firstRoomId && fc) {
+          const canvasApi = fc as unknown as {
+            getObjects: () => unknown[];
+            setActiveObject: (o: unknown) => void;
+            renderAll: () => void;
+          };
+          const firstPoly = canvasApi
+            .getObjects()
+            .find(
+              (o) =>
+                (o as { data?: { id?: string; type?: string } }).data?.id ===
+                  firstRoomId &&
+                (o as { data?: { type?: string } }).data?.type === "room",
+            );
+          if (firstPoly) {
+            canvasApi.setActiveObject(firstPoly);
+            canvasApi.renderAll();
+            const sel = fabricObjectToSelected(
+              firstPoly as Parameters<typeof fabricObjectToSelected>[0],
+              activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE,
+            );
+            if (sel) setSelectedObj(sel);
+          }
+        }
+      } finally {
+        toast.dismiss(loadingToast);
+      }
+    },
+    [inspectionId, activeFloor, width, height, flushSaveNow],
+  );
+
+  const handleImportSketch = useCallback(
+    (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
       formData.append(
         "floorNumber",
         String(activeFloor?.floor.floorNumber ?? 0),
       );
-      const res = await fetch(
-        `/api/inspections/${inspectionId}/sketches/import-from-image`,
-        { method: "POST", body: formData },
-      );
-      if (!res.ok) {
-        const { error } = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(error ?? `Import failed (${res.status})`);
-      }
-      const { rooms } = (await res.json()) as {
-        rooms: {
-          id?: string;
-          label: string;
-          vertices: { x: number; y: number }[];
-        }[];
-      };
-      if (!rooms?.length) return;
-
-      const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
-        add: (...objs: unknown[]) => void;
-        renderAll: () => void;
-      } | null;
-      if (!fc) return;
-
-      const fabric = await import("fabric");
-      const FabricPolygon = (
-        fabric as unknown as {
-          Polygon: new (
-            pts: { x: number; y: number }[],
-            opts: object,
-          ) => unknown;
-        }
-      ).Polygon;
-      const FabricText = (
-        fabric as unknown as {
-          IText: new (text: string, opts: object) => unknown;
-        }
-      ).IText;
-
-      rooms.forEach((room, i) => {
-        const color = ROOM_COLORS[i % ROOM_COLORS.length];
-        const pts = room.vertices.map((v) => ({
-          x: v.x * width,
-          y: v.y * height,
-        }));
-        const areaM2 =
-          Math.round(
-            (shoelaceArea(pts) / (PX_PER_METRE * PX_PER_METRE)) * 100,
-          ) / 100;
-
-        const polygon = new FabricPolygon(pts, {
-          fill: color.fill,
-          stroke: color.stroke,
-          strokeWidth: 2,
-          selectable: true,
-          evented: true,
-          data: {
-            id: room.id ?? `imported-${Date.now()}-${i}`,
-            label: room.label,
-            type: "room",
-            // RA-7611: Vision-imported geometry is an AI suggestion until a
-            // technician confirms it. Distinct from underlay_reference (plans /
-            // pending LiDAR) so Confirm can keep correction history on SketchRoom.
-            provenance: "ai_suggested",
-            captureAdapter: "cloud_ai",
-            areaM2,
-            originalAreaM2: areaM2,
-            originalPoints: pts,
-            originalLabel: room.label,
-            correctionHistory: [],
-          },
-        });
-
-        const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
-        const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
-        const label = new FabricText(room.label, {
-          left: cx,
-          top: cy,
-          originX: "center",
-          originY: "center",
-          fontSize: 13,
-          fill: color.stroke,
-          selectable: true,
-          evented: true,
-          data: { id: `imported-label-${Date.now()}-${i}`, type: "text" },
-        });
-
-        fc.add(polygon, label);
+      return runRoomImport({
+        send: () =>
+          fetch(`/api/inspections/${inspectionId}/sketches/import-from-image`, {
+            method: "POST",
+            body: formData,
+          }),
+        failureMessage: importSketchUserMessage,
       });
-
-      fc.renderAll();
-      // Flush immediately so the ai_suggested SketchRoom row exists before
-      // Confirm. A debounced save here coalesces with Confirm within 1.5 s
-      // into one POST that already carries operator_measured.
-      await flushSaveNow();
     },
-    [inspectionId, activeFloor, width, height, flushSaveNow],
+    [inspectionId, activeFloor, runRoomImport],
   );
+
+  // RA-8236: read the stored reference. A failure leaves the plan in place.
+  const handleSuggestReferenceRooms = useCallback(async () => {
+    if (!inspectionId || !underlayReference) return;
+    try {
+      await runRoomImport({
+        send: () => requestReferenceRooms(inspectionId, underlayReference),
+        failureMessage: referenceImportFailureMessage,
+        emptyReferenceMessage:
+          "No rooms found on page 1 of that plan. The plan is still on the canvas, so you can trace the rooms by hand.",
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't read that plan.",
+      );
+    }
+  }, [inspectionId, underlayReference, runRoomImport]);
 
   // ── RA-7091: apply CapturedRoom JSON onto a floor canvas ─
   const applyCapturedRoomToFloor = useCallback(
@@ -2494,6 +3241,38 @@ export function SketchEditorV2({
         className,
       )}
     >
+      {/* RA-8056 — a save refused because the floor changed elsewhere. */}
+      {revisionConflictLabels.length > 0 && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 border-b border-amber-400/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-100 flex-shrink-0"
+        >
+          <AlertTriangle size={14} className="shrink-0 text-amber-400" />
+          <p className="min-w-0 flex-1">
+            {revisionConflictLabels.join(", ")}{" "}
+            {revisionConflictLabels.length === 1 ? "was" : "were"} changed on
+            another device or tab after you opened it here. Nothing on the
+            saved floor plan was removed. Saving is paused for{" "}
+            {revisionConflictLabels.length === 1 ? "that floor" : "those floors"}
+            .{" "}
+            {revisionConflictKept
+              ? "Your latest version is kept on this device under Sync failed, where you can export it. Reload to see the saved floor plan."
+              : "Your latest version could not be stored on this device and is only on this screen. Keep this tab open until you have redone or recorded it; reloading will replace it with the saved floor plan."}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              void flushSaveNow().finally(() =>
+                setSketchLoadAttempt((attempt) => attempt + 1),
+              );
+            }}
+            className="rounded border border-amber-300/40 px-3 py-1 text-amber-50 hover:bg-amber-500/20"
+          >
+            Reload floor plan
+          </button>
+        </div>
+      )}
+
       {/* ── Top bar ────────────────────────────────────────── */}
       <div
         className={cn(
@@ -2857,6 +3636,9 @@ export function SketchEditorV2({
                 backgroundImageOffsetY={fd.backgroundOffsetY}
                 backgroundImageLockAspect={fd.backgroundLockAspect}
                 initialData={fd.pendingSketchData ?? null}
+                // RA-7656: the canvas reports every room a user action takes
+                // off it (delete, clear, undo, redo); loads never report.
+                onRoomsRemoved={() => markUserRemovedRooms(fd.clientKey)}
                 readonly={readonly}
                 onReady={(canvas) => handleCanvasReady(fd.floor.id, canvas)}
                 onModified={() => {
@@ -2903,7 +3685,7 @@ export function SketchEditorV2({
                     areaM2,
                   });
                   if (!audited) return;
-                  obj.data = audited;
+                  obj.data = { ...audited, areaSource: GEOMETRY_AREA_SOURCE };
                   const hist = obj.data.correctionHistory as
                     | unknown[]
                     | undefined;
@@ -3022,8 +3804,8 @@ export function SketchEditorV2({
               writeEditorMode("advanced");
               setToolMode("room");
             }}
-            onApplyUnderlay={(url, opacity) => {
-              handleApplyBackground(url, opacity);
+            onApplyUnderlay={(url, opacity, reference) => {
+              handleApplyBackground(url, opacity, reference);
               setStartOverlayDismissed(true);
               setCreateCoachDismissed(true);
               editorModeUserSetRef.current = true;
@@ -3209,7 +3991,7 @@ export function SketchEditorV2({
             );
             scheduleSave();
           }}
-          onConfirmProvenance={(id) => {
+          onConfirmProvenance={(id, measurement) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
               getObjects: () => unknown[];
               renderAll: () => void;
@@ -3247,18 +4029,36 @@ export function SketchEditorV2({
               scheduleSave();
               return;
             }
-            if (data.provenance === "ai_suggested") {
-              const lengthM =
-                typeof data.lengthM === "number" ? data.lengthM : undefined;
-              const widthM =
-                typeof data.widthM === "number" ? data.widthM : undefined;
-              const areaM2 =
-                typeof data.areaM2 === "number" ? data.areaM2 : undefined;
+            const homeownerUnderlay =
+              data.provenance === "underlay_reference" &&
+              data.captureAdapter === "homeowner";
+            if (data.provenance === "ai_suggested" || homeownerUnderlay) {
+              // RA-8233: AI / homeowner sizes are not a measurement. The panel
+              // only offers Confirm once the technician has entered one; the
+              // server records it and decides billing.
+              if (!measurement) return;
               obj.data = confirmAiSuggestedMeasurement(data, {
-                areaM2,
-                lengthM,
-                widthM,
+                note: homeownerUnderlay
+                  ? "Technician measured the homeowner-drawn room on site and confirmed"
+                  : "Technician measured the room on site and confirmed",
               });
+              // RA-8237: the area sent for billing is the drawing at this
+              // floor's scale, never a cached figure from import.
+              obj.data = {
+                ...(obj.data as Record<string, unknown>),
+                ...confirmRoomAreaFields(
+                  obj,
+                  activeFloor?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_METRE,
+                ),
+              };
+              pendingRoomMeasurementsRef.current.set(id, {
+                fabricObjectId: id,
+                ...measurement,
+              });
+              pendingMeasurementShapeRef.current.set(
+                id,
+                roomShapeSnapshot(obj, activeFloor?.scaleConfig?.pxPerMetre),
+              );
               confirmedFabricObjectIdsRef.current.add(id);
               fc.renderAll();
               const hist = (obj.data as { correctionHistory?: unknown[] })
@@ -3370,6 +4170,7 @@ export function SketchEditorV2({
                   )?.id === id,
               );
             if (obj) {
+              // RA-7656: removing a room reaches the canvas's onRoomsRemoved.
               fc.remove(obj);
               fc.renderAll();
             }
@@ -3589,6 +4390,8 @@ export function SketchEditorV2({
                 lengthM,
                 widthM,
                 areaM2: Math.round(areaM2 * 100) / 100,
+                areaSource: DIMENSIONS_AREA_SOURCE,
+                dimensionsPxPerMetre: pxPerM,
               };
               const roomLabel = fc.getObjects().find((o) => {
                 const d = (o as { data?: { type?: string; roomFor?: string } })
@@ -3702,6 +4505,12 @@ export function SketchEditorV2({
         />
       </div>
 
+      {importSketchBanner && !guided && (
+        <div className="px-3 pb-2">
+          <ImportSketchStatusBanner {...importSketchBanner} />
+        </div>
+      )}
+
       {/* In-flow dock — full-width horizontal toolbar under the canvas row */}
       <SketchDockToolbar
         toolMode={toolMode}
@@ -3760,6 +4569,16 @@ export function SketchEditorV2({
         onZoomOut={() => applyZoom(0.8)}
         onZoomReset={handleZoomReset}
         onClear={() => {
+          if (activeFloor) {
+            // RA-7656: the cleared canvas is the floor now. Drop the last
+            // snapshot, or the next save posts the old rooms back. Clearing
+            // removes every room the route holds for this floor, including
+            // legacy room polygons the canvas never loaded as rooms (so no
+            // removal event fires for them), hence the explicit mark through
+            // the same helper the canvas report uses.
+            activeFloor.sketchSnapshot = null;
+            markUserRemovedRooms(activeFloor.clientKey);
+          }
           activeFloor?.canvasRef.current?.clear();
           scheduleSave();
         }}
@@ -3805,7 +4624,7 @@ export function SketchEditorV2({
       {!readonly && !guided && (
         <div
           ref={underlayPanelRef}
-          className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-white/10 bg-brand-deep"
+          className="relative z-10 flex-shrink-0 px-4 pb-4 pt-2 border-t border-white/10 bg-brand-deep"
         >
           <FloorPlanUnderlayLoader
             defaultAddress={propertyAddress}
@@ -3814,6 +4633,13 @@ export function SketchEditorV2({
             floorNumber={activeFloor?.floor.floorNumber ?? 0}
             onApply={handleApplyBackground}
             onClear={handleClearBackground}
+            onSuggestRooms={
+              underlayReference &&
+              !readonly &&
+              underlayReference.floorNumber === activeFloor?.floor.floorNumber
+                ? handleSuggestReferenceRooms
+                : undefined
+            }
             hasBackground={!!activeFloor?.backgroundUrl}
             autoFetch={autoFetchFloorPlan && !!propertyAddress}
             openUploadRef={underlayOpenUploadRef}

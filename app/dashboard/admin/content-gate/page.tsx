@@ -2,7 +2,7 @@
  * NIR Content Gate Status — Admin
  *
  * Route: /dashboard/admin/content-gate
- * Auth:  ADMIN role required (server-side redirect)
+ * Auth:  platform support operators only (requirePlatformSupportPage)
  *
  * Server component — renders gate statuses directly from lib/nir-content-gate.ts
  * with no client-side fetch. This is intentional: gate status changes are code
@@ -15,6 +15,7 @@
 import { NirContentGateDashboard } from "@/components/nir-content-gate-status";
 import { Lock, ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { requirePlatformSupportPage } from "@/lib/admin-auth";
 
 export const metadata = {
   title: "NIR Content Gate — Admin | RestoreAssist",
@@ -23,9 +24,12 @@ export const metadata = {
 };
 
 /**
- * Auth: segment layout (`app/dashboard/admin/layout.tsx`) runs requireAdminPage().
+ * Auth: gated here as well as in the segment layout. Layouts and pages render
+ * in parallel, so the layout check alone would not keep this server page out
+ * of the RSC payload for a business owner.
  */
-export default function ContentGatePage() {
+export default async function ContentGatePage() {
+  await requirePlatformSupportPage();
   return (
     <div className="max-w-9xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       {/* Header */}

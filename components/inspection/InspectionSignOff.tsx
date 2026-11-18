@@ -192,7 +192,7 @@ export default function InspectionSignOff({
             </span>{" "}
             is complete and accurate to the best of your knowledge.
           </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-500">
+          <p className="text-xs text-neutral-600 dark:text-neutral-500">
             The field evidence checklist below is optional guidance — it does
             not block this sign-off.
           </p>
@@ -258,7 +258,7 @@ export default function InspectionSignOff({
         )}
 
         <div className="flex items-center justify-between gap-3 pt-1">
-          <div className="flex items-center gap-1.5 text-xs text-neutral-400">
+          <div className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
             <Shield className="h-3.5 w-3.5" aria-hidden />
             Electronic Transactions Act 1999 (Cth)
           </div>

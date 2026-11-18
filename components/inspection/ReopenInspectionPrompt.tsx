@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const REOPENABLE_STATUSES = new Set(["CLOSED", "ARCHIVED"]);
 const MIN_REASON_LENGTH = 10;
@@ -61,10 +62,8 @@ export default function ReopenInspectionPrompt({
         body: JSON.stringify({ reason: reason.trim() }),
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        setError(body.error ?? "Couldn't reopen this inspection.");
+        const body: unknown = await res.json().catch(() => ({}));
+        setError(apiErrorMessage(body) ?? "Couldn't reopen this inspection.");
         return;
       }
       setDialogOpen(false);
@@ -136,7 +135,7 @@ export default function ReopenInspectionPrompt({
               aria-label="Reason for reopening"
               className="min-h-[120px]"
             />
-            <p className="text-xs text-neutral-500 dark:text-slate-400">
+            <p className="text-xs text-neutral-600 dark:text-slate-400">
               Minimum {MIN_REASON_LENGTH} characters.
             </p>
             {error ? (

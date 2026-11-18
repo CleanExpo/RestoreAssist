@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContractorsBackLink } from "../ContractorsBackLink";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -317,7 +318,7 @@ export default function ContractorCertificationsPage() {
         const data = await res.json();
         setMessage({
           type: "error",
-          text: data.error ?? "Failed to save certification",
+          text: apiErrorMessage(data) ?? "Failed to save certification",
         });
         return;
       }

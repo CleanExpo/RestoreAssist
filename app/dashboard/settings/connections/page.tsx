@@ -196,7 +196,8 @@ export default function ConnectionsSettingsPage() {
       const onedrive = catalog.find(
         (o: { id: string; enabled?: boolean }) => o.id === "onedrive",
       );
-      if (provider === "onedrive") {
+      // RA-8078: only claim OneDrive mirroring when the catalog offers it.
+      if (provider === "onedrive" && onedrive?.enabled) {
         setCloudState({
           state: "connected",
           detail: "Mirroring to OneDrive",
@@ -206,10 +207,10 @@ export default function ConnectionsSettingsPage() {
           state: "connected",
           detail: "Mirroring to Google Drive",
         });
-      } else if (onedrive && !onedrive.enabled) {
+      } else if (!onedrive?.enabled) {
         setCloudState({
           state: "missing",
-          detail: "OneDrive env not configured — Drive may still be available",
+          detail: "Choose Google Drive for evidence mirroring (OneDrive coming soon)",
         });
       } else {
         setCloudState({
@@ -265,7 +266,7 @@ export default function ConnectionsSettingsPage() {
       id: "cloud",
       title: "Cloud mirror",
       description:
-        "Mirror viewing-quality evidence to Google Drive or OneDrive after capture.",
+        "Mirror viewing-quality evidence to Google Drive after capture. OneDrive coming soon.",
       href: "/dashboard/settings/cloud-mirror",
       icon: ChromeCloud,
       state: cloudState.state,

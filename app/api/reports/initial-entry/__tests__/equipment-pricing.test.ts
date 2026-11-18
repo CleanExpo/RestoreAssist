@@ -224,6 +224,8 @@ describe("USER and MANAGER: no rate card in the browser, canonical prices on sav
       analysis: null,
       stateInfo: null,
       equipmentSelection: JSON.parse(data.equipmentSelection as string),
+      // RA-8281 B1: the builder prices from the current price list, never the cached rate.
+      pricingConfig: card(),
     });
     expect(built.costEstimates).toEqual([
       expect.objectContaining({ quantity: 2, rate: 110, subtotal: 220, total: 660 }),
@@ -258,6 +260,8 @@ describe("USER and MANAGER: no rate card in the browser, canonical prices on sav
       analysis: null,
       stateInfo: null,
       equipmentSelection: JSON.parse(data.equipmentSelection as string),
+      // RA-8281 B1: the builder prices from the current price list, never the cached rate.
+      pricingConfig: card(),
     });
     expect(built.costEstimates.map((c: { total: number }) => c.total)).toEqual([105, 80, 60]);
   });

@@ -4,6 +4,7 @@ import { InspectionStatus, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { getApiSession } from "@/lib/auth/get-api-session";
 import { prisma } from "@/lib/prisma";
+import { INACTIVE_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 import { sanitizeString } from "@/lib/sanitize";
 import { randomBytes } from "crypto";
 import {
@@ -23,6 +24,7 @@ import {
   enumEqualityOrIn,
   parseEnumList,
 } from "@/lib/validation/parse-enum-list";
+import { scheduleZohoInspectionPush } from "@/lib/integrations/zoho/queue";
 
 class ReportClientChangedError extends Error {}
 class IdempotencyReservationLostError extends Error {}
@@ -268,13 +270,13 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // Status filter — support "active" alias (not COMPLETED/REJECTED).
+    // Status filter — support "active" alias (not finished).
     // RA-7567: Field Mode sends several statuses in one query value
     // (`DRAFT,SUBMITTED,…`). Split and validate so Prisma never sees the
     // joined string as a single InspectionStatus (that was a 500).
     if (status) {
       if (status === "active") {
-        where.status = { notIn: ["COMPLETED", "REJECTED"] };
+        where.status = { notIn: [...INACTIVE_INSPECTION_STATUSES] };
       } else {
         const parsed = parseEnumList(status, Object.values(InspectionStatus));
         if (!parsed.ok) {
@@ -805,10 +807,12 @@ export async function POST(request: NextRequest) {
         const { ensureMakeSafeSeeded } = await import(
           "@/lib/compliance/seed-make-safe"
         );
-        await ensureMakeSafeSeeded(inspection.id);
+        await ensureMakeSafeSeeded(inspection.id, inspection.claimType ?? null);
       } catch (seedErr) {
         console.error("Error seeding make-safe rows (non-critical):", seedErr);
       }
+
+      scheduleZohoInspectionPush(inspection.id);
 
       return NextResponse.json({ inspection }, {
         status: 201,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withoutCachedEquipmentMoney } from "@/lib/reports/stored-equipment-pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -115,10 +116,9 @@ export async function GET(request: NextRequest) {
         ...user,
         // Remove password and sensitive data
       },
-      reports: reports.map((report) => ({
-        ...report,
-        // Sanitize any sensitive fields
-      })),
+      // RA-8281 B1 round 13: stored equipment lines without their cached rate,
+      // and no cached equipmentCostTotal (an export cannot reprice 1,000 rows).
+      reports: reports.map((report) => withoutCachedEquipmentMoney(report)),
       clients,
       inspections,
       estimates,

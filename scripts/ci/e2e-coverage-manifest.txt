@@ -43,6 +43,7 @@ billing/trial-expired-soft-gate.spec.ts  workflow:sketch-e2e.yml
 billing/multi-tab.spec.ts                workflow:sketch-e2e.yml
 billing/voluntary-upgrade.spec.ts        workflow:sketch-e2e.yml
 billing/webhook-race.spec.ts             workflow:sketch-e2e.yml
+one-setup-path/one-setup-path.spec.ts    unrun:local-only browser walk run by hand through config/playwright.one-setup.config.ts on a disposable database; no workflow provides one, and its @stripe test needs a Stripe test key
 browser/auth-recovery.spec.ts            unrun:local-only browser check run by hand through config/playwright.auth-local.config.ts; no workflow runs that config (and it starts no server of its own)
 browser/inspection-photo-upload.spec.ts  unrun:local-only browser check run by hand through config/playwright.photo-local.config.ts; no workflow runs that config
 browser/integrations-identity.spec.ts    unrun:local-only browser check run by hand through config/playwright.integrations-local.config.ts; no workflow runs that config
@@ -51,6 +52,7 @@ browser/room-identity.spec.ts            unrun:local-only browser check run by h
 crm-health.spec.ts                       workflow:sketch-e2e.yml
 dashboard-connected-journey.spec.ts      workflow:sketch-e2e.yml
 dr-nrpg-inbound-job.spec.ts              workflow:sketch-e2e.yml
+floorplan-upload-ai.spec.ts              workflow:sketch-e2e.yml
 first-tradie-flow.spec.ts                a1
 health-migrations.spec.ts                workflow:sketch-e2e.yml
 health.spec.ts                           workflow:sketch-e2e.yml
@@ -75,6 +77,7 @@ nir-routes-regression.spec.ts            workflow:sketch-e2e.yml
 nz-org-gst.spec.ts                       workflow:sketch-e2e.yml
 offline-moisture-sync.spec.ts            workflow:sketch-e2e.yml
 pilot-workflow.spec.ts                   smoke
+portal-recovery-help.spec.ts             unrun:RA-7551 public portal walk at 1280x720, merged without a runner; not tagged @smoke and no workflow names it. Candidate for smoke (public /portal/* only, read-only)
 portal-unknown-token.spec.ts             smoke
 procurement.spec.ts                      workflow:sketch-e2e.yml
 security.spec.ts                         workflow:sketch-e2e.yml

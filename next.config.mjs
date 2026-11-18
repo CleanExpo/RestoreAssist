@@ -299,6 +299,12 @@ const nextConfig = {
   experimental: {
     // optimizeCss: true, // Disabled - requires critters
 
+    // proxy.ts matches /api/*, and Next buffers at most 10 MB of a proxied
+    // request body — anything past that is silently cut off. Evidence uploads
+    // allow 20 MB photos and 100 MB video walkthroughs, so raise the cap just
+    // above the largest route limit (the routes still enforce their own).
+    proxyClientMaxBodySize: "105mb",
+
     optimizePackageImports: [
       // Note: packages in serverExternalPackages must NOT be listed here too
       "@hookform/resolvers",

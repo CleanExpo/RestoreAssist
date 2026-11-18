@@ -8,6 +8,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import { prisma } from "@/lib/prisma";
 import { validateSubmission } from "../submission-gate";
+import { countableEvidence } from "../countable-evidence";
 
 const p = prisma as unknown as {
   evidenceItem: { findMany: ReturnType<typeof vi.fn> };
@@ -24,7 +25,8 @@ describe("validateSubmission", () => {
 
     expect(p.evidenceItem.findMany).toHaveBeenCalledTimes(1);
     const arg = p.evidenceItem.findMany.mock.calls[0][0];
-    expect(arg.where).toEqual({ inspectionId: "insp-1" });
+    // RA-8388: only evidence that counts (a retired reading's record does not).
+    expect(arg.where).toEqual(countableEvidence({ inspectionId: "insp-1" }));
     expect(arg.take).toBe(500);
     expect(arg.orderBy).toEqual({ capturedAt: "desc" });
     expect(arg.select).toEqual({ evidenceClass: true, status: true });

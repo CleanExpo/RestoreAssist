@@ -28,6 +28,7 @@ import Link from "next/link";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
+import { PaidPlanFeatureNotice } from "@/components/billing/PaidPlanFeatureNotice";
 
 interface Subscription {
   id: string;
@@ -407,6 +408,10 @@ function SubscriptionPageContent() {
               </button>
             </div>
           }
+        />
+
+        <PaidPlanFeatureNotice
+          subscriptionStatus={userStatus?.subscriptionStatus}
         />
 
         {loadError && (

@@ -1,0 +1,10 @@
+{
+  "schema": "done/1",
+  "work_id": "w_9c6d6138925f",
+  "contract_digest": "2bf257600cb86cadc00d4928e55a64f54a54a667c2005ec176084517fe296a67",
+  "baseline_head": "511718680453e15a4f43537f1697920b31c78729",
+  "identity_key": "mesh/phills-mac-mini/ra-8429-516b7546@/Volumes/MacBook SSD EXT/agent-work/ra-rebase-2566-2559/repo-RestoreAssist/.git/worktrees/wt-2559",
+  "locked_at_utc": "2026-11-18T23:38:56Z",
+  "criteria_count": 4,
+  "recipe_pins": {}
+}

@@ -30,6 +30,7 @@ import { useSession } from "next-auth/react";
 import { isRecentlyIssuedCreationKey } from "@/lib/creation-attempt-key";
 import { prepareInspectionPhoto, uploadInspectionPhoto } from "@/lib/inspection-photo-upload";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { isSignedRow, signedRowRefusal } from "@/lib/evidence/signed-row-guard";
 import { cn } from "@/lib/utils";
 import {
   buildAffectedAreaPayload,
@@ -42,6 +43,13 @@ import {
   nextRoomName,
 } from "@/lib/forms/room-identity";
 import { buildMoistureReadingDraftPayload } from "@/lib/forms/moisture-reading-draft-payload";
+import {
+  draftSaveFailureMessage,
+  saveDraftParts,
+  sidecarPart,
+  type DraftSavePart,
+} from "@/lib/nir-draft-save";
+import { trackDraftSave } from "@/lib/offline/draft-save-status";
 import {
   calculateClassificationPreview as computeClassificationPreview,
   manualClassificationPayload,
@@ -383,6 +391,10 @@ export default function NIRTechnicianInputForm({
   // after the form opened is never erased.
   const savedReadingIds = useRef<Set<string>>(new Set());
   const savedEnvironmentalId = useRef<string | null>(null);
+  // RA-8388: the server's own words when the last draft save was REFUSED (a
+  // 4xx: for example it would change a signed reading, or this person may not
+  // save the whole draft); null otherwise.
+  const draftRefusalMessage = useRef<string | null>(null);
 
   // Moisture Mapping (Visual Floor Plan)
   const [moistureMapPoints, setMoistureMapPoints] = useState<
@@ -1061,6 +1073,17 @@ export default function NIRTechnicianInputForm({
   };
 
   const handleRemoveMoistureReading = (id: string) => {
+    // RA-8388: a reading taken in Guided Capture is signed and the draft save
+    // refuses to remove it. Say so here, in the one shared wording, instead
+    // of "removed" followed by a refusal on every later save.
+    const signed = moistureReadings.find((r) => r.id === id);
+    if (signed && isSignedRow(signed as { evidenceItemId?: string | null })) {
+      toast.error(
+        signedRowRefusal("delete", "moistureReading", { ...signed }),
+        { duration: 15000 },
+      );
+      return;
+    }
     setMoistureReadings(moistureReadings.filter((r) => r.id !== id));
     toast.success("Moisture reading removed");
   };
@@ -1619,6 +1642,7 @@ export default function NIRTechnicianInputForm({
   };
 
   const saveDraftSnapshot = async (currentInspectionId: string) => {
+    draftRefusalMessage.current = null;
     if (hasPartialEnvironmentalData) {
       throw new Error(partialEnvironmentalMessage);
     }
@@ -1682,6 +1706,12 @@ export default function NIRTechnicianInputForm({
 
     if (!response.ok) {
       const data = await response.json().catch(() => null);
+      // RA-8388: a 4xx is the server refusing and saying why. Kept so Save
+      // Draft can show those words; see its toast. A 5xx is a fault, where
+      // "try again" is the right advice, so it is not kept.
+      if (response.status >= 400 && response.status < 500) {
+        draftRefusalMessage.current = apiErrorMessage(data);
+      }
       throw new Error(
         apiErrorMessage(data) ?? "Failed to synchronise inspection draft",
       );
@@ -1767,7 +1797,7 @@ export default function NIRTechnicianInputForm({
           : "";
         throw new Error(
           [
-            error?.error || "Submission could not be completed",
+            apiErrorMessage(error) || "Submission could not be completed",
             missingLabels,
             blockers,
           ]
@@ -3237,7 +3267,7 @@ export default function NIRTechnicianInputForm({
 
               if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.error || "Failed to upload floor plan");
+                throw new Error(apiErrorMessage(error) || "Failed to upload floor plan");
               }
 
               const data = await response.json();
@@ -4393,24 +4423,29 @@ export default function NIRTechnicianInputForm({
         )}
         <button
           type="button"
-          onClick={async () => {
-            // Save draft (auto-create inspection and save data without requiring photos)
+          onClick={() => trackDraftSave(async () => {
+            // Save draft (auto-create inspection and save data without requiring photos).
+            // RA-8330: trackDraftSave owns the badge outcome; only `return true`
+            // counts as saved, every other exit reports a failed save.
+            // Which side panels the technician could see at the press.
+            const makeSafeWasOnScreen = makeSafeChecklistRef.current != null;
+            const claimPanelWasOnScreen = claimAssessmentRef.current != null;
             try {
               setSaving(true);
               if (!claimType) {
                 toast.error("Please select a claim type first");
                 setSaving(false);
-                return;
+                return false;
               }
               if (!propertyAddress.trim() || !propertyPostcode.trim()) {
                 toast.error("Please enter property address and postcode first");
                 setSaving(false);
-                return;
+                return false;
               }
               if (hasPartialEnvironmentalData) {
                 toast.error(partialEnvironmentalMessage);
                 setSaving(false);
-                return;
+                return false;
               }
 
               let currentInspectionId =
@@ -4419,37 +4454,76 @@ export default function NIRTechnicianInputForm({
               if (!currentInspectionId) {
                 toast.error("Failed to create inspection. Please try again.");
                 setSaving(false);
-                return;
+                return false;
               }
 
-              if (currentInspectionId) {
-                await persistInspectionSidecars();
-                await saveDraftSnapshot(currentInspectionId);
-
+              {
+                // RA-8330: a draft is unfinished work, so the submit-only
+                // make-safe readiness check must not block it. Each part
+                // saves on its own and every failure is named.
+                const parts: DraftSavePart[] = [
+                  {
+                    label: "inspection details",
+                    run: () => saveDraftSnapshot(currentInspectionId),
+                  },
+                  sidecarPart("make-safe checklist", {
+                    panel: () => makeSafeChecklistRef.current,
+                    hasPendingData: () => makeSafeSeed !== null,
+                    wasOnScreen: makeSafeWasOnScreen,
+                  }),
+                  sidecarPart("claim assessment", {
+                    panel: () => claimAssessmentRef.current,
+                    hasPendingData: () =>
+                      Boolean(claimAssessmentSeed || complianceAssessmentSeed),
+                    wasOnScreen: claimPanelWasOnScreen,
+                  }),
+                ];
                 if (floorPlanImageUrl) {
-                  const floorPlanResponse = await fetch(
-                    `/api/inspections/${currentInspectionId}/floor-plan`,
-                    {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ imageUrl: floorPlanImageUrl }),
+                  parts.push({
+                    label: "floor plan",
+                    run: async () => {
+                      const floorPlanResponse = await fetch(
+                        `/api/inspections/${currentInspectionId}/floor-plan`,
+                        {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ imageUrl: floorPlanImageUrl }),
+                        },
+                      );
+                      if (!floorPlanResponse.ok) {
+                        throw new Error("Failed to save floor plan");
+                      }
                     },
-                  );
-                  if (!floorPlanResponse.ok) {
-                    throw new Error("Failed to save floor plan");
+                  });
+                }
+
+                const result = await saveDraftParts(parts);
+                if (!result.ok) {
+                  // RA-8388: a refused draft save is shown in the server's
+                  // words (which reading, who may save, what to do). "Try
+                  // Save Draft again" cannot clear a refusal, so that line
+                  // is kept for the other parts only.
+                  const refusal = draftRefusalMessage.current;
+                  const others = refusal
+                    ? result.failures.filter((f) => f.message !== refusal)
+                    : result.failures;
+                  if (refusal) toast.error(refusal, { duration: 15000 });
+                  if (others.length > 0) {
+                    toast.error(draftSaveFailureMessage(others));
                   }
+                  return false;
                 }
 
                 toast.success("Draft saved.");
-              } else {
-                toast.error("Failed to save draft");
+                return true;
               }
             } catch (error: any) {
               toast.error(error.message || "Failed to save draft");
+              return false;
             } finally {
               setSaving(false);
             }
-          }}
+          })}
           disabled={
             saving || deletingPhotoId !== null || !propertyAddress.trim() || !propertyPostcode.trim()
           }

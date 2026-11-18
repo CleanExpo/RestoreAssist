@@ -9,8 +9,11 @@
  */
 import { createHash } from "node:crypto";
 import { polygonAbsolutePoints } from "./fabric-absolute";
-
-const DEFAULT_PX_PER_M = 100;
+import {
+  resolvePxPerMetre,
+  resolveRoomQuantities,
+  type RoomGeometryObject,
+} from "./room-area-from-geometry";
 
 type Point = { x: number; y: number } | [number, number];
 
@@ -73,25 +76,7 @@ function xy(p: Point): { x: number; y: number } {
   return Array.isArray(p) ? { x: p[0], y: p[1] } : p;
 }
 
-function shoelacePx(points: Point[]): number {
-  let sum = 0;
-  for (let i = 0; i < points.length; i++) {
-    const a = xy(points[i]);
-    const b = xy(points[(i + 1) % points.length]);
-    sum += a.x * b.y - b.x * a.y;
-  }
-  return Math.abs(sum) / 2;
-}
 
-function perimeterPx(points: Point[]): number {
-  let sum = 0;
-  for (let i = 0; i < points.length; i++) {
-    const a = xy(points[i]);
-    const b = xy(points[(i + 1) % points.length]);
-    sum += Math.hypot(b.x - a.x, b.y - a.y);
-  }
-  return sum;
-}
 
 /** A room that is no longer present in the incoming canvas. */
 export interface StaleRoom {
@@ -172,7 +157,11 @@ export function extractRoomGraphNodes(
 ): RoomGraphNodeInput[] {
   const objects = sketchData?.objects ?? [];
   const pxPerM =
-    opts.pxPerMetre ?? sketchData?.scaleConfig?.pxPerMetre ?? DEFAULT_PX_PER_M;
+    typeof opts.pxPerMetre === "number" &&
+    Number.isFinite(opts.pxPerMetre) &&
+    opts.pxPerMetre > 0
+      ? opts.pxPerMetre
+      : resolvePxPerMetre(sketchData);
 
   const rooms: RoomGraphNodeInput[] = [];
   let roomIndex = 0;
@@ -182,14 +171,12 @@ export function extractRoomGraphNodes(
     if (obj.data?.type !== "room") continue;
 
     const fabricObjectId = resolveFabricObjectId(obj, i);
-    const points = Array.isArray(obj.points) ? obj.points : [];
-    const areaM2 =
-      typeof obj.data.areaM2 === "number"
-        ? obj.data.areaM2
-        : points.length >= 3
-          ? shoelacePx(points) / (pxPerM * pxPerM)
-          : null;
-    const perimeterM = points.length >= 2 ? perimeterPx(points) / pxPerM : null;
+    // RA-8237: one resolver for every reader (estimate, extractRooms, this
+    // graph and the measurement revision), at this floor's scale.
+    const { areaM2, perimeterM } = resolveRoomQuantities(
+      obj as RoomGeometryObject,
+      pxPerM,
+    );
 
     const name =
       (typeof obj.data.label === "string" && obj.data.label) ||

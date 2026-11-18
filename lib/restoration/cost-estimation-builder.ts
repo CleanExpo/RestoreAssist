@@ -1,4 +1,23 @@
-import { getEquipmentGroupById, getEquipmentDailyRate } from "@/lib/equipment-matrix";
+import {
+  blockedPricing,
+  priceListReader,
+  sumOrBlocked,
+  TOTAL_NOT_AVAILABLE_NOTE,
+  type BlockedPricingLine,
+  type BlockedRate,
+} from "@/lib/pricing/blocked-line";
+import { billableDailyRate } from "@/lib/equipment-matrix";
+import {
+  AMOUNT_TOO_LARGE_NOTE,
+  equipmentLineAmount,
+  equipmentLineBlockedFields,
+  priceStoredEquipment,
+  readStoredEquipment,
+  UNUSABLE_LINE_LABEL,
+  type PricedEquipment,
+  type PricedEquipmentLine,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 import { reconcilePricingSafety } from "@/lib/restoration/reconcile-pricing-safety";
 import { deriveMouldActive } from "@/lib/restoration/plan-inputs";
 import { getGstTreatment } from "@/lib/gst-rules";
@@ -9,6 +28,23 @@ import { getGstTreatment } from "@/lib/gst-rules";
  * report for the same job. Reaching it through POST would mean mocking an
  * AI call and a credit ledger to assert a boolean.
  */
+/** RA-8281: every price-list rate this builder reads. An unset one blocks the document. */
+export const COST_ESTIMATION_RATE_FIELDS = [
+  "administrationFee",
+  "antimicrobialTreatmentRate",
+  "biohazardTreatmentRate",
+  "callOutFee",
+  "extractionTruckMountedHourlyRate",
+  "injectionDryingSystemDailyRate",
+  "labourerNormalHours",
+  "masterQualifiedNormalHours",
+  "masterQualifiedSaturday",
+  "mouldRemediationTreatmentRate",
+  "qualifiedTechnicianNormalHours",
+  "qualifiedTechnicianSaturday",
+  "thermalCameraUseCostPerAssessment",
+] as const;
+
 export function buildCostEstimationData(data: {
   report: any;
   analysis: any;
@@ -18,7 +54,8 @@ export function buildCostEstimationData(data: {
   pricingConfig: any;
   stateInfo: any;
   scopeData: any;
-  equipmentSelection?: any[];
+  /** Opaque: only stored-equipment-pricing.ts reads inside it. */
+  equipmentSelection?: StoredEquipmentSelections;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
   gstTreatment: ReturnType<typeof getGstTreatment>;
@@ -31,7 +68,7 @@ export function buildCostEstimationData(data: {
     pricingConfig,
     stateInfo,
     scopeData,
-    equipmentSelection = [],
+    equipmentSelection,
     psychrometricAssessment,
     scopeAreas = [],
     gstTreatment,
@@ -79,28 +116,25 @@ export function buildCostEstimationData(data: {
         ? parseFloat(areaMatch[1])
         : 0; // No default - only use if provided
 
-  // Use actual equipment selection data if available, otherwise use 0 (no defaults)
-  const equipmentSelections = Array.isArray(equipmentSelection)
-    ? equipmentSelection
-    : [];
+  // RA-8281 B1 round 13: the stored selection is read only through
+  // stored-equipment-pricing.ts. Unit counts come from its validated lines.
+  const storedEquipmentLines = readStoredEquipment(equipmentSelection);
 
   // Calculate equipment quantities from actual selections
   let airMoversQty = 0;
   let dehumidifiersQty = 0;
   let afdQty = 0;
 
-  equipmentSelections.forEach((sel: any) => {
-    if (sel.groupId && sel.quantity) {
-      if (sel.groupId.startsWith("airmover-")) {
-        airMoversQty += sel.quantity || 0;
-      } else if (
-        sel.groupId.startsWith("lgr-") ||
-        sel.groupId.startsWith("desiccant-")
-      ) {
-        dehumidifiersQty += sel.quantity || 0;
-      } else if (sel.groupId.includes("afd")) {
-        afdQty += sel.quantity || 0;
-      }
+  storedEquipmentLines.forEach((line) => {
+    if (line.groupId.startsWith("airmover-")) {
+      airMoversQty += line.quantity;
+    } else if (
+      line.groupId.startsWith("lgr-") ||
+      line.groupId.startsWith("desiccant-")
+    ) {
+      dehumidifiersQty += line.quantity;
+    } else if (line.groupId.includes("afd")) {
+      afdQty += line.quantity;
     }
   });
 
@@ -111,6 +145,27 @@ export function buildCostEstimationData(data: {
   // Build cost categories
   const categories: any = {};
 
+  // RA-8281 (B2): every rate is read through the shared price-list reader. A
+  // line that needs a rate the contractor has not set is a blocked line: its
+  // rate and amount are null (never $0: null * n === 0 in JS, so no rate is
+  // ever multiplied directly), and every total that includes it is null.
+  const P = priceListReader(pricingConfig);
+  const MASTER = "masterQualifiedNormalHours";
+  const QUALIFIED = "qualifiedTechnicianNormalHours";
+  const LABOURER = "labourerNormalHours";
+  /** rate and amount for `units` at one field's rate, blocked when unset. */
+  const at = (field: string, units: number) => ({
+    rate: P.calc([field], (r) => r),
+    subtotal: P.calc([field], (r) => units * r),
+    ...P.lineFields([field]),
+  });
+  const perSqm = (field: string) => ({
+    sqm: affectedAreaSqm,
+    ratePerSqm: P.calc([field], (r) => r),
+    subtotal: P.calc([field], (r) => affectedAreaSqm * r),
+    ...P.lineFields([field]),
+  });
+
   // Labour - Emergency Response & Setup
   categories.emergencyResponse = {
     name: "Labour — Emergency Response & Setup (Day 0–1)",
@@ -119,28 +174,25 @@ export function buildCostEstimationData(data: {
         description:
           "Master Qualified Technician — Site assessment, equipment staging, hazard identification",
         hours: 4,
-        rate: pricingConfig.masterQualifiedNormalHours,
-        subtotal: 4 * pricingConfig.masterQualifiedNormalHours,
+        ...at(MASTER, 4),
       },
       {
         description:
           "Qualified Technician — Equipment setup, moisture readings, client briefing",
         hours: 6,
-        rate: pricingConfig.qualifiedTechnicianNormalHours,
-        subtotal: 6 * pricingConfig.qualifiedTechnicianNormalHours,
+        ...at(QUALIFIED, 6),
       },
       {
         description:
           "Labourer — Equipment movement, containment barriers, debris management",
         hours: 4,
-        rate: pricingConfig.labourerNormalHours,
-        subtotal: 4 * pricingConfig.labourerNormalHours,
+        ...at(LABOURER, 4),
       },
     ],
-    total:
-      4 * pricingConfig.masterQualifiedNormalHours +
-      6 * pricingConfig.qualifiedTechnicianNormalHours +
-      4 * pricingConfig.labourerNormalHours,
+    total: P.calc(
+      [MASTER, QUALIFIED, LABOURER],
+      (m, q, l) => 4 * m + 6 * q + 4 * l,
+    ),
   };
 
   // Labour - Ongoing Monitoring
@@ -151,11 +203,10 @@ export function buildCostEstimationData(data: {
         description:
           "Qualified Technician — Daily site visits, moisture meter readings, equipment checks",
         hours: dryingDuration,
-        rate: pricingConfig.qualifiedTechnicianNormalHours,
-        subtotal: dryingDuration * pricingConfig.qualifiedTechnicianNormalHours,
+        ...at(QUALIFIED, dryingDuration),
       },
     ],
-    total: dryingDuration * pricingConfig.qualifiedTechnicianNormalHours,
+    total: P.calc([QUALIFIED], (q) => dryingDuration * q),
   };
 
   // Labour - Drying Protocol Specialist (if Class 3/4)
@@ -167,19 +218,15 @@ export function buildCostEstimationData(data: {
           description:
             "Master Qualified Technician — Sandwich drying setup, injection system configuration",
           hours: 12,
-          rate: pricingConfig.masterQualifiedNormalHours,
-          subtotal: 12 * pricingConfig.masterQualifiedNormalHours,
+          ...at(MASTER, 12),
         },
         {
           description: "Qualified Technician — Setup support, monitoring",
           hours: 8,
-          rate: pricingConfig.qualifiedTechnicianNormalHours,
-          subtotal: 8 * pricingConfig.qualifiedTechnicianNormalHours,
+          ...at(QUALIFIED, 8),
         },
       ],
-      total:
-        12 * pricingConfig.masterQualifiedNormalHours +
-        8 * pricingConfig.qualifiedTechnicianNormalHours,
+      total: P.calc([MASTER, QUALIFIED], (m, q) => 12 * m + 8 * q),
     };
   }
 
@@ -191,47 +238,50 @@ export function buildCostEstimationData(data: {
         description:
           "Master Qualified Technician — Final moisture assessment, thermal imaging, certification",
         hours: 2,
-        rate: pricingConfig.masterQualifiedNormalHours,
-        subtotal: 2 * pricingConfig.masterQualifiedNormalHours,
+        ...at(MASTER, 2),
       },
       {
         description:
           "Qualified Technician + Labourer — Equipment collection, site cleanup",
         hours: 4,
-        rate:
-          (pricingConfig.qualifiedTechnicianNormalHours +
-            pricingConfig.labourerNormalHours) /
-          2,
-        subtotal:
-          2 * pricingConfig.qualifiedTechnicianNormalHours +
-          2 * pricingConfig.labourerNormalHours,
+        rate: P.calc([QUALIFIED, LABOURER], (q, l) => (q + l) / 2),
+        subtotal: P.calc([QUALIFIED, LABOURER], (q, l) => 2 * q + 2 * l),
+        ...P.lineFields([QUALIFIED, LABOURER]),
       },
     ],
-    total:
-      2 * pricingConfig.masterQualifiedNormalHours +
-      2 * pricingConfig.qualifiedTechnicianNormalHours +
-      2 * pricingConfig.labourerNormalHours,
+    total: P.calc(
+      [MASTER, QUALIFIED, LABOURER],
+      (m, q, l) => 2 * m + 2 * q + 2 * l,
+    ),
   };
 
   // After-hours (if emergency)
   if (isEmergency) {
+    // Hours are filled in by the client later, so each amount is 0 today. The
+    // rate is still printed on the line, so an unset rate blocks the line and
+    // the total: the document never shows a Saturday line without its rate.
+    const afterHours = (field: string) => ({
+      hours: 0, // To be filled by client
+      rate: P.calc([field], (r) => r),
+      subtotal: P.calc([field], () => 0),
+      ...P.lineFields([field]),
+    });
     categories.afterHours = {
       name: "Labour — After-Hours or Weekend (Emergency)",
       lineItems: [
         {
           description: "Master Qualified Technician — Saturday rates",
-          hours: 0, // To be filled by client
-          rate: pricingConfig.masterQualifiedSaturday,
-          subtotal: 0,
+          ...afterHours("masterQualifiedSaturday"),
         },
         {
           description: "Qualified Technician — Saturday rates",
-          hours: 0,
-          rate: pricingConfig.qualifiedTechnicianSaturday,
-          subtotal: 0,
+          ...afterHours("qualifiedTechnicianSaturday"),
         },
       ],
-      total: 0,
+      total: P.calc(
+        ["masterQualifiedSaturday", "qualifiedTechnicianSaturday"],
+        () => 0,
+      ),
     };
   }
 
@@ -242,127 +292,68 @@ export function buildCostEstimationData(data: {
       {
         description: "Minimal Call-Out Fee",
         qty: 1,
-        rate: pricingConfig.callOutFee,
-        subtotal: pricingConfig.callOutFee,
+        rate: P.calc(["callOutFee"], (r) => r),
+        subtotal: P.calc(["callOutFee"], (r) => r),
+        ...P.lineFields(["callOutFee"]),
       },
     ],
-    total: pricingConfig.callOutFee,
+    total: P.calc(["callOutFee"], (r) => r),
   };
 
   // Equipment Rental - Use actual equipment selection data (only include if user selected)
-  if (equipmentSelections.length > 0) {
+  let equipmentBlocked: PricedEquipment | null = null;
+  if (storedEquipmentLines.length > 0) {
+    // RA-8281 B1 round 13: priced from the current price list by the one
+    // reader. B2: a line whose rate is not set, or that cannot be read, is
+    // shown as a blocked line and the category total is null. It is never a
+    // $0 line and never left out.
+    const pricedEquipment = priceStoredEquipment(
+      equipmentSelection,
+      pricingConfig,
+      dryingDuration,
+    );
+    if (pricedEquipment.total === null) equipmentBlocked = pricedEquipment;
+
     categories.equipment = {
       name: "Equipment Rental",
       lineItems: [],
       total: 0,
     };
 
-    // Group equipment by type for better organization
-    const lgrSelections = equipmentSelections.filter((sel: any) =>
-      sel.groupId?.startsWith("lgr-"),
-    );
-    const desiccantSelections = equipmentSelections.filter((sel: any) =>
-      sel.groupId?.startsWith("desiccant-"),
-    );
-    const airMoverSelections = equipmentSelections.filter((sel: any) =>
-      sel.groupId?.startsWith("airmover-"),
-    );
-    const heatSelections = equipmentSelections.filter((sel: any) =>
-      sel.groupId?.startsWith("heat-"),
-    );
-    const afdSelections = equipmentSelections.filter((sel: any) =>
-      sel.groupId?.includes("afd"),
-    );
-
-    // Add LGR Dehumidifiers
-    lgrSelections.forEach((sel: any) => {
-      if (sel.quantity > 0) {
-        const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate =
-          sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig);
-        const itemTotal = dailyRate * sel.quantity * dryingDuration;
+    // Group equipment by type for better organization. Each line lands in the
+    // first kind it matches; a line of no known kind is listed last, so no
+    // priced line is left out of the total.
+    const kinds: Array<(line: PricedEquipmentLine) => boolean> = [
+      (l) => l.groupId.startsWith("lgr-"),
+      (l) => l.groupId.startsWith("desiccant-"),
+      (l) => l.groupId.startsWith("airmover-"),
+      (l) => l.groupId.startsWith("heat-"),
+      (l) => l.groupId.includes("afd"),
+      () => true,
+    ];
+    const placed = new Set<PricedEquipmentLine>();
+    for (const matches of kinds) {
+      for (const line of pricedEquipment.lines) {
+        if (placed.has(line) || !matches(line)) continue;
+        placed.add(line);
+        // A usable line of zero units adds nothing. A line with no amount
+        // (it cannot be read, or its rate is not set, whatever its
+        // quantity) blocks the total, so it is always shown.
+        if (line.quantity <= 0 && line.total !== null) continue;
         categories.equipment.lineItems.push({
-          description: group?.name || `LGR Dehumidifier (${sel.groupId})`,
-          qty: sel.quantity,
+          description: line.usable ? line.name : UNUSABLE_LINE_LABEL,
+          qty: line.quantity,
           days: dryingDuration,
-          dailyRate: dailyRate,
-          subtotal: itemTotal,
+          dailyRate: line.dailyRate,
+          subtotal: line.total,
+          ...equipmentLineBlockedFields(line),
         });
-        categories.equipment.total += itemTotal;
       }
-    });
-
-    // Add Desiccant Dehumidifiers
-    desiccantSelections.forEach((sel: any) => {
-      if (sel.quantity > 0) {
-        const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate =
-          sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig);
-        const itemTotal = dailyRate * sel.quantity * dryingDuration;
-        categories.equipment.lineItems.push({
-          description: group?.name || `Desiccant Dehumidifier (${sel.groupId})`,
-          qty: sel.quantity,
-          days: dryingDuration,
-          dailyRate: dailyRate,
-          subtotal: itemTotal,
-        });
-        categories.equipment.total += itemTotal;
-      }
-    });
-
-    // Add Air Movers
-    airMoverSelections.forEach((sel: any) => {
-      if (sel.quantity > 0) {
-        const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate =
-          sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig);
-        const itemTotal = dailyRate * sel.quantity * dryingDuration;
-        categories.equipment.lineItems.push({
-          description: group?.name || `Air Mover (${sel.groupId})`,
-          qty: sel.quantity,
-          days: dryingDuration,
-          dailyRate: dailyRate,
-          subtotal: itemTotal,
-        });
-        categories.equipment.total += itemTotal;
-      }
-    });
-
-    // Add Heat Drying Systems
-    heatSelections.forEach((sel: any) => {
-      if (sel.quantity > 0) {
-        const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate =
-          sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig);
-        const itemTotal = dailyRate * sel.quantity * dryingDuration;
-        categories.equipment.lineItems.push({
-          description: group?.name || `Heat Drying System (${sel.groupId})`,
-          qty: sel.quantity,
-          days: dryingDuration,
-          dailyRate: dailyRate,
-          subtotal: itemTotal,
-        });
-        categories.equipment.total += itemTotal;
-      }
-    });
-
-    // Add AFD Units
-    afdSelections.forEach((sel: any) => {
-      if (sel.quantity > 0) {
-        const group = getEquipmentGroupById(sel.groupId);
-        const dailyRate =
-          sel.dailyRate || getEquipmentDailyRate(sel.groupId, pricingConfig);
-        const itemTotal = dailyRate * sel.quantity * dryingDuration;
-        categories.equipment.lineItems.push({
-          description: group?.name || `AFD Unit (${sel.groupId})`,
-          qty: sel.quantity,
-          days: dryingDuration,
-          dailyRate: dailyRate,
-          subtotal: itemTotal,
-        });
-        categories.equipment.total += itemTotal;
-      }
-    });
+    }
+    // The category total is the reader's job total, summed there in whole
+    // cents. Adding the rows here as binary numbers drifts (three rows of
+    // $66.68 came to 200.04000000000002). null when any line is blocked.
+    categories.equipment.total = pricedEquipment.total;
   }
 
   // Equipment Rental - Extraction
@@ -372,15 +363,25 @@ export function buildCostEstimationData(data: {
       {
         description: "Truck-Mounted Extraction Unit",
         hours: 4,
-        rate: pricingConfig.extractionTruckMountedHourlyRate,
-        subtotal: 4 * pricingConfig.extractionTruckMountedHourlyRate,
+        ...at("extractionTruckMountedHourlyRate", 4),
       },
     ],
-    total: 4 * pricingConfig.extractionTruckMountedHourlyRate,
+    total: P.calc(["extractionTruckMountedHourlyRate"], (r) => 4 * r),
   };
 
   // Equipment Rental - Drying Systems (if Class 4)
   if (needsClass4 && hasYellowTongue) {
+    // The billable rate and a whole-cent amount, as for every equipment line.
+    const INJECTION = "injectionDryingSystemDailyRate";
+    const injectionTotal = P.calc([INJECTION], (r) => {
+      const amount = equipmentLineAmount(
+        billableDailyRate(r),
+        1,
+        dryingDuration,
+      );
+      if (amount === null) throw new RangeError(AMOUNT_TOO_LARGE_NOTE);
+      return amount;
+    });
     categories.dryingSystems = {
       name: "Equipment Rental — Drying Systems (Class 3/4)",
       lineItems: [
@@ -389,12 +390,12 @@ export function buildCostEstimationData(data: {
             "Injection Drying System (thermal mats, injection equipment)",
           qty: 1,
           days: dryingDuration,
-          dailyRate: pricingConfig.injectionDryingSystemDailyRate,
-          subtotal:
-            dryingDuration * pricingConfig.injectionDryingSystemDailyRate,
+          dailyRate: P.calc([INJECTION], (r) => billableDailyRate(r)),
+          subtotal: injectionTotal,
+          ...P.lineFields([INJECTION]),
         },
       ],
-      total: dryingDuration * pricingConfig.injectionDryingSystemDailyRate,
+      total: injectionTotal,
     };
   }
 
@@ -406,11 +407,10 @@ export function buildCostEstimationData(data: {
         description:
           "Thermal Camera Claim Use Cost — 3 assessments (Days 0, 3, 7)",
         qty: 3,
-        rate: pricingConfig.thermalCameraUseCostPerAssessment,
-        subtotal: 3 * pricingConfig.thermalCameraUseCostPerAssessment,
+        ...at("thermalCameraUseCostPerAssessment", 3),
       },
     ],
-    total: 3 * pricingConfig.thermalCameraUseCostPerAssessment,
+    total: P.calc(["thermalCameraUseCostPerAssessment"], (r) => 3 * r),
   };
 
   // Chemical Treatment - Only include if user actually selected/needs it
@@ -419,47 +419,37 @@ export function buildCostEstimationData(data: {
     affectedAreaSqm > 0 &&
     (hasMould || hasBiohazard || tier3?.T3_Q3_chemicalTreatment)
   ) {
-    categories.chemicalTreatment = {
-      name: "Chemical Treatment",
-      lineItems: [],
-      total: 0,
-    };
+    const chemicalLines: any[] = [];
 
     // Standard antimicrobial treatment (if no specific hazard)
     if (!hasMould && !hasBiohazard && tier3?.T3_Q3_chemicalTreatment) {
-      categories.chemicalTreatment.lineItems.push({
+      chemicalLines.push({
         description: "Anti-microbial Treatment",
-        sqm: affectedAreaSqm,
-        ratePerSqm: pricingConfig.antimicrobialTreatmentRate,
-        subtotal: affectedAreaSqm * pricingConfig.antimicrobialTreatmentRate,
+        ...perSqm("antimicrobialTreatmentRate"),
       });
-      categories.chemicalTreatment.total +=
-        affectedAreaSqm * pricingConfig.antimicrobialTreatmentRate;
     }
 
     // Mould remediation (only if mould hazard identified)
     if (hasMould) {
-      categories.chemicalTreatment.lineItems.push({
+      chemicalLines.push({
         description: "Mould Remediation Treatment",
-        sqm: affectedAreaSqm,
-        ratePerSqm: pricingConfig.mouldRemediationTreatmentRate,
-        subtotal: affectedAreaSqm * pricingConfig.mouldRemediationTreatmentRate,
+        ...perSqm("mouldRemediationTreatmentRate"),
       });
-      categories.chemicalTreatment.total +=
-        affectedAreaSqm * pricingConfig.mouldRemediationTreatmentRate;
     }
 
     // Biohazard treatment (only if biohazard identified)
     if (hasBiohazard) {
-      categories.chemicalTreatment.lineItems.push({
+      chemicalLines.push({
         description: "Bio-Hazard Treatment",
-        sqm: affectedAreaSqm,
-        ratePerSqm: pricingConfig.biohazardTreatmentRate,
-        subtotal: affectedAreaSqm * pricingConfig.biohazardTreatmentRate,
+        ...perSqm("biohazardTreatmentRate"),
       });
-      categories.chemicalTreatment.total +=
-        affectedAreaSqm * pricingConfig.biohazardTreatmentRate;
     }
+
+    categories.chemicalTreatment = {
+      name: "Chemical Treatment",
+      lineItems: chemicalLines,
+      total: sumOrBlocked([0, ...chemicalLines.map((l) => l.subtotal)]),
+    };
   }
 
   // Administration Fee
@@ -469,41 +459,55 @@ export function buildCostEstimationData(data: {
       {
         description: "Claim Processing, Documentation, Report Generation",
         qty: 1,
-        rate: pricingConfig.administrationFee,
-        subtotal: pricingConfig.administrationFee,
+        rate: P.calc(["administrationFee"], (r) => r),
+        subtotal: P.calc(["administrationFee"], (r) => r),
+        ...P.lineFields(["administrationFee"]),
       },
     ],
-    total: pricingConfig.administrationFee,
+    total: P.calc(["administrationFee"], (r) => r),
   };
 
-  // Calculate totals
-  const totalLabour = Object.values(categories)
-    .filter((c: any) => c.name.includes("Labour"))
-    .reduce((sum: number, c: any) => sum + (c.total || 0), 0);
+  // Calculate totals. A category total of null (a blocked line) makes every
+  // total that includes it null: no total is a partial sum.
+  const totalOf = (c: any): number | null =>
+    !c ? 0 : c.total === null ? null : c.total || 0;
+  const sumCategories = (match: string) =>
+    sumOrBlocked([
+      0,
+      ...Object.values(categories)
+        .filter((c: any) => c.name.includes(match))
+        .map(totalOf),
+    ]);
+  const totalLabour = sumCategories("Labour");
+  const totalEquipment = sumCategories("Equipment");
 
-  const totalEquipment = Object.values(categories)
-    .filter((c: any) => c.name.includes("Equipment"))
-    .reduce((sum: number, c: any) => sum + (c.total || 0), 0);
+  const totalChemicals = totalOf(categories.chemicalTreatment);
+  const totalAdmin = totalOf(categories.administration);
+  const totalCallOut = totalOf(categories.callOut);
+  const totalThermal = totalOf(categories.thermalImaging);
 
-  const totalChemicals = categories.chemicalTreatment?.total || 0;
-  const totalAdmin = categories.administration?.total || 0;
-  const totalCallOut = categories.callOut?.total || 0;
-  const totalThermal = categories.thermalImaging?.total || 0;
+  const subtotal = sumOrBlocked([
+    totalLabour,
+    totalEquipment,
+    totalChemicals,
+    totalAdmin,
+    totalCallOut,
+    totalThermal,
+  ]);
+  const gst = subtotal === null ? null : subtotal * gstTreatment.rate;
+  const totalIncGST = subtotal === null || gst === null ? null : subtotal + gst;
 
-  const subtotal =
-    totalLabour +
-    totalEquipment +
-    totalChemicals +
-    totalAdmin +
-    totalCallOut +
-    totalThermal;
-  const gst = subtotal * gstTreatment.rate;
-  const totalIncGST = subtotal + gst;
+  // RA-8281 (B2): what blocks this document, if anything. Unset price-list
+  // rates name their field; an equipment line that cannot be read carries
+  // its note only. Neither carries a national range figure.
+  const missing = documentMissing(P.missing(), equipmentBlocked);
 
   // Industry comparison
   const industryAverage = { min: 6500, max: 12000 };
   const costAnalysis =
-    subtotal < industryAverage.min
+    subtotal === null
+      ? TOTAL_NOT_AVAILABLE_NOTE
+      : subtotal < industryAverage.min
       ? "Below average (client may offer discount/aggressive pricing)"
       : subtotal > industryAverage.max
         ? "Above average (may warrant specialist services or complex claim justification)"
@@ -511,7 +515,11 @@ export function buildCostEstimationData(data: {
 
   // Cost drivers
   const costDrivers = [];
-  if (totalEquipment > totalLabour) {
+  if (
+    totalEquipment !== null &&
+    totalLabour !== null &&
+    totalEquipment > totalLabour
+  ) {
     costDrivers.push(
       `${airMoversQty} air movers × ${dryingDuration} days (most significant equipment cost)`,
     );
@@ -586,7 +594,12 @@ export function buildCostEstimationData(data: {
     // `affectedAreaM2` takes precedence only when it is > 0, so a job with real
     // scope rows is unaffected.
     affectedAreaM2: affectedAreaSqm > 0 ? affectedAreaSqm : undefined,
-    equipmentSelection,
+    // The validated lines, not the raw stored value. `type` carries the
+    // equipment group id so the air-mover gate sees stored selections.
+    equipmentSelection: storedEquipmentLines.map((line) => ({
+      type: line.groupId,
+      quantity: line.quantity,
+    })),
     waterCategory: report.waterCategory,
     mouldActive: mouldActiveForSafety,
     hazards,
@@ -610,7 +623,7 @@ export function buildCostEstimationData(data: {
       totalLabour,
       totalEquipment,
       totalChemicals,
-      totalAdmin: totalAdmin + totalCallOut + totalThermal,
+      totalAdmin: sumOrBlocked([totalAdmin, totalCallOut, totalThermal]),
       subtotal,
       gst,
       totalIncGST,
@@ -630,7 +643,68 @@ export function buildCostEstimationData(data: {
     hasHazards: hasAsbestos || hasMould || hasBiohazard,
     safety,
     stateInfo,
+    // RA-8281 (B2): present only when a line is blocked. A blocked document
+    // is shown to the contractor and never saved.
+    ...(subtotal === null
+      ? {
+          blockedPricing: blockedPricing(
+            categoryPricingLines(categories),
+            missing,
+          ),
+        }
+      : {}),
   };
+}
+
+/**
+ * RA-8281 (B2): every unset price-list rate and every equipment problem that
+ * blocks a document, once each. Shared by the cost estimation and the scope
+ * of works builders.
+ */
+export function documentMissing(
+  unsetRates: BlockedRate[],
+  equipment: PricedEquipment | null,
+): BlockedRate[] {
+  const missing = [...unsetRates];
+  if (!equipment) return missing;
+  for (const u of equipment.unset) {
+    if (!missing.some((m) => m.field === u.field)) {
+      missing.push({ field: u.field, note: u.note });
+    }
+  }
+  for (const note of equipment.problems) {
+    if (!missing.some((m) => m.note === note)) {
+      missing.push({ field: "equipmentSelection", note });
+    }
+  }
+  return missing;
+}
+
+/** The cost estimation's category lines in the shared blocked-pricing shape. */
+function categoryPricingLines(categories: any): BlockedPricingLine[] {
+  return Object.values(categories).flatMap((category: any) =>
+    category.lineItems.map((item: any): BlockedPricingLine => {
+      const [quantity, unit] =
+        item.sqm !== undefined
+          ? [item.sqm, "m²"]
+          : item.hours !== undefined
+            ? [item.hours, "hr"]
+            : item.days !== undefined
+              ? [item.qty, `unit × ${item.days} days`]
+              : [item.qty ?? null, null];
+      const rate = item.rate ?? item.dailyRate ?? item.ratePerSqm ?? null;
+      return {
+        description: `${category.name}: ${item.description}`,
+        quantity,
+        unit,
+        rate,
+        subtotal: item.subtotal ?? null,
+        pricingStatus: item.pricingStatus ?? "priced",
+        rateField: item.rateField,
+        pricingNote: item.pricingNote,
+      };
+    }),
+  );
 }
 
 // Build the complete cost estimation document server-side with exact values

@@ -3,7 +3,7 @@
  * over every firm on the platform, and was open to any ADMIN — which is every
  * firm owner. Only the platform support allowlist may now see it.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 class Redirect extends Error {
   constructor(readonly to: string) {
@@ -57,6 +57,8 @@ beforeEach(() => {
   computeOverrideRate.mockReset().mockResolvedValue({ rate: null, overrides: 0, total: 0 });
 });
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("progress telemetry access (RA-8043b)", () => {
   it("sends a firm owner (tenant ADMIN) away before any platform query runs [ra-8043b]", async () => {
     expect(await render()).toBe("/dashboard");
@@ -67,6 +69,14 @@ describe("progress telemetry access (RA-8043b)", () => {
 
   it("refuses everyone when the allowlist is empty [ra-8043b]", async () => {
     process.env.PLATFORM_SUPPORT_USER_IDS = "";
+    expect(await render()).toBe("/dashboard");
+    expect(computeAllFunnels).not.toHaveBeenCalled();
+  });
+
+  it("refuses a firm owner in development with PLATFORM_SUPPORT_DEV_OPEN and no allowlist", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PLATFORM_SUPPORT_DEV_OPEN", "true");
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", "");
     expect(await render()).toBe("/dashboard");
     expect(computeAllFunnels).not.toHaveBeenCalled();
   });

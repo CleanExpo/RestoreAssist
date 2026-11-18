@@ -4,6 +4,8 @@
  * Public AI-report help (hero + related links) needs no auth.
  * Authed `/dashboard/reports/new` proves AI draft ≠ issued before generate
  * and the on-page reason Upload PDF is disabled on trial.
+ * Authed `/dashboard/reports/[id]` proves the same honesty on report detail
+ * (ReportDetailHonestyPanel).
  *
  * Auth matches article-detail / billing specs: seed-trial-user + sign-in-as
  * on `request`, then apply the session cookie to `page`'s context. Sketch E2E
@@ -141,6 +143,45 @@ test.describe("RA-7550 report honesty", () => {
 
     await page.screenshot({
       path: "test-results/ra-7550-reports-new-trial.png",
+      fullPage: true,
+    });
+  });
+
+  test("live /dashboard/reports/[id] shows report detail honesty panel", async ({
+    page,
+    request,
+    context,
+  }) => {
+    await loginAsSeededTrialUser(request, context);
+    const seedId = `ra7550-${Date.now()}`;
+    const seedReport = await request.post("/api/test/seed-inspection", {
+      data: { inspectionId: seedId, readyForClose: true },
+    });
+    expect(
+      seedReport.ok(),
+      `seed-inspection failed: ${seedReport.status()} ${await seedReport.text().catch(() => "")}`,
+    ).toBe(true);
+    const reportId = `${seedId}-report`;
+
+    await page.setViewportSize(VIEWPORT);
+    await page.goto(`/dashboard/reports/${reportId}`);
+
+    await expect(page.getByRole("heading").first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId("report-detail-honesty-panel")).toBeVisible();
+    await expect(
+      page.getByText(/AI draft is not an issued report/i),
+    ).toBeVisible();
+    await expect(page.getByTestId("report-detail-upload-pdf-hint")).toBeVisible();
+    await expect(page.getByText(/Upload PDF is on paid plans/i)).toBeVisible();
+    await expect(
+      page.getByText(/paid subscription and your own Anthropic key/i),
+    ).toBeVisible();
+    await expect(page.getByTestId("report-honesty-ownership-label")).toBeVisible();
+
+    await page.screenshot({
+      path: "test-results/ra-7550-report-detail-trial.png",
       fullPage: true,
     });
   });

@@ -25,6 +25,7 @@ import {
 } from "@/lib/compliance/asbestos-era";
 import { standardDesignation } from "./nir-standards-mapping";
 import { isSafePublicHttpsUrl } from "./security/safe-external-url";
+import { extractWaterCategory } from "@/lib/reports/extract-report-data";
 
 interface BusinessInfo {
   businessName?: string | null;
@@ -105,7 +106,8 @@ interface ReportData {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   scopeAreas?: any[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  equipmentSelection?: any[];
+  /** Opaque: only stored-equipment-pricing.ts reads inside it. */
+  equipmentSelection?: unknown;
   standardsContext?: string;
   businessInfo?: BusinessInfo;
 }
@@ -711,7 +713,7 @@ async function renderPage2(
     scopeItems: ScopeItem[];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     report: any;
-    equipmentSelection?: JsonRecord[];
+    equipmentSelection?: unknown;
     pricingConfig?: JsonRecord;
   },
 ) {
@@ -2856,30 +2858,6 @@ function buildForensicSummary(
   }
 
   return summary;
-}
-
-/**
- * Extract water category from source
- */
-function extractWaterCategory(source: string): string {
-  if (!source) return "Category 1";
-  const lower = source.toLowerCase();
-  if (
-    lower.includes("category 3") ||
-    lower.includes("cat 3") ||
-    lower.includes("sewage") ||
-    lower.includes("contaminated")
-  ) {
-    return "Category 3";
-  }
-  if (
-    lower.includes("category 2") ||
-    lower.includes("cat 2") ||
-    lower.includes("grey water")
-  ) {
-    return "Category 2";
-  }
-  return "Category 1";
 }
 
 /**

@@ -1,6 +1,9 @@
 import type { SketchFloor } from "@/lib/generate-sketch-pdf";
 import { createHash } from "node:crypto";
-import { parseMoisturePins } from "./moisture-map";
+import {
+  countUnplaceableMoisturePins,
+  parseMoisturePins,
+} from "./moisture-map";
 import { parseEvidencePins } from "./evidence-map";
 import {
   damageMarkersFromSketchData,
@@ -8,7 +11,7 @@ import {
 } from "./damage-marker-map";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import {
-  filterNormalizedPinsInRoom,
+  filterPinsInRoom,
   type RoomMoistureCropMeta,
 } from "@/lib/sketch/room-moisture-crop";
 import { roomMoistureCropFromStoredSketchData } from "@/lib/sketch/pending-sketch-load";
@@ -144,19 +147,16 @@ export function expandFloorsWithRoomMoisture(
     out.push(floor);
     const cropMeta = floor.roomMoistureCrop;
     if (!cropMeta?.roomPoints?.length) continue;
-    const w = cropMeta.canvasWidth ?? 0;
-    const h = cropMeta.canvasHeight ?? 0;
-    const roomPins = filterNormalizedPinsInRoom(
+    const roomPins = filterPinsInRoom(
       floor.moisturePins ?? [],
       cropMeta.roomPoints,
-      w,
-      h,
     );
     const label = cropMeta.crop.label ?? cropMeta.roomId ?? "Room";
     out.push({
       ...floor,
       label: `Room moisture — ${label}`,
       moisturePins: roomPins,
+      moisturePinsNotShown: 0,
       evidencePins: null,
       damageMarkers: null,
       roomMoistureCrop: cropMeta,
@@ -205,6 +205,7 @@ export async function claimSketchesToFloors(
               ? (s.sketchData as Record<string, unknown>)
               : null,
           moisturePins: parseMoisturePins(s.moisturePoints),
+          moisturePinsNotShown: countUnplaceableMoisturePins(s.moisturePoints),
           evidencePins: parseEvidencePins(s.evidencePins),
           damageMarkers: parseDamageMarkerMap(
             damageMarkersFromSketchData(s.sketchData),

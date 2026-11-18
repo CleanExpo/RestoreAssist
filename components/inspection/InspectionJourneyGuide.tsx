@@ -32,6 +32,7 @@ function dotClass(state: InspectionJourneyStep["state"]) {
 
 export function InspectionJourneyGuide(props: Props) {
   const [comms, setComms] = useState<InspectionCommsReadiness | null>(null);
+  const [commsUnavailable, setCommsUnavailable] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,11 +41,17 @@ export function InspectionJourneyGuide(props: Props) {
         const res = await fetch(
           `/api/inspections/${props.inspectionId}/comms-readiness`,
         );
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (!cancelled) setCommsUnavailable(true);
+          return;
+        }
         const body = (await res.json()) as { data: InspectionCommsReadiness };
-        if (!cancelled) setComms(body.data);
+        if (!cancelled) {
+          setComms(body.data);
+          setCommsUnavailable(false);
+        }
       } catch {
-        /* non-blocking */
+        if (!cancelled) setCommsUnavailable(true);
       }
     })();
     return () => {
@@ -62,8 +69,14 @@ export function InspectionJourneyGuide(props: Props) {
   const steps = buildInspectionJourneySteps({
     ...props,
     clientEmailSent,
-    emailServiceConfigured: comms?.emailServiceConfigured ?? true,
-    completenessGapCount: comms?.completenessBlockerCount ?? 0,
+    emailServiceConfigured: commsUnavailable
+      ? null
+      : (comms?.emailServiceConfigured ?? true),
+    completenessGapCount: commsUnavailable
+      ? null
+      : comms
+        ? comms.completenessBlockerCount
+        : 0,
     showCompletenessInbox: props.showCompletenessInbox,
   });
 
@@ -75,10 +88,10 @@ export function InspectionJourneyGuide(props: Props) {
       <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
         Your path on this job
       </h3>
-      <p className="mt-0.5 text-xs text-neutral-500 dark:text-slate-400">
+      <p className="mt-0.5 text-xs text-neutral-600 dark:text-slate-400">
         Client → floor plan → evidence → report → invoice → email (Mailtrap).
       </p>
-      {!comms?.emailServiceConfigured && (
+      {comms && !comms.emailServiceConfigured && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-300 rounded-md bg-amber-500/10 px-2 py-1">
           Outbound email is not configured — portal and report sends will copy
           links only until Mailtrap or Settings → Email is set up.
@@ -96,7 +109,7 @@ export function InspectionJourneyGuide(props: Props) {
             />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+                <span className="text-xs font-medium uppercase tracking-wide text-neutral-600 dark:text-neutral-400">
                   Step {index + 1}
                 </span>
                 {step.state === "current" && (
@@ -111,7 +124,7 @@ export function InspectionJourneyGuide(props: Props) {
               >
                 {step.label}
               </Link>
-              <p className="text-xs text-neutral-500 dark:text-slate-400">
+              <p className="text-xs text-neutral-600 dark:text-slate-400">
                 {step.description}
               </p>
             </div>

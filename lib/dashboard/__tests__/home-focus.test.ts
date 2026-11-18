@@ -59,6 +59,8 @@ describe("status classifiers", () => {
   it("treats COMPLETED inspections as closed", () => {
     expect(isActiveInspectionStatus("SCOPED")).toBe(true);
     expect(isActiveInspectionStatus("COMPLETED")).toBe(false);
+    expect(isActiveInspectionStatus("CLOSED")).toBe(false);
+    expect(isActiveInspectionStatus("ARCHIVED")).toBe(false);
   });
 
   it("treats SENT and OVERDUE as outstanding invoices", () => {

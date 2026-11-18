@@ -19,7 +19,7 @@ beforeEach(() => {
   // Default: no recent Authorisation
   fetchMock.mockImplementation((url) => {
     if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
-      return Promise.resolve({ json: async () => ({ row: null }) });
+      return Promise.resolve({ ok: true, json: async () => ({ row: null }) });
     }
     return Promise.resolve({ ok: true, json: async () => ({}) });
   });
@@ -55,7 +55,7 @@ describe("InspectionSignOff state machine", () => {
   it("modal confirm advances to State C: form visible, signatoryName prefilled", async () => {
     fetchMock.mockImplementation((url) => {
       if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
-        return Promise.resolve({ json: async () => ({ row: null }) });
+        return Promise.resolve({ ok: true, json: async () => ({ row: null }) });
       }
       if (typeof url === "string" && url.includes("/api/authorisations") && !url.includes("most-recent")) {
         return Promise.resolve({ ok: true, json: async () => ({ ok: true, authorisationId: "auth_1" }) });
@@ -82,6 +82,7 @@ describe("InspectionSignOff state machine", () => {
     fetchMock.mockImplementation((url) => {
       if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
         return Promise.resolve({
+          ok: true,
           json: async () => ({
             row: {
               subjectLicenceNumber: "IICRC-1",
@@ -105,6 +106,7 @@ describe("InspectionSignOff state machine", () => {
     fetchMock.mockImplementation((url) => {
       if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
         return Promise.resolve({
+          ok: true,
           json: async () => ({
             row: {
               subjectLicenceNumber: "IICRC-1",
@@ -137,6 +139,7 @@ describe("InspectionSignOff state machine", () => {
     fetchMock.mockImplementation((url) => {
       if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
         return Promise.resolve({
+          ok: true,
           json: async () => ({
             row: {
               subjectLicenceNumber: "IICRC-1",

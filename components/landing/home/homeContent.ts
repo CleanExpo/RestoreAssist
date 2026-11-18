@@ -330,7 +330,7 @@ export function getHomeFaqs() {
     {
       cat: "Product",
       q: "What is RestoreAssist?",
-      a: "RestoreAssist is an Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. It connects field capture, IICRC-aligned reporting, GST invoicing, and client approvals in one system so teams remove double-handling between the driveway and the desk.",
+      a: "RestoreAssist is the Australian-designed CRM for restoration contractors — an Office and Field Management System for the Australian Restoration Industry. It connects field capture, IICRC-aligned reporting, GST invoicing, and client approvals in one system so teams remove double-handling between the driveway and the desk.",
     },
     {
       cat: "Trial",
@@ -340,12 +340,12 @@ export function getHomeFaqs() {
     {
       cat: "Pricing",
       q: "How does pricing work?",
-      a: `Start free for ${trialDays} days with ${trialReports} report credits, then choose a plan that fits your team. See current options on the pricing page — clear packages, no need to rebuild your process just to evaluate the product.`,
+      a: `Start free for ${trialDays} days with ${trialReports} report credits, then ${planPrice} a month. Field technician seats and optional add-ons are billed on top, and every charge is itemised on the pricing page.`,
     },
     {
       cat: "Team",
-      q: "Can my whole team use it?",
-      a: "Yes. Roles, handoffs, and shared jobs keep owners, office managers, and field technicians aligned on the same claim — from first visit to final invoice.",
+      q: "How do I add my team?",
+      a: `Each field technician needs a paid seat, ${money(RECURRING_ADDONS.TECHNICIAN_SEATS.amount)} a month per seat. The plan comes with no technician seats, so you buy one for each technician you add. Roles and shared jobs keep owners, office managers, and field technicians on the same claim — from first visit to final invoice.`,
     },
     {
       cat: "Reports",

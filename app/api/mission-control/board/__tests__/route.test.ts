@@ -123,6 +123,19 @@ describe("GET /api/mission-control/board — a failed read is never an empty boa
     expect(body.data.columns).toEqual([]);
   });
 
+  it("reports an HTTP 200 with a null body as stale", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response("null", { status: 200 }));
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.stale).toBe(true);
+    expect(body.reason).toBe("Linear response was not a JSON object");
+    expect(body.data.columns).toEqual([]);
+    expect(typeof body.fetchedAt).toBe("string");
+  });
+
   it("reports a GraphQL error as stale without leaking the upstream message", async () => {
     vi.mocked(fetch).mockResolvedValue(
       jsonResponse({

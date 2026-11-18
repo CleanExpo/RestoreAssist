@@ -9,6 +9,7 @@ import {
   clientPortalPanelPadding,
   clientPortalPrimaryLink,
 } from "@/lib/portal/client-portal-theme";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export default function PortalRecoveryPage() {
   const [email, setEmail] = useState("");
@@ -29,11 +30,7 @@ export default function PortalRecoveryPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(
-          typeof data?.error === "string"
-            ? data.error
-            : (data?.error?.message ?? "Enter a valid email address"),
-        );
+        setError(apiErrorMessage(data) ?? "Enter a valid email address");
         return;
       }
       setResult(

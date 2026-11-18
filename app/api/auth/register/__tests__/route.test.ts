@@ -98,7 +98,7 @@ function makeRequest(body: Record<string, unknown>) {
 
 const VALID_BODY = {
   name: "Jane Tech",
-  email: "jane@example.com",
+  email: "jane@acme-restoration.com.au",
   password: "correct horse battery staple",
   acceptedTerms: true,
 };
@@ -193,7 +193,7 @@ describe("POST /api/auth/register — active invitation identity", () => {
     userInviteFindFirst.mockResolvedValueOnce({ id: "invite_1" });
 
     const res = await POST(
-      makeRequest({ ...VALID_BODY, email: "  Jane@Example.com  " }),
+      makeRequest({ ...VALID_BODY, email: "  Jane@Acme-Restoration.COM.AU  " }),
     );
     const json = await res.json();
 
@@ -201,7 +201,7 @@ describe("POST /api/auth/register — active invitation identity", () => {
     expect(json.error.message).toContain("team invitation");
     expect(userInviteFindFirst).toHaveBeenCalledWith({
       where: {
-        email: { equals: "jane@example.com", mode: "insensitive" },
+        email: { equals: "jane@acme-restoration.com.au", mode: "insensitive" },
         usedAt: null,
         expiresAt: { gt: expect.any(Date) },
       },
@@ -239,13 +239,15 @@ describe("POST /api/auth/register — active invitation identity", () => {
 
   it("stores the canonical lower-case email", async () => {
     userFindUnique.mockResolvedValue(null);
-    txUserCreate.mockResolvedValue({ id: "u1", email: "mixed@example.com" });
+    txUserCreate.mockResolvedValue({ id: "u1", email: "mixed@acme-restoration.com.au" });
     txOrgCreate.mockResolvedValue({ id: "org1" });
-    txUserUpdate.mockResolvedValue({ id: "u1", email: "mixed@example.com" });
-    const res = await POST(makeRequest({ ...VALID_BODY, email: " Mixed@Example.COM " }));
+    txUserUpdate.mockResolvedValue({ id: "u1", email: "mixed@acme-restoration.com.au" });
+    const res = await POST(
+      makeRequest({ ...VALID_BODY, email: " Mixed@Acme-Restoration.COM.AU " }),
+    );
     expect(res.status).toBe(201);
     expect(txUserCreate).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ email: "mixed@example.com" }),
+      data: expect.objectContaining({ email: "mixed@acme-restoration.com.au" }),
     }));
   });
 });
@@ -321,10 +323,10 @@ describe("POST /api/auth/register — founder signup alert (launch-night Unit 4)
   }
 
   it("announces the new account to the founder with its identifying details", async () => {
-    seedHappyPath("alerted@example.com");
+    seedHappyPath("alerted@acme-restoration.com.au");
 
     const res = await POST(
-      makeRequest({ ...VALID_BODY, email: "alerted@example.com" }),
+      makeRequest({ ...VALID_BODY, email: "alerted@acme-restoration.com.au" }),
     );
 
     expect(res.status).toBe(201);
@@ -332,24 +334,24 @@ describe("POST /api/auth/register — founder signup alert (launch-night Unit 4)
     expect(sendFounderSignupAlert).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-1",
-        email: "alerted@example.com",
+        email: "alerted@acme-restoration.com.au",
         creditsRemaining: 50,
       }),
     );
   });
 
   it("still returns 201 when the alert REJECTS — signup must never depend on it", async () => {
-    seedHappyPath("resilient@example.com");
+    seedHappyPath("resilient@acme-restoration.com.au");
     // A control that cannot fail is not a control: prove the swallow works by
     // making the alert throw, not by trusting that it never will.
     sendFounderSignupAlert.mockRejectedValueOnce(new Error("smtp exploded"));
 
     const res = await POST(
-      makeRequest({ ...VALID_BODY, email: "resilient@example.com" }),
+      makeRequest({ ...VALID_BODY, email: "resilient@acme-restoration.com.au" }),
     );
 
     expect(res.status).toBe(201);
-    expect((await res.json()).user.email).toBe("resilient@example.com");
+    expect((await res.json()).user.email).toBe("resilient@acme-restoration.com.au");
   });
 });
 
@@ -362,9 +364,9 @@ describe("POST /api/auth/register — workspace at signup (J-10)", () => {
   }
 
   it("provisions the new business's workspace for the new user", async () => {
-    seedOwner("owner@example.com");
+    seedOwner("owner@acme-restoration.com.au");
 
-    const res = await POST(makeRequest({ ...VALID_BODY, email: "owner@example.com" }));
+    const res = await POST(makeRequest({ ...VALID_BODY, email: "owner@acme-restoration.com.au" }));
 
     expect(res.status).toBe(201);
     expect(ensureWorkspaceForUser).toHaveBeenCalledTimes(1);
@@ -372,10 +374,10 @@ describe("POST /api/auth/register — workspace at signup (J-10)", () => {
   });
 
   it("still returns 201 when provisioning throws", async () => {
-    seedOwner("owner2@example.com");
+    seedOwner("owner2@acme-restoration.com.au");
     ensureWorkspaceForUser.mockRejectedValueOnce(new Error("db blip"));
 
-    const res = await POST(makeRequest({ ...VALID_BODY, email: "owner2@example.com" }));
+    const res = await POST(makeRequest({ ...VALID_BODY, email: "owner2@acme-restoration.com.au" }));
 
     expect(res.status).toBe(201);
   });
@@ -386,5 +388,20 @@ describe("POST /api/auth/register — workspace at signup (J-10)", () => {
     await POST(makeRequest(VALID_BODY));
 
     expect(ensureWorkspaceForUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/auth/register — RA-8156 reserved email", () => {
+  it("rejects RFC 6761 .test addresses before bcrypt", async () => {
+    const res = await POST(
+      makeRequest({
+        ...VALID_BODY,
+        email: "owner@company.test",
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(bcryptHash).not.toHaveBeenCalled();
+    const body = (await res.json()) as { error?: { message?: string } };
+    expect(body.error?.message).toMatch(/reserved/i);
   });
 });

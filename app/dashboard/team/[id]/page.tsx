@@ -24,6 +24,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import {
+  ATTENDANCE_NOT_RECORDED_LABEL,
+  formatAttendanceDateEnAu,
+} from "@/lib/inspections/format-attendance-date";
 
 type Member = {
   id: string;
@@ -39,6 +43,7 @@ type Inspection = {
   inspectionNumber?: string;
   propertyAddress?: string;
   status: string;
+  inspectionDate?: string | null;
   createdAt: string;
   technicianName?: string;
 };
@@ -470,7 +475,8 @@ export default function TeamMemberDetailPage({
                         </p>
                         <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                           <Clock size={11} />
-                          {formatDate(inspection.createdAt)}
+                          {formatAttendanceDateEnAu(inspection.inspectionDate) ??
+                            ATTENDANCE_NOT_RECORDED_LABEL}
                           {inspection.inspectionNumber && (
                             <span className="ml-1 text-slate-500">
                               #{inspection.inspectionNumber}

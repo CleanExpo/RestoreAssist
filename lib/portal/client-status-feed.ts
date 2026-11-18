@@ -49,12 +49,21 @@ export interface ClientFeed {
   pendingApprovals: { id: string; type: string; label: string }[];
 }
 
-export function buildClientStatusFeed(input: ClientFeedInput): ClientFeed {
-  const stepKey = STATUS_TO_STEP[input.status] ?? "DRAFT";
-  const idx = Math.max(
+/**
+ * Position of an internal status on the client's step list. Pulse uses it to
+ * email only when the client's step moves forward; an unknown status reads as
+ * the first step, the same fallback the feed itself uses.
+ */
+export function clientStepRank(status: string): number {
+  const stepKey = STATUS_TO_STEP[status] ?? "DRAFT";
+  return Math.max(
     0,
     STEPS.findIndex((s) => s.key === stepKey),
   );
+}
+
+export function buildClientStatusFeed(input: ClientFeedInput): ClientFeed {
+  const idx = clientStepRank(input.status);
   const steps = STEPS.map((s, i) => ({
     key: s.key,
     label: s.label,

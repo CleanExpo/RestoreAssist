@@ -4,6 +4,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import AddonsClient from "../AddonsClient";
 
+// Review round 8: pending purchase keys are stored per signed-in account.
+const { sessionRef } = vi.hoisted(() => ({
+  sessionRef: {
+    current: {
+      data: { user: { id: "owner-A" } },
+      status: "authenticated",
+    } as unknown,
+  },
+}));
+vi.mock("next-auth/react", () => ({ useSession: () => sessionRef.current }));
+
 const catalog = {
   addons: [
     {
@@ -36,7 +47,9 @@ describe("AddonsClient", () => {
   it("renders each pack with a formatted price and an owned/active badge", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => catalog }) as never,
+      vi
+        .fn()
+        .mockResolvedValue({ ok: true, json: async () => catalog }) as never,
     );
 
     render(<AddonsClient />);
@@ -46,12 +59,16 @@ describe("AddonsClient", () => {
     );
     // Owned pack shows Active + Manage link, not an Add button.
     expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /manage/i })).toHaveAttribute(
+      "href",
+      "/dashboard/subscription",
+    );
+    // Per-seat pricing reads as one plain phrase on the card.
+    expect(screen.getByText("$9.00 a month per seat")).toBeInTheDocument();
+    // RA-8271: the page is called Field Add-Ons.
     expect(
-      screen.getByRole("link", { name: /manage/i }),
-    ).toHaveAttribute("href", "/dashboard/subscription");
-    // Per-seat pricing: amount + period/seat (split for hierarchy).
-    expect(screen.getByText("$9.00")).toBeInTheDocument();
-    expect(screen.getByText(/\/mo per seat/)).toBeInTheDocument();
+      screen.getByRole("heading", { name: "Field Add-Ons" }),
+    ).toBeInTheDocument();
     // Unowned pack shows an Add button.
     expect(
       screen.getByRole("button", { name: /add pack/i }),
@@ -64,7 +81,11 @@ describe("AddonsClient", () => {
       // first call: catalog
       .mockResolvedValueOnce({ ok: true, json: async () => catalog })
       // second call: checkout
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ url: "/pay" }) });
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ url: "/pay" }),
+      });
     vi.stubGlobal("fetch", fetchMock as never);
     // Prevent jsdom navigation noise.
     Object.defineProperty(window, "location", {
@@ -98,9 +119,7 @@ describe("AddonsClient", () => {
       vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }) as never,
     );
     render(<AddonsClient />);
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
   });
 
   it("J-09: an active seat pack shows seats in use and adds a seat in place", async () => {
@@ -112,21 +131,33 @@ describe("AddonsClient", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => seatCatalog })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ updated: true, seats: 3 }) });
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ updated: true, seats: 3 }),
+      });
     vi.stubGlobal("fetch", fetchMock as never);
 
     render(<AddonsClient />);
-    await waitFor(() => expect(screen.getByText("1 of 2 seats in use")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("1 of 2 seats in use")).toBeInTheDocument(),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /add a seat/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("You now have 3 field technician seats"),
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "You now have 3 field technician seats",
+      ),
     );
     expect(screen.getByText("1 of 3 seats in use")).toBeInTheDocument();
     const [url, init] = fetchMock.mock.calls[1];
     expect(url).toBe("/api/addons/checkout");
-    expect(JSON.parse(init.body)).toEqual({ addonKey: "TECHNICIAN_SEATS" });
+    // RA-8271: the seat count shown is sent, so the server adds a seat only to it.
+    expect(JSON.parse(init.body)).toEqual({
+      addonKey: "TECHNICIAN_SEATS",
+      expectedSeats: 2,
+    });
     expect(init.headers["Idempotency-Key"]).toEqual(expect.any(String));
   });
 });

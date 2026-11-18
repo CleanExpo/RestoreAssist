@@ -431,7 +431,7 @@ describe("GET /api/inspections", () => {
     expect(JSON.stringify(whereArg)).not.toContain("technicianId");
   });
 
-  it("keeps the active alias as notIn COMPLETED/REJECTED", async () => {
+  it("keeps the active alias as notIn every finished status", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
     inspectionCount.mockResolvedValueOnce(0);
     inspectionFindMany.mockResolvedValueOnce([]);
@@ -440,7 +440,9 @@ describe("GET /api/inspections", () => {
     expect(res.status).toBe(200);
 
     const whereArg = inspectionFindMany.mock.calls[0][0].where;
-    expect(whereArg.status).toEqual({ notIn: ["COMPLETED", "REJECTED"] });
+    expect(whereArg.status).toEqual({
+      notIn: ["COMPLETED", "REJECTED", "CLOSED", "ARCHIVED"],
+    });
   });
 
   // RA-7610: the technician form resumes from this response and its

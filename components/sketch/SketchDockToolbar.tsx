@@ -11,6 +11,7 @@
  */
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import {
   MousePointer2,
@@ -717,6 +718,10 @@ export function SketchDockToolbar({
               setIsImporting(true);
               try {
                 await onImportSketch(file);
+              } catch (err) {
+                toast.error(
+                  err instanceof Error ? err.message : "Sketch import failed",
+                );
               } finally {
                 setIsImporting(false);
               }
@@ -726,6 +731,7 @@ export function SketchDockToolbar({
             type="button"
             title="Import hand-drawn sketch (Claude Vision)"
             aria-label="Import hand-drawn sketch"
+            aria-busy={isImporting}
             disabled={isImporting || isScanning}
             onClick={() => fileInputRef.current?.click()}
             className={cn(

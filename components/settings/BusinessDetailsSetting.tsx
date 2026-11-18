@@ -87,25 +87,25 @@ export function BusinessDetailsSetting() {
 
   return (
     <section
-      className="rounded-xl border border-slate-700/80 bg-slate-800/40 p-5"
+      className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-100/40 dark:bg-slate-800/40 p-5"
       aria-labelledby="business-details-title"
     >
       <div className="mb-4">
-        <h2 id="business-details-title" className="font-medium text-white">
+        <h2 id="business-details-title" className="font-medium text-slate-900 dark:text-white">
           Business details
         </h2>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           Printed on your reports and invoices. Both fields are needed before a
           paid account can generate reports.
         </p>
       </div>
       {loading ? (
-        <p role="status" className="text-sm text-slate-400">
+        <p role="status" className="text-sm text-slate-600 dark:text-slate-400">
           Loading business details…
         </p>
       ) : loadFailed ? (
         <div className="flex flex-wrap items-center gap-3">
-          <p role="alert" className="text-sm text-amber-400">
+          <p role="alert" className="text-sm text-amber-700 dark:text-amber-400">
             Your stored business details could not be loaded, so editing is
             paused to avoid overwriting them.
           </p>
@@ -116,7 +116,7 @@ export function BusinessDetailsSetting() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
-            <label htmlFor="settings-business-name" className="text-sm text-slate-200">
+            <label htmlFor="settings-business-name" className="text-sm text-slate-800 dark:text-slate-200">
               Business name
             </label>
             <Input
@@ -125,12 +125,12 @@ export function BusinessDetailsSetting() {
               onChange={(event) =>
                 setForm((current) => ({ ...current, businessName: event.target.value }))
               }
-              className="border-slate-600 bg-slate-900 text-white"
+              className="border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
               autoComplete="organization"
             />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="settings-business-address" className="text-sm text-slate-200">
+            <label htmlFor="settings-business-address" className="text-sm text-slate-800 dark:text-slate-200">
               Business address
             </label>
             <Input
@@ -139,11 +139,11 @@ export function BusinessDetailsSetting() {
               onChange={(event) =>
                 setForm((current) => ({ ...current, businessAddress: event.target.value }))
               }
-              className="border-slate-600 bg-slate-900 text-white"
+              className="border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
               autoComplete="street-address"
             />
           </div>
-          <div className="md:col-span-2 flex justify-end border-t border-slate-700 pt-4">
+          <div className="md:col-span-2 flex justify-end border-t border-slate-200 dark:border-slate-700 pt-4">
             <Button type="button" onClick={save} disabled={saving} className="min-h-11">
               {saving ? "Saving…" : "Save business details"}
             </Button>

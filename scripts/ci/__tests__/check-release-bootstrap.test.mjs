@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join, posix, win32 } from "node:path";
 import test from "node:test";
 
-import { findReleaseBootstrapViolations } from "../check-release-bootstrap.mjs";
+import { findReleaseBootstrapViolations, isPathStrictlyInside } from "../check-release-bootstrap.mjs";
 
 const PIN = "3d3c42e5aac5ba805825da76410c181273ba90b1";
 const APPROVED_ENV = [
@@ -802,11 +802,13 @@ test("semantic workflow inspection covers the current workflow population", () =
     .filter((name) => /\.ya?ml$/i.test(name));
   // A deliberate review tripwire: adding a workflow must force someone to
   // re-confirm the inspection below still holds over the new population.
-  // Reviewed 2026-09-21 at 25 -> 26: p0-1-private-buckets.yml (RA-7466).
-  // findReleaseBootstrapViolations returned 0 over all 26 workflows
-  // (SHA-pinned checkout/setup-node, no pnpm, no unapproved actions).
-  // Prior review 2026-09-21 at 24 -> 25 (RA-7597); 2026-09-06 at 20 -> 24.
-  assert.equal(workflowPopulation.length, 26);
+  // Reviewed 2026-11-06 at 27 -> 28: migration-ledger-parity.yml (RA-7939).
+  // Read-only: checkout and setup-node only, both SHA-pinned, no secrets, no
+  // install, no migrate. findReleaseBootstrapViolations returned 0 over all 28.
+  // Prior review 2026-11-02 at 26 -> 27: check-visuals.yml (PR 2483).
+  // Prior reviews 2026-09-21 at 25 -> 26 (RA-7466) and 24 -> 25 (RA-7597);
+  // 2026-09-06 at 20 -> 24.
+  assert.equal(workflowPopulation.length, 28);
   assert.deepEqual(findReleaseBootstrapViolations(process.cwd()), []);
 });
 
@@ -929,4 +931,65 @@ test("rejects declared Capacitor packages omitted from resolved lock entries", (
   );
   assert.match(violations.join("\n"), /must resolve node_modules\/@capacitor\/core/);
   assert.match(violations.join("\n"), /must resolve node_modules\/@capacitor\/ios/);
+});
+
+// RA-8362: every containment check must hold on Windows paths too. On Windows,
+// node:path resolve() returns backslash paths, so a prefix check written as
+// `${root}/` refused every local workflow reference there. These cases pin the
+// helper against both path flavours, positive and negative.
+test("path containment accepts descendants on POSIX and Windows paths", () => {
+  assert.equal(isPathStrictlyInside("/repo", "/repo/.github/workflows/ci.yml", posix), true);
+  assert.equal(isPathStrictlyInside("/repo", "/repo/..hidden", posix), true);
+  const windowsRoot = "C:\\Users\\Phill\\RestoreAssist";
+  assert.equal(
+    isPathStrictlyInside(windowsRoot, win32.resolve(windowsRoot, "./.github/workflows/pilot-canary.yml"), win32),
+    true,
+  );
+  assert.equal(isPathStrictlyInside(windowsRoot, "C:/Users/Phill/RestoreAssist/scripts/build.sh", win32), true);
+  assert.equal(isPathStrictlyInside(windowsRoot, "c:\\users\\phill\\restoreassist\\scripts\\build.sh", win32), true);
+  assert.equal(isPathStrictlyInside("\\\\server\\share\\repo", "\\\\server\\share\\repo\\scripts\\a.sh", win32), true);
+});
+
+test("path containment rejects the root itself, siblings, parents and other drives", () => {
+  for (const [parent, child] of [
+    ["/repo", "/repo"],
+    ["/repo", "/repo-evil/x"],
+    ["/repo", "/x"],
+    ["/repo", "/"],
+    ["/repo/scripts", "/repo/scripts-evil/build.sh"],
+    ["/repo", posix.resolve("/repo/../escape")],
+    ["/Repo", "/repo/x"],
+  ]) {
+    assert.equal(isPathStrictlyInside(parent, child, posix), false, `posix ${parent} vs ${child}`);
+  }
+  for (const [parent, child] of [
+    ["C:\\repo", "C:\\repo"],
+    ["C:\\repo", "c:\\REPO\\"],
+    ["C:\\repo", "C:\\repo-evil\\x"],
+    ["C:\\repo", "C:\\x"],
+    ["C:\\repo", "D:\\repo\\x"],
+    ["C:\\repo", win32.resolve("C:\\repo\\..\\escape")],
+    ["C:\\repo\\scripts", "C:\\repo\\scripts-evil\\build.sh"],
+    ["\\\\server\\share\\repo", "\\\\other\\share\\repo\\x"],
+  ]) {
+    assert.equal(isPathStrictlyInside(parent, child, win32), false, `win32 ${parent} vs ${child}`);
+  }
+});
+
+test("the guard has no slash-only prefix containment checks left", () => {
+  const source = readFileSync(new URL("../check-release-bootstrap.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /startsWith\(`\$\{[^}]*\}\/`\)/);
+  assert.doesNotMatch(source, /\)\}\/`;/);
+});
+
+test("semantic workflow inspection rejects a sibling directory that shares the repository prefix", () => {
+  const root = fixture();
+  const sibling = `${root}-evil`;
+  mkdirSync(join(sibling, "action"), { recursive: true });
+  writeFileSync(join(sibling, "action", "action.yml"), "name: x\nruns: {using: node20, main: index.js}\n");
+  writeFileSync(join(sibling, "action", "index.js"), "export {};\n");
+  const workflowPath = join(root, ".github", "workflows", "ci.yml");
+  const target = `./../${basename(root)}-evil/action`;
+  writeFileSync(workflowPath, readFileSync(workflowPath, "utf8").replace(`actions/checkout@${PIN}`, target));
+  assert.match(findReleaseBootstrapViolations(root).join("\n"), /local reference escapes the repository/);
 });

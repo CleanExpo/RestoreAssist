@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { apiErrorMessage } from "@/lib/api-error-message";
 export default function ContactPage() {
   const darkMode = false;
   const [form, setForm] = useState({
@@ -46,7 +47,7 @@ export default function ContactPage() {
             ? (data.issues[0].message as string)
             : null;
         throw new Error(
-          issue || data?.error || "Something went wrong. Please try again.",
+          issue || apiErrorMessage(data) || "Something went wrong. Please try again.",
         );
       }
       setStatus("success");

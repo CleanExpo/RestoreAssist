@@ -152,7 +152,8 @@ export async function PATCH(req: Request) {
   if (org.setupCompletedAt) {
     return apiError(undefined, {
       code: "CONFLICT",
-      message: "Setup already complete; edit in Settings instead",
+      message:
+        "Setup is complete. Edit your legal name, logo and colours in Settings → Organisation profile; ABN and locale are under Organisation locale.",
       status: 409,
     });
   }

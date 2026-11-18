@@ -105,6 +105,16 @@ function projectRooms(args: { select?: { _count?: { select?: Record<string, bool
   return [{ ...staleRoom, _count }];
 }
 
+const keptRoom = {
+  type: "polygon",
+  points: [
+    { x: 0, y: 0 },
+    { x: 300, y: 0 },
+    { x: 300, y: 300 },
+  ],
+  data: { type: "room", id: "room-kept", label: "Kitchen" },
+};
+
 const save = () =>
   POST(
     new NextRequest("http://localhost/api/inspections/i1/sketches", {
@@ -112,7 +122,10 @@ const save = () =>
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         floorNumber: 0,
-        sketchData: { scaleConfig: { pxPerMetre: 100 }, objects: [] },
+        // The canvas still carries another room, so the save is a genuine
+        // removal of the stale one. A save carrying no room at all keeps the
+        // stored floor (RA-7656).
+        sketchData: { scaleConfig: { pxPerMetre: 100 }, objects: [keptRoom] },
         // One pin the owner already recorded (12) and one new (30).
         moisturePoints: [
           { x: 1, y: 1, wme: 12 },

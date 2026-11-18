@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Outcome {
   status: string;
@@ -128,7 +129,7 @@ export default function FoundingTrialPage() {
           setPreviewed(null);
         }
       } else {
-        setError(data.error ?? "The grant could not be run.");
+        setError(apiErrorMessage(data) ?? "The grant could not be run.");
         setOutcome(null);
       }
     } catch {
@@ -191,7 +192,7 @@ export default function FoundingTrialPage() {
                 setLookup(e.target.value);
                 setConfirmed(null);
               }}
-              placeholder="51 824 753 556"
+              placeholder="e.g. 12 345 678 901"
               className="flex-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
             />
             <Button

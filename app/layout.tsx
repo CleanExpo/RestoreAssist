@@ -5,7 +5,7 @@ import { BRAND } from "@/lib/brand";
 import { OG_SHARE_PATH, ogAlt, ogSize } from "@/lib/og/constants";
 import SessionProvider from "@/components/providers/SessionProvider";
 import { CapacitorProvider } from "@/components/providers/CapacitorProvider";
-import { ThemeProvider } from "@/components/theme-provider";
+import { AppThemeProvider } from "@/components/app-theme-provider";
 import { SafeToaster } from "@/components/providers/SafeToaster";
 import {
   OrganizationSchema,
@@ -140,14 +140,9 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`dark ${geistSans.variable} ${geistMono.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `document.documentElement.classList.add("dark");`,
-          }}
-        />
         <script dangerouslySetInnerHTML={{ __html: IOS_SHELL_LAUNCH_GUARD }} />
         {/* First-touch campaign attribution for signups (lib/analytics/attribution.ts). */}
         <script dangerouslySetInnerHTML={{ __html: FIRST_TOUCH_SCRIPT }} />
@@ -165,13 +160,10 @@ export default function RootLayout({
       <body className={geistSans.className}>
         <OrganizationSchema />
         <SoftwareApplicationSchema />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          forcedTheme="dark"
-          enableSystem={false}
-          disableTransitionOnChange
-        >
+        {/* RA-8305: the dashboard honours the Appearance setting (default
+            dark); public pages stay dark. next-themes applies the stored
+            choice before paint — never add the dark class here directly. */}
+        <AppThemeProvider>
           <AnnouncerProvider>
             <SessionProvider>
               <NirOfflineProvider>
@@ -188,7 +180,7 @@ export default function RootLayout({
           {/* Coerces API error objects so toast.error({code,message,eventId})
               cannot crash the React tree. */}
           <SafeToaster />
-        </ThemeProvider>
+        </AppThemeProvider>
       </body>
     </html>
   );

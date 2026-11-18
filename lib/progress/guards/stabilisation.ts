@@ -4,8 +4,10 @@
  * Board evidence contract (00-board-minutes.md §5.2):
  *
  *  STABILISATION_ACTIVE → STABILISATION_COMPLETE (attest_stabilisation)
- *    - All applicable MakeSafeAction rows closed (completed=true) OR
- *      explicitly applicable=false
+ *    - Every action on the job's own make-safe list closed (completed=true)
+ *      OR explicitly applicable=false. RA-8327: the list follows the claim
+ *      type (judgeMakeSafe); a missing row is open, and rows kept from the
+ *      other list are history that never blocks.
  *    - SwmsDraft.signedAt not null
  *    - No open HIGH/CRITICAL WHSIncident on the inspection
  *
@@ -17,11 +19,17 @@
  */
 
 import type { PrismaClient } from "@prisma/client";
+import { loadMakeSafeCompletion } from "@/lib/compliance/make-safe-list";
 import type { GuardFn } from "./types";
 
 type Db = Pick<
   PrismaClient,
-  "makeSafeAction" | "swmsDraft" | "wHSIncident" | "inspectionPhoto"
+  | "makeSafeAction"
+  | "inspection"
+  | "fireSmokeDamageAssessment"
+  | "swmsDraft"
+  | "wHSIncident"
+  | "inspectionPhoto"
 >;
 
 export const attestStabilisationGuard: GuardFn = async (db, ctx) => {
@@ -35,22 +43,7 @@ export const attestStabilisationGuard: GuardFn = async (db, ctx) => {
   const prisma = db as Db;
 
   const [makeSafe, swms, whs] = await Promise.all([
-    prisma.makeSafeAction.findMany({
-      where: { inspectionId: ctx.inspectionId },
-      select: {
-        id: true,
-        action: true,
-        completed: true,
-        applicable: true,
-      },
-      // This gate can fail OPEN: a truncated result could hide an uncompleted
-      // applicable action and wrongly pass the attestation. Make-safe actions
-      // per inspection are a small closed set, so take: 500 never truncates real
-      // data; completed:asc additionally orders any uncompleted (potentially
-      // unsafe) rows first, so the block still fires even at the bound.
-      orderBy: { completed: "asc" },
-      take: 500,
-    }),
+    loadMakeSafeCompletion(ctx.inspectionId, { db: prisma }),
     prisma.swmsDraft.findFirst({
       where: { inspectionId: ctx.inspectionId },
       select: { id: true, signedAt: true },
@@ -68,14 +61,18 @@ export const attestStabilisationGuard: GuardFn = async (db, ctx) => {
     }),
   ]);
 
-  const unsafe = makeSafe.filter((m) => m.applicable && !m.completed);
+  const unsafe = makeSafe.open;
   if (unsafe.length > 0) {
     return {
       passed: false,
       reason: `Applicable MakeSafeAction(s) not completed: ${unsafe
         .map((m) => m.action)
         .join(", ")}`,
-      snapshot: { unclosed: unsafe, makeSafeCount: makeSafe.length },
+      snapshot: {
+        unclosed: unsafe,
+        makeSafeList: makeSafe.kind,
+        makeSafeCount: makeSafe.items.length,
+      },
     };
   }
 
@@ -109,8 +106,10 @@ export const attestStabilisationGuard: GuardFn = async (db, ctx) => {
   return {
     passed: true,
     snapshot: {
-      makeSafeActions: makeSafe.map((m) => ({
-        id: m.id,
+      makeSafeList: makeSafe.kind,
+      makeSafeActions: makeSafe.items,
+      // Kept from the other list: recorded for the audit, never counted.
+      makeSafeHistory: makeSafe.history.map((m) => ({
         action: m.action,
         completed: m.completed,
         applicable: m.applicable,

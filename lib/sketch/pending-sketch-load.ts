@@ -35,7 +35,7 @@ function newLostRoomId(): string {
  * custom `data` was dropped by Fabric 7 toJSON() (RA-7655). Damage tints
  * and the north arrow are also polygons but use other fills.
  */
-function isDataLessRoomPolygon(obj: unknown): boolean {
+export function isDataLessRoomPolygon(obj: unknown): boolean {
   if (!obj || typeof obj !== "object" || objectHasCustomData(obj)) return false;
   const o = obj as { type?: unknown; points?: unknown; fill?: unknown };
   const type = typeof o.type === "string" ? o.type.toLowerCase() : "";
@@ -93,6 +93,13 @@ export function scaleConfigFromStoredSketchData(
 ): unknown | null {
   if (!sketchData || typeof sketchData !== "object") return null;
   const scaleConfig = (sketchData as StoredSketchData).scaleConfig;
+  // RA-8237: a scale that cannot convert pixels to metres is not a scale.
+  // Reload falls back to the default instead of carrying it into billing.
+  const ppm = (scaleConfig as { pxPerMetre?: unknown } | null | undefined)
+    ?.pxPerMetre;
+  if (typeof ppm !== "number" || !Number.isFinite(ppm) || ppm <= 0) {
+    return null;
+  }
   return scaleConfig ?? null;
 }
 

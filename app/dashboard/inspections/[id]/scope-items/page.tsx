@@ -19,6 +19,7 @@ import {
   MapPin,
   CheckCircle2,
 } from "lucide-react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -380,7 +381,7 @@ export default function ScopeItemsPage({
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Generation failed");
+        throw new Error(apiErrorMessage(err) ?? "Generation failed");
       }
       // The generator streams its progress — drain it before refetching.
       await res.text();

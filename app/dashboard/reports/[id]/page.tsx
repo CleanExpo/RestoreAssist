@@ -18,6 +18,8 @@ import {
   Mail,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { resolveClientRecipient } from "@/lib/client-recipient";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import InspectionReportViewer from "@/components/InspectionReportViewer";
 import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer";
@@ -49,6 +51,7 @@ import {
 } from "@/lib/client/parse-api-error";
 import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
 import { ReportClientSendChecklist } from "@/components/reports/ReportClientSendChecklist";
+import { ReportDetailHonestyPanel } from "@/components/reports/ReportDetailHonestyPanel";
 
 export default function ReportDetailPage({
   params,
@@ -179,7 +182,7 @@ export default function ReportDetailPage({
         method: "POST",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to generate link");
+      if (!res.ok) throw new Error(apiErrorMessage(data) ?? "Failed to generate link");
       await navigator.clipboard.writeText(data.url);
       setInsurerLinkCopied(true);
       toast.success(
@@ -196,7 +199,11 @@ export default function ReportDetailPage({
 
   // RA-7632: emailing the finished report is the delivery record Close Job
   // needs. The server enforces both conditions; this only explains the state.
-  const clientEmail: string = report.client?.email?.trim() ?? "";
+  const clientEmail: string =
+    resolveClientRecipient<{ email?: string | null }>({
+      reportClient: report.client,
+      inspectionClient: report.inspection?.client,
+    })?.email ?? "";
   const canEmailClient =
     report.status === "COMPLETED" && clientEmail.length > 0;
   const emailClientTitle =
@@ -261,6 +268,8 @@ export default function ReportDetailPage({
         </div>
       </div>
 
+      <ReportDetailHonestyPanel report={report} />
+
       {/* Weakness check — reviewed ahead of export/handoff (RA-5041 UI) */}
       {reportId && (
         <WeaknessFindingsPanel
@@ -278,11 +287,7 @@ export default function ReportDetailPage({
           inspectionId={
             report?.inspectionId ?? report?.inspection?.id ?? null
           }
-          clientEmailHint={
-            report?.client?.email ??
-            report?.clientEmail ??
-            null
-          }
+          clientEmailHint={clientEmail || report?.clientEmail || null}
           canSend={canEmailClient}
           sending={emailingClient}
           onSend={() => requestExport(handleEmailClient)}
@@ -378,6 +383,19 @@ export default function ReportDetailPage({
           <MessageSquare size={18} />
           Start Interview
         </button>
+        {/* RA-8081: report pages that had no link anywhere */}
+        <Link
+          href={`/dashboard/reports/${reportId}/preview`}
+          className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+        >
+          Preview
+        </Link>
+        <Link
+          href={`/dashboard/reports/${reportId}/share`}
+          className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+        >
+          Share settings
+        </Link>
       </div>
 
       {/* RA-5041 UI: block export/handoff on an unacknowledged P0 hard-stop —

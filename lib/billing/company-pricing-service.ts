@@ -31,8 +31,6 @@ export interface ValidationError {
   field: string;
   message: string;
   value: number;
-  min: number;
-  max: number;
 }
 
 export interface ValidationResult {
@@ -59,7 +57,7 @@ function mid(field: string): number {
  * Returns NRPG midpoint values for all CompanyPricingConfig fields.
  * Used when creating a new config and as a reset target.
  */
-export function getNRPGDefaults(): PricingConfigInput {
+export function getNRPGDefaults(): PricingConfigUpdateInput {
   return {
     // Labour — Master Qualified Technician
     masterQualifiedNormalHours: mid("masterQualifiedNormalHours"),
@@ -141,10 +139,9 @@ export function validatePricingConfig(
     if (check && !check.valid) {
       errors.push({
         field,
-        message: `${check.label}: ${value} is outside the typical industry range (${check.min}–${check.max})`,
+        // RA-8281: no range figure in the message or the error.
+        message: `${check.label}: ${value} is outside the national price range`,
         value,
-        min: check.min,
-        max: check.max,
       });
     }
   }

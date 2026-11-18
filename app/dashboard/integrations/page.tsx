@@ -34,6 +34,7 @@ import {
   isNrpgEnabled,
   isQuickBooksEnabled,
   isServiceM8Enabled,
+  isZohoEnabled,
 } from "@/lib/flags/one-crm-flags";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -78,7 +79,7 @@ interface ExternalIntegration {
   };
 }
 
-type ProviderSlug = "xero" | "quickbooks" | "myob" | "servicem8" | "ascora";
+type ProviderSlug = "xero" | "quickbooks" | "myob" | "servicem8" | "ascora" | "zoho";
 
 const EXTERNAL_INTEGRATIONS: {
   slug: ProviderSlug;
@@ -86,7 +87,7 @@ const EXTERNAL_INTEGRATIONS: {
   description: string;
   icon: string;
   logo: string;
-  category: "bookkeeping" | "jobmanagement";
+  category: "bookkeeping" | "jobmanagement" | "crm";
   comingSoon?: boolean;
   // RA-1248 — OAuth + token refresh implemented in lib/integrations/<slug>/
   // but not yet E2E-verified against a real production tenant. Signals to
@@ -144,6 +145,15 @@ const EXTERNAL_INTEGRATIONS: {
     logo: "/integrations/ascora.svg",
     category: "jobmanagement",
   },
+  {
+    slug: "zoho",
+    name: "Zoho CRM",
+    description:
+      "Pull contacts, accounts and deals in, and push customers, jobs and status changes back.",
+    icon: "[ra:job]",
+    logo: "/integrations/zoho-logo.svg",
+    category: "crm",
+  },
 ];
 
 /**
@@ -160,6 +170,8 @@ function isProviderListed(slug: ProviderSlug): boolean {
       return isMyobEnabled();
     case "quickbooks":
       return isQuickBooksEnabled();
+    case "zoho":
+      return isZohoEnabled();
     default:
       return true;
   }
@@ -248,6 +260,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
   const [showAscoraModal, setShowAscoraModal] = useState(false);
   const [ascoraApiKey, setAscoraApiKey] = useState("");
   const [ascoraConnecting, setAscoraConnecting] = useState(false);
+  const [showZohoRegion, setShowZohoRegion] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
   // DR-NRPG state
@@ -421,12 +434,27 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
 
   // OAuth providers only. Ascora is static-API-key and connects through
   // handleConnectAscora, which collects the key and drives /api/ascora/connect.
-  const handleConnectExternal = async (slug: ProviderSlug) => {
+  const handleConnectExternal = async (
+    slug: ProviderSlug,
+    region?: "AU" | "US" | "EU",
+  ) => {
+    if (slug === "zoho" && !region) {
+      setShowZohoRegion(true);
+      return;
+    }
     if (connectPending.current || slug === "ascora") return;
     connectPending.current = true;
     setConnectingProvider(slug);
     try {
-      const response = await fetch(`/api/integrations/oauth/${slug}/connect`, { method: "POST" });
+      const response = await fetch(`/api/integrations/oauth/${slug}/connect`, {
+        method: "POST",
+        ...(region
+          ? {
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ region }),
+            }
+          : {}),
+      });
       const data = await response.json().catch(() => ({}));
       if (!mounted.current) return;
       if (response.ok && typeof data.authUrl === "string" && data.authUrl) {
@@ -933,6 +961,133 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
               >
                 Retry status
               </Button>
+            </div>
+          )}
+
+          {listedExternalIntegrations.some((integration) => integration.category === "crm") && (
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-teal-500/10 dark:bg-teal-500/15 border border-teal-500/20">
+                  <Network size={16} className="text-teal-700 dark:text-teal-300" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                    CRM
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Keep Zoho current with the customers and jobs you run here.
+                  </p>
+                </div>
+              </div>
+              <Separator className="mt-4 mb-5" />
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {listedExternalIntegrations
+                  .filter((integration) => integration.category === "crm")
+                  .map((integration) => {
+                    const status = externalIntegrations[integration.slug];
+                    const isStatusKnown =
+                      !externalIntegrationsLoading &&
+                      Boolean(status) &&
+                      status.status !== "UNAVAILABLE";
+                    const isConnected = status?.connected;
+                    const isSyncing =
+                      syncingProvider === integration.slug || status?.status === "SYNCING";
+                    const hasError =
+                      status?.status === "ERROR" ||
+                      status?.status === "ATTENTION" ||
+                      status?.status === "AMBIGUOUS";
+                    return (
+                      <Card key={integration.slug}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start gap-3">
+                            <div className="relative w-12 h-12 shrink-0 rounded-xl overflow-hidden ring-1 ring-white/10">
+                              <Image
+                                src={integration.logo}
+                                alt={integration.name}
+                                width={48}
+                                height={48}
+                                className="object-contain"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <CardTitle className="text-sm">{integration.name}</CardTitle>
+                                {isConnected && (
+                                  <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
+                                    Connected
+                                  </Badge>
+                                )}
+                                {hasError && (
+                                  <Badge variant="destructive" className="shrink-0 text-xs">
+                                    {status?.status === "AMBIGUOUS" ? "Multiple connections" : "Needs attention"}
+                                  </Badge>
+                                )}
+                              </div>
+                              <CardDescription className="mt-0.5 text-xs leading-relaxed">
+                                {integration.description}
+                              </CardDescription>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        {isConnected && status?.lastSyncAt && (
+                          <CardContent className="pt-0 pb-3">
+                            <Separator className="mb-3" />
+                            <p className="text-xs text-muted-foreground">
+                              Last synced {new Date(status.lastSyncAt).toLocaleDateString("en-AU")}
+                            </p>
+                          </CardContent>
+                        )}
+                        {hasError && status?.syncError && (
+                          <CardContent className="pt-0 pb-3">
+                            <div className="p-2 bg-destructive-subtle border border-destructive-subtle-foreground/30 rounded-md text-xs text-destructive-subtle-foreground">
+                              {status.syncError}
+                            </div>
+                          </CardContent>
+                        )}
+                        <CardFooter className="pt-0 gap-2">
+                          {!isStatusKnown ? (
+                            <Button variant="secondary" size="sm" className="w-full" disabled>
+                              {externalIntegrationsLoading ? "Checking status…" : "Status unavailable"}
+                            </Button>
+                          ) : status?.status === "AMBIGUOUS" ? (
+                            <Button variant="secondary" size="sm" className="w-full" disabled>
+                              Choose a workspace connection
+                            </Button>
+                          ) : isConnected ? (
+                            <>
+                              <Button
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => handleSyncExternal(integration.slug)}
+                                disabled={isSyncing}
+                              >
+                                {isSyncing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                                {isSyncing ? "Syncing..." : "Sync"}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDisconnectExternal(integration.slug)}
+                              >
+                                Disconnect
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              disabled={connectingProvider !== null}
+                              onClick={() => handleConnectExternal(integration.slug)}
+                            >
+                              <ExternalLink />
+                              {connectingProvider === integration.slug ? "Connecting…" : "Connect"}
+                            </Button>
+                          )}
+                        </CardFooter>
+                      </Card>
+                    );
+                  })}
+              </div>
             </div>
           )}
 
@@ -1483,6 +1638,34 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
       )}
 
       {/* ── Ascora Modal ──────────────────────────── */}
+      <Dialog
+        open={showZohoRegion}
+        onOpenChange={setShowZohoRegion}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect Zoho CRM</DialogTitle>
+            <DialogDescription>
+              Choose the Zoho data centre for this account. Australia, the United States and Europe each use a different sign-in host.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            {(["AU", "US", "EU"] as const).map((region) => (
+              <Button
+                key={region}
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowZohoRegion(false);
+                  void handleConnectExternal("zoho", region);
+                }}
+              >
+                {region === "AU" ? "Australia" : region === "US" ? "United States" : "Europe"}
+              </Button>
+            ))}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={showAscoraModal}
         onOpenChange={(open) => {

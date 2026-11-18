@@ -4,21 +4,15 @@
 // Pure function — no side effects. Called by the inspection submit route
 // before transitioning status to SUBMITTED/COMPLETED.
 
-import { prisma } from "@/lib/prisma";
-import { MAKE_SAFE_ACTIONS } from "@/lib/compliance/make-safe-actions";
+import { MAKE_SAFE_ACTION_LABELS as LABELS } from "@/lib/compliance/make-safe-actions";
+import { loadMakeSafeCompletion } from "@/lib/compliance/make-safe-list";
 import {
   makeSafeCompliance,
   MAKE_SAFE_NOT_ASSESSED_REASON,
-  type MakeSafeComplianceItem,
 } from "@/lib/compliance/make-safe-compliance";
 
-export const MAKE_SAFE_ACTION_LABELS: Record<string, string> = {
-  power_isolated: "Power isolated (electrical hazard)",
-  gas_isolated: "Gas supply isolated (gas leak hazard)",
-  mould_containment: "Mould containment barriers erected",
-  water_stopped: "Water source stopped/diverted",
-  occupant_briefing: "Occupant safety briefing documented",
-};
+/** Labels live in make-safe-actions.ts; re-exported for existing importers. */
+export const MAKE_SAFE_ACTION_LABELS: Record<string, string> = LABELS;
 
 export type MakeSafeGateResult = {
   canSubmit: boolean;
@@ -45,42 +39,25 @@ export { MAKE_SAFE_NOT_ASSESSED_REASON };
  * RA-7739: a checklist with nothing applicable (the untouched intake seed,
  * or every item marked N/A) is not an assessment and is refused. Submit is
  * allowed exactly when makeSafeCompliance() — the badge — reads PASS.
+ *
+ * RA-8327: the list checked is the job's list (decideMakeSafeList): the fire
+ * list on a fire job, the standard list on every other job exactly as before.
+ * Rows recorded on the other list are history; they never count here and are
+ * never deleted. Pass the inspection's claimType.
  */
 export async function checkMakeSafeGate(
   inspectionId: string,
+  claimType?: string | null,
 ): Promise<MakeSafeGateResult> {
-  const rows = await prisma.makeSafeAction.findMany({
-    where: { inspectionId },
-    select: { action: true, applicable: true, completed: true },
-    take: 10,
+  // judgeMakeSafe owns the rule: the job's own list, a missing row is open,
+  // history rows never count.
+  const { items, open } = await loadMakeSafeCompletion(inspectionId, {
+    claimType,
   });
-
-  const rowMap = new Map(rows.map((r) => [r.action, r]));
-
-  const blockers: Array<{ action: string; label: string }> = [];
-  const items: MakeSafeComplianceItem[] = [];
-
-  for (const action of MAKE_SAFE_ACTIONS) {
-    const row = rowMap.get(action);
-
-    if (!row) {
-      // Row never created — treat as applicable + incomplete
-      items.push({ applicable: true, completed: false });
-      blockers.push({
-        action,
-        label: MAKE_SAFE_ACTION_LABELS[action] ?? action,
-      });
-      continue;
-    }
-
-    items.push({ applicable: row.applicable, completed: row.completed });
-    if (row.applicable && !row.completed) {
-      blockers.push({
-        action,
-        label: MAKE_SAFE_ACTION_LABELS[action] ?? action,
-      });
-    }
-  }
+  const blockers = open.map(({ action }) => ({
+    action,
+    label: MAKE_SAFE_ACTION_LABELS[action] ?? action,
+  }));
 
   const status = makeSafeCompliance(items);
   if (status === "NOT_ASSESSED") {

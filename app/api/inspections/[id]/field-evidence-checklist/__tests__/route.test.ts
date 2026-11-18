@@ -83,4 +83,31 @@ describe("GET /api/inspections/[id]/field-evidence-checklist", () => {
     const body = await res.json();
     expect(body.error.code).toBe("INTERNAL");
   });
+
+  // RA-8002 slice 1: the before-you-leave action list rides along, additively.
+  it("returns an empty beforeYouLeave list when nothing is outstanding", async () => {
+    const res = await GET(makeRequest(), params);
+    const body = await res.json();
+    expect(body.beforeYouLeave).toEqual([]);
+  });
+
+  it("returns beforeYouLeave actions built from the same checklist", async () => {
+    auditInspectionById.mockResolvedValueOnce({
+      ...sampleChecklist,
+      gapsByAffectedArea: [{ roomZoneId: "Kitchen", evidenceCount: 0 }],
+    });
+    const res = await GET(makeRequest(), params);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.gapsByAffectedArea).toEqual([
+      { roomZoneId: "Kitchen", evidenceCount: 0 },
+    ]);
+    expect(body.beforeYouLeave).toHaveLength(1);
+    expect(body.beforeYouLeave[0]).toMatchObject({
+      key: "room:kitchen",
+      roomZoneId: "Kitchen",
+      advisory: true,
+      action: { href: "/dashboard/inspections/insp_1/capture" },
+    });
+  });
 });

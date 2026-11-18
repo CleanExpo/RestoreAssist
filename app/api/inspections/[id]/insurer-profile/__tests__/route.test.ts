@@ -55,6 +55,7 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 
 import { GET, POST } from "../route";
+import { countableEvidence } from "@/lib/evidence/countable-evidence";
 
 const INSPECTION_ID = "insp_1";
 const params = { params: Promise.resolve({ id: INSPECTION_ID }) };
@@ -160,7 +161,8 @@ describe("POST /api/inspections/[id]/insurer-profile — RA-7508 evidence gap", 
 
     expect(evidenceItemGroupBy).toHaveBeenCalledWith({
       by: ["evidenceClass"],
-      where: { inspectionId: INSPECTION_ID },
+      // RA-8388: a retired reading's evidence record is not "submitted".
+      where: countableEvidence({ inspectionId: INSPECTION_ID }),
       _count: { id: true },
     });
   });

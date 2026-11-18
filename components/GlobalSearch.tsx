@@ -157,7 +157,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
       >
         <Search size={18} className="flex-shrink-0" />
         <span className="flex-1 text-left">Search reports, clients...</span>
-        <kbd className="hidden items-center gap-1 rounded border border-neutral-300 bg-neutral-100 px-1.5 py-0.5 text-xs font-medium text-neutral-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400 sm:inline-flex">
+        <kbd className="hidden items-center gap-1 rounded border border-neutral-300 bg-neutral-100 px-1.5 py-0.5 text-xs font-medium text-neutral-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400 sm:inline-flex">
           ⌘K
         </kbd>
       </button>
@@ -177,7 +177,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
         <div className="w-full max-w-2xl mx-4 bg-white rounded-lg shadow-xl overflow-hidden">
           {/* Search Input */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200">
-            <Search size={20} className="text-slate-400" />
+            <Search size={20} className="text-slate-600 dark:text-slate-400" />
             <input
               ref={inputRef}
               type="text"
@@ -189,7 +189,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
             />
             <button
               onClick={handleClose}
-              className="p-1 text-slate-400 hover:text-slate-600"
+              className="p-1 text-slate-600 dark:text-slate-400 hover:text-slate-600"
             >
               <X size={18} />
             </button>
@@ -230,7 +230,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
                       </div>
                       <ArrowRight
                         size={16}
-                        className="text-slate-400 flex-shrink-0"
+                        className="text-slate-600 dark:text-slate-400 flex-shrink-0"
                       />
                     </div>
                   </button>

@@ -51,6 +51,7 @@ import { readPhotoAiMetadata } from "@/lib/services/ai/photo-classification-revi
 import { classificationHasSuspectedAcm } from "@/lib/anz/photo-ai-whs";
 import { InspectionPhotoUploadControl } from "@/components/inspection/InspectionPhotoUploadControl";
 import { EvidenceQueueRecovery } from "@/components/inspection/EvidenceQueueRecovery";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -411,7 +412,7 @@ function PhotoPanel({
       );
       const data = await res.json();
       if (!res.ok) {
-        setSaveError((data.errors ?? [data.error ?? "Save failed"]).join("; "));
+        setSaveError((data.errors ?? [apiErrorMessage(data) ?? "Save failed"]).join("; "));
         return;
       }
       if (data.asbestosStopWork) setAsbestosWarning(true);
@@ -439,14 +440,7 @@ function PhotoPanel({
           );
           return;
         }
-        setAiError(
-          typeof data.error === "string"
-            ? data.error
-            : typeof (data.error as { message?: unknown } | undefined)?.message ===
-                "string"
-              ? (data.error as { message: string }).message
-              : "Could not classify this photo",
-        );
+        setAiError(apiErrorMessage(data) ?? "Could not classify this photo");
         return;
       }
       onUpdate({
@@ -480,16 +474,7 @@ function PhotoPanel({
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setAiError(
-          typeof data.error === "string"
-            ? data.error
-            : typeof (data.error as { message?: unknown } | undefined)?.message ===
-                "string"
-              ? (data.error as { message: string }).message
-              : typeof data.message === "string"
-                ? data.message
-                : "Could not save the review",
-        );
+        setAiError(apiErrorMessage(data) ?? "Could not save the review");
         return;
       }
       if (data.review?.whsLatch?.aiRaisedAcm) setAsbestosWarning(true);

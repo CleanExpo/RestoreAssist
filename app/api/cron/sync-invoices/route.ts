@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { OAUTH_CANDIDATE_WHERE } from "@/lib/services/integrations/select-oauth";
 import { isOAuthIntegration } from "@/lib/integrations/identity";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
+import { processZohoSyncBatch } from "@/lib/integrations/zoho/queue";
 import { verifyCronAuth } from "@/lib/cron/auth";
 import { runCronJob } from "@/lib/cron/runner";
 
@@ -62,12 +63,16 @@ async function syncInvoicesOnce() {
     take: MAX_INTEGRATIONS_PER_CRON_RUN,
   });
 
+  const zoho = await drainZoho();
+
   if (integrations.length === 0) {
     return {
       itemsProcessed: 0,
       metadata: {
         integrations: 0,
         invoicesQueued: 0,
+        zohoProcessed: zoho.processed,
+        zohoFailed: zoho.failed,
         reason: "No active integrations",
       },
     };
@@ -149,6 +154,20 @@ async function syncInvoicesOnce() {
     metadata: {
       integrations: integrations.length,
       invoicesQueued: totalQueued,
+      zohoProcessed: zoho.processed,
+      zohoFailed: zoho.failed,
     },
   };
+}
+
+async function drainZoho(): Promise<{ processed: number; failed: number }> {
+  try {
+    return await processZohoSyncBatch();
+  } catch (error) {
+    console.error(
+      "[Invoice Sync Cron] Zoho outbound drain failed",
+      error instanceof Error ? error.message : "error",
+    );
+    return { processed: 0, failed: 0 };
+  }
 }

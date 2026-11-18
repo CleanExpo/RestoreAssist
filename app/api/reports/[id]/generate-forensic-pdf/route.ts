@@ -142,9 +142,8 @@ export async function GET(
       ? JSON.parse(report.psychrometricAssessment)
       : null;
     const scopeAreas = report.scopeAreas ? JSON.parse(report.scopeAreas) : null;
-    const equipmentSelection = report.equipmentSelection
-      ? JSON.parse(report.equipmentSelection)
-      : null;
+    // RA-8281 B1 round 13: passed on as stored; nothing here reads inside it.
+    const equipmentSelection: unknown = report.equipmentSelection;
 
     const stateInfo = resolveStateInfo({
       postcode: report.propertyPostcode,

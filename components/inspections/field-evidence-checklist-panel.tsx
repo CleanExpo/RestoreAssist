@@ -32,6 +32,7 @@ import type {
   ChecklistItem,
   FieldEvidenceChecklist,
 } from "@/lib/evidence/field-evidence-checklist";
+import type { BeforeYouLeaveAction } from "@/lib/evidence/before-you-leave";
 import {
   areasHref,
   captureHref,
@@ -60,6 +61,9 @@ export function FieldEvidenceChecklistPanel({
   const [checklist, setChecklist] = useState<FieldEvidenceChecklist | null>(
     null,
   );
+  const [beforeYouLeave, setBeforeYouLeave] = useState<
+    BeforeYouLeaveAction[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,9 +79,13 @@ export function FieldEvidenceChecklistPanel({
         setError(
           apiErrorMessage(data) ?? "Failed to load field evidence checklist",
         );
+        setBeforeYouLeave([]);
         return;
       }
       setChecklist(data.data);
+      setBeforeYouLeave(
+        Array.isArray(data.beforeYouLeave) ? data.beforeYouLeave : [],
+      );
     } catch {
       setError("Failed to load field evidence checklist — check your connection");
     } finally {
@@ -169,6 +177,7 @@ export function FieldEvidenceChecklistPanel({
 
   return (
     <section
+      id="field-evidence-checklist"
       className={cn(
         "rounded-xl border border-neutral-200/80 dark:border-slate-700/40 bg-neutral-50/60 dark:bg-slate-900/30 p-5 space-y-4",
         className,
@@ -195,11 +204,15 @@ export function FieldEvidenceChecklistPanel({
         </div>
         <Link
           href={captureHref(inspectionId)}
-          className="text-xs font-medium text-cyan-700 dark:text-cyan-300 hover:underline shrink-0"
+          className="text-xs font-medium text-brand-navy dark:text-brand-gold hover:underline shrink-0"
         >
           Open capture workflow
         </Link>
       </div>
+
+      {beforeYouLeave.length > 0 ? (
+        <BeforeYouLeaveSection actions={beforeYouLeave} />
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <ProgressStat
@@ -566,5 +579,76 @@ function UnlinkedSection({
         </CollapsibleContent>
       </div>
     </Collapsible>
+  );
+}
+
+const BEFORE_YOU_LEAVE_PREVIEW = 4;
+
+function BeforeYouLeaveSection({
+  actions,
+}: {
+  actions: BeforeYouLeaveAction[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visible =
+    expanded || actions.length <= BEFORE_YOU_LEAVE_PREVIEW
+      ? actions
+      : actions.slice(0, BEFORE_YOU_LEAVE_PREVIEW);
+  const hiddenCount = actions.length - visible.length;
+
+  return (
+    <div
+      className="rounded-lg border border-brand-bronze/30 bg-brand-cloud/80 dark:bg-brand-surface/40 p-3 space-y-2"
+      data-testid="before-you-leave"
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <h4 className="text-sm font-semibold text-brand-navy dark:text-slate-100">
+          Before you leave
+        </h4>
+        <span className="text-xs text-muted-foreground">
+          {actions.length} {actions.length === 1 ? "action" : "actions"}
+        </span>
+      </div>
+      <p className="text-xs text-neutral-600 dark:text-slate-400">
+        Work through these while you are still on site. Sending the report to
+        the client is blocked until required evidence is captured.
+      </p>
+      <ol className="space-y-2 list-none m-0 p-0">
+        {visible.map((action, index) => (
+          <li
+            key={action.key}
+            className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3 rounded-md border border-neutral-200/80 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/50 px-3 py-2"
+          >
+            <div className="min-w-0">
+              <span className="text-xs font-medium text-muted-foreground">
+                {index + 1}.
+              </span>{" "}
+              <span className="text-sm text-neutral-800 dark:text-slate-100">
+                {action.reason}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 shrink-0"
+              asChild
+            >
+              <Link href={action.action.href}>{action.action.label}</Link>
+            </Button>
+          </li>
+        ))}
+      </ol>
+      {hiddenCount > 0 ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => setExpanded(true)}
+        >
+          Show {hiddenCount} more
+        </Button>
+      ) : null}
+    </div>
   );
 }

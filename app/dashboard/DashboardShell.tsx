@@ -22,7 +22,6 @@ import {
   Plus,
   HelpCircle,
   CreditCard,
-  Package,
   Crown,
   FileSearch,
   ClipboardCheck,
@@ -69,8 +68,11 @@ import { cn } from "@/lib/utils";
 import {
   buildSimpleNavItems,
   buildAdvancedNavGroups,
+  FIELD_ADDONS_NAV_ITEM,
+  fieldAddonsTabVisible,
   isAdvancedMode,
   ADMIN_NAV_HREFS,
+  platformNavHrefs,
   type ExperienceMode,
   type NavItem,
 } from "./nav-config";
@@ -86,7 +88,10 @@ import {
 } from "@/lib/dashboard/simple-dashboard-theme";
 
 /** Icons for the six Admin destinations — shared by Advanced + Simple mode. */
-const ADMIN_NAV_ICONS: Record<(typeof ADMIN_NAV_HREFS)[number]["label"], typeof Shield> = {
+const ADMIN_NAV_ICONS: Record<
+  (typeof ADMIN_NAV_HREFS)[number]["label"],
+  typeof Shield
+> = {
   Admin: Shield,
   "NIR Pilot": FlaskConical,
   "Content Gate": Lock,
@@ -97,8 +102,15 @@ const ADMIN_NAV_ICONS: Record<(typeof ADMIN_NAV_HREFS)[number]["label"], typeof 
 
 export default function DashboardShell({
   children,
+  isPlatformOperator = false,
 }: {
   children: React.ReactNode;
+  /**
+   * Resolved on the server by the dashboard layout from the
+   * PLATFORM_SUPPORT_USER_IDS allowlist. Only the boolean crosses to the
+   * client; the allowlist never does. Defaults to false (fails closed).
+   */
+  isPlatformOperator?: boolean;
 }) {
   // Default: collapsed (icon-only) on tablets to give the content pane
   // breathing room. Apple App Review (1.0.2) flagged the iPad layout because
@@ -125,7 +137,13 @@ export default function DashboardShell({
       setSidebarOpen(false);
     }
   }, []);
-  const [profile, setProfile] = useState<{ userId: string; scopeKey: string; subscriptionStatus: string | null; businessName?: string | null; organizationId?: string | null } | null>(null);
+  const [profile, setProfile] = useState<{
+    userId: string;
+    scopeKey: string;
+    subscriptionStatus: string | null;
+    businessName?: string | null;
+    organizationId?: string | null;
+  } | null>(null);
   const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const logoutInFlight = useRef(false);
@@ -143,8 +161,13 @@ export default function DashboardShell({
   const accountId = session?.user?.id;
   const organizationId = session?.user?.organizationId;
   const scopeVerified = session?.user?.organizationScopeVerified !== false;
-  const profileScopeKey = JSON.stringify([accountId, organizationId, scopeVerified]);
-  const currentProfile = scopeVerified && profile?.scopeKey === profileScopeKey ? profile : null;
+  const profileScopeKey = JSON.stringify([
+    accountId,
+    organizationId,
+    scopeVerified,
+  ]);
+  const currentProfile =
+    scopeVerified && profile?.scopeKey === profileScopeKey ? profile : null;
   const subscriptionStatus = currentProfile?.subscriptionStatus ?? null;
   const router = useRouter();
   const pathname = usePathname() ?? "";
@@ -168,14 +191,25 @@ export default function DashboardShell({
         if (response.status === 401) return;
         if (response.ok) {
           const data = await response.json();
-          if (!cancelled && accountId && data.profile?.id === accountId &&
-            (organizationId === undefined || (data.profile.organizationId ?? null) === organizationId)) {
+          if (
+            !cancelled &&
+            accountId &&
+            data.profile?.id === accountId &&
+            (organizationId === undefined ||
+              (data.profile.organizationId ?? null) === organizationId)
+          ) {
             setProfileLoadError(null);
-            setProfile({ userId: accountId, scopeKey: profileScopeKey, subscriptionStatus: data.profile.subscriptionStatus ?? null, businessName: data.profile.businessName, organizationId: data.profile.organizationId });
+            setProfile({
+              userId: accountId,
+              scopeKey: profileScopeKey,
+              subscriptionStatus: data.profile.subscriptionStatus ?? null,
+              businessName: data.profile.businessName,
+              organizationId: data.profile.organizationId,
+            });
           }
         } else if (!cancelled) {
-          const parsed = await import("@/lib/client/parse-api-error").then((m) =>
-            m.parseApiError(response),
+          const parsed = await import("@/lib/client/parse-api-error").then(
+            (m) => m.parseApiError(response),
           );
           setProfileLoadError(parsed.message);
         }
@@ -196,7 +230,10 @@ export default function DashboardShell({
       const handleFocus = () => fetchSubscriptionStatus();
       window.addEventListener("focus", handleFocus);
 
-      return () => { cancelled = true; window.removeEventListener("focus", handleFocus); };
+      return () => {
+        cancelled = true;
+        window.removeEventListener("focus", handleFocus);
+      };
     }
   }, [status, accountId, organizationId, scopeVerified, profileScopeKey]);
 
@@ -236,7 +273,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen flex items-center justify-center",
-          "bg-slate-950",
+          "bg-slate-50 dark:bg-slate-950",
         )}
       >
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
@@ -249,7 +286,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen flex items-center justify-center",
-          "bg-slate-950",
+          "bg-slate-50 dark:bg-slate-950",
         )}
       >
         <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
@@ -280,14 +317,17 @@ export default function DashboardShell({
   const isManager =
     isAdmin || (session?.user as { role?: string })?.role === "MANAGER";
 
-  const adminNavItems: NavItem[] = isAdmin
-    ? ADMIN_NAV_HREFS.map((item) => ({
-        icon: ADMIN_NAV_ICONS[item.label],
-        label: item.label,
-        href: item.href,
-        adminOnly: true,
-      }))
-    : [];
+  // Platform staff links only: every business owner is ADMIN, so ADMIN alone
+  // must not show them (pages and APIs still enforce access server-side).
+  const adminNavItems: NavItem[] = platformNavHrefs({
+    role: session?.user?.role,
+    isPlatformOperator,
+  }).map((item) => ({
+    icon: ADMIN_NAV_ICONS[item.label],
+    label: item.label,
+    href: item.href,
+    adminOnly: true,
+  }));
 
   // Free trial users get full sidebar access; they must add their own API key in Integrations
   const fullNavItems = [
@@ -367,17 +407,17 @@ export default function DashboardShell({
             label: "Subscription",
             href: "/dashboard/subscription",
           },
-          {
-            icon: Package,
-            label: "Add-ons",
-            href: "/dashboard/addons",
-          },
         ]),
+    // Review round 5: the same fail-closed rule as Simple mode (ADMIN only,
+    // never in the iOS shell). An absent or unknown role does not see it.
+    ...(fieldAddonsTabVisible({ role: session?.user?.role, hideBillingNav })
+      ? [FIELD_ADDONS_NAV_ITEM]
+      : []),
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
     { icon: MessageCircle, label: "Feedback", href: "/dashboard/feedback" },
     { icon: PlayCircle, label: "Tutorials", href: "/dashboard/learn" },
     { icon: HelpCircle, label: "Help & Support", href: "/dashboard/help" },
-    // Admin-only section — hidden from Managers and Technicians
+    // Platform staff section — hidden from business owners, Managers and Technicians
     ...adminNavItems,
   ];
 
@@ -414,7 +454,16 @@ export default function DashboardShell({
     ? fieldTechNavItems
     : advanced
       ? fullNavItems
-      : [...buildSimpleNavItems({ isManager }), ...adminNavItems];
+      : [
+          ...buildSimpleNavItems({
+            isManager,
+            showFieldAddons: fieldAddonsTabVisible({
+              role: session?.user?.role,
+              hideBillingNav,
+            }),
+          }),
+          ...adminNavItems,
+        ];
 
   // Advanced mode renders the full nav grouped under section headers instead of
   // one flat 24-item list. Only computed when relevant. Simple mode with admin
@@ -533,7 +582,7 @@ export default function DashboardShell({
           "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-deep",
           item.adminOnly
             ? cn(
-                "text-neutral-500 dark:text-slate-500",
+                "text-neutral-600 dark:text-slate-500",
                 "hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
                 active &&
                   "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 font-medium",
@@ -572,7 +621,7 @@ export default function DashboardShell({
       <div
         className={cn(
           "min-h-screen",
-          "bg-slate-950",
+          "bg-slate-50 dark:bg-slate-950",
           "text-neutral-900 dark:text-slate-50",
         )}
       >
@@ -588,9 +637,9 @@ export default function DashboardShell({
         <aside
           className={cn(
             "fixed left-0 top-0 h-screen transition-all duration-300 z-40 flex flex-col",
-            advanced ? advancedDashboardSidebarShell : "bg-brand-deep",
+            advanced ? advancedDashboardSidebarShell : "bg-white dark:bg-brand-deep",
             advanced
-              ? "border-r border-white/5"
+              ? "border-r border-black/10 dark:border-white/5"
               : "border-r border-neutral-200 dark:border-slate-800",
             // Mobile: slide in/out, always w-64 when visible
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
@@ -616,7 +665,7 @@ export default function DashboardShell({
                     className={cn(
                       "font-semibold text-sm",
                       advanced
-                        ? "text-white"
+                        ? "text-slate-900 dark:text-white"
                         : "text-neutral-900 dark:text-slate-50",
                     )}
                   >
@@ -626,8 +675,8 @@ export default function DashboardShell({
                     className={cn(
                       "text-[10px] font-normal leading-tight",
                       advanced
-                        ? "text-cyan-200/60"
-                        : "text-neutral-500 dark:text-slate-400",
+                        ? "text-cyan-800/70 dark:text-cyan-200/60"
+                        : "text-neutral-600 dark:text-slate-400",
                     )}
                   >
                     {isTechnician
@@ -677,7 +726,7 @@ export default function DashboardShell({
                         className={cn(
                           advanced
                             ? advancedDashboardSidebarGroupLabel
-                            : "text-[10px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-slate-500 mt-3 mb-1 px-2 first:mt-0",
+                            : "text-[10px] font-semibold uppercase tracking-widest text-neutral-600 dark:text-slate-500 mt-3 mb-1 px-2 first:mt-0",
                         )}
                       >
                         {group.label}
@@ -689,7 +738,7 @@ export default function DashboardShell({
                           className={cn(
                             "border-t",
                             advanced
-                              ? "border-white/10"
+                              ? "border-black/10 dark:border-white/10"
                               : "border-neutral-200 dark:border-slate-700",
                           )}
                         />
@@ -852,7 +901,7 @@ export default function DashboardShell({
                   <p className="max-w-[11rem] truncate text-sm font-medium text-neutral-900 dark:text-slate-50 lg:max-w-[14rem]">
                     {session?.user?.name}
                   </p>
-                  <p className="max-w-[11rem] truncate text-xs text-neutral-500 dark:text-slate-400 lg:max-w-[14rem]">
+                  <p className="max-w-[11rem] truncate text-xs text-neutral-600 dark:text-slate-400 lg:max-w-[14rem]">
                     {session?.user?.email}
                   </p>
                 </div>
@@ -874,14 +923,18 @@ export default function DashboardShell({
           {profileLoadError ? (
             <div
               role="alert"
-              className="flex flex-wrap items-center justify-center gap-3 border-b border-amber-500/30 bg-amber-950/80 px-4 py-2 text-sm text-amber-100"
+              className="flex flex-wrap items-center justify-center gap-3 border-b border-amber-500/30 bg-amber-50 dark:bg-amber-950/80 px-4 py-2 text-sm text-amber-900 dark:text-amber-100"
             >
               <span>{profileLoadError}</span>
               <button
                 type="button"
-                className="rounded-md border border-amber-400/50 px-2 py-0.5 text-xs font-medium hover:bg-amber-900/60"
+                className="rounded-md border border-amber-600/50 dark:border-amber-400/50 px-2 py-0.5 text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/60"
                 onClick={() => {
-                  if (status === "authenticated" && accountId && scopeVerified) {
+                  if (
+                    status === "authenticated" &&
+                    accountId &&
+                    scopeVerified
+                  ) {
                     void fetch("/api/user/profile", { credentials: "include" })
                       .then(async (response) => {
                         if (response.ok) {
@@ -965,7 +1018,7 @@ export default function DashboardShell({
                 )}
                 {!isTechnician && advanced && (
                   <p className="mb-4 text-xs font-medium text-muted-foreground">
-                    <span className="text-cyan-600 dark:text-cyan-400">
+                    <span className="text-cyan-700 dark:text-cyan-400">
                       Advanced workspace
                     </span>
                     {" — "}

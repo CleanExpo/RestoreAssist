@@ -20,6 +20,12 @@ import {
   resumedManualClassification,
 } from "@/lib/forms/classification-preview";
 
+// Fire walkthrough gate: not under test here (see lib/voice/fire-smoke/__tests__/gate.test.ts).
+vi.mock("@/lib/voice/fire-smoke/server", () => ({
+  checkFireSubmitGate: async () => ({ blocked: false }),
+  claimSubmitWithFireGate: (db: unknown, _inspection: unknown, claim: (tx: unknown) => unknown) =>
+    claim(db),
+}));
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 

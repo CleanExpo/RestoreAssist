@@ -40,6 +40,7 @@ import { Button } from "@/components/ui/button";
 import { PilotReadinessCommandCentre } from "@/components/admin/PilotReadinessCommandCentre";
 import { cn } from "@/lib/utils";
 import type { PilotCommandCentreSnapshot } from "@/lib/pilot-readiness-command-centre";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ── Types (mirrors nir-pilot-measurement.ts + readiness API response) ──────────
 
@@ -397,7 +398,7 @@ export default function PilotReadinessDashboard() {
       const res = await fetch("/api/pilot/readiness");
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body.error ?? `HTTP ${res.status}`);
+        setError(apiErrorMessage(body) ?? `HTTP ${res.status}`);
         return;
       }
       const json = (await res.json()) as ReadinessResponse;

@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Loader2,
 } from "lucide-react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface SearchResultItem {
   id: string;
@@ -167,7 +168,7 @@ function SearchPageInner() {
       const res = await fetch(`/api/search?${params.toString()}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `HTTP ${res.status}`);
+        throw new Error(apiErrorMessage(body) ?? `HTTP ${res.status}`);
       }
       const json: SearchResults = await res.json();
       setData(json);

@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Props {
   inspectionId: string;
@@ -181,7 +182,7 @@ function CloseJobPromptActive({
           missing?: string[];
         };
         setMissingPreconditions(body.missing ?? []);
-        setSubmitError(body.error ?? "Preconditions not met");
+        setSubmitError(apiErrorMessage(body) ?? "Preconditions not met");
         setDialogOpen(false);
         return;
       }

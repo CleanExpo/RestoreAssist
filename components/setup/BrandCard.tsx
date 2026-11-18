@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSetupStore } from './store';
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 async function patchState(
   field: string,
@@ -131,7 +132,7 @@ export function BrandCard() {
         update('logoUrl', body.url);
         const persisted = await save('logoUrl', body.url);
         if (!persisted.ok) {
-          setUploadError(persisted.error ?? 'Logo uploaded but could not be saved — try again.');
+          setUploadError(apiErrorMessage(persisted) ?? 'Logo uploaded but could not be saved — try again.');
         }
       } catch {
         setUploadError('Network error — check your connection and try again.');

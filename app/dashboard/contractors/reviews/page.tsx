@@ -13,7 +13,9 @@ import {
   Send,
 } from "lucide-react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import { ContractorsBackLink } from "../ContractorsBackLink";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Review {
   id: string;
@@ -131,7 +133,7 @@ export default function ContractorReviewsPage() {
         const data = await res.json();
         setMessage({
           type: "error",
-          text: data.error || "Failed to submit response",
+          text: apiErrorMessage(data) || "Failed to submit response",
         });
       }
     } catch (error) {
@@ -177,7 +179,7 @@ export default function ContractorReviewsPage() {
         const data = await res.json();
         setMessage({
           type: "error",
-          text: data.error || "Failed to submit dispute",
+          text: apiErrorMessage(data) || "Failed to submit dispute",
         });
       }
     } catch (error) {
@@ -300,7 +302,11 @@ export default function ContractorReviewsPage() {
       {/* Reviews List */}
       {reviews.length === 0 ? (
         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-12 text-center">
-          <p className="text-slate-400 text-lg">No reviews yet</p>
+          <p className="text-slate-400 text-lg">
+            {isConfirmedEmpty(loadError, reviews.length)
+              ? "No reviews yet"
+              : "Reviews could not be loaded"}
+          </p>
         </div>
       ) : (
         <div className="space-y-6">

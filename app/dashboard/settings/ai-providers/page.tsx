@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { META_PROVIDER_DESCRIPTION } from "./meta-provider-copy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,7 +26,8 @@ type AiProvider =
   | "OPENAI"
   | "GOOGLE"
   | "GEMMA"
-  | "OPENROUTER";
+  | "OPENROUTER"
+  | "META";
 type ConnectionStatus = "ACTIVE" | "DISABLED" | "FAILED";
 
 interface ProviderConnectionSummary {
@@ -84,6 +86,14 @@ const PROVIDERS: {
     keyPlaceholder:
       "(no API key required — uses RESTOREASSIST_AI_ENDPOINT env var)",
     docsUrl: "",
+  },
+  {
+    id: "META",
+    name: "Meta (Llama)",
+    description:
+      META_PROVIDER_DESCRIPTION,
+    keyPlaceholder: "LLM_...",
+    docsUrl: "https://llama.developer.meta.com",
   },
   {
     id: "OPENROUTER",
