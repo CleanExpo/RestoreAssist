@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -11,6 +11,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { parseSearchQuery } from "@/lib/search-utils";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 
 interface SearchResult {
   id: string;
@@ -20,6 +21,24 @@ interface SearchResult {
   url: string;
   rank?: number;
   metadata?: Record<string, any>;
+}
+
+const SEARCH_ERROR = "Search failed, try again.";
+
+type SearchResponse = {
+  results: {
+    reports: SearchResult[];
+    clients: SearchResult[];
+    inspections: SearchResult[];
+  };
+};
+
+/** Merge the three result groups, best rank first, top 12. */
+function rankResults(body: unknown): SearchResult[] {
+  const { results } = body as SearchResponse;
+  return [...results.reports, ...results.clients, ...results.inspections]
+    .sort((a, b) => (b.rank || 0) - (a.rank || 0))
+    .slice(0, 12);
 }
 
 interface GlobalSearchProps {
@@ -34,8 +53,6 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(open);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -75,46 +92,27 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   const handleClose = () => {
     setIsOpen(false);
     setQuery("");
-    setResults([]);
     setSelectedIndex(0);
     onClose?.();
   };
 
-  const performSearch = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim() || searchQuery.length < 2) {
-      setResults([]);
-      return;
-    }
+  const trimmed = query.trim();
+  const searchUrl =
+    trimmed && query.length >= 2
+      ? `/api/search?q=${encodeURIComponent(query)}&limit=12`
+      : null;
+  // One request after typing pauses, never one per keystroke (RA-8448).
+  const search = useDebouncedSearch(searchUrl, rankResults);
+  const results = search.data ?? [];
+  const loading = search.loading;
+  const searchError = search.error ? SEARCH_ERROR : null;
 
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `/api/search?q=${encodeURIComponent(searchQuery)}&limit=12`,
-      );
-      if (response.ok) {
-        const data = await response.json();
-        // Sort by rank and take top 12
-        const sorted = [
-          ...data.results.reports,
-          ...data.results.clients,
-          ...data.results.inspections,
-        ]
-          .sort((a, b) => (b.rank || 0) - (a.rank || 0))
-          .slice(0, 12);
-        setResults(sorted);
-        setSelectedIndex(0);
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [search.data]);
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setQuery(value);
-    performSearch(value);
+    setQuery(e.target.value);
   };
 
   const handleNavigate = (result: SearchResult) => {
@@ -204,6 +202,13 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="w-6 h-6 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin" />
+                </div>
+              ) : searchError ? (
+                <div
+                  role="alert"
+                  className="px-4 py-8 text-center text-red-600 text-sm"
+                >
+                  {searchError}
                 </div>
               ) : results.length > 0 ? (
                 results.map((result, index) => (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import {
   Search,
   MapPin,
@@ -45,11 +46,20 @@ interface Pagination {
   pages: number;
 }
 
-export default function ContractorDirectoryPage() {
-  const [contractors, setContractors] = useState<Contractor[]>([]);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
-  const [loading, setLoading] = useState(true);
+type ContractorsResponse = {
+  contractors: Contractor[];
+  pagination: Pagination | null;
+};
 
+function parseContractors(body: unknown): ContractorsResponse {
+  const data = body as Partial<ContractorsResponse>;
+  return {
+    contractors: data.contractors ?? [],
+    pagination: data.pagination ?? null,
+  };
+}
+
+export default function ContractorDirectoryPage() {
   // Filters
   const [search, setSearch] = useState("");
   const [postcode, setPostcode] = useState("");
@@ -58,36 +68,33 @@ export default function ContractorDirectoryPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    fetchContractors();
-  }, [search, postcode, state, minRating, page]);
+  // A filter change starts again from page 1 (RA-8448).
+  const changeFilter =
+    (set: (value: string) => void) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      set(e.target.value);
+      setPage(1);
+    };
 
-  const fetchContractors = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (search) params.append("search", search);
-      if (postcode) params.append("postcode", postcode);
-      if (state) params.append("state", state);
-      if (minRating) params.append("minRating", minRating);
-      params.append("page", page.toString());
+  const params = new URLSearchParams();
+  if (search) params.append("search", search);
+  if (postcode) params.append("postcode", postcode);
+  if (state) params.append("state", state);
+  if (minRating) params.append("minRating", minRating);
+  params.append("page", page.toString());
 
-      const res = await fetch(`/api/contractors?${params}`);
-      const data = await res.json();
-
-      setContractors(data.contractors || []);
-      setPagination(data.pagination);
-    } catch (error) {
-      console.error("Failed to fetch contractors:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // One request after typing pauses, never one per keystroke (RA-8448).
+  const directory = useDebouncedSearch(
+    `/api/contractors?${params}`,
+    parseContractors,
+  );
+  const contractors = directory.data?.contractors ?? [];
+  const pagination = directory.data?.pagination ?? null;
+  const loading = directory.loading;
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    fetchContractors();
   };
 
   return (
@@ -107,13 +114,17 @@ export default function ContractorDirectoryPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search and Filters */}
         <div className="mb-8 space-y-4">
-          <form method="post" onSubmit={handleSearchSubmit} className="flex gap-4">
+          <form
+            method="post"
+            onSubmit={handleSearchSubmit}
+            className="flex gap-4"
+          >
             <div className="flex-1 relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
               <input
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={changeFilter(setSearch)}
                 placeholder="Search by business name or specialization..."
                 className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
@@ -138,7 +149,7 @@ export default function ContractorDirectoryPage() {
                 <input
                   type="text"
                   value={postcode}
-                  onChange={(e) => setPostcode(e.target.value)}
+                  onChange={changeFilter(setPostcode)}
                   placeholder="e.g. 2000"
                   className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
@@ -150,7 +161,7 @@ export default function ContractorDirectoryPage() {
                 </label>
                 <select
                   value={state}
-                  onChange={(e) => setState(e.target.value)}
+                  onChange={changeFilter(setState)}
                   className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   <option value="">All States</option>
@@ -171,7 +182,7 @@ export default function ContractorDirectoryPage() {
                 </label>
                 <select
                   value={minRating}
-                  onChange={(e) => setMinRating(e.target.value)}
+                  onChange={changeFilter(setMinRating)}
                   className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   <option value="">Any Rating</option>
@@ -194,6 +205,13 @@ export default function ContractorDirectoryPage() {
         {loading ? (
           <div className="text-center py-12 text-slate-400">
             Loading contractors...
+          </div>
+        ) : directory.error ? (
+          // A failed read must not look like "No contractors found" (RA-8448).
+          <div role="alert" className="text-center py-12">
+            <p className="text-red-400 text-lg">
+              Could not load contractors. Please try again in a minute.
+            </p>
           </div>
         ) : contractors.length === 0 ? (
           <div className="text-center py-12">
