@@ -1,4 +1,4 @@
-/** Run by lead against a local migrated DB and ALLOW_TEST_HELPERS=true dev server. */
+/** Needs a local migrated DB and an ALLOW_TEST_HELPERS=true dev server; CI runs it in sketch-e2e.yml. */
 import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { prisma } from "../lib/prisma";
@@ -7,7 +7,9 @@ import { applySessionCookieFromResponse } from "./helpers/session-cookie";
 import { assertLocalTestDatabase } from "../scripts/ci/assert-local-test-db.mjs";
 
 for (const width of [1440, 390]) {
-  test(`SPM opt-in recommendation at ${width}px @smoke`, async ({ page, context, baseURL }, testInfo) => {
+  // Not @smoke: the production smoke runs every @smoke test against the live site, and this one
+  // needs a local database. CI runs it in sketch-e2e.yml, which has one.
+  test(`SPM opt-in recommendation at ${width}px`,async ({ page, context, baseURL }, testInfo) => {
     // One user and job per run: browser projects run in parallel, and width plus a millisecond
     // clock collided, so two runs raced the test sign-in's find-then-create on the same email.
     const runId = `${testInfo.project.name}-${width}-${randomUUID()}`;

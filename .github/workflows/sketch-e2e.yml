@@ -36,6 +36,9 @@ on:
       - "components/inspections/**"
       - "lib/billing/technician-seats.ts"
       - "lib/billing/technician-seats-addon.ts"
+      - "lib/billing/spm-line.ts"
+      - "lib/billing/spm-estimate-rows.ts"
+      - "e2e/spm-recommendation.spec.ts"
       - "lib/auth/assert-tenancy.ts"
       - "lib/auth/dashboard-page-access.ts"
       - "lib/evidence/**"
@@ -342,6 +345,7 @@ jobs:
           e2e/navigation.spec.ts
           e2e/nir-routes-regression.spec.ts
           e2e/procurement.spec.ts
+          e2e/spm-recommendation.spec.ts
           --project=chromium --reporter=line
 
       - name: Run remaining E2E (3 of 5)

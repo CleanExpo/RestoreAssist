@@ -94,6 +94,7 @@ sketch-api.spec.ts                       workflow:sketch-e2e.yml
 sketch-chrome-1280.spec.ts               workflow:sketch-e2e.yml
 sketch-damage-markers-1280.spec.ts       workflow:sketch-e2e.yml
 sketch-image-report-1280.spec.ts         workflow:sketch-e2e.yml
+spm-recommendation.spec.ts               workflow:sketch-e2e.yml
 storage-restore.spec.ts                  workflow:sketch-e2e.yml
 stripe-connect-payments.spec.ts          unrun:skips itself unless STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET test keys are set; no workflow names it or provides those keys
 stripe-payment-intent-webhook.spec.ts    workflow:sketch-e2e.yml
