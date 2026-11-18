@@ -38,7 +38,10 @@ const stats = {
   lastCompletedAt: null,
 };
 
-function mockFetch(retryResponse: { ok: boolean; status: number; body: unknown }) {
+function mockFetch(
+  retryResponse: { ok: boolean; status: number; body: unknown },
+  job: Record<string, unknown> = deadJob,
+) {
   global.fetch = vi.fn(async (_url: string, init?: RequestInit) => {
     if (init?.method === "POST") {
       return {
@@ -50,7 +53,7 @@ function mockFetch(retryResponse: { ok: boolean; status: number; body: unknown }
     return {
       ok: true,
       status: 200,
-      json: async () => ({ data: { jobs: [deadJob], stats } }),
+      json: async () => ({ data: { jobs: [job], stats } }),
     } as Response;
   }) as unknown as typeof fetch;
 }
@@ -92,6 +95,18 @@ describe("MirrorJobsTable", () => {
     );
     expect(screen.queryByText("PENDING")).not.toBeInTheDocument();
     expect(screen.getByText("DEAD_LETTER")).toBeInTheDocument();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("does not show PENDING when the server answers 200 with retried:false", async () => {
+    mockFetch(
+      { ok: true, status: 200, body: { data: { retried: false } } },
+      { ...deadJob, status: "FAILED" },
+    );
+    render(<MirrorJobsTable />);
+    fireEvent.click(await screen.findByRole("button", { name: /retry/i }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(screen.queryByText("PENDING")).not.toBeInTheDocument();
     expect(toast.success).not.toHaveBeenCalled();
   });
 });
