@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { PG_POOL_CONNECTION_TIMEOUT_MS } from "@/lib/prisma-pool-config";
+import { reportError } from "@/lib/observability";
 
 /**
  * Options for the RA-7774 claim transaction. Prisma's interactive defaults
@@ -19,6 +20,14 @@ export const CRON_CLAIM_TRANSACTION_OPTIONS = {
 
 export interface CronJobResult {
   itemsProcessed: number;
+  /**
+   * RA-8452: items this run moved into a terminal status (FAILED,
+   * DEAD_LETTER) that no later run will retry. runCronJob is the one owner
+   * of what happens next: it records the count on the run and raises an
+   * error report. A handler that writes a terminal status must return it
+   * (enforced by cron-watchdog/__tests__/terminal-failures-contract.test.ts).
+   */
+  terminalFailures?: number;
   metadata?: Record<string, unknown>;
 }
 
@@ -74,6 +83,11 @@ export async function runCronJob(
   try {
     const result = await handler();
     const durationMs = Date.now() - startTime;
+    const terminalFailures = result.terminalFailures ?? 0;
+    const metadata =
+      terminalFailures > 0
+        ? { ...result.metadata, terminalFailures }
+        : result.metadata;
 
     await prisma.cronJobRun.update({
       where: { id: run.id },
@@ -82,9 +96,18 @@ export async function runCronJob(
         completedAt: new Date(),
         itemsProcessed: result.itemsProcessed,
         durationMs,
-        metadata: result.metadata ? JSON.stringify(result.metadata) : null,
+        metadata: metadata ? JSON.stringify(metadata) : null,
       },
     });
+
+    if (terminalFailures > 0) {
+      reportError(
+        new Error(
+          `Cron job "${jobName}" left ${terminalFailures} item(s) in a terminal failed state`,
+        ),
+        { route: `cron:${jobName}`, stage: "terminal-failure", terminalFailures },
+      );
+    }
 
     return { ...result, status: "completed" };
   } catch (err) {

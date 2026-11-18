@@ -4,7 +4,11 @@ import type { CronJobResult } from "./runner";
 
 const MAX_ATTEMPTS = 5;
 
-/** Retry durable PII cleanup tasks; terminal failures remain observable. */
+/**
+ * Retry durable PII cleanup tasks. A task that fails its fifth attempt goes
+ * to FAILED and is never selected again, so it is returned as a terminal
+ * failure: runCronJob records the count and raises an error report (RA-8452).
+ */
 export async function retryMediaCleanupTasks(): Promise<CronJobResult> {
   const ledger = (prisma as any).mediaCleanupTask;
   const tasks = await ledger.findMany({
@@ -14,6 +18,7 @@ export async function retryMediaCleanupTasks(): Promise<CronJobResult> {
   });
   let completed = 0;
   let failed = 0;
+  let terminalFailures = 0;
   for (const task of tasks) {
     try {
       await deleteImage(task.publicId);
@@ -24,16 +29,22 @@ export async function retryMediaCleanupTasks(): Promise<CronJobResult> {
       completed++;
     } catch (error) {
       const nextAttempts = task.attemptCount + 1;
+      const terminal = nextAttempts >= MAX_ATTEMPTS;
       await ledger.update({
         where: { id: task.id },
         data: {
-          status: nextAttempts >= MAX_ATTEMPTS ? "FAILED" : "PENDING",
+          status: terminal ? "FAILED" : "PENDING",
           attemptCount: nextAttempts,
           lastError: error instanceof Error ? error.message.slice(0, 500) : "unknown",
         },
       });
       failed++;
+      if (terminal) terminalFailures++;
     }
   }
-  return { itemsProcessed: completed, metadata: { candidates: tasks.length, completed, failed } };
+  return {
+    itemsProcessed: completed,
+    terminalFailures,
+    metadata: { candidates: tasks.length, completed, failed },
+  };
 }
