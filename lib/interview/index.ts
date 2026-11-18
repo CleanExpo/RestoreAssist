@@ -17,3 +17,4 @@ export {
   getQuestionsForTier,
   getQuestionsForSubscriptionTier,
 } from "./question-templates";
+export { isInterviewQuestionAvailable } from "./question-access";

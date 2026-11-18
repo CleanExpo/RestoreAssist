@@ -904,27 +904,42 @@ describe("QuestionGenerationEngine", () => {
     });
   });
 
-  describe("Subscription Tier Filtering", () => {
-    it("should filter questions by subscription tier", () => {
-      const standardTierQuestions = INTERVIEW_QUESTION_LIBRARY.filter(
-        (q) => !q.minTierLevel || q.minTierLevel === "standard",
-      );
+  // RA-8458: RA-6929 retired the paid tier catalog. The interview tier
+  // (User.interviewTier, always STANDARD) must no longer hide questions.
+  describe("Retired subscription tiers (RA-8458)", () => {
+    const FORMERLY_PREMIUM = [
+      "q13_insurance_claim",
+      "q13a_insurance_company",
+      "q16_occupant_health",
+      "q17_prior_damage",
+    ];
 
-      const premiumTierQuestions = INTERVIEW_QUESTION_LIBRARY.filter(
-        (q) => q.minTierLevel === "premium" || q.minTierLevel === "standard",
-      );
+    it("a default (standard) user's interview includes the formerly premium questions", () => {
+      const result = QuestionGenerationEngine.generateQuestions(mockContext);
+      const ids = result.questions.map((q) => q.id);
+      const tieredIds = Object.values(result.tieredQuestions)
+        .flat()
+        .map((q) => q.id);
 
-      expect(standardTierQuestions.length).toBeLessThan(
-        premiumTierQuestions.length,
-      );
+      for (const id of FORMERLY_PREMIUM) {
+        expect(ids).toContain(id);
+        expect(tieredIds).toContain(id);
+      }
     });
 
-    it("should have premium tier questions in library", () => {
-      const premiumQuestions = INTERVIEW_QUESTION_LIBRARY.filter(
-        (q) => q.minTierLevel === "premium",
-      );
+    it.each<SubscriptionTier>(["standard", "premium", "enterprise"])(
+      "tier %s gets the same question set",
+      (tier) => {
+        const ids = QuestionGenerationEngine.generateQuestions({
+          ...mockContext,
+          userTierLevel: tier,
+        }).questions.map((q) => q.id);
+        const standardIds = QuestionGenerationEngine.generateQuestions(
+          mockContext,
+        ).questions.map((q) => q.id);
 
-      expect(premiumQuestions.length).toBeGreaterThan(0);
-    });
+        expect(ids.sort()).toEqual(standardIds.sort());
+      },
+    );
   });
 });

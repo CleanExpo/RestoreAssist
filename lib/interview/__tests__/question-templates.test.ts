@@ -440,60 +440,15 @@ describe("Interview Question Templates", () => {
     });
 
     describe("getQuestionsForSubscriptionTier", () => {
-      it("should return standard tier questions for standard subscription", () => {
-        const standardQuestions = getQuestionsForSubscriptionTier("standard");
-
-        expect(standardQuestions.length).toBeGreaterThan(0);
-        standardQuestions.forEach((q) => {
-          expect(!q.minTierLevel || q.minTierLevel === "standard").toBe(true);
-        });
-      });
-
-      it("should return standard + premium questions for premium subscription", () => {
-        const premiumQuestions = getQuestionsForSubscriptionTier("premium");
-        const standardQuestions = getQuestionsForSubscriptionTier("standard");
-
-        expect(premiumQuestions.length).toBeGreaterThanOrEqual(
-          standardQuestions.length,
-        );
-        premiumQuestions.forEach((q) => {
-          expect(
-            !q.minTierLevel ||
-              q.minTierLevel === "standard" ||
-              q.minTierLevel === "premium",
-          ).toBe(true);
-        });
-      });
-
-      it("should return all questions for enterprise subscription", () => {
-        const enterpriseQuestions =
-          getQuestionsForSubscriptionTier("enterprise");
-
-        expect(enterpriseQuestions.length).toBe(
-          INTERVIEW_QUESTION_LIBRARY.length,
-        );
-      });
-
-      it("premium subscription should have more questions than standard", () => {
-        const standardQuestions = getQuestionsForSubscriptionTier("standard");
-        const premiumQuestions = getQuestionsForSubscriptionTier("premium");
-
-        expect(premiumQuestions.length).toBeGreaterThan(
-          standardQuestions.length,
-        );
-      });
-
-      it("enterprise should have most questions", () => {
-        const standardQuestions = getQuestionsForSubscriptionTier("standard");
-        const premiumQuestions = getQuestionsForSubscriptionTier("premium");
-        const enterpriseQuestions =
-          getQuestionsForSubscriptionTier("enterprise");
-
-        expect(standardQuestions.length).toBeLessThan(premiumQuestions.length);
-        expect(premiumQuestions.length).toBeLessThanOrEqual(
-          enterpriseQuestions.length,
-        );
-      });
+      // RA-8458: tiers are retired (RA-6929); every tier gets every question.
+      it.each(["standard", "premium", "enterprise", "STANDARD"] as const)(
+        "returns the whole library for %s",
+        (tier) => {
+          expect(getQuestionsForSubscriptionTier(tier)).toEqual(
+            INTERVIEW_QUESTION_LIBRARY,
+          );
+        },
+      );
     });
   });
 

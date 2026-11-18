@@ -7,7 +7,6 @@
 "use client";
 
 import { useCallback } from "react";
-import { Lock } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -22,8 +21,6 @@ interface ProgressRingProps {
   tier: number;
   onQuestionSelect?: (questionId: string) => void;
   allQuestions?: Question[];
-  userTierLevel?: "STANDARD" | "PREMIUM" | "ENTERPRISE";
-  onUpgrade?: () => void;
 }
 
 /**
@@ -36,13 +33,9 @@ export function ProgressRing({
   tier,
   onQuestionSelect,
   allQuestions = [],
-  userTierLevel = "STANDARD",
-  onUpgrade,
 }: ProgressRingProps) {
-  // Determine max unlocked tier based on subscription
-  const maxUnlockedTier =
-    userTierLevel === "ENTERPRISE" ? 4 : userTierLevel === "PREMIUM" ? 3 : 2;
-
+  // RA-8458: no tier is locked. Paid tiers were retired (RA-6929) and every
+  // question is available (lib/interview/question-access.ts).
   const percentage = total > 0 ? (current / total) * 100 : 0;
 
   /**
@@ -210,34 +203,26 @@ export function ProgressRing({
                 q.sequenceNumber >= minSeq &&
                 q.sequenceNumber <= maxSeq,
             );
-            const isLocked = tierNum > maxUnlockedTier;
-
             return (
               <Tooltip key={tierNum}>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() =>
-                      isLocked && onUpgrade
-                        ? onUpgrade()
-                        : handleTierClick(tierNum)
-                    }
-                    disabled={!onQuestionSelect && !isLocked}
+                    onClick={() => handleTierClick(tierNum)}
+                    disabled={!onQuestionSelect}
                     className={`
                       w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold
                       transition-all duration-200 cursor-pointer
                       ${
-                        isLocked
-                          ? "bg-amber-100 text-amber-500 border border-amber-300 cursor-pointer hover:bg-amber-200"
-                          : tierNum === tier
-                            ? `bg-gradient-to-r ${getTierColor(tierNum)} text-white shadow-lg scale-110`
-                            : tierNum < tier
-                              ? "bg-success-subtle text-success-subtle-foreground hover:bg-green-200"
-                              : "bg-muted text-muted-foreground cursor-default"
+                        tierNum === tier
+                          ? `bg-gradient-to-r ${getTierColor(tierNum)} text-white shadow-lg scale-110`
+                          : tierNum < tier
+                            ? "bg-success-subtle text-success-subtle-foreground hover:bg-green-200"
+                            : "bg-muted text-muted-foreground cursor-default"
                       }
-                      ${onQuestionSelect && !isLocked ? "hover:shadow-md" : ""}
+                      ${onQuestionSelect ? "hover:shadow-md" : ""}
                     `}
                   >
-                    {isLocked ? <Lock size={12} /> : tierNum}
+                    {tierNum}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -245,17 +230,10 @@ export function ProgressRing({
                     <p className="font-semibold">
                       Tier {tierNum}: {getTierLabel(tierNum)}
                     </p>
-                    {isLocked ? (
-                      <p className="text-xs text-amber-600">
-                        Upgrade to {tierNum <= 3 ? "Premium" : "Enterprise"} to
-                        unlock
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        {tierQuestions.length} questions
-                        {tierNum < tier && ` (Completed)`}
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {tierQuestions.length} questions
+                      {tierNum < tier && ` (Completed)`}
+                    </p>
                   </div>
                 </TooltipContent>
               </Tooltip>

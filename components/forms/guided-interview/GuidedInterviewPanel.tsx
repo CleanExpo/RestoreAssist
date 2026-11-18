@@ -7,9 +7,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { isCapacitorIOS } from "@/lib/capacitor";
-import BillingGate from "@/components/capacitor/BillingGate";
 import {
   Card,
   CardContent,
@@ -19,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { AlertCircle, Loader2, CheckCircle2, Lock, Crown } from "lucide-react";
+import { AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { QuestionCard } from "./QuestionCard";
 import { ProgressRing } from "./ProgressRing";
@@ -96,9 +93,6 @@ export function GuidedInterviewPanel({
   showAutoPopulatedFields = true,
   onAnswersChange,
 }: GuidedInterviewPanelProps) {
-  const router = useRouter();
-  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
-  const [lockedTier, setLockedTier] = useState<number | null>(null);
   // RA-1199: AI-suggested follow-up answers captured as addenda, not in the
   // rigid template flow. Appended to the final summary on complete.
   const [aiAddenda, setAiAddenda] = useState<InterviewQuestionAnswer[]>([]);
@@ -326,7 +320,7 @@ export function GuidedInterviewPanel({
           allData: data,
         });
         throw new Error(
-          "No questions returned from server. Please check your subscription tier.",
+          "No questions returned from server. Please try again.",
         );
       }
 
@@ -1194,19 +1188,6 @@ export function GuidedInterviewPanel({
                     tier={interviewState.currentTier}
                     onQuestionSelect={handleJumpToQuestion}
                     allQuestions={interviewState.allQuestions}
-                    userTierLevel={
-                      interviewState.currentTier <= 1
-                        ? "STANDARD"
-                        : interviewState.currentTier <= 2
-                          ? "PREMIUM"
-                          : "ENTERPRISE"
-                    }
-                    onUpgrade={
-                      (() => {
-                        setLockedTier(interviewState.currentTier);
-                        setShowUpgradePrompt(true);
-                      }) as () => void
-                    }
                   />
                 </div>
               </CardHeader>
@@ -1338,60 +1319,6 @@ export function GuidedInterviewPanel({
         onCancel={onCancel}
       />
 
-      {/* Tier Gating - Upgrade Prompt — gated for iOS App Review (RA-1842) */}
-      {showUpgradePrompt && lockedTier && (
-        <BillingGate fallback={null}>
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-md w-full">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center">
-                  <Lock className="text-white" size={24} />
-                </div>
-                <div>
-                  <CardTitle>Upgrade Required</CardTitle>
-                  <CardDescription>
-                    Tier {lockedTier} questions are locked
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Alert>
-                <Crown className="h-4 w-4" />
-                <AlertDescription>
-                  To access Tier {lockedTier} questions, you need to upgrade to{" "}
-                  {lockedTier <= 2 ? "Premium" : "Enterprise"} plan.
-                </AlertDescription>
-              </Alert>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowUpgradePrompt(false);
-                    setLockedTier(null);
-                  }}
-                  className="flex-1"
-                >
-                  Continue with Current Tier
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (!isCapacitorIOS()) {
-                      router.push("/dashboard/pricing?upgrade=true");
-                    }
-                  }}
-                  className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-                >
-                  <Crown className="w-4 h-4 mr-2" />
-                  Upgrade Now
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        </BillingGate>
-      )}
     </div>
   );
 }

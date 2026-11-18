@@ -96,14 +96,15 @@ export async function POST(request: NextRequest) {
           "standard") as SubscriptionTier,
       };
 
-      // Generate questions (already filtered by tier in QuestionGenerationEngine)
+      // Generate questions. Access is decided by isInterviewQuestionAvailable
+      // (RA-8458); retired tiers hide nothing.
       let questionResponse;
       try {
         questionResponse = QuestionGenerationEngine.generateQuestions(context);
       } catch (err) {
         return apiError(request, {
           code: "INTERNAL",
-          message: "Failed to generate questions for your subscription tier",
+          message: "Failed to generate interview questions",
           status: 500,
           err,
           stage: "generateQuestions",
@@ -111,14 +112,12 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Use the tiered questions directly - they're already filtered by userTierLevel
       const filteredTieredQuestions = questionResponse.tieredQuestions;
       const totalAvailable = Object.values(filteredTieredQuestions).flat()
         .length;
 
       if (totalAvailable === 0) {
-        // Safer than 500 — the client renders "Please check your subscription tier"
-        // on 4xx, and this exact shape lets the dashboard show a real message.
+        // Safer than 500 — this exact shape lets the dashboard show a real message.
         // Preserved bespoke shape: client branches on top-level `code` + `tier`.
         console.warn(
           "[interview/start] zero questions generated for user",
@@ -128,7 +127,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error:
-              "No interview questions available for your subscription tier and job type.",
+              "No interview questions available for this job type.",
             code: "NO_QUESTIONS_FOR_TIER",
             tier: user.interviewTier,
             jobType: context.jobType,

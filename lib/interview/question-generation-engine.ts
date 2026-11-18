@@ -15,6 +15,7 @@ import {
   SubscriptionTier,
 } from "./types";
 import { INTERVIEW_QUESTION_LIBRARY } from "./question-templates";
+import { isInterviewQuestionAvailable } from "./question-access";
 
 /**
  * QuestionGenerationEngine
@@ -55,12 +56,8 @@ export class QuestionGenerationEngine {
 
     // Filter questions based on context
     return questionLibrary.filter((q) => {
-      // Tier-based filtering
-      if (
-        q.minTierLevel &&
-        this.getTierLevel(q.minTierLevel) >
-          this.getTierLevel(context.userTierLevel)
-      ) {
+      // Access is decided by one owner (RA-8458); retired tiers hide nothing.
+      if (!isInterviewQuestionAvailable(q, context.userTierLevel)) {
         return false;
       }
 
@@ -308,14 +305,6 @@ export class QuestionGenerationEngine {
    */
   private static getQuestionTemplates(): Question[] {
     return INTERVIEW_QUESTION_LIBRARY;
-  }
-
-  /**
-   * Convert tier level string to numeric for comparison
-   */
-  private static getTierLevel(tier: string | SubscriptionTier): number {
-    const tierMap = { standard: 0, premium: 1, enterprise: 2 };
-    return tierMap[tier as keyof typeof tierMap] || 0;
   }
 
   /**

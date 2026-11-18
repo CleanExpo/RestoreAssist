@@ -4,7 +4,8 @@
  * Organized in 4 tiers of progressive detail
  */
 
-import { Question, SubscriptionTier } from "./types";
+import { Question } from "./types";
+import { isInterviewQuestionAvailable } from "./question-access";
 
 /**
  * TIER 1: ESSENTIAL QUESTIONS (5 questions)
@@ -831,7 +832,8 @@ export function getQuestionsForTier(tier: number): Question[] {
 }
 
 /**
- * Get all questions accessible to a subscription tier
+ * Get all questions accessible to a subscription tier.
+ * Tiers are retired (RA-6929); access is decided by isInterviewQuestionAvailable (RA-8458).
  */
 export function getQuestionsForSubscriptionTier(
   subscriptionTier:
@@ -842,22 +844,7 @@ export function getQuestionsForSubscriptionTier(
     | "PREMIUM"
     | "ENTERPRISE",
 ): Question[] {
-  // Normalize tier to lowercase
-  const normalizedTier = (subscriptionTier || "standard").toLowerCase() as
-    | "standard"
-    | "premium"
-    | "enterprise";
-
-  const tierMap: Record<"standard" | "premium" | "enterprise", string[]> = {
-    standard: ["standard"],
-    premium: ["standard", "premium"],
-    enterprise: ["standard", "premium", "enterprise"],
-  };
-
-  const accessibleTiers = tierMap[normalizedTier] || tierMap.standard;
-
-  return INTERVIEW_QUESTION_LIBRARY.filter((q) => {
-    const minTier = (q.minTierLevel || "standard").toLowerCase();
-    return accessibleTiers.includes(minTier);
-  });
+  return INTERVIEW_QUESTION_LIBRARY.filter((q) =>
+    isInterviewQuestionAvailable(q, subscriptionTier),
+  );
 }
