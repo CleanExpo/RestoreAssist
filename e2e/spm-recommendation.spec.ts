@@ -13,6 +13,9 @@ for (const width of [1440, 390]) {
     // One user and job per run: browser projects run in parallel, and width plus a millisecond
     // clock collided, so two runs raced the test sign-in's find-then-create on the same email.
     const runId = `${testInfo.project.name}-${width}-${randomUUID()}`;
+    // The dev server compiles a route on its first request, which took longer than a 5 s
+    // expect on CI (sketch-e2e run 44233041215). Wait for the server's answer, not a timer.
+    test.setTimeout(90_000);
     expect(["localhost", "127.0.0.1", "[::1]"]).toContain(new URL(baseURL!).hostname);
     assertLocalTestDatabase(process.env);
     expect(process.env.DATABASE_URL, "Supply the local seeded database URL").toBeTruthy();
@@ -27,7 +30,7 @@ for (const width of [1440, 390]) {
     expect(signIn.ok()).toBe(true);
     await applySessionCookieFromResponse(context, signIn);
     const { userId } = await signIn.json();
-    const job = await prisma.inspection.create({ data: { userId, inspectionNumber: `SPM-${runId}`, propertyAddress: "Local SPM test", propertyPostcode: "4000", propertyCountry: "AU", status: "ESTIMATED" }, select: { id: true } });
+    const job = await prisma.inspection.create({ data: { userId, inspectionNumber: `SPM-${runId}`, propertyAddress: "Local SPM test", propertyPostcode: "4000", propertyCountry: "AU", claimType: "WATER", status: "ESTIMATED" }, select: { id: true } });
     try {
       await prisma.$transaction(tx => saveEstimateRows(tx, { inspectionId: job.id, replace: true, country: "AU", estimate: {
         items: [{ category: "Labour", description: "Water extraction", quantity: 1, unit: "job", rate: 3000, subtotal: 3000, nrpgField: null, nrpgCompliant: true, rateSource: "company-config", isEstimated: true }],
@@ -40,12 +43,18 @@ for (const width of [1440, 390]) {
       const remove = page.getByRole("button", { name: "Remove", exact: true });
       await expect(add).toBeVisible();
       await expect(page.getByText("Highly recommended: Senior Project Manager", { exact: true })).toBeVisible();
-      await add.click(); await expect(remove).toBeFocused(); await expect(add).toHaveCount(0);
+      const saved = (method: "POST" | "DELETE") => page.waitForResponse(
+        response => response.url().endsWith(`/api/inspections/${job.id}/cost-estimates/spm`) && response.request().method() === method,
+        { timeout: 60_000 },
+      );
+      const added = saved("POST"); await add.click(); expect((await added).ok()).toBe(true);
+      await expect(remove).toBeFocused(); await expect(add).toHaveCount(0);
       await expect(page.getByRole("status").filter({ hasText: /Estimate total/ })).toContainText("3,350.00");
       const spmRows = page.locator('tr[data-spm-row="true"]');
       await expect(spmRows).toHaveCount(1); await expect(spmRows).toContainText("350.00");
       await page.reload(); await openCosts(); await expect(remove).toBeVisible(); await expect(add).toHaveCount(0);
-      await remove.click(); await expect(add).toBeFocused(); await expect(spmRows).toHaveCount(0);
+      const removed = saved("DELETE"); await remove.click(); expect((await removed).ok()).toBe(true);
+      await expect(add).toBeFocused(); await expect(spmRows).toHaveCount(0);
       await expect(page.getByText("If this estimate was already sent to Xero or an insurer system, update or void it there.", { exact: true })).toBeVisible();
       await expect(page.getByRole("status").filter({ hasText: /Estimate total/ })).toContainText("3,000.00");
       const before = await page.getByRole("table", { name: "Cost estimates", exact: true }).innerText();
