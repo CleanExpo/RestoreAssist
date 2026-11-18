@@ -1,6 +1,6 @@
 {
   "note": "Baseline of pre-existing lucide-react imports. The guard blocks any increase. Regenerate after migrating icons to RAIcon to ratchet the limit down. See docs/RESTOREASSIST_ICON_SYSTEM.md.",
-  "total": 357,
+  "total": 356,
   "files": {
     "app/contractors/[slug]/page.tsx": 1,
     "app/contractors/page.tsx": 1,
@@ -231,7 +231,6 @@
     "components/forms/guided-interview/InterviewCompletionSummary.tsx": 1,
     "components/forms/guided-interview/InterviewQuestionAnswerSummary.tsx": 1,
     "components/forms/guided-interview/InterviewValidationPanel.tsx": 1,
-    "components/forms/guided-interview/ProgressRing.tsx": 1,
     "components/forms/guided-interview/QuestionCard.tsx": 1,
     "components/GlobalSearch.tsx": 1,
     "components/help/FeatureHint.tsx": 1,

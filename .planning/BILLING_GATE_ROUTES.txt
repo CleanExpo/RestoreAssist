@@ -15,7 +15,6 @@ app/dashboard/subscription/page.tsx
 app/dashboard/success/page.tsx
 app/pricing/page.tsx
 components/clients/upgrade-modal.tsx
-components/forms/guided-interview/GuidedInterviewPanel.tsx
 components/live-teacher/InspectionSidekick.tsx
 components/PricingConfiguration.tsx
 components/UpgradeBanner.tsx
