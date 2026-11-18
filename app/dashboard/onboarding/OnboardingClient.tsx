@@ -96,11 +96,11 @@ function ProgressRing({
           r={radius}
           fill="none"
           strokeWidth={10}
-          style={{ stroke: strokeColor }}
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
           style={{
+            stroke: strokeColor,
             transition: "stroke-dashoffset 0.6s ease, stroke 0.4s ease",
           }}
         />

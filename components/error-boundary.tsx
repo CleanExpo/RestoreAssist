@@ -69,7 +69,7 @@ function DefaultFallback({
             onClick={onReset}
             variant="outline"
             size="sm"
-            className="border-slate-500 text-white hover:bg-slate-700 hover:text-white hover:border-slate-400"
+            className="border-slate-500 bg-transparent text-white hover:bg-slate-700 hover:text-white hover:border-slate-400"
           >
             <ChromeRefresh className="h-4 w-4" />
             Try again

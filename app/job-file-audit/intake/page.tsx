@@ -80,7 +80,7 @@ export default function JobFileAuditIntakePage() {
     <div className={darkMode ? "min-h-screen bg-brand-navy" : "min-h-screen bg-brand-cloud"}>
       <main className="px-6 pb-20 pt-40">
         <div className="mx-auto max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-gold">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-bronze">
             Paid Job File Audit
           </p>
           <h1 className={`mt-4 text-4xl font-bold md:text-5xl ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>

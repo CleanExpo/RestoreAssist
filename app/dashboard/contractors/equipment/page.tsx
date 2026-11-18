@@ -35,7 +35,7 @@ export default function EquipmentPage() {
           variant="outline"
           size="sm"
           asChild
-          className="border-slate-600 text-slate-300"
+          className="border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-300"
         >
           <Link href="/dashboard/contractors">
             <ArrowLeft className="h-4 w-4 mr-1.5" />
@@ -72,7 +72,7 @@ export default function EquipmentPage() {
             <Button
               asChild
               variant="outline"
-              className="border-slate-600 text-slate-300"
+              className="border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-300"
             >
               <Link href="/dashboard/contractors">Contractor workspace</Link>
             </Button>

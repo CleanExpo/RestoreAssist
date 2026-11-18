@@ -74,7 +74,7 @@ export default function DashboardError({
             asChild
             variant="outline"
             size="sm"
-            className="border-slate-500 text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-400"
+            className="border-slate-500 bg-transparent text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-400"
           >
             <Link href="/dashboard">
               <ChromeHome className="h-4 w-4" />
