@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { sendTrialExpiringEmail } from "@/lib/email";
 import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 import type { CronJobResult } from "./runner";
+import { readAllPages } from "./for-each-page";
 
 export type SendTrialRemindersOptions = {
   /**
@@ -77,6 +78,7 @@ export async function sendTrialReminders(
   const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
   const subscribeUrl = `${baseUrl}/dashboard/pricing?utm_source=trial-reminder`;
   let totalSent = 0;
+  let truncated = false;
   const perWindow: Record<string, number> = {};
 
   for (const win of WINDOWS) {
@@ -84,22 +86,29 @@ export async function sendTrialReminders(
     const from = new Date(now.getTime() + win.daysStart * dayMs);
     const to = new Date(now.getTime() + win.daysEnd * dayMs);
 
-    const candidates = await prisma.user.findMany({
-      where: {
-        subscriptionStatus: "TRIAL",
-        trialEndsAt: { gte: from, lte: to },
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        trialEndsAt: true,
-        // RA-1363: stored idempotency record. Shape:
-        //   { "3-day": "<ISO>", "1-day": "<ISO>" }
-        trialReminderSentAt: true,
-      },
-      take: 1000, // CLAUDE.md rule 4
-    });
+    // RA-8453: every TRIAL user in the window, a page at a time.
+    const { rows: candidates, truncated: windowTruncated } = await readAllPages(
+      `trial-reminders:${win.label}`,
+      (page) =>
+        prisma.user.findMany({
+          ...page,
+          where: {
+            subscriptionStatus: "TRIAL",
+            trialEndsAt: { gte: from, lte: to },
+            ...page.where,
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            trialEndsAt: true,
+            // RA-1363: stored idempotency record. Shape:
+            //   { "3-day": "<ISO>", "1-day": "<ISO>" }
+            trialReminderSentAt: true,
+          },
+        }),
+    );
+    if (windowTruncated) truncated = true;
 
     let sentInWindow = 0;
     let skippedDuplicate = 0;
@@ -174,6 +183,7 @@ export async function sendTrialReminders(
     metadata: {
       ...(dryRun ? { dryRun: true } : {}),
       windows: perWindow,
+      truncated,
     },
   };
 }

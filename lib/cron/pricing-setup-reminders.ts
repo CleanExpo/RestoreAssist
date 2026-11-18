@@ -3,6 +3,7 @@ import { sendPricingSetupReminderEmail } from "@/lib/email";
 import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 import { isPricingConfigured } from "@/lib/pricing/effective-pricing";
 import type { CronJobResult } from "./runner";
+import { readAllPages } from "./for-each-page";
 
 /**
  * Pricing-setup reminder cron — RA-7026.
@@ -82,23 +83,28 @@ export async function sendPricingSetupReminders(): Promise<CronJobResult> {
     now.getTime() - GRACE_DAYS * 24 * 60 * 60 * 1000,
   );
 
-  const orgs = await prisma.organization.findMany({
-    select: {
-      id: true,
-      owner: {
+  // RA-8453: every organisation, a page at a time, not the first 1000.
+  const { rows: orgs, truncated } = await readAllPages(
+    "pricing-setup-reminders:organisations",
+    (page) =>
+      prisma.organization.findMany({
+        ...page,
         select: {
           id: true,
-          email: true,
-          name: true,
-          subscriptionStatus: true,
-          createdAt: true,
-          trialEndsAt: true,
-          pricingReminderSentAt: true,
+          owner: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              subscriptionStatus: true,
+              createdAt: true,
+              trialEndsAt: true,
+              pricingReminderSentAt: true,
+            },
+          },
         },
-      },
-    },
-    take: 1000, // CLAUDE.md rule 4
-  });
+      }),
+  );
 
   let sent = 0;
   let failed = 0;
@@ -162,6 +168,7 @@ export async function sendPricingSetupReminders(): Promise<CronJobResult> {
       failed,
       skippedConfigured,
       skippedIneligible,
+      truncated,
     },
   };
 }

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { sendWinbackEmail } from "@/lib/email";
 import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 import type { CronJobResult } from "./runner";
+import { readAllPages } from "./for-each-page";
 
 /**
  * Win-back email cron handler — closes RA-1242.
@@ -33,19 +34,25 @@ export async function sendWinback(): Promise<CronJobResult> {
   const from = new Date(target.getTime() - (WINDOW_HOURS / 2) * 60 * 60 * 1000);
   const to = new Date(target.getTime() + (WINDOW_HOURS / 2) * 60 * 60 * 1000);
 
-  const candidates = await prisma.user.findMany({
-    where: {
-      subscriptionStatus: "EXPIRED",
-      subscriptionEndsAt: { gte: from, lte: to },
-    },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      subscriptionEndsAt: true,
-    },
-    take: 1000, // CLAUDE.md rule 4
-  });
+  // RA-8453: every candidate in the window, a page at a time.
+  const { rows: candidates, truncated } = await readAllPages(
+    "winback:expired-users",
+    (page) =>
+      prisma.user.findMany({
+        ...page,
+        where: {
+          subscriptionStatus: "EXPIRED",
+          subscriptionEndsAt: { gte: from, lte: to },
+          ...page.where,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          subscriptionEndsAt: true,
+        },
+      }),
+  );
 
   let sent = 0;
   let failed = 0;
@@ -86,6 +93,7 @@ export async function sendWinback(): Promise<CronJobResult> {
       sent,
       failed,
       targetDate: target.toISOString(),
+      truncated,
     },
   };
 }
