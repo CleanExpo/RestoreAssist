@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useLatestFetch } from "@/lib/hooks/useLatestFetch";
 
 // ---- Types ----------------------------------------------------------------
 
@@ -316,31 +317,42 @@ export default function AiUsageDashboardPage() {
   const [sortDesc, setSortDesc] = useState(true);
   const [page, setPage] = useState(0);
 
-  const fetchData = useCallback(async (month: string) => {
-    setLoading(true);
-    setFetchError(null);
-    try {
-      const res = await fetch(`/api/admin/usage?month=${month}`);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          typeof body.error === "string"
-            ? body.error
-            : "Failed to load usage data",
+  // RA-8454: a quick month switch must not show the earlier month's reply.
+  const beginRequest = useLatestFetch();
+  const fetchData = useCallback(
+    async (month: string) => {
+      const req = beginRequest();
+      setLoading(true);
+      setFetchError(null);
+      try {
+        const res = await fetch(`/api/admin/usage?month=${month}`, {
+          signal: req.signal,
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(
+            typeof body.error === "string"
+              ? body.error
+              : "Failed to load usage data",
+          );
+        }
+        const json = await res.json();
+        if (!req.isLatest()) return;
+        setData(json);
+      } catch (err) {
+        // Aborted or superseded by a newer month: not this request's error.
+        if (!req.isLatest()) return;
+        // Fail closed — never present EMPTY_USAGE zeros as real KPIs.
+        setData(null);
+        setFetchError(
+          err instanceof Error ? err.message : "Failed to load usage data",
         );
+      } finally {
+        if (req.isLatest()) setLoading(false);
       }
-      const json = await res.json();
-      setData(json);
-    } catch (err) {
-      // Fail closed — never present EMPTY_USAGE zeros as real KPIs.
-      setData(null);
-      setFetchError(
-        err instanceof Error ? err.message : "Failed to load usage data",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [beginRequest],
+  );
 
   useEffect(() => {
     if (status === "loading") return;
