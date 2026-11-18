@@ -142,3 +142,136 @@ it("uses exact personal workspace scope and does not treat a malformed response 
   expect(invoiceFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ workspaceId: null, userId: "user-1", externalSyncProvider: { in: ["XERO", "xero"] } }) }));
   expect(invoiceUpdate).not.toHaveBeenCalled();
 });
+
+// RA-8425: the poll took the 50 oldest outstanding invoices by updatedAt and
+// only wrote to an invoice when it was paid, so an unpaid, voided or deleted
+// invoice kept its place and invoice 51 was never polled. The fakes below keep
+// state between runs: invoices honour where/orderBy/take, and each completed
+// run's metadata is read back by the next run, as the real tables do.
+describe("GET /api/cron/sync-xero-payments — rotation through the outstanding set", () => {
+  type StoredInvoice = { id: string; externalInvoiceId: string; status: string; updatedAt: number };
+  type IdFilter = { gt?: string; lte?: string; notIn?: string[] };
+  type FindArgs = {
+    where: { status?: { in: string[] }; id?: IdFilter };
+    orderBy?: Record<string, "asc" | "desc">;
+    take?: number;
+  };
+
+  let invoices: StoredInvoice[];
+  let runs: { id: string; jobName: string; status: string; startedAt: number; metadata: string | null }[];
+
+  function matchesId(id: string, filter: IdFilter | undefined) {
+    if (!filter) return true;
+    if (filter.gt !== undefined && !(id > filter.gt)) return false;
+    if (filter.lte !== undefined && !(id <= filter.lte)) return false;
+    if (filter.notIn && filter.notIn.includes(id)) return false;
+    return true;
+  }
+
+  function seedInvoices(count: number) {
+    invoices = Array.from({ length: count }, (_, i) => {
+      const n = String(i + 1).padStart(3, "0");
+      // Invoice 1 has the oldest updatedAt, invoice `count` the newest.
+      return { id: `inv-${n}`, externalInvoiceId: `xero-${n}`, status: "SENT", updatedAt: i };
+    });
+  }
+
+  beforeEach(() => {
+    runs = [];
+    invoiceFindMany.mockImplementation(async (args: FindArgs) => {
+      const [[key, dir]] = Object.entries(args.orderBy ?? { id: "asc" });
+      return invoices
+        .filter((inv) => !args.where.status || args.where.status.in.includes(inv.status))
+        .filter((inv) => matchesId(inv.id, args.where.id))
+        .sort((a, b) => {
+          const av = a[key as keyof StoredInvoice];
+          const bv = b[key as keyof StoredInvoice];
+          const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+          return dir === "desc" ? -cmp : cmp;
+        })
+        .slice(0, args.take ?? Infinity)
+        .map(({ id, externalInvoiceId }) => ({ id, externalInvoiceId }));
+    });
+    invoiceUpdate.mockImplementation(async (args: { where: { id: string }; data: { status: string } }) => {
+      const inv = invoices.find((i) => i.id === args.where.id);
+      if (inv) {
+        inv.status = args.data.status;
+        inv.updatedAt = 1_000_000 + runs.length;
+      }
+      return inv;
+    });
+    cronJobRunCreate.mockImplementation(async ({ data }: { data: { jobName: string; status: string } }) => {
+      const run = { id: `run-${runs.length + 1}`, ...data, startedAt: runs.length, metadata: null };
+      runs.push(run);
+      return run;
+    });
+    cronJobRunUpdate.mockImplementation(async ({ where, data }: { where: { id: string }; data: { status: string; metadata?: string | null } }) => {
+      const run = runs.find((r) => r.id === where.id);
+      if (run) Object.assign(run, data);
+      return run;
+    });
+    cronJobRunFindFirst.mockImplementation(async ({ where }: { where: { jobName: string; status: string } }) => {
+      // The overlap guard asks for a running row; every earlier run has finished.
+      const matches = runs.filter((r) => r.jobName === where.jobName && r.status === where.status);
+      return matches.sort((a, b) => b.startedAt - a.startedAt)[0] ?? null;
+    });
+  });
+
+  function polledIds() {
+    const fetchMock = fetch as unknown as { mock: { calls: [string][] } };
+    return fetchMock.mock.calls.map(([url]) => String(url).split("/").pop());
+  }
+
+  it("reaches invoice 51 within two runs when the 50 older invoices stay unpaid", async () => {
+    seedInvoices(51);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const paid = url.endsWith("/xero-051");
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            Invoices: [paid
+              ? { Status: "PAID", AmountPaid: 300, AmountDue: 0 }
+              : { Status: "AUTHORISED", AmountPaid: 0, AmountDue: 500 }],
+          }),
+        };
+      }),
+    );
+
+    await GET(authorisedRequest());
+    await GET(authorisedRequest());
+
+    expect(polledIds()).toContain("xero-051");
+    expect(invoices.find((i) => i.id === "inv-051")?.status).toBe("PAID");
+
+    // A third run keeps rotating instead of returning to the same 50 rows.
+    await GET(authorisedRequest());
+    const thirdRun = polledIds().slice(-50);
+    expect(new Set(thirdRun).size).toBe(thirdRun.length);
+    expect(invoices.filter((i) => i.status === "SENT")).toHaveLength(50);
+  });
+
+  it("counts voided, deleted and missing invoices under their own counters and never marks a void with nothing due as paid", async () => {
+    seedInvoices(3);
+    const responses: Record<string, unknown> = {
+      "xero-001": { ok: true, status: 200, json: async () => ({ Invoices: [{ Status: "VOIDED", AmountPaid: 0, AmountDue: 0 }] }) },
+      "xero-002": { ok: true, status: 200, json: async () => ({ Invoices: [{ Status: "DELETED", AmountPaid: 0, AmountDue: 0 }] }) },
+      "xero-003": { ok: false, status: 404, json: async () => ({}) },
+    };
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => responses[String(url).split("/").pop()!]));
+
+    const response = await GET(authorisedRequest());
+    const body = await response.json();
+
+    expect(invoiceUpdate).not.toHaveBeenCalled();
+    expect(body.metadata).toEqual(expect.objectContaining({
+      invoicesPolled: 3,
+      invoicesMarkedPaid: 0,
+      invoicesVoidedOrDeletedInXero: 2,
+      invoicesNotFoundInXero: 1,
+      invoiceErrors: 0,
+    }));
+  });
+});

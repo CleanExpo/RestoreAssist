@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { OAUTH_CANDIDATE_WHERE } from "@/lib/services/integrations/select-oauth";
 import { isOAuthIntegration } from "@/lib/integrations/identity";
@@ -8,6 +9,42 @@ import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
 
 const MAX_XERO_INTEGRATIONS_PER_CRON_RUN = 100;
+const CRON_JOB_NAME = "sync-xero-payments";
+/** Xero calls per integration per run; unchanged from before RA-8425. */
+const INVOICES_POLLED_PER_INTEGRATION = 50;
+/** Xero statuses for an invoice that will never be paid. */
+const XERO_VOID_STATUSES = new Set(["VOIDED", "DELETED"]);
+
+/**
+ * RA-8425: where each integration's poll resumes, keyed by integration id,
+ * read from the last completed run's metadata. Kept on the run record, not on
+ * Integration.config: config and updatedAt are part of the Xero binding
+ * compare-and-swap (lib/services/xero/binding.ts), so writing there every 15
+ * minutes would fail in-flight token refreshes. Anything unreadable means
+ * "start from the beginning", never a failed run.
+ */
+async function readPollCursors(): Promise<Record<string, string>> {
+  try {
+    const lastRun = await prisma.cronJobRun.findFirst({
+      where: { jobName: CRON_JOB_NAME, status: "completed" },
+      orderBy: { startedAt: "desc" },
+      select: { metadata: true },
+    });
+    const parsed: unknown = lastRun?.metadata ? JSON.parse(lastRun.metadata) : null;
+    const stored = parsed && typeof parsed === "object"
+      ? (parsed as { pollCursors?: unknown }).pollCursors
+      : undefined;
+    if (!stored || typeof stored !== "object" || Array.isArray(stored)) return {};
+    return Object.fromEntries(
+      Object.entries(stored).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].length > 0,
+      ),
+    );
+  } catch (err) {
+    console.warn("[Xero Payment Sync] Could not read poll cursors; starting from the beginning:", err);
+    return {};
+  }
+}
 
 /** Xero amounts are decimal dollars; Invoice amounts are integer cents. */
 function xeroDollarsToCents(value: unknown): number | null {
@@ -22,7 +59,8 @@ function xeroDollarsToCents(value: unknown): number | null {
  * This cron job is the safety net for missed webhook events (Xero webhooks can
  * fail or be delayed). It:
  *   1. Processes any PENDING WebhookEvent rows via the webhook-processor (RA-871).
- *   2. Polls Xero for AUTHORISED invoices that should now be PAID (up to 50 per run).
+ *   2. Polls Xero for AUTHORISED invoices that should now be PAID (up to 50 per
+ *      integration per run, resuming where the last run stopped; RA-8425).
  *
  * Called by Vercel Cron (every 15 min): * /15 * * * * (RA-6964 — wired into
  * vercel.json; the route existed but was never scheduled, so this queue
@@ -40,7 +78,7 @@ export async function GET(request: NextRequest) {
   // invocations (e.g. during a slow Xero poll). RA-7774: it checks for a
   // running row and creates one under a per-job advisory lock, so two
   // invocations that start together cannot both reconcile.
-  const jobResult = await runCronJob("sync-xero-payments", async () => {
+  const jobResult = await runCronJob(CRON_JOB_NAME, async () => {
     return await syncXeroPaymentsOnce();
   });
 
@@ -58,6 +96,11 @@ async function syncXeroPaymentsOnce() {
     webhookEventsSkipped: 0,
     invoicesPolled: 0,
     invoicesMarkedPaid: 0,
+    // RA-8425: never paid, so reported on their own rather than as errors.
+    // The local status is left alone; mapping a Xero void to a local status
+    // is a product decision this cron does not make.
+    invoicesVoidedOrDeletedInXero: 0,
+    invoicesNotFoundInXero: 0,
     integrationErrors: 0,
     invoiceErrors: 0,
   };
@@ -91,8 +134,18 @@ async function syncXeroPaymentsOnce() {
     take: MAX_XERO_INTEGRATIONS_PER_CRON_RUN,
   });
 
+  const previousCursors = await readPollCursors();
+  // An integration skipped this run (credential failure, query error) keeps
+  // its previous cursor; integrations no longer listed are dropped.
+  const nextCursors: Record<string, string> = Object.fromEntries(
+    xeroIntegrations
+      .filter((integration) => Object.hasOwn(previousCursors, integration.id))
+      .map((integration) => [integration.id, previousCursors[integration.id]]),
+  );
+
   for (const integration of xeroIntegrations) {
     if (!isOAuthIntegration(integration, "XERO") || !integration.tenantId) continue;
+    const cursor: string | undefined = previousCursors[integration.id];
 
     try {
       // Service-layer credentials result — log + continue on failure so a single
@@ -111,21 +164,40 @@ async function syncXeroPaymentsOnce() {
 
       // Find local invoices that are AUTHORISED (sent to Xero) but not yet PAID,
       // limited to 50 per integration to stay within cron time budget
-      const pendingInvoices = await prisma.invoice.findMany({
-        where: {
-          userId: integration.userId,
-          workspaceId: integration.workspaceId,
-          status: { in: ["SENT", "OVERDUE", "PARTIALLY_PAID"] },
-          externalInvoiceId: { not: null },
-          externalSyncProvider: { in: ["XERO", "xero"] },
-        },
-        select: {
-          id: true,
-          externalInvoiceId: true,
-        },
-        take: 50,
-        orderBy: { updatedAt: "asc" }, // oldest-first: most likely to be paid
-      });
+      // RA-8425: keyset pages on invoice id, resuming after the last invoice
+      // the previous run selected. The old oldest-updatedAt-first order never
+      // moved an unpaid, voided or deleted invoice, so the same 50 were polled
+      // every run. Pass 1 takes ids after the cursor; if that page is short,
+      // pass 2 wraps to the start of the set (ids up to the cursor), so no
+      // invoice is polled twice in one run.
+      const idPasses: (Prisma.StringFilter | undefined)[] =
+        cursor === undefined ? [undefined] : [{ gt: cursor }, { lte: cursor }];
+      const pendingInvoices: { id: string; externalInvoiceId: string | null }[] = [];
+      for (const idFilter of idPasses) {
+        const remaining = INVOICES_POLLED_PER_INTEGRATION - pendingInvoices.length;
+        if (remaining <= 0) break;
+        const page = await prisma.invoice.findMany({
+          where: {
+            userId: integration.userId,
+            workspaceId: integration.workspaceId,
+            status: { in: ["SENT", "OVERDUE", "PARTIALLY_PAID"] },
+            externalInvoiceId: { not: null },
+            externalSyncProvider: { in: ["XERO", "xero"] },
+            ...(idFilter ? { id: idFilter } : {}),
+          },
+          select: {
+            id: true,
+            externalInvoiceId: true,
+          },
+          take: remaining,
+          orderBy: { id: "asc" },
+        });
+        pendingInvoices.push(...page);
+      }
+      // Advance by what was selected, not by what succeeded, so an invoice
+      // that always errors cannot hold the front of the line either.
+      const lastSelected = pendingInvoices.at(-1);
+      if (lastSelected) nextCursors[integration.id] = lastSelected.id;
 
       stats.invoicesPolled += pendingInvoices.length;
 
@@ -148,6 +220,7 @@ async function syncXeroPaymentsOnce() {
           if (!res.ok) {
             // 404 means the invoice was deleted/voided in Xero — skip gracefully
             if (res.status === 404) {
+              stats.invoicesNotFoundInXero++;
               console.warn(
                 `[Xero Payment Sync] Invoice ${invoice.externalInvoiceId} not found in Xero (404) — skipping`,
               );
@@ -163,6 +236,16 @@ async function syncXeroPaymentsOnce() {
             throw new Error("Xero returned an invalid invoice response");
           }
           const xeroInvoice = data.Invoices[0];
+
+          // RA-8425: checked before the settled test below. A voided or deleted
+          // invoice can report AmountDue 0, which would otherwise mark it PAID.
+          if (XERO_VOID_STATUSES.has(xeroInvoice.Status)) {
+            stats.invoicesVoidedOrDeletedInXero++;
+            console.warn(
+              `[Xero Payment Sync] Invoice ${invoice.id} is ${xeroInvoice.Status} in Xero — not marking paid`,
+            );
+            continue;
+          }
 
           // Xero status PAID or AmountDue === 0 means fully settled
           if (xeroInvoice.Status === "PAID" || xeroInvoice.AmountDue === 0) {
@@ -207,7 +290,7 @@ async function syncXeroPaymentsOnce() {
 
   return {
     itemsProcessed: stats.webhookEventsProcessed + stats.invoicesMarkedPaid,
-    metadata: stats,
+    metadata: { ...stats, pollCursors: nextCursors },
   };
 }
 
