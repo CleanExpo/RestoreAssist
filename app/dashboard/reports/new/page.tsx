@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import BillingGate from "@/components/capacitor/BillingGate";
@@ -44,6 +44,14 @@ export default function NewReportPage() {
   const [fileName, setFileName] = useState<string>("");
   const [reportId, setReportId] = useState<string | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
+  // RA-8460: the id of a report the server has saved lives in the address
+  // (?reportId=), never only in page memory, so a refresh reopens the same
+  // report instead of an empty form that would create a second one. This ref
+  // holds the id the workflow created during this visit, so the address
+  // catching up does not reload and remount the workflow mid-step.
+  const adoptedReportIdRef = useRef<string | null>(null);
+  // Bumped by "Start Fresh" so the workflow remounts with no report.
+  const [workflowKey, setWorkflowKey] = useState(0);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -272,16 +280,11 @@ export default function NewReportPage() {
 
     // Only load if there's an explicit reportId in the URL
     if (urlReportId) {
+      // Created in this visit: the workflow already holds it at the right step.
+      if (urlReportId === adoptedReportIdRef.current) return;
       setReportId(urlReportId);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("currentReportId", urlReportId);
-      }
       loadReportData(urlReportId);
     } else {
-      // Clear localStorage when creating a new report (no reportId in URL)
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("currentReportId");
-      }
       if (!interviewDataParam && !inspectionIdParam) {
         // Only clear if not loading interview data or an inspection prefill.
         // Without the inspectionId guard this ran in the same pass as the fetch
@@ -405,11 +408,11 @@ export default function NewReportPage() {
         });
         toast.success("Report data loaded");
       } else {
-        // Report not found, clear localStorage
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("currentReportId");
-        }
+        // Report not found (deleted, or not this user's): drop the id from the
+        // address and fall back to a new report, credit check included.
         setReportId(null);
+        router.replace("/dashboard/reports/new");
+        void checkCreditsAndOnboarding();
       }
     } catch (error) {
       console.error("Error loading report:", error);
@@ -419,12 +422,25 @@ export default function NewReportPage() {
   };
 
   const handleComplete = () => {
-    // Clear localStorage when report is complete
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("currentReportId");
-    }
     router.push("/dashboard/reports");
   };
+
+  // RA-8460: put a newly created report's id in the address at once.
+  const handleReportCreated = useCallback(
+    (id: string) => {
+      if (adoptedReportIdRef.current === id) return;
+      adoptedReportIdRef.current = id;
+      // Keep other params (inspectionId) from the live address.
+      const params = new URLSearchParams(window.location.search);
+      params.delete("interviewData");
+      params.delete("interviewMetadata");
+      params.set("reportId", id);
+      router.replace(`/dashboard/reports/new?${params.toString()}`, {
+        scroll: false,
+      });
+    },
+    [router],
+  );
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (subscriptionStatus === "TRIAL") {
@@ -475,10 +491,6 @@ export default function NewReportPage() {
     setUploadedData(null);
     setFileName("");
     setReportId(null);
-    // Clear localStorage when discarding
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("currentReportId");
-    }
     toast.success("Uploaded data discarded");
   };
 
@@ -487,16 +499,18 @@ export default function NewReportPage() {
     setFileName("");
     setReportId(null);
     setShowUpload(false);
-    // Clear localStorage when starting new
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("currentReportId");
-    }
+    adoptedReportIdRef.current = null;
+    setWorkflowKey((k) => k + 1);
     // Clear URL params if any
     router.replace("/dashboard/reports/new");
     // Reset onboarding check flag and re-check when starting new
     setHasCheckedOnboarding(false);
+    // A page opened on an existing report (?reportId=) never ran the credit
+    // check, and a new report needs it before the form can show.
+    const creditsChecked = hasCheckedCredits;
     setTimeout(() => {
-      checkOnboardingStatus();
+      if (creditsChecked) checkOnboardingStatus();
+      else void checkCreditsAndOnboarding();
     }, 100);
     toast.success("Starting new report");
   };
@@ -820,6 +834,19 @@ export default function NewReportPage() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
           </div>
+        ) : reportId ? (
+          // RA-8460: an existing report (?reportId=) is not a new creation, so
+          // the credit check that gates creation does not apply. Before this,
+          // canCreateReport stayed false here and the page rendered nothing.
+          <ReportWorkflow
+            key={workflowKey}
+            reportId={reportId}
+            onComplete={handleComplete}
+            onReportCreated={handleReportCreated}
+            initialFormData={uploadedData || undefined}
+            subscriptionStatus={subscriptionStatus || undefined}
+            inspectionId={searchParams.get("inspectionId") || undefined}
+          />
         ) : creditsCheckError && hasCheckedCredits ? (
           <div className="flex flex-col items-center justify-center py-20 px-6">
             <div className="max-w-md text-center">
@@ -896,8 +923,10 @@ export default function NewReportPage() {
           </div>
         ) : canCreateReport && (onboardingComplete || !hasCheckedOnboarding) ? (
           <ReportWorkflow
-            reportId={reportId || undefined}
+            key={workflowKey}
+            reportId={undefined}
             onComplete={handleComplete}
+            onReportCreated={handleReportCreated}
             initialFormData={uploadedData || undefined}
             subscriptionStatus={subscriptionStatus || undefined}
             inspectionId={searchParams.get("inspectionId") || undefined}

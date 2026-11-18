@@ -37,11 +37,17 @@ interface ReportWorkflowProps {
   subscriptionStatus?: string;
   /** RA-7726: inspection this report is started from */
   inspectionId?: string;
+  /**
+   * RA-8460: called with the id the moment the server has saved the report.
+   * The page puts it in the address so a refresh reopens the same report.
+   */
+  onReportCreated?: (reportId: string) => void;
 }
 
 export default function ReportWorkflow({
   reportId: initialReportId,
   onComplete,
+  onReportCreated,
   initialFormData,
   subscriptionStatus,
   inspectionId,
@@ -96,11 +102,6 @@ export default function ReportWorkflow({
         setReportType(resolved.reportType);
         setShowTier3(resolved.showTier3);
         setCurrentStage(resolved.stage);
-
-        // Store reportId in localStorage for persistence
-        if (typeof window !== "undefined") {
-          localStorage.setItem("currentReportId", id);
-        }
       }
     } catch (error) {
       console.error("Error loading report state:", error);
@@ -109,15 +110,14 @@ export default function ReportWorkflow({
     }
   };
 
-  // RA-6799 AC2: persist the reportId the moment the report is created (before
-  // the review/type-selection step), so a remount/refresh reuses the same
-  // report instead of creating a duplicate. Does NOT advance the stage — that
-  // happens in handleInitialEntryComplete once a report type is chosen.
+  // RA-6799 AC2 / RA-8460: hand the id up the moment the report is created
+  // (before the review/type-selection step); the page puts it in the address,
+  // so a refresh reopens the same report instead of creating a duplicate.
+  // Does NOT advance the stage — that happens in handleInitialEntryComplete
+  // once a report type is chosen.
   const handleReportCreated = (newReportId: string) => {
     setReportId(newReportId);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("currentReportId", newReportId);
-    }
+    onReportCreated?.(newReportId);
   };
 
   const handleInitialEntryComplete = (
@@ -125,10 +125,7 @@ export default function ReportWorkflow({
     reportType?: "basic" | "enhanced" | "optimised",
   ) => {
     setReportId(newReportId);
-    // Store in localStorage for persistence
-    if (typeof window !== "undefined") {
-      localStorage.setItem("currentReportId", newReportId);
-    }
+    onReportCreated?.(newReportId);
 
     if (reportType) {
       setReportType(reportType);
