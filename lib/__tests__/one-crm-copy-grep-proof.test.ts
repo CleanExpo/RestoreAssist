@@ -126,8 +126,8 @@ const REMOVED: readonly string[] = [
   "Connect Xero, MYOB, QuickBooks, ServiceM8, or Ascora.",
   "Connect Xero, MYOB, QuickBooks, and more.",
   "Connect Xero, MYOB, QuickBooks, ServiceM8 or Ascora",
-  // lib/youtube/metadata.ts splits this sentence across a string
-  // concatenation, so the needle is the half that sits in one literal.
+  // Half of a sentence the YouTube metadata module (deleted in RA-8450) split
+  // across a string concatenation; kept so the claim cannot come back.
   "Ascora & ServiceM8, and professional PDF reports",
   "upgrade your plan to connect to Xero, QuickBooks, MYOB, ServiceM8, or Ascora",
   "Native QuickBooks sync, no re-keying",
@@ -347,7 +347,6 @@ function isPublicCopy(file: string): boolean {
       "components/help/HowToDropdown.tsx",
       "app/dashboard/learn/LearnPageClient.tsx",
       "components/setup/video-registry.ts",
-      "lib/youtube/metadata.ts",
     ].includes(file)
   );
 }
