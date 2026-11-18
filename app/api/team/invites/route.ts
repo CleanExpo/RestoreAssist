@@ -119,6 +119,7 @@ export async function GET(request: NextRequest) {
       token: true,
       expiresAt: true,
       usedAt: true,
+      revokedAt: true,
       createdAt: true,
       createdById: true,
       managedById: true,

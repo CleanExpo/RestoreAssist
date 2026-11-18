@@ -12,6 +12,10 @@ const userFindFirst = vi.fn();
 const sendInviteEmail = vi.fn();
 const validateCsrf = vi.fn();
 const getIdempotencyKey = vi.fn();
+const inviteFindFirst = vi.fn();
+const assertTechnicianSeatAvailable = vi.fn();
+const lockEmailIdentity = vi.fn();
+const transaction = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -49,10 +53,24 @@ vi.mock("@/lib/api-errors", () => ({
     Response.json({ error: o.message }, { status: o.status }),
   fromException: () => Response.json({ error: "server" }, { status: 500 }),
 }));
+vi.mock("@/lib/email-identity", () => ({
+  lockEmailIdentity: (...a: unknown[]) => lockEmailIdentity(...a),
+}));
+vi.mock("@/lib/billing/technician-seats", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/billing/technician-seats")>();
+  return {
+    ...actual,
+    assertTechnicianSeatAvailable: (...a: unknown[]) =>
+      assertTechnicianSeatAvailable(...a),
+  };
+});
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $transaction: (...a: unknown[]) => transaction(...a),
     userInvite: {
       findUnique: (...a: unknown[]) => inviteFindUnique(...a),
+      findFirst: (...a: unknown[]) => inviteFindFirst(...a),
       update: (...a: unknown[]) => inviteUpdate(...a),
     },
     user: {
@@ -63,6 +81,8 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { POST } from "../route";
+import { prisma } from "@/lib/prisma";
+import { TechnicianSeatLimitReached } from "@/lib/billing/technician-seats";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -97,7 +117,24 @@ beforeEach(() => {
     return null;
   });
   userFindFirst.mockResolvedValue(null);
+  inviteFindFirst.mockResolvedValue(null);
+  assertTechnicianSeatAvailable.mockResolvedValue(undefined);
+  lockEmailIdentity.mockResolvedValue(undefined);
+  // The transaction client is the same mocked prisma, so writes made inside
+  // the transaction are visible to the assertions below.
+  transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+    fn(prisma),
+  );
 });
+
+function resend() {
+  return POST(
+    new NextRequest("http://localhost/api/team/invites/inv1/resend", {
+      method: "POST",
+    }),
+    { params: Promise.resolve({ id: "inv1" }) },
+  );
+}
 
 describe("POST /api/team/invites/[id]/resend — org-scoped extend", () => {
   it("requires an Idempotency-Key before lookup or send", async () => {
@@ -134,6 +171,7 @@ describe("POST /api/team/invites/[id]/resend — org-scoped extend", () => {
           id: "inv1",
           organizationId: "org1",
           usedAt: null,
+          revokedAt: null,
           role: "USER",
           token: "a".repeat(48),
         },
@@ -311,5 +349,77 @@ describe("POST /api/team/invites/[id]/resend — org-scoped extend", () => {
     expect(res.status).toBe(409);
     expect(inviteUpdate).not.toHaveBeenCalled();
     expect(sendInviteEmail).not.toHaveBeenCalled();
+  });
+
+  // RA-8462: a resend sets a fresh 7-day expiry, so on an expired invite it
+  // is a revival and must pass the checks a new invite passes.
+  it("refuses to resend a cancelled invite", async () => {
+    inviteFindUnique.mockResolvedValueOnce({
+      id: "inv1",
+      token: "a".repeat(48),
+      email: "e@x.com",
+      role: "USER",
+      usedAt: null,
+      revokedAt: new Date(Date.now() - 1000),
+      expiresAt: new Date(Date.now() - 1000),
+      createdById: "admin1",
+      createdBy: { id: "admin1", name: "Admin" },
+      organization: { name: "Org" },
+    });
+    const res = await resend();
+    expect(res.status).toBe(409);
+    expect(inviteUpdate).not.toHaveBeenCalled();
+    expect(sendInviteEmail).not.toHaveBeenCalled();
+  });
+
+  it("runs the technician seat check before extending an expired technician invite", async () => {
+    assertTechnicianSeatAvailable.mockRejectedValueOnce(
+      new TechnicianSeatLimitReached(),
+    );
+    const res = await resend();
+    expect(res.status).toBe(402);
+    expect(assertTechnicianSeatAvailable).toHaveBeenCalledWith(
+      prisma,
+      "org1",
+      { excludeInviteId: "inv1" },
+    );
+    expect(inviteUpdate).not.toHaveBeenCalled();
+    expect(sendInviteEmail).not.toHaveBeenCalled();
+  });
+
+  it("refuses to extend an invite while another live invite exists for the email", async () => {
+    inviteFindFirst.mockResolvedValueOnce({ id: "inv-other-business" });
+    const res = await resend();
+    expect(res.status).toBe(409);
+    const { where } = inviteFindFirst.mock.calls[0][0];
+    // No organisation filter: the same rule create applies across businesses.
+    expect(where).toEqual({
+      email: "e@x.com",
+      id: { not: "inv1" },
+      usedAt: null,
+      expiresAt: { gt: expect.any(Date) },
+    });
+    expect(lockEmailIdentity).toHaveBeenCalledWith(prisma, "e@x.com");
+    expect(inviteUpdate).not.toHaveBeenCalled();
+    expect(sendInviteEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not take a technician seat check for a manager invite", async () => {
+    inviteFindUnique.mockResolvedValueOnce({
+      id: "inv1",
+      token: "a".repeat(48),
+      email: "e@x.com",
+      role: "MANAGER",
+      usedAt: null,
+      revokedAt: null,
+      expiresAt: new Date(Date.now() - 1000),
+      createdById: "admin1",
+      createdBy: { id: "admin1", name: "Admin" },
+      organization: { name: "Org" },
+    });
+    const res = await resend();
+    expect(res.status).toBeLessThan(400);
+    expect(assertTechnicianSeatAvailable).not.toHaveBeenCalled();
+    expect(inviteFindFirst).toHaveBeenCalledTimes(1);
   });
 });

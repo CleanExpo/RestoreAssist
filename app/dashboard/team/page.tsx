@@ -58,6 +58,7 @@ import {
   Search,
   Send,
   Crown,
+  XCircle,
   Calendar,
   CheckCircle2,
   AlertCircle,
@@ -96,7 +97,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatInviteExpiry } from "./invite-expiry";
+import {
+  formatInviteExpiry,
+  inviteCanBeActioned,
+  inviteState,
+} from "./invite-expiry";
+import { CancelInviteButton } from "./cancel-invite-button";
 
 type Member = {
   id: string;
@@ -114,6 +120,7 @@ type Invite = {
   token: string;
   expiresAt: string;
   usedAt: string | null;
+  revokedAt: string | null;
   createdAt: string;
   createdById: string;
   managedById: string | null;
@@ -1300,10 +1307,11 @@ export default function TeamPage() {
                 {filteredInvites.map((invite, idx) => {
                   const config = roleConfig[invite.role];
                   const Icon = config.icon;
-                  const isUsed = Boolean(invite.usedAt);
-                  const isExpired =
-                    new Date(invite.expiresAt).getTime() < Date.now();
-                  const isActive = !isUsed && !isExpired;
+                  const state = inviteState(invite);
+                  const isUsed = state === "accepted";
+                  const isCancelled = state === "cancelled";
+                  const isExpired = state === "expired";
+                  const isActive = state === "active";
 
                   return (
                     <div
@@ -1363,6 +1371,14 @@ export default function TeamPage() {
                                         <CheckCircle2 className="w-3 h-3 mr-1" />
                                         Account Created
                                       </Badge>
+                                    ) : isCancelled ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs text-neutral-600 dark:text-neutral-400 border-neutral-300"
+                                      >
+                                        <XCircle className="w-3 h-3 mr-1" />
+                                        Cancelled
+                                      </Badge>
                                     ) : isExpired ? (
                                       <Badge
                                         variant="outline"
@@ -1393,14 +1409,14 @@ export default function TeamPage() {
                                   <Calendar className="w-3 h-3" />
                                   {formatDate(invite.createdAt)}
                                 </span>
-                                {!isUsed && (
+                                {inviteCanBeActioned(state) && (
                                   <span className="flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
                                     {formatInviteExpiry(invite.expiresAt)}
                                   </span>
                                 )}
                               </div>
-                              {!isUsed && canInvite && (
+                              {inviteCanBeActioned(state) && canInvite && (
                                 <div className="mt-3 flex items-center gap-2">
                                   <Button
                                     variant="outline"
@@ -1441,6 +1457,10 @@ export default function TeamPage() {
                                       </>
                                     )}
                                   </Button>
+                                  <CancelInviteButton
+                                    invite={invite}
+                                    onCancelled={load}
+                                  />
                                 </div>
                               )}
                             </div>

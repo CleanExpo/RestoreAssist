@@ -1051,6 +1051,11 @@ model UserInvite {
   acceptedUserId        String?
   acceptanceProvider    String?
   acceptancePayloadHash String?
+  // RA-8462: a cancelled invite is kept, not deleted. Cancel also rotates the
+  // token and sets expiresAt to the cancel time, so every "live invite" check
+  // (usedAt null, expiresAt in the future) treats it as gone.
+  revokedAt             DateTime?
+  revokedById           String?
   createdAt             DateTime  @default(now())
 
   @@index([email])

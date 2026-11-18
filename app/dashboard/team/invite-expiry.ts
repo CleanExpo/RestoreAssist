@@ -17,3 +17,23 @@ export function formatInviteExpiry(expiresAt: string, now: number = Date.now()):
   const daysLeft = Math.round(diffMs / DAY_MS);
   return daysLeft === 1 ? "Expires in 1 day" : `Expires in ${daysLeft} days`;
 }
+
+export type InviteState = "accepted" | "cancelled" | "expired" | "active";
+
+/**
+ * RA-8462 — one rule for an invite card's state. Cancelled is checked before
+ * expired because cancelling also sets expiresAt to the cancel time.
+ */
+export function inviteState(
+  invite: { usedAt: string | null; revokedAt?: string | null; expiresAt: string },
+  now: number = Date.now(),
+): InviteState {
+  if (invite.usedAt) return "accepted";
+  if (invite.revokedAt) return "cancelled";
+  return new Date(invite.expiresAt).getTime() < now ? "expired" : "active";
+}
+
+/** Copy Link, Resend Email and Cancel invite apply to unused, uncancelled invites. */
+export function inviteCanBeActioned(state: InviteState): boolean {
+  return state === "active" || state === "expired";
+}

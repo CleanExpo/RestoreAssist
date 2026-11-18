@@ -12,6 +12,14 @@ import {
   EmailDeliveryPending,
 } from "@/lib/email-delivery-ledger";
 import { randomBytes } from "node:crypto";
+import {
+  assertTechnicianSeatAvailable,
+  TechnicianSeatLimitReached,
+  TECHNICIAN_SEAT_REQUIRED_MESSAGE,
+} from "@/lib/billing/technician-seats";
+import { lockEmailIdentity } from "@/lib/email-identity";
+
+class ActiveInviteConflict extends Error {}
 
 function canResendInvite(role?: string) {
   return role === "ADMIN" || role === "MANAGER";
@@ -116,6 +124,16 @@ export async function POST(
         });
       }
 
+      // RA-8462: a cancelled invite stays cancelled. Resending it would mail
+      // a fresh working link to the address the owner chose to revoke.
+      if (invite.revokedAt) {
+        return apiError(req, {
+          code: "CONFLICT",
+          message: "This invite was cancelled. Send a new invite instead.",
+          status: 409,
+        });
+      }
+
       if (invite.role !== "MANAGER" && invite.role !== "USER") {
         return apiError(req, {
           code: "CONFLICT",
@@ -143,21 +161,71 @@ export async function POST(
         });
       }
 
-      // A resend is a security rotation, not an expiry revival. Rotate the
-      // bearer token before provider I/O so every previously copied link stays
-      // invalid even if the replacement email has an ambiguous outcome.
+      // A resend rotates the bearer token before provider I/O so every
+      // previously copied link stays invalid even if the replacement email has
+      // an ambiguous outcome. It also sets a fresh 7-day expiry, which revives
+      // an expired invite, so it must pass the same checks as a new invite
+      // (RA-8462): no other live invite for this email in any business, and a
+      // free technician seat. This invite itself is excluded from both counts.
       const effectiveExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const rotatedToken = randomBytes(24).toString("hex");
-      await prisma.userInvite.update({
-        where: {
-          id,
-          organizationId,
-          usedAt: null,
-          role: inviteRole,
-          token: invite.token,
-        },
-        data: { token: rotatedToken, expiresAt: effectiveExpiresAt },
-      });
+      try {
+        await prisma.$transaction(
+          async (tx) => {
+            await lockEmailIdentity(tx, invite.email);
+            const otherActiveInvite = await tx.userInvite.findFirst({
+              where: {
+                email: invite.email,
+                id: { not: invite.id },
+                usedAt: null,
+                expiresAt: { gt: new Date() },
+              },
+              select: { id: true },
+            });
+            if (otherActiveInvite) throw new ActiveInviteConflict();
+            if (inviteRole === "USER") {
+              await assertTechnicianSeatAvailable(tx, organizationId, {
+                excludeInviteId: invite.id,
+              });
+            }
+            await tx.userInvite.update({
+              where: {
+                id,
+                organizationId,
+                usedAt: null,
+                revokedAt: null,
+                role: inviteRole,
+                token: invite.token,
+              },
+              data: { token: rotatedToken, expiresAt: effectiveExpiresAt },
+            });
+          },
+          { isolationLevel: "Serializable" },
+        );
+      } catch (checkError) {
+        if (checkError instanceof TechnicianSeatLimitReached) {
+          return apiError(req, {
+            code: "PAYMENT_REQUIRED",
+            message: TECHNICIAN_SEAT_REQUIRED_MESSAGE,
+            status: 402,
+          });
+        }
+        if (checkError instanceof ActiveInviteConflict) {
+          return apiError(req, {
+            code: "CONFLICT",
+            message: "An active invitation already exists for this email",
+            status: 409,
+          });
+        }
+        if ((checkError as { code?: string })?.code === "P2034") {
+          return apiError(req, {
+            code: "CONFLICT",
+            message: "Invitation state changed; retry the request",
+            status: 409,
+          });
+        }
+        throw checkError;
+      }
       const deliveryKey = `team-invite-resend:${invite.id}:${rotatedToken}`;
       const inviteLink = `${getAppUrl()}/invite/${rotatedToken}`;
 
