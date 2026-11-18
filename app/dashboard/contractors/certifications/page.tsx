@@ -57,7 +57,8 @@ type CertificationType =
   | "BUSINESS_GST_REGISTRATION"
   | "OTHER";
 
-type VerificationStatus = "PENDING" | "VERIFIED" | "REJECTED";
+type VerificationStatus =
+  "PENDING" | "VERIFIED" | "REJECTED" | "EXPIRED" | "RENEWAL_NEEDED";
 
 interface Certification {
   id: string;
@@ -68,6 +69,7 @@ interface Certification {
   issueDate: string;
   expiryDate: string | null;
   verificationStatus: VerificationStatus;
+  verificationNotes: string | null;
   documentUrl: string | null;
 }
 
@@ -155,22 +157,42 @@ function getExpiryBadge(expiryDate: string | null): {
 function getVerificationBadge(status: VerificationStatus): {
   label: string;
   className: string;
+  explanation: string;
 } {
   switch (status) {
     case "VERIFIED":
       return {
         label: "Verified",
         className: "bg-green-500/10 text-green-400 border border-green-500/30",
+        explanation: "Shown on your public profile.",
       };
     case "REJECTED":
       return {
         label: "Rejected",
         className: "bg-red-500/10 text-red-400 border border-red-500/30",
+        explanation:
+          "Not shown publicly. Correct the details and save to send it for review again.",
+      };
+    case "EXPIRED":
+      return {
+        label: "Expired",
+        className: "bg-red-500/10 text-red-400 border border-red-500/30",
+        explanation:
+          "Not shown publicly. Add the renewed certificate to have it reviewed.",
+      };
+    case "RENEWAL_NEEDED":
+      return {
+        label: "Renewal needed",
+        className: "bg-amber-500/10 text-amber-400 border border-amber-500/30",
+        explanation:
+          "Upload the renewed certificate before it expires to keep it on your profile.",
       };
     default:
       return {
         label: "Pending",
         className: "bg-amber-500/10 text-amber-400 border border-amber-500/30",
+        explanation:
+          "Waiting for RestoreAssist to check it. It appears on your public profile once verified.",
       };
   }
 }
@@ -507,6 +529,15 @@ export default function ContractorCertificationsPage() {
                         {verBadge.label}
                       </span>
                     </div>
+                    <p className="text-xs text-slate-400 mt-2">
+                      {verBadge.explanation}
+                    </p>
+                    {cert.verificationStatus === "REJECTED" &&
+                      cert.verificationNotes && (
+                        <p className="text-xs text-red-300 mt-1">
+                          Reviewer note: {cert.verificationNotes}
+                        </p>
+                      )}
                   </div>
                 </div>
 

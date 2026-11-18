@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { apiError, fromException } from "@/lib/api-errors";
+import { syncProfileVerified } from "@/lib/contractors/certification-verification";
 
 // Update certification
 export async function PATCH(
@@ -80,6 +81,14 @@ export async function PATCH(
           expiryDate: expiryDate ? new Date(expiryDate) : null,
         }),
         ...(documentUrl !== undefined && { documentUrl }),
+        // RA-8457: a corrected REJECTED certification goes back for review.
+        // The old decision is cleared so it cannot read as current.
+        ...(certification.verificationStatus === "REJECTED" && {
+          verificationStatus: "PENDING" as const,
+          verifiedAt: null,
+          verifiedBy: null,
+          verificationNotes: null,
+        }),
       },
     });
 
@@ -136,8 +145,13 @@ export async function DELETE(
       });
     }
 
-    await prisma.contractorCertification.delete({
-      where: { id, profile: { userId: session.user.id } },
+    // RA-8457: removing a VERIFIED certification can end the profile's
+    // verified state, so the derived flag is recomputed in the same write.
+    await prisma.$transaction(async (tx) => {
+      await tx.contractorCertification.delete({
+        where: { id, profile: { userId: session.user.id } },
+      });
+      await syncProfileVerified(tx, certification.profileId);
     });
 
     return NextResponse.json({ success: true });

@@ -1,0 +1,40 @@
+{
+  "schema": "done/1",
+  "work_id": "w_a30f3dc1606a",
+  "version": 2,
+  "supersedes": "w_4fd9dc5446b4",
+  "goal": "RA-8457: platform admin can verify or reject contractor certifications; rejected edits return to PENDING; profile isVerified derived in one owner (recipes use repo vitest config)",
+  "created_at_utc": "2026-11-18T19:09:43Z",
+  "identity_key": "mesh/phills-macbook-pro/ra-8457-4847a464@/Users/phillmcgurk/RestoreAssist/.git/worktrees/mesh-RA-8457-4847a464",
+  "baseline_observed": {
+    "head": "3190ecd8940fb987b3acf8ae135dac4f408ec439",
+    "branch": "mesh/phills-macbook-pro/ra-8457-4847a464",
+    "dirty_count": 8
+  },
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "Admin verify route: non-platform-admin gets 403; platform admin moves PENDING to VERIFIED with verifiedAt/verifiedBy set; REJECTED stores notes; non-PENDING refused; profile isVerified recomputed",
+      "recipe": "npx vitest run --config config/vitest.config.js app/api/admin/contractor-certifications",
+      "timeout": 300
+    },
+    {
+      "id": "C2",
+      "text": "Contractor edit of a REJECTED certification returns it to PENDING and clears the old decision",
+      "recipe": "npx vitest run --config config/vitest.config.js 'app/api/contractors/certifications/[id]/__tests__'",
+      "timeout": 300
+    },
+    {
+      "id": "C3",
+      "text": "Public profile returns VERIFIED certifications and not PENDING ones",
+      "recipe": "npx vitest run --config config/vitest.config.js 'app/api/contractors/[slug]/__tests__'",
+      "timeout": 300
+    },
+    {
+      "id": "C4",
+      "text": "Changed files type-check",
+      "recipe": "npx tsc --noEmit -p tsconfig.json",
+      "timeout": 900
+    }
+  ]
+}
