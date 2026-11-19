@@ -104,7 +104,17 @@
   --success-subtle-foreground: #166534;
   --warning-subtle: #fef3c7;
   --warning-subtle-foreground: #92400e;
-  /* A light island inside dark mode takes the light chart steps. */
+  /* Status inputs the chart aliases read: light values, or a light island
+     under .dark would draw dark-mode status hues on a white card. */
+  --success: #047857;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #1c1917;
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  /* A light island inside dark mode takes the whole light chart block. A
+     var() resolves where it is declared, so any alias not redeclared here
+     arrives with its dark value. chart-palette.test.ts enforces the match. */
   --chart-1: var(--color-brand-harbour);
   --chart-2: var(--color-brand-chart-orange);
   --chart-3: var(--color-brand-chart-aqua);
@@ -113,7 +123,16 @@
   --chart-6: var(--color-brand-chart-green);
   --chart-7: var(--color-brand-chart-violet);
   --chart-8: var(--color-brand-chart-red);
+  --chart-neutral: var(--muted-foreground);
+  --chart-good: var(--success);
   --chart-info: var(--color-brand-harbour);
+  --chart-warning: var(--warning);
+  --chart-critical: var(--destructive);
+  --chart-grid: var(--border);
+  --chart-axis: var(--muted-foreground);
+  --chart-reference: var(--muted-foreground);
+  --chart-surface: var(--card);
+  --chart-ink: var(--card-foreground);
 }
 
 /* Dark keeps light text (navy text on a dark canvas is unreadable); the

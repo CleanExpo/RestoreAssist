@@ -106,6 +106,11 @@ describe("chart files carry no raw colour", () => {
   });
 });
 
+/** Raw colour literals anywhere in an exported value, whether or not it also uses var(). */
+export function rawColoursIn(value: unknown): string[] {
+  return collectStrings(value).flatMap(findRawColours);
+}
+
 describe("lib/charts/palette.ts", () => {
   const values = collectStrings(palette).filter((s) => s.includes("--"));
   const css = readFileSync(join(ROOT, "app", "globals.css"), "utf8");
@@ -114,10 +119,14 @@ describe("lib/charts/palette.ts", () => {
 
   it("hands out CSS variables only", () => {
     expect(values.length).toBeGreaterThan(0);
-    for (const v of collectStrings(palette)) {
-      if (v.startsWith("var(") || v.includes("var(--"))
-        expect(findRawColours(v)).toEqual([]);
-    }
+    expect(rawColoursIn(palette)).toEqual([]);
+  });
+
+  it("catches a raw colour planted in an export that uses no var()", () => {
+    // palette.ts imports nothing from recharts, so the chart-file scan never reads it.
+    const planted = { ...palette.CHART_TOOLTIP_STYLE, backgroundColor: "#ffffff" };
+    expect(rawColoursIn(planted)).toEqual(["#ffffff"]);
+    expect(rawColoursIn({ borderRadius: "6px", fontSize: 12 })).toEqual([]);
   });
 
   it("has eight categorical slots in fixed order", () => {
@@ -221,6 +230,31 @@ describe("chart slots survive a brand palette change", () => {
       const d = oklabDeltaE(hexes[i]!, hexes[i + 1]!);
       expect(d, `--chart-${i + 1} ${hexes[i]} vs --chart-${i + 2} ${hexes[i + 1]}`).toBeGreaterThanOrEqual(15);
     }
+  });
+
+  // A custom property's var() resolves where it is declared, so a light island
+  // nested under .dark inherits the dark result of every --chart-* alias it does
+  // not redeclare, and of every input those aliases read. The island must
+  // therefore carry the whole light chart block and its inputs, not a subset.
+  it(".report-light-surface redeclares every :root chart variable with the light value", () => {
+    const root = blockValues(css, /^:root\s*\{/m);
+    const island = blockValues(css, /^\.report-light-surface\s*\{/m);
+    const chartVars = [...root.keys()].filter((k) => k.startsWith("--chart-"));
+    expect(chartVars.length).toBeGreaterThan(8);
+    for (const name of chartVars) expect(island.get(name), name).toBe(root.get(name));
+  });
+
+  it(".report-light-surface redeclares every semantic input the chart variables read", () => {
+    const root = blockValues(css, /^:root\s*\{/m);
+    const island = blockValues(css, /^\.report-light-surface\s*\{/m);
+    const inputs = new Set(
+      [...root.entries()]
+        .filter(([k]) => k.startsWith("--chart-"))
+        .flatMap(([, v]) => [...v.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1]))
+        .filter((n) => !n.startsWith("--color-brand-")),
+    );
+    expect(inputs.size).toBeGreaterThan(3);
+    for (const name of inputs) expect(island.get(name), name).toBe(root.get(name));
   });
 
   it("the distance measure separates a planted near-duplicate pair", () => {
