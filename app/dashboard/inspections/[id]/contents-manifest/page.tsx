@@ -228,7 +228,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
       )}
     >
       {/* # */}
-      <td className="px-3 py-3 w-10 text-xs text-neutral-400 tabular-nums">
+      <td className="px-3 py-3 w-10 text-xs text-brand-slate dark:text-neutral-400 tabular-nums">
         {index + 1}
       </td>
 
@@ -248,7 +248,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
               {item.description}
             </span>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-neutral-400 dark:text-slate-500">
+              <span className="text-xs text-brand-slate dark:text-slate-500">
                 {categoryLabel}
               </span>
               {item.verified && (
@@ -836,7 +836,7 @@ export default function ContentsManifestPage({
           <div className="w-14 h-14 rounded-2xl bg-neutral-100 dark:bg-slate-800 flex items-center justify-center">
             <Package
               size={28}
-              className="text-neutral-400 dark:text-slate-500"
+              className="text-brand-slate dark:text-slate-500"
             />
           </div>
           <p className="text-neutral-500 dark:text-slate-400 max-w-sm">
@@ -844,7 +844,7 @@ export default function ContentsManifestPage({
             contents, then click <strong>Generate from Photos</strong> to create
             an AI-drafted inventory.
           </p>
-          <p className="text-xs text-neutral-400 dark:text-slate-500 max-w-sm">
+          <p className="text-xs text-brand-slate dark:text-slate-500 max-w-sm">
             AI analyses photos to identify items, assess condition, and estimate
             replacement values. You can edit every field after generation.
           </p>
@@ -945,7 +945,7 @@ export default function ContentsManifestPage({
                 </strong>
               </span>
             </div>
-            <div className="text-xs text-neutral-400 dark:text-slate-500">
+            <div className="text-xs text-brand-slate dark:text-slate-500">
               Generated {new Date(manifest.generatedAt).toLocaleString("en-AU")}{" "}
               &middot; {(manifest.durationMs / 1000).toFixed(1)}s &middot; ~$
               {manifest.estimatedCostUsd.toFixed(4)} USD

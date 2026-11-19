@@ -269,7 +269,7 @@ export default function SettingsPage() {
   if (status === "unauthenticated") {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-semibold text-white mb-2">
+        <h2 className="text-2xl font-semibold text-brand-navy dark:text-white mb-2">
           Please log in
         </h2>
         <p className="text-slate-600 dark:text-slate-400">

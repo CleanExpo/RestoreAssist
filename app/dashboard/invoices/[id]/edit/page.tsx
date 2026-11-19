@@ -402,7 +402,7 @@ export default function EditInvoicePage({
   if (fetchError || !invoiceId) {
     return (
       <div className="max-w-lg mx-auto px-4 py-12 text-center">
-        <p className="text-slate-400 mb-4">{fetchError || "Invalid invoice"}</p>
+        <p className="text-brand-slate dark:text-slate-400 mb-4">{fetchError || "Invalid invoice"}</p>
         <Link
           href="/dashboard/invoices"
           className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white rounded-lg transition-colors"
@@ -420,7 +420,7 @@ export default function EditInvoicePage({
         <button
           type="button"
           onClick={() => router.push(`/dashboard/invoices/${invoiceId}`)}
-          className="p-2 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
+          className="p-2 hover:bg-brand-cream dark:hover:bg-slate-700 rounded-lg transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>

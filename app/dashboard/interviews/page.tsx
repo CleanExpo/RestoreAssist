@@ -358,7 +358,7 @@ export default function InterviewsPage() {
               </div>
             ) : sessions.length === 0 ? (
               <div
-                className="text-xl font-bold text-neutral-400 dark:text-slate-500 mt-1"
+                className="text-xl font-bold text-brand-slate dark:text-slate-500 mt-1"
                 title="Run your first interview to populate"
               >
                 —
@@ -407,14 +407,14 @@ export default function InterviewsPage() {
       <div className="relative">
         <Search
           size={18}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-slate dark:text-neutral-400"
         />
         <input
           type="text"
           placeholder="Search by template name or session ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-brand-slate dark:placeholder:text-neutral-400 focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
         />
       </div>
 
@@ -481,7 +481,7 @@ export default function InterviewsPage() {
         <div className="text-center py-20">
           <MessageSquare
             size={48}
-            className="mx-auto text-neutral-300 dark:text-slate-600 mb-4"
+            className="mx-auto text-brand-slate dark:text-slate-600 mb-4"
           />
           <h3 className="text-lg font-semibold text-neutral-700 dark:text-slate-300">
             {sessions.length === 0
@@ -563,7 +563,7 @@ export default function InterviewsPage() {
                       {s.totalAnswersGiven}/{s.totalQuestionsAsked} questions
                     </span>
                     {s.actualTimeMinutes && <span>{s.actualTimeMinutes}m</span>}
-                    <span className="text-neutral-400 dark:text-slate-500 capitalize">
+                    <span className="text-brand-slate dark:text-slate-500 capitalize">
                       {s.formTemplate.category.toLowerCase().replace("_", " ")}
                     </span>
                   </div>
@@ -576,7 +576,7 @@ export default function InterviewsPage() {
                           style={{ width: `${progress}%` }}
                         />
                       </div>
-                      <span className="text-xs text-neutral-400 w-8">
+                      <span className="text-xs text-brand-slate dark:text-neutral-400 w-8">
                         {progress}%
                       </span>
                     </div>
@@ -590,14 +590,14 @@ export default function InterviewsPage() {
                     type="button"
                     onClick={(e) => handleDeleteOne(e, s.id)}
                     disabled={deleting}
-                    className="p-2 rounded-lg text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                    className="p-2 rounded-lg text-brand-slate dark:text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                     title="Delete session"
                   >
                     <Trash2 size={18} />
                   </button>
                   <ChevronRight
                     size={20}
-                    className="text-neutral-300 dark:text-slate-600 group-hover:text-brand-harbour-500 transition-colors mt-1"
+                    className="text-brand-slate dark:text-slate-600 group-hover:text-brand-harbour-500 transition-colors mt-1"
                   />
                 </div>
               </div>

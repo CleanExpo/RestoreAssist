@@ -611,7 +611,7 @@ export default function TeamPage() {
             ? "View your organisation's team members and hierarchy."
             : "Manage your team members and invitations."
         }
-        icon={<Users className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
+        icon={<Users className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/team" })}
         primaryAction={
           canInvite ? (
@@ -837,7 +837,7 @@ export default function TeamPage() {
                             <FormLabel>Email Address</FormLabel>
                             <FormControl>
                               <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-slate dark:text-neutral-400" />
                                 <input
                                   type="email"
                                   placeholder="colleague@example.com"
@@ -965,7 +965,7 @@ export default function TeamPage() {
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-slate dark:text-neutral-400" />
           <input
             type="text"
             value={searchQuery}
@@ -1033,7 +1033,7 @@ export default function TeamPage() {
         <CardContent>
           {filteredMembers.length === 0 ? (
             <div className="text-center py-12">
-              <Users className="w-12 h-12 mx-auto text-neutral-400 mb-4" />
+              <Users className="w-12 h-12 mx-auto text-brand-slate dark:text-neutral-400 mb-4" />
               <p
                 className={cn(
                   "text-sm font-medium",
@@ -1359,7 +1359,7 @@ export default function TeamPage() {
           <CardContent>
             {filteredInvites.length === 0 ? (
               <div className="text-center py-12">
-                <Mail className="w-12 h-12 mx-auto text-neutral-400 mb-4" />
+                <Mail className="w-12 h-12 mx-auto text-brand-slate dark:text-neutral-400 mb-4" />
                 <p
                   className={cn(
                     "text-sm font-medium",

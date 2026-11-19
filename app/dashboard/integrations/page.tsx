@@ -823,7 +823,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Integrations"
         description="Connect accounting, CRM, field tools, and AI providers to Restore Assist."
-        icon={<Network className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
+        icon={<Network className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({
           omitHref: "/dashboard/integrations",
         })}
@@ -834,7 +834,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
                 variant="outline"
                 size="sm"
                 onClick={() => setShowImportModal(true)}
-                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+                className="border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-white/10"
               >
                 <Download />
                 Import Data
@@ -1926,7 +1926,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
             <DialogHeader>
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center shrink-0">
-                  <Crown className="text-white" size={18} />
+                  <Crown className="text-brand-navy dark:text-white" size={18} />
                 </div>
                 <DialogTitle>Upgrade Required</DialogTitle>
               </div>

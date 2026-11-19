@@ -59,12 +59,12 @@ import { formatAttendanceDateEnAu } from "@/lib/inspections/format-attendance-da
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 const STATUS_COLOR: Record<string, string> = {
-  DRAFT: "text-white/50",
-  SUBMITTED: "text-amber-400",
-  PROCESSING: "text-blue-400",
-  CLASSIFIED: "text-purple-400",
-  SCOPED: "text-brand-harbour-400",
-  ESTIMATED: "text-emerald-400",
+  DRAFT: "text-brand-slate dark:text-white/50",
+  SUBMITTED: "text-amber-700 dark:text-amber-400",
+  PROCESSING: "text-blue-700 dark:text-blue-400",
+  CLASSIFIED: "text-purple-700 dark:text-purple-400",
+  SCOPED: "text-brand-harbour-700 dark:text-brand-harbour-400",
+  ESTIMATED: "text-emerald-700 dark:text-emerald-400",
   IN_BILLING: "text-brand-bronze dark:text-brand-gold",
   COMPLETED: "text-success",
 };
@@ -383,14 +383,14 @@ export default function FieldDashboardPage() {
         eyebrow="Field workspace"
         title="Field Mode"
         description={`${greeting}. ${statusText}`}
-        icon={<Smartphone className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
+        icon={<Smartphone className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         primaryAction={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <button
               type="button"
               onClick={() => void loadInspections()}
               disabled={loading}
-              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-50 sm:flex-none"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 px-4 text-sm font-medium text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-white/10 disabled:opacity-50 sm:flex-none"
             >
               <RefreshCw
                 className={cn("h-4 w-4", loading && "animate-spin")}
@@ -420,15 +420,15 @@ export default function FieldDashboardPage() {
           >
             <div aria-hidden className={simpleDashboardHeroShine} />
             <span className="relative min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-white">
+              <span className="block text-sm font-semibold text-brand-navy dark:text-white">
                 Continue next job
               </span>
-              <span className="mt-0.5 block truncate text-xs text-white/60">
+              <span className="mt-0.5 block truncate text-xs text-brand-slate dark:text-white/60">
                 {nextJob.propertyAddress}
               </span>
             </span>
             <ChevronRight
-              className="relative h-5 w-5 shrink-0 text-brand-harbour-300/80"
+              className="relative h-5 w-5 shrink-0 text-brand-harbour-700 dark:text-brand-harbour-300/80"
               aria-hidden
             />
           </Link>
@@ -481,10 +481,10 @@ export default function FieldDashboardPage() {
           >
             <div aria-hidden className={simpleDashboardHeroShine} />
             <MapPin
-              className="relative mx-auto h-8 w-8 text-brand-harbour-400/70"
+              className="relative mx-auto h-8 w-8 text-brand-harbour-700 dark:text-brand-harbour-400/70"
               aria-hidden
             />
-            <p className="relative mt-3 text-sm text-white/70">
+            <p className="relative mt-3 text-sm text-brand-slate dark:text-white/70">
               {isOffline ? "Go online to load your jobs" : "No active jobs"}
             </p>
             {!isOffline && (

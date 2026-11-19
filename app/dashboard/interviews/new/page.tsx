@@ -264,14 +264,14 @@ export default function NewInterviewPage() {
       <div className="space-y-2">
         <label className="text-sm font-semibold text-neutral-700 dark:text-slate-300 uppercase tracking-wider">
           Postcode{" "}
-          <span className="text-neutral-400 font-normal normal-case">
+          <span className="text-brand-slate dark:text-neutral-400 font-normal normal-case">
             (optional — for building code detection)
           </span>
         </label>
         <div className="relative">
           <MapPin
             size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-slate dark:text-neutral-400"
           />
           <input
             type="text"
@@ -280,7 +280,7 @@ export default function NewInterviewPage() {
             onChange={(e) =>
               setPostcode(e.target.value.replace(/\D/g, "").slice(0, 4))
             }
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-brand-slate dark:placeholder:text-neutral-400 focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
             maxLength={4}
           />
         </div>
@@ -414,7 +414,7 @@ export default function NewInterviewPage() {
             !!fetchError
           }
           className={cn(
-            "w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-white transition-all duration-200",
+            "w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-brand-navy dark:text-white transition-all duration-200",
             starting
               ? "bg-brand-harbour-400 cursor-not-allowed"
               : "bg-gradient-to-r from-blue-600 to-brand-harbour-600 hover:from-blue-600 hover:to-brand-harbour-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.01] active:scale-[0.99]",
@@ -433,7 +433,7 @@ export default function NewInterviewPage() {
             </>
           )}
         </button>
-        <p className="text-xs text-neutral-400 dark:text-slate-500 text-center mt-2">
+        <p className="text-xs text-brand-slate dark:text-slate-500 text-center mt-2">
           Est. {jobType === "WATER_DAMAGE" ? "10-15" : "8-12"} minutes • IICRC
           S500 compliant questions
         </p>

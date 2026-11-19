@@ -251,7 +251,7 @@ export default function ReportDetailPage({
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.push("/dashboard/reports")}
-          className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+          className="p-2 hover:bg-brand-cream dark:hover:bg-slate-800 rounded-lg transition-colors"
           title="Back to Reports"
         >
           <ArrowLeft size={20} />
@@ -260,7 +260,7 @@ export default function ReportDetailPage({
           <h1 className="text-2xl font-semibold mb-1">
             {report.reportNumber || report.title || "Report Details"}
           </h1>
-          <p className="text-slate-400 text-sm">
+          <p className="text-brand-slate dark:text-slate-400 text-sm">
             {report.clientName && `${report.clientName} • `}
             {report.propertyAddress}
             {report.propertyPostcode && ` • ${report.propertyPostcode}`}
@@ -308,7 +308,7 @@ export default function ReportDetailPage({
         <button
           onClick={() => requestExport(handleDownloadPDF)}
           title="Download IICRC S500:2021 compliant PDF"
-          className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+          className="flex items-center gap-2 px-3 py-2 bg-brand-cream dark:bg-slate-700 text-brand-navy dark:text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
         >
           <Download size={16} />
           PDF Report
@@ -386,13 +386,13 @@ export default function ReportDetailPage({
         {/* RA-8081: report pages that had no link anywhere */}
         <Link
           href={`/dashboard/reports/${reportId}/preview`}
-          className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+          className="flex items-center gap-2 px-3 py-2 bg-brand-cream dark:bg-slate-700 text-brand-navy dark:text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
         >
           Preview
         </Link>
         <Link
           href={`/dashboard/reports/${reportId}/share`}
-          className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+          className="flex items-center gap-2 px-3 py-2 bg-brand-cream dark:bg-slate-700 text-brand-navy dark:text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
         >
           Share settings
         </Link>
@@ -433,14 +433,14 @@ export default function ReportDetailPage({
       </AlertDialog>
 
       {/* Tabs */}
-      <div className="border-b border-slate-700">
+      <div className="border-b border-brand-mist dark:border-slate-700">
         <nav className="flex gap-4">
           <button
             onClick={() => setActiveTab("inspection")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "inspection"
-                ? "border-brand-harbour-500 text-brand-harbour-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <FileText size={18} />
@@ -450,8 +450,8 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("scope")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "scope"
-                ? "border-brand-harbour-500 text-brand-harbour-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <ClipboardList size={18} />
@@ -461,8 +461,8 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("cost")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "cost"
-                ? "border-brand-harbour-500 text-brand-harbour-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <DollarSign size={18} />
@@ -472,8 +472,8 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("authority")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "authority"
-                ? "border-brand-harbour-500 text-brand-harbour-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <FileSignature size={18} />
@@ -483,8 +483,8 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("approvals")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "approvals"
-                ? "border-brand-harbour-500 text-brand-harbour-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <CheckSquare size={18} />
@@ -494,8 +494,8 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("package")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "package"
-                ? "border-brand-harbour-500 text-brand-harbour-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <FileText size={18} />

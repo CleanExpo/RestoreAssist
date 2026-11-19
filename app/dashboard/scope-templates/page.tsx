@@ -262,7 +262,7 @@ export default function ScopeTemplatesPage() {
             size={16}
             className={cn(
               "absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none",
-              "text-neutral-400 dark:text-slate-500",
+              "text-brand-slate dark:text-slate-500",
             )}
           />
           <input
@@ -677,7 +677,7 @@ function TemplateCard({ template, onEdit, onDelete }: TemplateCardProps) {
         <span
           className={cn(
             "flex items-center gap-1",
-            "text-neutral-400 dark:text-slate-500",
+            "text-brand-slate dark:text-slate-500",
           )}
         >
           <Layers size={12} />
@@ -686,7 +686,7 @@ function TemplateCard({ template, onEdit, onDelete }: TemplateCardProps) {
         <span
           className={cn(
             "flex items-center gap-1",
-            "text-neutral-400 dark:text-slate-500",
+            "text-brand-slate dark:text-slate-500",
           )}
         >
           <Calendar size={12} />

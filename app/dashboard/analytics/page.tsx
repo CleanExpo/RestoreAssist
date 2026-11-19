@@ -446,7 +446,7 @@ export default function AnalyticsPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Analytics"
         description="Reports, revenue, and completion trends across your team."
-        icon={<BarChart3 className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
+        icon={<BarChart3 className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/analytics" })}
       />
 

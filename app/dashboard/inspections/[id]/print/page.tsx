@@ -394,7 +394,7 @@ export default function InspectionPrintPage({
           <div className="grid grid-cols-2 gap-6 border-t border-neutral-100 pt-6">
             <div className="space-y-3">
               <div>
-                <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-brand-slate dark:text-neutral-400 uppercase tracking-wider">
                   Property Address
                 </div>
                 <div className="text-sm font-medium text-neutral-900 mt-0.5">
@@ -402,7 +402,7 @@ export default function InspectionPrintPage({
                 </div>
               </div>
               <div>
-                <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-brand-slate dark:text-neutral-400 uppercase tracking-wider">
                   Inspector
                 </div>
                 <div className="text-sm font-medium text-neutral-900 mt-0.5">
@@ -412,7 +412,7 @@ export default function InspectionPrintPage({
             </div>
             <div className="space-y-3">
               <div>
-                <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-brand-slate dark:text-neutral-400 uppercase tracking-wider">
                   Inspection Date
                 </div>
                 <div className="text-sm font-medium text-neutral-900 mt-0.5">
@@ -422,7 +422,7 @@ export default function InspectionPrintPage({
               </div>
               {classification && (
                 <div>
-                  <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                  <div className="text-xs font-semibold text-brand-slate dark:text-neutral-400 uppercase tracking-wider">
                     IICRC Classification
                   </div>
                   <div className="mt-0.5">
@@ -496,7 +496,7 @@ export default function InspectionPrintPage({
                       key={reading.id}
                       className={i % 2 === 0 ? "bg-white" : "bg-neutral-50"}
                     >
-                      <td className="px-3 py-2 text-neutral-400">{i + 1}</td>
+                      <td className="px-3 py-2 text-brand-slate dark:text-neutral-400">{i + 1}</td>
                       <td className="px-3 py-2 font-medium text-neutral-900">
                         {reading.location}
                       </td>
@@ -579,20 +579,20 @@ export default function InspectionPrintPage({
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs text-neutral-600 mb-2">
                     <div>
-                      <span className="text-neutral-400">Size: </span>
+                      <span className="text-brand-slate dark:text-neutral-400">Size: </span>
                       <span className="font-medium">
                         {resolveAreaSqm(area).toFixed(1)} m²
                       </span>
                     </div>
                     <div>
-                      <span className="text-neutral-400">Water Source: </span>
+                      <span className="text-brand-slate dark:text-neutral-400">Water Source: </span>
                       <span className="font-medium capitalize">
                         {area.waterSource}
                       </span>
                     </div>
                     {area.timeSinceLoss != null && (
                       <div className="col-span-2">
-                        <span className="text-neutral-400">
+                        <span className="text-brand-slate dark:text-neutral-400">
                           Time Since Loss:{" "}
                         </span>
                         <span className="font-medium">
@@ -645,11 +645,11 @@ export default function InspectionPrintPage({
                       key={item.id}
                       className={i % 2 === 0 ? "bg-white" : "bg-neutral-50"}
                     >
-                      <td className="px-3 py-2 text-neutral-400">{i + 1}</td>
+                      <td className="px-3 py-2 text-brand-slate dark:text-neutral-400">{i + 1}</td>
                       <td className="px-3 py-2 text-neutral-900">
                         <div className="font-medium">{item.description}</div>
                         {item.justification && (
-                          <div className="text-xs text-neutral-400 mt-0.5">
+                          <div className="text-xs text-brand-slate dark:text-neutral-400 mt-0.5">
                             [{item.justification}]
                           </div>
                         )}
@@ -813,7 +813,7 @@ export default function InspectionPrintPage({
         )}
 
         {/* ── 7. Footer ───────────────────────────────────────────────────── */}
-        <div className="border-t border-neutral-200 pt-4 flex items-center justify-between text-xs text-neutral-400">
+        <div className="border-t border-neutral-200 pt-4 flex items-center justify-between text-xs text-brand-slate dark:text-neutral-400">
           <span>
             Generated by RestoreAssist — National Inspection Report Platform
           </span>
