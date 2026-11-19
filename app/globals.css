@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* RA-8464: Tailwind compiles every class-like string it finds in the project,
+   including test fixtures and design notes that quote old palettes. Those
+   folders never render, so keep them out of the stylesheet. Without this the
+   no-cyan guard's own sample strings shipped stock cyan rules to production.
+   tests/unit/compiled-css-no-cyan.test.ts fails if cyan rules come back. */
+@source not "../tests";
+@source not "../docs";
+@source not "../.claude";
+
 /* RA-8305: also match the .dark element itself, so a dark island (an element
    with a bare dark class) honours its own dark: classes. Same specificity. */
 @custom-variant dark (&:is(.dark, .dark *));
