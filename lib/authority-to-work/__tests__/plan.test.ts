@@ -469,7 +469,10 @@ describe("hazards, evidence holds and jurisdiction", () => {
     job.caps[0].cap.minor = big;
     job.caps[0].committed.minor = big;
     job.scope = [{ ...job.scope[0], amount: { minor: 1, currency: "AUD", gst: "EX" } }];
-    expect(gate(planAuthority(job), "L1", "INSURER").state).toBe("HOLD");
+    // Caught at entry: an unsafe limit stops the whole plan before the insurer gate.
+    const plan = planAuthority(job);
+    expect(plan.scopes).toEqual([]);
+    expect(plan.holds.some((h) => h.includes("not usable"))).toBe(true);
   });
 
   it("an earlier insurer line on a different GST basis leaves later totals unknown, so they hold", () => {
@@ -496,6 +499,30 @@ describe("hazards, evidence holds and jurisdiction", () => {
     const plan = planAuthority(job);
     expect(plan.scopes.find((x) => x.scopeLineId === "C1")?.canStart ?? false).toBe(false);
     expect(plan.holds.some((h) => h.includes("C1"))).toBe(true);
+  });
+
+  describe("any unusable money value stops the whole plan before any gate or form", () => {
+    const cases: Array<[string, (j: JobFacts) => void]> = [
+      ["negative committed amount", (j) => { j.caps[0].committed.minor = -70_000; }],
+      ["fractional line amount", (j) => { j.scope[0].amount.minor = 1.5; }],
+      ["unsafe cap", (j) => { j.caps[0].cap.minor = 2 ** 53; }],
+    ];
+    it.each(cases)("%s", (_label, mutate) => {
+      const job = nswStrataWaterLoss();
+      mutate(job);
+      let plan: AuthorityPlan | undefined;
+      expect(() => { plan = planAuthority(job); }).not.toThrow();
+      expect(plan?.forms).toEqual([]);
+      expect(plan?.scopes.every((s) => !s.canStart)).toBe(true);
+      expect(plan?.holds.some((h) => h.includes("not usable"))).toBe(true);
+    });
+  });
+
+  it("a form total too large to add exactly is left blank, never thrown or rounded", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].amount.minor = Number.MAX_SAFE_INTEGER;
+    job.scope.push({ ...job.scope[0], id: "C2", amount: { ...job.scope[0].amount, minor: 1 } });
+    expect(() => planAuthority(job)).not.toThrow();
   });
 
   it("an asset with no established controller holds the work", () => {

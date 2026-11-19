@@ -543,7 +543,9 @@ function sumLines(lines: ScopeLine[]): Money | null {
   if (lines.length === 0) return null;
   const first = lines[0].amount;
   if (!lines.every((l) => sameBasis(l.amount, first))) return null;
-  return { ...first, minor: lines.reduce((s, l) => s + l.amount.minor, 0) };
+  const minor = lines.reduce((s, l) => s + l.amount.minor, 0);
+  // A total that cannot be held exactly is left blank, never rounded.
+  return Number.isSafeInteger(minor) ? { ...first, minor } : null;
 }
 
 function buildDraft(
@@ -755,6 +757,32 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
   };
   const holds: string[] = [];
   const previewAllowed = PREVIEW_JURISDICTIONS.includes(job.jurisdiction);
+  // Every money value is checked once, here, before any gate or form. One unusable
+  // value stops the whole plan: nothing downstream ever sees it.
+  const badMoney = [
+    ...job.scope.filter((l) => !exactAmount(l.amount)).map((l) => `scope line ${l.id} amount`),
+    ...job.caps.flatMap((c) => [
+      ...(exactAmount(c.cap) ? [] : [`limit ${c.id}`]),
+      ...(exactAmount(c.committed) ? [] : [`amount already used under ${c.id}`]),
+    ]),
+  ];
+  if (badMoney.length > 0) {
+    return {
+      jobId: job.id,
+      jurisdiction: job.jurisdiction,
+      previewAllowed,
+      releaseEnabled: false,
+      holds: [`These money values are not usable (each must be a whole, non-negative number of cents that can be added exactly): ${badMoney.join(", ")}. Nothing is planned until they are corrected.`],
+      scopes: [],
+      forms: [],
+      deposit: {
+        requested: Boolean(job.depositRequested),
+        enabled: false,
+        reason: "Deposits stay off until each jurisdiction's rules are reviewed and approved.",
+      },
+      sendable: false,
+    };
+  }
   if (!previewAllowed) {
     holds.push(
       `No jurisdiction pack is available for ${job.jurisdiction}. Nothing is assumed from another jurisdiction.`,
