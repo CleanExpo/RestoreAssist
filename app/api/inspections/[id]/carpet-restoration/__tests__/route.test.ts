@@ -12,7 +12,14 @@ import { NextRequest } from "next/server";
 // The transaction client the scoped-write helper hands to the route. Shared
 // with the prisma mock so `mockUpsert` observes the same function either way.
 const hoisted = vi.hoisted(() => ({
-  tx: { carpetRestorationAssessment: { upsert: vi.fn(), delete: vi.fn() } },
+  tx: {
+    carpetRestorationAssessment: { upsert: vi.fn(), delete: vi.fn() },
+    inspectionWorkflow: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({ id: "wf-1" }),
+    },
+    workflowStep: { create: vi.fn().mockResolvedValue({}) },
+  },
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));

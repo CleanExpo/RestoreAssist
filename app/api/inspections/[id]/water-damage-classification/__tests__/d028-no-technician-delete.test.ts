@@ -26,6 +26,11 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({ assertInspectionAssignedWrite: m.g
 vi.mock("@/lib/nir-classification-persist", () => ({
   persistInspectionClassification: vi.fn(),
 }));
+vi.mock("@/lib/evidence/ensure-inspection-workflow", () => ({
+  ensureInspectionWorkflowFromClaimType: vi
+    .fn()
+    .mockResolvedValue("WATER_DAMAGE"),
+}));
 vi.mock("@/lib/prisma", () => {
   const tx = {
     waterDamageClassification: { findUnique: m.wdcFindUnique, upsert: m.wdcUpsert },
