@@ -587,6 +587,16 @@ describe("hazards, evidence holds and jurisdiction", () => {
     expect(gate(planAuthority(job), "C1", "ACCESS").state).not.toBe("CLEAR");
   });
 
+  it("an emergency basis never clears access for a restricted line, even one naming a make-safe task", () => {
+    const job = nzRentalNaturalHazard();
+    job.emergencyBasis = { ...(job.emergencyBasis ?? {}), documented: true } as typeof job.emergencyBasis;
+    const n2 = job.scope.find((l) => l.id === "N2")!;
+    n2.makeSafe = "TEMPORARY_COVER";
+    expect(n2.restricted).toBeTruthy();
+    job.approvals = job.approvals.filter((a) => !(a.kind === "ACCESS" && (a.scopeLineIds?.includes("N2") || a.assetIds?.includes(n2.assetId))));
+    expect(gate(planAuthority(job), "N2", "ACCESS").state).not.toBe("CLEAR");
+  });
+
   it("an asset with no established controller holds the work", () => {
     const job = nswStrataWaterLoss();
     job.assets[2].ownershipEvidence = "reported";

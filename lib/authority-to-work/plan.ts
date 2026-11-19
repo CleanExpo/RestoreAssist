@@ -245,7 +245,8 @@ function accessGate(ctx: Ctx, line: ScopeLine, asset: Asset): GateResult {
       };
     }
   }
-  if (line.emergency && line.makeSafe) {
+  // One rule for what an emergency basis covers: eligibleMakeSafe (no restricted action).
+  if (eligibleMakeSafe(line)) {
     // Reached only with a documented basis (undocumentedEmergency returned above).
     return {
       gate: "ACCESS",
