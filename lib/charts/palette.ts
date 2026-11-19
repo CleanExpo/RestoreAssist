@@ -10,7 +10,8 @@
  * Colour is assigned by the job it does (method: dataviz skill, validated
  * with its validate_palette.js against this app's card surfaces):
  *   - categorical: which series. Eight slots in a fixed order, built on
- *     palette A (slot 1 harbour blue, slot 2 burnt orange). Never cycled; a
+ *     the brand (slot 1 follows brand-harbour; slots 2 to 8 are chart-owned,
+ *     so a brand palette change cannot collapse two series). Never cycled; a
  *     ninth series folds to neutral.
  *   - accent: a single-series chart uses slot 1.
  *   - status: good / info / warning / critical, only where a mark means a
@@ -25,8 +26,8 @@
 
 /** Categorical slots in fixed order. Assign in sequence; never skip or cycle. */
 export const CHART_SERIES = [
-  "var(--chart-1)", // harbour blue (palette A primary)
-  "var(--chart-2)", // burnt orange (palette A brand-bronze)
+  "var(--chart-1)", // brand-harbour (the brand link colour)
+  "var(--chart-2)", // burnt orange (chart-owned, not brand-bronze)
   "var(--chart-3)", // aqua green
   "var(--chart-4)", // amber
   "var(--chart-5)", // magenta

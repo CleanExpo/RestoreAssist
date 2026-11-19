@@ -50,7 +50,7 @@
   /* Chart palette, light steps (RA-8465). Read through lib/charts/palette.ts,
      never by hue name in a chart. Order and contrast: DESIGN.md "Chart palette". */
   --chart-1: var(--color-brand-harbour);
-  --chart-2: var(--color-brand-bronze);
+  --chart-2: var(--color-brand-chart-orange);
   --chart-3: var(--color-brand-chart-aqua);
   --chart-4: var(--color-brand-chart-amber);
   --chart-5: var(--color-brand-chart-magenta);
@@ -106,7 +106,7 @@
   --warning-subtle-foreground: #92400e;
   /* A light island inside dark mode takes the light chart steps. */
   --chart-1: var(--color-brand-harbour);
-  --chart-2: var(--color-brand-bronze);
+  --chart-2: var(--color-brand-chart-orange);
   --chart-3: var(--color-brand-chart-aqua);
   --chart-4: var(--color-brand-chart-amber);
   --chart-5: var(--color-brand-chart-magenta);
@@ -223,12 +223,15 @@
      under the 3:1 a focus ring needs. This is 6.70:1 on brand-canvas. */
   --color-brand-harbour-light: #7b96f4;
 
-  /* Chart hues (RA-8465). Slots 1 and 2 are palette A (brand-harbour and
-     brand-bronze in light, the steps below in dark); slots 3 to 8 are the
-     supporting hues. Validated with the dataviz validator against the card
+  /* Chart hues (RA-8465). Slot 1 follows brand-harbour in light (the step
+     below in dark); slots 2 to 8 are chart-owned, so a brand palette change
+     cannot make two series the same colour (palette B turns brand-bronze
+     into cobalt, next to slot 1). chart-palette.test.ts enforces both rules.
+     Validated with the dataviz validator against the card
      surfaces (#ffffff light, #10202f dark): every adjacent pair clears CVD
      delta E 8 and normal-vision delta E 15, every slot clears 3:1. Use them
      through --chart-N and lib/charts/palette.ts, never directly. */
+  --color-brand-chart-orange: #a34a06;
   --color-brand-chart-aqua: #199e70;
   --color-brand-chart-amber: #c98500;
   --color-brand-chart-magenta: #d55181;

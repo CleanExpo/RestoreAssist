@@ -116,7 +116,13 @@ literal. The module hands out CSS variables (`var(--chart-1)` and so on) that
 `app/globals.css` declares under `:root` (light) and `.dark`, so light and dark
 swap in CSS. `lib/charts/__tests__/chart-palette.test.ts` fails on a hex,
 `rgb()`, `hsl()` or `oklch()` literal in any file that imports recharts, and on
-a chart variable that is not declared for both modes.
+a chart variable that is not declared for both modes. It also fails if chart
+slots 2 to 8 borrow a brand token instead of a `--color-brand-chart-*` token,
+or if two adjacent slots resolve to colours closer than normal-vision delta E
+15. Slot 1 alone follows `brand-harbour`, so the charts take the brand's link
+colour; every other slot is chart-owned, because a brand palette change
+re-points brand tokens (palette B makes `brand-bronze` cobalt, the same blue as
+slot 1).
 
 Colour is assigned by the job it does:
 
@@ -136,7 +142,7 @@ Colour is assigned by the job it does:
 | Slot | Hue | Light | Dark |
 |---|---|---|---|
 | 1 | harbour blue | `brand-harbour` `#1b5fa6` | `#4d8fda` |
-| 2 | burnt orange | `brand-bronze` `#a34a06` | `#d95926` |
+| 2 | burnt orange | `#a34a06` | `#d95926` |
 | 3 | aqua green | `#199e70` | `#199e70` |
 | 4 | amber | `#c98500` | `#c98500` |
 | 5 | magenta | `#d55181` | `#d55181` |
@@ -156,6 +162,7 @@ warning status amber.
 
 | Token | Hex | Use |
 |---|---|---|
+| `--color-brand-chart-orange` | `#a34a06` | Chart slot 2, light |
 | `--color-brand-chart-aqua` | `#199e70` | Chart slot 3, both modes |
 | `--color-brand-chart-amber` | `#c98500` | Chart slot 4, both modes |
 | `--color-brand-chart-magenta` | `#d55181` | Chart slot 5, both modes |
