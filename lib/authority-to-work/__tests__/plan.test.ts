@@ -268,6 +268,54 @@ describe("hazards, evidence holds and jurisdiction", () => {
     expect(r.reason).toBe("payer ghost is not a party on this job");
   });
 
+  it("a funded line naming a missing asset still counts toward the funder's running total", () => {
+    const job = nswStrataWaterLoss();
+    job.caps[0].committed.minor = 230_000;
+    const l1 = job.scope[0];
+    job.scope = [
+      {
+        id: "M1",
+        assetId: "missing",
+        description: "Line with a missing asset",
+        amount: { minor: 100_000, currency: "AUD", gst: "EX" },
+        payment: { basis: "INSURER_WORK_ORDER", payerPartyId: "ins" },
+      },
+      l1,
+    ];
+    // 230,000 already used + 100,000 (M1) + 70,000 (L1) = 400,000, over the 300,000 limit.
+    const r = gate(planAuthority(job), "L1", "INSURER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toContain("A$4,000.00 ex GST");
+  });
+
+  it("an unconfirmed payer never receives a payer-split form", () => {
+    const job = nswStrataWaterLoss();
+    job.scope[2].payment.payerPartyId = "asr"; // L3 stays UNCONFIRMED
+    const a11 = forms(planAuthority(job), "A11");
+    expect(a11.map((f) => f.recipientPartyId)).not.toContain("asr");
+  });
+
+  it("a self-pay payer who is not a party on the job receives no form", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].payment.payerPartyId = "ghost";
+    const plan = planAuthority(job);
+    for (const code of ["A03", "A11"]) {
+      expect(forms(plan, code).map((f) => f.recipientPartyId)).not.toContain("ghost");
+    }
+  });
+
+  it("emergency strip-out cannot start even with every owner approval and a documented basis", () => {
+    const job = nzRentalNaturalHazard();
+    job.emergencyBasis = { documented: true, noticeAttemptsLogged: true, note: "documented" };
+    job.scope[1].payment = { basis: "OWNER_DIRECT", payerPartyId: "ll" };
+    for (const kind of ["ACCESS", "WORK", "PAYMENT", "IRREVERSIBLE"] as const) {
+      job.approvals.push({ id: `x-${kind}`, partyId: "ll", kind, scopeLineIds: ["N2"], evidence: "verified" });
+    }
+    const plan = planAuthority(job);
+    expect(plan.scopes.find((x) => x.scopeLineId === "N2")?.canStart).toBe(false);
+    expect(gate(plan, "N2", "DISPOSAL").state).toBe("HOLD");
+  });
+
   it("an asset with no established controller holds the work", () => {
     const job = nswStrataWaterLoss();
     job.assets[2].ownershipEvidence = "reported";

@@ -137,12 +137,19 @@ function controls(
   return { ok: false, why: `they do not control "${asset.label}"` };
 }
 
-/** Who receives a funding document for a line, or null when no proven funder exists. */
+/**
+ * Who receives a funding or payment document for a line, or null when no proven
+ * funder exists. An unconfirmed payer, a payer who is not a party on the job, and a
+ * party recorded as having no spend authority never receive one. An insurer-funded
+ * line also needs spend authority proven (canAuthoriseSpend === true).
+ */
 function fundingRecipient(ctx: Ctx, line: ScopeLine): string | null {
   const id = line.payment.payerPartyId;
-  if (!id) return null;
-  if (line.payment.basis !== "INSURER_WORK_ORDER") return id;
-  return ctx.parties.get(id)?.canAuthoriseSpend === true ? id : null;
+  if (!id || line.payment.basis === "UNCONFIRMED") return null;
+  const payer = ctx.parties.get(id);
+  if (!payer || payer.canAuthoriseSpend === false) return null;
+  if (line.payment.basis === "INSURER_WORK_ORDER" && payer.canAuthoriseSpend !== true) return null;
+  return id;
 }
 
 /** The person who should sign for an asset: a verified delegate, else the owner. */
@@ -554,6 +561,9 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
     const asset = ctx.assets.get(line.assetId);
     if (!asset) {
       holds.push(`scope line ${line.id} names an asset that is not on the job`);
+      // Still count its amount toward the funder's running total, so a later line
+      // cannot clear a limit this line's request has already used.
+      insurerGate(ctx, line, ledger);
       continue;
     }
     const insurer = insurerGate(ctx, line, ledger);
@@ -578,7 +588,7 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
     const funder = fundingRecipient(ctx, line);
     if (gates[0].state !== "CLEAR") need("A01", controller, "access not yet in place");
     if (line.emergency) need("A02", controller, "emergency make-safe work");
-    if (line.payment.basis === "OWNER_DIRECT") need("A03", line.payment.payerPartyId, "customer pays directly");
+    if (line.payment.basis === "OWNER_DIRECT") need("A03", funder, funder ? "customer pays directly" : "customer pays directly; payer is not a party on this job");
     if (line.payment.basis === "INSURER_WORK_ORDER") {
       need(
         "A04",
