@@ -187,7 +187,13 @@ export function qldCommercialSelfPay(): JobFacts {
         delegationEvidence: "verified",
         delegationRef: "Company register extract DOC-3",
       },
-      { id: "mgr", name: "Cafe Site Manager", capacity: "SITE_MANAGER" },
+      {
+        id: "mgr",
+        name: "Cafe Site Manager",
+        capacity: "SITE_MANAGER",
+        occupiesAssetIds: ["fitout"],
+        occupancyEvidence: "verified",
+      },
     ],
     assets: [
       {

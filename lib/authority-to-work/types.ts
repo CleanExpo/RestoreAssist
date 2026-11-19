@@ -71,6 +71,12 @@ export interface Party {
    * often recommendation-only, so this is false unless proven.
    */
   canAuthoriseSpend?: boolean;
+  /**
+   * Assets this party occupies (tenant, occupier, site manager). An occupier can
+   * give access only to these, and only when `occupancyEvidence` is verified.
+   */
+  occupiesAssetIds?: string[];
+  occupancyEvidence?: EvidenceState;
 }
 
 export type AssetClass =

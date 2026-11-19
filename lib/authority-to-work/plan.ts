@@ -227,10 +227,13 @@ function accessGate(ctx: Ctx, line: ScopeLine, asset: Asset): GateResult {
   const found = approvalsFor(ctx, "ACCESS", line);
   for (const a of found) {
     const p = ctx.parties.get(a.partyId);
+    // A role alone grants nothing: the occupier must be proven to occupy this asset.
     const occupierAccess =
-      p?.capacity === "TENANT" ||
-      p?.capacity === "OCCUPIER" ||
-      p?.capacity === "SITE_MANAGER";
+      (p?.capacity === "TENANT" ||
+        p?.capacity === "OCCUPIER" ||
+        p?.capacity === "SITE_MANAGER") &&
+      p.occupancyEvidence === "verified" &&
+      (p.occupiesAssetIds ?? []).includes(asset.id);
     if (
       a.evidence === "verified" &&
       (controls(ctx, asset, a.partyId).ok || occupierAccess)

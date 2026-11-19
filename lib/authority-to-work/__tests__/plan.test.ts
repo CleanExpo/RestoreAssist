@@ -571,6 +571,14 @@ describe("hazards, evidence holds and jurisdiction", () => {
     expect(toDash.every((f) => !f.scopeLineIds.includes("L4"))).toBe(true);
   });
 
+  it("an occupier can give access only to an asset they are proven to occupy", () => {
+    const job = qldCommercialSelfPay();
+    job.approvals = job.approvals.filter((a) => a.kind !== "ACCESS");
+    job.parties.push({ id: "other", name: "Unrelated Tenant", capacity: "TENANT" });
+    job.approvals.push({ id: "o1", partyId: "other", kind: "ACCESS", assetIds: ["fitout"], evidence: "verified" });
+    expect(gate(planAuthority(job), "C1", "ACCESS").state).not.toBe("CLEAR");
+  });
+
   it("an asset with no established controller holds the work", () => {
     const job = nswStrataWaterLoss();
     job.assets[2].ownershipEvidence = "reported";
