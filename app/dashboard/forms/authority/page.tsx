@@ -215,7 +215,7 @@ export default function AuthorityFormsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FileText className="h-6 w-6 text-cyan-500" />
+          <FileText className="h-6 w-6 text-brand-harbour-500" />
           <h1 className="text-2xl font-semibold tracking-tight">
             Authority Forms
           </h1>
@@ -260,7 +260,7 @@ export default function AuthorityFormsPage() {
               onClick={() => setStatusFilter(tab.value)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                 active
-                  ? "bg-cyan-600 text-white shadow-sm"
+                  ? "bg-brand-harbour-600 text-white shadow-sm"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
@@ -324,7 +324,7 @@ export default function AuthorityFormsPage() {
                       {statusFilter !== "ALL" && (
                         <button
                           onClick={() => setStatusFilter("ALL")}
-                          className="text-sm text-cyan-600 underline underline-offset-2"
+                          className="text-sm text-brand-harbour-600 underline underline-offset-2"
                         >
                           Clear filter
                         </button>
@@ -349,7 +349,7 @@ export default function AuthorityFormsPage() {
                       <TableCell>
                         <Link
                           href={`/dashboard/reports/${form.reportId}`}
-                          className="text-cyan-600 hover:underline underline-offset-2"
+                          className="text-brand-harbour-600 hover:underline underline-offset-2"
                         >
                           {form.report?.reportNumber ??
                             form.reportId.slice(0, 8)}

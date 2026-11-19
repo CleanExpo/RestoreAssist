@@ -68,7 +68,7 @@ export default async function HelpIndexPage() {
         <div className="relative space-y-5">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0 max-w-9xl">
-              <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+              <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-brand-harbour-200/90">
                 <Sparkles className="h-3.5 w-3.5" />
                 Workspace · Knowledge base
               </p>
@@ -97,7 +97,7 @@ export default async function HelpIndexPage() {
               </Button>
               <Button
                 asChild
-                className="bg-cyan-500 text-white hover:bg-cyan-400"
+                className="bg-brand-harbour-500 text-white hover:bg-brand-harbour-400"
               >
                 <Link href="/dashboard/help/contact">
                   <Headphones className="mr-1.5 h-4 w-4" />
@@ -109,7 +109,7 @@ export default async function HelpIndexPage() {
 
           <div className="flex flex-row flex-wrap gap-3 border-t border-white/10 pt-5">
             <div className="flex min-w-[140px] flex-1 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm">
-              <BookOpen className="h-4 w-4 text-cyan-300" />
+              <BookOpen className="h-4 w-4 text-brand-harbour-300" />
               <div>
                 <p className="text-lg font-semibold tabular-nums text-white">
                   {publishedCount}
@@ -118,7 +118,7 @@ export default async function HelpIndexPage() {
               </div>
             </div>
             <div className="flex min-w-[140px] flex-1 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm">
-              <Keyboard className="h-4 w-4 text-cyan-300" />
+              <Keyboard className="h-4 w-4 text-brand-harbour-300" />
               <div>
                 <p className="text-lg font-semibold tabular-nums text-white">
                   {categoriesWithContent.length}
@@ -128,7 +128,7 @@ export default async function HelpIndexPage() {
             </div>
             <Link
               href="/dashboard/learn"
-              className="flex min-w-[180px] flex-1 items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm transition-colors hover:border-cyan-300/30 hover:bg-white/10"
+              className="flex min-w-[180px] flex-1 items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm transition-colors hover:border-brand-harbour-300/30 hover:bg-white/10"
             >
               <div>
                 <p className="text-sm font-semibold text-white">Tutorials</p>
@@ -138,7 +138,7 @@ export default async function HelpIndexPage() {
             </Link>
             <Link
               href="/dashboard/help/contact"
-              className="flex min-w-[180px] flex-1 items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm transition-colors hover:border-cyan-300/30 hover:bg-white/10"
+              className="flex min-w-[180px] flex-1 items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm transition-colors hover:border-brand-harbour-300/30 hover:bg-white/10"
             >
               <div>
                 <p className="text-sm font-semibold text-white">Support</p>

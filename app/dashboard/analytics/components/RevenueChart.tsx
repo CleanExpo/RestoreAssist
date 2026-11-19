@@ -51,7 +51,7 @@ export default function RevenueChart({
       >
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
-            <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
+            <Loader2 className="w-8 h-8 text-brand-harbour-500 animate-spin mx-auto" />
             <p
               className={cn("text-sm", "text-muted-foreground")}
             >

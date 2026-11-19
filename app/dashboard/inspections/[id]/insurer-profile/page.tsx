@@ -216,7 +216,7 @@ export default function InsurerProfilePage({
             {profile && (
               <Badge
                 variant="outline"
-                className="bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800"
+                className="bg-brand-harbour-50 dark:bg-brand-harbour-900/20 text-brand-harbour-700 dark:text-brand-harbour-400 border-brand-harbour-200 dark:border-brand-harbour-800"
               >
                 {profile.id}
               </Badge>
@@ -236,7 +236,7 @@ export default function InsurerProfilePage({
           <Card className="border-neutral-200 dark:border-slate-700/50">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Building2 size={18} className="text-cyan-600" />
+                <Building2 size={18} className="text-brand-harbour-600" />
                 Select Insurer
               </CardTitle>
             </CardHeader>
@@ -249,7 +249,7 @@ export default function InsurerProfilePage({
                   <select
                     value={selectedInsurerId}
                     onChange={(e) => setSelectedInsurerId(e.target.value)}
-                    className="w-full text-sm px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                    className="w-full text-sm px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
                   >
                     <option value="">Choose insurer...</option>
                     {(availableProfiles.length > 0
@@ -278,14 +278,14 @@ export default function InsurerProfilePage({
                     value={claimRef}
                     onChange={(e) => setClaimRef(e.target.value)}
                     placeholder="e.g. CLM-2026-001234"
-                    className="w-full text-sm px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                    className="w-full text-sm px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
                   />
                 </div>
               </div>
               <Button
                 onClick={handleSelectInsurer}
                 disabled={!selectedInsurerId || saving}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white"
                 size="sm"
               >
                 {saving ? (
@@ -300,7 +300,7 @@ export default function InsurerProfilePage({
               {formattedRef && (
                 <p className="text-xs text-neutral-500 dark:text-slate-400">
                   Formatted reference:{" "}
-                  <span className="font-mono text-cyan-600 dark:text-cyan-400">
+                  <span className="font-mono text-brand-harbour-600 dark:text-brand-harbour-400">
                     {formattedRef}
                   </span>
                 </p>
@@ -383,7 +383,7 @@ export default function InsurerProfilePage({
                   className="w-full flex items-center justify-between p-4 text-left"
                 >
                   <div className="flex items-center gap-2">
-                    <Camera size={18} className="text-cyan-600" />
+                    <Camera size={18} className="text-brand-harbour-600" />
                     <span className="text-base font-semibold text-neutral-900 dark:text-white">
                       Evidence Requirements
                     </span>
@@ -424,7 +424,7 @@ export default function InsurerProfilePage({
                           {r.instructions}
                         </p>
                         {r.s500Reference && (
-                          <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-1">
+                          <p className="text-xs text-brand-harbour-600 dark:text-brand-harbour-400 mt-1">
                             {r.s500Reference}
                           </p>
                         )}
@@ -466,7 +466,7 @@ export default function InsurerProfilePage({
                   className="w-full flex items-center justify-between p-4 text-left"
                 >
                   <div className="flex items-center gap-2">
-                    <FileText size={18} className="text-cyan-600" />
+                    <FileText size={18} className="text-brand-harbour-600" />
                     <span className="text-base font-semibold text-neutral-900 dark:text-white">
                       Report Formatting
                     </span>
@@ -558,7 +558,7 @@ export default function InsurerProfilePage({
                   className="w-full flex items-center justify-between p-4 text-left"
                 >
                   <div className="flex items-center gap-2">
-                    <Building2 size={18} className="text-cyan-600" />
+                    <Building2 size={18} className="text-brand-harbour-600" />
                     <span className="text-base font-semibold text-neutral-900 dark:text-white">
                       Submission Preferences
                     </span>
@@ -637,7 +637,7 @@ export default function InsurerProfilePage({
                   className="w-full flex items-center justify-between p-4 text-left"
                 >
                   <div className="flex items-center gap-2">
-                    <Shield size={18} className="text-cyan-600" />
+                    <Shield size={18} className="text-brand-harbour-600" />
                     <span className="text-base font-semibold text-neutral-900 dark:text-white">
                       S500:2021 Emphasis Areas
                     </span>
@@ -654,11 +654,11 @@ export default function InsurerProfilePage({
                     {profile.s500EmphasisAreas.map((area, i) => (
                       <div
                         key={i}
-                        className="flex items-start gap-2 p-2 bg-cyan-50 dark:bg-cyan-900/10 rounded-lg border border-cyan-100 dark:border-cyan-800/30"
+                        className="flex items-start gap-2 p-2 bg-brand-harbour-50 dark:bg-brand-harbour-900/10 rounded-lg border border-brand-harbour-100 dark:border-brand-harbour-800/30"
                       >
                         <Shield
                           size={14}
-                          className="text-cyan-600 dark:text-cyan-400 mt-0.5 flex-shrink-0"
+                          className="text-brand-harbour-600 dark:text-brand-harbour-400 mt-0.5 flex-shrink-0"
                         />
                         <p className="text-sm text-neutral-700 dark:text-slate-300">
                           {area}

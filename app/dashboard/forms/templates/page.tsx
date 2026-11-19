@@ -695,7 +695,7 @@ export default function FormTemplatesPage() {
                         onCheckedChange={() => handleToggleActive(template)}
                         disabled={isToggling}
                         aria-label={`Toggle ${template.name} active state`}
-                        className="data-[state=checked]:bg-cyan-500"
+                        className="data-[state=checked]:bg-brand-harbour-500"
                       />
                     </TableCell>
 

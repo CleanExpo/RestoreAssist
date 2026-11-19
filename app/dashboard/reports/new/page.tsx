@@ -602,12 +602,12 @@ export default function NewReportPage() {
 
         {/* Upload Option */}
         {!uploadedData && (
-          <div className="mb-6 p-6 rounded-lg border border-cyan-500/50 dark:border-cyan-500/30 bg-cyan-500/10 dark:bg-cyan-500/5">
+          <div className="mb-6 p-6 rounded-lg border border-brand-harbour-500/50 dark:border-brand-harbour-500/30 bg-brand-harbour-500/10 dark:bg-brand-harbour-500/5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Upload className="w-6 h-6 text-cyan-400 dark:text-cyan-300" />
+                <Upload className="w-6 h-6 text-brand-harbour-400 dark:text-brand-harbour-300" />
                 <div>
-                  <h3 className="text-lg font-semibold text-cyan-400 dark:text-cyan-300">
+                  <h3 className="text-lg font-semibold text-brand-harbour-400 dark:text-brand-harbour-300">
                     Upload Existing Report
                   </h3>
                   <p
@@ -631,7 +631,7 @@ export default function NewReportPage() {
                         : undefined
                     }
                     className={cn(
-                      "px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors",
+                      "px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg transition-colors",
                       "disabled:bg-neutral-300 dark:disabled:bg-neutral-600 disabled:text-neutral-500 dark:disabled:text-neutral-400 disabled:cursor-not-allowed",
                     )}
                   >
@@ -639,7 +639,7 @@ export default function NewReportPage() {
                   </button>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <label className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors cursor-pointer">
+                    <label className="px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg transition-colors cursor-pointer">
                       {uploading ? (
                         <span className="flex items-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -818,7 +818,7 @@ export default function NewReportPage() {
 
         {loadingReport ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+            <Loader2 className="w-8 h-8 animate-spin text-brand-harbour-500" />
           </div>
         ) : creditsCheckError && hasCheckedCredits ? (
           <div className="flex flex-col items-center justify-center py-20 px-6">
@@ -841,7 +841,7 @@ export default function NewReportPage() {
                   setCreditsCheckError(null);
                   void checkCreditsAndOnboarding();
                 }}
-                className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors mx-auto"
+                className="px-6 py-3 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg font-medium transition-colors mx-auto"
               >
                 Retry
               </button>
@@ -880,7 +880,7 @@ export default function NewReportPage() {
           // Modal will show automatically, so just show a loading state or empty state
           <div className="flex flex-col items-center justify-center py-20 px-6">
             <div className="max-w-md text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-cyan-500 mx-auto mb-4" />
+              <Loader2 className="w-8 h-8 animate-spin text-brand-harbour-500 mx-auto mb-4" />
               <h3
                 className={cn(
                   "text-2xl font-semibold mb-2",
@@ -949,12 +949,12 @@ export default function NewReportPage() {
                   return (
                     <div
                       key={step.number}
-                      className="group relative p-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-cyan-500 dark:hover:border-cyan-500 hover:shadow-lg transition-all duration-300"
+                      className="group relative p-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-brand-harbour-500 dark:hover:border-brand-harbour-500 hover:shadow-lg transition-all duration-300"
                     >
                       <div className="flex items-start gap-4">
                         {/* Step Number & Icon */}
                         <div className="flex-shrink-0">
-                          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg">
+                          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-harbour-500 to-blue-500 flex items-center justify-center shadow-lg">
                             <Icon className="text-white" size={24} />
                           </div>
                           <div className="mt-2 text-center">
@@ -997,7 +997,7 @@ export default function NewReportPage() {
                               onClick={async () => {
                                 await handleStartSetup(step.route);
                               }}
-                              className="px-4 py-1.5 text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center gap-2 group/btn"
+                              className="px-4 py-1.5 text-sm bg-gradient-to-r from-brand-harbour-500 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-brand-harbour-500/50 transition-all flex items-center gap-2 group/btn"
                             >
                               Start
                               <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" />

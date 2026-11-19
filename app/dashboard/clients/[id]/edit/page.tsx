@@ -136,7 +136,7 @@ export default function ClientEditPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -151,7 +151,7 @@ export default function ClientEditPage() {
         <p className="text-slate-400 mb-4">{error}</p>
         <Link
           href={`/dashboard/clients/${id}`}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
         >
           <ArrowLeft size={16} />
           Back to Client
@@ -196,7 +196,7 @@ export default function ClientEditPage() {
               onChange={handleChange}
               required
               placeholder="Client full name"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -216,7 +216,7 @@ export default function ClientEditPage() {
               onChange={handleChange}
               required
               placeholder="client@example.com"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -235,7 +235,7 @@ export default function ClientEditPage() {
               value={form.phone}
               onChange={handleChange}
               placeholder="+61 400 000 000"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -254,7 +254,7 @@ export default function ClientEditPage() {
               value={form.company}
               onChange={handleChange}
               placeholder="Company name"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -273,7 +273,7 @@ export default function ClientEditPage() {
               value={form.contactPerson}
               onChange={handleChange}
               placeholder="Primary contact name"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -292,7 +292,7 @@ export default function ClientEditPage() {
               value={form.address}
               onChange={handleChange}
               placeholder="123 Main St, Sydney NSW 2000"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -309,7 +309,7 @@ export default function ClientEditPage() {
               name="status"
               value={form.status}
               onChange={handleChange}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>
@@ -334,7 +334,7 @@ export default function ClientEditPage() {
               onChange={handleChange}
               rows={4}
               placeholder="Any additional notes about this client..."
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors resize-none"
+              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors resize-none"
             />
             <p className="text-xs text-slate-400">
               {form.notes.length.toLocaleString("en-AU")} / {CLIENT_NOTES_MAX_LENGTH.toLocaleString("en-AU")} characters
@@ -351,7 +351,7 @@ export default function ClientEditPage() {
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, pulseOptOut: e.target.checked }))
               }
-              className="mt-0.5 h-4 w-4 accent-cyan-500"
+              className="mt-0.5 h-4 w-4 accent-brand-harbour-500"
             />
             <div>
               <label
@@ -387,7 +387,7 @@ export default function ClientEditPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               {saving ? (
                 <>

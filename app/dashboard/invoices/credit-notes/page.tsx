@@ -159,7 +159,7 @@ const REASON_CONFIG: Record<
   GOODWILL: {
     label: "Goodwill",
     className:
-      "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border-0",
+      "bg-brand-harbour-100 text-brand-harbour-700 dark:bg-brand-harbour-900/40 dark:text-brand-harbour-300 border-0",
   },
   OTHER: {
     label: "Other",
@@ -390,7 +390,7 @@ export default function CreditNotesPage() {
         </div>
         <Button
           asChild
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:opacity-90"
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white hover:opacity-90"
         >
           <Link href="/dashboard/invoices/credit-notes/new">
             <Plus className="h-4 w-4" />
@@ -423,7 +423,7 @@ export default function CreditNotesPage() {
           <Card className="max-w-xs border-slate-200 dark:border-slate-700">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-                <DollarSign className="h-4 w-4 text-cyan-500" />
+                <DollarSign className="h-4 w-4 text-brand-harbour-500" />
                 Total Credits Issued
               </CardTitle>
             </CardHeader>
@@ -457,7 +457,7 @@ export default function CreditNotesPage() {
               }}
               className={`px-4 py-2 text-sm font-medium transition-colors relative -mb-px ${
                 isActive
-                  ? "text-cyan-600 dark:text-cyan-400 border-b-2 border-cyan-500"
+                  ? "text-brand-harbour-600 dark:text-brand-harbour-400 border-b-2 border-brand-harbour-500"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
@@ -466,7 +466,7 @@ export default function CreditNotesPage() {
                 <span
                   className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
                     isActive
-                      ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300"
+                      ? "bg-brand-harbour-100 text-brand-harbour-700 dark:bg-brand-harbour-900/40 dark:text-brand-harbour-300"
                       : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                   }`}
                 >
@@ -578,7 +578,7 @@ export default function CreditNotesPage() {
                         <Link
                           href={`/dashboard/invoices/${cn.invoiceId}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-cyan-600 dark:text-cyan-400 hover:underline text-sm font-mono"
+                          className="text-brand-harbour-600 dark:text-brand-harbour-400 hover:underline text-sm font-mono"
                         >
                           {cn.invoice.invoiceNumber}
                         </Link>

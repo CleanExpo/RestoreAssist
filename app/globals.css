@@ -279,30 +279,12 @@
 
   /* Accent Colors */
   --color-blue-500: #3b82f6;
-  /* Interim bridge (19/11/2026): the signed-in app paints its accent with
-     Tailwind cyan utilities (about 2,100 uses), which would sit as an
-     off-brand teal next to palette B's cobalt. The cyan scale is re-pointed
-     at the brand-cta hue (oklch hue 265.6), as in the design audit previews.
-     Steps 600 and up carry white text at 6:1 or better; step 500 does not
-     (4.19:1), so solid white-text fills use 600 or brand-cta. Replacing the
-     cyan utilities with brand tokens is design-audit card DSA-04. */
-  --color-cyan-50: oklch(0.97 0.078 265.6);
-  --color-cyan-100: oklch(0.94 0.078 265.6);
-  --color-cyan-200: oklch(0.89 0.156 265.6);
-  --color-cyan-300: oklch(0.82 0.156 265.6);
-  --color-cyan-400: oklch(0.72 0.223 265.6);
-  --color-cyan-500: oklch(0.6 0.223 265.6);
-  --color-cyan-600: oklch(0.5 0.223 265.6);
-  --color-cyan-700: oklch(0.43 0.223 265.6);
-  --color-cyan-800: oklch(0.37 0.223 265.6);
-  --color-cyan-900: oklch(0.31 0.223 265.6);
-  --color-cyan-950: oklch(0.24 0.223 265.6);
   /* Harbour scale (RA-8464, DSA-04): the signed-in app's accent. Eleven steps
-     on the brand-cta hue (oklch hue 265.6), the same values as the cyan bridge
-     above. Cyan utilities move to this scale over three PRs; the bridge is
-     removed in the last one. Steps 600 and up carry white text at 6:1 or
-     better; step 500 does not (4.19:1), so solid white-text fills use 600 or
-     brand-cta. New code uses brand-harbour, never cyan. */
+     on the brand-cta hue (oklch hue 265.6). It replaced the Tailwind cyan
+     utilities and the interim cyan bridge, which is gone: a cyan-N utility now
+     renders stock Tailwind teal, and tests/unit/no-cyan-utilities.test.ts
+     fails on one. Steps 600 and up carry white text at 6:1 or better; step
+     500 does not (4.19:1), so solid white-text fills use 600 or brand-cta. */
   --color-brand-harbour-50: oklch(0.97 0.078 265.6);
   --color-brand-harbour-100: oklch(0.94 0.078 265.6);
   --color-brand-harbour-200: oklch(0.89 0.156 265.6);

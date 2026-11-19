@@ -138,7 +138,7 @@ export default function ReportDetailPage({
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -299,7 +299,7 @@ export default function ReportDetailPage({
         {!report?.inspection?.id && reportId && report.userId === session?.user?.id && (
           <button
             onClick={() => router.push(`/dashboard/inspections/new?reportId=${encodeURIComponent(reportId)}`)}
-            className="px-3 py-2 rounded-lg bg-cyan-700 text-white hover:bg-cyan-600 text-sm"
+            className="px-3 py-2 rounded-lg bg-brand-harbour-700 text-white hover:bg-brand-harbour-600 text-sm"
           >
             Create inspection job
           </button>
@@ -336,7 +336,7 @@ export default function ReportDetailPage({
           onClick={() => requestExport(handleEmailClient)}
           disabled={!canEmailClient || emailingClient}
           title={emailClientTitle}
-          className="flex items-center gap-2 px-3 py-2 bg-cyan-600 text-white rounded-lg font-medium hover:bg-cyan-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm"
+          className="flex items-center gap-2 px-3 py-2 bg-brand-harbour-600 text-white rounded-lg font-medium hover:bg-brand-harbour-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm"
         >
           {emailingClient ? (
             <Loader2 size={16} className="animate-spin" />
@@ -378,7 +378,7 @@ export default function ReportDetailPage({
               params.set("postcode", report.propertyPostcode);
             router.push(`/dashboard/interviews/new?${params.toString()}`);
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
         >
           <MessageSquare size={18} />
           Start Interview
@@ -439,7 +439,7 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("inspection")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "inspection"
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-brand-harbour-500 text-brand-harbour-400"
                 : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >
@@ -450,7 +450,7 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("scope")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "scope"
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-brand-harbour-500 text-brand-harbour-400"
                 : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >
@@ -461,7 +461,7 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("cost")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "cost"
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-brand-harbour-500 text-brand-harbour-400"
                 : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >
@@ -472,7 +472,7 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("authority")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "authority"
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-brand-harbour-500 text-brand-harbour-400"
                 : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >
@@ -483,7 +483,7 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("approvals")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "approvals"
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-brand-harbour-500 text-brand-harbour-400"
                 : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >
@@ -494,7 +494,7 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("package")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "package"
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-brand-harbour-500 text-brand-harbour-400"
                 : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >

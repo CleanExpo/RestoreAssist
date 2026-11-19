@@ -137,7 +137,7 @@ export default function ChangePasswordPage() {
           "bg-white dark:bg-slate-950",
         )}
       >
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-harbour-400/30 border-t-brand-harbour-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -225,7 +225,7 @@ export default function ChangePasswordPage() {
                     "bg-white dark:bg-slate-800",
                     "border-neutral-300 dark:border-slate-700",
                     "text-neutral-900 dark:text-neutral-50",
-                    "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
+                    "focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent",
                     errors.currentPassword &&
                       "border-rose-500 dark:border-rose-500",
                   )}
@@ -278,7 +278,7 @@ export default function ChangePasswordPage() {
                     "bg-white dark:bg-slate-800",
                     "border-neutral-300 dark:border-slate-700",
                     "text-neutral-900 dark:text-neutral-50",
-                    "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
+                    "focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent",
                     errors.newPassword &&
                       "border-rose-500 dark:border-rose-500",
                     passwordMeetsRequirements &&
@@ -352,7 +352,7 @@ export default function ChangePasswordPage() {
                     "bg-white dark:bg-slate-800",
                     "border-neutral-300 dark:border-slate-700",
                     "text-neutral-900 dark:text-neutral-50",
-                    "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
+                    "focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent",
                     errors.confirmPassword &&
                       "border-rose-500 dark:border-rose-500",
                     passwordsMatch &&
@@ -402,11 +402,11 @@ export default function ChangePasswordPage() {
               }
               className={cn(
                 "w-full py-3 rounded-lg font-semibold transition-all",
-                "bg-gradient-to-r from-cyan-600 to-blue-600",
-                "hover:from-cyan-700 hover:to-blue-700",
+                "bg-gradient-to-r from-brand-harbour-600 to-blue-600",
+                "hover:from-brand-harbour-700 hover:to-blue-700",
                 "text-white",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
-                "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2",
+                "focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:ring-offset-2",
               )}
             >
               {isLoading ? "Changing Password..." : "Change Password"}

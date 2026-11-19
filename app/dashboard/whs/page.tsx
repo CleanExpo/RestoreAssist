@@ -402,7 +402,7 @@ function CorrectiveActionsRow({
                 </p>
                 <Link
                   href={`/dashboard/inspections/${incident.inspectionId}`}
-                  className="text-sm text-cyan-400 hover:underline"
+                  className="text-sm text-brand-harbour-400 hover:underline"
                 >
                   Open inspection →
                 </Link>
@@ -520,7 +520,7 @@ function NewIncidentFormPanel({
             id="severity"
             value={form.severity}
             onChange={set("severity")}
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
           >
             <option value="">Select severity…</option>
             <option value="LOW">Low</option>
@@ -542,7 +542,7 @@ function NewIncidentFormPanel({
             id="status"
             value={form.status}
             onChange={set("status")}
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
           >
             <option value="">Select status…</option>
             <option value="OPEN">Open</option>
@@ -583,7 +583,7 @@ function NewIncidentFormPanel({
             value={form.inspectionId}
             onChange={set("inspectionId")}
             disabled={inspectionsLoading}
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
+            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 disabled:opacity-50"
           >
             <option value="">
               {inspectionsLoading
@@ -628,7 +628,7 @@ function NewIncidentFormPanel({
             value={form.description}
             onChange={set("description")}
             placeholder="Describe what happened…"
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
+            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 resize-none"
           />
         </div>
 
@@ -665,7 +665,7 @@ function NewIncidentFormPanel({
         <Button
           onClick={onSave}
           disabled={saving}
-          className="bg-cyan-500 hover:bg-cyan-600 text-white"
+          className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
         >
           {saving ? "Saving…" : "Log Incident"}
         </Button>
@@ -1089,7 +1089,7 @@ export default function WHSPage() {
               setFormErrors({});
             }
           }}
-          className="bg-cyan-500 hover:bg-cyan-600 text-white gap-2"
+          className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white gap-2"
         >
           {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           {showForm ? "Cancel" : "Log New Incident"}
@@ -1194,7 +1194,7 @@ export default function WHSPage() {
             onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
               activeTab === tab.key
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-brand-harbour-500 text-brand-harbour-400"
                 : "border-transparent text-slate-400 hover:text-slate-300 hover:border-slate-600"
             }`}
           >
@@ -1203,7 +1203,7 @@ export default function WHSPage() {
               <span
                 className={`inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-xs font-semibold ${
                   activeTab === tab.key
-                    ? "bg-cyan-500/20 text-cyan-400"
+                    ? "bg-brand-harbour-500/20 text-brand-harbour-400"
                     : "bg-slate-700 text-slate-400"
                 }`}
               >
@@ -1239,7 +1239,7 @@ export default function WHSPage() {
                 setForm(BLANK_FORM);
                 setFormErrors({});
               }}
-              className="bg-cyan-500 hover:bg-cyan-600 text-white gap-2 mt-2"
+              className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white gap-2 mt-2"
             >
               <Plus className="h-4 w-4" />
               Log First Incident

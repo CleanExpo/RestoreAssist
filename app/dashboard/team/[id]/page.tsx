@@ -66,9 +66,9 @@ const roleConfig = {
   USER: {
     label: "Technician",
     icon: Wrench,
-    bgColor: "bg-cyan-500/20",
-    textColor: "text-cyan-400",
-    borderColor: "border-cyan-500/30",
+    bgColor: "bg-brand-harbour-500/20",
+    textColor: "text-brand-harbour-400",
+    borderColor: "border-brand-harbour-500/30",
   },
 };
 
@@ -262,7 +262,7 @@ export default function TeamMemberDetailPage({
         </p>
         <Link
           href="/dashboard/team"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors text-sm"
         >
           <ArrowLeft size={16} />
           Back to Team
@@ -309,7 +309,7 @@ export default function TeamMemberDetailPage({
             <Button
               size="sm"
               onClick={() => setEditing(!editing)}
-              className="bg-cyan-500 hover:bg-cyan-600 text-white"
+              className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
             >
               <Edit size={14} className="mr-1.5" />
               {editing ? "Cancel Edit" : "Edit Member"}
@@ -320,9 +320,9 @@ export default function TeamMemberDetailPage({
 
       {/* Inline edit form */}
       {editing && isAdmin && (
-        <Card className="bg-slate-800/50 border-cyan-500/30">
+        <Card className="bg-slate-800/50 border-brand-harbour-500/30">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base text-cyan-400">
+            <CardTitle className="text-base text-brand-harbour-400">
               Edit Member Details
             </CardTitle>
           </CardHeader>
@@ -352,7 +352,7 @@ export default function TeamMemberDetailPage({
                     setEditRole(e.target.value as "MANAGER" | "USER")
                   }
                   disabled={member.role === "ADMIN"}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500 disabled:opacity-60"
                 >
                   <option value="MANAGER">Manager</option>
                   <option value="USER">Technician</option>
@@ -380,7 +380,7 @@ export default function TeamMemberDetailPage({
                 size="sm"
                 onClick={handleSaveEdit}
                 disabled={saving}
-                className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
               >
                 {saving ? "Saving..." : "Save Changes"}
               </Button>
@@ -468,7 +468,7 @@ export default function TeamMemberDetailPage({
                       className="flex items-center justify-between p-3 rounded-lg bg-slate-700/30 hover:bg-slate-700/50 transition-colors group"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate group-hover:text-cyan-400 transition-colors">
+                        <p className="text-sm font-medium text-white truncate group-hover:text-brand-harbour-400 transition-colors">
                           {inspection.propertyAddress ||
                             inspection.inspectionNumber ||
                             "Inspection"}
@@ -501,7 +501,7 @@ export default function TeamMemberDetailPage({
         <Card className="bg-slate-800/50 border-slate-700/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <User size={16} className="text-cyan-400" />
+              <User size={16} className="text-brand-harbour-400" />
               Member Details
             </CardTitle>
           </CardHeader>

@@ -283,7 +283,7 @@ export default function ClientDetailPage() {
   };
 
   const getDocTypeBadgeColor = (type: string) => {
-    if (type === "RESTORATION_INVOICE") return "bg-cyan-500/20 text-cyan-400";
+    if (type === "RESTORATION_INVOICE") return "bg-brand-harbour-500/20 text-brand-harbour-400";
     if (type === "QUOTE" || type === "ESTIMATE")
       return "bg-amber-500/20 text-amber-400";
     return "bg-slate-500/20 text-slate-400";
@@ -292,7 +292,7 @@ export default function ClientDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -309,7 +309,7 @@ export default function ClientDetailPage() {
         </p>
         <Link
           href="/dashboard/clients"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
         >
           <ArrowLeft size={16} />
           Back to Clients
@@ -357,7 +357,7 @@ export default function ClientDetailPage() {
         {/* Contact Information */}
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <User className="text-cyan-400" size={20} />
+            <User className="text-brand-harbour-400" size={20} />
             Contact Information
           </h2>
           <div className="space-y-3">
@@ -431,7 +431,7 @@ export default function ClientDetailPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Total Reports</span>
-              <span className="text-2xl font-bold text-cyan-400">
+              <span className="text-2xl font-bold text-brand-harbour-400">
                 {client.reportsCount}
               </span>
             </div>
@@ -481,7 +481,7 @@ export default function ClientDetailPage() {
       {/* Inspections */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-          <ClipboardList className="text-cyan-400" size={20} />
+          <ClipboardList className="text-brand-harbour-400" size={20} />
           Inspections
           {!loadingInspections && !inspectionsError && (
             <span className="text-slate-400 text-sm font-normal">
@@ -520,7 +520,7 @@ export default function ClientDetailPage() {
             </p>
             <Link
               href={`/dashboard/inspections/new?clientId=${encodeURIComponent(client.id)}`}
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
             >
               Create First Inspection
             </Link>
@@ -564,7 +564,7 @@ export default function ClientDetailPage() {
                     <td className="py-3">
                       <Link
                         href={`/dashboard/inspections/${inspection.id}`}
-                        className="flex items-center gap-1 text-cyan-400 hover:underline"
+                        className="flex items-center gap-1 text-brand-harbour-400 hover:underline"
                       >
                         <Eye size={14} />
                         View
@@ -590,7 +590,7 @@ export default function ClientDetailPage() {
             <p className="text-slate-400">No reports found for this client.</p>
             <Link
               href="/dashboard/reports/new"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
             >
               Create First Report
             </Link>
@@ -621,7 +621,7 @@ export default function ClientDetailPage() {
                   {report.totalCost === null ? (
                     <span className="text-sm text-slate-400">Unavailable</span>
                   ) : (
-                    <span className="text-lg font-bold text-cyan-400">
+                    <span className="text-lg font-bold text-brand-harbour-400">
                       ${report.totalCost.toLocaleString()}
                     </span>
                   )}
@@ -635,7 +635,7 @@ export default function ClientDetailPage() {
                   </StatusBadge>
                   <Link
                     href={`/dashboard/reports/${report.id}`}
-                    className="flex items-center gap-1 text-cyan-400 hover:underline text-sm"
+                    className="flex items-center gap-1 text-brand-harbour-400 hover:underline text-sm"
                   >
                     <Eye size={14} />
                     View
@@ -688,7 +688,7 @@ export default function ClientDetailPage() {
             <p className="text-slate-400">No invoices for this client.</p>
             <Link
               href="/dashboard/restoration-documents/invoice/new"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
             >
               Create Invoice
             </Link>
@@ -726,7 +726,7 @@ export default function ClientDetailPage() {
                 </div>
                 <Link
                   href={`/dashboard/restoration-documents/invoice/${doc.id}`}
-                  className="flex items-center gap-1 text-cyan-400 hover:underline text-sm ml-4"
+                  className="flex items-center gap-1 text-brand-harbour-400 hover:underline text-sm ml-4"
                 >
                   <Eye size={14} />
                   View

@@ -111,7 +111,7 @@ export default function NewFormTemplatePage() {
                 }
                 placeholder="e.g. Water Damage Initial Assessment"
                 required
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
+                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50"
               />
             </div>
 
@@ -127,7 +127,7 @@ export default function NewFormTemplatePage() {
                 }
                 placeholder="What is this template used for?"
                 rows={3}
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 resize-none"
+                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50 resize-none"
               />
             </div>
 
@@ -141,7 +141,7 @@ export default function NewFormTemplatePage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, formType: e.target.value }))
                 }
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
+                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50"
               >
                 {FORM_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -161,7 +161,7 @@ export default function NewFormTemplatePage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, category: e.target.value }))
                 }
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
+                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -183,7 +183,7 @@ export default function NewFormTemplatePage() {
                     requiresSignatures: e.target.checked,
                   }))
                 }
-                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500/50"
+                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-brand-harbour-500 focus:ring-brand-harbour-500/50"
               />
               <label
                 htmlFor="requiresSignatures"
@@ -205,7 +205,7 @@ export default function NewFormTemplatePage() {
             <button
               type="submit"
               disabled={isSubmitting || !form.name.trim()}
-              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <Loader2 size={18} className="animate-spin" />

@@ -196,7 +196,7 @@ export default function ContractorReviewsPage() {
       case "PENDING_REVIEW":
         return "text-amber-400";
       case "UNDER_INVESTIGATION":
-        return "text-cyan-400";
+        return "text-brand-harbour-400";
       case "RESOLVED_KEPT":
         return "text-success";
       case "RESOLVED_AMENDED":
@@ -422,10 +422,10 @@ export default function ContractorReviewsPage() {
 
               {/* Existing Response */}
               {review.contractorResponse && (
-                <div className="mb-4 pl-4 border-l-2 border-cyan-500/30 bg-slate-700/20 p-4 rounded">
+                <div className="mb-4 pl-4 border-l-2 border-brand-harbour-500/30 bg-slate-700/20 p-4 rounded">
                   <div className="flex items-center gap-2 mb-2">
-                    <MessageSquare className="h-4 w-4 text-cyan-400" />
-                    <span className="text-sm font-medium text-cyan-400">
+                    <MessageSquare className="h-4 w-4 text-brand-harbour-400" />
+                    <span className="text-sm font-medium text-brand-harbour-400">
                       Your Response
                     </span>
                     {review.respondedAt && (
@@ -448,13 +448,13 @@ export default function ContractorReviewsPage() {
                     onChange={(e) => setResponseText(e.target.value)}
                     placeholder="Write your response to this review..."
                     rows={4}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                   />
                   <div className="flex gap-2">
                     <button
                       onClick={() => submitResponse(review.id)}
                       disabled={submitting}
-                      className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors disabled:opacity-50"
                     >
                       <Send className="h-4 w-4" />
                       {submitting ? "Submitting..." : "Submit Response"}
@@ -510,7 +510,7 @@ export default function ContractorReviewsPage() {
                 {!review.contractorResponse && selectedReview !== review.id && (
                   <button
                     onClick={() => setSelectedReview(review.id)}
-                    className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300"
+                    className="flex items-center gap-2 text-brand-harbour-400 hover:text-brand-harbour-300"
                   >
                     <MessageSquare className="h-4 w-4" />
                     Respond to Review
