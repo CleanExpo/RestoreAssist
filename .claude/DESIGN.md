@@ -80,6 +80,65 @@ components must carry no raw hex literal.
 | `--color-brand-ink` | `#0a131c` | Drawer / sidebar in dark mode |
 | `--color-brand-abyss` | `#060c14` | Deepest background |
 
+### Colour — chart palette (RA-8465)
+
+Every Recharts chart takes its colours from `lib/charts/palette.ts`, never a
+literal. The module hands out CSS variables (`var(--chart-1)` and so on) that
+`app/globals.css` declares under `:root` (light) and `.dark`, so light and dark
+swap in CSS. `lib/charts/__tests__/chart-palette.test.ts` fails on a hex,
+`rgb()`, `hsl()` or `oklch()` literal in any file that imports recharts, and on
+a chart variable that is not declared for both modes.
+
+Colour is assigned by the job it does:
+
+- **Categorical** (which series): `CHART_SERIES`, eight slots in the fixed
+  order below. Assign in sequence and never cycle: `seriesColour(i)` folds a
+  ninth series to neutral. Give a known entity a fixed slot with
+  `colourForKey(order, key)`, so a filter never repaints the survivors.
+- **Single series**: `CHART_ACCENT` (slot 1). One series is one colour; never
+  colour bars by category when the axis already names them.
+- **Status** (a mark that means a state, such as dry or wet): `CHART_STATUS`
+  good, info, warning, critical, on the app's status tokens. Never used as a
+  series colour, and always paired with a label or icon.
+- **Neutral**: `CHART_NEUTRAL` for "Other", archived and folded series.
+- **Chrome**: `CHART_CHROME` (grid, axis, threshold lines, target curves, dot
+  ring) and `CHART_TOOLTIP_STYLE`. Values, labels and legends stay in text ink.
+
+| Slot | Hue | Light | Dark |
+|---|---|---|---|
+| 1 | harbour blue | `brand-harbour` `#1b5fa6` | `#4d8fda` |
+| 2 | burnt orange | `brand-bronze` `#a34a06` | `#d95926` |
+| 3 | aqua green | `#199e70` | `#199e70` |
+| 4 | amber | `#c98500` | `#c98500` |
+| 5 | magenta | `#d55181` | `#d55181` |
+| 6 | green | `#008300` | `#0ca30c` |
+| 7 | violet | `#6250d6` | `#9085e9` |
+| 8 | red | `#e34948` | `#e66767` |
+
+Validated with the dataviz skill's `validate_palette.js` against the card
+surfaces (`#ffffff` light, `brand-surface` `#10202f` dark): every slot inside
+the lightness band and chroma floor, every slot at 3:1 or better on its
+surface, worst adjacent pair CVD delta E 8.4 and normal-vision delta E 19.3 in
+both modes. Slots 1 to 3 also pass as all pairs (scatter, map, small
+multiples); those forms carry at most three series.
+
+`brand-gold` is not a chart colour: it fails 3:1 on white and sits next to the
+warning status amber.
+
+| Token | Hex | Use |
+|---|---|---|
+| `--color-brand-chart-aqua` | `#199e70` | Chart slot 3, both modes |
+| `--color-brand-chart-amber` | `#c98500` | Chart slot 4, both modes |
+| `--color-brand-chart-magenta` | `#d55181` | Chart slot 5, both modes |
+| `--color-brand-chart-green` | `#008300` | Chart slot 6, light |
+| `--color-brand-chart-violet` | `#6250d6` | Chart slot 7, light |
+| `--color-brand-chart-red` | `#e34948` | Chart slot 8, light |
+| `--color-brand-chart-harbour-dark` | `#4d8fda` | Chart slot 1, dark |
+| `--color-brand-chart-orange-dark` | `#d95926` | Chart slot 2, dark |
+| `--color-brand-chart-green-dark` | `#0ca30c` | Chart slot 6, dark |
+| `--color-brand-chart-violet-dark` | `#9085e9` | Chart slot 7, dark |
+| `--color-brand-chart-red-dark` | `#e66767` | Chart slot 8, dark |
+
 ### Contrast — read before choosing a colour
 
 Measured WCAG ratios:
