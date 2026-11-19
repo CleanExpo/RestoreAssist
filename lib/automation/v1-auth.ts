@@ -17,7 +17,16 @@ export async function assertAutomationV1Auth(
   session: Session | null,
 ): Promise<AutomationAuth> {
   const configuredKey = process.env.ZAPIER_API_KEY?.trim();
-  const bearer = request.headers.get("authorization");
+  const bearer = request.headers.get("authorization")?.trim();
+  if (configuredKey && bearer?.startsWith("Bearer ")) {
+    if (bearer !== `Bearer ${configuredKey}`) {
+      return {
+        ok: false,
+        status: 401,
+        reason: "Invalid automation API key",
+      };
+    }
+  }
   if (
     configuredKey &&
     bearer === `Bearer ${configuredKey}` &&
