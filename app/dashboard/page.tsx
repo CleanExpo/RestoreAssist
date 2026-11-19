@@ -90,7 +90,7 @@ const PRIMARY_ACTIONS = [
     title: "New inspection",
     description: "Open a job on site",
     icon: ClipboardCheck,
-    accent: "from-cyan-500/15 to-blue-600/10 text-cyan-700 dark:text-cyan-300",
+    accent: "from-brand-harbour-500/15 to-blue-600/10 text-brand-harbour-700 dark:text-brand-harbour-300",
   },
   {
     href: "/dashboard/field",
@@ -846,7 +846,7 @@ function DashboardContent({
       <ManagerOpsSummary session={session} />
 
       <div className="grid gap-6 xl:grid-cols-12">
-        <DashboardPanel className="xl:col-span-7 bg-gradient-to-br from-card via-card to-cyan-500/[0.04]">
+        <DashboardPanel className="xl:col-span-7 bg-gradient-to-br from-card via-card to-brand-harbour-500/[0.04]">
           <DashboardPanelHeader
             title="Needs attention"
             description="Open jobs and unfinished reports — one record each."
@@ -1106,7 +1106,7 @@ function DashboardContent({
               href={href}
               className="flex gap-3 rounded-xl border border-border/80 bg-gradient-to-br from-card to-primary/[0.06] p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-cyan-500/10 text-primary">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-brand-harbour-500/10 text-primary">
                 <Icon className="h-5 w-5" aria-hidden />
               </span>
               <span className="min-w-0">
@@ -1311,7 +1311,7 @@ function StatChip({
 }
 
 const PIPELINE_SURFACE = [
-  "from-cyan-500/12 via-card to-card",
+  "from-brand-harbour-500/12 via-card to-card",
   "from-violet-500/10 via-card to-card",
   "from-amber-500/10 via-card to-card",
   "from-emerald-500/10 via-card to-card",

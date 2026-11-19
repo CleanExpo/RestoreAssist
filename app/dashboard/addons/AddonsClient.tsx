@@ -38,7 +38,7 @@ export default function AddonsClient() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Field Add-Ons"
         description="RestoreAssist is your CRM. Add the packs your business needs on top of your plan, when you need them."
-        icon={<ChromePackage className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<ChromePackage className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/addons" })}
         primaryAction={
           <Link

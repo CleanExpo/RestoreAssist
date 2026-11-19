@@ -362,7 +362,7 @@ export default function InspectionPrintPage({
           <div className="flex items-start justify-between gap-6 mb-6">
             {/* Logo placeholder */}
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-cyan-600 flex items-center justify-center text-white font-bold text-lg">
+              <div className="w-12 h-12 rounded-lg bg-brand-harbour-600 flex items-center justify-center text-white font-bold text-lg">
                 RA
               </div>
               <div>
@@ -384,7 +384,7 @@ export default function InspectionPrintPage({
                 Report No: {inspection.inspectionNumber}
               </div>
               <div className="mt-2">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-cyan-50 text-cyan-800 border border-cyan-100">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-brand-harbour-50 text-brand-harbour-800 border border-brand-harbour-100">
                   Claim type: {claimLabel}
                 </span>
               </div>
@@ -660,7 +660,7 @@ export default function InspectionPrintPage({
                             </span>
                           )}
                           {item.autoDetermined && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-600">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-brand-harbour-50 text-brand-harbour-600">
                               Auto
                             </span>
                           )}

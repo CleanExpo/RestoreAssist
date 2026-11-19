@@ -126,7 +126,7 @@ export default function RestorationDocumentsPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Restoration Documents"
         description="IICRC-worded tax invoices and estimates. Separate from AR invoices under Billing → Invoices."
-        icon={<FileText className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<FileText className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({
           omitHref: "/dashboard/restoration-documents",
         })}

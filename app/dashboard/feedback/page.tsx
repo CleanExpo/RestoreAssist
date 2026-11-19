@@ -115,7 +115,7 @@ export default function FeedbackPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Feedback"
         description="Share your experience and help us improve RestoreAssist."
-        icon={<Send className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<Send className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/feedback" })}
       />
 

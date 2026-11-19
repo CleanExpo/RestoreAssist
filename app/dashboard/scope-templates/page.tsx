@@ -245,8 +245,8 @@ export default function ScopeTemplatesPage() {
           onClick={openCreate}
           className={cn(
             "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-            "bg-gradient-to-r from-blue-600 to-cyan-600 text-white",
-            "hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]",
+            "bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white",
+            "hover:from-blue-600 hover:to-brand-harbour-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]",
             "active:scale-[0.98]",
           )}
         >
@@ -271,11 +271,11 @@ export default function ScopeTemplatesPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={cn(
-              "w-full pl-10 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50",
+              "w-full pl-10 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50",
               "bg-neutral-50 dark:bg-slate-800",
               "border border-neutral-300 dark:border-slate-700",
               "text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-slate-500",
-              "focus:border-cyan-500",
+              "focus:border-brand-harbour-500",
             )}
           />
         </div>
@@ -283,11 +283,11 @@ export default function ScopeTemplatesPage() {
           value={claimTypeFilter}
           onChange={(e) => setClaimTypeFilter(e.target.value)}
           className={cn(
-            "px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50",
+            "px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50",
             "bg-neutral-50 dark:bg-slate-800",
             "border border-neutral-300 dark:border-slate-700",
             "text-neutral-900 dark:text-white",
-            "focus:border-cyan-500",
+            "focus:border-brand-harbour-500",
           )}
         >
           <option value="">All types</option>
@@ -341,8 +341,8 @@ export default function ScopeTemplatesPage() {
               onClick={openCreate}
               className={cn(
                 "mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                "bg-gradient-to-r from-blue-600 to-cyan-600 text-white",
-                "hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:scale-[1.02]",
+                "bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white",
+                "hover:from-blue-600 hover:to-brand-harbour-600 hover:shadow-lg hover:scale-[1.02]",
               )}
             >
               <Plus size={16} />
@@ -426,11 +426,11 @@ export default function ScopeTemplatesPage() {
                     setFormData((f) => ({ ...f, name: e.target.value }))
                   }
                   className={cn(
-                    "w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50",
+                    "w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50",
                     "bg-neutral-50 dark:bg-slate-800",
                     "border border-neutral-300 dark:border-slate-700",
                     "text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-slate-500",
-                    "focus:border-cyan-500",
+                    "focus:border-brand-harbour-500",
                   )}
                 />
               </div>
@@ -451,11 +451,11 @@ export default function ScopeTemplatesPage() {
                     setFormData((f) => ({ ...f, claimType: e.target.value }))
                   }
                   className={cn(
-                    "w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50",
+                    "w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50",
                     "bg-neutral-50 dark:bg-slate-800",
                     "border border-neutral-300 dark:border-slate-700",
                     "text-neutral-900 dark:text-white",
-                    "focus:border-cyan-500",
+                    "focus:border-brand-harbour-500",
                   )}
                 >
                   <option value="">Select type (optional)</option>
@@ -485,11 +485,11 @@ export default function ScopeTemplatesPage() {
                     setFormData((f) => ({ ...f, description: e.target.value }))
                   }
                   className={cn(
-                    "w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50 resize-none",
+                    "w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50 resize-none",
                     "bg-neutral-50 dark:bg-slate-800",
                     "border border-neutral-300 dark:border-slate-700",
                     "text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-slate-500",
-                    "focus:border-cyan-500",
+                    "focus:border-brand-harbour-500",
                   )}
                 />
               </div>
@@ -519,8 +519,8 @@ export default function ScopeTemplatesPage() {
                 disabled={saving}
                 className={cn(
                   "flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                  "bg-gradient-to-r from-blue-600 to-cyan-600 text-white",
-                  "hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:scale-[1.01]",
+                  "bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white",
+                  "hover:from-blue-600 hover:to-brand-harbour-600 hover:shadow-lg hover:scale-[1.01]",
                   "disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100",
                 )}
               >

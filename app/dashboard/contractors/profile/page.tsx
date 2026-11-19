@@ -391,7 +391,7 @@ export default function ContractorProfileDashboard() {
         <div className="mb-6 p-4 bg-slate-800/30 border border-slate-700 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Shield
-              className={`h-6 w-6 ${profile.isVerified ? "text-cyan-400" : "text-slate-500"}`}
+              className={`h-6 w-6 ${profile.isVerified ? "text-brand-harbour-400" : "text-slate-500"}`}
             />
             <div>
               <div className="text-white font-medium">
@@ -432,7 +432,7 @@ export default function ContractorProfileDashboard() {
               value={publicDescription}
               onChange={(e) => setPublicDescription(e.target.value)}
               rows={4}
-              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               placeholder="Describe your business and services..."
             />
           </div>
@@ -446,7 +446,7 @@ export default function ContractorProfileDashboard() {
                 type="number"
                 value={yearsInBusiness}
                 onChange={(e) => setYearsInBusiness(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
 
@@ -458,7 +458,7 @@ export default function ContractorProfileDashboard() {
                 type="number"
                 value={teamSize}
                 onChange={(e) => setTeamSize(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
           </div>
@@ -472,7 +472,7 @@ export default function ContractorProfileDashboard() {
               value={specializations}
               onChange={(e) => setSpecializations(e.target.value)}
               placeholder="e.g. Water Damage, Fire Restoration, Mould Remediation"
-              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
             />
           </div>
 
@@ -482,7 +482,7 @@ export default function ContractorProfileDashboard() {
               id="isPubliclyVisible"
               checked={isPubliclyVisible}
               onChange={(e) => setIsPubliclyVisible(e.target.checked)}
-              className="w-4 h-4 text-cyan-500 bg-slate-700 border-slate-600 rounded focus:ring-cyan-500"
+              className="w-4 h-4 text-brand-harbour-500 bg-slate-700 border-slate-600 rounded focus:ring-brand-harbour-500"
             />
             <label
               htmlFor="isPubliclyVisible"
@@ -495,7 +495,7 @@ export default function ContractorProfileDashboard() {
           <button
             onClick={saveProfile}
             disabled={saving}
-            className="flex items-center gap-2 px-6 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors disabled:opacity-50"
           >
             <Save className="h-5 w-5" />
             {saving ? "Saving..." : "Save Profile"}
@@ -509,7 +509,7 @@ export default function ContractorProfileDashboard() {
           <h2 className="text-xl font-semibold text-white">Certifications</h2>
           <button
             onClick={() => setShowAddCert(!showAddCert)}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
           >
             <Plus className="h-5 w-5" />
             Add Certification
@@ -532,7 +532,7 @@ export default function ContractorProfileDashboard() {
                       certificationType: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 >
                   <option value="">Select type...</option>
                   <option value="IICRC_WRT">
@@ -564,7 +564,7 @@ export default function ContractorProfileDashboard() {
                       certificationName: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
@@ -578,7 +578,7 @@ export default function ContractorProfileDashboard() {
                   onChange={(e) =>
                     setNewCert({ ...newCert, issuingBody: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
@@ -595,7 +595,7 @@ export default function ContractorProfileDashboard() {
                       certificationNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
@@ -609,7 +609,7 @@ export default function ContractorProfileDashboard() {
                   onChange={(e) =>
                     setNewCert({ ...newCert, issueDate: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
@@ -623,7 +623,7 @@ export default function ContractorProfileDashboard() {
                   onChange={(e) =>
                     setNewCert({ ...newCert, expiryDate: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
             </div>
@@ -631,7 +631,7 @@ export default function ContractorProfileDashboard() {
             <div className="flex gap-2">
               <button
                 onClick={addCertification}
-                className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+                className="px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
               >
                 Add Certification
               </button>
@@ -660,7 +660,7 @@ export default function ContractorProfileDashboard() {
                 className="flex items-start justify-between p-4 bg-slate-700/30 border border-slate-600 rounded-lg"
               >
                 <div className="flex items-start gap-3">
-                  <Award className="h-6 w-6 text-cyan-400 flex-shrink-0 mt-1" />
+                  <Award className="h-6 w-6 text-brand-harbour-400 flex-shrink-0 mt-1" />
                   <div>
                     <div className="font-medium text-white">
                       {cert.certificationName}
@@ -717,7 +717,7 @@ export default function ContractorProfileDashboard() {
           <h2 className="text-xl font-semibold text-white">Service Areas</h2>
           <button
             onClick={() => setShowAddArea(!showAddArea)}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
           >
             <Plus className="h-5 w-5" />
             Add Service Area
@@ -740,7 +740,7 @@ export default function ContractorProfileDashboard() {
                   }
                   placeholder="e.g. 2000"
                   maxLength={4}
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
@@ -754,7 +754,7 @@ export default function ContractorProfileDashboard() {
                   onChange={(e) =>
                     setNewArea({ ...newArea, suburb: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
@@ -767,7 +767,7 @@ export default function ContractorProfileDashboard() {
                   onChange={(e) =>
                     setNewArea({ ...newArea, state: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 >
                   <option value="">Select state...</option>
                   <option value="NSW">NSW</option>
@@ -785,7 +785,7 @@ export default function ContractorProfileDashboard() {
             <div className="flex gap-2">
               <button
                 onClick={addServiceArea}
-                className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+                className="px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
               >
                 Add Service Area
               </button>
@@ -814,7 +814,7 @@ export default function ContractorProfileDashboard() {
                 className="flex items-center justify-between p-4 bg-slate-700/30 border border-slate-600 rounded-lg"
               >
                 <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5 text-cyan-400" />
+                  <MapPin className="h-5 w-5 text-brand-harbour-400" />
                   <div>
                     <div className="font-medium text-white">
                       {area.suburb ? `${area.suburb}, ` : ""}

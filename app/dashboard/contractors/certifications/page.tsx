@@ -391,7 +391,7 @@ export default function ContractorCertificationsPage() {
           </p>
           <button
             onClick={() => router.push("/dashboard/contractors/profile")}
-            className="px-6 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+            className="px-6 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
           >
             Go to Profile
           </button>
@@ -409,7 +409,7 @@ export default function ContractorCertificationsPage() {
         <h1 className="text-3xl font-bold text-white">Certifications</h1>
         <button
           onClick={openAddDialog}
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
         >
           <Plus className="h-5 w-5" />
           Add Certification
@@ -447,7 +447,7 @@ export default function ContractorCertificationsPage() {
           </p>
           <button
             onClick={openAddDialog}
-            className="flex items-center gap-2 px-5 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+            className="flex items-center gap-2 px-5 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
           >
             <Plus className="h-5 w-5" />
             Add Certification
@@ -464,7 +464,7 @@ export default function ContractorCertificationsPage() {
                 className="bg-slate-800/30 border border-slate-700 rounded-lg p-5 flex items-start justify-between gap-4"
               >
                 <div className="flex items-start gap-4 min-w-0">
-                  <Award className="h-6 w-6 text-cyan-400 flex-shrink-0 mt-0.5" />
+                  <Award className="h-6 w-6 text-brand-harbour-400 flex-shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     <div className="font-semibold text-white truncate">
                       {cert.certificationName}
@@ -516,7 +516,7 @@ export default function ContractorCertificationsPage() {
                       <button
                         onClick={() => openEditDialog(cert)}
                         title="Edit"
-                        className="p-2 text-slate-400 hover:text-cyan-400 transition-colors"
+                        className="p-2 text-slate-400 hover:text-brand-harbour-400 transition-colors"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -565,7 +565,7 @@ export default function ContractorCertificationsPage() {
                   }))
                 }
               >
-                <SelectTrigger className="bg-slate-800 border-slate-600 text-white focus:ring-cyan-500">
+                <SelectTrigger className="bg-slate-800 border-slate-600 text-white focus:ring-brand-harbour-500">
                   <SelectValue placeholder="Select type…" />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-600">
@@ -593,7 +593,7 @@ export default function ContractorCertificationsPage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, certificationName: e.target.value }))
                 }
-                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 placeholder="e.g. Water Restoration Technician"
               />
             </div>
@@ -609,7 +609,7 @@ export default function ContractorCertificationsPage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, issuingBody: e.target.value }))
                 }
-                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 placeholder="e.g. IICRC"
               />
             </div>
@@ -628,7 +628,7 @@ export default function ContractorCertificationsPage() {
                     certificationNumber: e.target.value,
                   }))
                 }
-                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 placeholder="Optional"
               />
             </div>
@@ -645,7 +645,7 @@ export default function ContractorCertificationsPage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, issueDate: e.target.value }))
                   }
-                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div>
@@ -658,7 +658,7 @@ export default function ContractorCertificationsPage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, expiryDate: e.target.value }))
                   }
-                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
             </div>
@@ -674,7 +674,7 @@ export default function ContractorCertificationsPage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, documentUrl: e.target.value }))
                 }
-                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 placeholder="https://…"
               />
             </div>
@@ -690,7 +690,7 @@ export default function ContractorCertificationsPage() {
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors disabled:opacity-50"
             >
               {submitting
                 ? "Saving…"

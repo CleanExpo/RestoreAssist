@@ -261,7 +261,7 @@ export default function SettingsPage() {
   if (status === "loading" || loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -308,7 +308,7 @@ export default function SettingsPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Settings & profile"
         description="Account, business details, notifications, and workspace preferences."
-        icon={<User className="h-7 w-7 text-cyan-500" aria-hidden />}
+        icon={<User className="h-7 w-7 text-brand-harbour-500" aria-hidden />}
         primaryAction={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <button
@@ -329,7 +329,7 @@ export default function SettingsPage() {
                 onClick={() => {
                   window.location.href = "/dashboard/subscription";
                 }}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-white hover:bg-cyan-700"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-harbour-600 px-4 py-2 text-white hover:bg-brand-harbour-700"
               >
                 <CreditCard className="h-4 w-4" aria-hidden />
                 Manage subscription
@@ -383,8 +383,8 @@ export default function SettingsPage() {
         className="flex items-center justify-between gap-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-100/40 dark:bg-slate-800/40 px-5 py-4 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors"
       >
         <div className="flex items-start gap-3 min-w-0">
-          <div className="rounded-lg bg-cyan-500/15 p-2 shrink-0">
-            <Key className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
+          <div className="rounded-lg bg-brand-harbour-500/15 p-2 shrink-0">
+            <Key className="w-5 h-5 text-brand-harbour-700 dark:text-brand-harbour-400" />
           </div>
           <div className="min-w-0">
             <p className="font-medium text-slate-900 dark:text-white">Connections</p>
@@ -394,7 +394,7 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-        <span className="text-sm text-cyan-700 dark:text-cyan-400 shrink-0">Open →</span>
+        <span className="text-sm text-brand-harbour-700 dark:text-brand-harbour-400 shrink-0">Open →</span>
       </a>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -419,7 +419,7 @@ export default function SettingsPage() {
             <div className="space-y-4">
               {/* User Avatar */}
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-xl">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-brand-harbour-500 flex items-center justify-center text-white font-semibold text-xl">
                   {profile?.image ? (
                     <img
                       src={profile.image}
@@ -455,7 +455,7 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    className="w-full px-4 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 ) : (
                   <p className="text-slate-700 dark:text-slate-300">
@@ -475,7 +475,7 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="w-full px-4 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 ) : (
                   <p className="text-slate-700 dark:text-slate-300">
@@ -497,7 +497,7 @@ export default function SettingsPage() {
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={handleUpdateProfile}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                   >
                     Save Changes
                   </button>
@@ -546,7 +546,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleSaveReviewUrl}
                     disabled={reviewUrlSaving}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50"
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50"
                   >
                     {reviewUrlSaving ? "Saving…" : "Save"}
                   </button>
@@ -655,7 +655,7 @@ export default function SettingsPage() {
               {!hideBillingEntry && (
                 <a
                   href="/dashboard/subscription"
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   <CreditCard className="w-4 h-4" />
                   Manage Subscription
@@ -676,7 +676,7 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium mb-2">
                   Remaining
                 </label>
-                <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400 flex items-center gap-2">
+                <div className="text-2xl font-bold text-brand-harbour-700 dark:text-brand-harbour-400 flex items-center gap-2">
                   {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
                   {profileError ? "Unavailable" : profile?.creditsRemaining || 0}
                 </div>
@@ -693,7 +693,7 @@ export default function SettingsPage() {
 
               <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                 <div
-                  className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                  className="bg-gradient-to-r from-brand-harbour-500 to-blue-500 h-2 rounded-full transition-all duration-300"
                   style={{
                     width: `${(() => {
                       const used = profile?.totalCreditsUsed || 0;
@@ -758,7 +758,7 @@ export default function SettingsPage() {
                       );
                       setBiometricLock(e.target.checked);
                     }}
-                    className="w-4 h-4 accent-cyan-500 cursor-pointer"
+                    className="w-4 h-4 accent-brand-harbour-500 cursor-pointer"
                   />
                 </div>
               )}

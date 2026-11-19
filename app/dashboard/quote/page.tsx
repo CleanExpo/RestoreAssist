@@ -109,7 +109,7 @@ const JOB_TYPES = [
     label: "Storm Damage",
     icon: Wind,
     standard: "ANSI/IICRC S500:2021",
-    color: "text-cyan-500",
+    color: "text-brand-harbour-500",
   },
   {
     id: "bioclean",
@@ -341,7 +341,7 @@ export default function QuotePage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Quote Generator"
         description="Generate quotes from Company Pricing rates. Save as a restoration estimate or AR invoice draft."
-        icon={<Calculator className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<Calculator className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/quote" })}
         primaryAction={
           selectedJobType || quoteResult ? (

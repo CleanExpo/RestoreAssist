@@ -273,7 +273,7 @@ export default function InspectionAuditPage({
               className={cn(
                 "text-xs h-8",
                 activeFilter === tab.key
-                  ? "bg-cyan-600 hover:bg-cyan-700 text-white border-cyan-600"
+                  ? "bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white border-brand-harbour-600"
                   : "",
               )}
             >
@@ -292,7 +292,7 @@ export default function InspectionAuditPage({
               type="datetime-local"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="text-xs px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+              className="text-xs px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
             />
           </div>
           <div className="flex items-center gap-1.5">
@@ -303,7 +303,7 @@ export default function InspectionAuditPage({
               type="datetime-local"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="text-xs px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+              className="text-xs px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
             />
           </div>
           <Button
