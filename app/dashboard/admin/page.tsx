@@ -158,7 +158,7 @@ export default function AdminDashboardPage() {
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Shield className="h-12 w-12 text-neutral-400" />
+        <Shield className="h-12 w-12 text-neutral-500 dark:text-neutral-400" />
         <p className="text-neutral-600 dark:text-neutral-400">
           Admin access required
         </p>
@@ -172,7 +172,7 @@ export default function AdminDashboardPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Admin Dashboard"
         description="System overview, health checks, and workspace administration."
-        icon={<Shield className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
+        icon={<Shield className="h-7 w-7 text-brand-harbour-600 dark:text-brand-harbour-400" aria-hidden />}
         primaryAction={
           <Button
             variant="outline"

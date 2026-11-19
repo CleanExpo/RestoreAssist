@@ -39,27 +39,11 @@ function tsxUnder(dir: string): string[] {
 }
 
 /**
- * Dashboard files not light-ready yet. This list may only shrink. The admin
- * pages get their light pairs in RA-8383 slice 1b.
+ * Dashboard files not light-ready yet. This list may only shrink, and is empty
+ * since RA-8383 slice 1b paired the admin pages. A file added here must have
+ * hits; the per-file test fails once it is clean.
  */
-const LIGHT_PENDING: string[] = [
-  "app/dashboard/admin/ai-lab/page.tsx",
-  "app/dashboard/admin/blocked-customers/page.tsx",
-  "app/dashboard/admin/cron-jobs/page.tsx",
-  "app/dashboard/admin/cron-runs/page.tsx",
-  "app/dashboard/admin/evidence-review/page.tsx",
-  "app/dashboard/admin/live-teacher/page.tsx",
-  "app/dashboard/admin/page.tsx",
-  "app/dashboard/admin/pilot/claim-002/page.tsx",
-  "app/dashboard/admin/pilot/claim-003/page.tsx",
-  "app/dashboard/admin/pilot/claim-004/page.tsx",
-  "app/dashboard/admin/pilot/page.tsx",
-  "app/dashboard/admin/restoration-insights/page.tsx",
-  "app/dashboard/admin/usage/page.tsx",
-  "app/dashboard/admin/users/page.tsx",
-  "app/dashboard/admin/video-analytics/page.tsx",
-  "app/dashboard/admin/workflows/page.tsx",
-];
+const LIGHT_PENDING: string[] = [];
 
 const DASHBOARD_FILES = tsxUnder("app/dashboard");
 const PENDING = new Set(LIGHT_PENDING);

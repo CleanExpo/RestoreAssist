@@ -365,7 +365,7 @@ export default function Claim004AdjusterSessionPage() {
           className={cn(
             "text-xs font-medium px-3 py-1.5 rounded-lg transition-all",
             !batchMode
-              ? "bg-neutral-900 dark:bg-slate-200 text-white dark:text-slate-900"
+              ? "bg-brand-navy dark:bg-slate-200 text-white dark:text-slate-900"
               : "text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800",
           )}
         >
@@ -380,7 +380,7 @@ export default function Claim004AdjusterSessionPage() {
           className={cn(
             "text-xs font-medium px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5",
             batchMode
-              ? "bg-neutral-900 dark:bg-slate-200 text-white dark:text-slate-900"
+              ? "bg-brand-navy dark:bg-slate-200 text-white dark:text-slate-900"
               : "text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800",
           )}
         >
@@ -412,7 +412,7 @@ export default function Claim004AdjusterSessionPage() {
               ].map((h, i) => (
                 <div
                   key={i}
-                  className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-slate-500"
+                  className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-500"
                 >
                   {h}
                 </div>
@@ -433,7 +433,7 @@ export default function Claim004AdjusterSessionPage() {
                     updateEntry(idx, "adjusterCode", e.target.value)
                   }
                   placeholder="ADJ-03"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Group */}
                 <select
@@ -454,7 +454,7 @@ export default function Claim004AdjusterSessionPage() {
                     updateEntry(idx, "reviewMinutes", e.target.value)
                   }
                   placeholder="e.g. 42.5"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Report ref */}
                 <input
@@ -464,7 +464,7 @@ export default function Claim004AdjusterSessionPage() {
                     updateEntry(idx, "reportRef", e.target.value)
                   }
                   placeholder="Report ID or ref"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Notes */}
                 <input
@@ -472,13 +472,13 @@ export default function Claim004AdjusterSessionPage() {
                   value={entry.notes}
                   onChange={(e) => updateEntry(idx, "notes", e.target.value)}
                   placeholder="Optional notes"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Remove */}
                 <button
                   onClick={() => removeEntry(idx)}
                   disabled={entries.length === 1}
-                  className="w-7 h-7 rounded flex items-center justify-center text-neutral-300 dark:text-slate-600 hover:text-destructive dark:hover:text-destructive disabled:opacity-30 transition-colors"
+                  className="w-7 h-7 rounded flex items-center justify-center text-neutral-500 dark:text-slate-600 hover:text-destructive dark:hover:text-destructive disabled:opacity-30 transition-colors"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -507,7 +507,7 @@ export default function Claim004AdjusterSessionPage() {
 
             {/* Submit */}
             <div className="flex items-center justify-between pt-1">
-              <p className="text-xs text-neutral-400 dark:text-slate-500">
+              <p className="text-xs text-neutral-500 dark:text-slate-500">
                 {entries.length} session{entries.length !== 1 ? "s" : ""} to
                 submit
               </p>
@@ -546,8 +546,8 @@ export default function Claim004AdjusterSessionPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg bg-neutral-900 dark:bg-slate-950 p-4 overflow-x-auto">
-              <pre className="text-[11px] text-slate-300 font-mono leading-relaxed whitespace-pre">{`[
+            <div className="rounded-lg bg-neutral-100 dark:bg-slate-950 p-4 overflow-x-auto">
+              <pre className="text-[11px] text-neutral-800 dark:text-slate-300 font-mono leading-relaxed whitespace-pre">{`[
   {
     "group": "nir",
     "reviewMinutes": 38.5,
@@ -568,7 +568,7 @@ export default function Claim004AdjusterSessionPage() {
               onChange={(e) => setBatchJson(e.target.value)}
               placeholder="Paste JSON array here..."
               rows={10}
-              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40 resize-y"
+              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-500 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40 resize-y"
             />
 
             {batchErrors.length > 0 && (
@@ -582,7 +582,7 @@ export default function Claim004AdjusterSessionPage() {
             )}
 
             <div className="flex items-center justify-between">
-              <p className="text-xs text-neutral-400 dark:text-slate-500">
+              <p className="text-xs text-neutral-500 dark:text-slate-500">
                 Records submitted one-by-one to preserve partial success.
               </p>
               <Button
@@ -635,7 +635,7 @@ export default function Claim004AdjusterSessionPage() {
               <div className="h-1.5 w-full bg-neutral-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div className={cn("h-full rounded-full w-0", colour)} />
               </div>
-              <p className="text-[10px] text-neutral-400 dark:text-slate-500">
+              <p className="text-[10px] text-neutral-500 dark:text-slate-500">
                 {note}. Check the{" "}
                 <a
                   href="/dashboard/admin/pilot"
@@ -648,7 +648,7 @@ export default function Claim004AdjusterSessionPage() {
             </div>
           ))}
         </div>
-        <p className="text-[10px] text-neutral-400 dark:text-slate-500 pt-1 border-t border-neutral-100 dark:border-slate-800">
+        <p className="text-[10px] text-neutral-500 dark:text-slate-500 pt-1 border-t border-neutral-100 dark:border-slate-800">
           Structured test protocol: 6 adjusters × 10 NIR reports + 10 existing
           format reports each. Adjuster codes are anonymised — use ADJ-01
           through ADJ-06 or similar.

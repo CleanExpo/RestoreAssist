@@ -101,7 +101,7 @@ function formatShortDate(iso: string | null): string {
 }
 
 function scoreColor(score: number | null): string {
-  if (score === null) return "text-neutral-400";
+  if (score === null) return "text-neutral-500 dark:text-neutral-400";
   if (score >= 80) return "text-success";
   if (score >= 50) return "text-amber-600 dark:text-amber-400";
   return "text-destructive";
@@ -209,7 +209,7 @@ export default function AdminEvidenceReviewPage() {
   if (authStatus === "loading") {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-neutral-500 dark:text-neutral-400" />
       </div>
     );
   }
@@ -277,7 +277,7 @@ export default function AdminEvidenceReviewPage() {
             <p className="text-2xl font-bold">
               {summary?.totalWithWorkflow ?? "—"}
             </p>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
               With active workflows
             </p>
           </CardContent>
@@ -300,7 +300,7 @@ export default function AdminEvidenceReviewPage() {
                 ? `${summary.averageScore}%`
                 : "—"}
             </p>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
               Evidence completeness
             </p>
           </CardContent>
@@ -315,7 +315,7 @@ export default function AdminEvidenceReviewPage() {
             <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
               {summary?.totalIncomplete ?? "—"}
             </p>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
               Missing mandatory evidence
             </p>
           </CardContent>
@@ -330,7 +330,7 @@ export default function AdminEvidenceReviewPage() {
             <p className="text-2xl font-bold text-destructive">
               {summary?.totalStale ?? "—"}
             </p>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
               No updates in 48+ hours
             </p>
           </CardContent>
@@ -342,7 +342,7 @@ export default function AdminEvidenceReviewPage() {
         <CardContent className="pt-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500 dark:text-neutral-400" />
               <Input
                 placeholder="Search by inspection #, address, or technician..."
                 value={search}
@@ -447,11 +447,11 @@ export default function AdminEvidenceReviewPage() {
       {!loading && !error && inspections.length === 0 && (
         <Card>
           <CardContent className="py-12 flex flex-col items-center gap-3 text-center">
-            <ClipboardCheck className="h-10 w-10 text-neutral-300 dark:text-neutral-600" />
+            <ClipboardCheck className="h-10 w-10 text-neutral-500 dark:text-neutral-600" />
             <p className="text-neutral-500 dark:text-neutral-400">
               No inspections match the current filters
             </p>
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">
               Try adjusting filters or check back when technicians have started
               workflows
             </p>
@@ -487,9 +487,9 @@ export default function AdminEvidenceReviewPage() {
                   className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 rounded-t-lg"
                 >
                   {expanded ? (
-                    <ChevronDown className="h-4 w-4 text-neutral-400 shrink-0" />
+                    <ChevronDown className="h-4 w-4 text-neutral-500 dark:text-neutral-400 shrink-0" />
                   ) : (
-                    <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
+                    <ChevronRight className="h-4 w-4 text-neutral-500 dark:text-neutral-400 shrink-0" />
                   )}
 
                   {/* Score circle */}
@@ -537,13 +537,13 @@ export default function AdminEvidenceReviewPage() {
                   <div className="hidden sm:flex items-center gap-4 text-xs text-neutral-500 shrink-0">
                     <div className="text-right">
                       <p>{insp.technicianName ?? "Unassigned"}</p>
-                      <p className="text-neutral-400">
+                      <p className="text-neutral-500 dark:text-neutral-400">
                         {formatShortDate(insp.inspectionDate)}
                       </p>
                     </div>
                     <div className="text-right">
                       <p>{insp.totalEvidence} items</p>
-                      <p className="text-neutral-400">
+                      <p className="text-neutral-500 dark:text-neutral-400">
                         {wf
                           ? `${wf.completedSteps}/${wf.totalSteps} steps`
                           : "—"}
@@ -681,7 +681,7 @@ export default function AdminEvidenceReviewPage() {
                     )}
 
                     {/* Metadata footer */}
-                    <div className="flex items-center justify-between text-xs text-neutral-400 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                    <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 pt-2 border-t border-neutral-100 dark:border-neutral-800">
                       <div className="flex gap-4">
                         <span>Updated: {formatDate(insp.updatedAt)}</span>
                         {insp.submittedAt && (
