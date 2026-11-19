@@ -251,6 +251,23 @@ describe("hazards, evidence holds and jurisdiction", () => {
     expect(gate(planAuthority(job), "L2", "DISPOSAL").state).toBe("HOLD");
   });
 
+  it("a scope line naming an asset not on the job is held, not dropped silently", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].assetId = "no-such-asset";
+    const p = planAuthority(job);
+    expect(p.holds).toContain("scope line C1 names an asset that is not on the job");
+    expect(p.scopes.find((s) => s.scopeLineId === "C1")).toBeUndefined();
+    expect(p.forms.every((f) => !f.scopeLineIds.includes("C1"))).toBe(true);
+  });
+
+  it("a payer id that is not a party on the job holds the payer gate", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].payment.payerPartyId = "ghost";
+    const r = gate(planAuthority(job), "C1", "PAYER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toBe("payer ghost is not a party on this job");
+  });
+
   it("an asset with no established controller holds the work", () => {
     const job = nswStrataWaterLoss();
     job.assets[2].ownershipEvidence = "reported";
