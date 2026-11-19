@@ -46,7 +46,10 @@ export function JobMarginPanel({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/inspections/${inspectionId}/job-margin`);
+      const res = await fetch(`/api/inspections/${inspectionId}/job-margin`, {
+        credentials: "include",
+        cache: "no-store",
+      });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setData(null);

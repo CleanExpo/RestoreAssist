@@ -72,7 +72,10 @@ export function DryingSnapshotPanel({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/inspections/${inspectionId}/drying-snapshot`);
+      const res = await fetch(
+        `/api/inspections/${inspectionId}/drying-snapshot`,
+        { credentials: "include", cache: "no-store" },
+      );
       const body = (await res.json().catch(() => ({}))) as SnapshotResponse & {
         error?: unknown;
       };

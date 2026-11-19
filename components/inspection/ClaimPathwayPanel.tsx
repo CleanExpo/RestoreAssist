@@ -50,7 +50,10 @@ export function ClaimPathwayPanel({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/inspections/${inspectionId}/pathway`);
+      const res = await fetch(`/api/inspections/${inspectionId}/pathway`, {
+        credentials: "include",
+        cache: "no-store",
+      });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setPathway(null);
