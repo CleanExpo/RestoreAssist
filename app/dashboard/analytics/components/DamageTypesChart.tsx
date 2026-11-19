@@ -11,6 +11,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { CHART_TOOLTIP_STYLE, colourForKey } from "@/lib/charts/palette";
 
 const TooltipAny = Tooltip as any;
 
@@ -25,13 +26,9 @@ interface DamageTypesChartProps {
   loading?: boolean;
 }
 
-const defaultColors: Record<string, string> = {
-  Water: "#3b82f6",
-  Fire: "#f97316",
-  Storm: "#8b5cf6",
-  Mould: "#10b981",
-  Other: "#6b7280",
-};
+// Fixed slot per damage type, so a type keeps its colour whichever types a
+// filter leaves on screen. "Other" and any type not listed fold to neutral.
+const DAMAGE_TYPE_ORDER = ["Water", "Fire", "Storm", "Mould"] as const;
 
 export default function DamageTypesChart({
   data,
@@ -94,7 +91,9 @@ export default function DamageTypesChart({
   const total = data.reduce((sum, d) => sum + d.value, 0);
   const chartData = data.map((d) => ({
     ...d,
-    color: d.color || defaultColors[d.name] || "#6b7280",
+    // The API still sends a `color`; the chart palette owns colour, so it is
+    // ignored here.
+    color: colourForKey(DAMAGE_TYPE_ORDER, d.name),
   }));
 
   return (
@@ -143,12 +142,7 @@ export default function DamageTypesChart({
             ))}
           </Pie>
           <TooltipAny
-            contentStyle={{
-              backgroundColor: "rgb(255 255 255 / 0.95)",
-              border: "1px solid rgb(229 231 235)",
-              borderRadius: "8px",
-              color: "#111827",
-            }}
+            contentStyle={CHART_TOOLTIP_STYLE}
             className=""
             formatter={(value: any) => [`${value} reports`, "Count"]}
           />

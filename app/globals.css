@@ -47,11 +47,26 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: var(--color-brand-harbour);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  /* Chart palette, light steps (RA-8465). Read through lib/charts/palette.ts,
+     never by hue name in a chart. Order and contrast: DESIGN.md "Chart palette". */
+  --chart-1: var(--color-brand-harbour);
+  --chart-2: var(--color-brand-bronze);
+  --chart-3: var(--color-brand-chart-aqua);
+  --chart-4: var(--color-brand-chart-amber);
+  --chart-5: var(--color-brand-chart-magenta);
+  --chart-6: var(--color-brand-chart-green);
+  --chart-7: var(--color-brand-chart-violet);
+  --chart-8: var(--color-brand-chart-red);
+  --chart-neutral: var(--muted-foreground);
+  --chart-good: var(--success);
+  --chart-info: var(--color-brand-harbour);
+  --chart-warning: var(--warning);
+  --chart-critical: var(--destructive);
+  --chart-grid: var(--border);
+  --chart-axis: var(--muted-foreground);
+  --chart-reference: var(--muted-foreground);
+  --chart-surface: var(--card);
+  --chart-ink: var(--card-foreground);
   --radius: 0.625rem;
   --sidebar: var(--color-brand-cloud);
   --sidebar-foreground: var(--color-brand-navy);
@@ -89,6 +104,16 @@
   --success-subtle-foreground: #166534;
   --warning-subtle: #fef3c7;
   --warning-subtle-foreground: #92400e;
+  /* A light island inside dark mode takes the light chart steps. */
+  --chart-1: var(--color-brand-harbour);
+  --chart-2: var(--color-brand-bronze);
+  --chart-3: var(--color-brand-chart-aqua);
+  --chart-4: var(--color-brand-chart-amber);
+  --chart-5: var(--color-brand-chart-magenta);
+  --chart-6: var(--color-brand-chart-green);
+  --chart-7: var(--color-brand-chart-violet);
+  --chart-8: var(--color-brand-chart-red);
+  --chart-info: var(--color-brand-harbour);
 }
 
 /* Dark keeps light text (navy text on a dark canvas is unreadable); the
@@ -131,11 +156,27 @@
   --border: oklch(0.3 0.02 250);
   --input: oklch(0.3 0.02 250);
   --ring: var(--color-brand-harbour-light);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  /* Chart palette, dark steps: the same hues stepped for the dark card
+     surface (RA-8465), not an automatic flip. */
+  --chart-1: var(--color-brand-chart-harbour-dark);
+  --chart-2: var(--color-brand-chart-orange-dark);
+  --chart-3: var(--color-brand-chart-aqua);
+  --chart-4: var(--color-brand-chart-amber);
+  --chart-5: var(--color-brand-chart-magenta);
+  --chart-6: var(--color-brand-chart-green-dark);
+  --chart-7: var(--color-brand-chart-violet-dark);
+  --chart-8: var(--color-brand-chart-red-dark);
+  --chart-neutral: var(--muted-foreground);
+  --chart-good: var(--success);
+  --chart-info: var(--color-brand-harbour-light);
+  --chart-warning: var(--warning);
+  /* --destructive is a dark fill in this mode; the lifted red reads as a mark. */
+  --chart-critical: var(--destructive-foreground);
+  --chart-grid: var(--border);
+  --chart-axis: var(--muted-foreground);
+  --chart-reference: var(--muted-foreground);
+  --chart-surface: var(--card);
+  --chart-ink: var(--card-foreground);
   --sidebar: var(--color-brand-ink);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: var(--color-brand-harbour-light);
@@ -181,6 +222,24 @@
   /* Harbour lifted for dark surfaces: #1638c8 on brand-canvas is 2.17:1,
      under the 3:1 a focus ring needs. This is 6.70:1 on brand-canvas. */
   --color-brand-harbour-light: #7b96f4;
+
+  /* Chart hues (RA-8465). Slots 1 and 2 are palette A (brand-harbour and
+     brand-bronze in light, the steps below in dark); slots 3 to 8 are the
+     supporting hues. Validated with the dataviz validator against the card
+     surfaces (#ffffff light, #10202f dark): every adjacent pair clears CVD
+     delta E 8 and normal-vision delta E 15, every slot clears 3:1. Use them
+     through --chart-N and lib/charts/palette.ts, never directly. */
+  --color-brand-chart-aqua: #199e70;
+  --color-brand-chart-amber: #c98500;
+  --color-brand-chart-magenta: #d55181;
+  --color-brand-chart-green: #008300;
+  --color-brand-chart-violet: #6250d6;
+  --color-brand-chart-red: #e34948;
+  --color-brand-chart-harbour-dark: #4d8fda;
+  --color-brand-chart-orange-dark: #d95926;
+  --color-brand-chart-green-dark: #0ca30c;
+  --color-brand-chart-violet-dark: #9085e9;
+  --color-brand-chart-red-dark: #e66767;
 
   /* Dark surfaces, for dark mode and the dark islands that remain. */
   --color-brand-canvas: #121212; /* full-bleed dark canvas */
