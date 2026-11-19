@@ -214,6 +214,23 @@
   --color-cyan-800: oklch(0.37 0.132 253.3);
   --color-cyan-900: oklch(0.31 0.132 253.3);
   --color-cyan-950: oklch(0.24 0.132 253.3);
+  /* Harbour scale (RA-8464, DSA-04): the signed-in app's accent. Eleven steps
+     on the brand-cta hue (oklch hue 253.3), the same values as the cyan bridge
+     above. Cyan utilities move to this scale over three PRs; the bridge is
+     removed in the last one. Steps 600 and up carry white text at 6:1 or
+     better; step 500 does not (3.97:1), so solid white-text fills use 600 or
+     brand-cta. New code uses brand-harbour, never cyan. */
+  --color-brand-harbour-50: oklch(0.97 0.046 253.3);
+  --color-brand-harbour-100: oklch(0.94 0.046 253.3);
+  --color-brand-harbour-200: oklch(0.89 0.092 253.3);
+  --color-brand-harbour-300: oklch(0.82 0.092 253.3);
+  --color-brand-harbour-400: oklch(0.72 0.132 253.3);
+  --color-brand-harbour-500: oklch(0.6 0.132 253.3);
+  --color-brand-harbour-600: oklch(0.5 0.132 253.3);
+  --color-brand-harbour-700: oklch(0.43 0.132 253.3);
+  --color-brand-harbour-800: oklch(0.37 0.132 253.3);
+  --color-brand-harbour-900: oklch(0.31 0.132 253.3);
+  --color-brand-harbour-950: oklch(0.24 0.132 253.3);
   --color-emerald-400: #10b981;
   --color-amber-400: #f59e0b;
   --color-rose-500: #f43f5e;

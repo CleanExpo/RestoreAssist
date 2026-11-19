@@ -541,14 +541,14 @@ export default function InsuranceInformation({
       case "additional":
         return (
           <div className="space-y-4">
-            <div className="bg-cyan-500/20 border border-cyan-500/30 rounded-lg p-4 mb-6">
+            <div className="bg-brand-harbour-500/20 border border-brand-harbour-500/30 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-2 mb-2">
-                <FileText className="text-cyan-400" size={20} />
-                <h4 className="font-medium text-cyan-400">
+                <FileText className="text-brand-harbour-400" size={20} />
+                <h4 className="font-medium text-brand-harbour-400">
                   Additional Coverage Options
                 </h4>
               </div>
-              <p className="text-sm text-cyan-300">
+              <p className="text-sm text-brand-harbour-300">
                 Optional add-ons to ensure your business's specific risks are
                 covered.
               </p>
@@ -626,7 +626,7 @@ export default function InsuranceInformation({
 
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
           <div className="text-center">
-            <div className="text-2xl font-bold text-cyan-400">
+            <div className="text-2xl font-bold text-brand-harbour-400">
               {stats.percentage}%
             </div>
             <div className="text-sm text-slate-400">Coverage Selected</div>
@@ -645,7 +645,7 @@ export default function InsuranceInformation({
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === tab.id
-                ? "bg-cyan-500 text-white"
+                ? "bg-brand-harbour-500 text-white"
                 : "bg-slate-700/50 text-slate-300 hover:bg-slate-700"
             }`}
           >
@@ -668,7 +668,7 @@ export default function InsuranceInformation({
       {/* Key Considerations */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-          <Info className="text-cyan-400" size={20} />
+          <Info className="text-brand-harbour-400" size={20} />
           Key Insurance Considerations
         </h4>
 

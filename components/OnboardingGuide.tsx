@@ -128,20 +128,20 @@ export default function OnboardingGuide({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 400, opacity: 0 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className={`fixed right-0 top-0 h-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 border-l border-cyan-500/20 shadow-2xl z-[150] flex flex-col ${
+            className={`fixed right-0 top-0 h-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 border-l border-brand-harbour-500/20 shadow-2xl z-[150] flex flex-col ${
               isMinimized ? "w-16" : "w-80"
             }`}
           >
             {/* Header */}
-            <div className="relative border-b border-cyan-500/20 bg-slate-800/80 backdrop-blur-sm p-4">
+            <div className="relative border-b border-brand-harbour-500/20 bg-slate-800/80 backdrop-blur-sm p-4">
               {!isMinimized && (
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="p-1.5 bg-gradient-to-br from-cyan-500/20 to-purple-500/20 rounded-lg border border-cyan-500/30">
-                        <Sparkles className="w-4 h-4 text-cyan-400" />
+                      <div className="p-1.5 bg-gradient-to-br from-brand-harbour-500/20 to-purple-500/20 rounded-lg border border-brand-harbour-500/30">
+                        <Sparkles className="w-4 h-4 text-brand-harbour-400" />
                       </div>
-                      <h3 className="text-sm font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                      <h3 className="text-sm font-bold bg-gradient-to-r from-brand-harbour-400 to-purple-400 bg-clip-text text-transparent">
                         Getting Started
                       </h3>
                     </div>
@@ -164,7 +164,7 @@ export default function OnboardingGuide({
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
                   transition={{ duration: 0.5, ease: "easeOut" }}
-                  className="absolute left-0 top-0 h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-cyan-500 rounded-full"
+                  className="absolute left-0 top-0 h-full bg-gradient-to-r from-brand-harbour-500 via-purple-500 to-brand-harbour-500 rounded-full"
                 />
               </div>
             </div>
@@ -172,21 +172,21 @@ export default function OnboardingGuide({
             {!isMinimized && (
               <>
                 {/* Current Step Info */}
-                <div className="p-4 border-b border-cyan-500/10 bg-slate-800/30">
+                <div className="p-4 border-b border-brand-harbour-500/10 bg-slate-800/30">
                   <div className="flex items-start gap-3 mb-3">
                     {currentStepData && (
                       <div
                         className={`p-2 rounded-lg ${
                           completedSteps.includes(step)
                             ? "bg-green-500/20 border border-green-500/30"
-                            : "bg-cyan-500/20 border border-cyan-500/30"
+                            : "bg-brand-harbour-500/20 border border-brand-harbour-500/30"
                         }`}
                       >
                         <currentStepData.icon
                           className={`w-5 h-5 ${
                             completedSteps.includes(step)
                               ? "text-success"
-                              : "text-cyan-400"
+                              : "text-brand-harbour-400"
                           }`}
                         />
                       </div>
@@ -199,10 +199,10 @@ export default function OnboardingGuide({
                         {description}
                       </p>
                       {value && (
-                        <div className="mt-2 p-2 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
+                        <div className="mt-2 p-2 bg-brand-harbour-500/10 border border-brand-harbour-500/20 rounded-lg">
                           <div className="flex items-start gap-2">
-                            <Lightbulb className="w-3.5 h-3.5 text-cyan-400 mt-0.5 flex-shrink-0" />
-                            <p className="text-xs text-cyan-300">{value}</p>
+                            <Lightbulb className="w-3.5 h-3.5 text-brand-harbour-400 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-brand-harbour-300">{value}</p>
                           </div>
                         </div>
                       )}
@@ -225,7 +225,7 @@ export default function OnboardingGuide({
                         transition={{ delay: s.number * 0.1 }}
                         className={`relative p-3 rounded-lg border transition-all ${
                           isCurrent
-                            ? "bg-cyan-500/10 border-cyan-500/30 shadow-lg shadow-cyan-500/10"
+                            ? "bg-brand-harbour-500/10 border-brand-harbour-500/30 shadow-lg shadow-brand-harbour-500/10"
                             : isCompleted
                               ? "bg-green-500/5 border-green-500/20"
                               : "bg-slate-800/30 border-slate-700/50"
@@ -237,7 +237,7 @@ export default function OnboardingGuide({
                               isCompleted
                                 ? "bg-gradient-to-br from-green-500 to-emerald-500 border-green-400"
                                 : isCurrent
-                                  ? "bg-gradient-to-br from-cyan-500 to-purple-500 border-cyan-400 animate-pulse"
+                                  ? "bg-gradient-to-br from-brand-harbour-500 to-purple-500 border-brand-harbour-400 animate-pulse"
                                   : "bg-slate-700 border-slate-600"
                             }`}
                           >
@@ -257,7 +257,7 @@ export default function OnboardingGuide({
                             <p
                               className={`text-xs font-semibold mb-0.5 ${
                                 isCurrent
-                                  ? "text-cyan-400"
+                                  ? "text-brand-harbour-400"
                                   : isCompleted
                                     ? "text-success"
                                     : "text-slate-400"
@@ -276,9 +276,9 @@ export default function OnboardingGuide({
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-cyan-500/10 bg-slate-800/30">
+                <div className="p-4 border-t border-brand-harbour-500/10 bg-slate-800/30">
                   <div className="flex items-center gap-2 p-2 bg-slate-700/30 rounded-lg">
-                    <HelpCircle className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                    <HelpCircle className="w-4 h-4 text-brand-harbour-400 flex-shrink-0" />
                     <p className="text-xs text-slate-400">
                       Complete this step to continue
                     </p>
@@ -292,10 +292,10 @@ export default function OnboardingGuide({
               <div className="flex flex-col items-center justify-center h-full p-2">
                 <button
                   onClick={() => setIsMinimized(false)}
-                  className="p-2 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-lg border border-cyan-500/30 transition-colors"
+                  className="p-2 bg-brand-harbour-500/20 hover:bg-brand-harbour-500/30 rounded-lg border border-brand-harbour-500/30 transition-colors"
                   title="Expand guide"
                 >
-                  <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <Sparkles className="w-4 h-4 text-brand-harbour-400" />
                 </button>
               </div>
             )}

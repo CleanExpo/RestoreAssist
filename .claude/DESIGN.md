@@ -80,6 +80,35 @@ components must carry no raw hex literal.
 | `--color-brand-ink` | `#0a131c` | Drawer / sidebar in dark mode |
 | `--color-brand-abyss` | `#060c14` | Deepest background |
 
+### Colour — harbour scale (signed-in app accent)
+
+The signed-in app's accent tints, badges, rings and gradients use an eleven-step
+scale on the brand-cta hue (oklch hue 253.3): `brand-harbour-50` to
+`brand-harbour-950` (`bg-brand-harbour-500/10`, `text-brand-harbour-600`,
+`ring-brand-harbour-400/40`). It replaces the Tailwind cyan utilities (RA-8464),
+which move over in three PRs. Until the last one lands, `app/globals.css` keeps a
+cyan bridge on the same values so unmoved screens still render harbour blue.
+New code uses `brand-harbour-*`, never `cyan-*`.
+
+| Token | Value |
+|---|---|
+| `--color-brand-harbour-50` | `oklch(0.97 0.046 253.3)` |
+| `--color-brand-harbour-100` | `oklch(0.94 0.046 253.3)` |
+| `--color-brand-harbour-200` | `oklch(0.89 0.092 253.3)` |
+| `--color-brand-harbour-300` | `oklch(0.82 0.092 253.3)` |
+| `--color-brand-harbour-400` | `oklch(0.72 0.132 253.3)` |
+| `--color-brand-harbour-500` | `oklch(0.6 0.132 253.3)` |
+| `--color-brand-harbour-600` | `oklch(0.5 0.132 253.3)` |
+| `--color-brand-harbour-700` | `oklch(0.43 0.132 253.3)` |
+| `--color-brand-harbour-800` | `oklch(0.37 0.132 253.3)` |
+| `--color-brand-harbour-900` | `oklch(0.31 0.132 253.3)` |
+| `--color-brand-harbour-950` | `oklch(0.24 0.132 253.3)` |
+
+The single tokens `brand-harbour` (`#1b5fa6`) and `brand-harbour-light`
+(`#6aa5e2`) stay the link and focus colours; the scale is for tints and fills.
+Steps 600 and up carry white text at 6:1 or better; step 500 measures 3.97:1, so
+a solid white-text fill uses step 600 or `brand-cta`.
+
 ### Contrast — read before choosing a colour
 
 Measured WCAG ratios:

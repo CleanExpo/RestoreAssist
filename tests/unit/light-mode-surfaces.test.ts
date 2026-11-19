@@ -23,7 +23,7 @@ const ROOT = resolve(__dirname, "../..");
 
 const NEUTRAL = "(?:slate|gray|zinc|neutral|stone)";
 const HUE =
-  "(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)";
+  "(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|brand-harbour)";
 const DARK_ONLY = new RegExp(
   [
     `^(?:bg|from|via|to)-${NEUTRAL}-(?:700|800|900|950)(?:\\/\\d+)?$`,
@@ -107,6 +107,13 @@ describe("light-mode surfaces (RA-8305)", () => {
       findUnpairedDarkClasses(
         `"bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 bg-black/50"`,
       ),
+    ).toEqual([]);
+    // The harbour scale (RA-8464, formerly cyan) is a hue like any other.
+    expect(
+      findUnpairedDarkClasses(`"bg-brand-harbour-950/30 text-brand-harbour-300"`),
+    ).toEqual(["1:bg-brand-harbour-950/30", "1:text-brand-harbour-300"]);
+    expect(
+      findUnpairedDarkClasses(`"text-brand-harbour-700 dark:text-brand-harbour-300"`),
     ).toEqual([]);
     // A deliberate dark island is exempt; the same classes without it are not.
     expect(findUnpairedDarkClasses(`"dark relative bg-slate-900 text-slate-300"`)).toEqual([]);

@@ -252,7 +252,7 @@ export default function Claim003ReInspectionPage() {
           Back to pilot dashboard
         </button>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-cyan-50 dark:bg-cyan-950/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+          <div className="w-9 h-9 rounded-lg bg-brand-harbour-50 dark:bg-brand-harbour-950/30 flex items-center justify-center text-brand-harbour-600 dark:text-brand-harbour-400">
             <FileCheck size={18} />
           </div>
           <div>
@@ -276,9 +276,9 @@ export default function Claim003ReInspectionPage() {
       </div>
 
       {/* Context card */}
-      <div className="rounded-lg border border-cyan-200/60 dark:border-cyan-800/40 bg-cyan-50/40 dark:bg-cyan-950/20 px-4 py-3 space-y-1.5">
+      <div className="rounded-lg border border-brand-harbour-200/60 dark:border-brand-harbour-800/40 bg-brand-harbour-50/40 dark:bg-brand-harbour-950/20 px-4 py-3 space-y-1.5">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-700 dark:text-slate-300">
-          <Info size={12} className="text-cyan-600 dark:text-cyan-400" />
+          <Info size={12} className="text-brand-harbour-600 dark:text-brand-harbour-400" />
           Control group only — NIR group is auto-collected
         </div>
         <p className="text-xs text-neutral-600 dark:text-slate-400 leading-relaxed">
@@ -383,7 +383,7 @@ export default function Claim003ReInspectionPage() {
                   value={entry.claimRef}
                   onChange={(e) => updateEntry(idx, "claimRef", e.target.value)}
                   placeholder="e.g. GW-2026-009144"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Re-inspection required */}
                 <select
@@ -391,7 +391,7 @@ export default function Claim003ReInspectionPage() {
                   onChange={(e) =>
                     updateEntry(idx, "reInspectionRequired", e.target.value)
                   }
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 >
                   <option value="1">Yes (required)</option>
                   <option value="0">No (single visit)</option>
@@ -402,7 +402,7 @@ export default function Claim003ReInspectionPage() {
                   value={entry.notes}
                   onChange={(e) => updateEntry(idx, "notes", e.target.value)}
                   placeholder="Optional context"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Remove */}
                 <button
@@ -418,7 +418,7 @@ export default function Claim003ReInspectionPage() {
             {/* Add row */}
             <button
               onClick={addEntry}
-              className="flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 transition-colors font-medium"
+              className="flex items-center gap-1.5 text-xs text-brand-harbour-600 dark:text-brand-harbour-400 hover:text-brand-harbour-700 transition-colors font-medium"
             >
               <Plus size={13} />
               Add row
@@ -445,7 +445,7 @@ export default function Claim003ReInspectionPage() {
                 onClick={handleSubmit}
                 disabled={submitting}
                 size="sm"
-                className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
               >
                 {submitting ? (
                   <>
@@ -494,7 +494,7 @@ export default function Claim003ReInspectionPage() {
               onChange={(e) => setBatchJson(e.target.value)}
               placeholder="Paste JSON array here..."
               rows={10}
-              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 resize-y"
+              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40 resize-y"
             />
 
             {batchErrors.length > 0 && (
@@ -515,7 +515,7 @@ export default function Claim003ReInspectionPage() {
                 onClick={handleBatchSubmit}
                 disabled={submitting || !batchJson.trim()}
                 size="sm"
-                className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
               >
                 {submitting ? (
                   <>
@@ -565,7 +565,7 @@ export default function Claim003ReInspectionPage() {
               Enter using this form. Check the{" "}
               <a
                 href="/dashboard/admin/pilot"
-                className="text-cyan-500 hover:underline"
+                className="text-brand-harbour-500 hover:underline"
               >
                 readiness dashboard
               </a>{" "}
