@@ -139,7 +139,7 @@ export default function PublicSigningPage() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-cyan-500 mx-auto" />
+          <Loader2 className="h-8 w-8 animate-spin text-brand-harbour-500 mx-auto" />
           <p className="mt-3 text-slate-600">Loading signing page...</p>
         </div>
       </div>
@@ -211,7 +211,7 @@ export default function PublicSigningPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Company Header */}
-      <div className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white">
+      <div className="bg-gradient-to-r from-brand-harbour-600 to-blue-600 text-white">
         <div className="max-w-2xl mx-auto px-4 py-8 text-center">
           {form?.companyLogo && (
             <img
@@ -221,7 +221,7 @@ export default function PublicSigningPage() {
             />
           )}
           <h1 className="text-2xl font-bold">{form?.companyName}</h1>
-          <p className="mt-1 text-cyan-100">Signature Request</p>
+          <p className="mt-1 text-brand-harbour-100">Signature Request</p>
         </div>
       </div>
 
@@ -229,8 +229,8 @@ export default function PublicSigningPage() {
         {/* Role badge */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-cyan-100 rounded-full flex items-center justify-center">
-              <FileText className="h-5 w-5 text-cyan-600" />
+            <div className="w-10 h-10 bg-brand-harbour-100 rounded-full flex items-center justify-center">
+              <FileText className="h-5 w-5 text-brand-harbour-600" />
             </div>
             <div>
               <p className="text-sm text-slate-500">You are signing as</p>
@@ -329,7 +329,7 @@ export default function PublicSigningPage() {
                       {formatRole(sig.signatoryRole)}
                     </span>
                     {sig.id === signatory?.id && (
-                      <span className="text-xs px-1.5 py-0.5 bg-cyan-100 text-cyan-700 rounded-full">
+                      <span className="text-xs px-1.5 py-0.5 bg-brand-harbour-100 text-brand-harbour-700 rounded-full">
                         You
                       </span>
                     )}
@@ -350,7 +350,7 @@ export default function PublicSigningPage() {
               type="checkbox"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
-              className="mt-1 h-4 w-4 text-cyan-500 border-slate-300 rounded focus:ring-cyan-500"
+              className="mt-1 h-4 w-4 text-brand-harbour-500 border-slate-300 rounded focus:ring-brand-harbour-500"
             />
             <span className="text-sm text-slate-700">
               I have read and understand the authority described above, and I
@@ -367,7 +367,7 @@ export default function PublicSigningPage() {
               type="text"
               value={signatoryName}
               onChange={(e) => setSignatoryName(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-harbour-500 focus:border-brand-harbour-500"
               placeholder="Your full name"
             />
           </div>

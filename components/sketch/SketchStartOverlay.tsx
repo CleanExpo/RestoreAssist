@@ -357,7 +357,7 @@ export function SketchStartOverlay({
               <button
                 type="button"
                 onClick={onPlaceMoisture}
-                className="flex items-center gap-2 min-h-11 px-3 rounded-xl bg-cyan-500/10 border border-cyan-400/25 text-cyan-50 hover:bg-cyan-500/18 text-left text-sm"
+                className="flex items-center gap-2 min-h-11 px-3 rounded-xl bg-brand-harbour-500/10 border border-brand-harbour-400/25 text-brand-harbour-50 hover:bg-brand-harbour-500/18 text-left text-sm"
               >
                 <Droplets size={16} className="shrink-0" />
                 Drop moisture pins first

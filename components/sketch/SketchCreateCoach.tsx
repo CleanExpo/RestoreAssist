@@ -43,7 +43,7 @@ export function SketchCreateCoach({
       <div className="pointer-events-auto max-w-lg w-full rounded-xl border border-white/12 bg-[#0E1518]/92 backdrop-blur-md px-4 py-3 shadow-xl">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-300/90">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-harbour-300/90">
               Draw from scratch
             </p>
             <p className="mt-0.5 text-sm font-medium text-white leading-snug">
@@ -69,7 +69,7 @@ export function SketchCreateCoach({
                   className={cn(
                     "min-h-9 min-w-[4.5rem] rounded-lg border px-2 text-[11px] font-semibold",
                     templateKind === kind
-                      ? "border-cyan-400/70 bg-cyan-500/15 text-cyan-100"
+                      ? "border-brand-harbour-400/70 bg-brand-harbour-500/15 text-brand-harbour-100"
                       : "border-white/12 text-white/65 hover:bg-white/5",
                   )}
                 >

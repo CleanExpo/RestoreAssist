@@ -37,7 +37,7 @@ export function SketchRoomMoistureCrop({
       <div className="absolute inset-0 bg-brand-deep/35" />
       {/* Guide rectangle */}
       <div
-        className="absolute border-2 border-cyan-400/90 shadow-[0_0_0_9999px_rgba(11,27,43,0.45)]"
+        className="absolute border-2 border-brand-harbour-400/90 shadow-[0_0_0_9999px_rgba(11,27,43,0.45)]"
         style={{
           left: crop.left,
           top: crop.top,
@@ -46,7 +46,7 @@ export function SketchRoomMoistureCrop({
         }}
       >
         <div className="absolute -top-7 left-0 flex items-center gap-1.5 pointer-events-auto">
-          <span className="inline-flex items-center gap-1 rounded-md bg-cyan-500/20 border border-cyan-400/50 px-2 py-0.5 text-[10px] font-medium text-cyan-50">
+          <span className="inline-flex items-center gap-1 rounded-md bg-brand-harbour-500/20 border border-brand-harbour-400/50 px-2 py-0.5 text-[10px] font-medium text-brand-harbour-50">
             <ChromeDroplet size={11} />
             Moisture map
             {roomLabel ? ` — ${roomLabel}` : ""}
@@ -61,10 +61,10 @@ export function SketchRoomMoistureCrop({
           </button>
         </div>
         {/* Corner ticks */}
-        <span className="absolute -left-0.5 -top-0.5 h-3 w-3 border-l-2 border-t-2 border-cyan-300" />
-        <span className="absolute -right-0.5 -top-0.5 h-3 w-3 border-r-2 border-t-2 border-cyan-300" />
-        <span className="absolute -left-0.5 -bottom-0.5 h-3 w-3 border-l-2 border-b-2 border-cyan-300" />
-        <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 border-r-2 border-b-2 border-cyan-300" />
+        <span className="absolute -left-0.5 -top-0.5 h-3 w-3 border-l-2 border-t-2 border-brand-harbour-300" />
+        <span className="absolute -right-0.5 -top-0.5 h-3 w-3 border-r-2 border-t-2 border-brand-harbour-300" />
+        <span className="absolute -left-0.5 -bottom-0.5 h-3 w-3 border-l-2 border-b-2 border-brand-harbour-300" />
+        <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 border-r-2 border-b-2 border-brand-harbour-300" />
       </div>
     </div>
   );

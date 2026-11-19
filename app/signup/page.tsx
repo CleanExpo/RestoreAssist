@@ -230,7 +230,7 @@ export default function SignupPage() {
           initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.08 }}
-          className="mb-4 bg-cyan-50 border border-cyan-200 rounded-xl p-4"
+          className="mb-4 bg-brand-harbour-50 border border-brand-harbour-200 rounded-xl p-4"
           role="note"
           aria-label={SIGNUP_KEY_NOTE_TITLE}
         >
