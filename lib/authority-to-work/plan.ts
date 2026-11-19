@@ -18,7 +18,7 @@
  * payment are separate, later slices behind their own approvals.
  */
 import { TEMPLATES, type TemplateCode } from "./catalogue";
-import { formatMoney, sameBasis } from "./money";
+import { exactAmount, formatMoney, sameBasis } from "./money";
 import type {
   Approval,
   ApprovalKind,
@@ -404,13 +404,20 @@ function insurerGate(
       notes.push(
         `rule ${cap.id} is in ${cap.cap.currency} ${cap.cap.gst} but the amount is ${line.amount.currency} ${line.amount.gst}; not compared${tag}`,
       );
+      // This line cannot be added to the total, so every later total for this
+      // cap is unknown rather than silently lower.
+      ledger.set(cap.id, Number.POSITIVE_INFINITY);
       hold = true;
       continue;
     }
     const before = ledger.get(cap.id) ?? cap.committed.minor;
     const after = before + line.amount.minor;
     if (![before, line.amount.minor, after, cap.cap.minor].every(Number.isSafeInteger)) {
-      notes.push(`rule ${cap.id}: the running total is too large to add exactly; not compared${tag}`);
+      notes.push(
+        Number.isFinite(before)
+          ? `rule ${cap.id}: the running total is too large to add exactly; not compared${tag}`
+          : `rule ${cap.id}: an earlier line for this funder could not be added, so the running total is unknown${tag}`,
+      );
       ledger.set(cap.id, Number.POSITIVE_INFINITY);
       hold = true;
       continue;
@@ -760,6 +767,16 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
   const scopes: ScopePlan[] = [];
 
   for (const line of job.scope) {
+    if (!exactAmount(line.amount)) {
+      holds.push(`scope line ${line.id} has an amount that is not a whole, non-negative number of cents that can be added exactly`);
+      // Its share of any funding limit is unknown, so later lines on that funder hold too.
+      for (const cap of job.caps) {
+        if (line.payment.basis === "INSURER_WORK_ORDER" && cap.funderPartyId === line.payment.payerPartyId) {
+          ledger.set(cap.id, Number.POSITIVE_INFINITY);
+        }
+      }
+      continue;
+    }
     const asset = ctx.assets.get(line.assetId);
     if (!asset) {
       holds.push(`scope line ${line.id} names an asset that is not on the job`);

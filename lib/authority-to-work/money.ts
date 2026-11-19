@@ -5,8 +5,16 @@ export function sameBasis(a: Money, b: Money): boolean {
   return a.currency === b.currency && a.gst === b.gst;
 }
 
+/**
+ * The one rule for a usable amount: a whole, non-negative number of minor units
+ * that JavaScript can add exactly. Anything else is never compared or charged.
+ */
+export function exactAmount(m: Money): boolean {
+  return Number.isSafeInteger(m.minor) && m.minor >= 0;
+}
+
 export function formatMoney(m: Money): string {
-  if (!Number.isInteger(m.minor)) {
+  if (!Number.isSafeInteger(m.minor)) {
     throw new Error(`money must be integer minor units, got ${m.minor}`);
   }
   const symbol = m.currency === "AUD" ? "A$" : "NZ$";

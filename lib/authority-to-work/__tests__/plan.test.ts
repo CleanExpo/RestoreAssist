@@ -472,6 +472,32 @@ describe("hazards, evidence holds and jurisdiction", () => {
     expect(gate(planAuthority(job), "L1", "INSURER").state).toBe("HOLD");
   });
 
+  it("an earlier insurer line on a different GST basis leaves later totals unknown, so they hold", () => {
+    const job = nswStrataWaterLoss();
+    job.caps[0].cap.minor = 15_000;
+    job.caps[0].committed.minor = 0;
+    job.caps[0].restrictedNeedsSeparateApproval = [];
+    const l1 = job.scope[0];
+    job.scope = [
+      { ...l1, id: "G1", amount: { minor: 10_000, currency: "AUD", gst: "INC" } },
+      { ...l1, id: "G2", amount: { minor: 10_000, currency: "AUD", gst: "EX" } },
+    ];
+    const plan = planAuthority(job);
+    expect(gate(plan, "G1", "INSURER").state).toBe("HOLD");
+    expect(gate(plan, "G2", "INSURER").state).toBe("HOLD");
+  });
+
+  it("an amount that is not a safe whole number of cents holds the line, whoever pays", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].amount.minor = 2 ** 53;
+    for (const kind of ["WORK", "PAYMENT"] as const) {
+      job.approvals.push({ id: `u-${kind}`, partyId: "dir", kind, scopeLineIds: ["C1"], evidence: "verified" });
+    }
+    const plan = planAuthority(job);
+    expect(plan.scopes.find((x) => x.scopeLineId === "C1")?.canStart ?? false).toBe(false);
+    expect(plan.holds.some((h) => h.includes("C1"))).toBe(true);
+  });
+
   it("an asset with no established controller holds the work", () => {
     const job = nswStrataWaterLoss();
     job.assets[2].ownershipEvidence = "reported";
