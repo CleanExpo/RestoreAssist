@@ -8,6 +8,8 @@ import {
   renderAuditExportCsv,
   type AuditExportRow,
 } from "@/lib/operations/audit-export-csv";
+import { parseIsoQueryParam } from "@/lib/api/parse-iso-query";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 /** GET — org audit trail CSV (Wave 6, manager/owner). */
 export async function GET(request: NextRequest) {
@@ -29,6 +31,14 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 10,
+      windowMs: 60 * 1000,
+      prefix: "audit-export",
+      key: session.user.id,
+    });
+    if (rateLimited) return rateLimited;
+
     const caller = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { organizationId: true },
@@ -42,16 +52,24 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const sinceParam = request.nextUrl.searchParams.get("since");
-    const since = sinceParam ? new Date(sinceParam) : null;
+    const sinceParsed = parseIsoQueryParam(
+      request.nextUrl.searchParams.get("since"),
+    );
+    if (!sinceParsed.ok) {
+      return apiError(request, {
+        code: "VALIDATION_ERROR",
+        message: sinceParsed.reason,
+        status: 400,
+      });
+    }
 
     const logs = await prisma.auditLog.findMany({
       where: {
         inspection: {
           user: { organizationId: orgId },
         },
-        ...(since && !Number.isNaN(since.getTime())
-          ? { timestamp: { gte: since } }
+        ...(sinceParsed.value
+          ? { timestamp: { gte: sinceParsed.value } }
           : {}),
       },
       orderBy: { timestamp: "desc" },
