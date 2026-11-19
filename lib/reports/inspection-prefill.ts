@@ -187,9 +187,7 @@ export function buildReportPrefill(
   set("technicianAttendanceDate", isoDate(inspection.inspectionDate));
   set("technicianFieldReport", text(inspection.lossDescription));
 
-  // Via the single boundary normaliser. It returns null for the ClaimType values
-  // with no unambiguous JobType (CONTENTS, BIOHAZARD, ODOUR, CARPET, HVAC,
-  // ASBESTOS) -- those leave hazardType absent rather than guessing.
+  // Via the single boundary normaliser (Wave 0 maps every Prisma ClaimType).
   const jobType = normalizeClaimType(inspection.claimType);
   if (jobType) fields.hazardType = jobType;
 
