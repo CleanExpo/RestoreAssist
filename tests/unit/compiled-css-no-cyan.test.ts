@@ -31,14 +31,30 @@ beforeAll(async () => {
   css = out.css;
 }, 120_000);
 
+/** True when `css` has a rule for exactly the class `cls`, not a longer one. */
+export function hasClassSelector(text: string, cls: string): boolean {
+  const escaped = cls.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+  // The class ends where the selector ends: not followed by another class
+  // character or by an escape (Tailwind writes `/40` as `\/40`).
+  return new RegExp(`\\.${escaped}(?![\\w\\\\-])`).test(text);
+}
+
 describe("compiled app stylesheet has no Tailwind cyan (RA-8464)", () => {
+  it("matches a whole class selector, not a longer one that starts with it", () => {
+    const sample =
+      ".bg-brand-harbour-500 { color: red }\n.ring-brand-harbour-400\\/40 { }";
+    expect(hasClassSelector(sample, "bg-brand-harbour-500")).toBe(true);
+    expect(hasClassSelector(sample, "bg-brand-harbour-50")).toBe(false);
+    expect(hasClassSelector(sample, "ring-brand-harbour-400")).toBe(false);
+  });
+
   it("compiles the brand harbour utilities the app uses", () => {
     for (const cls of [
-      ".bg-brand-harbour-50",
-      ".text-brand-harbour-500",
-      ".ring-brand-harbour-400",
+      "bg-brand-harbour-50",
+      "text-brand-harbour-500",
+      "ring-brand-harbour-400",
     ]) {
-      expect(css, cls).toContain(cls);
+      expect(hasClassSelector(css, cls), cls).toBe(true);
     }
   });
 
