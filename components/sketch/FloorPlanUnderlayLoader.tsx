@@ -487,7 +487,7 @@ export function FloorPlanUnderlayLoader({
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-colors"
       >
-        <Layers size={14} className="text-cyan-500 flex-shrink-0" />
+        <Layers size={14} className="text-brand-harbour-500 flex-shrink-0" />
         <span className="font-medium text-neutral-700 dark:text-slate-300 flex-1 text-left">
           Floor Plan Underlay
         </span>
@@ -510,7 +510,7 @@ export function FloorPlanUnderlayLoader({
             type="button"
             onClick={() => void handleSuggestRooms()}
             disabled={suggesting}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium border border-cyan-400/40 text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium border border-brand-harbour-400/40 text-brand-harbour-600 dark:text-brand-harbour-300 hover:bg-brand-harbour-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {suggesting ? (
               <Loader2 size={13} className="animate-spin" />
@@ -543,13 +543,13 @@ export function FloorPlanUnderlayLoader({
                   onChange={(e) => setListingUrl(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="https://www.domain.com.au/…"
-                  className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
+                  className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30 focus:border-brand-harbour-400"
                 />
                 <button
                   type="button"
                   onClick={fetchListing}
                   disabled={loading || (!listingUrl.trim() && !address.trim())}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-brand-harbour-500 text-white hover:bg-brand-harbour-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                 >
                   {loading ? (
                     <Loader2 size={13} className="animate-spin" />
@@ -568,7 +568,7 @@ export function FloorPlanUnderlayLoader({
                 onChange={(e) => setAddress(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter property address…"
-                className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
+                className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30 focus:border-brand-harbour-400"
               />
             </div>
           )}
@@ -585,7 +585,7 @@ export function FloorPlanUnderlayLoader({
                       type="button"
                       onClick={() => fetchByUrl(c)}
                       disabled={loading}
-                      className="w-full text-left text-[11px] px-2 py-1.5 rounded-md border border-neutral-200 dark:border-slate-600 hover:border-cyan-400 hover:bg-cyan-500/5 text-neutral-700 dark:text-slate-200 truncate disabled:opacity-40"
+                      className="w-full text-left text-[11px] px-2 py-1.5 rounded-md border border-neutral-200 dark:border-slate-600 hover:border-brand-harbour-400 hover:bg-brand-harbour-500/5 text-neutral-700 dark:text-slate-200 truncate disabled:opacity-40"
                       title={c}
                     >
                       {c.replace(/^https?:\/\/(www\.)?/, "")}
@@ -615,7 +615,7 @@ export function FloorPlanUnderlayLoader({
               className={cn(
                 "rounded-lg border border-dashed p-3 transition-colors",
                 dragOver
-                  ? "border-cyan-400 bg-cyan-500/5"
+                  ? "border-brand-harbour-400 bg-brand-harbour-500/5"
                   : "border-neutral-300 dark:border-slate-600",
               )}
             >
@@ -623,7 +623,7 @@ export function FloorPlanUnderlayLoader({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={preparingUnderlay}
-                className="flex items-center gap-2 text-sm text-neutral-500 dark:text-slate-400 hover:text-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 text-sm text-neutral-500 dark:text-slate-400 hover:text-brand-harbour-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {preparingUnderlay ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -662,7 +662,7 @@ export function FloorPlanUnderlayLoader({
               quoted $9.95 for the life of the $9.95 era and would have gone
               stale the moment the amount moved. */}
           {upgradeRequired && (
-            <div className="flex flex-col gap-2 p-3 rounded-lg bg-cyan-500/10 border border-cyan-400/30 text-xs">
+            <div className="flex flex-col gap-2 p-3 rounded-lg bg-brand-harbour-500/10 border border-brand-harbour-400/30 text-xs">
               <p className="font-medium text-neutral-700 dark:text-slate-200">
                 Automatic floor plan fetch needs the Floor Plan Underlay add-on
               </p>
@@ -674,7 +674,7 @@ export function FloorPlanUnderlayLoader({
                 type="button"
                 onClick={handleUpgrade}
                 disabled={upgrading}
-                className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-sm font-medium bg-brand-harbour-500 text-white hover:bg-brand-harbour-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {upgrading ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -704,7 +704,7 @@ export function FloorPlanUnderlayLoader({
                     className={cn(
                       "relative w-16 h-12 rounded-md overflow-hidden border-2 transition-all flex-shrink-0",
                       selectedImage === img
-                        ? "border-cyan-500 shadow-md shadow-cyan-500/20"
+                        ? "border-brand-harbour-500 shadow-md shadow-brand-harbour-500/20"
                         : "border-transparent hover:border-neutral-300 dark:hover:border-slate-500",
                     )}
                   >
@@ -715,7 +715,7 @@ export function FloorPlanUnderlayLoader({
                       className="w-full h-full object-cover"
                     />
                     {results?.floorPlanImages.includes(img) && (
-                      <span className="absolute bottom-0 left-0 right-0 text-center text-white text-[9px] font-bold bg-cyan-600/70 py-0.5">
+                      <span className="absolute bottom-0 left-0 right-0 text-center text-white text-[9px] font-bold bg-brand-harbour-600/70 py-0.5">
                         Floor Plan
                       </span>
                     )}
@@ -767,7 +767,7 @@ export function FloorPlanUnderlayLoader({
                 step={0.05}
                 value={opacity}
                 onChange={(e) => setOpacity(parseFloat(e.target.value))}
-                className="w-full accent-cyan-500"
+                className="w-full accent-brand-harbour-500"
               />
             </div>
           )}
@@ -784,7 +784,7 @@ export function FloorPlanUnderlayLoader({
                   type="checkbox"
                   checked={holdsRights}
                   onChange={(e) => setHoldsRights(e.target.checked)}
-                  className="mt-0.5 accent-cyan-500"
+                  className="mt-0.5 accent-brand-harbour-500"
                 />
                 The client holds the rights to use this plan.
               </label>
@@ -793,7 +793,7 @@ export function FloorPlanUnderlayLoader({
                   type="checkbox"
                   checked={compliesTerms}
                   onChange={(e) => setCompliesTerms(e.target.checked)}
-                  className="mt-0.5 accent-cyan-500"
+                  className="mt-0.5 accent-brand-harbour-500"
                 />
                 Importing it complies with the source&rsquo;s terms of use.
               </label>
@@ -811,7 +811,7 @@ export function FloorPlanUnderlayLoader({
                   ? attestation.reason
                   : undefined
               }
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium bg-brand-harbour-500 text-white hover:bg-brand-harbour-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {applying ? (
                 <Loader2 size={13} className="animate-spin" />

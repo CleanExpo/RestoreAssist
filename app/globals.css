@@ -459,7 +459,7 @@ body {
 
 /* Gradient text */
 .gradient-text {
-  @apply bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent;
+  @apply bg-gradient-to-r from-blue-400 via-brand-harbour-400 to-blue-400 bg-clip-text text-transparent;
 }
 
 /* Smooth hover effects */

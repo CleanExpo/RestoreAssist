@@ -147,7 +147,7 @@ function ForgotPasswordForm() {
         {/* Logo */}
         <div className="text-center mb-8">
           <motion.h1
-            className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent mb-2"
+            className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-brand-harbour-400 to-blue-400 bg-clip-text text-transparent mb-2"
             style={{ fontFamily: "Titillium Web, sans-serif" }}
           >
             Restore Assist
@@ -168,7 +168,7 @@ function ForgotPasswordForm() {
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
                   step === s
-                    ? "bg-cyan-500 text-white"
+                    ? "bg-brand-harbour-500 text-white"
                     : ["email", "code", "password"].indexOf(step) > i
                       ? "bg-emerald-500 text-white"
                       : "bg-slate-700 text-slate-400"
@@ -215,7 +215,7 @@ function ForgotPasswordForm() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50 transition-all duration-300"
                     placeholder="Enter your email"
                     required
                   />
@@ -236,7 +236,7 @@ function ForgotPasswordForm() {
               <motion.button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 style={{ fontFamily: "Titillium Web, sans-serif" }}
@@ -295,7 +295,7 @@ function ForgotPasswordForm() {
                     onChange={(e) =>
                       setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
                     }
-                    className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300 text-center text-2xl tracking-[0.5em] font-mono"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50 transition-all duration-300 text-center text-2xl tracking-[0.5em] font-mono"
                     placeholder="000000"
                     required
                   />
@@ -316,7 +316,7 @@ function ForgotPasswordForm() {
               <motion.button
                 type="submit"
                 disabled={code.length !== 6}
-                className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 style={{ fontFamily: "Titillium Web, sans-serif" }}
@@ -332,7 +332,7 @@ function ForgotPasswordForm() {
                   setError("");
                   setCode("");
                 }}
-                className="w-full text-sm text-slate-400 hover:text-cyan-400 transition-colors"
+                className="w-full text-sm text-slate-400 hover:text-brand-harbour-400 transition-colors"
               >
                 Didn't receive a code? Try again
               </button>
@@ -363,7 +363,7 @@ function ForgotPasswordForm() {
                     type={showNewPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
+                    className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50 transition-all duration-300"
                     placeholder={`Minimum ${RESET_PASSWORD_MIN_LENGTH} characters`}
                     required
                     minLength={RESET_PASSWORD_MIN_LENGTH}
@@ -398,7 +398,7 @@ function ForgotPasswordForm() {
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
+                    className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50 transition-all duration-300"
                     placeholder="Confirm new password"
                     required
                     minLength={RESET_PASSWORD_MIN_LENGTH}
@@ -431,7 +431,7 @@ function ForgotPasswordForm() {
               <motion.button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 style={{ fontFamily: "Titillium Web, sans-serif" }}
@@ -452,7 +452,7 @@ function ForgotPasswordForm() {
             Signed up with Google or Apple? Use that sign-in method. Accounts
             without a password do not receive password reset codes.
           </p>
-          <Link href="/login?switchAccount=google" className="mt-2 block text-center text-cyan-400 underline">
+          <Link href="/login?switchAccount=google" className="mt-2 block text-center text-brand-harbour-400 underline">
             Continue with Google or choose another account
           </Link>
 
@@ -460,7 +460,7 @@ function ForgotPasswordForm() {
           <div className="mt-6 text-center">
             <Link
               href="/login"
-              className="text-cyan-400 hover:text-cyan-300 transition-colors font-medium flex items-center justify-center gap-2"
+              className="text-brand-harbour-400 hover:text-brand-harbour-300 transition-colors font-medium flex items-center justify-center gap-2"
             >
               <ArrowLeft size={16} />
               Back to Login
@@ -477,7 +477,7 @@ export default function ForgotPasswordPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-brand-harbour-400/30 border-t-brand-harbour-400 rounded-full animate-spin" />
         </div>
       }
     >
