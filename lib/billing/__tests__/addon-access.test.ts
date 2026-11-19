@@ -129,6 +129,16 @@ describe("addonAccess mirrors POST /api/addons/checkout", () => {
       action: "add_seat",
     },
     {
+      // Checkout refuses any purchase while the base plan is not ACTIVE, even
+      // one more seat on an existing pack, so the card must not offer it.
+      name: "owner of a paid seat pack on a past-due plan manages it, no Add a seat",
+      perSeat: true,
+      holding: "paid",
+      viewer: owner({ subscriptionStatus: "PAST_DUE" }),
+      label: "optional_paid",
+      action: "manage",
+    },
+    {
       name: "complimentary pack has no button, even for the owner",
       perSeat: false,
       holding: "complimentary",

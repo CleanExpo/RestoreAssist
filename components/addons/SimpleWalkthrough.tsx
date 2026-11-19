@@ -127,9 +127,19 @@ export interface SimpleWalkthroughProps {
 export function SimpleWalkthrough(props: SimpleWalkthroughProps) {
   return (
     <BillingGate fallback={null}>
-      <SimpleWalkthroughContent {...props} />
+      <SimpleWalkthroughWithAccount {...props} />
     </BillingGate>
   );
+}
+
+/**
+ * Progress, step and the loaded catalogue all belong to one signed-in account.
+ * Keying the content by account gives a different account a fresh guide that
+ * restores its own progress, instead of showing the last account's state.
+ */
+function SimpleWalkthroughWithAccount(props: SimpleWalkthroughProps) {
+  const accountId = useSession().data?.user?.id ?? null;
+  return <SimpleWalkthroughContent key={accountId ?? "no-account"} {...props} />;
 }
 
 function SimpleWalkthroughContent({ mode, onClose }: SimpleWalkthroughProps) {

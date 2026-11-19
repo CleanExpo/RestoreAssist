@@ -321,9 +321,20 @@ export function AddonCardDeck(props: AddonCardDeckProps) {
         </p>
       }
     >
-      <AddonCardDeckContent {...props} />
+      <AddonCardDeckWithAccount {...props} />
     </BillingGate>
   );
+}
+
+/**
+ * Everything the deck holds (catalogue access, notices, pending purchases)
+ * belongs to one signed-in account. Keying the content by account means a
+ * different account signing in gets a fresh deck that loads its own access,
+ * rather than one field at a time remembering to reset.
+ */
+function AddonCardDeckWithAccount(props: AddonCardDeckProps) {
+  const accountId = useSession().data?.user?.id ?? null;
+  return <AddonCardDeckContent key={accountId ?? "no-account"} {...props} />;
 }
 
 function AddonCardDeckContent({ className, returnTo }: AddonCardDeckProps) {

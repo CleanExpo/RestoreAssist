@@ -14,8 +14,11 @@ import { CRM_WORKS_ALONE } from "@/lib/addons/addon-guide";
 import { OWNER_ONLY_REASON, TRIAL_PACK_REASON } from "@/lib/billing/addon-access";
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
 
+// The signed-in account can change while a component stays mounted (sign out
+// and in as someone else in the same tab), so the tests can switch it.
+const session = vi.hoisted(() => ({ userId: "owner-A" }));
 vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: { user: { id: "owner-A" } }, status: "authenticated" }),
+  useSession: () => ({ data: { user: { id: session.userId } }, status: "authenticated" }),
 }));
 
 const addon = (sku: string, name: string, perSeat = false) => ({
@@ -62,6 +65,7 @@ function serve(catalog: unknown) {
 beforeEach(() => {
   vi.restoreAllMocks();
   window.localStorage.clear();
+  session.userId = "owner-A";
 });
 
 describe("SimpleWalkthrough (RA-8466)", () => {
@@ -166,6 +170,22 @@ describe("SimpleWalkthrough (RA-8466)", () => {
     expect(screen.getByTestId("core-step-job")).toBeInTheDocument();
   });
 
+  it("a different account signing in starts from its own progress, not the last account's", () => {
+    serve(trialCatalog);
+    const { rerender } = render(<SimpleWalkthrough mode="setup" />);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Finish walkthrough" }));
+    expect(screen.getByRole("button", { name: "Show it again" })).toBeInTheDocument();
+
+    // Account B has never seen the guide: it must start at step one.
+    session.userId = "owner-B";
+    rerender(<SimpleWalkthrough mode="setup" />);
+    expect(screen.queryByRole("button", { name: "Show it again" })).toBeNull();
+    expect(screen.getByTestId("core-step-job")).toBeInTheDocument();
+    expect(readProgress("owner-B")).toBeNull();
+  });
+
   it("reopened from Field Add-Ons, it links to the real job pages and closes", () => {
     serve(trialCatalog);
     const onClose = vi.fn();
@@ -192,6 +212,23 @@ describe("AddonCardDeck with server access (RA-8466)", () => {
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.queryByRole("link", { name: /manage|choose a plan/i })).toBeNull();
     expect(screen.getAllByText(OWNER_ONLY_REASON)).toHaveLength(3);
+  });
+
+  it("reloads the access rules when a different account signs in", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => trialCatalog })
+      .mockResolvedValue({ ok: true, json: async () => teamCatalog });
+    vi.stubGlobal("fetch", fetchMock as never);
+    const { rerender } = render(<AddonCardDeck />);
+    const seats = await screen.findByTestId("addon-card-TECHNICIAN_SEATS");
+    expect(within(seats).getByRole("button", { name: "Add pack" })).toBeInTheDocument();
+
+    // A team member now signs in: the owner's buy controls must not remain.
+    session.userId = "member-B";
+    rerender(<AddonCardDeck />);
+    await waitFor(() => expect(screen.getAllByText(OWNER_ONLY_REASON)).toHaveLength(3));
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("a trial owner gets Choose a plan on a flat pack, Add pack on seats, nothing on a free pack", async () => {

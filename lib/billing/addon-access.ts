@@ -160,7 +160,14 @@ export function addonAccess(input: {
 
   if (holding === "paid") {
     // An active seat pack takes one more seat in place; other packs are managed.
-    if (perSeat && viewer.role === "ADMIN") {
+    // Another seat is still a purchase, so checkout's plan rule applies first:
+    // with the base plan past due it refuses, and the owner can only manage.
+    if (
+      perSeat &&
+      viewer.role === "ADMIN" &&
+      planAllowsAddonPurchase(perSeat, viewer.subscriptionStatus, viewer.trialEndsAt, input.now)
+        .allowed
+    ) {
       return { label: "optional_paid", holding, action: "add_seat", reason: PAID_REASON };
     }
     return { label: "optional_paid", holding, action: "manage", reason: PAID_REASON };
