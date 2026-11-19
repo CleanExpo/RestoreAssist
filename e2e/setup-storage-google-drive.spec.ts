@@ -12,6 +12,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { LOCAL_ORIGIN } from "./helpers/local-origin";
 import { generateValidAbn } from "./helpers/abn";
 
 test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
@@ -59,7 +60,7 @@ test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
         const state = url.searchParams.get("state") ?? "";
         const redirectUri =
           url.searchParams.get("redirect_uri") ??
-          "http://localhost:3000/api/oauth/google-drive/callback";
+          `${LOCAL_ORIGIN}/api/oauth/google-drive/callback`;
         const cbUrl = new URL(redirectUri);
         cbUrl.searchParams.set("code", "fake-auth-code");
         cbUrl.searchParams.set("state", state);
