@@ -20,7 +20,6 @@ import { prisma } from "@/lib/prisma";
 import { softDelete } from "@/lib/prisma-helpers";
 import { z } from "zod";
 import {
-  assertInspectionAssignedWrite,
   assertInspectionTenancy,
   resolveInspectionWrite,
   writeWithinInspectionScope,
@@ -252,7 +251,7 @@ export async function POST(
     >;
 
     if (stampClaimType === "ASBESTOS") {
-      const write = await assertInspectionAssignedWrite(session, id);
+      const write = await resolveInspectionWrite(session, id);
       if (!write.ok) {
         return NextResponse.json(
           { error: write.reason },

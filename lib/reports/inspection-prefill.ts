@@ -187,9 +187,26 @@ export function buildReportPrefill(
   set("technicianAttendanceDate", isoDate(inspection.inspectionDate));
   set("technicianFieldReport", text(inspection.lossDescription));
 
-  // Via the single boundary normaliser (Wave 0 maps every Prisma ClaimType).
+  // Report `hazardType` is water-centric legacy — only copy canonical loss
+  // families that belong on a damage report. Other claim stamps (asbestos,
+  // contents, carpet, …) stay absent so we never print the wrong hazard family.
+  const stamp = inspection.claimType?.trim().toUpperCase();
   const jobType = normalizeClaimType(inspection.claimType);
-  if (jobType) fields.hazardType = jobType;
+  const REPORT_HAZARD_JOB_TYPES = new Set([
+    "WATER_DAMAGE",
+    "FIRE_SMOKE",
+    "MOULD",
+    "STORM",
+  ]);
+  // Odour jobs share fire workflow steps but must not claim "fire/smoke" on reports.
+  if (
+    stamp &&
+    stamp !== "ODOUR" &&
+    jobType &&
+    REPORT_HAZARD_JOB_TYPES.has(jobType)
+  ) {
+    fields.hazardType = jobType;
+  }
 
   // Report.buildingAge is the YEAR BUILT, not an age in years. Downstream
   // asbestos and lead logic reads it as a construction year and resolves the
