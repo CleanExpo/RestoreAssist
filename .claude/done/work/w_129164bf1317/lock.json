@@ -1,0 +1,10 @@
+{
+  "schema": "done/1",
+  "work_id": "w_129164bf1317",
+  "contract_digest": "72480159035c7bfd7d933914d49ce45fcad4a739c7e154f857b4b7d524143fbb",
+  "baseline_head": "0d1bdd1c0d603843cd90861c4d8ec880b7d82ef5",
+  "identity_key": "uni-3468-ra-e2e-ports@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-e2e-ports",
+  "locked_at_utc": "2026-11-19T02:06:55Z",
+  "criteria_count": 4,
+  "recipe_pins": {}
+}
