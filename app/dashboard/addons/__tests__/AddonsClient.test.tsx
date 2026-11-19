@@ -107,7 +107,8 @@ describe("AddonsClient", () => {
         "/api/addons/checkout",
         expect.objectContaining({
           method: "POST",
-          body: JSON.stringify({ addonKey: "TECHNICIAN_SEATS" }),
+          // RA-8466: a checkout started here returns here.
+          body: JSON.stringify({ addonKey: "TECHNICIAN_SEATS", returnTo: "addons" }),
         }),
       ),
     );
@@ -157,6 +158,7 @@ describe("AddonsClient", () => {
     expect(JSON.parse(init.body)).toEqual({
       addonKey: "TECHNICIAN_SEATS",
       expectedSeats: 2,
+      returnTo: "addons",
     });
     expect(init.headers["Idempotency-Key"]).toEqual(expect.any(String));
   });

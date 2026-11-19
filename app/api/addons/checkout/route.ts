@@ -16,7 +16,7 @@ import { TECHNICIAN_SEATS_MAX_PER_CHECKOUT } from "@/lib/billing/technician-seat
 import { isComplimentaryEntitlement } from "@/lib/billing/founding-trial-grant";
 import { CHECKOUT_CANCEL_PATH } from "@/lib/billing/checkout-presentation";
 import {
-  parseCheckoutReturn,
+  parseAddonCheckoutReturn,
   seatReturnUrls,
 } from "@/lib/billing/checkout-return";
 import {
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       }
       const { addonKey } = parsedBody;
 
-      const checkoutReturn = parseCheckoutReturn(parsedBody.returnTo);
+      const checkoutReturn = parseAddonCheckoutReturn(parsedBody.returnTo);
       if (!checkoutReturn.ok) {
         return apiError(request, {
           code: "VALIDATION",

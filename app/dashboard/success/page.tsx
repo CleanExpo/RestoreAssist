@@ -25,6 +25,7 @@ import {
 } from "@/lib/dashboard/simple-dashboard-theme";
 import { cn } from "@/lib/utils";
 import { TeamInviteReturn } from "./TeamInviteReturn";
+import { addonDonePath } from "@/lib/billing/checkout-return";
 
 // Module-level flag to prevent verification from running multiple times across remounts
 let globalVerificationComplete = false;
@@ -38,9 +39,11 @@ export default function SuccessPage() {
 function PurchaseSuccess() {
   const router = useRouter();
   const searchParams = useSearchParams() ?? new URLSearchParams();
-  const { data: session, update } = useSession();
+  const { data: _session, update } = useSession();
   const addonKey = searchParams.get("addon");
   const isAddonPurchase = !!addonKey;
+  // RA-8466: a pack bought from setup or Field Add-Ons goes back there.
+  const addonDone = addonDonePath(searchParams.get("next"));
   // app/api/checkout-lifetime/route.ts returns lifetime buyers with ?lifetime=1.
   const isLifetimeReturn = searchParams.get("lifetime") === "1";
   const [purchasedPlan, setPurchasedPlan] = useState<{
@@ -60,7 +63,7 @@ function PurchaseSuccess() {
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper to safely set state only if not completed
-  const safeSetState = (fn: () => void) => {
+  const _safeSetState = (fn: () => void) => {
     if (!isCompletedRef.current && !isProcessingRef.current) {
       fn();
     }
@@ -181,7 +184,7 @@ function PurchaseSuccess() {
                 }
                 cleanup();
                 if (!isCapacitorIOS()) {
-                  router.push("/dashboard/subscription?addon=success");
+                  router.push(addonDone);
                 }
                 return;
               }
@@ -209,7 +212,7 @@ function PurchaseSuccess() {
                 showToastOnce("Add-on pack activated successfully!");
                 cleanup();
                 if (!isCapacitorIOS()) {
-                  router.push("/dashboard/subscription?addon=success");
+                  router.push(addonDone);
                 }
                 return;
               }
@@ -231,7 +234,7 @@ function PurchaseSuccess() {
                 );
                 cleanup();
                 if (!isCapacitorIOS()) {
-                  router.push("/dashboard/subscription?addon=success");
+                  router.push(addonDone);
                 }
                 return;
               }
@@ -246,7 +249,7 @@ function PurchaseSuccess() {
           );
           cleanup();
           if (!isCapacitorIOS()) {
-            router.push("/dashboard/subscription?addon=success");
+            router.push(addonDone);
           }
           return;
         }
@@ -268,7 +271,7 @@ function PurchaseSuccess() {
                 return;
               }
 
-              const checkData = await checkResponse.json();
+              const _checkData = await checkResponse.json();
 
               // DON'T call update() here - it causes re-renders/remounts
               // Just mark as completed - session will update naturally
@@ -334,7 +337,7 @@ function PurchaseSuccess() {
             return;
           }
 
-          const verifyData = await verifyResponse.json();
+          const _verifyData = await verifyResponse.json();
 
           // DON'T call update() - it causes remounts and infinite loops
           markCompleted();
@@ -342,7 +345,7 @@ function PurchaseSuccess() {
           cleanup();
         } else {
           // If verification fails, try checking active subscription directly
-          const errorData = await verifyResponse
+          const _errorData = await verifyResponse
             .json()
             .catch(() => ({ error: "Unknown error" }));
 
@@ -364,7 +367,7 @@ function PurchaseSuccess() {
               return;
             }
 
-            const checkData = await checkResponse.json();
+            const _checkData = await checkResponse.json();
 
             // DON'T call update() - it causes remounts
             markCompleted();
