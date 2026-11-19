@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import BillingGate from "@/components/capacitor/BillingGate";
 import { cn } from "@/lib/utils";
 import {
   ADDON_GUIDE,
@@ -118,7 +119,20 @@ export interface SimpleWalkthroughProps {
   onClose?: () => void;
 }
 
-export function SimpleWalkthrough({ mode, onClose }: SimpleWalkthroughProps) {
+/**
+ * The guide shows pack prices and the plan price, so it carries its own
+ * BillingGate: in the iOS app it renders nothing and fetches nothing
+ * (App Review 3.1.1), wherever it is placed.
+ */
+export function SimpleWalkthrough(props: SimpleWalkthroughProps) {
+  return (
+    <BillingGate fallback={null}>
+      <SimpleWalkthroughContent {...props} />
+    </BillingGate>
+  );
+}
+
+function SimpleWalkthroughContent({ mode, onClose }: SimpleWalkthroughProps) {
   const accountId = useSession().data?.user?.id ?? null;
   const [status, setStatus] = useState<WalkthroughStatus>("in_progress");
   const [step, setStep] = useState(0);

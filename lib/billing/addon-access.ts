@@ -100,6 +100,21 @@ export function holdingFor(row: AddonHoldingRow | null | undefined): AddonHoldin
   return "included";
 }
 
+/**
+ * The plan rule add-on checkout enforces, owned here so the card labels and the
+ * checkout route cannot disagree: the plan must be ACTIVE, except a technician
+ * seat bought during a current trial.
+ */
+export function planAllowsAddonPurchase(
+  perSeat: boolean,
+  subscriptionStatus: string | null,
+  trialEndsAt: Date | string | null,
+  now?: number,
+): { allowed: boolean; seatOnTrial: boolean } {
+  const seatOnTrial = perSeat && isCurrentTrial(subscriptionStatus, trialEndsAt, now);
+  return { allowed: subscriptionStatus === "ACTIVE" || seatOnTrial, seatOnTrial };
+}
+
 export function addonAccess(input: {
   perSeat: boolean;
   holding: AddonHolding;
@@ -152,9 +167,13 @@ export function addonAccess(input: {
   }
 
   // Rules 2 and 3, as the checkout route applies them.
-  const seatOnTrial =
-    perSeat && isCurrentTrial(viewer.subscriptionStatus, viewer.trialEndsAt, input.now);
-  if (viewer.subscriptionStatus !== "ACTIVE" && !seatOnTrial) {
+  const { allowed, seatOnTrial } = planAllowsAddonPurchase(
+    perSeat,
+    viewer.subscriptionStatus,
+    viewer.trialEndsAt,
+    input.now,
+  );
+  if (!allowed) {
     const onTrial = isCurrentTrial(
       viewer.subscriptionStatus,
       viewer.trialEndsAt,

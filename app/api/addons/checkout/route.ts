@@ -23,7 +23,7 @@ import {
   seatWorkspaceFor,
   seatsNeededToBuy,
 } from "@/lib/billing/technician-seats";
-import { isCurrentTrial } from "@/lib/billing/trial-expired-pay-route";
+import { planAllowsAddonPurchase } from "@/lib/billing/addon-access";
 import { syncRecurringAddonsFromStripe } from "@/lib/billing/fulfill-recurring-addon";
 import { ensureWorkspaceForUser } from "@/lib/workspace/provision";
 import { reportError } from "@/lib/observability";
@@ -163,10 +163,13 @@ export async function POST(request: NextRequest) {
       // A technician seat can be bought during a current trial: the free seat
       // ends on day 15, well before the trial does. Every other add-on, and an
       // expired trial, still takes the plan first.
-      const seatOnTrial =
-        !!getRecurringAddon(addonKey)?.perSeat &&
-        isCurrentTrial(user.subscriptionStatus, user.trialEndsAt);
-      if (user.subscriptionStatus !== "ACTIVE" && !seatOnTrial) {
+      // RA-8466: one owner for this rule, shared with the Field Add-Ons labels.
+      const plan = planAllowsAddonPurchase(
+        !!getRecurringAddon(addonKey)?.perSeat,
+        user.subscriptionStatus,
+        user.trialEndsAt,
+      );
+      if (!plan.allowed) {
         // Preserve upgradeRequired flag for client UX
         return NextResponse.json(
           {

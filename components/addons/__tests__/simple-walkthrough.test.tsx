@@ -12,6 +12,7 @@ import { SimpleWalkthrough, readProgress } from "../SimpleWalkthrough";
 import { AddonCardDeck } from "../AddonCardDeck";
 import { CRM_WORKS_ALONE } from "@/lib/addons/addon-guide";
 import { OWNER_ONLY_REASON, TRIAL_PACK_REASON } from "@/lib/billing/addon-access";
+import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
 
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: { user: { id: "owner-A" } }, status: "authenticated" }),
@@ -64,6 +65,21 @@ beforeEach(() => {
 });
 
 describe("SimpleWalkthrough (RA-8466)", () => {
+  it("in the iOS app shows no prices or buttons and loads nothing (App Review 3.1.1)", () => {
+    for (const mode of ["setup", "reopen"] as const) {
+      const fetchMock = serve(trialCatalog);
+      const { container, unmount } = render(
+        <ShellPlatformProvider isIosShell>
+          <SimpleWalkthrough mode={mode} />
+        </ShellPlatformProvider>,
+      );
+      expect(container.textContent ?? "").not.toMatch(/\$/);
+      expect(screen.queryByRole("button")).toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+      unmount();
+    }
+  });
+
   it("shows one ordinary job through the core CRM before any add-on", () => {
     serve(trialCatalog);
     render(<SimpleWalkthrough mode="setup" />);
