@@ -1,6 +1,7 @@
 {
   "schema": "done/1",
   "by_identity": {
+    "claude/ra-8466-simple-walkthrough-360990@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-8466-simple-walkthrough-360990": "w_1dc92ab4a05b",
     "fix/ra-8088-evidence-pin-failures@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-8088": "w_efeb4ca90e1b",
     "claude/ra-8276-claim-pathway-step1@/Users/phillmcgurk/RestoreAssist/.git/worktrees/RestoreAssist": "w_6e14c91e00b9",
     "mesh/phills-mac-mini/ra-8421-05f49cbe@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/mesh-RA-8421-05f49cbe": "w_a021ce19bbbc",
