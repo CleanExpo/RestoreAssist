@@ -307,7 +307,7 @@ function ProgressStat({
       ? "[&_[data-slot=progress-indicator]]:bg-success"
       : tone === "attention"
         ? "[&_[data-slot=progress-indicator]]:bg-warning"
-        : "[&_[data-slot=progress-indicator]]:bg-cyan-600";
+        : "[&_[data-slot=progress-indicator]]:bg-brand-harbour-600";
 
   return (
     <div className="rounded-lg border border-neutral-200/70 dark:border-slate-700/50 bg-white/70 dark:bg-slate-900/50 px-3 py-2.5 space-y-1.5">
@@ -357,7 +357,7 @@ function ChecklistSection({
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded-lg"
+            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-500 rounded-lg"
             aria-controls={contentId}
           >
             <span className={cn("text-xs font-semibold uppercase tracking-wide", toneText)}>
@@ -482,7 +482,7 @@ function AreaGapsSection({
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded-lg"
+            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-500 rounded-lg"
             aria-controls={contentId}
           >
             <span className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-slate-300">
@@ -544,7 +544,7 @@ function UnlinkedSection({
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded-lg"
+            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-500 rounded-lg"
             aria-controls={contentId}
           >
             <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-slate-400">

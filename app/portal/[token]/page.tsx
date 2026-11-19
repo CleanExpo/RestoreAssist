@@ -162,7 +162,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
                 className="flex items-start gap-2 text-sm text-slate-300"
               >
                 <svg
-                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-400"
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-harbour-400"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                   aria-hidden

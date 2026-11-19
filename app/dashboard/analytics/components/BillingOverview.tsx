@@ -21,6 +21,11 @@ import {
   Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import {
+  CHART_NEUTRAL,
+  CHART_STATUS,
+  CHART_TOOLTIP_STYLE,
+} from "@/lib/charts/palette";
 import toast from "react-hot-toast";
 
 interface BillingData {
@@ -79,12 +84,14 @@ interface BillingData {
   totalUsers: number;
 }
 
+// Subscription states carry meaning, so they wear the status colours; the
+// legend beside the pie names each one, so colour never stands alone.
 const STATUS_COLORS = [
-  "#22c55e", // active - green
-  "#3b82f6", // trial - blue
-  "#ef4444", // canceled - red
-  "#6b7280", // expired - gray
-  "#f59e0b", // past due - amber
+  CHART_STATUS.good, // active
+  CHART_STATUS.info, // trial
+  CHART_STATUS.critical, // canceled
+  CHART_NEUTRAL, // expired
+  CHART_STATUS.warning, // past due
 ];
 
 export default function BillingOverview() {
@@ -505,13 +512,7 @@ export default function BillingOverview() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgb(255 255 255 / 0.95)",
-                    border: "1px solid rgb(229 231 235)",
-                    borderRadius: "8px",
-                    color: "#111827",
-                    fontSize: "12px",
-                  }}
+                  contentStyle={{ ...CHART_TOOLTIP_STYLE, fontSize: "12px" }}
                   formatter={
                     ((value: any, name: string) => [
                       `${value} users`,

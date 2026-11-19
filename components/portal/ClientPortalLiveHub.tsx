@@ -42,7 +42,7 @@ function NextActions({
   const toneClass = (tone: (typeof actions)[0]["tone"]) => {
     if (tone === "urgent") return "border-amber-400/35 bg-amber-500/10";
     if (tone === "ready") return "border-emerald-400/35 bg-emerald-500/10";
-    return "border-cyan-400/25 bg-cyan-500/5";
+    return "border-brand-harbour-400/25 bg-brand-harbour-500/5";
   };
 
   return (
@@ -95,7 +95,7 @@ function ClaimStatusView({
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-white/95">Claim status</h2>
-        <span className="text-xs font-medium text-cyan-300">
+        <span className="text-xs font-medium text-brand-harbour-300">
           {feed.currentStep}
         </span>
       </div>
@@ -113,7 +113,7 @@ function ClaimStatusView({
         aria-label="Claim progress"
       >
         <div
-          className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 transition-all"
+          className="h-full bg-gradient-to-r from-brand-harbour-500 to-indigo-500 transition-all"
           style={{ width: `${feed.progressPct}%` }}
         />
       </div>
@@ -122,7 +122,7 @@ function ClaimStatusView({
         {feed.steps.map((s) => (
           <li
             key={s.key}
-            className={s.done ? "font-medium text-cyan-300" : "text-slate-500"}
+            className={s.done ? "font-medium text-brand-harbour-300" : "text-slate-500"}
           >
             {s.done ? "●" : "○"} {s.label}
           </li>

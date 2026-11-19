@@ -145,7 +145,7 @@ export function PropertyDataSetupWizard({
         {/* Progress bar */}
         <div className="h-1 bg-slate-100 dark:bg-slate-700">
           <div
-            className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-500"
+            className="h-full bg-gradient-to-r from-blue-500 to-brand-harbour-500 transition-all duration-500"
             style={{ width: `${(step / 4) * 100}%` }}
           />
         </div>
@@ -218,7 +218,7 @@ export function PropertyDataSetupWizard({
                 href="https://chromewebstore.google.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg text-white text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all mt-2"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-lg text-white text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all mt-2"
               >
                 <ExternalLink size={16} />
                 Open Chrome Web Store
@@ -343,7 +343,7 @@ export function PropertyDataSetupWizard({
             {step < 4 ? (
               <button
                 onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all"
+                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-brand-harbour-500 text-white rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all"
               >
                 {step === 3 && testResult === "idle" ? "Skip" : "Next"}
                 <ArrowRight size={16} />

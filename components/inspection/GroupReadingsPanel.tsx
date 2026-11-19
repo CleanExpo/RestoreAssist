@@ -200,11 +200,11 @@ export function GroupReadingsPanel({
       </div>
 
       {groups && (
-        <Card className="border-cyan-200 dark:border-cyan-800/50">
+        <Card className="border-brand-harbour-200 dark:border-brand-harbour-800/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Sparkles
-                className="size-4 text-cyan-700 dark:text-cyan-400"
+                className="size-4 text-brand-harbour-700 dark:text-brand-harbour-400"
                 aria-hidden="true"
               />
               Proposed affected-area groups

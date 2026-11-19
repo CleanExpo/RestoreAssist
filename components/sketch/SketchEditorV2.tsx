@@ -3285,7 +3285,7 @@ export function SketchEditorV2({
             Floor plan
           </span>
           {activeFloor?.scaleConfig && (
-            <span className="text-xs text-cyan-300/80 truncate">
+            <span className="text-xs text-brand-harbour-300/80 truncate">
               {activeFloor.scaleConfig.description}
             </span>
           )}
@@ -3305,7 +3305,7 @@ export function SketchEditorV2({
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors border",
                 snapEnabled
-                  ? "text-cyan-200 border-cyan-400 bg-cyan-500/15"
+                  ? "text-brand-harbour-200 border-brand-harbour-400 bg-brand-harbour-500/15"
                   : "text-white/50 border-white/10 hover:text-white hover:bg-white/5",
               )}
             >
@@ -4601,7 +4601,7 @@ export function SketchEditorV2({
           <button
             type="button"
             onClick={handleExportRoomMoisturePng}
-            className="min-h-10 px-3 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-50 text-xs font-medium hover:bg-cyan-500/30"
+            className="min-h-10 px-3 rounded-lg bg-brand-harbour-500/20 border border-brand-harbour-400/40 text-brand-harbour-50 text-xs font-medium hover:bg-brand-harbour-500/30"
           >
             Export room moisture PNG
           </button>

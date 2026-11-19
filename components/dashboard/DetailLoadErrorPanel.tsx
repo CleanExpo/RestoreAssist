@@ -68,7 +68,7 @@ export function DetailLoadErrorPanel({
             <button
               type="button"
               onClick={onRetry}
-              className="rounded-lg bg-cyan-600 px-4 py-2 text-white hover:bg-cyan-700"
+              className="rounded-lg bg-brand-harbour-600 px-4 py-2 text-white hover:bg-brand-harbour-700"
             >
               Retry
             </button>

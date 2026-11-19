@@ -45,7 +45,7 @@ const CLASS_LABEL: Record<ClassifySuggestion["waterClass"], string> = {
 
 function confidenceTone(c: number): string {
   if (c >= 85) return "text-success";
-  if (c >= 65) return "text-cyan-700 dark:text-cyan-400";
+  if (c >= 65) return "text-brand-harbour-700 dark:text-brand-harbour-400";
   if (c >= 40) return "text-amber-700 dark:text-amber-400";
   return "text-destructive";
 }

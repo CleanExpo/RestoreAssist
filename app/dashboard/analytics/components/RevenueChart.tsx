@@ -15,6 +15,11 @@ import {
 } from "recharts";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHART_SERIES, CHART_TOOLTIP_STYLE } from "@/lib/charts/palette";
+
+// Revenue and reports keep the slots they have across analytics.
+const REVENUE_COLOUR = CHART_SERIES[0];
+const REPORTS_COLOUR = CHART_SERIES[1];
 
 const TooltipAny = Tooltip as any;
 
@@ -112,9 +117,9 @@ export default function RevenueChart({
       <ResponsiveContainer width="100%" height={400}>
         <ComposedChart data={data}>
           <defs>
-            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+            <linearGradient id="colorRevenueTrend" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={REVENUE_COLOUR} stopOpacity={0.8} />
+              <stop offset="95%" stopColor={REVENUE_COLOUR} stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid
@@ -134,12 +139,7 @@ export default function RevenueChart({
             style={{ fontSize: "12px" }}
           />
           <TooltipAny
-            contentStyle={{
-              backgroundColor: "rgb(255 255 255 / 0.95)",
-              border: "1px solid rgb(229 231 235)",
-              borderRadius: "8px",
-              color: "#111827",
-            }}
+            contentStyle={CHART_TOOLTIP_STYLE}
             className=""
             formatter={(value: any) => [
               typeof value === "number" ? `$${value.toLocaleString()}` : value,
@@ -150,15 +150,15 @@ export default function RevenueChart({
           <Area
             type="monotone"
             dataKey="revenue"
-            stroke="#10b981"
+            stroke={REVENUE_COLOUR}
             fillOpacity={1}
-            fill="url(#colorRevenue)"
+            fill="url(#colorRevenueTrend)"
             name="Revenue"
           />
           {data[0]?.reports !== undefined && (
             <Bar
               dataKey="reports"
-              fill="#3b82f6"
+              fill={REPORTS_COLOUR}
               name="Reports"
               opacity={0.6}
               yAxisId="right"
