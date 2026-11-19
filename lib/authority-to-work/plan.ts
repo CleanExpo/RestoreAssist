@@ -137,19 +137,31 @@ function controls(
   return { ok: false, why: `they do not control "${asset.label}"` };
 }
 
+/** The confirmed payer for a line when that payer is a party on the job, else null. */
+function payerOnJob(ctx: Ctx, line: ScopeLine): string | null {
+  const id = line.payment.payerPartyId;
+  if (!id || line.payment.basis === "UNCONFIRMED" || !ctx.parties.has(id)) return null;
+  return id;
+}
+
 /**
- * Who receives a funding or payment document for a line, or null when no proven
- * funder exists. An unconfirmed payer, a payer who is not a party on the job, and a
- * party recorded as having no spend authority never receive one. An insurer-funded
- * line also needs spend authority proven (canAuthoriseSpend === true).
+ * Rule 3 (founder ruling 20/11/2026, strict): a funding document (A04, A10, A11)
+ * goes only to a confirmed payer on the job whose spend authority is proven
+ * (canAuthoriseSpend === true), whatever the payment type. Otherwise null: the
+ * real funder is still to be identified.
  */
 function fundingRecipient(ctx: Ctx, line: ScopeLine): string | null {
-  const id = line.payment.payerPartyId;
-  if (!id || line.payment.basis === "UNCONFIRMED") return null;
-  const payer = ctx.parties.get(id);
-  if (!payer || payer.canAuthoriseSpend === false) return null;
-  if (line.payment.basis === "INSURER_WORK_ORDER" && payer.canAuthoriseSpend !== true) return null;
-  return id;
+  const id = payerOnJob(ctx, line);
+  return id && ctx.parties.get(id)?.canAuthoriseSpend === true ? id : null;
+}
+
+/**
+ * Rule 8 (founder ruling 20/11/2026, strict): an emergency line with no documented
+ * emergency basis holds ACCESS and WORK, even when approvals are on file.
+ */
+function undocumentedEmergency(ctx: Ctx, line: ScopeLine, gate: "ACCESS" | "WORK"): GateResult | null {
+  if (!line.emergency || ctx.job.emergencyBasis?.documented) return null;
+  return { gate, state: "HOLD", reason: "emergency work with no documented emergency basis" };
 }
 
 /** The person who should sign for an asset: a verified delegate, else the owner. */
@@ -178,6 +190,8 @@ function approvalsFor(
 // ---------------------------------------------------------------------------
 
 function accessGate(ctx: Ctx, line: ScopeLine, asset: Asset): GateResult {
+  const emergencyHold = undocumentedEmergency(ctx, line, "ACCESS");
+  if (emergencyHold) return emergencyHold;
   const found = approvalsFor(ctx, "ACCESS", line);
   for (const a of found) {
     const p = ctx.parties.get(a.partyId);
@@ -188,17 +202,11 @@ function accessGate(ctx: Ctx, line: ScopeLine, asset: Asset): GateResult {
     }
   }
   if (line.emergency) {
-    if (ctx.job.emergencyBasis?.documented) {
-      return {
-        gate: "ACCESS",
-        state: "CLEAR",
-        reason: "emergency basis documented; written access to follow as soon as practicable",
-      };
-    }
+    // Reached only with a documented basis (undocumentedEmergency returned above).
     return {
       gate: "ACCESS",
-      state: "HOLD",
-      reason: "emergency work with no documented emergency basis",
+      state: "CLEAR",
+      reason: "emergency basis documented; written access to follow as soon as practicable",
     };
   }
   const reported = found.find((a) => a.evidence !== "verified");
@@ -212,6 +220,8 @@ function accessGate(ctx: Ctx, line: ScopeLine, asset: Asset): GateResult {
 }
 
 function workGate(ctx: Ctx, line: ScopeLine, asset: Asset): GateResult {
+  const emergencyHold = undocumentedEmergency(ctx, line, "WORK");
+  if (emergencyHold) return emergencyHold;
   if (!asset.ownerPartyId || asset.ownershipEvidence !== "verified") {
     return {
       gate: "WORK",
@@ -234,17 +244,11 @@ function workGate(ctx: Ctx, line: ScopeLine, asset: Asset): GateResult {
     return { gate: "WORK", state: "CLEAR", reason: `approved by ${partyName(ctx, a.partyId)} (${c.why})` };
   }
   if (line.emergency && !line.restricted) {
-    if (ctx.job.emergencyBasis?.documented) {
-      return {
-        gate: "WORK",
-        state: "CLEAR",
-        reason: "make-safe only, under the documented emergency basis; written authority to follow",
-      };
-    }
+    // Reached only with a documented basis (undocumentedEmergency returned above).
     return {
       gate: "WORK",
-      state: "HOLD",
-      reason: "emergency work with no documented emergency basis",
+      state: "CLEAR",
+      reason: "make-safe only, under the documented emergency basis; written authority to follow",
     };
   }
   return {
@@ -588,7 +592,7 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
     const funder = fundingRecipient(ctx, line);
     if (gates[0].state !== "CLEAR") need("A01", controller, "access not yet in place");
     if (line.emergency) need("A02", controller, "emergency make-safe work");
-    if (line.payment.basis === "OWNER_DIRECT") need("A03", funder, funder ? "customer pays directly" : "customer pays directly; payer is not a party on this job");
+    if (line.payment.basis === "OWNER_DIRECT") need("A03", payerOnJob(ctx, line), payerOnJob(ctx, line) ? "customer pays directly" : "customer pays directly; payer is not a party on this job");
     if (line.payment.basis === "INSURER_WORK_ORDER") {
       need(
         "A04",

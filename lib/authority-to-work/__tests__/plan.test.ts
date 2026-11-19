@@ -316,6 +316,28 @@ describe("hazards, evidence holds and jurisdiction", () => {
     expect(gate(plan, "N2", "DISPOSAL").state).toBe("HOLD");
   });
 
+  // Founder ruling 20/11/2026: rules 3 and 8 are read strictly.
+  it("an emergency line with no documented basis holds even when the owner has signed", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].emergency = true;
+    job.emergencyBasis = undefined;
+    for (const kind of ["WORK", "PAYMENT"] as const) {
+      job.approvals.push({ id: `x-${kind}`, partyId: "dir", kind, scopeLineIds: ["C1"], evidence: "verified" });
+    }
+    const plan = planAuthority(job);
+    expect(gate(plan, "C1", "ACCESS").state).toBe("HOLD");
+    expect(gate(plan, "C1", "WORK").state).toBe("HOLD");
+    expect(plan.scopes.find((x) => x.scopeLineId === "C1")?.canStart).toBe(false);
+  });
+
+  it("a payer-split form goes only to a party with proven spend authority, whatever the payment type", () => {
+    const job = nswStrataWaterLoss();
+    job.scope[2].payment = { basis: "OWNER_DIRECT", payerPartyId: "ten" };
+    const a11 = forms(planAuthority(job), "A11");
+    expect(a11.length).toBeGreaterThan(0);
+    expect(a11.map((f) => f.recipientPartyId)).not.toContain("ten");
+  });
+
   it("an asset with no established controller holds the work", () => {
     const job = nswStrataWaterLoss();
     job.assets[2].ownershipEvidence = "reported";
