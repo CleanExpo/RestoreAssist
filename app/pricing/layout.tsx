@@ -4,6 +4,7 @@ import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvi
 import { isIosShellUserAgent } from "@/lib/capacitor";
 import { Metadata } from "next";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 const allowance = PRICING_CONFIG.pricing.monthly.reportLimit;
 // The plan price was typed here while the allowance beside it was interpolated
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
     description: `Pricing for Australian restoration professionals. ${allowance} inspection reports a month, per-report rates published, IICRC S500 alignment.`,
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/pricing" },

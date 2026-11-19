@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getAllResources, getResourceBySlug } from "@/lib/resources";
 import { MarketingShell } from "@/components/landing/home";
 import { CONTAINER } from "@/components/landing/home/motion";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 const CTA =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-navy px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white shadow-[0_1px_2px_rgba(11,31,58,0.1)] transition-colors hover:bg-brand-navy-hover";
@@ -35,7 +36,9 @@ export async function generateMetadata({
     openGraph: {
       title: resource.title,
       description: resource.description,
-      ...(hasRealShareImage ? { images: [{ url: shareImage as string }] } : {}),
+      images: [
+        hasRealShareImage ? { url: shareImage as string } : OG_SHARE_IMAGE,
+      ],
       type: "article",
       publishedTime: resource.uploadDate,
     },

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getArticleBySlug, getPublishedSlugs } from "@/lib/blog/articles";
 import BlogArticle from "./BlogArticle";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 /**
  * Statically pre-render one route per published article. Any slug not in this
@@ -33,7 +34,7 @@ export async function generateMetadata({
       type: "article",
       publishedTime: article.isoDate,
       images: [
-        { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+        OG_SHARE_IMAGE,
       ],
     },
     alternates: { canonical: `/blog/${article.slug}` },

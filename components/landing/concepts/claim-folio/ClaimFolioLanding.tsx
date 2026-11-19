@@ -116,12 +116,12 @@ export function ClaimFolioLanding() {
           className="absolute inset-0"
         >
           <Image
-            src="/landing/hero-flooded-home.jpg"
-            alt="RestoreAssist technician extracting floodwater from a water-filled home during active restoration"
+            src="/landing/hero-flooded-home.avif"
+            alt="Restoration technician photographing a moisture meter reading on a water-stained wall, with air movers and a dehumidifier drying an Australian home"
             fill
             priority
             sizes="100vw"
-            className="object-cover object-[42%_55%]"
+            className="object-cover object-[72%_55%]"
           />
         </motion.div>
 
