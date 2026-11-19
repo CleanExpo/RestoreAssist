@@ -210,7 +210,10 @@ function approvalsFor(
   return ctx.job.approvals.filter(
     (a) =>
       a.kind === kind &&
-      (a.scopeLineIds?.includes(line.id) || a.assetIds?.includes(line.assetId)),
+      // Only ACCESS is granted per asset. Every other kind must name the line itself,
+      // so an approval for one line never clears another line on the same asset.
+      (a.scopeLineIds?.includes(line.id) ||
+        (kind === "ACCESS" && a.assetIds?.includes(line.assetId))),
   );
 }
 
@@ -750,6 +753,59 @@ function buildDraft(
 // Plan
 // ---------------------------------------------------------------------------
 
+const CURRENCIES = new Set(["AUD", "NZD"]);
+const GST_BASES = new Set(["INC", "EX", "NA"]);
+const MAKE_SAFE_TASKS = new Set(["WATER_EXTRACTION", "TEMPORARY_COVER", "ISOLATE_SERVICES", "SECURE_SITE", "DRYING"]);
+
+function isIsoDate(v: unknown): boolean {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}
+
+function moneyProblem(m: unknown, label: string): string[] {
+  const v = m as { minor?: unknown; currency?: unknown; gst?: unknown } | null | undefined;
+  if (!v || typeof v !== "object") return [`${label} is missing`];
+  const out: string[] = [];
+  if (!exactAmount(v as never)) out.push(`${label} is not a whole, non-negative number of cents that can be added exactly`);
+  if (!CURRENCIES.has(v.currency as string)) out.push(`${label} has an unknown currency`);
+  if (!GST_BASES.has(v.gst as string)) out.push(`${label} has an unknown GST basis`);
+  return out;
+}
+
+function duplicates(kind: string, ids: string[]): string[] {
+  const seen = new Set<string>();
+  const dup = new Set<string>();
+  for (const id of ids) (seen.has(id) ? dup : seen).add(id);
+  return [...dup].map((id) => `${kind} id "${id}" appears more than once`);
+}
+
+/**
+ * The one entry check (discovery sweep, 20/11/2026): everything downstream may assume
+ * the job is well formed. Any problem stops the whole plan with no scopes and no forms.
+ */
+function unusableJobData(job: JobFacts): string[] {
+  const out: string[] = [];
+  if (!isIsoDate(job.asOf)) out.push("the as-of date is not a valid YYYY-MM-DD date");
+  for (const l of job.scope) {
+    out.push(...moneyProblem(l.amount, `scope line ${l.id} amount`));
+    if (l.makeSafe !== undefined && !MAKE_SAFE_TASKS.has(l.makeSafe as string)) {
+      out.push(`scope line ${l.id} names a make-safe task that is not on the list`);
+    }
+  }
+  for (const c of job.caps) {
+    out.push(...moneyProblem(c.cap, `limit ${c.id}`));
+    out.push(...moneyProblem(c.committed, `amount already used under ${c.id}`));
+    if (c.expiresOn != null && !isIsoDate(c.expiresOn)) out.push(`limit ${c.id} has an expiry that is not a valid YYYY-MM-DD date`);
+  }
+  out.push(...duplicates("party", job.parties.map((p) => p.id)));
+  out.push(...duplicates("asset", job.assets.map((a) => a.id)));
+  out.push(...duplicates("scope line", job.scope.map((l) => l.id)));
+  out.push(...duplicates("limit", job.caps.map((c) => c.id)));
+  out.push(...duplicates("approval", job.approvals.map((a) => a.id)));
+  return out;
+}
+
 export function planAuthority(job: JobFacts): AuthorityPlan {
   const ctx: Ctx = {
     job,
@@ -760,20 +816,14 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
   const previewAllowed = PREVIEW_JURISDICTIONS.includes(job.jurisdiction);
   // Every money value is checked once, here, before any gate or form. One unusable
   // value stops the whole plan: nothing downstream ever sees it.
-  const badMoney = [
-    ...job.scope.filter((l) => !exactAmount(l.amount)).map((l) => `scope line ${l.id} amount`),
-    ...job.caps.flatMap((c) => [
-      ...(exactAmount(c.cap) ? [] : [`limit ${c.id}`]),
-      ...(exactAmount(c.committed) ? [] : [`amount already used under ${c.id}`]),
-    ]),
-  ];
+  const badMoney = unusableJobData(job);
   if (badMoney.length > 0) {
     return {
       jobId: job.id,
       jurisdiction: job.jurisdiction,
       previewAllowed,
       releaseEnabled: false,
-      holds: [`These money values are not usable (each must be a whole, non-negative number of cents that can be added exactly): ${badMoney.join(", ")}. Nothing is planned until they are corrected.`],
+      holds: [`This job data is not usable: ${badMoney.join("; ")}. Nothing is planned until it is corrected.`],
       scopes: [],
       forms: [],
       deposit: {
@@ -912,7 +962,7 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
   // One draft per template and recipient, covering all of that recipient's lines.
   const groups = new Map<string, FormNeed[]>();
   for (const n of needs) {
-    const key = `${n.code}|${n.recipientPartyId ?? "-"}`;
+    const key = JSON.stringify([n.code, n.recipientPartyId]);
     groups.set(key, [...(groups.get(key) ?? []), n]);
   }
   const lineById = indexById(job.scope);

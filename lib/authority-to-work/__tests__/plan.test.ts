@@ -532,6 +532,45 @@ describe("hazards, evidence holds and jurisdiction", () => {
     expect(plan.forms.map((f) => f.recipientPartyId)).not.toContain("ghost");
   });
 
+  // Discovery sweep 20/11/2026 (Codex, Kimi, DeepSeek in parallel).
+  it("an approval naming an asset never stands in for a line-specific approval", () => {
+    const job = nswStrataWaterLoss();
+    job.approvals.push({ id: "wide", partyId: "sm", kind: "WORK", assetIds: ["riser"], evidence: "verified" });
+    expect(gate(planAuthority(job), "L4", "WORK").state).not.toBe("CLEAR");
+  });
+
+  describe("job data that is not usable stops the whole plan before any gate or form", () => {
+    const cases: Array<[string, (j: JobFacts) => void]> = [
+      ["unknown currency", (j) => { (j.scope[0].amount as { currency: string }).currency = "UNKNOWN"; }],
+      ["unknown GST basis", (j) => { (j.scope[0].amount as { gst: string }).gst = "UNKNOWN"; }],
+      ["missing amount", (j) => { (j.scope[0] as { amount: unknown }).amount = null; }],
+      ["malformed expiry date", (j) => { j.caps[0].expiresOn = "not-a-date"; }],
+      ["malformed as-of date", (j) => { j.asOf = ""; }],
+      ["duplicate scope line id", (j) => { j.scope.push({ ...j.scope[0] }); }],
+      ["duplicate limit id", (j) => { j.caps.push({ ...j.caps[0] }); }],
+      ["duplicate party id", (j) => { j.parties.push({ ...j.parties[0] }); }],
+      ["unlisted make-safe task", (j) => { (j.scope[0] as { makeSafe?: string }).makeSafe = "REBUILD"; }],
+    ];
+    it.each(cases)("%s", (_label, mutate) => {
+      const job = nswStrataWaterLoss();
+      mutate(job);
+      let plan: AuthorityPlan | undefined;
+      expect(() => { plan = planAuthority(job); }).not.toThrow();
+      expect(plan?.forms).toEqual([]);
+      expect(plan?.scopes).toEqual([]);
+      expect(plan?.holds.some((h) => h.includes("not usable"))).toBe(true);
+    });
+  });
+
+  it("a party whose id looks like a separator never shares a form with 'no recipient'", () => {
+    const job = nswStrataWaterLoss();
+    job.parties.push({ id: "-", name: "Dash Insurer", capacity: "INSURER", canAuthoriseSpend: true });
+    job.scope[0].payment.payerPartyId = "-";
+    const a04 = forms(planAuthority(job), "A04");
+    const toDash = a04.filter((f) => f.recipientPartyId === "-");
+    expect(toDash.every((f) => !f.scopeLineIds.includes("L4"))).toBe(true);
+  });
+
   it("an asset with no established controller holds the work", () => {
     const job = nswStrataWaterLoss();
     job.assets[2].ownershipEvidence = "reported";
