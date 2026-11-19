@@ -192,7 +192,8 @@ function undocumentedEmergency(
 
 /** The person who should sign for an asset: a verified delegate, else the owner. */
 function controllerOf(ctx: Ctx, asset: Asset): string | null {
-  if (!asset.ownerPartyId) return null;
+  // Same rule as controls(): an owner who is not a party on the job is nobody to ask.
+  if (!ownerEstablished(ctx, asset)) return null;
   const delegate = ctx.job.parties.find(
     (p) =>
       p.actsForPartyId === asset.ownerPartyId &&

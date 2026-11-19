@@ -525,6 +525,13 @@ describe("hazards, evidence holds and jurisdiction", () => {
     expect(() => planAuthority(job)).not.toThrow();
   });
 
+  it("no form is ever addressed to an owner who is not a party on the job", () => {
+    const job = qldCommercialSelfPay();
+    job.assets[0].ownerPartyId = "ghost";
+    const plan = planAuthority(job);
+    expect(plan.forms.map((f) => f.recipientPartyId)).not.toContain("ghost");
+  });
+
   it("an asset with no established controller holds the work", () => {
     const job = nswStrataWaterLoss();
     job.assets[2].ownershipEvidence = "reported";
