@@ -15,10 +15,15 @@ export async function loadOperationalMetrics(
   });
   const stallSummary = summarizeInboxStalls(inboxRows);
 
+  const integrationScope =
+    typeof args.organizationId === "string" && args.organizationId.length > 0
+      ? { user: { organizationId: args.organizationId } }
+      : { userId: args.userId };
+
   const failedSyncs = await prisma.integrationSyncLog.count({
     where: {
       status: "FAILED",
-      integration: { userId: args.userId },
+      integration: integrationScope,
       startedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
     },
   });
@@ -27,7 +32,7 @@ export async function loadOperationalMetrics(
     where: {
       status: "FAILED",
       retryCount: { gte: 5 },
-      integration: { userId: args.userId },
+      integration: integrationScope,
     },
   });
 

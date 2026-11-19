@@ -8,6 +8,7 @@ import { PROGRAM_WAVE_MANIFEST } from "@/lib/operations/program-wave-manifest";
 import { loadOperationalMetrics } from "@/lib/operations/load-operational-metrics";
 import { getSloTargets } from "@/lib/operations/slo-targets";
 import { readSloLastRun } from "@/lib/operations/read-slo-last-run";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 /** GET — leadership program + stall metrics (Wave 5). */
 export async function GET(request: NextRequest) {
@@ -28,6 +29,14 @@ export async function GET(request: NextRequest) {
         status: 403,
       });
     }
+
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 30,
+      windowMs: 60 * 1000,
+      prefix: "program-status",
+      key: session.user.id,
+    });
+    if (rateLimited) return rateLimited;
 
     const caller = await prisma.user.findUnique({
       where: { id: session.user.id },

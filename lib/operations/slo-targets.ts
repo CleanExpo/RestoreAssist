@@ -9,20 +9,27 @@ export type SloTargets = {
   requestsPerRun: number;
 };
 
-function numEnv(name: string, fallback: number): number {
-  const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
-  const n = Number(raw);
+function readPositiveInt(raw: string | undefined, fallback: number): number {
+  const trimmed = raw?.trim();
+  if (!trimmed) return fallback;
+  const n = Number(trimmed);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function readPositiveRate(raw: string | undefined, fallback: number): number {
+  const trimmed = raw?.trim();
+  if (!trimmed) return fallback;
+  const n = Number(trimmed);
+  return Number.isFinite(n) && n > 0 && n <= 1 ? n : fallback;
 }
 
 /** Defaults are conservative pilot baselines — Phil can raise via env. */
 export function getSloTargets(): SloTargets {
   return {
-    p95LatencyMs: numEnv("OPS_SLO_P95_MS", 1200),
-    errorRateMax: numEnv("OPS_SLO_ERROR_RATE_MAX", 0.02),
-    concurrency: numEnv("OPS_LOAD_CONCURRENCY", 5),
-    requestsPerRun: numEnv("OPS_LOAD_REQUESTS", 25),
+    p95LatencyMs: readPositiveInt(process.env.OPS_SLO_P95_MS, 1200),
+    errorRateMax: readPositiveRate(process.env.OPS_SLO_ERROR_RATE_MAX, 0.02),
+    concurrency: readPositiveInt(process.env.OPS_LOAD_CONCURRENCY, 5),
+    requestsPerRun: readPositiveInt(process.env.OPS_LOAD_REQUESTS, 25),
   };
 }
 
