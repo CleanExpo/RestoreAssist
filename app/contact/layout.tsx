@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { MarketingShell } from "@/components/landing/home/MarketingShell";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
   title: "Contact Restore Assist - Australian Restoration Software",
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
       "Get in touch for demos, support, or inquiries about restoration software.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/contact" },

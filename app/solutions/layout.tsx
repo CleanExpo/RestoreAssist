@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { MarketingShell } from "@/components/landing/home/MarketingShell";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 /**
  * Solutions page metadata.
@@ -30,7 +31,7 @@ export const metadata: Metadata = {
       "Built for the contractor doing the work. Documentation your client understands and your insurer can't argue with.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/solutions" },
