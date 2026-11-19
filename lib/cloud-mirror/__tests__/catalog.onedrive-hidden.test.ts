@@ -1,7 +1,5 @@
 /**
- * RA-8078 — OneDrive mirroring is not built end to end (the choice cannot be
- * saved, nothing reads it, and the Microsoft token is never refreshed), so the
- * catalog must not offer it, even when the Microsoft OAuth env is configured.
+ * RA-8078 / Wave 3 — OneDrive catalog follows Microsoft OAuth configuration.
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -9,21 +7,37 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
 describe("PROVIDER_CATALOG — OneDrive", () => {
-  const original = process.env.MICROSOFT_CLIENT_ID;
+  const originalId = process.env.MICROSOFT_CLIENT_ID;
+  const originalSecret = process.env.MICROSOFT_CLIENT_SECRET;
 
   afterEach(() => {
-    if (original === undefined) delete process.env.MICROSOFT_CLIENT_ID;
-    else process.env.MICROSOFT_CLIENT_ID = original;
+    if (originalId === undefined) delete process.env.MICROSOFT_CLIENT_ID;
+    else process.env.MICROSOFT_CLIENT_ID = originalId;
+    if (originalSecret === undefined) delete process.env.MICROSOFT_CLIENT_SECRET;
+    else process.env.MICROSOFT_CLIENT_SECRET = originalSecret;
     vi.resetModules();
   });
 
-  it("is disabled and labelled coming soon even when MICROSOFT_CLIENT_ID is set", async () => {
-    process.env.MICROSOFT_CLIENT_ID = "test-client-id";
+  it("is disabled when Microsoft OAuth is not fully configured", async () => {
+    delete process.env.MICROSOFT_CLIENT_ID;
+    delete process.env.MICROSOFT_CLIENT_SECRET;
     vi.resetModules();
     const { PROVIDER_CATALOG } = await import("../index");
     const onedrive = PROVIDER_CATALOG.find((p) => p.id === "onedrive");
     expect(onedrive?.enabled).toBe(false);
-    expect(onedrive?.tagline).toMatch(/coming soon/i);
+  });
+
+  it("is enabled when MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET are set", async () => {
+    process.env.MICROSOFT_CLIENT_ID = "test-client-id";
+    process.env.MICROSOFT_CLIENT_SECRET = "test-client-secret";
+    vi.resetModules();
+    const { PROVIDER_CATALOG, isOneDriveMirrorCatalogEnabled } = await import(
+      "../index"
+    );
+    expect(isOneDriveMirrorCatalogEnabled()).toBe(true);
+    const onedrive = PROVIDER_CATALOG.find((p) => p.id === "onedrive");
+    expect(onedrive?.enabled).toBe(true);
+    expect(onedrive?.tagline).toMatch(/Mirrors to your OneDrive/i);
   });
 
   it("keeps Google Drive enabled", async () => {
