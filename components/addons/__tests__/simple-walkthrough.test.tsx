@@ -118,6 +118,26 @@ describe("SimpleWalkthrough (RA-8466)", () => {
     expect(screen.queryByRole("button", { name: /add pack|add a seat/i })).toBeNull();
   });
 
+  it("says plainly when the packs cannot be loaded", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }) as never);
+    render(<SimpleWalkthrough mode="setup" />);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load the packs");
+  });
+
+  it("still skips and finishes when browser storage refuses writes", () => {
+    serve(trialCatalog);
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new Error("QuotaExceededError");
+      });
+    render(<SimpleWalkthrough mode="setup" />);
+    fireEvent.click(screen.getByRole("button", { name: "Skip walkthrough" }));
+    expect(screen.getByRole("button", { name: "Resume walkthrough" })).toBeInTheDocument();
+    setItem.mockRestore();
+  });
+
   it("can be skipped, then resumed at the same step", async () => {
     serve(trialCatalog);
     const { unmount } = render(<SimpleWalkthrough mode="setup" />);
