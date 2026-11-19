@@ -122,7 +122,7 @@ export default function CostLibraryDetailPage({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -205,13 +205,13 @@ export default function CostLibraryDetailPage({
             placeholder="Search by description or category..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+            className="w-full pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50 text-sm"
           />
         </div>
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+          className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50 text-sm"
         >
           <option value="">All categories</option>
           {categories.map((cat) => (
@@ -266,7 +266,7 @@ export default function CostLibraryDetailPage({
                     <td className="px-4 py-3 text-slate-100">
                       {item.description}
                     </td>
-                    <td className="px-4 py-3 text-right font-medium text-cyan-400">
+                    <td className="px-4 py-3 text-right font-medium text-brand-harbour-400">
                       ${item.rate.toFixed(2)}
                     </td>
                     <td className="px-4 py-3 text-slate-300">{item.unit}</td>

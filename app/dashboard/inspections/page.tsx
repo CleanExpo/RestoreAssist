@@ -109,8 +109,8 @@ const STATUS_CONFIG: Record<
   },
   IN_BILLING: {
     label: "In billing",
-    color: "text-cyan-700 dark:text-cyan-400",
-    bg: "bg-cyan-50 dark:bg-cyan-900/30",
+    color: "text-brand-harbour-700 dark:text-brand-harbour-400",
+    bg: "bg-brand-harbour-50 dark:bg-brand-harbour-900/30",
   },
   CLOSED: {
     label: "Closed",
@@ -351,12 +351,12 @@ export default function InspectionsPage() {
         eyebrow="Simple workspace"
         title="Inspections"
         description="Capture the site, classify damage, and link each job to reports and billing."
-        icon={<ClipboardCheck className="text-cyan-500" size={28} aria-hidden />}
+        icon={<ClipboardCheck className="text-brand-harbour-500" size={28} aria-hidden />}
         primaryAction={
           <button
             type="button"
             onClick={() => router.push("/dashboard/inspections/new")}
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2.5 font-medium text-white transition-all duration-200 hover:scale-[1.02] hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 active:scale-[0.98] sm:w-auto"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-brand-harbour-600 px-4 py-2.5 font-medium text-white transition-all duration-200 hover:scale-[1.02] hover:from-blue-600 hover:to-brand-harbour-600 hover:shadow-lg hover:shadow-blue-500/30 active:scale-[0.98] sm:w-auto"
           >
             <Plus size={18} aria-hidden />
             New inspection
@@ -377,7 +377,7 @@ export default function InspectionsPage() {
           className={cn(
             "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
             !statusFilter
-              ? "bg-cyan-500 text-white"
+              ? "bg-brand-harbour-500 text-white"
               : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700",
           )}
         >
@@ -387,7 +387,7 @@ export default function InspectionsPage() {
           <button
             type="button"
             onClick={() => setStatusFilter("")}
-            className="px-3 py-1.5 rounded-full text-xs font-medium transition-all bg-cyan-500 text-white"
+            className="px-3 py-1.5 rounded-full text-xs font-medium transition-all bg-brand-harbour-500 text-white"
           >
             Active
           </button>
@@ -400,7 +400,7 @@ export default function InspectionsPage() {
               className={cn(
                 "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
                 statusFilter === key
-                  ? "bg-cyan-500 text-white"
+                  ? "bg-brand-harbour-500 text-white"
                   : cn(cfg.bg, cfg.color, "hover:opacity-80"),
               )}
             >
@@ -423,7 +423,7 @@ export default function InspectionsPage() {
             placeholder="Search by inspection number, address, or technician..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-600 dark:placeholder:text-neutral-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-600 dark:placeholder:text-neutral-400 focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -436,7 +436,7 @@ export default function InspectionsPage() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+              className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -448,7 +448,7 @@ export default function InspectionsPage() {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+              className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
             />
           </div>
           {(dateFrom || dateTo) && (
@@ -492,7 +492,7 @@ export default function InspectionsPage() {
                 filtered.length > 0
               }
               onChange={toggleSelectAll}
-              className="rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
+              className="rounded border-neutral-300 dark:border-slate-600 text-brand-harbour-500 focus:ring-brand-harbour-500"
             />
             Select all ({filtered.length})
           </label>
@@ -526,7 +526,7 @@ export default function InspectionsPage() {
       {/* Results */}
       {listError && !loading ? null : loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="animate-spin text-cyan-500" size={32} />
+          <Loader2 className="animate-spin text-brand-harbour-500" size={32} />
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -562,8 +562,8 @@ export default function InspectionsPage() {
                 className={cn(
                   "w-full text-left p-4 rounded-xl border cursor-pointer transition-all duration-200 group flex items-start gap-3",
                   selectedIds.has(insp.id)
-                    ? "border-cyan-400 dark:border-cyan-600 bg-cyan-50/50 dark:bg-cyan-900/20"
-                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md",
+                    ? "border-brand-harbour-400 dark:border-brand-harbour-600 bg-brand-harbour-50/50 dark:bg-brand-harbour-900/20"
+                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-brand-harbour-300 dark:hover:border-brand-harbour-800 hover:shadow-md",
                 )}
               >
                 <input
@@ -571,14 +571,14 @@ export default function InspectionsPage() {
                   checked={selectedIds.has(insp.id)}
                   onChange={() => toggleSelect(insp.id)}
                   onClick={(e) => e.stopPropagation()}
-                  className="mt-1 rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
+                  className="mt-1 rounded border-neutral-300 dark:border-slate-600 text-brand-harbour-500 focus:ring-brand-harbour-500"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
                     <Link
                       href={`/dashboard/inspections/${insp.id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="font-mono text-sm font-semibold text-cyan-700 dark:text-cyan-400 rounded focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none hover:underline"
+                      className="font-mono text-sm font-semibold text-brand-harbour-700 dark:text-brand-harbour-400 rounded focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none hover:underline"
                     >
                       {insp.inspectionNumber}
                     </Link>
@@ -667,7 +667,7 @@ export default function InspectionsPage() {
                           `/dashboard/reports/new?inspectionId=${insp.id}`,
                         );
                       }}
-                      className="flex whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors"
+                      className="flex whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-harbour-50 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-300 hover:bg-brand-harbour-100 dark:hover:bg-brand-harbour-900/50 transition-colors"
                       title={`Generate report from ${insp.inspectionNumber}`}
                     >
                       <FileText size={14} />
@@ -695,7 +695,7 @@ export default function InspectionsPage() {
                   </button>
                   <ChevronRight
                     size={20}
-                    className="text-neutral-700 dark:text-slate-600 group-hover:text-cyan-500 transition-colors mt-1"
+                    className="text-neutral-700 dark:text-slate-600 group-hover:text-brand-harbour-500 transition-colors mt-1"
                   />
                 </div>
               </div>

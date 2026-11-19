@@ -79,7 +79,7 @@ export default async function ClaimsIndexPage() {
             ? "All claims across the workspace — intake through closeout."
             : "Claims you have progress access to."
         }
-        icon={<FolderKanban className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<FolderKanban className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/claims" })}
         primaryAction={
           claims.length > 0 ? (

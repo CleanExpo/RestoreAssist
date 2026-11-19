@@ -200,7 +200,7 @@ export default function NewCreditNotePage() {
                 }
                 required
                 disabled={loadingInvoices}
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:opacity-50"
+                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 disabled:opacity-50"
               >
                 <option value="">
                   {loadingInvoices ? "Loading invoices…" : "Select an invoice"}
@@ -222,7 +222,7 @@ export default function NewCreditNotePage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, reason: e.target.value }))
                 }
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
               >
                 {REASONS.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -243,7 +243,7 @@ export default function NewCreditNotePage() {
                 }
                 placeholder="Additional details about this credit note…"
                 rows={2}
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 resize-none"
+                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 resize-none"
               />
             </div>
 
@@ -258,7 +258,7 @@ export default function NewCreditNotePage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, creditDate: e.target.value }))
                   }
-                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -270,7 +270,7 @@ export default function NewCreditNotePage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, refundMethod: e.target.value }))
                   }
-                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
                 >
                   {REFUND_METHODS.map((m) => (
                     <option key={m.value} value={m.value}>
@@ -308,7 +308,7 @@ export default function NewCreditNotePage() {
                       updateLineItem(idx, "description", e.target.value)
                     }
                     placeholder="Description"
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div className="col-span-2">
@@ -325,7 +325,7 @@ export default function NewCreditNotePage() {
                     min="0"
                     step="0.01"
                     placeholder="Qty"
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div className="col-span-3">
@@ -342,7 +342,7 @@ export default function NewCreditNotePage() {
                     min="0"
                     step="0.01"
                     placeholder="Unit price"
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div className="col-span-1 flex items-center justify-center pt-2">
@@ -428,7 +428,7 @@ export default function NewCreditNotePage() {
             <button
               type="submit"
               disabled={isSubmitting || !form.invoiceId || !gstKnown}
-              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <Loader2 size={18} className="animate-spin" />

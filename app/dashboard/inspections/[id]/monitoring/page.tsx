@@ -100,7 +100,7 @@ function StatusIcon({ status }: { status: DryingStatus }) {
     case "ACHIEVED":
       return <CheckCircle2 size={14} className="text-success" />;
     case "PROGRESSING":
-      return <TrendingDown size={14} className="text-cyan-600" />;
+      return <TrendingDown size={14} className="text-brand-harbour-600" />;
     case "PLATEAU":
       return <Minus size={14} className="text-amber-600" />;
     default:
@@ -163,7 +163,7 @@ export default function MonitoringPage({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="animate-spin text-cyan-500" size={28} />
+        <Loader2 className="animate-spin text-brand-harbour-500" size={28} />
       </div>
     );
   }
@@ -203,7 +203,7 @@ export default function MonitoringPage({
             </h1>
             <Badge
               variant="outline"
-              className="text-xs font-mono border-cyan-300 text-cyan-700 dark:text-cyan-400"
+              className="text-xs font-mono border-brand-harbour-300 text-brand-harbour-700 dark:text-brand-harbour-400"
             >
               {report.iicrcReference}
             </Badge>
@@ -292,7 +292,7 @@ export default function MonitoringPage({
             </p>
             <button
               onClick={() => router.push(`/dashboard/inspections/${id}`)}
-              className="mt-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+              className="mt-2 px-4 py-2 rounded-lg bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white text-sm font-medium transition-colors"
             >
               Add Readings
             </button>

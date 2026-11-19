@@ -446,7 +446,7 @@ export default function AnalyticsPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Analytics"
         description="Reports, revenue, and completion trends across your team."
-        icon={<BarChart3 className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<BarChart3 className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/analytics" })}
       />
 
@@ -467,7 +467,7 @@ export default function AnalyticsPage() {
                 "rounded-lg p-2",
                 selectedMember.role === "MANAGER"
                   ? "bg-info-subtle text-info-subtle-foreground"
-                  : "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
+                  : "bg-brand-harbour-500/10 text-brand-harbour-600 dark:text-brand-harbour-400",
               )}
             >
               {selectedMember.role === "MANAGER" ? (
@@ -704,13 +704,13 @@ export default function AnalyticsPage() {
                           <span className="text-sm font-medium text-foreground truncate">
                             {item.type || "Unknown"}
                           </span>
-                          <span className="text-sm font-semibold text-cyan-600 dark:text-cyan-400 tabular-nums">
+                          <span className="text-sm font-semibold text-brand-harbour-600 dark:text-brand-harbour-400 tabular-nums">
                             {item.count}
                           </span>
                         </div>
                         <div className="h-2 rounded-full bg-muted overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-cyan-500 transition-all duration-500"
+                            className="h-full rounded-full bg-brand-harbour-500 transition-all duration-500"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -842,7 +842,7 @@ export default function AnalyticsPage() {
               </div>
             ) : (
               <div className="p-10 sm:p-12 text-center space-y-3">
-                <Loader2 className="h-7 w-7 text-cyan-500 animate-spin mx-auto" />
+                <Loader2 className="h-7 w-7 text-brand-harbour-500 animate-spin mx-auto" />
                 <p className="text-sm text-muted-foreground">
                   Calculating revenue forecast…
                 </p>

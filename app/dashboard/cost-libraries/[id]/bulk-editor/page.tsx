@@ -417,7 +417,7 @@ export default function CostLibraryBulkEditorPage({
           onChange={(e) => updateCell(rowId, field, e.target.value)}
           onBlur={commitEdit}
           onKeyDown={handleKeyDown}
-          className="w-full bg-slate-900 border border-cyan-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+          className="w-full bg-slate-900 border border-brand-harbour-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
         />
       );
     }
@@ -446,7 +446,7 @@ export default function CostLibraryBulkEditorPage({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="animate-spin h-8 w-8 text-cyan-500" />
+        <Loader2 className="animate-spin h-8 w-8 text-brand-harbour-500" />
       </div>
     );
   }
@@ -495,7 +495,7 @@ export default function CostLibraryBulkEditorPage({
               </span>
             )}
             {selected.size > 0 && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+              <span className="px-2 py-0.5 text-xs rounded-full bg-brand-harbour-500/20 text-brand-harbour-400 border border-brand-harbour-500/30">
                 {selected.size} selected
               </span>
             )}
@@ -533,7 +533,7 @@ export default function CostLibraryBulkEditorPage({
           <button
             onClick={saveChanges}
             disabled={saving || dirtyCount === 0}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-500 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? (
               <Loader2 size={15} className="animate-spin" />
@@ -560,7 +560,7 @@ export default function CostLibraryBulkEditorPage({
               placeholder="e.g. 10 or -5"
               value={priceAdjust}
               onChange={(e) => setPriceAdjust(e.target.value)}
-              className="w-36 pl-8 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+              className="w-36 pl-8 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50 text-sm"
             />
           </div>
           <button
@@ -590,7 +590,7 @@ export default function CostLibraryBulkEditorPage({
           </p>
           <button
             onClick={addRow}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors text-sm font-medium"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-500 text-white rounded-lg transition-colors text-sm font-medium"
           >
             <Plus size={15} />
             Add First Row
@@ -607,7 +607,7 @@ export default function CostLibraryBulkEditorPage({
                       type="checkbox"
                       checked={allSelected}
                       onChange={toggleSelectAll}
-                      className="rounded border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500/30 cursor-pointer"
+                      className="rounded border-slate-600 bg-slate-700 text-brand-harbour-500 focus:ring-brand-harbour-500/30 cursor-pointer"
                       title="Select all"
                     />
                   </th>
@@ -634,7 +634,7 @@ export default function CostLibraryBulkEditorPage({
                       className={[
                         "transition-colors",
                         row.dirty ? "bg-yellow-500/5" : "",
-                        isSelected ? "bg-cyan-500/5" : "hover:bg-slate-700/20",
+                        isSelected ? "bg-brand-harbour-500/5" : "hover:bg-slate-700/20",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -645,7 +645,7 @@ export default function CostLibraryBulkEditorPage({
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleSelect(row.current.id)}
-                          className="rounded border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500/30 cursor-pointer"
+                          className="rounded border-slate-600 bg-slate-700 text-brand-harbour-500 focus:ring-brand-harbour-500/30 cursor-pointer"
                         />
                       </td>
 

@@ -244,7 +244,7 @@ export default function InterviewDetailPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <Link
           href="/dashboard/interviews"
-          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 dark:text-slate-400 hover:text-brand-harbour-600 dark:hover:text-brand-harbour-400 transition-colors"
         >
           <ArrowLeft size={16} />
           Interviews
@@ -340,7 +340,7 @@ export default function InterviewDetailPage() {
             <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-slate-800">
               <Link
                 href={`/dashboard/reports/${interview.reportId}`}
-                className="inline-flex items-center gap-2 text-sm font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
+                className="inline-flex items-center gap-2 text-sm font-medium text-brand-harbour-600 dark:text-brand-harbour-400 hover:underline"
               >
                 <FileText size={14} />
                 View Linked Inspection Report
@@ -456,7 +456,7 @@ export default function InterviewDetailPage() {
                 `/dashboard/forms/interview?formTemplateId=${interview.formTemplate.id}&sessionId=${interview.id}`,
               )
             }
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-600"
+            className="bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white hover:from-blue-600 hover:to-brand-harbour-600"
           >
             Resume Interview
           </Button>

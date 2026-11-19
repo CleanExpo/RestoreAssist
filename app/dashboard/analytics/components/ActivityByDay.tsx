@@ -43,7 +43,7 @@ export default function ActivityByDay({
         )}
       >
         <div className="h-[280px] flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+          <Loader2 className="w-8 h-8 text-brand-harbour-500 animate-spin" />
         </div>
       </div>
     );
@@ -59,7 +59,7 @@ export default function ActivityByDay({
         )}
       >
         <div className="flex items-center gap-3 mb-4">
-          <Calendar className="w-5 h-5 text-cyan-500" />
+          <Calendar className="w-5 h-5 text-brand-harbour-500" />
           <h3
             className={cn(
               "text-lg font-semibold",
@@ -87,12 +87,12 @@ export default function ActivityByDay({
         "p-6 rounded-2xl border",
         "border-neutral-200 dark:border-slate-700/60",
         "bg-white dark:bg-slate-900/50",
-        "hover:border-cyan-500/30",
+        "hover:border-brand-harbour-500/30",
       )}
     >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Calendar className="w-5 h-5 text-cyan-500" />
+          <Calendar className="w-5 h-5 text-brand-harbour-500" />
           <h3
             className={cn(
               "text-lg font-semibold",

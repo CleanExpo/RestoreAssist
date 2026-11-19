@@ -91,7 +91,7 @@ function providerColor(provider: IntegrationProvider): string {
     case "SERVICEM8":
       return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
     case "ASCORA":
-      return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400";
+      return "bg-brand-harbour-100 text-brand-harbour-800 dark:bg-brand-harbour-900/30 dark:text-brand-harbour-400";
     default:
       return "bg-neutral-100 text-neutral-700 dark:bg-slate-800 dark:text-slate-300";
   }
@@ -201,7 +201,7 @@ export default function WebhookLogsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-brand-harbour-500 flex items-center justify-center">
             <Activity size={20} className="text-white" />
           </div>
           <div>
@@ -317,7 +317,7 @@ export default function WebhookLogsPage() {
                 type="date"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
-                className="h-9 rounded-md border border-neutral-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 text-neutral-900 dark:text-slate-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                className="h-9 rounded-md border border-neutral-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 text-neutral-900 dark:text-slate-50 focus:outline-none focus:ring-1 focus:ring-brand-harbour-500"
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -328,7 +328,7 @@ export default function WebhookLogsPage() {
                 type="date"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
-                className="h-9 rounded-md border border-neutral-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 text-neutral-900 dark:text-slate-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                className="h-9 rounded-md border border-neutral-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 text-neutral-900 dark:text-slate-50 focus:outline-none focus:ring-1 focus:ring-brand-harbour-500"
               />
             </div>
 

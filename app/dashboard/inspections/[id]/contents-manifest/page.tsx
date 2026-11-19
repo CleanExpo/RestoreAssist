@@ -689,7 +689,7 @@ export default function ContentsManifestPage({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                <Package size={20} className="text-cyan-500 shrink-0" />
+                <Package size={20} className="text-brand-harbour-500 shrink-0" />
                 Contents Manifest
               </h1>
               {meta && (
@@ -725,7 +725,7 @@ export default function ContentsManifestPage({
               <Button
                 onClick={handleGenerate}
                 disabled={generating}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white shrink-0"
+                className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white shrink-0"
               >
                 {generating ? (
                   <>
@@ -799,7 +799,7 @@ export default function ContentsManifestPage({
               className={cn(
                 "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
                 viewMode === "room"
-                  ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400"
+                  ? "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-400"
                   : "text-neutral-500 hover:text-neutral-700 dark:text-slate-400",
               )}
             >
@@ -810,7 +810,7 @@ export default function ContentsManifestPage({
               className={cn(
                 "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
                 viewMode === "category"
-                  ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400"
+                  ? "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-400"
                   : "text-neutral-500 hover:text-neutral-700 dark:text-slate-400",
               )}
             >
@@ -937,7 +937,7 @@ export default function ContentsManifestPage({
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Eye size={15} className="text-cyan-500" />
+              <Eye size={15} className="text-brand-harbour-500" />
               <span>
                 Model:{" "}
                 <strong className="text-neutral-900 dark:text-white">

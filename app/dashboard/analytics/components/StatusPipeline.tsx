@@ -53,7 +53,7 @@ export default function StatusPipeline({
         )}
       >
         <div className="h-[280px] flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+          <Loader2 className="w-8 h-8 text-brand-harbour-500 animate-spin" />
         </div>
       </div>
     );
