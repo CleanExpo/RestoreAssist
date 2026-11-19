@@ -6,7 +6,7 @@
 @custom-variant dark (&:is(.dark, .dark *));
 
 /* The shadcn semantic tokens point at the brand (design audit DSA-01), so
-   every default <Button>, focus ring and accent surface carries palette A. */
+   every default <Button>, focus ring and accent surface carries palette B. */
 :root {
   --background: oklch(1 0 0);
   --foreground: var(--color-brand-navy);
@@ -19,7 +19,7 @@
   --secondary: var(--color-brand-cloud);
   --secondary-foreground: var(--color-brand-navy);
   --muted: var(--color-brand-cloud);
-  --muted-foreground: var(--color-brand-slate); /* 6.77:1 on --muted */
+  --muted-foreground: var(--color-brand-slate); /* 6.68:1 on --muted */
   --accent: var(--color-brand-cream);
   --accent-foreground: var(--color-brand-navy);
   --destructive: oklch(0.577 0.245 27.325);
@@ -100,8 +100,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: var(--color-brand-surface);
   --popover-foreground: oklch(0.985 0 0);
-  /* Lifted harbour with dark text: 7.08:1 as a fill and as link text on
-     brand-canvas. #1b5fa6 as text on the dark canvas is only 2.83:1. */
+  /* Lifted harbour with dark text: 6.70:1 as a fill and as link text on
+     brand-canvas. #1638c8 as text on the dark canvas is only 2.17:1. */
   --primary: var(--color-brand-harbour-light);
   --primary-foreground: var(--color-brand-canvas);
   --secondary: var(--color-brand-surface-2);
@@ -151,42 +151,44 @@
   --font-sans: "Geist", "Geist Fallback";
   --font-mono: "Geist Mono", "Geist Mono Fallback";
 
-  /* Brand palette A, "Harbour blue and signal orange" (Phill, 19/11/2026;
-     design audit 18/11/2026 section 7, which holds the contrast table).
-     Replaced the navy and bronze palette. The token names are kept, so a
-     name describes a role, not a hue: `brand-bronze` is now a burnt orange
-     and `brand-gold` a signal orange.
-     Rules: solid fills with white text use `brand-cta` (6.49:1), never a
-     500 step of a hue scale (white on step 500 is 3.97:1, a fail).
-     `brand-gold` is for dark surfaces only (2.03:1 on white). */
-  --color-brand-navy: #12324f; /* headings, strong text, sidebar fill */
-  --color-brand-navy-hover: #0c2238; /* navy button hover */
-  --color-brand-bronze: #a34a06; /* secondary highlight text, borders */
-  --color-brand-gold: #f5a623; /* highlight on dark surfaces only */
-  --color-brand-gold-hover: #f7b955; /* highlight hover on dark */
-  --color-brand-slate: #4a5868; /* muted body copy, meta text */
+  /* Brand palette B, "Paper and cobalt" (Phill, 19/11/2026: "B Paper";
+     design audit 18/11/2026, RA-8467). Replaced palette A (Harbour). The
+     token names are kept, so a name describes a role, not a hue:
+     `brand-harbour` and `brand-bronze` are now cobalt, `brand-navy` is ink
+     and `brand-gold` a pale cobalt.
+     Rules: solid fills with white text use `brand-cta` (8.63:1), never a
+     500 step of a hue scale (white on step 500 is 4.19:1, a fail for body
+     text). `brand-gold` is for dark surfaces only (2.07:1 on white).
+     The contrast figures in .claude/DESIGN.md are checked against these
+     values by tests/unit/brand-contrast.test.ts. */
+  --color-brand-navy: #17181c; /* headings, strong text, sidebar fill */
+  --color-brand-navy-hover: #2b2d33; /* navy button hover */
+  --color-brand-bronze: #1d3fc4; /* secondary highlight text, borders */
+  --color-brand-gold: #9db1ff; /* highlight on dark surfaces only */
+  --color-brand-gold-hover: #bccaff; /* highlight hover on dark */
+  --color-brand-slate: #5a574e; /* muted body copy, meta text */
 
   /* Call-to-action and surface shades. */
-  --color-brand-cta: #1b5fa6; /* primary call-to-action fill */
-  --color-brand-cta-hover: #154c86; /* primary call-to-action hover */
-  --color-brand-steel: #55687c; /* secondary button fill, input borders */
-  --color-brand-steel-hover: #2f4053; /* secondary button hover */
-  --color-brand-mist: #d5dde5; /* light divider, glass surface */
-  --color-brand-cloud: #f4f7fa; /* off-white section surface (light pages) */
-  --color-brand-cream: #eaf1f8; /* soft hover surface */
-  --color-brand-cream-2: #dbe7f3; /* soft active surface */
-  --color-brand-harbour: #1b5fa6; /* links and focus ring on light surfaces */
-  /* Harbour lifted for dark surfaces: #1b5fa6 on brand-canvas is 2.83:1,
-     under the 3:1 a focus ring needs. This is 7.08:1 on brand-canvas. */
-  --color-brand-harbour-light: #6aa5e2;
+  --color-brand-cta: #1638c8; /* primary call-to-action fill */
+  --color-brand-cta-hover: #0f2a9e; /* primary call-to-action hover */
+  --color-brand-steel: #6b685f; /* secondary button fill, input borders */
+  --color-brand-steel-hover: #2e2c28; /* secondary button hover */
+  --color-brand-mist: #dedbd2; /* light divider, glass surface */
+  --color-brand-cloud: #f7f6f2; /* paper: off-white section surface */
+  --color-brand-cream: #efece4; /* soft hover surface */
+  --color-brand-cream-2: #e6e2d6; /* soft active surface */
+  --color-brand-harbour: #1638c8; /* links and focus ring on light surfaces */
+  /* Harbour lifted for dark surfaces: #1638c8 on brand-canvas is 2.17:1,
+     under the 3:1 a focus ring needs. This is 6.70:1 on brand-canvas. */
+  --color-brand-harbour-light: #7b96f4;
 
   /* Dark surfaces, for dark mode and the dark islands that remain. */
-  --color-brand-canvas: #0b1520; /* full-bleed dark canvas */
-  --color-brand-surface: #10202f; /* dark card / panel surface */
-  --color-brand-surface-2: #152839; /* dark card hover surface */
-  --color-brand-deep: #0e1c2b; /* sketch editor / capture-flow surface */
-  --color-brand-ink: #0a131c; /* near-black drawer / sidebar surface */
-  --color-brand-abyss: #060c14; /* deepest hero background */
+  --color-brand-canvas: #121212; /* full-bleed dark canvas */
+  --color-brand-surface: #1a1a1c; /* dark card / panel surface */
+  --color-brand-surface-2: #232327; /* dark card hover surface */
+  --color-brand-deep: #17171a; /* sketch editor / capture-flow surface */
+  --color-brand-ink: #0e0e0f; /* near-black drawer / sidebar surface */
+  --color-brand-abyss: #08080a; /* deepest hero background */
 
   /* Primary Colors */
   --color-slate-950: #0f172a;
@@ -198,39 +200,39 @@
   --color-blue-500: #3b82f6;
   /* Interim bridge (19/11/2026): the signed-in app paints its accent with
      Tailwind cyan utilities (about 2,100 uses), which would sit as an
-     off-brand teal next to palette A's blue. The cyan scale is re-pointed at
-     the brand-cta hue (oklch hue 253.3), as in the design audit previews.
+     off-brand teal next to palette B's cobalt. The cyan scale is re-pointed
+     at the brand-cta hue (oklch hue 265.6), as in the design audit previews.
      Steps 600 and up carry white text at 6:1 or better; step 500 does not
-     (3.97:1), so solid white-text fills use 600 or brand-cta. Replacing the
+     (4.19:1), so solid white-text fills use 600 or brand-cta. Replacing the
      cyan utilities with brand tokens is design-audit card DSA-04. */
-  --color-cyan-50: oklch(0.97 0.046 253.3);
-  --color-cyan-100: oklch(0.94 0.046 253.3);
-  --color-cyan-200: oklch(0.89 0.092 253.3);
-  --color-cyan-300: oklch(0.82 0.092 253.3);
-  --color-cyan-400: oklch(0.72 0.132 253.3);
-  --color-cyan-500: oklch(0.6 0.132 253.3);
-  --color-cyan-600: oklch(0.5 0.132 253.3);
-  --color-cyan-700: oklch(0.43 0.132 253.3);
-  --color-cyan-800: oklch(0.37 0.132 253.3);
-  --color-cyan-900: oklch(0.31 0.132 253.3);
-  --color-cyan-950: oklch(0.24 0.132 253.3);
+  --color-cyan-50: oklch(0.97 0.078 265.6);
+  --color-cyan-100: oklch(0.94 0.078 265.6);
+  --color-cyan-200: oklch(0.89 0.156 265.6);
+  --color-cyan-300: oklch(0.82 0.156 265.6);
+  --color-cyan-400: oklch(0.72 0.223 265.6);
+  --color-cyan-500: oklch(0.6 0.223 265.6);
+  --color-cyan-600: oklch(0.5 0.223 265.6);
+  --color-cyan-700: oklch(0.43 0.223 265.6);
+  --color-cyan-800: oklch(0.37 0.223 265.6);
+  --color-cyan-900: oklch(0.31 0.223 265.6);
+  --color-cyan-950: oklch(0.24 0.223 265.6);
   /* Harbour scale (RA-8464, DSA-04): the signed-in app's accent. Eleven steps
-     on the brand-cta hue (oklch hue 253.3), the same values as the cyan bridge
+     on the brand-cta hue (oklch hue 265.6), the same values as the cyan bridge
      above. Cyan utilities move to this scale over three PRs; the bridge is
      removed in the last one. Steps 600 and up carry white text at 6:1 or
-     better; step 500 does not (3.97:1), so solid white-text fills use 600 or
+     better; step 500 does not (4.19:1), so solid white-text fills use 600 or
      brand-cta. New code uses brand-harbour, never cyan. */
-  --color-brand-harbour-50: oklch(0.97 0.046 253.3);
-  --color-brand-harbour-100: oklch(0.94 0.046 253.3);
-  --color-brand-harbour-200: oklch(0.89 0.092 253.3);
-  --color-brand-harbour-300: oklch(0.82 0.092 253.3);
-  --color-brand-harbour-400: oklch(0.72 0.132 253.3);
-  --color-brand-harbour-500: oklch(0.6 0.132 253.3);
-  --color-brand-harbour-600: oklch(0.5 0.132 253.3);
-  --color-brand-harbour-700: oklch(0.43 0.132 253.3);
-  --color-brand-harbour-800: oklch(0.37 0.132 253.3);
-  --color-brand-harbour-900: oklch(0.31 0.132 253.3);
-  --color-brand-harbour-950: oklch(0.24 0.132 253.3);
+  --color-brand-harbour-50: oklch(0.97 0.078 265.6);
+  --color-brand-harbour-100: oklch(0.94 0.078 265.6);
+  --color-brand-harbour-200: oklch(0.89 0.156 265.6);
+  --color-brand-harbour-300: oklch(0.82 0.156 265.6);
+  --color-brand-harbour-400: oklch(0.72 0.223 265.6);
+  --color-brand-harbour-500: oklch(0.6 0.223 265.6);
+  --color-brand-harbour-600: oklch(0.5 0.223 265.6);
+  --color-brand-harbour-700: oklch(0.43 0.223 265.6);
+  --color-brand-harbour-800: oklch(0.37 0.223 265.6);
+  --color-brand-harbour-900: oklch(0.31 0.223 265.6);
+  --color-brand-harbour-950: oklch(0.24 0.223 265.6);
   --color-emerald-400: #10b981;
   --color-amber-400: #f59e0b;
   --color-rose-500: #f43f5e;

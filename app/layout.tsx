@@ -123,7 +123,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#12324f",
+  themeColor: "#17181c",
 };
 
 // NOTE: the iOS-shell platform verdict is deliberately NOT resolved here.

@@ -38,89 +38,90 @@ not by being loud.
 
 ## Visual Tokens
 
-The palette is A, "Harbour blue and signal orange" (chosen 19/11/2026). Token
-names describe roles, not hues: `bronze` is now burnt orange and `gold` is signal
-orange. Use the Tailwind utility (`bg-brand-navy`) rather than the hex;
+The palette is B, "Paper and cobalt" (chosen 19/11/2026, replacing palette A).
+Token names describe roles, not hues: `harbour` and `bronze` are now cobalt,
+`navy` is ink and `gold` is a pale cobalt. Use the Tailwind utility (`bg-brand-navy`) rather than the hex;
 components must carry no raw hex literal.
 
 ### Colour — core brand
 
 | Token | Hex | Use |
 |---|---|---|
-| `--color-brand-navy` | `#12324f` | Primary — headings, strong text, foreground |
-| `--color-brand-navy-hover` | `#0c2238` | Navy, hover |
-| `--color-brand-harbour` | `#1b5fa6` | Harbour blue — links, focus ring, accents on light |
-| `--color-brand-harbour-light` | `#6aa5e2` | Harbour blue for dark surfaces — links, primary in dark mode |
-| `--color-brand-bronze` | `#a34a06` | Burnt orange — secondary highlight, borders |
-| `--color-brand-slate` | `#4a5868` | Muted — body copy, meta text |
-| `--color-brand-gold` | `#f5a623` | Signal orange — highlight on dark surfaces only |
-| `--color-brand-gold-hover` | `#f7b955` | Signal orange, hover |
+| `--color-brand-navy` | `#17181c` | Primary — ink for headings, strong text, foreground |
+| `--color-brand-navy-hover` | `#2b2d33` | Navy, hover |
+| `--color-brand-harbour` | `#1638c8` | Cobalt — links, focus ring, accents on light |
+| `--color-brand-harbour-light` | `#7b96f4` | Cobalt for dark surfaces — links, primary in dark mode |
+| `--color-brand-bronze` | `#1d3fc4` | Cobalt — secondary highlight, borders |
+| `--color-brand-slate` | `#5a574e` | Muted — body copy, meta text |
+| `--color-brand-gold` | `#9db1ff` | Pale cobalt — highlight on dark surfaces only |
+| `--color-brand-gold-hover` | `#bccaff` | Pale cobalt, hover |
 
 ### Colour — CTA and light surfaces
 
 | Token | Hex | Use |
 |---|---|---|
-| `--color-brand-cta` | `#1b5fa6` | Primary CTA (solid, white text) |
-| `--color-brand-cta-hover` | `#154c86` | Primary CTA, hover |
-| `--color-brand-steel` | `#55687c` | Secondary CTA steel |
-| `--color-brand-steel-hover` | `#2f4053` | Secondary CTA steel, hover |
-| `--color-brand-mist` | `#d5dde5` | Borders, glass surface on hero |
-| `--color-brand-cloud` | `#f4f7fa` | Off-white section surface, light sidebar |
-| `--color-brand-cream` | `#eaf1f8` | Accent surface, active nav item |
-| `--color-brand-cream-2` | `#dbe7f3` | Accent surface, hover |
+| `--color-brand-cta` | `#1638c8` | Primary CTA (solid, white text) |
+| `--color-brand-cta-hover` | `#0f2a9e` | Primary CTA, hover |
+| `--color-brand-steel` | `#6b685f` | Secondary CTA steel |
+| `--color-brand-steel-hover` | `#2e2c28` | Secondary CTA steel, hover |
+| `--color-brand-mist` | `#dedbd2` | Borders, glass surface on hero |
+| `--color-brand-cloud` | `#f7f6f2` | Paper — off-white section surface, light sidebar |
+| `--color-brand-cream` | `#efece4` | Accent surface, active nav item |
+| `--color-brand-cream-2` | `#e6e2d6` | Accent surface, hover |
 
 ### Colour — dark surfaces
 
 | Token | Hex | Use |
 |---|---|---|
-| `--color-brand-canvas` | `#0b1520` | Dark-mode page background |
-| `--color-brand-surface` | `#10202f` | Dark-mode card / panel |
-| `--color-brand-surface-2` | `#152839` | Dark-mode card, hover; muted surface |
-| `--color-brand-deep` | `#0e1c2b` | Sketch editor / capture flow |
-| `--color-brand-ink` | `#0a131c` | Drawer / sidebar in dark mode |
-| `--color-brand-abyss` | `#060c14` | Deepest background |
+| `--color-brand-canvas` | `#121212` | Dark-mode page background |
+| `--color-brand-surface` | `#1a1a1c` | Dark-mode card / panel |
+| `--color-brand-surface-2` | `#232327` | Dark-mode card, hover; muted surface |
+| `--color-brand-deep` | `#17171a` | Sketch editor / capture flow |
+| `--color-brand-ink` | `#0e0e0f` | Drawer / sidebar in dark mode |
+| `--color-brand-abyss` | `#08080a` | Deepest background |
 
 ### Colour — harbour scale (signed-in app accent)
 
 The signed-in app's accent tints, badges, rings and gradients use an eleven-step
-scale on the brand-cta hue (oklch hue 253.3): `brand-harbour-50` to
+scale on the brand-cta hue (oklch hue 265.6): `brand-harbour-50` to
 `brand-harbour-950` (`bg-brand-harbour-500/10`, `text-brand-harbour-600`,
 `ring-brand-harbour-400/40`). It replaces the Tailwind cyan utilities (RA-8464),
 which move over in three PRs. Until the last one lands, `app/globals.css` keeps a
-cyan bridge on the same values so unmoved screens still render harbour blue.
+cyan bridge on the same values so unmoved screens still render the brand cobalt.
 New code uses `brand-harbour-*`, never `cyan-*`.
 
 | Token | Value |
 |---|---|
-| `--color-brand-harbour-50` | `oklch(0.97 0.046 253.3)` |
-| `--color-brand-harbour-100` | `oklch(0.94 0.046 253.3)` |
-| `--color-brand-harbour-200` | `oklch(0.89 0.092 253.3)` |
-| `--color-brand-harbour-300` | `oklch(0.82 0.092 253.3)` |
-| `--color-brand-harbour-400` | `oklch(0.72 0.132 253.3)` |
-| `--color-brand-harbour-500` | `oklch(0.6 0.132 253.3)` |
-| `--color-brand-harbour-600` | `oklch(0.5 0.132 253.3)` |
-| `--color-brand-harbour-700` | `oklch(0.43 0.132 253.3)` |
-| `--color-brand-harbour-800` | `oklch(0.37 0.132 253.3)` |
-| `--color-brand-harbour-900` | `oklch(0.31 0.132 253.3)` |
-| `--color-brand-harbour-950` | `oklch(0.24 0.132 253.3)` |
+| `--color-brand-harbour-50` | `oklch(0.97 0.078 265.6)` |
+| `--color-brand-harbour-100` | `oklch(0.94 0.078 265.6)` |
+| `--color-brand-harbour-200` | `oklch(0.89 0.156 265.6)` |
+| `--color-brand-harbour-300` | `oklch(0.82 0.156 265.6)` |
+| `--color-brand-harbour-400` | `oklch(0.72 0.223 265.6)` |
+| `--color-brand-harbour-500` | `oklch(0.6 0.223 265.6)` |
+| `--color-brand-harbour-600` | `oklch(0.5 0.223 265.6)` |
+| `--color-brand-harbour-700` | `oklch(0.43 0.223 265.6)` |
+| `--color-brand-harbour-800` | `oklch(0.37 0.223 265.6)` |
+| `--color-brand-harbour-900` | `oklch(0.31 0.223 265.6)` |
+| `--color-brand-harbour-950` | `oklch(0.24 0.223 265.6)` |
 
-The single tokens `brand-harbour` (`#1b5fa6`) and `brand-harbour-light`
-(`#6aa5e2`) stay the link and focus colours; the scale is for tints and fills.
-Steps 600 and up carry white text at 6:1 or better; step 500 measures 3.97:1, so
+The single tokens `brand-harbour` (`#1638c8`) and `brand-harbour-light`
+(`#7b96f4`) stay the link and focus colours; the scale is for tints and fills.
+Steps 600 and up carry white text at 6:1 or better; step 500 measures 4.19:1, so
 a solid white-text fill uses step 600 or `brand-cta`.
 
 ### Contrast — read before choosing a colour
 
-Measured WCAG ratios:
+Measured WCAG ratios. `tests/unit/brand-contrast.test.ts` recomputes every row
+from `app/globals.css`, so a palette change that leaves this table stale fails CI.
 
 | Pair | Ratio |
 |---|---|
-| White on `brand-cta` `#1b5fa6` | 6.49:1 |
-| White on `brand-bronze` `#a34a06` | 5.93:1 |
-| `brand-slate` on white | 7.27:1 |
-| `brand-harbour-light` on `brand-canvas` | 7.08:1 |
-| `brand-gold` on `brand-navy` | 6.50:1 |
-| `brand-gold` on white | 2.03:1 (fails) |
+| White on `brand-cta` `#1638c8` | 8.63:1 |
+| White on `brand-bronze` `#1d3fc4` | 8.20:1 |
+| `brand-slate` on white | 7.22:1 |
+| `brand-harbour-light` on `brand-canvas` | 6.70:1 |
+| `brand-gold` on `brand-navy` | 8.59:1 |
+| `brand-gold` on white | 2.07:1 (fails) |
 
 Rules that follow from these:
 
@@ -128,7 +129,9 @@ Rules that follow from these:
   step 500 colour.
 - `brand-gold` is for dark surfaces only. On a light surface it fails AA.
 - In dark mode, links and the primary colour use `brand-harbour-light`;
-  `brand-harbour` on `brand-canvas` measures 2.83:1 and fails.
+  `brand-harbour` on `brand-canvas` measures 2.17:1 and fails.
+- Charts sit on white cards, never straight onto the paper surface
+  `brand-cloud`, where the paler chart colours lose contrast.
 - Light mode is the default theme; every route follows the user's Appearance
   choice.
 
