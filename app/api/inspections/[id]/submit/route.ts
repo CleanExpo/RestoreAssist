@@ -474,6 +474,7 @@ export async function POST(
       // an estimate. A refused price (business not proven) or a processing
       // error leaves it unpriced, and syncing would push empty amounts.
       let estimated = false;
+      let processingFailed = false;
       try {
         const outcome = await processInspectionComplete(
           id,
@@ -482,9 +483,22 @@ export async function POST(
         );
         estimated = "costEstimate" in outcome;
       } catch (error) {
+        processingFailed = true;
         console.error("Error processing inspection:", error);
-        // Don't fail the submission, but log the error
-        // In production, would retry via queue
+        await prisma.auditLog
+          .create({
+            data: {
+              inspectionId: id,
+              action:
+                "WARNING: submit saved but classification/cost processing failed — office follow-up required",
+              entityType: "Inspection",
+              entityId: id,
+              userId,
+            },
+          })
+          .catch((auditErr) =>
+            console.error("[submit] processing-failure audit log failed:", auditErr),
+          );
       }
 
       // After processing, so the client gets one email for where the job
@@ -531,10 +545,18 @@ export async function POST(
       }
 
       return NextResponse.json({
-        message:
-          "Inspection submitted successfully. Processing classification, scope determination, and cost estimation...",
+        message: processingFailed
+          ? "Inspection submitted, but automatic classification and costing did not finish. Your office will need to complete processing."
+          : estimated
+            ? "Inspection submitted successfully. Classification, scope, and costing are complete."
+            : "Inspection submitted successfully. Processing classification, scope determination, and cost estimation...",
         inspectionId: id,
         status: "SUBMITTED",
+        processingComplete: estimated && !processingFailed,
+        ...(processingFailed && {
+          processingWarning:
+            "Classification and cost estimation failed after submit. Do not treat the job as fully processed until the office resolves this.",
+        }),
         // Surface supplementary gaps and warnings to the caller (mobile app shows follow-up prompts)
         ...(tieredResult.missingSupplementary.length > 0 && {
           missingSupplementary: tieredResult.missingSupplementary.map((f) => ({
