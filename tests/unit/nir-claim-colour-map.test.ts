@@ -60,16 +60,24 @@ describe("NIR claim colour map", () => {
   });
 
   it("uses the brand harbour scale for water claims", () => {
-    expect(source).toMatch(/type:\s*"WATER",[\s\S]*?color:\s*"brand-harbour"/);
+    // Only the WATER entry itself: from its type line to the end of its object.
+    const claims = block("const CLAIM_TYPES", "\n];");
+    const start = claims.indexOf('type: "WATER"');
+    expect(start, "WATER claim type not found").toBeGreaterThanOrEqual(0);
+    const water = claims.slice(start, claims.indexOf("}", start));
+    expect(water).toMatch(/color:\s*"brand-harbour"/);
   });
 
   it("keeps the runtime-built brand harbour header classes literal in source", () => {
+    // Whole class tokens only: bg-brand-harbour-500 must not satisfy bg-brand-harbour-50.
+    const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
     for (const cls of [
       "text-brand-harbour-500",
       "bg-brand-harbour-50",
       "dark:bg-brand-harbour-900/10",
     ]) {
-      expect(source, `${cls} must appear literally for Tailwind`).toContain(cls);
+      const token = new RegExp(`(?<![\\w:/-])${escape(cls)}(?![\\w/-])`);
+      expect(source, `${cls} must appear literally for Tailwind`).toMatch(token);
     }
   });
 });
