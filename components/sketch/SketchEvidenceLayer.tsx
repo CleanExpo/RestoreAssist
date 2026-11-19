@@ -269,7 +269,7 @@ export function SketchEvidenceLayer({
           <Button
             type="button"
             size="touch"
-            className="w-full bg-[#D4A574] text-[#050505] hover:bg-[#D4A574]/90"
+            className="w-full bg-brand-gold text-[#050505] hover:bg-brand-gold/90"
             onClick={() => {
               setSourcePickerOpen(false);
               fileRef.current?.click();
@@ -291,7 +291,7 @@ export function SketchEvidenceLayer({
                   type="button"
                   variant="outline"
                   aria-label={`Use existing photo: ${label}`}
-                  className="h-auto min-w-0 flex-col gap-0 overflow-hidden border-white/10 bg-white/5 p-0 text-left text-white hover:border-[#D4A574] hover:bg-white/10 hover:text-white"
+                  className="h-auto min-w-0 flex-col gap-0 overflow-hidden border-white/10 bg-white/5 p-0 text-left text-white hover:border-brand-gold hover:bg-white/10 hover:text-white"
                   onClick={() => void handleExistingPhoto(photo)}
                 >
                   <img
@@ -333,7 +333,7 @@ export function SketchEvidenceLayer({
             <button
               type="button"
               className={cn(
-                "relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border-2 border-[#D4A574] bg-[#1C2E47] shadow-lg shadow-black/40",
+                "relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border-2 border-brand-gold bg-brand-navy shadow-lg shadow-black/40",
                 "ring-2 ring-black/40 transition hover:scale-105",
               )}
               aria-label={

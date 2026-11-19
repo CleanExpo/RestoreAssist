@@ -170,7 +170,7 @@ export function SketchStartOverlay({
     >
       <div className="pointer-events-auto mx-4 w-full max-w-2xl rounded-2xl border border-white/12 bg-[#0E1518]/96 backdrop-blur-md shadow-2xl p-5 sm:p-6 space-y-5">
         <div className="space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#E55A2B]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-harbour-light">
             Floor plan
           </p>
           <h2 className="text-lg font-semibold text-white tracking-tight">
@@ -218,7 +218,7 @@ export function SketchStartOverlay({
                 step={0.05}
                 value={opacity}
                 onChange={(e) => setOpacity(parseFloat(e.target.value))}
-                className="w-full accent-[#E55A2B]"
+                className="w-full accent-brand-harbour-light"
               />
             </div>
 
@@ -231,7 +231,7 @@ export function SketchStartOverlay({
                   type="checkbox"
                   checked={holdsRights}
                   onChange={(e) => setHoldsRights(e.target.checked)}
-                  className="mt-0.5 accent-[#E55A2B]"
+                  className="mt-0.5 accent-brand-harbour-light"
                 />
                 The client holds the rights to use this plan.
               </label>
@@ -240,7 +240,7 @@ export function SketchStartOverlay({
                   type="checkbox"
                   checked={compliesTerms}
                   onChange={(e) => setCompliesTerms(e.target.checked)}
-                  className="mt-0.5 accent-[#E55A2B]"
+                  className="mt-0.5 accent-brand-harbour-light"
                 />
                 Importing it complies with the source&rsquo;s terms of use.
               </label>
@@ -265,7 +265,7 @@ export function SketchStartOverlay({
                 onClick={() => void handleApply()}
                 disabled={!attestation.ok || applying}
                 title={!attestation.ok ? attestation.reason : undefined}
-                className="flex-1 min-h-11 rounded-xl bg-[#E55A2B] text-white text-sm font-semibold hover:bg-[#d14e22] disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 min-h-11 rounded-xl bg-brand-cta text-white text-sm font-semibold hover:bg-brand-cta-hover disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {applying ? "Placing plan…" : "Place on canvas"}
               </button>
@@ -284,12 +284,12 @@ export function SketchStartOverlay({
                 className={cn(
                   "rounded-xl border p-4 text-left transition-colors",
                   dragOver
-                    ? "border-[#E55A2B] bg-[#E55A2B]/15"
+                    ? "border-brand-harbour-light bg-brand-cta/15"
                     : "border-white/12 bg-white/4",
                 )}
               >
                 <div className="flex items-center gap-2 text-white">
-                  <ImageIcon size={18} className="shrink-0 text-[#E55A2B]" />
+                  <ImageIcon size={18} className="shrink-0 text-brand-harbour-light" />
                   <span className="text-sm font-semibold">Upload a plan</span>
                 </div>
                 <p className="mt-1.5 text-[12px] text-white/50 leading-relaxed">

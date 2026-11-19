@@ -79,10 +79,10 @@ export function DamageCoverage() {
               <motion.article
                 key={t.title}
                 variants={fadeUp}
-                className="group border-t border-[#0B1F3A]/10 py-7 transition-colors hover:border-[#3B6D8C]/40"
+                className="group border-t border-brand-navy/10 py-7 transition-colors hover:border-brand-harbour/40"
               >
                 <h3
-                  className={`${FONT_DISPLAY} text-[1.05rem] font-semibold tracking-[-0.015em] text-[#0B1F3A] transition-colors group-hover:text-[#16345A]`}
+                  className={`${FONT_DISPLAY} text-[1.05rem] font-semibold tracking-[-0.015em] text-brand-navy transition-colors group-hover:text-brand-navy-hover`}
                 >
                   {t.title}
                 </h3>

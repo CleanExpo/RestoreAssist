@@ -129,7 +129,7 @@ export default async function ContractorsHubPage() {
               <Card className="h-full border-border bg-card transition-colors hover:border-brand-bronze/50">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-base text-foreground">
-                    <Icon className="h-5 w-5 text-brand-gold" />
+                    <Icon className="h-5 w-5 text-brand-bronze dark:text-brand-gold" />
                     {section.title}
                   </CardTitle>
                 </CardHeader>

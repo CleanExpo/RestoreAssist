@@ -65,7 +65,7 @@ const STATUS_COLOR: Record<string, string> = {
   CLASSIFIED: "text-purple-400",
   SCOPED: "text-cyan-400",
   ESTIMATED: "text-emerald-400",
-  IN_BILLING: "text-brand-gold",
+  IN_BILLING: "text-brand-bronze dark:text-brand-gold",
   COMPLETED: "text-success",
 };
 

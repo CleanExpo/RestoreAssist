@@ -49,7 +49,7 @@ export function OperatorAtlasLanding() {
   const mistOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0.35]);
 
   return (
-    <div className="bg-[#FAFBFC] text-[#0B1F3A]">
+    <div className="bg-[#FAFBFC] text-brand-navy">
       {/* ── HERO: dual-plane film strip — headline leads, brand is quiet ── */}
       <section
         ref={heroRef}
@@ -95,7 +95,7 @@ export function OperatorAtlasLanding() {
             className="object-cover object-[center_35%]"
           />
           <div
-            className="absolute inset-0 bg-gradient-to-r from-[#0B1F3A]/55 via-[#0B1F3A]/25 to-transparent"
+            className="absolute inset-0 bg-gradient-to-r from-brand-navy/55 via-brand-navy/25 to-transparent"
             aria-hidden
           />
           <div
@@ -119,7 +119,7 @@ export function OperatorAtlasLanding() {
 
         {/* Steel seam between planes */}
         <div
-          className="pointer-events-none absolute right-0 bottom-[22%] left-0 z-10 h-px bg-[#3B6D8C]/60 sm:bottom-[26%]"
+          className="pointer-events-none absolute right-0 bottom-[22%] left-0 z-10 h-px bg-brand-harbour/60 sm:bottom-[26%]"
           aria-hidden
         />
 
@@ -136,7 +136,7 @@ export function OperatorAtlasLanding() {
               initial={reduce ? false : { opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, ease: EASE_OUT, delay: 0.08 }}
-              className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]"
+              className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brand-harbour"
             >
               {HOME.hero.eyebrow}
             </motion.p>
@@ -145,7 +145,7 @@ export function OperatorAtlasLanding() {
               initial={reduce ? false : { opacity: 0, y: 28 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.75, ease: EASE_OUT, delay: 0.18 }}
-              className={`${FONT_DISPLAY} mt-5 text-[clamp(2.15rem,5.5vw,3.65rem)] font-bold leading-[1.08] tracking-[-0.04em] text-[#0B1F3A]`}
+              className={`${FONT_DISPLAY} mt-5 text-[clamp(2.15rem,5.5vw,3.65rem)] font-bold leading-[1.08] tracking-[-0.04em] text-brand-navy`}
             >
               {HOME.hero.headline}
             </motion.h1>
@@ -187,11 +187,11 @@ export function OperatorAtlasLanding() {
       {/* ── WORKFLOW: stacked horizon bands ── */}
       <section className="bg-[#FAFBFC]">
         <div className={`${CONTAINER} pt-28 pb-8 sm:pt-36`}>
-          <p className="text-center text-[10px] font-semibold uppercase tracking-[0.36em] text-[#3B6D8C]">
+          <p className="text-center text-[10px] font-semibold uppercase tracking-[0.36em] text-brand-harbour">
             {HOME.workflow.eyebrow}
           </p>
           <h2
-            className={`${FONT_DISPLAY} mx-auto mt-5 max-w-[22ch] text-center text-[clamp(2rem,4.5vw,3.5rem)] font-semibold leading-[1.05] tracking-[-0.04em] text-[#0B1F3A]`}
+            className={`${FONT_DISPLAY} mx-auto mt-5 max-w-[22ch] text-center text-[clamp(2rem,4.5vw,3.5rem)] font-semibold leading-[1.05] tracking-[-0.04em] text-brand-navy`}
           >
             {HOME.workflow.title}
           </h2>
@@ -216,12 +216,12 @@ export function OperatorAtlasLanding() {
                 className={`${CONTAINER} grid items-center gap-8 py-16 sm:py-20 lg:grid-cols-[8rem_minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-16`}
               >
                 <p
-                  className={`${FONT_DISPLAY} text-[4rem] font-bold leading-none tracking-[-0.06em] text-[#3B6D8C]/30 sm:text-[5rem]`}
+                  className={`${FONT_DISPLAY} text-[4rem] font-bold leading-none tracking-[-0.06em] text-brand-harbour/30 sm:text-[5rem]`}
                 >
                   {s.step}
                 </p>
                 <h3
-                  className={`${FONT_DISPLAY} text-[1.75rem] font-semibold tracking-[-0.03em] text-[#0B1F3A] sm:text-[2.15rem]`}
+                  className={`${FONT_DISPLAY} text-[1.75rem] font-semibold tracking-[-0.03em] text-brand-navy sm:text-[2.15rem]`}
                 >
                   {s.title}
                 </h3>
@@ -244,7 +244,7 @@ export function OperatorAtlasLanding() {
           className="object-cover"
         />
         <div
-          className="absolute inset-0 bg-[#0B1F3A]/62"
+          className="absolute inset-0 bg-brand-navy/62"
           aria-hidden
         />
         <div
@@ -308,11 +308,11 @@ export function OperatorAtlasLanding() {
       {/* ── PLATFORM: horizontal reel ── */}
       <section className="bg-[#FAFBFC] py-28 sm:py-36">
         <div className={CONTAINER}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-[#3B6D8C]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-brand-harbour">
             {HOME.platform.eyebrow}
           </p>
           <h2
-            className={`${FONT_DISPLAY} mt-5 max-w-[20ch] text-[clamp(2rem,4.5vw,3.5rem)] font-semibold leading-[1.05] tracking-[-0.04em] text-[#0B1F3A]`}
+            className={`${FONT_DISPLAY} mt-5 max-w-[20ch] text-[clamp(2rem,4.5vw,3.5rem)] font-semibold leading-[1.05] tracking-[-0.04em] text-brand-navy`}
           >
             {HOME.platform.title}
           </h2>
@@ -320,7 +320,7 @@ export function OperatorAtlasLanding() {
             {HOME.platform.body}
           </p>
           <p
-            className={`${FONT_DISPLAY} mt-4 text-[15px] font-medium text-[#16345A]`}
+            className={`${FONT_DISPLAY} mt-4 text-[15px] font-medium text-brand-navy-hover`}
           >
             {HOME.platform.byok}
           </p>
@@ -343,17 +343,17 @@ export function OperatorAtlasLanding() {
               >
                 <div>
                   <p
-                    className={`${FONT_DISPLAY} text-[3rem] font-bold leading-none tracking-[-0.05em] text-[#3B6D8C]/25`}
+                    className={`${FONT_DISPLAY} text-[3rem] font-bold leading-none tracking-[-0.05em] text-brand-harbour/25`}
                   >
                     {String(i + 1).padStart(2, "0")}
                   </p>
-                  <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#3B6D8C]">
+                  <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-brand-harbour">
                     {f.lane}
                   </p>
                 </div>
                 <div>
                   <h3
-                    className={`${FONT_DISPLAY} text-[1.45rem] font-semibold tracking-[-0.025em] text-[#0B1F3A]`}
+                    className={`${FONT_DISPLAY} text-[1.45rem] font-semibold tracking-[-0.025em] text-brand-navy`}
                   >
                     {f.title}
                   </h3>
@@ -373,11 +373,11 @@ export function OperatorAtlasLanding() {
       {/* ── DAMAGE: giant initials ── */}
       <section className="bg-white py-28 sm:py-36">
         <div className={CONTAINER}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-[#3B6D8C]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-brand-harbour">
             {HOME.damage.eyebrow}
           </p>
           <h2
-            className={`${FONT_DISPLAY} mt-5 max-w-[20ch] text-[clamp(2rem,4.5vw,3.5rem)] font-semibold leading-[1.05] tracking-[-0.04em] text-[#0B1F3A]`}
+            className={`${FONT_DISPLAY} mt-5 max-w-[20ch] text-[clamp(2rem,4.5vw,3.5rem)] font-semibold leading-[1.05] tracking-[-0.04em] text-brand-navy`}
           >
             {HOME.damage.title}
           </h2>
@@ -398,7 +398,7 @@ export function OperatorAtlasLanding() {
                   {t.title.charAt(0)}
                 </span>
                 <h3
-                  className={`${FONT_DISPLAY} relative text-xl font-semibold tracking-[-0.02em] text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} relative text-xl font-semibold tracking-[-0.02em] text-brand-navy`}
                 >
                   {t.title}
                 </h3>
@@ -412,7 +412,7 @@ export function OperatorAtlasLanding() {
       </section>
 
       {/* ── COVERAGE: marquee + detail ── */}
-      <section className="overflow-hidden bg-[#0B1F3A] py-28 text-white sm:py-36">
+      <section className="overflow-hidden bg-brand-navy py-28 text-white sm:py-36">
         <div className={CONTAINER}>
           <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-[#7BA3BD]">
             {HOME.coverage.eyebrow}
@@ -488,11 +488,11 @@ export function OperatorAtlasLanding() {
       <section className="bg-[#FAFBFC] py-28 sm:py-36">
         <div className={CONTAINER}>
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-[#3B6D8C]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-brand-harbour">
               {HOME.faq.eyebrow}
             </p>
             <h2
-              className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4vw,3.25rem)] font-semibold tracking-[-0.04em] text-[#0B1F3A]`}
+              className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4vw,3.25rem)] font-semibold tracking-[-0.04em] text-brand-navy`}
             >
               {HOME.faq.title}
             </h2>
@@ -511,8 +511,8 @@ export function OperatorAtlasLanding() {
                     aria-current={faqIndex === i ? "true" : undefined}
                     className={`w-full rounded-2xl px-5 py-4 text-left text-[14px] transition-all duration-200 ${
                       faqIndex === i
-                        ? "bg-[#0B1F3A] font-semibold text-white shadow-[0_16px_40px_rgba(11,31,58,0.2)]"
-                        : "bg-white text-slate-600 shadow-sm hover:text-[#0B1F3A]"
+                        ? "bg-brand-navy font-semibold text-white shadow-[0_16px_40px_rgba(11,31,58,0.2)]"
+                        : "bg-white text-slate-600 shadow-sm hover:text-brand-navy"
                     }`}
                   >
                     {item.q}
@@ -531,14 +531,14 @@ export function OperatorAtlasLanding() {
                 className="relative overflow-hidden rounded-[2rem] bg-white p-9 shadow-[0_20px_60px_rgba(11,31,58,0.07)] sm:p-12"
               >
                 <div
-                  className="pointer-events-none absolute -top-20 -right-20 h-56 w-56 rounded-full bg-[#3B6D8C]/10 blur-3xl"
+                  className="pointer-events-none absolute -top-20 -right-20 h-56 w-56 rounded-full bg-brand-harbour/10 blur-3xl"
                   aria-hidden
                 />
-                <p className="relative text-[10px] font-semibold uppercase tracking-[0.24em] text-[#3B6D8C]">
+                <p className="relative text-[10px] font-semibold uppercase tracking-[0.24em] text-brand-harbour">
                   {faq.cat}
                 </p>
                 <h3
-                  className={`${FONT_DISPLAY} relative mt-4 text-[1.65rem] font-semibold tracking-[-0.03em] text-[#0B1F3A] sm:text-[2rem]`}
+                  className={`${FONT_DISPLAY} relative mt-4 text-[1.65rem] font-semibold tracking-[-0.03em] text-brand-navy sm:text-[2rem]`}
                 >
                   {faq.q}
                 </h3>
@@ -567,16 +567,16 @@ export function OperatorAtlasLanding() {
         <div
           className={`${CONTAINER} relative flex min-h-[80dvh] flex-col items-center justify-center py-28 text-center`}
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-[#3B6D8C]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.36em] text-brand-harbour">
             {HOME.cta.eyebrow}
           </p>
           <h2
-            className={`${FONT_DISPLAY} mt-6 max-w-[16ch] text-[clamp(2.5rem,6vw,4.5rem)] font-semibold leading-[1.02] tracking-[-0.045em] text-[#0B1F3A]`}
+            className={`${FONT_DISPLAY} mt-6 max-w-[16ch] text-[clamp(2.5rem,6vw,4.5rem)] font-semibold leading-[1.02] tracking-[-0.045em] text-brand-navy`}
           >
             {HOME.cta.title}
           </h2>
           <p
-            className={`${FONT_DISPLAY} mt-8 text-[1.2rem] font-semibold tracking-[-0.02em] text-[#16345A]`}
+            className={`${FONT_DISPLAY} mt-8 text-[1.2rem] font-semibold tracking-[-0.02em] text-brand-navy-hover`}
           >
             {HOME.cta.slogan}
           </p>

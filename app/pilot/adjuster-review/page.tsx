@@ -290,7 +290,7 @@ function AdjusterAnalysisPanel({ inspectionId }: { inspectionId: string }) {
         <button
           onClick={run}
           className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-white text-sm font-medium transition-colors"
-          style={{ backgroundColor: "#1C2E47" }}
+          style={{ backgroundColor: "var(--color-brand-navy)" }}
         >
           Run AI Analysis <ChevronRight size={16} />
         </button>
@@ -663,7 +663,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center gap-2 mb-8">
           <div
             className="w-7 h-7 rounded-md flex items-center justify-center"
-            style={{ backgroundColor: "#1C2E47" }}
+            style={{ backgroundColor: "var(--color-brand-navy)" }}
           >
             <span className="text-white text-xs font-bold">R</span>
           </div>

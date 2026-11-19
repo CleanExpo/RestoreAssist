@@ -110,7 +110,7 @@ export default function ResourcesClientPage() {
                 className={`${SURFACE} p-6 sm:p-7`}
               >
                 <h2
-                  className={`${FONT_DISPLAY} text-lg font-semibold tracking-tight text-[#0B1F3A] sm:text-xl`}
+                  className={`${FONT_DISPLAY} text-lg font-semibold tracking-tight text-brand-navy sm:text-xl`}
                 >
                   {category.category}
                 </h2>
@@ -120,7 +120,7 @@ export default function ResourcesClientPage() {
                       <>
                         <div className="flex flex-wrap items-center gap-2">
                           <h3
-                            className={`${FONT_DISPLAY} text-[15px] font-semibold text-[#0B1F3A]`}
+                            className={`${FONT_DISPLAY} text-[15px] font-semibold text-brand-navy`}
                           >
                             {item.title}
                           </h3>
@@ -140,7 +140,7 @@ export default function ResourcesClientPage() {
                       <li key={item.title}>
                         <Link
                           href={item.link}
-                          className="block rounded-xl p-3 transition-colors hover:bg-[#F3F5F7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50"
+                          className="block rounded-xl p-3 transition-colors hover:bg-[#F3F5F7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50"
                         >
                           {inner}
                         </Link>

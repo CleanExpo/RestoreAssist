@@ -213,7 +213,7 @@ export default function SignupPage() {
         {/* Logo */}
         <div className="mb-6 text-center">
           <motion.h1
-            className={`${FONT_DISPLAY} mb-2 text-3xl font-semibold tracking-[-0.03em] text-[#0B1F3A] sm:text-4xl`}
+            className={`${FONT_DISPLAY} mb-2 text-3xl font-semibold tracking-[-0.03em] text-brand-navy sm:text-4xl`}
           >
             RestoreAssist
           </motion.h1>
@@ -235,9 +235,9 @@ export default function SignupPage() {
           aria-label={SIGNUP_KEY_NOTE_TITLE}
         >
           <div className="flex items-start gap-3">
-            <Key className="w-5 h-5 text-[#3B6D8C] mt-0.5 shrink-0" />
+            <Key className="w-5 h-5 text-brand-harbour mt-0.5 shrink-0" />
             <div>
-              <p className="text-[#0B1F3A] font-semibold text-sm">
+              <p className="text-brand-navy font-semibold text-sm">
                 {SIGNUP_KEY_NOTE_TITLE}
               </p>
               <p className="text-slate-600 text-xs mt-1 leading-relaxed">
@@ -252,7 +252,7 @@ export default function SignupPage() {
           initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="mb-6 bg-[#3B6D8C]/8 border border-[#3B6D8C]/20 rounded-xl p-4"
+          className="mb-6 bg-brand-harbour/8 border border-brand-harbour/20 rounded-xl p-4"
         >
           <button
             type="button"
@@ -260,15 +260,15 @@ export default function SignupPage() {
             className="w-full flex items-center justify-between text-left"
           >
             <div className="flex items-center gap-2">
-              <Info className="w-5 h-5 text-[#3B6D8C]" />
-              <span className="text-[#3B6D8C] font-medium">
+              <Info className="w-5 h-5 text-brand-harbour" />
+              <span className="text-brand-harbour font-medium">
                 What you'll need after signup
               </span>
             </div>
             {showInfo ? (
-              <ChevronUp className="w-5 h-5 text-[#3B6D8C]" />
+              <ChevronUp className="w-5 h-5 text-brand-harbour" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-[#3B6D8C]" />
+              <ChevronDown className="w-5 h-5 text-brand-harbour" />
             )}
           </button>
 
@@ -280,7 +280,7 @@ export default function SignupPage() {
               className="mt-4 space-y-3 text-sm text-slate-600"
             >
               <div>
-                <p className="font-semibold text-[#0B1F3A] mb-1">
+                <p className="font-semibold text-brand-navy mb-1">
                   1. Start Creating Reports ({PRICING_CONFIG.free.trialDays}-Day
                   Free Trial)
                 </p>
@@ -294,7 +294,7 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-[#0B1F3A] mb-1">
+                <p className="font-semibold text-brand-navy mb-1">
                   2. Upgrade for Premium Features
                 </p>
                 <p className="text-slate-600 mb-2">
@@ -322,7 +322,7 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-[#0B1F3A] mb-1">
+                <p className="font-semibold text-brand-navy mb-1">
                   3. Optional: Setup Business Profile
                 </p>
                 <p className="text-slate-600">
@@ -332,7 +332,7 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-[#0B1F3A] mb-1">
+                <p className="font-semibold text-brand-navy mb-1">
                   4. Optional: Configure Pricing
                 </p>
                 <p className="text-slate-600">
@@ -342,13 +342,13 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-[#0B1F3A] mb-1">
+                <p className="font-semibold text-brand-navy mb-1">
                   5. Optional: Add Your Own AI Key
                 </p>
                 <p className="text-slate-600">
                   Not required for Basic reports on the trial. Add your own
                   Anthropic or OpenAI key in{" "}
-                  <span className="font-medium text-[#0B1F3A]">
+                  <span className="font-medium text-brand-navy">
                     Settings → AI Providers
                   </span>{" "}
                   when you want usage billed to your account — that provider
@@ -356,7 +356,7 @@ export default function SignupPage() {
                 </p>
               </div>
 
-              <div className="pt-2 border-t border-[#3B6D8C]/15">
+              <div className="pt-2 border-t border-brand-harbour/15">
                 <p className="text-xs text-slate-600">
                   <strong>Tip:</strong> You can complete these steps after
                   signing up. We'll guide you through the process!
@@ -378,7 +378,7 @@ export default function SignupPage() {
             <div>
               <label
                 htmlFor="name"
-                className="block text-sm font-medium text-[#0B1F3A] mb-2"
+                className="block text-sm font-medium text-brand-navy mb-2"
               >
                 Full Name
               </label>
@@ -394,7 +394,7 @@ export default function SignupPage() {
                   autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-brand-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour/25 focus:border-brand-harbour transition-all duration-300"
                   placeholder="Enter your full name"
                   required
                 />
@@ -405,7 +405,7 @@ export default function SignupPage() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-[#0B1F3A] mb-2"
+                className="block text-sm font-medium text-brand-navy mb-2"
               >
                 Email Address
               </label>
@@ -421,7 +421,7 @@ export default function SignupPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-brand-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour/25 focus:border-brand-harbour transition-all duration-300"
                   placeholder="Enter your email"
                   required
                 />
@@ -432,7 +432,7 @@ export default function SignupPage() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-[#0B1F3A] mb-2"
+                className="block text-sm font-medium text-brand-navy mb-2"
               >
                 Password
               </label>
@@ -448,7 +448,7 @@ export default function SignupPage() {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
+                  className="w-full pl-10 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-brand-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour/25 focus:border-brand-harbour transition-all duration-300"
                   placeholder="Create a password"
                   required
                 />
@@ -456,7 +456,7 @@ export default function SignupPage() {
                   type="button"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-1 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center p-3 text-slate-500 transition-colors hover:text-[#0B1F3A]"
+                  className="absolute right-1 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center p-3 text-slate-500 transition-colors hover:text-brand-navy"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -467,7 +467,7 @@ export default function SignupPage() {
             <div>
               <label
                 htmlFor="confirmPassword"
-                className="block text-sm font-medium text-[#0B1F3A] mb-2"
+                className="block text-sm font-medium text-brand-navy mb-2"
               >
                 Confirm Password
               </label>
@@ -483,7 +483,7 @@ export default function SignupPage() {
                   autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
+                  className="w-full pl-10 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-brand-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour/25 focus:border-brand-harbour transition-all duration-300"
                   placeholder="Confirm your password"
                   required
                 />
@@ -495,7 +495,7 @@ export default function SignupPage() {
                       : "Show confirm password"
                   }
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-1 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center p-3 text-slate-500 transition-colors hover:text-[#0B1F3A]"
+                  className="absolute right-1 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center p-3 text-slate-500 transition-colors hover:text-brand-navy"
                 >
                   {showConfirmPassword ? (
                     <EyeOff size={20} />
@@ -525,7 +525,7 @@ export default function SignupPage() {
                 type="checkbox"
                 checked={acceptedTerms}
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-slate-300 bg-white text-[#3B6D8C] focus:ring-[#3B6D8C] focus:ring-offset-white"
+                className="mt-1 h-4 w-4 rounded border-slate-300 bg-white text-brand-harbour focus:ring-brand-harbour focus:ring-offset-white"
                 required
               />
               <span>
@@ -533,7 +533,7 @@ export default function SignupPage() {
                 <Link
                   href="/terms"
                   target="_blank"
-                  className="text-[#3B6D8C] hover:text-[#0B1F3A] underline"
+                  className="text-brand-harbour hover:text-brand-navy underline"
                 >
                   Terms of Service
                 </Link>{" "}
@@ -541,7 +541,7 @@ export default function SignupPage() {
                 <Link
                   href="/privacy"
                   target="_blank"
-                  className="text-[#3B6D8C] hover:text-[#0B1F3A] underline"
+                  className="text-brand-harbour hover:text-brand-navy underline"
                 >
                   Privacy Policy
                 </Link>
@@ -553,7 +553,7 @@ export default function SignupPage() {
             <motion.button
               type="submit"
               disabled={isLoading || !acceptedTerms}
-              className="w-full py-3.5 bg-[#0B1F3A] rounded-xl font-semibold text-white hover:bg-[#16345A] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-brand-navy rounded-xl font-semibold text-white hover:bg-brand-navy-hover transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
@@ -585,7 +585,7 @@ export default function SignupPage() {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={isLoading}
-            className="w-full py-3 bg-white border border-slate-200 rounded-xl font-medium text-[#0B1F3A] hover:bg-slate-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+            className="w-full py-3 bg-white border border-slate-200 rounded-xl font-medium text-brand-navy hover:bg-slate-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
@@ -622,7 +622,7 @@ export default function SignupPage() {
             <motion.button
               onClick={handleAppleSignIn}
               disabled={isLoading}
-              className="mt-3 flex w-full items-center justify-center gap-3 rounded-xl border border-[#0B1F3A] bg-[#0B1F3A] py-3 font-medium text-white transition-colors duration-200 hover:bg-[#16345A] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-3 flex w-full items-center justify-center gap-3 rounded-xl border border-brand-navy bg-brand-navy py-3 font-medium text-white transition-colors duration-200 hover:bg-brand-navy-hover disabled:cursor-not-allowed disabled:opacity-50"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
@@ -652,7 +652,7 @@ export default function SignupPage() {
               Already have an account?{" "}
               <Link
                 href="/login"
-                className="text-[#3B6D8C] hover:text-[#0B1F3A] transition-colors font-medium"
+                className="text-brand-harbour hover:text-brand-navy transition-colors font-medium"
               >
                 Sign in
               </Link>

@@ -38,46 +38,70 @@ not by being loud.
 
 ## Visual Tokens
 
-The palette is navy and bronze. Use the Tailwind utility (`bg-brand-navy`)
-rather than the hex; components must carry no raw hex literal.
+The palette is A, "Harbour blue and signal orange" (chosen 19/11/2026). Token
+names describe roles, not hues: `bronze` is now burnt orange and `gold` is signal
+orange. Use the Tailwind utility (`bg-brand-navy`) rather than the hex;
+components must carry no raw hex literal.
 
 ### Colour — core brand
 
 | Token | Hex | Use |
 |---|---|---|
-| `--color-brand-navy` | `#1c2e47` | Primary — headings, accents, strong text |
-| `--color-brand-bronze` | `#8a6b4e` | Secondary — CTAs, highlights, borders |
-| `--color-brand-slate` | `#5a6a7b` | Muted — body copy, meta text |
-| `--color-brand-gold` | `#d4a574` | Tertiary highlight |
+| `--color-brand-navy` | `#12324f` | Primary — headings, strong text, foreground |
+| `--color-brand-navy-hover` | `#0c2238` | Navy, hover |
+| `--color-brand-harbour` | `#1b5fa6` | Harbour blue — links, focus ring, accents on light |
+| `--color-brand-harbour-light` | `#6aa5e2` | Harbour blue for dark surfaces — links, primary in dark mode |
+| `--color-brand-bronze` | `#a34a06` | Burnt orange — secondary highlight, borders |
+| `--color-brand-slate` | `#4a5868` | Muted — body copy, meta text |
+| `--color-brand-gold` | `#f5a623` | Signal orange — highlight on dark surfaces only |
+| `--color-brand-gold-hover` | `#f7b955` | Signal orange, hover |
 
-### Colour — marketing CTA
+### Colour — CTA and light surfaces
 
 | Token | Hex | Use |
 |---|---|---|
-| `--color-brand-cta` | `#765c43` | Primary CTA bronze |
-| `--color-brand-cta-hover` | `#634a2f` | Primary CTA bronze, hover |
-| `--color-brand-steel` | `#546272` | Secondary CTA steel |
-| `--color-brand-steel-hover` | `#445163` | Secondary CTA steel, hover |
-| `--color-brand-mist` | `#c4c8ca` | Translucent glass surface on hero |
-| `--color-brand-cloud` | `#f4f5f6` | Off-white section surface |
+| `--color-brand-cta` | `#1b5fa6` | Primary CTA (solid, white text) |
+| `--color-brand-cta-hover` | `#154c86` | Primary CTA, hover |
+| `--color-brand-steel` | `#55687c` | Secondary CTA steel |
+| `--color-brand-steel-hover` | `#2f4053` | Secondary CTA steel, hover |
+| `--color-brand-mist` | `#d5dde5` | Borders, glass surface on hero |
+| `--color-brand-cloud` | `#f4f7fa` | Off-white section surface, light sidebar |
+| `--color-brand-cream` | `#eaf1f8` | Accent surface, active nav item |
+| `--color-brand-cream-2` | `#dbe7f3` | Accent surface, hover |
 
 ### Colour — dark surfaces
 
 | Token | Hex | Use |
 |---|---|---|
-| `--color-brand-canvas` | `#050505` | Near-black full-bleed canvas |
-| `--color-brand-surface` | `#0e1320` | Help-centre card / panel |
-| `--color-brand-surface-2` | `#11172a` | Help-centre card, hover |
-| `--color-brand-deep` | `#0d1b2e` | Sketch editor / capture flow |
-| `--color-brand-ink` | `#0a0a0a` | Drawer / sidebar |
-| `--color-brand-abyss` | `#02040b` | WebGL hero background |
+| `--color-brand-canvas` | `#0b1520` | Dark-mode page background |
+| `--color-brand-surface` | `#10202f` | Dark-mode card / panel |
+| `--color-brand-surface-2` | `#152839` | Dark-mode card, hover; muted surface |
+| `--color-brand-deep` | `#0e1c2b` | Sketch editor / capture flow |
+| `--color-brand-ink` | `#0a131c` | Drawer / sidebar in dark mode |
+| `--color-brand-abyss` | `#060c14` | Deepest background |
 
-### Contrast — read before choosing a CTA colour
+### Contrast — read before choosing a colour
 
-`--color-brand-bronze` `#8a6b4e` measures **4.33:1** on white, below the 4.5:1
-WCAG AA floor for body-size text. `--color-brand-cta` `#765c43` is the darker
-replacement and clears it. Both are still in the palette, so picking the wrong
-one is easy; use `--color-brand-cta` for anything a user must read or action.
+Measured WCAG ratios:
+
+| Pair | Ratio |
+|---|---|
+| White on `brand-cta` `#1b5fa6` | 6.49:1 |
+| White on `brand-bronze` `#a34a06` | 5.93:1 |
+| `brand-slate` on white | 7.27:1 |
+| `brand-harbour-light` on `brand-canvas` | 7.08:1 |
+| `brand-gold` on `brand-navy` | 6.50:1 |
+| `brand-gold` on white | 2.03:1 (fails) |
+
+Rules that follow from these:
+
+- Solid buttons with white text use `brand-cta` (or a step 600 colour), never a
+  step 500 colour.
+- `brand-gold` is for dark surfaces only. On a light surface it fails AA.
+- In dark mode, links and the primary colour use `brand-harbour-light`;
+  `brand-harbour` on `brand-canvas` measures 2.83:1 and fails.
+- Light mode is the default theme; every route follows the user's Appearance
+  choice.
 
 ### Typography
 
