@@ -29,7 +29,11 @@ export function nswStrataWaterLoss(): JobFacts {
     workOrderRef: "WO-FICTIONAL-1",
     business: BUSINESS,
     parties: [
-      { id: "oc", name: "Owners Corporation SP00000", capacity: "OWNERS_CORPORATION" },
+      {
+        id: "oc",
+        name: "Owners Corporation SP00000",
+        capacity: "OWNERS_CORPORATION",
+      },
       {
         id: "sm",
         name: "Strata Manager Example",
@@ -40,13 +44,41 @@ export function nswStrataWaterLoss(): JobFacts {
       },
       { id: "lot", name: "Lot 4 Owner", capacity: "OWNER" },
       { id: "ten", name: "Lot 4 Tenant", capacity: "TENANT" },
-      { id: "ins", name: "Building Insurer Example", capacity: "INSURER", canAuthoriseSpend: true },
-      { id: "asr", name: "Loss Assessor Example", capacity: "ASSESSOR", canAuthoriseSpend: false },
+      {
+        id: "ins",
+        name: "Building Insurer Example",
+        capacity: "INSURER",
+        canAuthoriseSpend: true,
+      },
+      {
+        id: "asr",
+        name: "Loss Assessor Example",
+        capacity: "ASSESSOR",
+        canAuthoriseSpend: false,
+      },
     ],
     assets: [
-      { id: "riser", label: "Common riser pipe and wall cavity", assetClass: "COMMON_PROPERTY", ownerPartyId: "oc", ownershipEvidence: "verified" },
-      { id: "floor", label: "Lot 4 floating floor", assetClass: "LOT_FIXTURES", ownerPartyId: "lot", ownershipEvidence: "verified" },
-      { id: "sofa", label: "Tenant's sofa", assetClass: "CONTENTS", ownerPartyId: "ten", ownershipEvidence: "verified" },
+      {
+        id: "riser",
+        label: "Common riser pipe and wall cavity",
+        assetClass: "COMMON_PROPERTY",
+        ownerPartyId: "oc",
+        ownershipEvidence: "verified",
+      },
+      {
+        id: "floor",
+        label: "Lot 4 floating floor",
+        assetClass: "LOT_FIXTURES",
+        ownerPartyId: "lot",
+        ownershipEvidence: "verified",
+      },
+      {
+        id: "sofa",
+        label: "Tenant's sofa",
+        assetClass: "CONTENTS",
+        ownerPartyId: "ten",
+        ownershipEvidence: "verified",
+      },
     ],
     scope: [
       {
@@ -84,10 +116,37 @@ export function nswStrataWaterLoss(): JobFacts {
     ],
     approvals: [
       // The strata manager signs for the owners corporation: common property only.
-      { id: "ap1", partyId: "sm", kind: "WORK", scopeLineIds: ["L1", "L2", "L3"], evidence: "verified", evidenceRef: "Signed A05 DOC-2" },
-      { id: "ap2", partyId: "sm", kind: "ACCESS", assetIds: ["riser"], evidence: "verified" },
-      { id: "ap3", partyId: "ins", kind: "WORK", scopeLineIds: ["L1", "L2"], evidence: "verified", evidenceRef: "WO-FICTIONAL-1" },
-      { id: "ap4", partyId: "asr", kind: "PAYMENT", scopeLineIds: ["L4"], evidence: "reported", evidenceRef: "assessor email" },
+      {
+        id: "ap1",
+        partyId: "sm",
+        kind: "WORK",
+        scopeLineIds: ["L1", "L2", "L3"],
+        evidence: "verified",
+        evidenceRef: "Signed A05 DOC-2",
+      },
+      {
+        id: "ap2",
+        partyId: "sm",
+        kind: "ACCESS",
+        assetIds: ["riser"],
+        evidence: "verified",
+      },
+      {
+        id: "ap3",
+        partyId: "ins",
+        kind: "WORK",
+        scopeLineIds: ["L1", "L2"],
+        evidence: "verified",
+        evidenceRef: "WO-FICTIONAL-1",
+      },
+      {
+        id: "ap4",
+        partyId: "asr",
+        kind: "PAYMENT",
+        scopeLineIds: ["L4"],
+        evidence: "reported",
+        evidenceRef: "assessor email",
+      },
     ],
     safetyClearances: [],
     caps: [
@@ -131,7 +190,13 @@ export function qldCommercialSelfPay(): JobFacts {
       { id: "mgr", name: "Cafe Site Manager", capacity: "SITE_MANAGER" },
     ],
     assets: [
-      { id: "fitout", label: "Cafe kitchen fit-out", assetClass: "COMMERCIAL_FITOUT", ownerPartyId: "co", ownershipEvidence: "verified" },
+      {
+        id: "fitout",
+        label: "Cafe kitchen fit-out",
+        assetClass: "COMMERCIAL_FITOUT",
+        ownerPartyId: "co",
+        ownershipEvidence: "verified",
+      },
     ],
     scope: [
       {
@@ -143,9 +208,21 @@ export function qldCommercialSelfPay(): JobFacts {
       },
     ],
     approvals: [
-      { id: "c-ap1", partyId: "mgr", kind: "ACCESS", assetIds: ["fitout"], evidence: "verified" },
+      {
+        id: "c-ap1",
+        partyId: "mgr",
+        kind: "ACCESS",
+        assetIds: ["fitout"],
+        evidence: "verified",
+      },
       // The site manager also "signed" for the work. That does not count.
-      { id: "c-ap2", partyId: "mgr", kind: "WORK", scopeLineIds: ["C1"], evidence: "verified" },
+      {
+        id: "c-ap2",
+        partyId: "mgr",
+        kind: "WORK",
+        scopeLineIds: ["C1"],
+        evidence: "verified",
+      },
     ],
     safetyClearances: [],
     caps: [],
@@ -165,15 +242,37 @@ export function nzRentalNaturalHazard(): JobFacts {
     jurisdiction: "NZ",
     tenure: "RENTAL",
     siteAddress: "12 Example Lane, Exampletown, NZ",
-    business: { ...BUSINESS, legalName: "Example Restoration NZ Limited", businessNumber: "9400000000000" },
+    business: {
+      ...BUSINESS,
+      legalName: "Example Restoration NZ Limited",
+      businessNumber: "9400000000000",
+    },
     parties: [
       { id: "ll", name: "Landlord Example", capacity: "OWNER" },
-      { id: "pm", name: "Letting Agent Example", capacity: "PROPERTY_MANAGER", actsForPartyId: "ll", delegationEvidence: "reported" },
+      {
+        id: "pm",
+        name: "Letting Agent Example",
+        capacity: "PROPERTY_MANAGER",
+        actsForPartyId: "ll",
+        delegationEvidence: "reported",
+      },
       { id: "tn", name: "Tenant Example", capacity: "TENANT" },
     ],
     assets: [
-      { id: "house", label: "Dwelling roof and ceiling", assetClass: "BUILDING", ownerPartyId: "ll", ownershipEvidence: "verified" },
-      { id: "goods", label: "Tenant's bedroom contents", assetClass: "CONTENTS", ownerPartyId: "tn", ownershipEvidence: "verified" },
+      {
+        id: "house",
+        label: "Dwelling roof and ceiling",
+        assetClass: "BUILDING",
+        ownerPartyId: "ll",
+        ownershipEvidence: "verified",
+      },
+      {
+        id: "goods",
+        label: "Tenant's bedroom contents",
+        assetClass: "CONTENTS",
+        ownerPartyId: "tn",
+        ownershipEvidence: "verified",
+      },
     ],
     scope: [
       {
@@ -183,6 +282,7 @@ export function nzRentalNaturalHazard(): JobFacts {
         amount: { minor: 90_000, currency: "NZD", gst: "INC" },
         payment: { basis: "UNCONFIRMED", payerPartyId: null },
         emergency: true,
+        makeSafe: "TEMPORARY_COVER",
       },
       {
         id: "N2",
@@ -203,12 +303,28 @@ export function nzRentalNaturalHazard(): JobFacts {
       },
     ],
     approvals: [
-      { id: "n-ap1", partyId: "pm", kind: "WORK", scopeLineIds: ["N1", "N2"], evidence: "verified" },
-      { id: "n-ap2", partyId: "tn", kind: "ACCESS", assetIds: ["goods"], evidence: "verified" },
+      {
+        id: "n-ap1",
+        partyId: "pm",
+        kind: "WORK",
+        scopeLineIds: ["N1", "N2"],
+        evidence: "verified",
+      },
+      {
+        id: "n-ap2",
+        partyId: "tn",
+        kind: "ACCESS",
+        assetIds: ["goods"],
+        evidence: "verified",
+      },
     ],
     safetyClearances: [],
     caps: [],
-    emergencyBasis: { documented: false, noticeAttemptsLogged: true, note: "Two calls to the agent logged" },
+    emergencyBasis: {
+      documented: false,
+      noticeAttemptsLogged: true,
+      note: "Two calls to the agent logged",
+    },
     asOf: "2026-11-19",
   };
 }

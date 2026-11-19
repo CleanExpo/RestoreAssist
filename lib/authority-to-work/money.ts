@@ -14,6 +14,7 @@ export function formatMoney(m: Money): string {
   const abs = Math.abs(m.minor);
   const whole = Math.floor(abs / 100).toLocaleString("en-AU");
   const cents = String(abs % 100).padStart(2, "0");
-  const gst = m.gst === "INC" ? "incl GST" : m.gst === "EX" ? "ex GST" : "GST n/a";
+  const gst =
+    m.gst === "INC" ? "incl GST" : m.gst === "EX" ? "ex GST" : "GST n/a";
   return `${sign}${symbol}${whole}.${cents} ${gst}`;
 }

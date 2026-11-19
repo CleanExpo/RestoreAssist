@@ -55,8 +55,7 @@ export const TEMPLATES: Record<TemplateCode, TemplateSpec> = {
     code: "A02",
     name: "Emergency make-safe work authorisation",
     purpose: "Exact non-permanent work on named assets, with a stop point.",
-    doesNotAuthorise:
-      "removal of materials, ongoing reinstatement or disposal",
+    doesNotAuthorise: "removal of materials, ongoing reinstatement or disposal",
     requiredFields: ["scopeLines", "amount", "emergencyBasis"],
   },
   A03: {
@@ -77,14 +76,16 @@ export const TEMPLATES: Record<TemplateCode, TemplateSpec> = {
   A05: {
     code: "A05",
     name: "Strata or body corporate package",
-    purpose: "Separates common-property and lot responsibilities and approvals.",
+    purpose:
+      "Separates common-property and lot responsibilities and approvals.",
     doesNotAuthorise: "work on assets the signer does not control",
     requiredFields: ["scopeLines", "delegationRef"],
   },
   A06: {
     code: "A06",
     name: "Tenant, landlord and agent package",
-    purpose: "Building authority from the landlord or verified agent; tenant goods by the tenant.",
+    purpose:
+      "Building authority from the landlord or verified agent; tenant goods by the tenant.",
     doesNotAuthorise: "any charge to the tenant by default",
     requiredFields: ["scopeLines", "accessBasis"],
   },
@@ -92,8 +93,7 @@ export const TEMPLATES: Record<TemplateCode, TemplateSpec> = {
     code: "A07",
     name: "Commercial lease and business authority",
     purpose: "Company signatory and delegation for the business's own assets.",
-    doesNotAuthorise:
-      "anything a site manager signs beyond granting access",
+    doesNotAuthorise: "anything a site manager signs beyond granting access",
     requiredFields: ["scopeLines", "delegationRef"],
   },
   A08: {
@@ -106,29 +106,34 @@ export const TEMPLATES: Record<TemplateCode, TemplateSpec> = {
   A09: {
     code: "A09",
     name: "Itemised disposal or strip-out authorisation",
-    purpose: "Separate decision for each item or material to be removed or discarded.",
+    purpose:
+      "Separate decision for each item or material to be removed or discarded.",
     doesNotAuthorise: "safety clearance; a signature is not a safety permit",
     requiredFields: ["scopeLines"],
   },
   A10: {
     code: "A10",
     name: "Variation and approval over limit",
-    purpose: "Changed amount, cumulative commitment and the approver for the change.",
+    purpose:
+      "Changed amount, cumulative commitment and the approver for the change.",
     doesNotAuthorise: "unaffected work, which continues under its own approval",
     requiredFields: ["scopeLines", "amount", "cumulativeCommitment"],
   },
   A11: {
     code: "A11",
     name: "Payment split and authority",
-    purpose: "Who pays which lines, and what is confirmed, pending or disputed.",
-    doesNotAuthorise: "stored card details, automatic debit or a personal guarantee",
+    purpose:
+      "Who pays which lines, and what is confirmed, pending or disputed.",
+    doesNotAuthorise:
+      "stored card details, automatic debit or a personal guarantee",
     requiredFields: ["scopeLines", "payer"],
   },
   A12: {
     code: "A12",
     name: "Final handover and completion acknowledgment",
     purpose: "Completed versus excluded scope, and return of goods and keys.",
-    doesNotAuthorise: "a waiver of any statutory right or deemed insurer acceptance",
+    doesNotAuthorise:
+      "a waiver of any statutory right or deemed insurer acceptance",
     requiredFields: ["scopeLines"],
   },
   A13: {

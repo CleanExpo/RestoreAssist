@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { planAuthority, type AuthorityPlan, type Gate, type GateState } from "../plan";
+import {
+  planAuthority,
+  type AuthorityPlan,
+  type Gate,
+  type GateState,
+} from "../plan";
 import { formatMoney } from "../money";
 import {
   nswStrataWaterLoss,
@@ -8,7 +13,11 @@ import {
 } from "../fixtures";
 import type { JobFacts } from "../types";
 
-function gate(plan: AuthorityPlan, line: string, g: Gate): { state: GateState; reason: string } {
+function gate(
+  plan: AuthorityPlan,
+  line: string,
+  g: Gate,
+): { state: GateState; reason: string } {
   const s = plan.scopes.find((x) => x.scopeLineId === line);
   if (!s) throw new Error(`no scope ${line}`);
   const r = s.gates.find((x) => x.gate === g);
@@ -43,30 +52,46 @@ describe("case 1: NSW strata water loss", () => {
   it("one signer cannot clear common property, lot fixtures and tenant contents", () => {
     expect(gate(plan, "L1", "WORK").state).toBe("CLEAR");
     expect(gate(plan, "L2", "WORK").state).toBe("MISSING");
-    expect(gate(plan, "L2", "WORK").reason).toMatch(/not control "Lot 4 floating floor"/);
+    expect(gate(plan, "L2", "WORK").reason).toMatch(
+      /not control "Lot 4 floating floor"/,
+    );
     expect(gate(plan, "L3", "WORK").state).toBe("MISSING");
-    expect(gate(plan, "L3", "WORK").reason).toMatch(/not control "Tenant's sofa"/);
+    expect(gate(plan, "L3", "WORK").reason).toMatch(
+      /not control "Tenant's sofa"/,
+    );
   });
 
   it("an assessor's emailed approval with no spend authority does not clear funding", () => {
     expect(gate(plan, "L4", "PAYER").state).toBe("HOLD");
-    expect(gate(plan, "L4", "PAYER").reason).toMatch(/no proven authority to commit spend/);
-    expect(plan.scopes.find((s) => s.scopeLineId === "L4")?.canStart).toBe(false);
+    expect(gate(plan, "L4", "PAYER").reason).toMatch(
+      /no proven authority to commit spend/,
+    );
+    expect(plan.scopes.find((s) => s.scopeLineId === "L4")?.canStart).toBe(
+      false,
+    );
   });
 
   it("never addresses a funding document to a party with no spend authority", () => {
-    const funding = plan.forms.filter((f) => ["A04", "A10", "A11"].includes(f.code));
+    const funding = plan.forms.filter((f) =>
+      ["A04", "A10", "A11"].includes(f.code),
+    );
     expect(funding.map((f) => f.recipientPartyId)).not.toContain("asr");
-    const l4 = funding.find((f) => f.code === "A04" && f.scopeLineIds.includes("L4"));
+    const l4 = funding.find(
+      (f) => f.code === "A04" && f.scopeLineIds.includes("L4"),
+    );
     expect(l4?.recipientPartyId).toBeNull();
     expect(l4?.reason).toMatch(/funding party not established/);
-    expect(l4?.notSendableBecause).toContain("recipientName: recipient not identified");
+    expect(l4?.notSendableBecause).toContain(
+      "recipientName: recipient not identified",
+    );
   });
 
   it("holds the variation that takes cumulative make-safe over the fictional limit", () => {
     const r = gate(plan, "L1", "INSURER");
     expect(r.state).toBe("HOLD");
-    expect(r.reason).toContain("A$2,400.00 ex GST committed + A$700.00 ex GST proposed = A$3,100.00 ex GST");
+    expect(r.reason).toContain(
+      "A$2,400.00 ex GST committed + A$700.00 ex GST proposed = A$3,100.00 ex GST",
+    );
     expect(r.reason).toContain("over the A$3,000.00 ex GST limit");
     expect(r.reason).toContain("[fictional teaching fixture]");
     expect(forms(plan, "A10").map((f) => f.recipientPartyId)).toEqual(["ins"]);
@@ -78,7 +103,9 @@ describe("case 1: NSW strata water loss", () => {
   });
 
   it("sends separate strata drafts to the controller of each part", () => {
-    const recipients = forms(plan, "A05").map((f) => f.recipientPartyId).sort();
+    const recipients = forms(plan, "A05")
+      .map((f) => f.recipientPartyId)
+      .sort();
     expect(recipients).toEqual(["lot", "sm"]);
     expect(forms(plan, "A08").map((f) => f.recipientPartyId)).toEqual(["ten"]);
     expect(forms(plan, "A09").map((f) => f.recipientPartyId)).toEqual(["lot"]);
@@ -95,7 +122,13 @@ describe("fictional limit: restricted action under the limit still needs its own
     job.caps[0].committed = { minor: 0, currency: "AUD", gst: "EX" };
     job.scope = job.scope.filter((l) => l.id === "L2");
     if (withApproval) {
-      job.approvals.push({ id: "r1", partyId: "ins", kind: "RESTRICTED_ACTION", scopeLineIds: ["L2"], evidence: "verified" });
+      job.approvals.push({
+        id: "r1",
+        partyId: "ins",
+        kind: "RESTRICTED_ACTION",
+        scopeLineIds: ["L2"],
+        evidence: "verified",
+      });
     }
     return planAuthority(job);
   }
@@ -103,7 +136,9 @@ describe("fictional limit: restricted action under the limit still needs its own
   it("A$100 of flooring removal is held without the insurer's separate written approval", () => {
     const r = gate(underLimit(false), "L2", "INSURER");
     expect(r.state).toBe("HOLD");
-    expect(r.reason).toMatch(/flooring removal needs separate written approval/);
+    expect(r.reason).toMatch(
+      /flooring removal needs separate written approval/,
+    );
     expect(r.reason).not.toMatch(/over the/);
   });
 
@@ -122,7 +157,10 @@ describe("fictional limit: restricted action under the limit still needs its own
 });
 
 describe("funding rules that cannot be trusted hold the work", () => {
-  function withCap(patch: (j: JobFacts) => void): { state: GateState; reason: string } {
+  function withCap(patch: (j: JobFacts) => void): {
+    state: GateState;
+    reason: string;
+  } {
     const job = nswStrataWaterLoss();
     job.scope = [job.scope[0]];
     job.caps[0].committed = { minor: 0, currency: "AUD", gst: "EX" };
@@ -143,13 +181,19 @@ describe("funding rules that cannot be trusted hold the work", () => {
   });
 
   it("different GST basis is not compared", () => {
-    const r = withCap((j) => (j.scope[0].amount = { minor: 70_000, currency: "AUD", gst: "INC" }));
+    const r = withCap(
+      (j) =>
+        (j.scope[0].amount = { minor: 70_000, currency: "AUD", gst: "INC" }),
+    );
     expect(r.state).toBe("HOLD");
     expect(r.reason).toMatch(/not compared/);
   });
 
   it("different currency is not compared", () => {
-    const r = withCap((j) => (j.scope[0].amount = { minor: 70_000, currency: "NZD", gst: "EX" }));
+    const r = withCap(
+      (j) =>
+        (j.scope[0].amount = { minor: 70_000, currency: "NZD", gst: "EX" }),
+    );
     expect(r.state).toBe("HOLD");
   });
 
@@ -166,7 +210,9 @@ describe("case 2: QLD commercial, customer pays directly", () => {
   it("a site manager can grant access but cannot authorise the work", () => {
     expect(gate(plan, "C1", "ACCESS").state).toBe("CLEAR");
     expect(gate(plan, "C1", "WORK").state).toBe("MISSING");
-    expect(gate(plan, "C1", "WORK").reason).toMatch(/Cafe Site Manager.*not control/);
+    expect(gate(plan, "C1", "WORK").reason).toMatch(
+      /Cafe Site Manager.*not control/,
+    );
   });
 
   it("a requested deposit stays disabled", () => {
@@ -182,9 +228,17 @@ describe("case 2: QLD commercial, customer pays directly", () => {
   it("prefills from the business profile and names the source of each value", () => {
     const a03 = forms(plan, "A03")[0];
     const legal = a03.fields.find((f) => f.key === "supplierLegalName");
-    expect(legal).toEqual({ key: "supplierLegalName", value: "Example Restoration Pty Ltd", source: "business.legalName" });
-    expect(a03.fields.find((f) => f.key === "amount")?.value).toBe("A$2,400.00 incl GST");
-    expect(a03.customerPreview).toMatch(/does not authorise any work outside the listed scope lines/);
+    expect(legal).toEqual({
+      key: "supplierLegalName",
+      value: "Example Restoration Pty Ltd",
+      source: "business.legalName",
+    });
+    expect(a03.fields.find((f) => f.key === "amount")?.value).toBe(
+      "A$2,400.00 incl GST",
+    );
+    expect(a03.customerPreview).toMatch(
+      /does not authorise any work outside the listed scope lines/,
+    );
   });
 
   it("a blank business field stays blank with a reason and blocks sending", () => {
@@ -194,7 +248,9 @@ describe("case 2: QLD commercial, customer pays directly", () => {
     const f = a03.fields.find((x) => x.key === "supplierBusinessNumber");
     expect(f?.value).toBeNull();
     expect(f?.blankReason).toBe("not on the business profile");
-    expect(a03.notSendableBecause).toContain("supplierBusinessNumber: not on the business profile");
+    expect(a03.notSendableBecause).toContain(
+      "supplierBusinessNumber: not on the business profile",
+    );
   });
 });
 
@@ -203,7 +259,9 @@ describe("case 3: NZ rental after a storm", () => {
 
   it("an agent whose delegation is only reported cannot authorise building work", () => {
     expect(gate(plan, "N1", "WORK").state).not.toBe("CLEAR");
-    expect(gate(plan, "N1", "WORK").reason).toMatch(/emergency basis|not verified/);
+    expect(gate(plan, "N1", "WORK").reason).toMatch(
+      /emergency basis|not verified/,
+    );
   });
 
   it("logged notice attempts without a documented emergency basis mean hold", () => {
@@ -213,12 +271,18 @@ describe("case 3: NZ rental after a storm", () => {
 
   it("an emergency never covers strip-out", () => {
     expect(gate(plan, "N2", "DISPOSAL").state).toBe("HOLD");
-    expect(gate(plan, "N2", "DISPOSAL").reason).toMatch(/does not cover removal/);
+    expect(gate(plan, "N2", "DISPOSAL").reason).toMatch(
+      /does not cover removal/,
+    );
   });
 
   it("documenting the emergency basis allows make-safe only, still not strip-out", () => {
     const job = nzRentalNaturalHazard();
-    job.emergencyBasis = { documented: true, noticeAttemptsLogged: true, note: "Roof open, rain forecast" };
+    job.emergencyBasis = {
+      documented: true,
+      noticeAttemptsLogged: true,
+      note: "Roof open, rain forecast",
+    };
     const p = planAuthority(job);
     expect(gate(p, "N1", "WORK").state).toBe("CLEAR");
     expect(gate(p, "N1", "WORK").reason).toMatch(/make-safe only/);
@@ -238,16 +302,32 @@ describe("hazards, evidence holds and jurisdiction", () => {
   it("hazardous work is held until safety clearance; a signature is not clearance", () => {
     const job = qldCommercialSelfPay();
     job.scope[0].hazardous = true;
-    job.approvals.push({ id: "x", partyId: "dir", kind: "WORK", scopeLineIds: ["C1"], evidence: "verified" });
+    job.approvals.push({
+      id: "x",
+      partyId: "dir",
+      kind: "WORK",
+      scopeLineIds: ["C1"],
+      evidence: "verified",
+    });
     expect(gate(planAuthority(job), "C1", "SAFETY").state).toBe("HOLD");
-    job.safetyClearances.push({ scopeLineId: "C1", evidence: "verified", evidenceRef: "clearance DOC-9" });
+    job.safetyClearances.push({
+      scopeLineId: "C1",
+      evidence: "verified",
+      evidenceRef: "clearance DOC-9",
+    });
     expect(gate(planAuthority(job), "C1", "SAFETY").state).toBe("CLEAR");
   });
 
   it("material held as evidence cannot be discarded even with the owner's approval", () => {
     const job = nswStrataWaterLoss();
     job.assets[1].evidenceHold = true;
-    job.approvals.push({ id: "x", partyId: "lot", kind: "IRREVERSIBLE", scopeLineIds: ["L2"], evidence: "verified" });
+    job.approvals.push({
+      id: "x",
+      partyId: "lot",
+      kind: "IRREVERSIBLE",
+      scopeLineIds: ["L2"],
+      evidence: "verified",
+    });
     expect(gate(planAuthority(job), "L2", "DISPOSAL").state).toBe("HOLD");
   });
 
@@ -255,7 +335,9 @@ describe("hazards, evidence holds and jurisdiction", () => {
     const job = qldCommercialSelfPay();
     job.scope[0].assetId = "no-such-asset";
     const p = planAuthority(job);
-    expect(p.holds).toContain("scope line C1 names an asset that is not on the job");
+    expect(p.holds).toContain(
+      "scope line C1 names an asset that is not on the job",
+    );
     expect(p.scopes.find((s) => s.scopeLineId === "C1")).toBeUndefined();
     expect(p.forms.every((f) => !f.scopeLineIds.includes("C1"))).toBe(true);
   });
@@ -300,19 +382,33 @@ describe("hazards, evidence holds and jurisdiction", () => {
     job.scope[0].payment.payerPartyId = "ghost";
     const plan = planAuthority(job);
     for (const code of ["A03", "A11"]) {
-      expect(forms(plan, code).map((f) => f.recipientPartyId)).not.toContain("ghost");
+      expect(forms(plan, code).map((f) => f.recipientPartyId)).not.toContain(
+        "ghost",
+      );
     }
   });
 
   it("emergency strip-out cannot start even with every owner approval and a documented basis", () => {
     const job = nzRentalNaturalHazard();
-    job.emergencyBasis = { documented: true, noticeAttemptsLogged: true, note: "documented" };
+    job.emergencyBasis = {
+      documented: true,
+      noticeAttemptsLogged: true,
+      note: "documented",
+    };
     job.scope[1].payment = { basis: "OWNER_DIRECT", payerPartyId: "ll" };
     for (const kind of ["ACCESS", "WORK", "PAYMENT", "IRREVERSIBLE"] as const) {
-      job.approvals.push({ id: `x-${kind}`, partyId: "ll", kind, scopeLineIds: ["N2"], evidence: "verified" });
+      job.approvals.push({
+        id: `x-${kind}`,
+        partyId: "ll",
+        kind,
+        scopeLineIds: ["N2"],
+        evidence: "verified",
+      });
     }
     const plan = planAuthority(job);
-    expect(plan.scopes.find((x) => x.scopeLineId === "N2")?.canStart).toBe(false);
+    expect(plan.scopes.find((x) => x.scopeLineId === "N2")?.canStart).toBe(
+      false,
+    );
     expect(gate(plan, "N2", "DISPOSAL").state).toBe("HOLD");
   });
 
@@ -322,12 +418,20 @@ describe("hazards, evidence holds and jurisdiction", () => {
     job.scope[0].emergency = true;
     job.emergencyBasis = undefined;
     for (const kind of ["WORK", "PAYMENT"] as const) {
-      job.approvals.push({ id: `x-${kind}`, partyId: "dir", kind, scopeLineIds: ["C1"], evidence: "verified" });
+      job.approvals.push({
+        id: `x-${kind}`,
+        partyId: "dir",
+        kind,
+        scopeLineIds: ["C1"],
+        evidence: "verified",
+      });
     }
     const plan = planAuthority(job);
     expect(gate(plan, "C1", "ACCESS").state).toBe("HOLD");
     expect(gate(plan, "C1", "WORK").state).toBe("HOLD");
-    expect(plan.scopes.find((x) => x.scopeLineId === "C1")?.canStart).toBe(false);
+    expect(plan.scopes.find((x) => x.scopeLineId === "C1")?.canStart).toBe(
+      false,
+    );
   });
 
   it("a payer-split form goes only to a party with proven spend authority, whatever the payment type", () => {
@@ -336,6 +440,36 @@ describe("hazards, evidence holds and jurisdiction", () => {
     const a11 = forms(planAuthority(job), "A11");
     expect(a11.length).toBeGreaterThan(0);
     expect(a11.map((f) => f.recipientPartyId)).not.toContain("ten");
+  });
+
+  it("an owner id that is not a party on the job never counts as established control", () => {
+    const job = qldCommercialSelfPay();
+    job.assets[0].ownerPartyId = "ghost";
+    job.approvals.push({ id: "g1", partyId: "ghost", kind: "WORK", scopeLineIds: ["C1"], evidence: "verified" });
+    job.approvals.push({ id: "g2", partyId: "dir", kind: "PAYMENT", scopeLineIds: ["C1"], evidence: "verified" });
+    const plan = planAuthority(job);
+    expect(gate(plan, "C1", "WORK").state).not.toBe("CLEAR");
+    expect(plan.scopes.find((x) => x.scopeLineId === "C1")?.canStart).toBe(false);
+  });
+
+  it("an emergency flag alone never covers work that is not a listed make-safe task", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].description = "Rebuild damaged kitchen joinery";
+    job.scope[0].emergency = true;
+    job.emergencyBasis = { documented: true, noticeAttemptsLogged: true, note: "water loss" };
+    job.approvals.push({ id: "p1", partyId: "dir", kind: "PAYMENT", scopeLineIds: ["C1"], evidence: "verified" });
+    const plan = planAuthority(job);
+    expect(gate(plan, "C1", "WORK").state).not.toBe("CLEAR");
+    expect(plan.scopes.find((x) => x.scopeLineId === "C1")?.canStart).toBe(false);
+  });
+
+  it("a running total too large to add exactly holds the line", () => {
+    const job = nswStrataWaterLoss();
+    const big = 2 ** 53;
+    job.caps[0].cap.minor = big;
+    job.caps[0].committed.minor = big;
+    job.scope = [{ ...job.scope[0], amount: { minor: 1, currency: "AUD", gst: "EX" } }];
+    expect(gate(planAuthority(job), "L1", "INSURER").state).toBe("HOLD");
   });
 
   it("an asset with no established controller holds the work", () => {
@@ -348,8 +482,20 @@ describe("hazards, evidence holds and jurisdiction", () => {
     for (const j of ["UNKNOWN", "AU-VIC"] as const) {
       const job = qldCommercialSelfPay();
       job.jurisdiction = j;
-      job.approvals.push({ id: "x", partyId: "dir", kind: "WORK", scopeLineIds: ["C1"], evidence: "verified" });
-      job.approvals.push({ id: "y", partyId: "dir", kind: "PAYMENT", scopeLineIds: ["C1"], evidence: "verified" });
+      job.approvals.push({
+        id: "x",
+        partyId: "dir",
+        kind: "WORK",
+        scopeLineIds: ["C1"],
+        evidence: "verified",
+      });
+      job.approvals.push({
+        id: "y",
+        partyId: "dir",
+        kind: "PAYMENT",
+        scopeLineIds: ["C1"],
+        evidence: "verified",
+      });
       const p = planAuthority(job);
       expect(p.previewAllowed).toBe(false);
       expect(p.holds[0]).toMatch(/No jurisdiction pack/);
@@ -359,16 +505,34 @@ describe("hazards, evidence holds and jurisdiction", () => {
 
   it("a fully authorised line in an enabled jurisdiction can start (positive control)", () => {
     const job = qldCommercialSelfPay();
-    job.approvals.push({ id: "x", partyId: "dir", kind: "WORK", scopeLineIds: ["C1"], evidence: "verified" });
-    job.approvals.push({ id: "y", partyId: "dir", kind: "PAYMENT", scopeLineIds: ["C1"], evidence: "verified" });
+    job.approvals.push({
+      id: "x",
+      partyId: "dir",
+      kind: "WORK",
+      scopeLineIds: ["C1"],
+      evidence: "verified",
+    });
+    job.approvals.push({
+      id: "y",
+      partyId: "dir",
+      kind: "PAYMENT",
+      scopeLineIds: ["C1"],
+      evidence: "verified",
+    });
     expect(planAuthority(job).scopes[0].canStart).toBe(true);
   });
 });
 
 describe("money", () => {
   it("formats integer minor units and refuses fractions", () => {
-    expect(formatMoney({ minor: 310_000, currency: "AUD", gst: "EX" })).toBe("A$3,100.00 ex GST");
-    expect(formatMoney({ minor: 5, currency: "NZD", gst: "INC" })).toBe("NZ$0.05 incl GST");
-    expect(() => formatMoney({ minor: 1.5, currency: "AUD", gst: "EX" })).toThrow();
+    expect(formatMoney({ minor: 310_000, currency: "AUD", gst: "EX" })).toBe(
+      "A$3,100.00 ex GST",
+    );
+    expect(formatMoney({ minor: 5, currency: "NZD", gst: "INC" })).toBe(
+      "NZ$0.05 incl GST",
+    );
+    expect(() =>
+      formatMoney({ minor: 1.5, currency: "AUD", gst: "EX" }),
+    ).toThrow();
   });
 });

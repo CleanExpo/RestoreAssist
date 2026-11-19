@@ -106,7 +106,19 @@ export interface Money {
 /** Actions that cannot be undone, or that a principal restricts by name. */
 export type RestrictedAction = "STRIP_OUT" | "DISPOSAL" | "FLOORING_REMOVAL";
 
-export type PaymentBasis = "OWNER_DIRECT" | "INSURER_WORK_ORDER" | "UNCONFIRMED";
+/**
+ * The only work an emergency basis can cover without written authority. A line
+ * flagged emergency but naming none of these is never treated as make-safe.
+ */
+export type MakeSafeTask =
+  | "WATER_EXTRACTION"
+  | "TEMPORARY_COVER"
+  | "ISOLATE_SERVICES"
+  | "SECURE_SITE"
+  | "DRYING";
+
+export type PaymentBasis =
+  "OWNER_DIRECT" | "INSURER_WORK_ORDER" | "UNCONFIRMED";
 
 export interface ScopeLine {
   id: string;
@@ -123,16 +135,14 @@ export interface ScopeLine {
   hazardous?: boolean;
   /** Emergency make-safe work. Needs a documented basis, never assumed. */
   emergency?: boolean;
+  /** The listed make-safe task this emergency line performs, if any. */
+  makeSafe?: MakeSafeTask;
   /** Contents pack-out, storage and return. */
   packOut?: boolean;
 }
 
 export type ApprovalKind =
-  | "ACCESS"
-  | "WORK"
-  | "PAYMENT"
-  | "RESTRICTED_ACTION"
-  | "IRREVERSIBLE";
+  "ACCESS" | "WORK" | "PAYMENT" | "RESTRICTED_ACTION" | "IRREVERSIBLE";
 
 export interface Approval {
   id: string;
