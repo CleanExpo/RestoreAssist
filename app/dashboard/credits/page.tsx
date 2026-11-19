@@ -260,20 +260,20 @@ function CreditsPageContent() {
       <div
         className={cn(
           "rounded-2xl p-6",
-          "bg-brand-navy",
-          "text-white shadow-lg",
+          "dark bg-brand-navy",
+          "text-brand-navy dark:text-white shadow-lg",
         )}
       >
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-blue-100 text-sm font-medium mb-1">
+            <p className="text-blue-700 dark:text-blue-100 text-sm font-medium mb-1">
               Current Balance
             </p>
             <p className="text-4xl font-bold">
               {isUnlimited ? "Unlimited" : (data?.creditsRemaining ?? 0)}
             </p>
             {!isUnlimited && (
-              <p className="text-blue-100 text-sm mt-1">credits remaining</p>
+              <p className="text-blue-700 dark:text-blue-100 text-sm mt-1">credits remaining</p>
             )}
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -286,48 +286,48 @@ function CreditsPageContent() {
               {data?.subscriptionStatus ?? "TRIAL"}
               {data?.subscriptionPlan ? ` — ${data.subscriptionPlan}` : ""}
             </span>
-            <CreditCard size={32} className="text-blue-200 opacity-60" />
+            <CreditCard size={32} className="text-blue-700 dark:text-blue-200 opacity-60" />
           </div>
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
           {/* Monthly reports used */}
-          <div className="bg-white/10 rounded-xl p-3">
-            <p className="text-blue-100 text-xs mb-1">This month</p>
-            <p className="text-white font-semibold text-lg">
+          <div className="bg-brand-navy/5 dark:bg-white/10 rounded-xl p-3">
+            <p className="text-blue-700 dark:text-blue-100 text-xs mb-1">This month</p>
+            <p className="text-brand-navy dark:text-white font-semibold text-lg">
               {monthlyUsed}
               {!isUnlimited && totalLimit > 0 && (
-                <span className="text-blue-200 text-sm font-normal">
+                <span className="text-blue-700 dark:text-blue-200 text-sm font-normal">
                   {" "}
                   / {totalLimit}
                 </span>
               )}
             </p>
-            <p className="text-blue-100 text-xs">reports</p>
+            <p className="text-blue-700 dark:text-blue-100 text-xs">reports</p>
           </div>
 
           {/* Total ever generated */}
-          <div className="bg-white/10 rounded-xl p-3">
-            <p className="text-blue-100 text-xs mb-1">All time</p>
-            <p className="text-white font-semibold text-lg">
+          <div className="bg-brand-navy/5 dark:bg-white/10 rounded-xl p-3">
+            <p className="text-blue-700 dark:text-blue-100 text-xs mb-1">All time</p>
+            <p className="text-brand-navy dark:text-white font-semibold text-lg">
               {data?.totalCreditsUsed ?? 0}
             </p>
-            <p className="text-blue-100 text-xs">reports generated</p>
+            <p className="text-blue-700 dark:text-blue-100 text-xs">reports generated</p>
           </div>
 
           {/* Reset date */}
-          <div className="bg-white/10 rounded-xl p-3 col-span-2 sm:col-span-1">
-            <p className="text-blue-100 text-xs mb-1 flex items-center gap-1">
+          <div className="bg-brand-navy/5 dark:bg-white/10 rounded-xl p-3 col-span-2 sm:col-span-1">
+            <p className="text-blue-700 dark:text-blue-100 text-xs mb-1 flex items-center gap-1">
               <Calendar size={11} />
               {isTrial ? "Trial ends" : "Resets"}
             </p>
-            <p className="text-white font-semibold text-sm">
+            <p className="text-brand-navy dark:text-white font-semibold text-sm">
               {isTrial
                 ? formatTrialEnd(data?.trialEndsAt)
                 : formatResetDate(data?.monthlyResetDate)}
             </p>
             {isTrial && data?.trialStatus && (
-              <p className="text-blue-100 text-xs mt-0.5">
+              <p className="text-blue-700 dark:text-blue-100 text-xs mt-0.5">
                 {data.trialStatus.daysRemaining > 0
                   ? `${data.trialStatus.daysRemaining} days left`
                   : "Trial expired"}
@@ -565,10 +565,10 @@ function CreditsPageContent() {
           className={cn(
             "rounded-2xl p-6",
             isTrial
-              ? "bg-brand-navy border border-indigo-200"
+              ? "dark bg-brand-navy border border-indigo-200"
               : isExpiredOrCanceled
-                ? "bg-brand-navy border border-red-200"
-                : "bg-brand-navy border border-amber-200",
+                ? "dark bg-brand-navy border border-red-200"
+                : "dark bg-brand-navy border border-amber-200",
           )}
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

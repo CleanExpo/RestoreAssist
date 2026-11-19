@@ -638,16 +638,16 @@ function PurchaseSuccess() {
         <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 ring-1 ring-emerald-400/30">
-              <CheckCircle className="h-8 w-8 text-emerald-400" aria-hidden />
+              <CheckCircle className="h-8 w-8 text-emerald-700 dark:text-emerald-400" aria-hidden />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wider text-brand-harbour-200/90">
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-harbour-700 dark:text-brand-harbour-200/90">
                 Payment confirmed
               </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-brand-navy dark:text-white sm:text-3xl">
                 Payment Successful!
               </h1>
-              <p className="mt-2 text-sm leading-relaxed text-white/65">
+              <p className="mt-2 text-sm leading-relaxed text-brand-slate dark:text-white/65">
                 Thank you for your payment.
                 {planDetail ?? " Your workspace is being updated."}
               </p>
@@ -681,7 +681,7 @@ function PurchaseSuccess() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                   <div className="flex shrink-0 items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-harbour-500 to-blue-600 shadow-md">
-                      <Icon className="h-6 w-6 text-white" aria-hidden />
+                      <Icon className="h-6 w-6 text-brand-navy dark:text-white" aria-hidden />
                     </div>
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:hidden">
                       Step {step.number}

@@ -201,7 +201,7 @@ function NotificationRow({ notification, onRead }: NotificationRowProps) {
 
       {/* External link indicator */}
       {notification.link && (
-        <ExternalLink className="h-4 w-4 flex-shrink-0 mt-1 text-neutral-400 dark:text-neutral-500" />
+        <ExternalLink className="h-4 w-4 flex-shrink-0 mt-1 text-brand-slate dark:text-neutral-500" />
       )}
     </div>
   );

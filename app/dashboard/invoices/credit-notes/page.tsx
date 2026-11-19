@@ -431,7 +431,7 @@ export default function CreditNotesPage() {
               <p className="text-2xl font-bold text-slate-900 dark:text-white">
                 {formatCurrencyCents(totalCreditsIssued)}
               </p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+              <p className="text-xs text-brand-slate dark:text-slate-500 mt-1">
                 Excludes voided credit notes
               </p>
             </CardContent>
@@ -508,11 +508,11 @@ export default function CreditNotesPage() {
         </p>
       ) : filteredNotes.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
-          <FileX className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+          <FileX className="h-12 w-12 text-brand-slate dark:text-slate-600 mx-auto mb-3" />
           <p className="text-slate-500 dark:text-slate-400 text-base font-medium">
             No credit notes issued yet.
           </p>
-          <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+          <p className="text-sm text-brand-slate dark:text-slate-500 mt-1">
             Use the button above to issue your first credit note.
           </p>
         </div>
@@ -559,9 +559,9 @@ export default function CreditNotesPage() {
                     {/* Expand toggle */}
                     <TableCell className="pr-0">
                       {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-slate-400" />
+                        <ChevronDown className="h-4 w-4 text-brand-slate dark:text-slate-400" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-slate-400" />
+                        <ChevronRight className="h-4 w-4 text-brand-slate dark:text-slate-400" />
                       )}
                     </TableCell>
 
@@ -583,7 +583,7 @@ export default function CreditNotesPage() {
                           {cn.invoice.invoiceNumber}
                         </Link>
                       ) : (
-                        <span className="text-slate-400 text-sm">—</span>
+                        <span className="text-brand-slate dark:text-slate-400 text-sm">—</span>
                       )}
                     </TableCell>
 

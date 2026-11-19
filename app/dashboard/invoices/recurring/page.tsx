@@ -453,7 +453,7 @@ export default function RecurringInvoicesPage() {
           {/* Table or empty state */}
           {schedules.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700 py-20 px-6 text-center">
-              <CalendarClock className="h-14 w-14 text-slate-300 dark:text-slate-600 mb-4" />
+              <CalendarClock className="h-14 w-14 text-brand-slate dark:text-slate-600 mb-4" />
               <p className="text-slate-600 dark:text-slate-400 text-lg font-medium mb-1">
                 No recurring invoices set up yet.
               </p>

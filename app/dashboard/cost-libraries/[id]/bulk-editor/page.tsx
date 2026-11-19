@@ -417,7 +417,7 @@ export default function CostLibraryBulkEditorPage({
           onChange={(e) => updateCell(rowId, field, e.target.value)}
           onBlur={commitEdit}
           onKeyDown={handleKeyDown}
-          className="w-full bg-slate-900 border border-brand-harbour-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
+          className="w-full bg-white dark:bg-slate-900 border border-brand-harbour-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
         />
       );
     }
@@ -425,7 +425,7 @@ export default function CostLibraryBulkEditorPage({
     return (
       <span
         onClick={() => setEditingCell({ rowId, field })}
-        className="block w-full cursor-text rounded px-2 py-1 hover:bg-slate-700/40 transition-colors text-sm"
+        className="block w-full cursor-text rounded px-2 py-1 hover:bg-brand-cream dark:hover:bg-slate-700/40 transition-colors text-sm"
         title="Click to edit"
       >
         {field === "rate" ? (
@@ -456,12 +456,12 @@ export default function CostLibraryBulkEditorPage({
       <div className="space-y-6">
         <Link
           href="/dashboard/cost-libraries"
-          className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
+          className="inline-flex items-center gap-2 text-brand-slate dark:text-slate-400 hover:text-brand-navy dark:hover:text-white transition-colors text-sm"
         >
           <ArrowLeft size={16} />
           Back to Cost Libraries
         </Link>
-        <p className="text-slate-400">Library not found.</p>
+        <p className="text-brand-slate dark:text-slate-400">Library not found.</p>
       </div>
     );
   }
@@ -473,7 +473,7 @@ export default function CostLibraryBulkEditorPage({
       {/* Back link */}
       <Link
         href={`/dashboard/cost-libraries/${id}`}
-        className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
+        className="inline-flex items-center gap-2 text-brand-slate dark:text-slate-400 hover:text-brand-navy dark:hover:text-white transition-colors text-sm"
       >
         <ArrowLeft size={16} />
         Back to {library.name}
@@ -486,16 +486,16 @@ export default function CostLibraryBulkEditorPage({
             Bulk Editor — {library.name}
           </h1>
           <div className="flex flex-wrap items-center gap-3 mt-2">
-            <span className="text-slate-400 text-sm">
+            <span className="text-brand-slate dark:text-slate-400 text-sm">
               {visibleRows.length} item{visibleRows.length !== 1 ? "s" : ""}
             </span>
             {dirtyCount > 0 && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+              <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-500/20 text-yellow-800 dark:text-yellow-400 border border-yellow-500/30">
                 {dirtyCount} unsaved change{dirtyCount !== 1 ? "s" : ""}
               </span>
             )}
             {selected.size > 0 && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-brand-harbour-500/20 text-brand-harbour-400 border border-brand-harbour-500/30">
+              <span className="px-2 py-0.5 text-xs rounded-full bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-brand-harbour-400 border border-brand-harbour-500/30">
                 {selected.size} selected
               </span>
             )}
@@ -506,7 +506,7 @@ export default function CostLibraryBulkEditorPage({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={addRow}
-            className="inline-flex items-center gap-2 px-3 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm"
+            className="inline-flex items-center gap-2 px-3 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors text-sm"
             title="Add a new blank row"
           >
             <Plus size={15} />
@@ -515,7 +515,7 @@ export default function CostLibraryBulkEditorPage({
           <button
             onClick={markSelectedForDeletion}
             disabled={selected.size === 0}
-            className="inline-flex items-center gap-2 px-3 py-2 border border-rose-500/40 text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-3 py-2 border border-rose-500/40 text-rose-700 dark:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
             title="Delete selected rows"
           >
             <Trash2 size={15} />
@@ -524,7 +524,7 @@ export default function CostLibraryBulkEditorPage({
           <button
             onClick={discardChanges}
             disabled={dirtyCount === 0}
-            className="inline-flex items-center gap-2 px-3 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-3 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
             title="Discard all unsaved changes"
           >
             <RotateCcw size={15} />
@@ -546,13 +546,13 @@ export default function CostLibraryBulkEditorPage({
       </div>
 
       {/* Bulk price adjustment panel */}
-      <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
-        <p className="text-sm font-medium text-slate-300 mb-3">
+      <div className="rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30 p-4">
+        <p className="text-sm font-medium text-brand-slate dark:text-slate-300 mb-3">
           Bulk Price Adjustment
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-slate dark:text-slate-400 text-sm pointer-events-none">
               %
             </span>
             <input
@@ -560,19 +560,19 @@ export default function CostLibraryBulkEditorPage({
               placeholder="e.g. 10 or -5"
               value={priceAdjust}
               onChange={(e) => setPriceAdjust(e.target.value)}
-              className="w-36 pl-8 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50 text-sm"
+              className="w-36 pl-8 pr-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50 text-sm"
             />
           </div>
           <button
             onClick={() => applyPriceAdjustment(false)}
-            className="px-3 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm"
+            className="px-3 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors text-sm"
           >
             Apply to All
           </button>
           <button
             onClick={() => applyPriceAdjustment(true)}
             disabled={selected.size === 0}
-            className="px-3 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-3 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Apply to Selected ({selected.size})
           </button>
@@ -584,8 +584,8 @@ export default function CostLibraryBulkEditorPage({
 
       {/* Table */}
       {visibleRows.length === 0 ? (
-        <div className="p-12 rounded-lg border border-slate-700/50 bg-slate-800/30 text-center">
-          <p className="text-slate-400 mb-4">
+        <div className="p-12 rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30 text-center">
+          <p className="text-brand-slate dark:text-slate-400 mb-4">
             No items yet. Add a row to get started.
           </p>
           <button
@@ -597,35 +597,35 @@ export default function CostLibraryBulkEditorPage({
           </button>
         </div>
       ) : (
-        <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
+        <div className="rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-700/50 bg-slate-800/60">
+                <tr className="border-b border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/60">
                   <th className="w-10 px-3 py-3">
                     <input
                       type="checkbox"
                       checked={allSelected}
                       onChange={toggleSelectAll}
-                      className="rounded border-slate-600 bg-slate-700 text-brand-harbour-500 focus:ring-brand-harbour-500/30 cursor-pointer"
+                      className="rounded border-slate-600 bg-brand-cream dark:bg-slate-700 text-brand-harbour-500 focus:ring-brand-harbour-500/30 cursor-pointer"
                       title="Select all"
                     />
                   </th>
-                  <th className="text-left px-3 py-3 font-medium text-slate-300 min-w-[140px]">
+                  <th className="text-left px-3 py-3 font-medium text-brand-slate dark:text-slate-300 min-w-[140px]">
                     Category / Item Code
                   </th>
-                  <th className="text-left px-3 py-3 font-medium text-slate-300 min-w-[240px]">
+                  <th className="text-left px-3 py-3 font-medium text-brand-slate dark:text-slate-300 min-w-[240px]">
                     Description
                   </th>
-                  <th className="text-right px-3 py-3 font-medium text-slate-300 min-w-[110px]">
+                  <th className="text-right px-3 py-3 font-medium text-brand-slate dark:text-slate-300 min-w-[110px]">
                     Unit Cost (AU$)
                   </th>
-                  <th className="text-left px-3 py-3 font-medium text-slate-300 min-w-[90px]">
+                  <th className="text-left px-3 py-3 font-medium text-brand-slate dark:text-slate-300 min-w-[90px]">
                     Unit
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/30">
+              <tbody className="divide-y divide-brand-mist dark:divide-slate-700/30">
                 {visibleRows.map((row) => {
                   const isSelected = selected.has(row.current.id);
                   return (
@@ -634,7 +634,7 @@ export default function CostLibraryBulkEditorPage({
                       className={[
                         "transition-colors",
                         row.dirty ? "bg-yellow-500/5" : "",
-                        isSelected ? "bg-brand-harbour-500/5" : "hover:bg-slate-700/20",
+                        isSelected ? "bg-brand-harbour-500/5" : "hover:bg-brand-cream dark:hover:bg-slate-700/20",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -645,7 +645,7 @@ export default function CostLibraryBulkEditorPage({
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleSelect(row.current.id)}
-                          className="rounded border-slate-600 bg-slate-700 text-brand-harbour-500 focus:ring-brand-harbour-500/30 cursor-pointer"
+                          className="rounded border-slate-600 bg-brand-cream dark:bg-slate-700 text-brand-harbour-500 focus:ring-brand-harbour-500/30 cursor-pointer"
                         />
                       </td>
 
@@ -674,13 +674,13 @@ export default function CostLibraryBulkEditorPage({
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2 border-t border-slate-700/30 flex items-center justify-between text-xs text-slate-500">
+          <div className="px-4 py-2 border-t border-brand-mist dark:border-slate-700/30 flex items-center justify-between text-xs text-slate-500">
             <span>
               {visibleRows.length} item{visibleRows.length !== 1 ? "s" : ""}
               {selected.size > 0 ? ` · ${selected.size} selected` : ""}
             </span>
             {dirtyCount > 0 && (
-              <span className="text-yellow-400">
+              <span className="text-yellow-800 dark:text-yellow-400">
                 {dirtyCount} unsaved change{dirtyCount !== 1 ? "s" : ""} — click
                 &ldquo;Save Changes&rdquo; to persist
               </span>
@@ -692,20 +692,20 @@ export default function CostLibraryBulkEditorPage({
       {/* Delete confirmation dialog */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+          <div className="bg-white dark:bg-slate-800 border border-brand-mist dark:border-slate-700 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">
             <h2 className="text-lg font-semibold mb-2">
               Delete {selected.size} row{selected.size !== 1 ? "s" : ""}?
             </h2>
-            <p className="text-slate-400 text-sm mb-6">
+            <p className="text-brand-slate dark:text-slate-400 text-sm mb-6">
               This will remove {selected.size} selected row
               {selected.size !== 1 ? "s" : ""} from the table. The deletion will
               only be applied to the server when you click{" "}
-              <strong className="text-white">Save Changes</strong>.
+              <strong className="text-brand-navy dark:text-white">Save Changes</strong>.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm"
+                className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors text-sm"
               >
                 Cancel
               </button>

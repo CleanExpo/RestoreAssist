@@ -856,13 +856,13 @@ export default function ClientsPage() {
                               to see any context. */}
                           <div className="flex items-center gap-2 flex-wrap">
                             {(client as ClientWithReportFlag)._isFromReport ? (
-                              <span className="text-brand-harbour-400">
+                              <span className="text-brand-harbour-700 dark:text-brand-harbour-400">
                                 {client.name}
                               </span>
                             ) : (
                               <Link
                                 href={`/dashboard/clients/${client.id}`}
-                                className="text-brand-harbour-400 hover:underline"
+                                className="text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline"
                               >
                                 {client.name}
                               </Link>
@@ -891,7 +891,7 @@ export default function ClientsPage() {
                             </div>
                           )}
                           {(client as ClientWithReportFlag)._isFromReport && (
-                            <div className="text-xs text-amber-400 mt-1">
+                            <div className="text-xs text-amber-700 dark:text-amber-400 mt-1">
                               From Report
                             </div>
                           )}

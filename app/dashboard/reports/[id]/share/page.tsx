@@ -289,7 +289,7 @@ export default function ReportSharePage() {
           </div>
 
           {invitationsLoading ? (
-            <div className="flex items-center gap-2 text-slate-400 py-4">
+            <div className="flex items-center gap-2 text-brand-slate dark:text-slate-400 py-4">
               <Loader2 size={16} className="animate-spin" />
               <span className="text-sm">Loading share link...</span>
             </div>
@@ -310,7 +310,7 @@ export default function ReportSharePage() {
                   {copied ? "Copied!" : "Copy Link"}
                 </button>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-400">
+              <div className="flex items-center justify-between text-xs text-brand-slate dark:text-slate-400">
                 <span>
                   Expires{" "}
                   {new Date(invitation.expiresAt).toLocaleDateString("en-AU", {
@@ -397,7 +397,7 @@ export default function ReportSharePage() {
             <h2 className="font-semibold text-slate-800">Active report links</h2>
           </div>
           {grantsLoading ? (
-            <div className="flex items-center gap-2 text-slate-400 py-2 text-sm">
+            <div className="flex items-center gap-2 text-brand-slate dark:text-slate-400 py-2 text-sm">
               <Loader2 size={16} className="animate-spin" />
               Loading…
             </div>
@@ -417,7 +417,7 @@ export default function ReportSharePage() {
                     <span className="font-medium text-slate-800">
                       {grant.scope === "INSURER" ? "Insurer" : "Owner view"}
                     </span>
-                    <span className="ml-2 text-xs text-slate-400">
+                    <span className="ml-2 text-xs text-brand-slate dark:text-slate-400">
                       Expires{" "}
                       {new Date(grant.expiresAt).toLocaleDateString("en-AU")}
                     </span>

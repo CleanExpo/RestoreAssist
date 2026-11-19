@@ -139,7 +139,7 @@ function DiffView({
   return (
     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
       <div>
-        <p className="text-xs font-semibold text-neutral-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+        <p className="text-xs font-semibold text-brand-slate dark:text-slate-500 uppercase tracking-wider mb-1">
           Previous
         </p>
         <pre className="text-xs bg-destructive-subtle border border-destructive-subtle-foreground/30 rounded-lg p-2 text-destructive-subtle-foreground whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
@@ -147,7 +147,7 @@ function DiffView({
         </pre>
       </div>
       <div>
-        <p className="text-xs font-semibold text-neutral-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+        <p className="text-xs font-semibold text-brand-slate dark:text-slate-500 uppercase tracking-wider mb-1">
           New Value
         </p>
         <pre className="text-xs bg-success-subtle border border-success-subtle-foreground/30 rounded-lg p-2 text-success-subtle-foreground whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
@@ -318,7 +318,7 @@ export default function InspectionAuditPage({
             <Button
               size="sm"
               variant="ghost"
-              className="text-xs h-8 text-neutral-400"
+              className="text-xs h-8 text-brand-slate dark:text-neutral-400"
               onClick={clearDateFilter}
             >
               Clear
@@ -334,12 +334,12 @@ export default function InspectionAuditPage({
         <AuditLogSkeleton />
       ) : logs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-          <Clock size={40} className="text-neutral-300 dark:text-slate-600" />
+          <Clock size={40} className="text-brand-slate dark:text-slate-600" />
           <p className="text-neutral-500 dark:text-slate-400 text-sm font-medium">
             No audit records found for this inspection
           </p>
           {(activeFilter !== "all" || fromDate || toDate) && (
-            <p className="text-xs text-neutral-400 dark:text-slate-500">
+            <p className="text-xs text-brand-slate dark:text-slate-500">
               Try clearing the filters to see all records
             </p>
           )}
@@ -377,7 +377,7 @@ export default function InspectionAuditPage({
                         >
                           {log.action}
                         </span>
-                        <span className="text-xs text-neutral-400 dark:text-slate-500 whitespace-nowrap">
+                        <span className="text-xs text-brand-slate dark:text-slate-500 whitespace-nowrap">
                           {formatTimestamp(log.timestamp)}
                         </span>
                       </div>
@@ -394,7 +394,7 @@ export default function InspectionAuditPage({
                             </Badge>
                           )}
                           {log.entityId && (
-                            <span className="text-xs text-neutral-400 dark:text-slate-500 font-mono">
+                            <span className="text-xs text-brand-slate dark:text-slate-500 font-mono">
                               {log.entityId}
                             </span>
                           )}
@@ -413,7 +413,7 @@ export default function InspectionAuditPage({
                         </span>
                         {log.device && (
                           <>
-                            <span className="text-neutral-300 dark:text-slate-600">
+                            <span className="text-brand-slate dark:text-slate-600">
                               ·
                             </span>
                             <span>{log.device}</span>
@@ -421,7 +421,7 @@ export default function InspectionAuditPage({
                         )}
                         {log.gpsLocation && (
                           <>
-                            <span className="text-neutral-300 dark:text-slate-600">
+                            <span className="text-brand-slate dark:text-slate-600">
                               ·
                             </span>
                             <span>GPS: {log.gpsLocation}</span>
@@ -440,7 +440,7 @@ export default function InspectionAuditPage({
                       {/* Changes JSON (if no prev/new but changes exist) */}
                       {log.changes && !log.previousValue && !log.newValue && (
                         <div className="mt-2">
-                          <p className="text-xs font-semibold text-neutral-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                          <p className="text-xs font-semibold text-brand-slate dark:text-slate-500 uppercase tracking-wider mb-1">
                             Changes
                           </p>
                           <pre className="text-xs bg-neutral-50 dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 rounded-lg p-2 text-neutral-600 dark:text-slate-300 whitespace-pre-wrap break-all max-h-32 overflow-y-auto">

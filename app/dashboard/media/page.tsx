@@ -297,7 +297,7 @@ export default function MediaPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Media Library"
         description="Catalogued inspection photos for marketing, SEO, and client-facing assets."
-        icon={<Camera className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
+        icon={<Camera className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/media" })}
       />
 
