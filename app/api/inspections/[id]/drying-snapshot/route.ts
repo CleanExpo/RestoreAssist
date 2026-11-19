@@ -23,10 +23,11 @@ export async function GET(
     const { id } = await params;
     const tenancy = await assertInspectionReadable(session, id);
     if (!tenancy.ok) {
-      return NextResponse.json(
-        { error: tenancy.reason },
-        { status: tenancy.status },
-      );
+      return apiError(request, {
+        code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+        message: tenancy.reason,
+        status: tenancy.status,
+      });
     }
 
     const [moisture, psychrometric, environmental, psychWithEquipment] =
