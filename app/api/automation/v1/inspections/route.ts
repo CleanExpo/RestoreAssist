@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { assertAutomationV1Auth } from "@/lib/automation/v1-auth";
+import { parseIsoQueryParam } from "@/lib/api/parse-iso-query";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 /**
  * GET /api/automation/v1/inspections
@@ -21,15 +23,29 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const since = request.nextUrl.searchParams.get("since");
-    const sinceDate = since ? new Date(since) : null;
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 60,
+      windowMs: 60 * 1000,
+      prefix: "automation-v1-inspections",
+      key: auth.userId,
+    });
+    if (rateLimited) return rateLimited;
+
+    const sinceParsed = parseIsoQueryParam(
+      request.nextUrl.searchParams.get("since"),
+    );
+    if (!sinceParsed.ok) {
+      return apiError(request, {
+        code: "VALIDATION_ERROR",
+        message: sinceParsed.reason,
+        status: 400,
+      });
+    }
 
     const inspections = await prisma.inspection.findMany({
       where: {
         user: { organizationId: auth.organizationId },
-        ...(sinceDate && !Number.isNaN(sinceDate.getTime())
-          ? { updatedAt: { gte: sinceDate } }
-          : {}),
+        ...(sinceParsed.value ? { updatedAt: { gte: sinceParsed.value } } : {}),
       },
       orderBy: { updatedAt: "desc" },
       take: 100,

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { assertAutomationV1Auth } from "@/lib/automation/v1-auth";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 /** GET /api/automation/v1/clients — org client directory for automation (W4-4). */
 export async function GET(request: NextRequest) {
@@ -17,6 +18,14 @@ export async function GET(request: NextRequest) {
         status: auth.status,
       });
     }
+
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 30,
+      windowMs: 60 * 1000,
+      prefix: "automation-v1-clients",
+      key: auth.userId,
+    });
+    if (rateLimited) return rateLimited;
 
     const clients = await prisma.client.findMany({
       where: { user: { organizationId: auth.organizationId } },
