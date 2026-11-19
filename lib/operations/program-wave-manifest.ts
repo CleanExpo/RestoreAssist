@@ -52,8 +52,8 @@ export const PROGRAM_WAVE_MANIFEST: ProgramWaveRow[] = [
     label: "Production readiness",
     status: "in_progress",
     openItems: [
-      "W6-3 RLS / build strictness (roadmap phase 6)",
-      "Org audit export UI link from ops hub",
+      "W6-4 RLS / strict build gate (roadmap phase 6)",
+      "Run scripts/wave-program-verify.sh in CI",
     ],
   },
 ];

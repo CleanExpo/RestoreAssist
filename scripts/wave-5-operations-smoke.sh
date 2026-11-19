@@ -8,10 +8,7 @@ if [[ "${VERCEL_ENV:-}" == "production" ]]; then
 fi
 
 echo "=== Wave 5 operations smoke ==="
-pnpm exec vitest run \
-  lib/completeness/__tests__/inbox-stall-summary.test.ts \
-  lib/operations/__tests__/slo-targets.test.ts \
-  lib/operations/__tests__/audit-export-csv.test.ts
+bash scripts/wave-program-verify.sh
 
 echo ""
 echo "Manual (manager session):"

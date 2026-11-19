@@ -87,6 +87,7 @@ This document is the **execution tracker** for making RestoreAssist a complete, 
 | W6-2 | SLO targets on program-status + ops panel | ✅ | `slo.targets` / `slo.lastRun` in program-status |
 | W6-3 | Invoice send rate limit | ✅ | `applyRateLimit` on `POST …/invoices/[id]/send` |
 | W6-4 | RLS + strict build gate (roadmap) | ⬜ | See `docs/production-grade-implementation/IMPLEMENTATION_ROADMAP.md` phase 6 |
+| W6-5 | Wave program verify + API hardening | ✅ | `scripts/wave-program-verify.sh` (88 tests) |
 
 ---
 
