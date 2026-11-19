@@ -43,7 +43,7 @@ export default function EquipmentPage() {
           </Link>
         </Button>
         <h1 className="text-2xl font-semibold text-white flex items-center gap-2">
-          <Wrench className="h-6 w-6 text-cyan-400" />
+          <Wrench className="h-6 w-6 text-brand-harbour-400" />
           Equipment
         </h1>
       </div>
@@ -66,7 +66,7 @@ export default function EquipmentPage() {
             and inspection photos until the equipment API ships.
           </p>
           <div className="flex flex-wrap gap-2 pt-2">
-            <Button asChild className="bg-cyan-500 hover:bg-cyan-600 text-white">
+            <Button asChild className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white">
               <Link href="/dashboard/field">Open Field Mode</Link>
             </Button>
             <Button

@@ -216,14 +216,14 @@ export default function InvoiceAnalyticsPage() {
       <div>
         <Link
           href="/dashboard/invoices"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-cyan-500 dark:text-slate-400 dark:hover:text-cyan-400 transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-harbour-500 dark:text-slate-400 dark:hover:text-brand-harbour-400 transition-colors mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Invoices
         </Link>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-cyan-500/10 rounded-lg">
-            <BarChart3 className="h-6 w-6 text-cyan-500" />
+          <div className="p-2 bg-brand-harbour-500/10 rounded-lg">
+            <BarChart3 className="h-6 w-6 text-brand-harbour-500" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -276,7 +276,7 @@ export default function InvoiceAnalyticsPage() {
             </p>
             <Link
               href="/dashboard/invoices/new"
-              className="inline-block mt-4 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white text-sm rounded-lg transition-colors"
+              className="inline-block mt-4 px-4 py-2 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white text-sm rounded-lg transition-colors"
             >
               Create Invoice
             </Link>
@@ -337,8 +337,8 @@ export default function InvoiceAnalyticsPage() {
             {/* Paid This Month */}
             <Card className="py-5">
               <CardContent className="flex items-center gap-4">
-                <div className="p-3 bg-cyan-500/10 rounded-lg flex-shrink-0">
-                  <CheckCircle className="h-6 w-6 text-cyan-500" />
+                <div className="p-3 bg-brand-harbour-500/10 rounded-lg flex-shrink-0">
+                  <CheckCircle className="h-6 w-6 text-brand-harbour-500" />
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -381,7 +381,7 @@ export default function InvoiceAnalyticsPage() {
                         {/* Bar track */}
                         <div className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-6 overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500 flex items-center justify-end pr-2"
+                            className="h-full rounded-full bg-gradient-to-r from-brand-harbour-500 to-blue-500 transition-all duration-500 flex items-center justify-end pr-2"
                             style={{ width: `${Math.max(pct, 2)}%` }}
                           >
                             {pct >= 20 && (

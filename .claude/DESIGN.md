@@ -85,10 +85,10 @@ components must carry no raw hex literal.
 The signed-in app's accent tints, badges, rings and gradients use an eleven-step
 scale on the brand-cta hue (oklch hue 265.6): `brand-harbour-50` to
 `brand-harbour-950` (`bg-brand-harbour-500/10`, `text-brand-harbour-600`,
-`ring-brand-harbour-400/40`). It replaces the Tailwind cyan utilities (RA-8464),
-which move over in three PRs. Until the last one lands, `app/globals.css` keeps a
-cyan bridge on the same values so unmoved screens still render the brand cobalt.
-New code uses `brand-harbour-*`, never `cyan-*`.
+`ring-brand-harbour-400/40`). It replaced the Tailwind cyan utilities (RA-8464),
+and the interim cyan bridge in `app/globals.css` is gone, so a `cyan-*` utility
+now renders stock Tailwind teal. New code uses `brand-harbour-*`, never `cyan-*`;
+`tests/unit/no-cyan-utilities.test.ts` fails on one.
 
 | Token | Value |
 |---|---|

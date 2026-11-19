@@ -106,9 +106,10 @@ describe("brand palette meets its accessibility floors", () => {
   });
 });
 
-describe("the cyan bridge follows the call-to-action hue", () => {
-  // Every cyan-N utility is re-pointed at the brand hue (DSA-04). A palette
-  // change that forgets the bridge leaves the old hue on hundreds of screens.
+describe("the harbour scale follows the call-to-action hue", () => {
+  // The signed-in app's accent is the brand-harbour scale (RA-8464, DSA-04).
+  // A palette change that forgets the scale leaves the old hue on hundreds of
+  // screens. The interim cyan bridge is gone; no-cyan-utilities.test.ts guards it.
   function oklchHue(h: string): number {
     const lin = [1, 3, 5]
       .map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
@@ -122,25 +123,15 @@ describe("the cyan bridge follows the call-to-action hue", () => {
     return ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360;
   }
 
-  it("every brand-harbour step uses the brand-cta hue and matches the cyan bridge", () => {
+  it("every brand-harbour step uses the brand-cta hue", () => {
     const want = oklchHue(hex("brand-cta"));
     const scale = [...css.matchAll(/--color-brand-harbour-(\d+):\s*oklch\(([^)]+)\)/g)];
-    expect(scale.length).toBe(11);
+    expect(scale.map(([, step]) => step)).toEqual([
+      "50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950",
+    ]);
     for (const [, step, body] of scale) {
       const hue = Number(body.trim().split(/\s+/)[2]);
       expect(Math.abs(hue - want), `brand-harbour-${step}`).toBeLessThanOrEqual(0.5);
-      const bridge = css.match(new RegExp(`--color-cyan-${step}:\\s*oklch\\(([^)]+)\\)`));
-      expect(bridge?.[1].trim(), `cyan-${step} bridge`).toBe(body.trim());
-    }
-  });
-
-  it("every cyan step uses the brand-cta hue", () => {
-    const want = oklchHue(hex("brand-cta"));
-    const steps = [...css.matchAll(/--color-cyan-(\d+):\s*oklch\(([^)]+)\)/g)];
-    expect(steps.length).toBe(11);
-    for (const [, step, body] of steps) {
-      const hue = Number(body.trim().split(/\s+/)[2]);
-      expect(Math.abs(hue - want), `cyan-${step}`).toBeLessThanOrEqual(0.5);
     }
   });
 });

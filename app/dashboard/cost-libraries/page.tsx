@@ -482,7 +482,7 @@ export default function CostLibrariesPage() {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
         >
           <Plus size={20} />
           New Library
@@ -504,7 +504,7 @@ export default function CostLibrariesPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
         </div>
       ) : (
         <div className="grid lg:grid-cols-4 gap-6">
@@ -527,7 +527,7 @@ export default function CostLibrariesPage() {
                     onClick={() => setSelectedLibrary(lib.id)}
                     className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
                       selectedLibrary === lib.id
-                        ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
+                        ? "bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white"
                         : "hover:bg-slate-700/50 text-slate-300"
                     }`}
                   >
@@ -620,7 +620,7 @@ export default function CostLibrariesPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-medium text-cyan-400">
+                          <span className="font-medium text-brand-harbour-400">
                             ${item.rate.toFixed(2)}/{item.unit}
                           </span>
                           <div className="flex items-center gap-1">
@@ -693,7 +693,7 @@ export default function CostLibrariesPage() {
                     setFormData({ ...formData, name: e.target.value })
                   }
                   placeholder="e.g., Regional NSW 2025"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -703,7 +703,7 @@ export default function CostLibrariesPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, region: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 >
                   <option value="">Select region</option>
                   <option value="NSW">Sydney Metro</option>
@@ -723,7 +723,7 @@ export default function CostLibrariesPage() {
                     setFormData({ ...formData, description: e.target.value })
                   }
                   placeholder="Brief description of this cost library"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   rows={3}
                 />
               </div>
@@ -735,7 +735,7 @@ export default function CostLibrariesPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, isDefault: e.target.checked })
                   }
-                  className="w-4 h-4 text-cyan-500 bg-slate-700 border-slate-600 rounded focus:ring-cyan-500 focus:ring-2"
+                  className="w-4 h-4 text-brand-harbour-500 bg-slate-700 border-slate-600 rounded focus:ring-brand-harbour-500 focus:ring-2"
                 />
                 <label htmlFor="isDefault" className="text-sm text-slate-300">
                   Set as default cost library
@@ -750,7 +750,7 @@ export default function CostLibrariesPage() {
                 </button>
                 <button
                   onClick={handleAddLibrary}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Create
                 </button>
@@ -785,7 +785,7 @@ export default function CostLibrariesPage() {
                     setFormData({ ...formData, name: e.target.value })
                   }
                   placeholder="e.g., Regional NSW 2025"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -795,7 +795,7 @@ export default function CostLibrariesPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, region: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 >
                   <option value="">Select region</option>
                   <option value="NSW">Sydney Metro</option>
@@ -815,7 +815,7 @@ export default function CostLibrariesPage() {
                     setFormData({ ...formData, description: e.target.value })
                   }
                   placeholder="Brief description of this cost library"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   rows={3}
                 />
               </div>
@@ -827,7 +827,7 @@ export default function CostLibrariesPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, isDefault: e.target.checked })
                   }
-                  className="w-4 h-4 text-cyan-500 bg-slate-700 border-slate-600 rounded focus:ring-cyan-500 focus:ring-2"
+                  className="w-4 h-4 text-brand-harbour-500 bg-slate-700 border-slate-600 rounded focus:ring-brand-harbour-500 focus:ring-2"
                 />
                 <label
                   htmlFor="isDefaultEdit"
@@ -845,7 +845,7 @@ export default function CostLibrariesPage() {
                 </button>
                 <button
                   onClick={handleEditLibrary}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Update Library
                 </button>
@@ -885,7 +885,7 @@ export default function CostLibrariesPage() {
                     })
                   }
                   placeholder="e.g., Labour, Materials, Equipment"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -902,7 +902,7 @@ export default function CostLibrariesPage() {
                     })
                   }
                   placeholder="e.g., Water Extraction (per hour)"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -916,7 +916,7 @@ export default function CostLibrariesPage() {
                       setItemFormData({ ...itemFormData, rate: e.target.value })
                     }
                     placeholder="150.00"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div>
@@ -928,7 +928,7 @@ export default function CostLibrariesPage() {
                       setItemFormData({ ...itemFormData, unit: e.target.value })
                     }
                     placeholder="hour, day, item"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
               </div>
@@ -941,7 +941,7 @@ export default function CostLibrariesPage() {
                 </button>
                 <button
                   onClick={handleAddItem}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Add Item
                 </button>
@@ -979,7 +979,7 @@ export default function CostLibrariesPage() {
                     })
                   }
                   placeholder="e.g., Labour, Materials, Equipment"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -996,7 +996,7 @@ export default function CostLibrariesPage() {
                     })
                   }
                   placeholder="e.g., Water Extraction (per hour)"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -1010,7 +1010,7 @@ export default function CostLibrariesPage() {
                       setItemFormData({ ...itemFormData, rate: e.target.value })
                     }
                     placeholder="150.00"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div>
@@ -1022,7 +1022,7 @@ export default function CostLibrariesPage() {
                       setItemFormData({ ...itemFormData, unit: e.target.value })
                     }
                     placeholder="hour, day, item"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
               </div>
@@ -1035,7 +1035,7 @@ export default function CostLibrariesPage() {
                 </button>
                 <button
                   onClick={handleEditItem}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Update Item
                 </button>

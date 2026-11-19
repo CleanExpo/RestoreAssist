@@ -219,7 +219,7 @@ export default function NewRecurringInvoicePage() {
                 }
                 placeholder="e.g. Monthly Maintenance — Smith Property"
                 required
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
               />
             </div>
 
@@ -234,7 +234,7 @@ export default function NewRecurringInvoicePage() {
                 }
                 placeholder="Optional internal notes about this recurring invoice…"
                 rows={2}
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 resize-none"
+                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 resize-none"
               />
             </div>
 
@@ -248,7 +248,7 @@ export default function NewRecurringInvoicePage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, frequency: e.target.value }))
                   }
-                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
                 >
                   {FREQUENCIES.map((fr) => (
                     <option key={fr.value} value={fr.value}>
@@ -268,7 +268,7 @@ export default function NewRecurringInvoicePage() {
                     setForm((f) => ({ ...f, startDate: e.target.value }))
                   }
                   required
-                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -282,7 +282,7 @@ export default function NewRecurringInvoicePage() {
                     setForm((f) => ({ ...f, endDate: e.target.value }))
                   }
                   min={form.startDate}
-                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
                 />
               </div>
             </div>
@@ -302,7 +302,7 @@ export default function NewRecurringInvoicePage() {
                 }
                 min={0}
                 max={365}
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
               />
             </div>
           </div>
@@ -321,7 +321,7 @@ export default function NewRecurringInvoicePage() {
                 value={form.clientId}
                 onChange={(e) => handleClientChange(e.target.value)}
                 disabled={loadingClients}
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:opacity-50"
+                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 disabled:opacity-50"
               >
                 <option value="">
                   {loadingClients
@@ -349,7 +349,7 @@ export default function NewRecurringInvoicePage() {
                   }
                   placeholder="Full name or company"
                   required
-                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -364,7 +364,7 @@ export default function NewRecurringInvoicePage() {
                   }
                   placeholder="customer@example.com"
                   required
-                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
                 />
               </div>
             </div>
@@ -381,7 +381,7 @@ export default function NewRecurringInvoicePage() {
                     setForm((f) => ({ ...f, customerPhone: e.target.value }))
                   }
                   placeholder="04XX XXX XXX"
-                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -395,7 +395,7 @@ export default function NewRecurringInvoicePage() {
                     setForm((f) => ({ ...f, customerAddress: e.target.value }))
                   }
                   placeholder="Street address"
-                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
                 />
               </div>
             </div>
@@ -427,7 +427,7 @@ export default function NewRecurringInvoicePage() {
                       updateLineItem(idx, "description", e.target.value)
                     }
                     placeholder="Description"
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div className="col-span-2">
@@ -444,7 +444,7 @@ export default function NewRecurringInvoicePage() {
                     min="0"
                     step="0.01"
                     placeholder="Qty"
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div className="col-span-3">
@@ -461,7 +461,7 @@ export default function NewRecurringInvoicePage() {
                     min="0"
                     step="0.01"
                     placeholder="Unit price ($)"
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div className="col-span-1 flex items-center justify-center pt-2">
@@ -546,7 +546,7 @@ export default function NewRecurringInvoicePage() {
             <button
               type="submit"
               disabled={isSubmitting || !form.templateName.trim() || !gstKnown}
-              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <Loader2 size={18} className="animate-spin" />

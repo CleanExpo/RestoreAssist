@@ -139,7 +139,7 @@ export function LearnPageClient() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Tutorials"
         description={`Short walk-throughs of RestoreAssist — ${filtered.length} videos in the library.`}
-        icon={<ChromePlayCircle className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<ChromePlayCircle className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/learn" })}
       />
 

@@ -91,14 +91,14 @@ function PricingPageContent() {
                 key={key}
                 className={`relative bg-slate-800/50 rounded-2xl border-2 p-8 transition-all duration-300 hover:scale-105 ${
                   plan.popular
-                    ? "border-cyan-500 shadow-2xl shadow-cyan-500/20"
+                    ? "border-brand-harbour-500 shadow-2xl shadow-brand-harbour-500/20"
                     : "border-slate-700 hover:border-slate-600"
                 }`}
               >
                 {/* Popular Badge */}
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
+                    <div className="bg-gradient-to-r from-brand-harbour-500 to-blue-500 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2">
                       <Star className="w-4 h-4" />
                       Most Popular
                     </div>
@@ -120,7 +120,7 @@ function PricingPageContent() {
                     {plan.displayName}
                   </h3>
                   <div className="mb-4">
-                    <span className="text-4xl font-bold text-cyan-400">
+                    <span className="text-4xl font-bold text-brand-harbour-400">
                       {formatPrice(plan.amount, plan.currency)}
                     </span>
                     {"interval" in plan && plan.interval && (
@@ -155,7 +155,7 @@ function PricingPageContent() {
                       Report Limit
                     </span>
                   </div>
-                  <div className="text-2xl font-bold text-cyan-400">
+                  <div className="text-2xl font-bold text-brand-harbour-400">
                     {plan.reportLimit}
                   </div>
                   <div className="text-sm text-slate-400">
@@ -169,7 +169,7 @@ function PricingPageContent() {
                   disabled={loading === key}
                   className={`w-full py-4 px-6 rounded-lg font-semibold text-lg transition-all duration-300 ${
                     plan.popular
-                      ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50"
+                      ? "bg-gradient-to-r from-brand-harbour-500 to-blue-500 text-white hover:shadow-lg hover:shadow-brand-harbour-500/50"
                       : "bg-slate-700 text-white hover:bg-slate-600"
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
@@ -193,7 +193,7 @@ function PricingPageContent() {
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="text-center p-6 bg-slate-800/30 rounded-lg">
-                <Shield className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+                <Shield className="w-8 h-8 text-brand-harbour-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
                   IICRC S500 Compliant
                 </h3>
@@ -203,7 +203,7 @@ function PricingPageContent() {
                 </p>
               </div>
               <div className="text-center p-6 bg-slate-800/30 rounded-lg">
-                <Download className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+                <Download className="w-8 h-8 text-brand-harbour-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
                   PDF Export
                 </h3>
@@ -213,7 +213,7 @@ function PricingPageContent() {
                 </p>
               </div>
               <div className="text-center p-6 bg-slate-800/30 rounded-lg">
-                <Users className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+                <Users className="w-8 h-8 text-brand-harbour-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
                   Client Management
                 </h3>
@@ -222,7 +222,7 @@ function PricingPageContent() {
                 </p>
               </div>
               <div className="text-center p-6 bg-slate-800/30 rounded-lg">
-                <Clock className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+                <Clock className="w-8 h-8 text-brand-harbour-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
                   Dashboard access
                 </h3>

@@ -151,7 +151,7 @@ export default function SecurityPage() {
     <div className="max-w-9xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold flex items-center gap-2">
-          <Shield className="h-6 w-6 text-cyan-400" aria-hidden />
+          <Shield className="h-6 w-6 text-brand-harbour-400" aria-hidden />
           Security
         </h1>
         <p className="text-sm text-slate-400 mt-1">
@@ -189,7 +189,7 @@ export default function SecurityPage() {
           <Button
             onClick={handleStartSetup}
             disabled={startingSetup}
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700"
+            className="bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white hover:from-blue-700 hover:to-brand-harbour-700"
           >
             {startingSetup ? (
               <>
@@ -225,7 +225,7 @@ export default function SecurityPage() {
                   </code>
                   <button
                     onClick={handleCopyKey}
-                    className="text-cyan-400 hover:text-cyan-300"
+                    className="text-brand-harbour-400 hover:text-brand-harbour-300"
                     aria-label="Copy key"
                   >
                     {copied ? (
@@ -262,7 +262,7 @@ export default function SecurityPage() {
                 <Button
                   type="submit"
                   disabled={verifying}
-                  className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
+                  className="bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white"
                 >
                   {verifying ? (
                     <>

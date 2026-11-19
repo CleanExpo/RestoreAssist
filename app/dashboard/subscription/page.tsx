@@ -376,7 +376,7 @@ function SubscriptionPageContent() {
           eyebrow="Simple workspace"
           title="Account & Billing"
           description="Manage your subscription, payment method, and plan allowances."
-          icon={<CreditCard className="h-7 w-7 text-cyan-500" aria-hidden />}
+          icon={<CreditCard className="h-7 w-7 text-brand-harbour-500" aria-hidden />}
           secondaryLinks={workspaceHubLinks({
             omitHref: "/dashboard/subscription",
           })}
@@ -398,7 +398,7 @@ function SubscriptionPageContent() {
                 type="button"
                 onClick={checkSubscription}
                 disabled={checking}
-                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-brand-harbour-600 px-4 py-2 text-white transition-colors hover:bg-brand-harbour-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
               >
                 <CheckCircle
                   className={`h-4 w-4 ${checking ? "animate-spin" : ""}`}
@@ -488,7 +488,7 @@ function SubscriptionPageContent() {
                         <Download className="w-4 h-4" />
                         <a
                           href="/api/user/export"
-                          className="underline hover:text-cyan-300"
+                          className="underline hover:text-brand-harbour-300"
                           download
                         >
                           Export your data
@@ -606,7 +606,7 @@ function SubscriptionPageContent() {
                 <h2 className="text-xl font-semibold">Active add-on packs</h2>
                 <Link
                   href="/dashboard/addons"
-                  className="text-sm text-cyan-400 hover:text-cyan-300 underline-offset-2 hover:underline"
+                  className="text-sm text-brand-harbour-400 hover:text-brand-harbour-300 underline-offset-2 hover:underline"
                 >
                   Manage packs
                 </Link>
@@ -616,7 +616,7 @@ function SubscriptionPageContent() {
                   No add-on packs active yet.{" "}
                   <Link
                     href="/dashboard/addons"
-                    className="text-cyan-400 hover:text-cyan-300 underline-offset-2 hover:underline"
+                    className="text-brand-harbour-400 hover:text-brand-harbour-300 underline-offset-2 hover:underline"
                   >
                     Browse add-ons
                   </Link>
@@ -713,14 +713,14 @@ function SubscriptionPageContent() {
                   key={key}
                   className={`relative bg-slate-800/50 rounded-2xl border-2 p-6 transition-all duration-300 hover:scale-105 ${
                     plan.popular
-                      ? "border-cyan-500 shadow-2xl shadow-cyan-500/20"
+                      ? "border-brand-harbour-500 shadow-2xl shadow-brand-harbour-500/20"
                       : "border-slate-700 hover:border-slate-600"
                   }`}
                 >
                   {/* Popular Badge */}
                   {plan.popular && (
                     <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                      <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
+                      <div className="bg-gradient-to-r from-brand-harbour-500 to-blue-500 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
                         <Star className="w-4 h-4" />
                         Most Popular
                       </div>
@@ -742,7 +742,7 @@ function SubscriptionPageContent() {
                       {plan.displayName}
                     </h3>
                     <div className="mb-4">
-                      <span className="text-3xl font-bold text-cyan-400">
+                      <span className="text-3xl font-bold text-brand-harbour-400">
                         {formatPricingAmount(plan.amount, plan.currency)}
                       </span>
                       {"interval" in plan && plan.interval && (
@@ -781,7 +781,7 @@ function SubscriptionPageContent() {
                         Report Limit
                       </span>
                     </div>
-                    <div className="text-lg font-bold text-cyan-400">
+                    <div className="text-lg font-bold text-brand-harbour-400">
                       {plan.reportLimit}
                     </div>
                   </div>
@@ -792,7 +792,7 @@ function SubscriptionPageContent() {
                     disabled={pricingLoading === key}
                     className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
                       plan.popular
-                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50"
+                        ? "bg-gradient-to-r from-brand-harbour-500 to-blue-500 text-white hover:shadow-lg hover:shadow-brand-harbour-500/50"
                         : "bg-slate-700 text-white hover:bg-slate-600"
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
@@ -816,7 +816,7 @@ function SubscriptionPageContent() {
               </h3>
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Shield className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
+                  <Shield className="w-6 h-6 text-brand-harbour-400 mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-white mb-2">
                     IICRC S500 Compliant
                   </h4>
@@ -825,7 +825,7 @@ function SubscriptionPageContent() {
                   </p>
                 </div>
                 <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Download className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
+                  <Download className="w-6 h-6 text-brand-harbour-400 mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-white mb-2">
                     PDF Export
                   </h4>
@@ -834,7 +834,7 @@ function SubscriptionPageContent() {
                   </p>
                 </div>
                 <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Users className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
+                  <Users className="w-6 h-6 text-brand-harbour-400 mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-white mb-2">
                     Client Management
                   </h4>
@@ -843,7 +843,7 @@ function SubscriptionPageContent() {
                   </p>
                 </div>
                 <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Clock className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
+                  <Clock className="w-6 h-6 text-brand-harbour-400 mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-white mb-2">
                     Dashboard access
                   </h4>
