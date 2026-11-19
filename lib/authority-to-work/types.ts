@@ -145,6 +145,8 @@ export interface ScopeLine {
   makeSafe?: MakeSafeTask;
   /** Contents pack-out, storage and return. */
   packOut?: boolean;
+  /** Where make-safe authority ends (A02). Absent means none recorded. */
+  stopPoint?: string | null;
 }
 
 export type ApprovalKind =

@@ -294,7 +294,7 @@ function workGate(ctx: Ctx, line: ScopeLine, asset: Asset): GateResult {
       reason: `approved by ${partyName(ctx, a.partyId)} (${c.why})`,
     };
   }
-  if (line.emergency && line.makeSafe && !line.restricted) {
+  if (eligibleMakeSafe(line)) {
     // Reached only with a documented basis (undocumentedEmergency returned above).
     return {
       gate: "WORK",
@@ -359,6 +359,8 @@ function payerGate(ctx: Ctx, line: ScopeLine): GateResult {
   };
 }
 
+const FICTIONAL_TAG = " [fictional teaching fixture]";
+
 /** Running totals per cap, so a later line sees what earlier lines committed. */
 type CapLedger = Map<string, number>;
 
@@ -392,8 +394,10 @@ function insurerGate(
   const notes: string[] = [];
   let overCap = false;
   let hold = false;
+  // Every reason drawn from a fictional rule says so, on the clear path too.
+  const anyFictional = caps.some((c) => c.fictional);
   for (const cap of caps) {
-    const tag = cap.fictional ? " [fictional teaching fixture]" : "";
+    const tag = cap.fictional ? FICTIONAL_TAG : "";
     if (cap.status !== "REVIEWED") {
       notes.push(`rule ${cap.id} is unreviewed and is not applied${tag}`);
       hold = true;
@@ -457,7 +461,9 @@ function insurerGate(
     result: {
       gate: "INSURER",
       state: hold ? "HOLD" : "CLEAR",
-      reason: hold ? notes.join("; ") : "within reviewed terms",
+      reason: hold
+        ? notes.join("; ")
+        : `within reviewed terms${anyFictional ? FICTIONAL_TAG : ""}`,
     },
     overCap,
   };
@@ -546,13 +552,24 @@ function field(
     : { key, value: null, source: null, blankReason };
 }
 
-function sumLines(lines: ScopeLine[]): Money | null {
-  if (lines.length === 0) return null;
+/** A draft total, or the reason there is none, so the blank names its real cause. */
+type LineTotal = { total: Money } | { blankReason: string };
+
+function sumLines(lines: ScopeLine[]): LineTotal {
+  if (lines.length === 0) return { blankReason: "no scope lines" };
   const first = lines[0].amount;
-  if (!lines.every((l) => sameBasis(l.amount, first))) return null;
+  if (!lines.every((l) => sameBasis(l.amount, first)))
+    return { blankReason: "lines are in different currencies or GST bases" };
   const minor = lines.reduce((s, l) => s + l.amount.minor, 0);
   // A total that cannot be held exactly is left blank, never rounded.
-  return Number.isSafeInteger(minor) ? { ...first, minor } : null;
+  return Number.isSafeInteger(minor)
+    ? { total: { ...first, minor } }
+    : { blankReason: "the total is too large to represent exactly" };
+}
+
+/** An emergency line the documented basis can cover: a listed make-safe task, nothing restricted. */
+function eligibleMakeSafe(line: ScopeLine): boolean {
+  return Boolean(line.emergency && line.makeSafe && !line.restricted);
 }
 
 function buildDraft(
@@ -570,8 +587,15 @@ function buildDraft(
   const contact = [job.business.phone, job.business.email]
     .filter(Boolean)
     .join(", ");
-  const total = sumLines(lines);
-  const payers = [...new Set(lines.map((l) => l.payment.payerPartyId))];
+  const sum = sumLines(lines);
+  // Only a confirmed payer who is a party on the job is named; anything else is blank.
+  const payers = [...new Set(lines.map((l) => payerOnJob(ctx, l)))];
+  // The emergency basis applies only when every line on the draft is make-safe it can cover.
+  const emergencyNote =
+    job.emergencyBasis?.documented && lines.length > 0 && lines.every(eligibleMakeSafe)
+      ? (job.emergencyBasis.note ?? "documented")
+      : null;
+  const noStop = lines.filter((l) => !l.stopPoint).map((l) => l.id);
 
   const fields: PrefillField[] = [
     field(
@@ -640,9 +664,9 @@ function buildDraft(
         fields.push(
           field(
             key,
-            total ? formatMoney(total) : null,
+            "total" in sum ? formatMoney(sum.total) : null,
             "job.scope.amount",
-            "lines are in different currencies or GST bases",
+            "blankReason" in sum ? sum.blankReason : "",
           ),
         );
         break;
@@ -654,7 +678,7 @@ function buildDraft(
               ? null
               : payers.map((p) => partyName(ctx, p)).join(", "),
             "job.scope.payment",
-            "payer not confirmed",
+            "payer not confirmed as a party on this job",
           ),
         );
         break;
@@ -699,13 +723,23 @@ function buildDraft(
         fields.push(
           field(
             key,
-            job.emergencyBasis?.documented
-              ? (job.emergencyBasis.note ?? "documented")
-              : null,
+            emergencyNote,
             "job.emergencyBasis",
             key === "accessBasis"
               ? "access basis to be confirmed with the recipient"
-              : "no documented emergency basis",
+              : "no documented emergency basis covering these lines",
+          ),
+        );
+        break;
+      case "stopPoint":
+        fields.push(
+          field(
+            key,
+            noStop.length === 0
+              ? lines.map((l) => l.stopPoint).join("; ")
+              : null,
+            "job.scope.stopPoint",
+            `no stop point recorded for ${noStop.join(", ") || "these lines"}`,
           ),
         );
         break;
@@ -758,6 +792,7 @@ function buildDraft(
 
 const CURRENCIES = new Set(["AUD", "NZD"]);
 const GST_BASES = new Set(["INC", "EX", "NA"]);
+const PAYMENT_BASES = new Set(["OWNER_DIRECT", "INSURER_WORK_ORDER", "UNCONFIRMED"]);
 const MAKE_SAFE_TASKS = new Set(["WATER_EXTRACTION", "TEMPORARY_COVER", "ISOLATE_SERVICES", "SECURE_SITE", "DRYING"]);
 
 function isIsoDate(v: unknown): boolean {
@@ -792,6 +827,12 @@ function unusableJobData(job: JobFacts): string[] {
   if (!isIsoDate(job.asOf)) out.push("the as-of date is not a valid YYYY-MM-DD date");
   for (const l of job.scope) {
     out.push(...moneyProblem(l.amount, `scope line ${l.id} amount`));
+    const pay = l.payment as { basis?: unknown } | null | undefined;
+    if (!pay || typeof pay !== "object") {
+      out.push(`scope line ${l.id} has no payment record`);
+    } else if (!PAYMENT_BASES.has(pay.basis as string)) {
+      out.push(`scope line ${l.id} has an unknown payment basis`);
+    }
     if (l.makeSafe !== undefined && !MAKE_SAFE_TASKS.has(l.makeSafe as string)) {
       out.push(`scope line ${l.id} names a make-safe task that is not on the list`);
     }
@@ -847,6 +888,8 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
   const needs: FormNeed[] = [];
   const capNotes = new Map<string, string>();
   const scopes: ScopePlan[] = [];
+  // Lines that passed the asset lookup; only these get drafts of any kind.
+  const planned: ScopeLine[] = [];
 
   for (const line of job.scope) {
     if (!exactAmount(line.amount)) {
@@ -867,6 +910,7 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
       insurerGate(ctx, line, ledger);
       continue;
     }
+    planned.push(line);
     const insurer = insurerGate(ctx, line, ledger);
     const gates: GateResult[] = [
       accessGate(ctx, line, asset),
@@ -900,7 +944,8 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
     const funder = fundingRecipient(ctx, line);
     if (gates[0].state !== "CLEAR")
       need("A01", controller, "access not yet in place");
-    if (line.emergency) need("A02", controller, "emergency make-safe work");
+    // A02 covers listed make-safe work only, never strip-out or other restricted action.
+    if (eligibleMakeSafe(line)) need("A02", controller, "emergency make-safe work");
     if (line.payment.basis === "OWNER_DIRECT")
       need(
         "A03",
@@ -941,13 +986,14 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
     }
   }
 
+  // Distinct confirmed payers who are parties on the job; a null or unknown id is not a payer.
   const confirmedPayers = new Set(
     job.scope
-      .filter((l) => l.payment.basis !== "UNCONFIRMED")
-      .map((l) => l.payment.payerPartyId),
+      .map((l) => payerOnJob(ctx, l))
+      .filter((id): id is string => id !== null),
   );
   if (confirmedPayers.size > 1) {
-    for (const l of job.scope) {
+    for (const l of planned) {
       if (l.payment.payerPartyId) {
         const to = fundingRecipient(ctx, l);
         needs.push({

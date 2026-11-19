@@ -8,6 +8,7 @@
  */
 import { FIXTURES } from "../lib/authority-to-work/fixtures";
 import { planAuthority } from "../lib/authority-to-work/plan";
+import { formatDraft } from "../lib/authority-to-work/preview";
 
 let failures = 0;
 for (const [name, make] of Object.entries(FIXTURES)) {
@@ -29,8 +30,7 @@ for (const [name, make] of Object.entries(FIXTURES)) {
     console.log(`   - ${f.code} ${f.name} -> ${who(f.recipientPartyId)} [lines ${f.scopeLineIds.join(", ")}]`);
     console.log(`       why: ${f.reason}`);
     console.log(`       customer sees: ${f.customerPreview}`);
-    const blanks = f.fields.filter((x) => x.value === null).map((x) => x.key);
-    if (blanks.length) console.log(`       blank: ${blanks.join(", ")}`);
+    for (const line of formatDraft(f)) console.log(line);
   }
   console.log(`  Deposit: requested=${plan.deposit.requested} enabled=${plan.deposit.enabled}`);
 

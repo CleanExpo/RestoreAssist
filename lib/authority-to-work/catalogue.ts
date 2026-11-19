@@ -56,7 +56,7 @@ export const TEMPLATES: Record<TemplateCode, TemplateSpec> = {
     name: "Emergency make-safe work authorisation",
     purpose: "Exact non-permanent work on named assets, with a stop point.",
     doesNotAuthorise: "removal of materials, ongoing reinstatement or disposal",
-    requiredFields: ["scopeLines", "amount", "emergencyBasis"],
+    requiredFields: ["scopeLines", "amount", "emergencyBasis", "stopPoint"],
   },
   A03: {
     code: "A03",
