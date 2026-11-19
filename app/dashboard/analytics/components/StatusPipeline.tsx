@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { Loader2, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHART_TOOLTIP_STYLE, colourForKey } from "@/lib/charts/palette";
 import { EmptyState } from "@/components/EmptyState";
 
 interface StatusItem {
@@ -25,13 +26,10 @@ interface StatusPipelineProps {
   loading?: boolean;
 }
 
-const statusColors: Record<string, string> = {
-  DRAFT: "#94a3b8",
-  PENDING: "#f59e0b",
-  APPROVED: "#3b82f6",
-  COMPLETED: "#10b981",
-  ARCHIVED: "#6b7280",
-};
+// Each status keeps a fixed slot in pipeline order, so adjacent bars are
+// adjacent slots (a validated pair). Archived, and any status not listed,
+// fold to neutral.
+const STATUS_ORDER = ["DRAFT", "PENDING", "APPROVED", "COMPLETED"] as const;
 
 const statusLabels: Record<string, string> = {
   DRAFT: "Draft",
@@ -94,7 +92,7 @@ export default function StatusPipeline({
     name: statusLabels[d.status] || d.status,
     count: d.count,
     revenue: d.revenue,
-    fill: statusColors[d.status] || "#6b7280",
+    fill: colourForKey(STATUS_ORDER, d.status),
   }));
 
   return (
@@ -146,12 +144,7 @@ export default function StatusPipeline({
             style={{ fontSize: "12px" }}
           />
           <Tooltip
-            contentStyle={{
-              backgroundColor: "rgb(255 255 255 / 0.95)",
-              border: "1px solid rgb(229 231 235)",
-              borderRadius: "8px",
-              color: "#111827",
-            }}
+            contentStyle={CHART_TOOLTIP_STYLE}
             formatter={
               ((
                 value: number,
