@@ -398,11 +398,11 @@ export default function HowItWorksPage() {
             initial={reduce ? false : "hidden"}
             whileInView="visible"
             viewport={VIEWPORT}
-            className="relative mt-12 aspect-[21/9] min-h-[14rem] overflow-hidden rounded-2xl border border-slate-200/90 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:mt-16 sm:min-h-[16rem]"
+            className="relative mt-12 aspect-[3/2] overflow-hidden rounded-2xl border border-slate-200/90 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:mt-16 sm:aspect-[21/9] sm:min-h-[16rem]"
           >
             <Image
-              src="/landing/field-capture.jpg"
-              alt="Restoration technician documenting site conditions for a claim"
+              src="/landing/field-capture.avif"
+              alt="Restoration technician on a suburban driveway photographing a house front with a rugged tablet, air movers drying a wet runner beside him"
               fill
               className="object-cover"
               sizes="80vw"

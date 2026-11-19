@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { BRAND } from "@/lib/brand";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 const trialDays = PRICING_CONFIG.free.trialDays;
 const trialReports = PRICING_CONFIG.free.trialReportCredits;
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
       "From driveway capture to signed report: field evidence, desk review, GST invoicing, and portal approvals in one system.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/how-it-works" },
