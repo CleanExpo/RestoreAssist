@@ -58,7 +58,7 @@ export function MargotSectionChrome({
       {!isOverview ? (
         <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border/80 pb-4">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-cyan-500/30">
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-brand-harbour-500/30">
               <Image
                 src={MARGOT_AVATAR_ORB_PATH}
                 alt=""
@@ -106,7 +106,7 @@ export function MargotSectionChrome({
               className={cn(
                 "inline-flex min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 active
-                  ? "bg-gradient-to-r from-cyan-500/15 to-indigo-500/10 text-foreground shadow-sm ring-1 ring-inset ring-cyan-400/25"
+                  ? "bg-gradient-to-r from-brand-harbour-500/15 to-indigo-500/10 text-foreground shadow-sm ring-1 ring-inset ring-brand-harbour-400/25"
                   : "text-muted-foreground hover:bg-background/60 hover:text-foreground",
               )}
               aria-current={active ? "page" : undefined}
