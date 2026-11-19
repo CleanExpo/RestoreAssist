@@ -2,7 +2,7 @@
  * RA-8465: every Recharts chart takes its colours from lib/charts/palette.ts.
  *
  * The charts used to carry their own raw hex arrays (stock Tailwind cyan,
- * amber, violet and so on), so palette A never reached them. This guard scans
+ * amber, violet and so on), so the brand palette never reached them. This guard scans
  * every file that imports recharts for a raw colour literal, and checks that
  * the palette module only hands out CSS variables that app/globals.css
  * declares for both light and dark mode, so a chart line can never resolve to

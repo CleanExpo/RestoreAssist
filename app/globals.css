@@ -225,10 +225,10 @@
 
   /* Chart hues (RA-8465). Slot 1 follows brand-harbour in light (the step
      below in dark); slots 2 to 8 are chart-owned, so a brand palette change
-     cannot make two series the same colour (palette B turns brand-bronze
+     cannot make two series the same colour (palette B turned brand-bronze
      into cobalt, next to slot 1). chart-palette.test.ts enforces both rules.
-     Validated with the dataviz validator against the card
-     surfaces (#ffffff light, #10202f dark): every adjacent pair clears CVD
+     Validated with the dataviz validator against palette B's card
+     surfaces (#ffffff light, #1a1a1c dark): every adjacent pair clears CVD
      delta E 8 and normal-vision delta E 15, every slot clears 3:1. Use them
      through --chart-N and lib/charts/palette.ts, never directly. */
   --color-brand-chart-orange: #a34a06;
@@ -238,7 +238,7 @@
   --color-brand-chart-green: #008300;
   --color-brand-chart-violet: #6250d6;
   --color-brand-chart-red: #e34948;
-  --color-brand-chart-harbour-dark: #4d8fda;
+  --color-brand-chart-harbour-dark: #5b7cf0;
   --color-brand-chart-orange-dark: #d95926;
   --color-brand-chart-green-dark: #0ca30c;
   --color-brand-chart-violet-dark: #9085e9;

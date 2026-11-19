@@ -121,7 +121,7 @@ slots 2 to 8 borrow a brand token instead of a `--color-brand-chart-*` token,
 or if two adjacent slots resolve to colours closer than normal-vision delta E
 15. Slot 1 alone follows `brand-harbour`, so the charts take the brand's link
 colour; every other slot is chart-owned, because a brand palette change
-re-points brand tokens (palette B makes `brand-bronze` cobalt, the same blue as
+re-points brand tokens (palette B made `brand-bronze` cobalt, the same blue as
 slot 1).
 
 Colour is assigned by the job it does:
@@ -141,7 +141,7 @@ Colour is assigned by the job it does:
 
 | Slot | Hue | Light | Dark |
 |---|---|---|---|
-| 1 | harbour blue | `brand-harbour` `#1b5fa6` | `#4d8fda` |
+| 1 | cobalt | `brand-harbour` `#1638c8` | `#5b7cf0` |
 | 2 | burnt orange | `#a34a06` | `#d95926` |
 | 3 | aqua green | `#199e70` | `#199e70` |
 | 4 | amber | `#c98500` | `#c98500` |
@@ -151,10 +151,12 @@ Colour is assigned by the job it does:
 | 8 | red | `#e34948` | `#e66767` |
 
 Validated with the dataviz skill's `validate_palette.js` against the card
-surfaces (`#ffffff` light, `brand-surface` `#10202f` dark): every slot inside
-the lightness band and chroma floor, every slot at 3:1 or better on its
-surface, worst adjacent pair CVD delta E 8.4 and normal-vision delta E 19.3 in
-both modes. Slots 1 to 3 also pass as all pairs (scatter, map, small
+surfaces of palette B (`#ffffff` light card, `brand-surface` `#1a1a1c` dark):
+every slot inside the lightness band and chroma floor, every slot at 3:1 or
+better on its surface, worst adjacent pair CVD delta E 8.4 and normal-vision
+delta E 19.3 in both modes (tritan 7.6 light, 8.7 dark; a pair in the 6 to 8
+band needs direct labels or a gap, which the charts carry). Charts sit on white
+cards, never on the `#f7f6f2` paper canvas. Slots 1 to 3 also pass as all pairs (scatter, map, small
 multiples); those forms carry at most three series.
 
 `brand-gold` is not a chart colour: it fails 3:1 on white and sits next to the
@@ -169,7 +171,7 @@ warning status amber.
 | `--color-brand-chart-green` | `#008300` | Chart slot 6, light |
 | `--color-brand-chart-violet` | `#6250d6` | Chart slot 7, light |
 | `--color-brand-chart-red` | `#e34948` | Chart slot 8, light |
-| `--color-brand-chart-harbour-dark` | `#4d8fda` | Chart slot 1, dark |
+| `--color-brand-chart-harbour-dark` | `#5b7cf0` | Chart slot 1, dark |
 | `--color-brand-chart-orange-dark` | `#d95926` | Chart slot 2, dark |
 | `--color-brand-chart-green-dark` | `#0ca30c` | Chart slot 6, dark |
 | `--color-brand-chart-violet-dark` | `#9085e9` | Chart slot 7, dark |
