@@ -341,14 +341,14 @@ export default function QuotePage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Quote Generator"
         description="Generate quotes from Company Pricing rates. Save as a restoration estimate or AR invoice draft."
-        icon={<Calculator className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
+        icon={<Calculator className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/quote" })}
         primaryAction={
           selectedJobType || quoteResult ? (
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 text-sm font-medium text-white hover:bg-white/10"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 px-4 text-sm font-medium text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-white/10"
             >
               <RotateCcw className="w-4 h-4" />
               Start Over
@@ -385,7 +385,7 @@ export default function QuotePage() {
                   >
                     {jt.label}
                   </span>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 text-center leading-tight">
+                  <span className="text-[10px] text-brand-slate dark:text-slate-500 text-center leading-tight">
                     {jt.standard}
                   </span>
                 </button>
@@ -673,7 +673,7 @@ export default function QuotePage() {
               <button
                 type="button"
                 onClick={handlePrint}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-800 dark:bg-white dark:text-slate-800 rounded-lg hover:opacity-90 transition-opacity"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-navy dark:bg-white dark:text-slate-800 rounded-lg hover:opacity-90 transition-opacity"
               >
                 <Printer className="w-4 h-4" />
                 Print / Save PDF
@@ -819,7 +819,7 @@ export default function QuotePage() {
             {/* Client & Job Info */}
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                <h4 className="text-xs font-semibold text-brand-slate dark:text-slate-400 uppercase tracking-wider mb-1">
                   Client
                 </h4>
                 {quoteResult.client.name && (
@@ -844,7 +844,7 @@ export default function QuotePage() {
                 )}
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                <h4 className="text-xs font-semibold text-brand-slate dark:text-slate-400 uppercase tracking-wider mb-1">
                   Job Details
                 </h4>
                 <p className="text-sm font-medium text-slate-900 dark:text-white">
@@ -965,7 +965,7 @@ export default function QuotePage() {
             )}
 
             {/* Footer */}
-            <div className="border-t border-slate-200 dark:border-slate-700 pt-4 text-xs text-slate-400 space-y-1">
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-4 text-xs text-brand-slate dark:text-slate-400 space-y-1">
               <p>
                 This quote is valid for 30 days from the date of issue.
               </p>

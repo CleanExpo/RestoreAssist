@@ -605,9 +605,9 @@ export default function NewReportPage() {
           <div className="mb-6 p-6 rounded-lg border border-brand-harbour-500/50 dark:border-brand-harbour-500/30 bg-brand-harbour-500/10 dark:bg-brand-harbour-500/5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Upload className="w-6 h-6 text-brand-harbour-400 dark:text-brand-harbour-300" />
+                <Upload className="w-6 h-6 text-brand-harbour-700 dark:text-brand-harbour-300" />
                 <div>
-                  <h3 className="text-lg font-semibold text-brand-harbour-400 dark:text-brand-harbour-300">
+                  <h3 className="text-lg font-semibold text-brand-harbour-700 dark:text-brand-harbour-300">
                     Upload Existing Report
                   </h3>
                   <p
@@ -718,7 +718,7 @@ export default function NewReportPage() {
               </div>
               <button
                 onClick={handleDiscardUpload}
-                className="flex items-center gap-2 px-4 py-2 border border-red-600/50 dark:border-red-600/30 text-red-400 dark:text-red-300 rounded-lg hover:bg-red-600/10 dark:hover:bg-red-600/20 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 border border-red-600/50 dark:border-red-600/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-600/10 dark:hover:bg-red-600/20 transition-colors"
               >
                 <X className="w-4 h-4" />
                 Discard
@@ -733,7 +733,7 @@ export default function NewReportPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-4 flex-1">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center shadow-lg flex-shrink-0">
-                  <Sparkles className="w-6 h-6 text-white" />
+                  <Sparkles className="w-6 h-6 text-brand-navy dark:text-white" />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-success mb-1">
@@ -763,7 +763,7 @@ export default function NewReportPage() {
                   setUploadedData(null);
                   router.replace("/dashboard/reports/new");
                 }}
-                className="flex items-center gap-2 px-4 py-2 border border-red-600/50 text-red-400 rounded-lg hover:bg-red-600/10 transition-colors flex-shrink-0"
+                className="flex items-center gap-2 px-4 py-2 border border-red-600/50 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-600/10 transition-colors flex-shrink-0"
               >
                 <X className="w-4 h-4" />
                 Clear
@@ -851,7 +851,7 @@ export default function NewReportPage() {
           <div className="flex flex-col items-center justify-center py-20 px-6">
             <div className="max-w-md text-center">
               <div className="inline-flex p-4 bg-amber-500/10 rounded-full mb-4">
-                <Crown className="w-12 h-12 text-amber-400" />
+                <Crown className="w-12 h-12 text-amber-700 dark:text-amber-400" />
               </div>
               <h3
                 className={cn(
@@ -914,7 +914,7 @@ export default function NewReportPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
-                    <Sparkles className="text-white" size={24} />
+                    <Sparkles className="text-brand-navy dark:text-white" size={24} />
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -955,7 +955,7 @@ export default function NewReportPage() {
                         {/* Step Number & Icon */}
                         <div className="flex-shrink-0">
                           <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-harbour-500 to-blue-500 flex items-center justify-center shadow-lg">
-                            <Icon className="text-white" size={24} />
+                            <Icon className="text-brand-navy dark:text-white" size={24} />
                           </div>
                           <div className="mt-2 text-center">
                             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -1050,7 +1050,7 @@ export default function NewReportPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
-                  <Crown className="text-white" size={24} />
+                  <Crown className="text-brand-navy dark:text-white" size={24} />
                 </div>
                 <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
                   Upgrade Required

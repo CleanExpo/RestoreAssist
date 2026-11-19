@@ -19,12 +19,12 @@ export default function AddonsClient() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Field Add-Ons"
         description="RestoreAssist is your CRM. Add the packs your business needs on top of your plan, when you need them."
-        icon={<ChromePackage className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
+        icon={<ChromePackage className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/addons" })}
         primaryAction={
           <Link
             href="/dashboard/subscription"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/20 bg-white/5 px-4 text-sm font-medium text-white hover:bg-white/10"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 px-4 text-sm font-medium text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-white/10"
           >
             Subscription settings
           </Link>

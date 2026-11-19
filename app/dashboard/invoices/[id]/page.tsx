@@ -509,7 +509,7 @@ export default function InvoiceDetailPage({
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push("/dashboard/invoices")}
-            className="p-2 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-brand-cream dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -613,10 +613,10 @@ export default function InvoiceDetailPage({
           <button
             onClick={downloadPDF}
             disabled={generatingPdf}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-brand-cream dark:hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {generatingPdf ? (
-              <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="inline-block h-4 w-4 border-2 border-brand-mist dark:border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <Download className="h-4 w-4" />
             )}
@@ -1255,7 +1255,7 @@ export default function InvoiceDetailPage({
                 className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {deleting ? (
-                  <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="inline-block h-4 w-4 border-2 border-brand-mist dark:border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <Trash2 className="h-4 w-4" />
                 )}

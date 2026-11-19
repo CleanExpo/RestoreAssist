@@ -41,7 +41,7 @@ export function FireSectionList({ sections, currentSectionId, disabled, onSelect
             data-state={state}
             className={cn(
               "rounded-xl border p-3",
-              current ? "border-brand-gold bg-brand-gold/10" : "border-white/10 bg-white/5",
+              current ? "border-brand-gold bg-brand-gold/10" : "border-brand-mist dark:border-white/10 bg-brand-navy/5 dark:bg-white/5",
             )}
           >
             <div className="flex items-center gap-2">
@@ -51,27 +51,27 @@ export function FireSectionList({ sections, currentSectionId, disabled, onSelect
                 onClick={() => onSelect(section.id)}
                 className="flex-1 text-left min-h-12"
               >
-                <span className="block text-xs text-white/40">Section {index + 1}</span>
-                <span className="block text-sm font-semibold text-white">{section.title}</span>
+                <span className="block text-xs text-brand-slate dark:text-white/40">Section {index + 1}</span>
+                <span className="block text-sm font-semibold text-brand-navy dark:text-white">{section.title}</span>
               </button>
               <span
                 className={cn(
                   "text-xs px-2 py-1 rounded-md",
-                  state === "filled" && "bg-green-900/40 text-green-300",
-                  state === "na" && "bg-white/10 text-white/70",
-                  state === "todo" && "bg-amber-900/40 text-amber-300",
+                  state === "filled" && "bg-green-50 dark:bg-green-900/40 text-green-700 dark:text-green-300",
+                  state === "na" && "bg-brand-navy/5 dark:bg-white/10 text-brand-slate dark:text-white/70",
+                  state === "todo" && "bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300",
                 )}
               >
                 {STATE_LABEL[state]}
               </span>
             </div>
             {state === "na" && status?.naReason && (
-              <p className="mt-1 text-xs text-white/50">Reason: {status.naReason}</p>
+              <p className="mt-1 text-xs text-brand-slate dark:text-white/50">Reason: {status.naReason}</p>
             )}
             {state === "filled" && status && status.notes.length > 0 && (
               <ul className="mt-1 space-y-1" aria-label={`Saved answers for ${section.title}`}>
                 {status.notes.map((note, i) => (
-                  <li key={i} className="text-sm text-white/80 whitespace-pre-wrap">
+                  <li key={i} className="text-sm text-brand-navy dark:text-white/80 whitespace-pre-wrap">
                     {note}
                   </li>
                 ))}
@@ -98,13 +98,13 @@ function SectionDetail({
     <div className="mt-3 space-y-3">
       <ul className="space-y-2">
         {section.items.map((item) => (
-          <li key={item.id} className="text-sm text-white/80">
+          <li key={item.id} className="text-sm text-brand-navy dark:text-white/80">
             <p>{item.prompt}</p>
             <details className="mt-1">
-              <summary className="text-xs text-white/50 cursor-pointer">{FIRE_COPY.sourcesHeading}</summary>
+              <summary className="text-xs text-brand-slate dark:text-white/50 cursor-pointer">{FIRE_COPY.sourcesHeading}</summary>
               <ul className="mt-1 space-y-0.5">
                 {item.cites.map((cite) => (
-                  <li key={`${cite.source}-${cite.pinpoint ?? ""}`} className="text-xs text-white/60">
+                  <li key={`${cite.source}-${cite.pinpoint ?? ""}`} className="text-xs text-brand-slate dark:text-white/60">
                     {formatCitation(cite.source, cite.pinpoint)}
                   </li>
                 ))}
@@ -113,12 +113,12 @@ function SectionDetail({
           </li>
         ))}
       </ul>
-      <p className="text-xs text-white/40">{FIRE_COPY.standardsNote}</p>
+      <p className="text-xs text-brand-slate dark:text-white/40">{FIRE_COPY.standardsNote}</p>
       <button
         type="button"
         disabled={disabled}
         onClick={() => onMarkNa(section.id)}
-        className="w-full min-h-12 rounded-xl border border-white/20 text-sm text-white/80"
+        className="w-full min-h-12 rounded-xl border border-brand-mist dark:border-white/20 text-sm text-brand-navy dark:text-white/80"
       >
         Mark this section N/A
       </button>
@@ -136,7 +136,7 @@ interface PickerProps {
 export function FireSectionPicker({ disabled, onPick, onCancel }: PickerProps) {
   return (
     <div className="space-y-2" role="group" aria-label="Choose a section">
-      <p className="text-sm text-white/80">{FIRE_COPY.confirmNo}</p>
+      <p className="text-sm text-brand-navy dark:text-white/80">{FIRE_COPY.confirmNo}</p>
       <div className="grid grid-cols-1 gap-2">
         {FIRE_CHECKLIST.map((section) => (
           <button
@@ -144,13 +144,13 @@ export function FireSectionPicker({ disabled, onPick, onCancel }: PickerProps) {
             type="button"
             disabled={disabled}
             onClick={() => onPick(section.id)}
-            className="min-h-14 rounded-xl border border-white/20 px-3 text-left text-sm text-white"
+            className="min-h-14 rounded-xl border border-brand-mist dark:border-white/20 px-3 text-left text-sm text-brand-navy dark:text-white"
           >
             {section.title}
           </button>
         ))}
       </div>
-      <button type="button" onClick={onCancel} className="min-h-12 w-full text-sm text-white/60">
+      <button type="button" onClick={onCancel} className="min-h-12 w-full text-sm text-brand-slate dark:text-white/60">
         Cancel
       </button>
     </div>

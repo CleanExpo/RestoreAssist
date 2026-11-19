@@ -202,7 +202,7 @@ export default function InterviewDetailPage() {
       <div className="max-w-9xl mx-auto p-8 text-center space-y-4">
         <MessageSquare
           size={48}
-          className="mx-auto text-neutral-300 dark:text-slate-600"
+          className="mx-auto text-brand-slate dark:text-slate-600"
         />
         <h2 className="text-xl font-semibold text-neutral-700 dark:text-slate-300">
           {error || "Interview session not found"}
@@ -251,7 +251,7 @@ export default function InterviewDetailPage() {
         </Link>
         <ChevronRight
           size={14}
-          className="hidden sm:block text-neutral-300 dark:text-slate-600"
+          className="hidden sm:block text-brand-slate dark:text-slate-600"
         />
         <h1 className="text-xl font-bold text-neutral-900 dark:text-white flex-1 truncate">
           {interview.formTemplate.name}
@@ -283,7 +283,7 @@ export default function InterviewDetailPage() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="space-y-0.5">
-              <div className="flex items-center gap-1.5 text-xs text-neutral-400 dark:text-slate-500">
+              <div className="flex items-center gap-1.5 text-xs text-brand-slate dark:text-slate-500">
                 <Calendar size={12} />
                 Started
               </div>
@@ -292,7 +292,7 @@ export default function InterviewDetailPage() {
               </p>
             </div>
             <div className="space-y-0.5">
-              <div className="flex items-center gap-1.5 text-xs text-neutral-400 dark:text-slate-500">
+              <div className="flex items-center gap-1.5 text-xs text-brand-slate dark:text-slate-500">
                 <Clock size={12} />
                 Duration
               </div>
@@ -301,7 +301,7 @@ export default function InterviewDetailPage() {
               </p>
             </div>
             <div className="space-y-0.5">
-              <div className="flex items-center gap-1.5 text-xs text-neutral-400 dark:text-slate-500">
+              <div className="flex items-center gap-1.5 text-xs text-brand-slate dark:text-slate-500">
                 <Hash size={12} />
                 Questions
               </div>
@@ -311,7 +311,7 @@ export default function InterviewDetailPage() {
               </p>
             </div>
             <div className="space-y-0.5">
-              <div className="flex items-center gap-1.5 text-xs text-neutral-400 dark:text-slate-500">
+              <div className="flex items-center gap-1.5 text-xs text-brand-slate dark:text-slate-500">
                 <User size={12} />
                 Experience
               </div>
@@ -325,7 +325,7 @@ export default function InterviewDetailPage() {
 
           {interview.completedAt && (
             <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-slate-800">
-              <div className="flex items-center gap-1.5 text-xs text-neutral-400 dark:text-slate-500 mb-0.5">
+              <div className="flex items-center gap-1.5 text-xs text-brand-slate dark:text-slate-500 mb-0.5">
                 <CheckCircle2 size={12} />
                 Completed
               </div>
@@ -357,7 +357,7 @@ export default function InterviewDetailPage() {
           <CardTitle className="text-sm font-semibold text-neutral-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
             <MessageSquare size={14} />
             Q&amp;A Transcript
-            <span className="ml-auto text-xs font-normal normal-case text-neutral-400 dark:text-slate-500">
+            <span className="ml-auto text-xs font-normal normal-case text-brand-slate dark:text-slate-500">
               {interview.responses.length} response
               {interview.responses.length !== 1 ? "s" : ""}
             </span>
@@ -365,7 +365,7 @@ export default function InterviewDetailPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {interview.responses.length === 0 ? (
-            <p className="text-sm text-neutral-400 dark:text-slate-500 text-center py-6">
+            <p className="text-sm text-brand-slate dark:text-slate-500 text-center py-6">
               No responses recorded yet.
             </p>
           ) : (
@@ -388,13 +388,13 @@ export default function InterviewDetailPage() {
                   <div className="px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-neutral-200 dark:border-slate-700">
                     <p className="text-sm text-neutral-800 dark:text-slate-300 whitespace-pre-wrap">
                       {r.answerValue || (
-                        <span className="italic text-neutral-400 dark:text-slate-500">
+                        <span className="italic text-brand-slate dark:text-slate-500">
                           No answer provided
                         </span>
                       )}
                     </p>
                     {r.answeredAt && (
-                      <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">
+                      <p className="text-xs text-brand-slate dark:text-slate-500 mt-1">
                         {formatDate(r.answeredAt)}
                       </p>
                     )}
@@ -413,7 +413,7 @@ export default function InterviewDetailPage() {
             <CardTitle className="text-sm font-semibold text-neutral-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
               <FileText size={14} />
               Extracted Data
-              <span className="ml-auto text-xs font-normal normal-case text-neutral-400 dark:text-slate-500">
+              <span className="ml-auto text-xs font-normal normal-case text-brand-slate dark:text-slate-500">
                 {Object.keys(autoPopulated).length} field
                 {Object.keys(autoPopulated).length !== 1 ? "s" : ""}
               </span>

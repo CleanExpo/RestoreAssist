@@ -269,7 +269,7 @@ export default function AuthorityFormsPage() {
                 <span
                   className={`ml-1.5 rounded-full px-1.5 py-0.5 text-xs ${
                     active
-                      ? "bg-white/20 text-white"
+                      ? "bg-brand-navy/5 dark:bg-white/20 text-brand-navy dark:text-white"
                       : "bg-slate-200 text-slate-500"
                   }`}
                 >
@@ -316,10 +316,10 @@ export default function AuthorityFormsPage() {
                 <TableRow>
                   <TableCell
                     colSpan={7}
-                    className="py-12 text-center text-slate-400"
+                    className="py-12 text-center text-brand-slate dark:text-slate-400"
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <FileText className="h-8 w-8 text-slate-300" />
+                      <FileText className="h-8 w-8 text-brand-slate dark:text-slate-300" />
                       <span>No authority forms found</span>
                       {statusFilter !== "ALL" && (
                         <button

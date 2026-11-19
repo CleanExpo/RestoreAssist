@@ -137,7 +137,7 @@ function SkeletonGrid() {
         {DAY_HEADERS.map((h) => (
           <div
             key={h}
-            className="py-2 text-center text-xs font-semibold text-neutral-400 dark:text-slate-500"
+            className="py-2 text-center text-xs font-semibold text-brand-slate dark:text-slate-500"
           >
             {h}
           </div>
@@ -446,7 +446,7 @@ export default function InspectionSchedulePage() {
                             ? "bg-brand-cta text-white"
                             : isCurrentMonth
                               ? "text-neutral-700 dark:text-slate-200"
-                              : "text-neutral-300 dark:text-slate-600",
+                              : "text-brand-slate dark:text-slate-600",
                         )}
                       >
                         {cell.getDate()}
@@ -467,7 +467,7 @@ export default function InspectionSchedulePage() {
 
                       {/* Overflow count */}
                       {overflowCount > 0 && (
-                        <span className="text-[10px] font-medium text-neutral-400 dark:text-slate-500 px-1">
+                        <span className="text-[10px] font-medium text-brand-slate dark:text-slate-500 px-1">
                           +{overflowCount} more
                         </span>
                       )}
@@ -480,7 +480,7 @@ export default function InspectionSchedulePage() {
 
           {/* Empty month message */}
           {!monthHasVisits && (
-            <p className="py-4 text-center text-sm text-neutral-400 dark:text-slate-500">
+            <p className="py-4 text-center text-sm text-brand-slate dark:text-slate-500">
               No site visits scheduled for {MONTH_NAMES[currentMonth!]}{" "}
               {currentYear}. Open a job and use the Schedule panel to book a
               visit.
@@ -491,7 +491,7 @@ export default function InspectionSchedulePage() {
 
       {/* ── Status legend ── */}
       <div className="flex flex-wrap items-center gap-3 pt-1">
-        <span className="text-xs font-medium text-neutral-400 dark:text-slate-500 uppercase tracking-wide">
+        <span className="text-xs font-medium text-brand-slate dark:text-slate-500 uppercase tracking-wide">
           Legend
         </span>
         {Object.entries(STATUS_CHIP).map(([key, cfg]) => (

@@ -104,13 +104,13 @@ function StatusIcon({ status }: { status: DryingStatus }) {
     case "PLATEAU":
       return <Minus size={14} className="text-amber-600" />;
     default:
-      return <TrendingUp size={14} className="text-neutral-400" />;
+      return <TrendingUp size={14} className="text-brand-slate dark:text-neutral-400" />;
   }
 }
 
 function moistureColor(level: number, target: number): string {
   if (level <= target) return "text-success";
-  if (level <= target * 1.5) return "text-amber-600 dark:text-amber-400";
+  if (level <= target * 1.5) return "text-amber-700 dark:text-amber-400";
   return "text-destructive";
 }
 
@@ -212,7 +212,7 @@ export default function MonitoringPage({
             {report.inspectionNumber} · {report.propertyAddress}
           </p>
           {report.technicianName && (
-            <p className="text-xs text-neutral-400 dark:text-slate-500 mt-0.5">
+            <p className="text-xs text-brand-slate dark:text-slate-500 mt-0.5">
               Technician: {report.technicianName}
             </p>
           )}
@@ -281,12 +281,12 @@ export default function MonitoringPage({
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
             <Droplets
               size={40}
-              className="text-neutral-300 dark:text-slate-600"
+              className="text-brand-slate dark:text-slate-600"
             />
             <p className="text-neutral-500 dark:text-slate-400 font-medium">
               No moisture readings yet
             </p>
-            <p className="text-sm text-neutral-400 dark:text-slate-500 text-center max-w-xs">
+            <p className="text-sm text-brand-slate dark:text-slate-500 text-center max-w-xs">
               Add moisture readings to this inspection to generate the daily
               drying log.
             </p>
@@ -329,7 +329,7 @@ export default function MonitoringPage({
                         {statusLabel(log.dryingStatus)}
                       </Badge>
                       {log.aboveTargetCount > 0 && (
-                        <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                        <span className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
                           <AlertTriangle size={11} />
                           {log.aboveTargetCount} above target
                         </span>
@@ -337,7 +337,7 @@ export default function MonitoringPage({
                     </div>
                   </div>
                   {/* Status reason */}
-                  <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">
+                  <p className="text-xs text-brand-slate dark:text-slate-500 mt-1">
                     {log.statusReason}
                   </p>
                 </CardHeader>
@@ -346,7 +346,7 @@ export default function MonitoringPage({
                   {/* Quick stats row */}
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div>
-                      <p className="text-xs text-neutral-400 dark:text-slate-500 mb-1">
+                      <p className="text-xs text-brand-slate dark:text-slate-500 mb-1">
                         Avg MC%
                       </p>
                       <p className="text-lg font-bold text-neutral-900 dark:text-white">
@@ -354,7 +354,7 @@ export default function MonitoringPage({
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-neutral-400 dark:text-slate-500 mb-1">
+                      <p className="text-xs text-brand-slate dark:text-slate-500 mb-1">
                         Max MC%
                       </p>
                       <p className="text-lg font-bold text-neutral-900 dark:text-white">
@@ -362,7 +362,7 @@ export default function MonitoringPage({
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-neutral-400 dark:text-slate-500 mb-1">
+                      <p className="text-xs text-brand-slate dark:text-slate-500 mb-1">
                         Readings
                       </p>
                       <p className="text-lg font-bold text-neutral-900 dark:text-white">
@@ -406,7 +406,7 @@ export default function MonitoringPage({
                             <td className="px-3 py-2 text-neutral-900 dark:text-white font-medium">
                               {r.location}
                               {r.depth !== "Surface" && (
-                                <span className="ml-1 text-xs text-neutral-400">
+                                <span className="ml-1 text-xs text-brand-slate dark:text-neutral-400">
                                   ({r.depth})
                                 </span>
                               )}
@@ -419,12 +419,12 @@ export default function MonitoringPage({
                             >
                               {r.moistureLevel}%
                             </td>
-                            <td className="px-3 py-2 text-right font-mono text-neutral-400 dark:text-slate-500">
+                            <td className="px-3 py-2 text-right font-mono text-brand-slate dark:text-slate-500">
                               {r.target}%
                             </td>
                             <td className="px-3 py-2">
                               {r.aboveTarget ? (
-                                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs">
+                                <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400 text-xs">
                                   <AlertTriangle size={11} /> Above target
                                 </span>
                               ) : (
