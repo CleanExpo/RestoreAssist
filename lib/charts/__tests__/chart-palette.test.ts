@@ -143,3 +143,89 @@ describe("lib/charts/palette.ts", () => {
     }
   });
 });
+
+/** Custom property values declared directly inside the first block for a selector. */
+function blockValues(css: string, selector: RegExp): Map<string, string> {
+  const m = css.match(selector);
+  if (!m || m.index === undefined) return new Map();
+  const start = css.indexOf("{", m.index);
+  const end = css.indexOf("}", start);
+  const body = css.slice(start + 1, end);
+  return new Map(
+    [...body.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map((x) => [x[1], x[2].trim()]),
+  );
+}
+
+/** Follow var() references through the brand hex tokens to a hex value. */
+function resolveHex(value: string, tokens: Map<string, string>, depth = 0): string | null {
+  const v = value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) return v.toLowerCase();
+  const ref = v.match(/^var\((--[a-z0-9-]+)\)$/);
+  if (!ref || depth > 5) return null;
+  const next = tokens.get(ref[1]);
+  return next === undefined ? null : resolveHex(next, tokens, depth + 1);
+}
+
+/** OKLab distance x100, the dataviz skill's normal-vision measure. */
+function oklabDeltaE(a: string, b: string): number {
+  const lab = (hex: string) => {
+    const lin = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    const [r, g, bl] = lin;
+    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * bl);
+    const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * bl);
+    const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * bl);
+    return [
+      0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+      1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+      0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+    ];
+  };
+  const [p, q] = [lab(a), lab(b)];
+  return 100 * Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+}
+
+describe("chart slots survive a brand palette change", () => {
+  const css = readFileSync(join(ROOT, "app", "globals.css"), "utf8");
+  // Every hex declaration in the file, so var() chains resolve to their value.
+  const tokens = new Map(
+    [...css.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)]
+      .filter((x) => /^#[0-9a-fA-F]{6}$/.test(x[2].trim()))
+      .map((x) => [x[1], x[2].trim()] as [string, string]),
+  );
+  const blocks: Array<[string, Map<string, string>]> = [
+    [":root", blockValues(css, /^:root\s*\{/m)],
+    [".report-light-surface", blockValues(css, /^\.report-light-surface\s*\{/m)],
+    [".dark", blockValues(css, /^\.dark\s*\{/m)],
+  ];
+
+  // Slot 1 may follow the brand link colour; slots 2 to 8 must not borrow a brand
+  // token, because a palette change re-points those (palette B turned bronze into
+  // cobalt, the same blue as slot 1).
+  it.each(blocks)("%s: slots 2 to 8 use chart-owned tokens only", (_name, block) => {
+    for (let n = 2; n <= 8; n++) {
+      expect(block.get(`--chart-${n}`), `--chart-${n}`).toMatch(
+        /^var\(--color-brand-chart-[a-z-]+\)$/,
+      );
+    }
+  });
+
+  it.each(blocks)("%s: adjacent slots stay distinct (normal-vision delta E >= 15)", (_name, block) => {
+    const hexes = [1, 2, 3, 4, 5, 6, 7, 8].map((n) =>
+      resolveHex(block.get(`--chart-${n}`) ?? "", tokens),
+    );
+    hexes.forEach((h, i) => expect(h, `--chart-${i + 1} does not resolve to a hex`).not.toBeNull());
+    for (let i = 0; i < 7; i++) {
+      const d = oklabDeltaE(hexes[i]!, hexes[i + 1]!);
+      expect(d, `--chart-${i + 1} ${hexes[i]} vs --chart-${i + 2} ${hexes[i + 1]}`).toBeGreaterThanOrEqual(15);
+    }
+  });
+
+  it("the distance measure separates a planted near-duplicate pair", () => {
+    // Palette B's link and bronze tokens: the collision this guard exists for.
+    expect(oklabDeltaE("#1638c8", "#1d3fc4")).toBeLessThan(15);
+    expect(oklabDeltaE("#1638c8", "#a34a06")).toBeGreaterThanOrEqual(15);
+  });
+});
