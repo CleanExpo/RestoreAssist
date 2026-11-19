@@ -62,6 +62,20 @@ describe("/setup", () => {
     expect(redirect).not.toHaveBeenCalled();
   });
 
+  it("RA-8466: passes a checkout return through, and only from the closed list", async () => {
+    const pick = async (checkout: unknown) => {
+      const element = (await SetupPage({
+        searchParams: Promise.resolve({ checkout } as never),
+      })) as { props: { checkoutReturn: unknown } };
+      return element.props.checkoutReturn;
+    };
+    expect(await pick("cancelled")).toBe("cancelled");
+    expect(await pick("done")).toBe("done");
+    expect(await pick("https://evil.example")).toBeNull();
+    expect(await pick(["cancelled", "done"])).toBeNull();
+    expect(await pick(undefined)).toBeNull();
+  });
+
   it("terms come first: needsOnboarding goes to terms before any write", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
       ...owner,
