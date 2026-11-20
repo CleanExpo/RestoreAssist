@@ -111,16 +111,30 @@ const BANNED: ReadonlyArray<{ id: string; re: RegExp }> = [
     re: /You are an?\s+(senior\s+)?certified\s+(ANSI\/)?IICRC/i,
   },
   { id: "iicrc-endorsement", re: /IICRC[- ](approved|endorsed|partner)/i },
+  {
+    // Promises of conformity in either word order: "IICRC S500:2021 compliance
+    // guaranteed", "guaranteed S500 compliance", "verified IICRC compliant".
+    id: "compliance-guarantee",
+    re: /(guarantee[ds]?|assured|certified|verified)[^\n.]{0,30}(IICRC|S[1-7]\d0)[^\n.]{0,30}complian|(IICRC|S[1-7]\d0)[^\n.]{0,40}complian(t|ce)[^\n.]{0,15}(guaranteed|assured|certified|verified)/i,
+  },
 ];
 
 /**
  * Lines that match a pattern but are legitimate. Keep this small; every entry
- * needs a reason. Keyed by repository-relative path and the pattern id.
+ * needs a reason. Keyed by path, pattern id AND a fragment of the exact line,
+ * so an exemption covers that one line and never the rest of the file. A test
+ * below fails if an entry stops matching exactly one line (a stale exemption).
  */
-const ALLOW: ReadonlyArray<{ file: string; id: string; reason: string }> = [
+const ALLOW: ReadonlyArray<{
+  file: string;
+  id: string;
+  line: string;
+  reason: string;
+}> = [
   {
     file: "docs/marketing/pillar-c/icp-nz.md",
     id: "iicrc-endorsement",
+    line: "an IICRC-approved facility with in-house instructors",
     reason:
       "Describes a third-party NZ training school's own IICRC approval as market research, not a RestoreAssist claim.",
   },
@@ -144,8 +158,19 @@ function scan(): Hit[] {
     lines.forEach((text, idx) => {
       for (const { id, re } of BANNED) {
         if (!re.test(text)) continue;
-        if (ALLOW.some((a) => a.file === rel && a.id === id)) continue;
-        hits.push({ file: rel, line: idx + 1, id, text: text.trim().slice(0, 160) });
+        if (
+          ALLOW.some(
+            (a) => a.file === rel && a.id === id && text.includes(a.line),
+          )
+        ) {
+          continue;
+        }
+        hits.push({
+          file: rel,
+          line: idx + 1,
+          id,
+          text: text.trim().slice(0, 160),
+        });
       }
     });
   }
@@ -159,16 +184,27 @@ describe("IICRC claims guard (RA-8297)", () => {
     expect(files.length).toBeGreaterThan(500);
   });
 
+  it("each allow-list entry exempts exactly one existing line", () => {
+    for (const a of ALLOW) {
+      const lines = readFileSync(join(REPO_ROOT, a.file), "utf8").split("\n");
+      const matching = lines.filter((t) => t.includes(a.line));
+      expect(matching, `${a.file}: ${a.line}`).toHaveLength(1);
+    }
+  });
+
   it("each banned pattern matches its intended phrase", () => {
     const samples: Record<string, string> = {
       "iicrc-compliant": "IICRC S500:2021 Compliant Inspection Report",
       "standard-compliant": "Log S500:2021-compliant moisture data",
       "compliant-with-iicrc": "Compliant with IICRC S500:2021",
-      "compliance-watertight": "keeps your IICRC S500:2021 compliance watertight",
+      "compliance-watertight":
+        "keeps your IICRC S500:2021 compliance watertight",
       "section-compliant": "Drying Goal: ACHIEVED — IICRC S500 §11.4 compliant",
       "persona-certified": "You are an IICRC S500:2021 certified specialist",
-      "persona-certified-prefix": "You are a certified IICRC S500:2021 specialist",
+      "persona-certified-prefix":
+        "You are a certified IICRC S500:2021 specialist",
       "iicrc-endorsement": "IICRC-approved software",
+      "compliance-guarantee": "IICRC S500:2021 compliance guaranteed.",
     };
     for (const { id, re } of BANNED) {
       expect(re.test(samples[id]), id).toBe(true);
@@ -190,7 +226,9 @@ describe("IICRC claims guard (RA-8297)", () => {
 
   it("customer-facing text makes no IICRC conformity or endorsement claim", () => {
     const hits = scan();
-    const report = hits.map((h) => `${h.file}:${h.line} [${h.id}] ${h.text}`).join("\n");
+    const report = hits
+      .map((h) => `${h.file}:${h.line} [${h.id}] ${h.text}`)
+      .join("\n");
     expect(hits, `\n${hits.length} IICRC claim(s):\n${report}\n`).toEqual([]);
   });
 });
