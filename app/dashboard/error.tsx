@@ -36,10 +36,7 @@ export default function DashboardError({
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-6">
-      <Card
-        className="w-full max-w-md"
-        style={{ backgroundColor: "var(--color-brand-navy)", borderColor: "var(--color-brand-navy-hover)" }}
-      >
+      <Card className="w-full max-w-md border-brand-mist bg-white dark:border-brand-navy-hover dark:bg-brand-navy">
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
@@ -64,8 +61,7 @@ export default function DashboardError({
           <Button
             onClick={retry}
             size="sm"
-            style={{ backgroundColor: "var(--color-brand-cta)", borderColor: "var(--color-brand-cta)" }}
-            className="text-brand-navy dark:text-white hover:opacity-90"
+            className="border-brand-cta bg-brand-cta text-white hover:opacity-90"
           >
             <ChromeRefresh className="h-4 w-4" />
             Try again

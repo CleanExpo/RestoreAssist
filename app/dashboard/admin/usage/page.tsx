@@ -167,7 +167,7 @@ function KpiCard({
               {value}
             </p>
             <p className="text-sm text-neutral-500">{title}</p>
-            {subtitle && <p className="text-xs text-neutral-400">{subtitle}</p>}
+            {subtitle && <p className="text-xs text-brand-slate dark:text-neutral-400">{subtitle}</p>}
           </div>
         </div>
       </CardContent>
@@ -235,21 +235,21 @@ function DailyCostChart({ dailyCosts }: { dailyCosts: DailyCost[] }) {
                 })}
               </div>
               {/* Hover highlight */}
-              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 rounded-sm transition-opacity" />
+              <div className="absolute inset-0 bg-brand-navy/5 dark:bg-white/10 opacity-0 group-hover:opacity-100 rounded-sm transition-opacity" />
             </div>
           );
         })}
       </div>
 
       {/* X-axis labels — show first and last date */}
-      <div className="flex justify-between mt-1 text-[10px] text-neutral-400">
+      <div className="flex justify-between mt-1 text-[10px] text-brand-slate dark:text-neutral-400">
         <span>{dailyCosts[0]?.date?.slice(5)}</span>
         <span>{dailyCosts[dailyCosts.length - 1]?.date?.slice(5)}</span>
       </div>
 
       {/* Tooltip */}
       {tooltip && (
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 pointer-events-none bg-neutral-900 dark:bg-neutral-800 text-white text-xs rounded-lg shadow-lg p-3 min-w-[180px] border border-neutral-700">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 pointer-events-none bg-white dark:bg-neutral-800 text-brand-navy dark:text-white text-xs rounded-lg shadow-lg p-3 min-w-[180px] border border-brand-mist dark:border-neutral-700">
           <p className="font-semibold mb-1">{tooltip.day.date}</p>
           {ALL_EVENT_TYPES.map((et) => {
             const cost = tooltip.day.costs[et] ?? 0;
@@ -669,7 +669,7 @@ export default function AiUsageDashboardPage() {
                       <tr>
                         <td
                           colSpan={6}
-                          className="py-8 text-center text-neutral-400"
+                          className="py-8 text-center text-brand-slate dark:text-neutral-400"
                         >
                           No data for selected filters
                         </td>
@@ -804,7 +804,7 @@ export default function AiUsageDashboardPage() {
                       <tr>
                         <td
                           colSpan={7}
-                          className="py-8 text-center text-neutral-400"
+                          className="py-8 text-center text-brand-slate dark:text-neutral-400"
                         >
                           No users for selected filters
                         </td>
@@ -833,7 +833,7 @@ export default function AiUsageDashboardPage() {
                               {user.pending}
                             </Badge>
                           ) : (
-                            <span className="text-neutral-400">0</span>
+                            <span className="text-brand-slate dark:text-neutral-400">0</span>
                           )}
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
@@ -842,7 +842,7 @@ export default function AiUsageDashboardPage() {
                               {user.billed}
                             </Badge>
                           ) : (
-                            <span className="text-neutral-400">0</span>
+                            <span className="text-brand-slate dark:text-neutral-400">0</span>
                           )}
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
@@ -851,7 +851,7 @@ export default function AiUsageDashboardPage() {
                               {user.failed}
                             </Badge>
                           ) : (
-                            <span className="text-neutral-400">0</span>
+                            <span className="text-brand-slate dark:text-neutral-400">0</span>
                           )}
                         </td>
                       </tr>
