@@ -70,7 +70,18 @@ describe("POST promote-homeowner", () => {
       {
         id: "cs_1",
         pendingHomeownerCapture: {
-          sketchData: { objects: [1] },
+          sketchData: {
+            objects: [
+              {
+                data: {
+                  type: "room",
+                  id: "r1",
+                  provenance: "operator_measured",
+                  areaM2: 99,
+                },
+              },
+            ],
+          },
           moisturePoints: [{ wme: 20 }],
           country: "NZ",
         },
@@ -79,13 +90,59 @@ describe("POST promote-homeowner", () => {
     ]);
     const res = await POST(req(), params);
     expect(res.status).toBe(200);
-    expect((await res.json()).data.promoted).toBe(1);
+    const json = await res.json();
+    expect(json.data.promoted).toBe(1);
+    expect(json.data.homeownerRooms).toBe(1);
     expect(p.claimSketch.update).toHaveBeenCalledTimes(1);
     const arg = p.claimSketch.update.mock.calls[0][0];
     expect(arg.where).toEqual({ id: "cs_1" });
-    expect(arg.data.sketchData).toEqual({ objects: [1] });
+    const saved = arg.data.sketchData as {
+      objects: { data: { provenance: string; captureAdapter: string } }[];
+    };
+    expect(saved.objects[0].data.provenance).toBe("underlay_reference");
+    expect(saved.objects[0].data.captureAdapter).toBe("homeowner");
     expect(arg.data.country).toBe("NZ");
     expect(arg.data.pendingHomeownerCapture).toBe("__DbNull__"); // cleared
+  });
+
+  it("RA-8241 — reconciles forged client areaM2 from polygon on promote", async () => {
+    p.claimSketch.findMany.mockResolvedValue([
+      {
+        id: "cs_geo",
+        pendingHomeownerCapture: {
+          sketchData: {
+            scaleConfig: { pxPerMetre: 100 },
+            objects: [
+              {
+                type: "polygon",
+                points: [
+                  { x: 0, y: 0 },
+                  { x: 300, y: 0 },
+                  { x: 300, y: 300 },
+                  { x: 0, y: 300 },
+                ],
+                data: {
+                  type: "room",
+                  id: "forged",
+                  provenance: "operator_measured",
+                  areaM2: 900,
+                  lengthM: 30,
+                  widthM: 30,
+                },
+              },
+            ],
+          },
+        },
+      },
+    ]);
+    const res = await POST(req(), params);
+    expect(res.status).toBe(200);
+    const arg = p.claimSketch.update.mock.calls[0][0];
+    const room = (arg.data.sketchData as { objects: { data: Record<string, unknown> }[] })
+      .objects[0].data;
+    expect(room.areaM2).toBe(9);
+    expect(room.lengthM).toBeUndefined();
+    expect(room.provenance).toBe("underlay_reference");
   });
 
   it("promotes nothing when there are no pending submissions", async () => {

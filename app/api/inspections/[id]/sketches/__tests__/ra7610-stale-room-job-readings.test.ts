@@ -136,7 +136,22 @@ describe("RA-7610 — stale room holding job moisture readings", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           floorNumber: 0,
-          sketchData: { scaleConfig: { pxPerMetre: 100 }, objects: [] },
+          // Another room stays on the canvas, so this is a genuine removal.
+          // A save carrying no room at all keeps the stored floor (RA-7656).
+          sketchData: {
+            scaleConfig: { pxPerMetre: 100 },
+            objects: [
+              {
+                type: "polygon",
+                points: [
+                  { x: 0, y: 0 },
+                  { x: 300, y: 0 },
+                  { x: 300, y: 300 },
+                ],
+                data: { type: "room", id: "room-lounge", label: "Lounge" },
+              },
+            ],
+          },
         }),
       }),
       { params: Promise.resolve({ id: "i1" }) },

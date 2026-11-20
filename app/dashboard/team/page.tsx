@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -97,6 +98,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatInviteExpiry } from "./invite-expiry";
+import { SeatLimitPanel } from "./components/SeatLimitPanel";
+import { useServerIosShell } from "@/components/capacitor/ShellPlatformProvider";
+import { isCapacitorIOS } from "@/lib/capacitor";
+import {
+  clearInviteDraft,
+  readInviteDraft,
+  saveInviteDraft,
+} from "@/lib/team/invite-draft";
 
 type Member = {
   id: string;
@@ -140,9 +149,9 @@ const roleConfig = {
     label: "Technician",
     icon: Wrench,
     color: "",
-    bgColor: "bg-cyan-100 dark:bg-cyan-900/30",
-    textColor: "text-cyan-700 dark:text-cyan-300",
-    borderColor: "border-cyan-200",
+    bgColor: "bg-brand-harbour-100 dark:bg-brand-harbour-900/30",
+    textColor: "text-brand-harbour-700 dark:text-brand-harbour-300",
+    borderColor: "border-brand-harbour-200",
   },
 };
 
@@ -181,6 +190,15 @@ export default function TeamPage() {
   const isTechnician = session?.user?.role === "USER";
   const canInvite = isAdmin || isManager;
   const canViewInvites = isAdmin || isManager;
+  const userId = session?.user?.id;
+  const searchParams = useSearchParams();
+  const returningToInvite = searchParams?.get("invite") === "1";
+  const checkoutCancelled = searchParams?.get("checkout") === "cancelled";
+  const iosShell = useServerIosShell();
+  const [seatLimitHit, setSeatLimitHit] = useState(false);
+  const [seatPaymentDue, setSeatPaymentDue] = useState(false);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const hasLoaded = useRef(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -221,14 +239,19 @@ export default function TeamPage() {
   }, []);
 
   const load = async () => {
-    setLoading(true);
+    // Only the first load may show the spinner: it replaces the whole page, and
+    // a refresh must not unmount an invite form the owner is part way through.
+    if (!hasLoaded.current) setLoading(true);
     try {
       const [mRes, iRes] = await Promise.all([
         fetch("/api/team/members"),
         canViewInvites ? fetch("/api/team/invites") : Promise.resolve(null),
       ]);
       const mJson = await mRes.json();
-      if (mRes.ok) setMembers(mJson.members || []);
+      if (mRes.ok) {
+        setMembers(mJson.members || []);
+        setSeatPaymentDue(mJson.seatPaymentDue === true);
+      }
       else toast.error(apiErrorMessage(mJson, "Failed to load team"));
       if (iRes) {
         const iJson = await iRes.json();
@@ -240,6 +263,7 @@ export default function TeamPage() {
     } catch {
       toast.error("Failed to load team data");
     } finally {
+      hasLoaded.current = true;
       setLoading(false);
     }
   };
@@ -247,6 +271,21 @@ export default function TeamPage() {
   useEffect(() => {
     if (session?.user) load();
   }, [session?.user?.role]);
+
+  // Back from Stripe, or the setup checklist: open the invite with the entry kept.
+  useEffect(() => {
+    if (!returningToInvite || !userId || !canInvite) return;
+    const draft = readInviteDraft(userId);
+    if (draft) inviteForm.reset(draft);
+    setShowInviteForm(true);
+    setFocusRequest((n) => n + 1);
+  }, [returningToInvite, userId, canInvite, inviteForm]);
+
+  useEffect(() => {
+    if (focusRequest > 0 && showInviteForm && !loading) {
+      inviteForm.setFocus("email");
+    }
+  }, [focusRequest, showInviteForm, loading, inviteForm]);
 
   // Managers can only invite Technicians: when opening invite form as Manager, force role to Technician
   useEffect(() => {
@@ -263,7 +302,7 @@ export default function TeamPage() {
       createInviteIdempotencyKey.current ?? globalThis.crypto.randomUUID();
     createInviteIdempotencyKey.current = idempotencyKey;
     let receivedResponse = false;
-    let completedResponse = false;
+    setSeatLimitHit(false);
     try {
       const res = await fetch("/api/team/invites", {
         method: "POST",
@@ -274,9 +313,11 @@ export default function TeamPage() {
         body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
       });
       receivedResponse = true;
-      completedResponse = res.ok;
       const json = await res.json().catch(() => ({}));
 
+      if (res.ok || json.partial) {
+        if (userId) clearInviteDraft(userId);
+      }
       if (json.partial) {
         toast.error(
           json.message ?? "The change was saved, but the email could not be sent.",
@@ -285,6 +326,14 @@ export default function TeamPage() {
         inviteForm.reset({ email: "", role: "USER" });
         setShowInviteForm(false);
         await load();
+        return;
+      }
+      // By status, never by words: the routing below reads the message text.
+      if (res.status === 402) {
+        if (userId) {
+          saveInviteDraft(userId, { email: inviteEmail, role: inviteRole });
+        }
+        setSeatLimitHit(true);
         return;
       }
       if (!res.ok) {
@@ -350,7 +399,10 @@ export default function TeamPage() {
       inviteForm.setError("root", { type: "network", message });
       toast.error(message);
     } finally {
-      if (receivedResponse && completedResponse) {
+      // Any answer settles the attempt: the server stores refusals against the
+      // key, so reusing it would replay a refusal the owner has since paid to
+      // clear. Only a lost response keeps it.
+      if (receivedResponse) {
         createInviteIdempotencyKey.current = null;
       }
       setCreating(false);
@@ -538,7 +590,7 @@ export default function TeamPage() {
     return (
       <div className={cn("flex items-center justify-center min-h-[400px]")}>
         <div className="text-center space-y-4">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-cyan-500" />
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-brand-harbour-500" />
           <p
             className={cn("text-sm", "text-neutral-600 dark:text-neutral-400")}
           >
@@ -559,13 +611,13 @@ export default function TeamPage() {
             ? "View your organisation's team members and hierarchy."
             : "Manage your team members and invitations."
         }
-        icon={<Users className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<Users className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/team" })}
         primaryAction={
           canInvite ? (
             <Button
               onClick={() => setShowInviteForm(!showInviteForm)}
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg sm:w-auto"
+              className="w-full bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white shadow-lg sm:w-auto"
             >
               <UserPlus className="w-4 h-4" />
               {showInviteForm ? "Cancel" : "Invite Member"}
@@ -573,6 +625,15 @@ export default function TeamPage() {
           ) : undefined
         }
       />
+
+      {seatPaymentDue && (
+        <SeatLimitPanel
+          audience={iosShell === true || isCapacitorIOS() ? "ios" : "owner"}
+          headline="Your free trial seat has ended, and your technician can't work until it is paid for. Nothing has been deleted."
+          onBeforeBuy={() => undefined}
+          onSeatAdded={() => void load()}
+        />
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -649,10 +710,10 @@ export default function TeamPage() {
                   <div
                     className={cn(
                       "p-3 rounded-full",
-                      "bg-cyan-100 dark:bg-cyan-900/30",
+                      "bg-brand-harbour-100 dark:bg-brand-harbour-900/30",
                     )}
                   >
-                    <Mail className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                    <Mail className="w-6 h-6 text-brand-harbour-600 dark:text-brand-harbour-400" />
                   </div>
                 </div>
               </CardContent>
@@ -732,10 +793,10 @@ export default function TeamPage() {
                 <div
                   className={cn(
                     "p-3 rounded-full",
-                    "bg-cyan-100 dark:bg-cyan-900/30",
+                    "bg-brand-harbour-100 dark:bg-brand-harbour-900/30",
                   )}
                 >
-                  <Wrench className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                  <Wrench className="w-6 h-6 text-brand-harbour-600 dark:text-brand-harbour-400" />
                 </div>
               </div>
             </CardContent>
@@ -749,13 +810,13 @@ export default function TeamPage() {
           <Card
             className={cn(
               "border-2",
-              "border-cyan-200",
+              "border-brand-harbour-200",
               "bg-brand-navy",
             )}
           >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                <UserPlus className="w-5 h-5 text-brand-harbour-600 dark:text-brand-harbour-400" />
                 Invite New Team Member
               </CardTitle>
               <CardDescription>
@@ -776,7 +837,7 @@ export default function TeamPage() {
                             <FormLabel>Email Address</FormLabel>
                             <FormControl>
                               <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-slate dark:text-neutral-400" />
                                 <input
                                   type="email"
                                   placeholder="colleague@example.com"
@@ -785,7 +846,7 @@ export default function TeamPage() {
                                     "bg-white dark:bg-neutral-800",
                                     "border border-neutral-300 dark:border-neutral-700",
                                     "text-neutral-900 dark:text-neutral-50",
-                                    "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
+                                    "focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent",
                                   )}
                                   {...field}
                                 />
@@ -810,7 +871,7 @@ export default function TeamPage() {
                                   "bg-white dark:bg-neutral-800",
                                   "border border-neutral-300 dark:border-neutral-700",
                                   "text-neutral-900 dark:text-neutral-50",
-                                  "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
+                                  "focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent",
                                 )}
                                 disabled={isManager}
                                 {...field}
@@ -837,6 +898,31 @@ export default function TeamPage() {
                       />
                     </div>
                   </div>
+                  {checkoutCancelled && (
+                    <p className="text-sm mt-3" role="status">
+                      Checkout cancelled. Nothing was charged.
+                    </p>
+                  )}
+                  {seatLimitHit && (
+                    <SeatLimitPanel
+                      addingTechnician
+                      audience={
+                        iosShell === true || isCapacitorIOS()
+                          ? "ios"
+                          : isAdmin
+                            ? "owner"
+                            : "manager"
+                      }
+                      onBeforeBuy={() => {
+                        if (userId) saveInviteDraft(userId, inviteForm.getValues());
+                      }}
+                      onSeatAdded={() => {
+                        setSeatLimitHit(false);
+                        setFocusRequest((n) => n + 1);
+                        void load();
+                      }}
+                    />
+                  )}
                   {inviteForm.formState.errors.root && (
                     <p className="text-destructive text-sm mt-3" role="alert">
                       {inviteForm.formState.errors.root.message}
@@ -879,7 +965,7 @@ export default function TeamPage() {
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-slate dark:text-neutral-400" />
           <input
             type="text"
             value={searchQuery}
@@ -890,7 +976,7 @@ export default function TeamPage() {
               "bg-white dark:bg-neutral-800",
               "border border-neutral-300 dark:border-neutral-700",
               "text-neutral-900 dark:text-neutral-50",
-              "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
+              "focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent",
             )}
           />
         </div>
@@ -947,7 +1033,7 @@ export default function TeamPage() {
         <CardContent>
           {filteredMembers.length === 0 ? (
             <div className="text-center py-12">
-              <Users className="w-12 h-12 mx-auto text-neutral-400 mb-4" />
+              <Users className="w-12 h-12 mx-auto text-brand-slate dark:text-neutral-400 mb-4" />
               <p
                 className={cn(
                   "text-sm font-medium",
@@ -1079,7 +1165,7 @@ export default function TeamPage() {
                                   "bg-white dark:bg-neutral-800",
                                   "border border-neutral-300 dark:border-neutral-700",
                                   "text-neutral-900 dark:text-neutral-50",
-                                  "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
+                                  "focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent",
                                   "disabled:opacity-50 disabled:cursor-not-allowed",
                                 )}
                               >
@@ -1087,7 +1173,7 @@ export default function TeamPage() {
                                 <option value="MANAGER">Manager</option>
                               </select>
                               {changingRoleFor === member.id && (
-                                <Loader2 className="w-3 h-3 animate-spin text-cyan-500 shrink-0" />
+                                <Loader2 className="w-3 h-3 animate-spin text-brand-harbour-500 shrink-0" />
                               )}
                             </div>
                           )}
@@ -1151,7 +1237,7 @@ export default function TeamPage() {
                     "flex-1 px-3 py-2 rounded-lg border font-mono text-sm",
                     "bg-neutral-100 dark:bg-slate-800/50 border-neutral-300 dark:border-slate-600",
                     "text-neutral-900 dark:text-white",
-                    "focus:outline-none focus:ring-2 focus:ring-cyan-500",
+                    "focus:outline-none focus:ring-2 focus:ring-brand-harbour-500",
                   )}
                 />
                 <Button
@@ -1273,7 +1359,7 @@ export default function TeamPage() {
           <CardContent>
             {filteredInvites.length === 0 ? (
               <div className="text-center py-12">
-                <Mail className="w-12 h-12 mx-auto text-neutral-400 mb-4" />
+                <Mail className="w-12 h-12 mx-auto text-brand-slate dark:text-neutral-400 mb-4" />
                 <p
                   className={cn(
                     "text-sm font-medium",
@@ -1315,7 +1401,7 @@ export default function TeamPage() {
                         className={cn(
                           "border-2 transition-all",
                           isActive
-                            ? "border-cyan-200 bg-cyan-50/50 dark:bg-cyan-950/20"
+                            ? "border-brand-harbour-200 bg-brand-harbour-50/50 dark:bg-brand-harbour-950/20"
                             : isUsed
                               ? "border-green-200 bg-green-50/50 dark:bg-green-950/20"
                               : "border-rose-200 bg-rose-50/50 dark:bg-rose-950/20",
@@ -1374,7 +1460,7 @@ export default function TeamPage() {
                                     ) : (
                                       <Badge
                                         variant="outline"
-                                        className="text-xs text-cyan-600 dark:text-cyan-400 border-cyan-200"
+                                        className="text-xs text-brand-harbour-600 dark:text-brand-harbour-400 border-brand-harbour-200"
                                       >
                                         <Clock className="w-3 h-3 mr-1" />
                                         Active

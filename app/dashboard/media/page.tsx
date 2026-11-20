@@ -53,6 +53,7 @@ import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFram
 import { DashboardPanel } from "@/app/dashboard/components/DashboardPanel";
 import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -182,9 +183,7 @@ export default function MediaPage() {
         const res = await fetch(`/api/media?${qs}`);
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          throw new Error(
-            typeof body.error === "string" ? body.error : "Failed to load media",
-          );
+          throw new Error(apiErrorMessage(body) ?? "Failed to load media");
         }
         const json = await res.json();
         setAssets((prev) => (cursor ? [...prev, ...json.data] : json.data));
@@ -298,7 +297,7 @@ export default function MediaPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Media Library"
         description="Catalogued inspection photos for marketing, SEO, and client-facing assets."
-        icon={<Camera className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<Camera className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/media" })}
       />
 

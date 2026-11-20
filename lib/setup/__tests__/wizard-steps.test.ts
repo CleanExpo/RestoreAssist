@@ -79,4 +79,21 @@ describe("WIZARD_STEPS canonical list", () => {
     expect(required).toEqual(["business"]);
     expect(WIZARD_STEPS.find((s) => s.key === "ai_key")?.required).toBe(false);
   });
+
+  it("RA-8271: Field Add-Ons is an optional step straight after Pricing", () => {
+    const keys = WIZARD_STEPS.map((s) => s.key);
+    expect(keys).toEqual([
+      "welcome",
+      "ai_key",
+      "business",
+      "branding",
+      "pricing",
+      "add_ons",
+      "integrations",
+      "first_report",
+    ]);
+    const addOns = WIZARD_STEPS.find((s) => s.key === "add_ons");
+    expect(addOns?.title).toBe("Field Add-Ons");
+    expect(addOns?.required).toBe(false);
+  });
 });

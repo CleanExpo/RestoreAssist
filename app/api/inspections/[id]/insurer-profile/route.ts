@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { countableEvidence } from "@/lib/evidence/countable-evidence";
 import { prisma } from "@/lib/prisma";
 import {
   isValidInsurerId,
@@ -210,7 +211,8 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       // InspectionEvidence model — querying it 500s every caller (RA-7508).
       const evidenceCounts = await prisma.evidenceItem.groupBy({
         by: ["evidenceClass"],
-        where: { inspectionId },
+        // RA-8388: a retired reading's evidence record is not "submitted".
+        where: countableEvidence({ inspectionId }),
         _count: { id: true },
       });
 

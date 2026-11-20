@@ -144,4 +144,14 @@ describe('StorageCard', () => {
     // Now the grid should be visible again
     expect(screen.getByLabelText(/google drive/i)).toBeInTheDocument();
   });
+
+  it('RA-8078: a linked Microsoft account does not count as connected storage while OneDrive is not offered', async () => {
+    mockFetches({
+      onedrive: { connected: true, accountEmail: 'tradie@example.com' },
+    });
+    render(<StorageCard />);
+    await waitFor(() => screen.getByLabelText(/onedrive/i));
+    expect(screen.queryByText(/connected as/i)).not.toBeInTheDocument();
+    expect(useSetupStore.getState().sections.storage).not.toBe('ready');
+  });
 });

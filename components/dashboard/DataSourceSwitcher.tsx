@@ -37,7 +37,7 @@ export function DataSourceSwitcher({
         onChange={(e) => onChange(e.target.value as DataSource)}
         aria-label="Data source"
         className={cn(
-          "px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm min-w-[10rem]",
+          "px-3 py-2 border rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50 text-sm min-w-[10rem]",
           "bg-neutral-100 dark:bg-slate-800",
           "border-neutral-300 dark:border-slate-700",
           "text-neutral-900 dark:text-white",

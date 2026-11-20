@@ -9,6 +9,7 @@ const getServerSession = vi.fn();
 const applyRateLimit = vi.fn();
 const userFindUnique = vi.fn();
 const reportFindUnique = vi.fn();
+const featureEntitlementFindFirst = vi.fn();
 const resolveReportProvider = vi.fn();
 const getLatestAIIntegration = vi.fn();
 const resolveWorkspaceAiKey = vi.fn();
@@ -27,6 +28,9 @@ vi.mock("@/lib/prisma", () => ({
     user: { findUnique: (...args: unknown[]) => userFindUnique(...args) },
     report: {
       findUnique: (...args: unknown[]) => reportFindUnique(...args),
+    },
+    featureEntitlement: {
+      findFirst: (...args: unknown[]) => featureEntitlementFindFirst(...args),
     },
   },
 }));
@@ -57,6 +61,7 @@ vi.mock("@/lib/ai/resolve-workspace-ai-key", async () => {
 
 import { POST } from "../route";
 import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
+import { PAID_BASE_PLAN_MESSAGE } from "@/lib/billing/paid-base-plan-copy";
 
 const PAID_COVERAGE = {
   fundedTrial: false,
@@ -122,6 +127,8 @@ beforeEach(() => {
   applyRateLimit.mockReset();
   userFindUnique.mockReset();
   reportFindUnique.mockReset();
+  featureEntitlementFindFirst.mockReset();
+  featureEntitlementFindFirst.mockResolvedValue(null);
   resolveReportProvider.mockReset();
   getLatestAIIntegration.mockReset();
   resolveWorkspaceAiKey.mockReset();
@@ -199,5 +206,21 @@ describe("POST /api/reports/generate-inspection-report — RA-7601 400 copy", ()
     expect(body.error.code).toBe("PAYMENT_REQUIRED");
     expect(body.error.message).toBe(REPORT_GEN_PLATFORM_NOT_READY_BODY);
     expect(body.error.message).not.toMatch(/add your/i);
+  });
+
+  it("explicit enhanced on trial is the paid-plan 402, not the platform-key 402", async () => {
+    resolveWorkspaceAiKey.mockRejectedValueOnce(
+      new NoWorkspaceKeyError("ANTHROPIC", "PLATFORM_NOT_READY"),
+    );
+
+    const res = await POST(
+      makeRequest({ reportId: "report-1", reportType: "enhanced" }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(402);
+    expect(body.error.code).toBe("PAYMENT_REQUIRED");
+    expect(body.error.message).toBe(PAID_BASE_PLAN_MESSAGE);
+    expect(resolveWorkspaceAiKey).not.toHaveBeenCalled();
   });
 });

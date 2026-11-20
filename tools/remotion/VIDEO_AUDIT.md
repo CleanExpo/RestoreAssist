@@ -209,7 +209,7 @@ Found in `shared.tsx` line 168:
 <span>restoreassist.app</span>
 ```
 
-Actual site: `restoreassist.com.au` per user discussions. Verify and fix.
+Actual site: `restoreassist.app` (founder confirmed 04/11/2026: there is no restoreassist.com.au). Fixed in `tools/remotion`.
 
 ### 3.5 Brand Voice — Inconsistent messaging
 

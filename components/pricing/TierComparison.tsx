@@ -171,9 +171,9 @@ const GROUPS: readonly ComparisonGroup[] = [
         // about a minute, so the row says what is true now and flags the intent
         // rather than asserting a boundary that is not there.
         capability: "Report types",
-        free: { included: true, label: "Basic, and currently Enhanced and Optimised too" },
+        free: { included: true, label: "Basic" },
         paid: { included: true, label: "Basic, Enhanced and Optimised" },
-        note: "Enhanced and Optimised are meant to be part of the paid plan and we are still wiring that up, so during the trial you can reach them as well. We would rather say so than claim a limit that is not switched on.",
+        note: "Trial includes Basic reports only. Enhanced and Optimised depth unlock when you move to the paid plan — enforced on the server.",
         headline: true,
       },
       {
@@ -195,9 +195,9 @@ const GROUPS: readonly ComparisonGroup[] = [
         // — and app/api/reports/upload allows "TRIAL" in its
         // ALLOWED_SUBSCRIPTION_STATUSES. The gate is a client-side toast.
         capability: PAID_ONLY.pdfUpload,
-        free: { included: true, label: "Currently available during the trial" },
+        free: { included: false, label: "Paid plan" },
         paid: { included: true },
-        note: "Also meant to be part of the paid plan, and also not yet enforced on the server. Same reasoning as report types.",
+        note: "PDF import and upload-to-report are paid-plan features. Trial workspaces receive a clear upgrade prompt if they try to import.",
       },
       // "Priority processing" was removed, not reworded. Unlike the report-type
       // rows — which are real capabilities merely gated client-side — this one
@@ -303,7 +303,7 @@ function CellBody({ planLabel, cell }: { planLabel: string; cell: Cell }) {
       </span>
       {cell.included ? (
         <span className="flex items-start gap-2 text-[15px] leading-[1.6] text-slate-700">
-          <span className="mt-0.5 text-[#3B6D8C]">
+          <span className="mt-0.5 text-brand-harbour">
             <RAIcon name="success" size={16} decorative />
           </span>
           <span>{cell.label ?? "Included"}</span>
@@ -367,7 +367,7 @@ export function TierComparison() {
 
           <motion.div
             variants={fadeUp}
-            className="mt-12 rounded-2xl bg-[#0B1F3A] p-7 text-white shadow-[0_1px_2px_rgba(11,31,58,0.1),0_10px_28px_rgba(11,31,58,0.12)] sm:p-9"
+            className="mt-12 rounded-2xl bg-brand-navy p-7 text-white shadow-[0_1px_2px_rgba(11,31,58,0.1),0_10px_28px_rgba(11,31,58,0.12)] sm:p-9"
           >
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8FB2C9]">
               The real delta
@@ -421,7 +421,7 @@ export function TierComparison() {
               <div className="hidden sm:block sm:pb-4" aria-hidden="true" />
               <div className="hidden sm:block sm:pb-4">
                 <p
-                  className={`${FONT_DISPLAY} text-[15px] font-semibold text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} text-[15px] font-semibold text-brand-navy`}
                 >
                   {free.displayName}
                 </p>
@@ -431,7 +431,7 @@ export function TierComparison() {
               </div>
               <div className="hidden sm:block sm:rounded-t-xl sm:bg-[#F7F9FB] sm:px-5 sm:pb-4 sm:pt-4">
                 <p
-                  className={`${FONT_DISPLAY} text-[15px] font-semibold text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} text-[15px] font-semibold text-brand-navy`}
                 >
                   {paid.displayName}
                 </p>
@@ -443,14 +443,14 @@ export function TierComparison() {
 
               {GROUPS.map((group) => (
                 <div key={group.theme} className="contents">
-                  <h3 className="col-span-full flex items-center gap-2 border-t-2 border-[#0B1F3A]/15 pb-1 pt-7 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#3B6D8C]">
+                  <h3 className="col-span-full flex items-center gap-2 border-t-2 border-brand-navy/15 pb-1 pt-7 text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-harbour">
                     <RAIcon name={group.icon} size={16} decorative />
                     {group.theme}
                   </h3>
 
                   {group.rows.map((row) => (
                     <div key={row.capability} className="contents">
-                      <div className="border-t border-slate-200/90 pb-3 pt-5 text-[15px] font-semibold leading-[1.5] tracking-[-0.01em] text-[#0B1F3A] sm:py-5 sm:pr-6">
+                      <div className="border-t border-slate-200/90 pb-3 pt-5 text-[15px] font-semibold leading-[1.5] tracking-[-0.01em] text-brand-navy sm:py-5 sm:pr-6">
                         {row.capability}
                       </div>
                       <div className="pb-3 sm:border-t sm:border-slate-200/90 sm:py-5">
@@ -459,7 +459,7 @@ export function TierComparison() {
                       <div className="pb-5 sm:border-t sm:border-slate-200/90 sm:bg-[#F7F9FB] sm:px-5 sm:py-5">
                         <CellBody planLabel={paid.displayName} cell={row.paid} />
                         {row.note ? (
-                          <p className="mt-2 text-[13px] leading-[1.6] text-[#3B6D8C]">
+                          <p className="mt-2 text-[13px] leading-[1.6] text-brand-harbour">
                             {row.note}
                           </p>
                         ) : null}

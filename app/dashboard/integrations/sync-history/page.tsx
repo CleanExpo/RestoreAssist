@@ -236,9 +236,11 @@ function ExpandableError({ message }: { message: string }) {
 function HealthSummaryRow({
   metrics,
   loading,
+  unavailable,
 }: {
   metrics: MetricsData | null;
   loading: boolean;
+  unavailable: boolean;
 }) {
   if (loading) {
     return (
@@ -255,6 +257,25 @@ function HealthSummaryRow({
       {ALL_PROVIDERS.map((slug) => {
         const data = metrics?.integrations.byProvider[slug];
         const label = PROVIDER_LABELS[slug] ?? slug;
+
+        if (!data && unavailable) {
+          // RA-8084: the metrics request failed, so connection state is unknown.
+          return (
+            <Card key={slug} className="opacity-60">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-slate-300" />
+                  {label}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground">
+                  Status unavailable
+                </p>
+              </CardContent>
+            </Card>
+          );
+        }
 
         if (!data) {
           // Provider not connected
@@ -332,10 +353,12 @@ function SyncEventFeed({
   entries,
   loading,
   filter,
+  unavailable,
 }: {
   entries: SyncLogEntry[];
   loading: boolean;
   filter: FilterTab;
+  unavailable: boolean;
 }) {
   const filtered = entries.filter((e) => {
     if (filter === "all") return true;
@@ -365,6 +388,15 @@ function SyncEventFeed({
           ))}
         </TableBody>
       </Table>
+    );
+  }
+
+  if (filtered.length === 0 && unavailable) {
+    // RA-8084: a failed feed request is unknown, not empty. The banner carries Retry.
+    return (
+      <p className="py-12 text-center text-sm text-muted-foreground">
+        Sync events could not be loaded.
+      </p>
     );
   }
 
@@ -455,10 +487,12 @@ export default function SyncHistoryPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [metricsFailed, setMetricsFailed] = useState(false);
+  const [feedFailed, setFeedFailed] = useState(false);
 
   const fetchData = useCallback(async () => {
-    let metricsFailed = false;
-    let feedFailed = false;
+    let metricsDidFail = false;
+    let feedDidFail = false;
 
     // Fetch metrics (health summary)
     try {
@@ -468,12 +502,12 @@ export default function SyncHistoryPage() {
         setMetrics(data);
       } else {
         setMetrics(null);
-        metricsFailed = true;
+        metricsDidFail = true;
       }
     } catch (err) {
       console.error("[SyncHistory] Failed to fetch metrics:", err);
       setMetrics(null);
-      metricsFailed = true;
+      metricsDidFail = true;
     } finally {
       setMetricsLoading(false);
     }
@@ -488,17 +522,19 @@ export default function SyncHistoryPage() {
         setSyncEntries(data.syncErrors ?? []);
       } else {
         setSyncEntries([]);
-        feedFailed = true;
+        feedDidFail = true;
       }
     } catch (err) {
       console.error("[SyncHistory] Failed to fetch sync entries:", err);
       setSyncEntries([]);
-      feedFailed = true;
+      feedDidFail = true;
     } finally {
       setFeedLoading(false);
     }
 
-    if (metricsFailed || feedFailed) {
+    setMetricsFailed(metricsDidFail);
+    setFeedFailed(feedDidFail);
+    if (metricsDidFail || feedDidFail) {
       setLoadError("Failed to load sync history");
     } else {
       setLoadError(null);
@@ -648,7 +684,11 @@ export default function SyncHistoryPage() {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
           Provider Health
         </h2>
-        <HealthSummaryRow metrics={metrics} loading={metricsLoading} />
+        <HealthSummaryRow
+          metrics={metrics}
+          loading={metricsLoading}
+          unavailable={metricsFailed}
+        />
       </section>
 
       {/* Sync event feed */}
@@ -702,6 +742,7 @@ export default function SyncHistoryPage() {
                   entries={syncEntries}
                   loading={feedLoading}
                   filter={tab}
+                  unavailable={feedFailed}
                 />
               </TabsContent>
             ),

@@ -17,6 +17,10 @@ import {
 } from "@/lib/dashboard/completeness-blocker-links";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 import { cn } from "@/lib/utils";
+import {
+  inboxAgeingBand,
+  inboxAgeingLabel,
+} from "@/lib/completeness/inbox-ageing";
 
 type Row = {
   inspectionId: string;
@@ -25,9 +29,10 @@ type Row = {
   status: string;
   completionPercent: number;
   blocking: string[];
+  daysIdle?: number;
 };
 
-type SortKey = "gaps-desc" | "completion-asc";
+type SortKey = "gaps-desc" | "completion-asc" | "age-desc";
 
 const BLOCKER_ORDER: CompletenessBlockerId[] = [
   "client",
@@ -131,6 +136,9 @@ export default function CompletenessInboxPage() {
       if (sort === "gaps-desc") {
         return b.blocking.length - a.blocking.length;
       }
+      if (sort === "age-desc") {
+        return (b.daysIdle ?? 0) - (a.daysIdle ?? 0);
+      }
       return 0;
     });
     return list;
@@ -138,6 +146,11 @@ export default function CompletenessInboxPage() {
 
   const totalGaps = useMemo(
     () => rows.reduce((n, r) => n + r.blocking.length, 0),
+    [rows],
+  );
+
+  const staleCount = useMemo(
+    () => rows.filter((r) => (r.daysIdle ?? 0) >= 7).length,
     [rows],
   );
 
@@ -149,7 +162,7 @@ export default function CompletenessInboxPage() {
         eyebrow="Simple workspace"
         title="Completeness inbox"
         description="Active jobs with blocking intake gaps — fix each item on the job or jump straight to the right tab."
-        icon={<ChromeInbox className="h-7 w-7 text-cyan-500" aria-hidden />}
+        icon={<ChromeInbox className="h-7 w-7 text-brand-harbour-500" aria-hidden />}
         primaryAction={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Link
@@ -182,6 +195,12 @@ export default function CompletenessInboxPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Jobs with gaps" value={rows.length} accent="amber" />
           <StatCard label="Open blockers" value={totalGaps} accent="cyan" />
+          <StatCard
+            label="Stale (7+ days)"
+            value={staleCount}
+            accent="amber"
+            hint="No job update in a week"
+          />
           <StatCard
             label="Avg completion"
             value={
@@ -256,6 +275,7 @@ export default function CompletenessInboxPage() {
               >
                 <option value="gaps-desc">Most blockers first</option>
                 <option value="completion-asc">Lowest completion first</option>
+                <option value="age-desc">Longest idle first</option>
               </select>
             </label>
           </div>
@@ -365,6 +385,9 @@ export default function CompletenessInboxPage() {
                             {formatStatus(row.status)}
                           </span>
                           <span>{row.blocking.length} blocker(s)</span>
+                          {typeof row.daysIdle === "number" ? (
+                            <AgeingBadge days={row.daysIdle} />
+                          ) : null}
                         </p>
                       </div>
                     </div>
@@ -383,7 +406,7 @@ export default function CompletenessInboxPage() {
                         aria-valuemax={100}
                       >
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-amber-500 to-cyan-500 transition-all"
+                          className="h-full rounded-full bg-gradient-to-r from-amber-500 to-brand-harbour-500 transition-all"
                           style={{ width: `${row.completionPercent}%` }}
                         />
                       </div>
@@ -422,7 +445,7 @@ export default function CompletenessInboxPage() {
                       </span>
                       <Link
                         href={completenessBlockerHref(row.inspectionId, item)}
-                        className="inline-flex min-h-9 items-center rounded-lg border border-cyan-500/40 bg-cyan-500/5 px-3 text-xs font-semibold text-cyan-800 hover:bg-cyan-500/10 dark:text-cyan-300"
+                        className="inline-flex min-h-9 items-center rounded-lg border border-brand-harbour-500/40 bg-brand-harbour-500/5 px-3 text-xs font-semibold text-brand-harbour-800 hover:bg-brand-harbour-500/10 dark:text-brand-harbour-300"
                       >
                         {completenessBlockerAction(item)}
                       </Link>
@@ -451,7 +474,7 @@ function StatCard({
 }) {
   const accentClass = {
     amber: "from-amber-500/15 to-card border-amber-500/20",
-    cyan: "from-cyan-500/15 to-card border-cyan-500/20",
+    cyan: "from-brand-harbour-500/15 to-card border-brand-harbour-500/20",
     violet: "from-violet-500/15 to-card border-violet-500/20",
     neutral: "from-muted/40 to-card border-border",
   }[accent];
@@ -473,6 +496,21 @@ function StatCard({
         <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>
       ) : null}
     </div>
+  );
+}
+
+function AgeingBadge({ days }: { days: number }) {
+  const band = inboxAgeingBand(days);
+  const tone =
+    band === "stale"
+      ? "bg-red-500/15 text-red-800 dark:text-red-300"
+      : band === "ageing"
+        ? "bg-amber-500/15 text-amber-900 dark:text-amber-200"
+        : "bg-muted text-muted-foreground";
+  return (
+    <span className={cn("rounded px-1.5 py-0.5 font-medium", tone)}>
+      {inboxAgeingLabel(days)}
+    </span>
   );
 }
 

@@ -9,6 +9,7 @@ import {
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { requirePaidBasePlan } from "@/lib/billing/paid-base-plan";
 
 // Configuration constants
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -187,6 +188,9 @@ export async function POST(request: NextRequest) {
         status: 402,
       });
     }
+
+    const paidGate = await requirePaidBasePlan(request, userId);
+    if (paidGate) return paidGate;
 
     // RA-6932 (P0) — resolve the workspace's own BYOK Anthropic key. Never
     // falls through to the platform ANTHROPIC_API_KEY; a keyless workspace

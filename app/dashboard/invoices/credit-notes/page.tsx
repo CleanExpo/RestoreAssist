@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import {
   ChevronDown,
   ChevronRight,
@@ -158,7 +159,7 @@ const REASON_CONFIG: Record<
   GOODWILL: {
     label: "Goodwill",
     className:
-      "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border-0",
+      "bg-brand-harbour-100 text-brand-harbour-700 dark:bg-brand-harbour-900/40 dark:text-brand-harbour-300 border-0",
   },
   OTHER: {
     label: "Other",
@@ -389,7 +390,7 @@ export default function CreditNotesPage() {
         </div>
         <Button
           asChild
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:opacity-90"
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white hover:opacity-90"
         >
           <Link href="/dashboard/invoices/credit-notes/new">
             <Plus className="h-4 w-4" />
@@ -422,7 +423,7 @@ export default function CreditNotesPage() {
           <Card className="max-w-xs border-slate-200 dark:border-slate-700">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-                <DollarSign className="h-4 w-4 text-cyan-500" />
+                <DollarSign className="h-4 w-4 text-brand-harbour-500" />
                 Total Credits Issued
               </CardTitle>
             </CardHeader>
@@ -430,7 +431,7 @@ export default function CreditNotesPage() {
               <p className="text-2xl font-bold text-slate-900 dark:text-white">
                 {formatCurrencyCents(totalCreditsIssued)}
               </p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+              <p className="text-xs text-brand-slate dark:text-slate-500 mt-1">
                 Excludes voided credit notes
               </p>
             </CardContent>
@@ -456,7 +457,7 @@ export default function CreditNotesPage() {
               }}
               className={`px-4 py-2 text-sm font-medium transition-colors relative -mb-px ${
                 isActive
-                  ? "text-cyan-600 dark:text-cyan-400 border-b-2 border-cyan-500"
+                  ? "text-brand-harbour-600 dark:text-brand-harbour-400 border-b-2 border-brand-harbour-500"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
@@ -465,7 +466,7 @@ export default function CreditNotesPage() {
                 <span
                   className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
                     isActive
-                      ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300"
+                      ? "bg-brand-harbour-100 text-brand-harbour-700 dark:bg-brand-harbour-900/40 dark:text-brand-harbour-300"
                       : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                   }`}
                 >
@@ -500,13 +501,18 @@ export default function CreditNotesPage() {
             </TableBody>
           </Table>
         </div>
+      ) : filteredNotes.length === 0 && !isConfirmedEmpty(loadError, 0) ? (
+        // RA-8084: a failed load is unknown, not empty. The banner above carries Retry.
+        <p className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+          Credit notes could not be loaded.
+        </p>
       ) : filteredNotes.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
-          <FileX className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+          <FileX className="h-12 w-12 text-brand-slate dark:text-slate-600 mx-auto mb-3" />
           <p className="text-slate-500 dark:text-slate-400 text-base font-medium">
             No credit notes issued yet.
           </p>
-          <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+          <p className="text-sm text-brand-slate dark:text-slate-500 mt-1">
             Use the button above to issue your first credit note.
           </p>
         </div>
@@ -553,9 +559,9 @@ export default function CreditNotesPage() {
                     {/* Expand toggle */}
                     <TableCell className="pr-0">
                       {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-slate-400" />
+                        <ChevronDown className="h-4 w-4 text-brand-slate dark:text-slate-400" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-slate-400" />
+                        <ChevronRight className="h-4 w-4 text-brand-slate dark:text-slate-400" />
                       )}
                     </TableCell>
 
@@ -572,12 +578,12 @@ export default function CreditNotesPage() {
                         <Link
                           href={`/dashboard/invoices/${cn.invoiceId}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-cyan-600 dark:text-cyan-400 hover:underline text-sm font-mono"
+                          className="text-brand-harbour-600 dark:text-brand-harbour-400 hover:underline text-sm font-mono"
                         >
                           {cn.invoice.invoiceNumber}
                         </Link>
                       ) : (
-                        <span className="text-slate-400 text-sm">—</span>
+                        <span className="text-brand-slate dark:text-slate-400 text-sm">—</span>
                       )}
                     </TableCell>
 

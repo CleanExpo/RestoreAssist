@@ -92,11 +92,17 @@ export function WelcomeOverview() {
 
       <CardContent className="space-y-6 pt-6">
         <p className="text-sm leading-relaxed text-neutral-700">
-          RestoreAssist is a job system built for Australian restoration
-          contractors. It carries one job from the first site visit through to
-          the invoice — the photos, the moisture readings, the sketch, the
-          report, the scope and the client updates all live on the same job
-          rather than in a camera roll, a spreadsheet and a document folder.
+          RestoreAssist is the CRM built for Australian and New Zealand
+          restoration businesses. It carries one job from the first site visit
+          through to the invoice — the photos, the moisture readings, the
+          sketch, the report, the scope and the client updates all live on the
+          same job rather than in a camera roll, a spreadsheet and a document
+          folder.
+        </p>
+        <p className="text-sm leading-relaxed text-neutral-700">
+          On top of the CRM, optional Field Add-Ons switch on extra features
+          when your business needs them. Setup shows them all as cards, and
+          you can add one any time from Field Add-Ons in the side panel.
         </p>
 
         <div>

@@ -1,4 +1,9 @@
 import { refuseNonOwner } from "@/lib/billing/require-billing-owner";
+import { TECHNICIAN_SEATS_ADDON_SUBSCRIPTION_TYPE } from "@/lib/billing/technician-seats-addon";
+import {
+  parseCheckoutReturn,
+  planReturnUrls,
+} from "@/lib/billing/checkout-return";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -154,7 +159,7 @@ export async function POST(request: NextRequest) {
           ? "https://restoreassist.app"
           : "http://localhost:3000");
 
-      let parsed: { priceId?: string; plan?: string } = {};
+      let parsed: { priceId?: string; plan?: string; returnTo?: unknown } = {};
       try {
         const raw: unknown = rawBody ? JSON.parse(rawBody) : {};
         if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -164,7 +169,7 @@ export async function POST(request: NextRequest) {
             status: 400,
           });
         }
-        parsed = raw as { priceId?: string; plan?: string };
+        parsed = raw as { priceId?: string; plan?: string; returnTo?: unknown };
       } catch {
         return apiError(request, {
           code: "VALIDATION",
@@ -172,6 +177,16 @@ export async function POST(request: NextRequest) {
           status: 400,
         });
       }
+
+      const checkoutReturn = parseCheckoutReturn(parsed.returnTo);
+      if (!checkoutReturn.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Unknown return target",
+          status: 400,
+        });
+      }
+      const returnUrls = planReturnUrls(baseUrl, checkoutReturn.target);
 
       const resolved = resolveCheckoutPriceId(parsed);
       if ("error" in resolved) {
@@ -277,8 +292,12 @@ export async function POST(request: NextRequest) {
         customer: customerId,
         status: "all",
       });
+      // A trial owner who bought a technician seat holds a live seat subscription
+      // and must still be able to buy the plan.
       const hasLiveSub = existingSubs.data.some(
-        (sub) => sub.status === "active" || sub.status === "trialing",
+        (sub) =>
+          (sub.status === "active" || sub.status === "trialing") &&
+          sub.metadata?.type !== TECHNICIAN_SEATS_ADDON_SUBSCRIPTION_TYPE,
       );
       if (hasLiveSub) {
         let portalUrl: string | null = null;
@@ -319,8 +338,8 @@ export async function POST(request: NextRequest) {
             quantity: 1,
           },
         ],
-        success_url: `${baseUrl}/dashboard/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}${CHECKOUT_CANCEL_PATH}`,
+        success_url: returnUrls.successUrl,
+        cancel_url: returnUrls.cancelUrl,
         metadata: {
           userId: userId,
         },

@@ -18,6 +18,8 @@ import {
   Mail,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { resolveClientRecipient } from "@/lib/client-recipient";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import InspectionReportViewer from "@/components/InspectionReportViewer";
 import ScopeOfWorksViewer from "@/components/ScopeOfWorksViewer";
@@ -49,6 +51,7 @@ import {
 } from "@/lib/client/parse-api-error";
 import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
 import { ReportClientSendChecklist } from "@/components/reports/ReportClientSendChecklist";
+import { ReportDetailHonestyPanel } from "@/components/reports/ReportDetailHonestyPanel";
 
 export default function ReportDetailPage({
   params,
@@ -135,7 +138,7 @@ export default function ReportDetailPage({
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -179,7 +182,7 @@ export default function ReportDetailPage({
         method: "POST",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to generate link");
+      if (!res.ok) throw new Error(apiErrorMessage(data) ?? "Failed to generate link");
       await navigator.clipboard.writeText(data.url);
       setInsurerLinkCopied(true);
       toast.success(
@@ -196,7 +199,11 @@ export default function ReportDetailPage({
 
   // RA-7632: emailing the finished report is the delivery record Close Job
   // needs. The server enforces both conditions; this only explains the state.
-  const clientEmail: string = report.client?.email?.trim() ?? "";
+  const clientEmail: string =
+    resolveClientRecipient<{ email?: string | null }>({
+      reportClient: report.client,
+      inspectionClient: report.inspection?.client,
+    })?.email ?? "";
   const canEmailClient =
     report.status === "COMPLETED" && clientEmail.length > 0;
   const emailClientTitle =
@@ -244,7 +251,7 @@ export default function ReportDetailPage({
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.push("/dashboard/reports")}
-          className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+          className="p-2 hover:bg-brand-cream dark:hover:bg-slate-800 rounded-lg transition-colors"
           title="Back to Reports"
         >
           <ArrowLeft size={20} />
@@ -253,13 +260,15 @@ export default function ReportDetailPage({
           <h1 className="text-2xl font-semibold mb-1">
             {report.reportNumber || report.title || "Report Details"}
           </h1>
-          <p className="text-slate-400 text-sm">
+          <p className="text-brand-slate dark:text-slate-400 text-sm">
             {report.clientName && `${report.clientName} • `}
             {report.propertyAddress}
             {report.propertyPostcode && ` • ${report.propertyPostcode}`}
           </p>
         </div>
       </div>
+
+      <ReportDetailHonestyPanel report={report} />
 
       {/* Weakness check — reviewed ahead of export/handoff (RA-5041 UI) */}
       {reportId && (
@@ -278,11 +287,7 @@ export default function ReportDetailPage({
           inspectionId={
             report?.inspectionId ?? report?.inspection?.id ?? null
           }
-          clientEmailHint={
-            report?.client?.email ??
-            report?.clientEmail ??
-            null
-          }
+          clientEmailHint={clientEmail || report?.clientEmail || null}
           canSend={canEmailClient}
           sending={emailingClient}
           onSend={() => requestExport(handleEmailClient)}
@@ -294,7 +299,7 @@ export default function ReportDetailPage({
         {!report?.inspection?.id && reportId && report.userId === session?.user?.id && (
           <button
             onClick={() => router.push(`/dashboard/inspections/new?reportId=${encodeURIComponent(reportId)}`)}
-            className="px-3 py-2 rounded-lg bg-cyan-700 text-white hover:bg-cyan-600 text-sm"
+            className="px-3 py-2 rounded-lg bg-brand-harbour-700 text-white hover:bg-brand-harbour-600 text-sm"
           >
             Create inspection job
           </button>
@@ -303,7 +308,7 @@ export default function ReportDetailPage({
         <button
           onClick={() => requestExport(handleDownloadPDF)}
           title="Download IICRC S500:2021 compliant PDF"
-          className="flex items-center gap-2 px-3 py-2 bg-slate-700 text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+          className="flex items-center gap-2 px-3 py-2 bg-brand-cream dark:bg-slate-700 text-brand-navy dark:text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
         >
           <Download size={16} />
           PDF Report
@@ -331,7 +336,7 @@ export default function ReportDetailPage({
           onClick={() => requestExport(handleEmailClient)}
           disabled={!canEmailClient || emailingClient}
           title={emailClientTitle}
-          className="flex items-center gap-2 px-3 py-2 bg-cyan-600 text-white rounded-lg font-medium hover:bg-cyan-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm"
+          className="flex items-center gap-2 px-3 py-2 bg-brand-harbour-600 text-white rounded-lg font-medium hover:bg-brand-harbour-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm"
         >
           {emailingClient ? (
             <Loader2 size={16} className="animate-spin" />
@@ -373,11 +378,24 @@ export default function ReportDetailPage({
               params.set("postcode", report.propertyPostcode);
             router.push(`/dashboard/interviews/new?${params.toString()}`);
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
         >
           <MessageSquare size={18} />
           Start Interview
         </button>
+        {/* RA-8081: report pages that had no link anywhere */}
+        <Link
+          href={`/dashboard/reports/${reportId}/preview`}
+          className="flex items-center gap-2 px-3 py-2 bg-brand-cream dark:bg-slate-700 text-brand-navy dark:text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+        >
+          Preview
+        </Link>
+        <Link
+          href={`/dashboard/reports/${reportId}/share`}
+          className="flex items-center gap-2 px-3 py-2 bg-brand-cream dark:bg-slate-700 text-brand-navy dark:text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
+        >
+          Share settings
+        </Link>
       </div>
 
       {/* RA-5041 UI: block export/handoff on an unacknowledged P0 hard-stop —
@@ -415,14 +433,14 @@ export default function ReportDetailPage({
       </AlertDialog>
 
       {/* Tabs */}
-      <div className="border-b border-slate-700">
+      <div className="border-b border-brand-mist dark:border-slate-700">
         <nav className="flex gap-4">
           <button
             onClick={() => setActiveTab("inspection")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "inspection"
-                ? "border-cyan-500 text-cyan-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <FileText size={18} />
@@ -432,8 +450,8 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("scope")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "scope"
-                ? "border-cyan-500 text-cyan-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <ClipboardList size={18} />
@@ -443,8 +461,8 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("cost")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "cost"
-                ? "border-cyan-500 text-cyan-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <DollarSign size={18} />
@@ -454,8 +472,8 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("authority")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "authority"
-                ? "border-cyan-500 text-cyan-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <FileSignature size={18} />
@@ -465,8 +483,8 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("approvals")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "approvals"
-                ? "border-cyan-500 text-cyan-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <CheckSquare size={18} />
@@ -476,8 +494,8 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("package")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "package"
-                ? "border-cyan-500 text-cyan-400"
-                : "border-transparent text-slate-400 hover:text-slate-300"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300"
             }`}
           >
             <FileText size={18} />

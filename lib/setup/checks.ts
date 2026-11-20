@@ -39,7 +39,7 @@ import { PLATFORM_KEY_MISSING_BODY } from "@/lib/signup-pricing-honesty";
  *   - pricing                (master qualified hours + administration fee)
  *   - sample_report_render   (IICRC PDF generation works — system health)
  *   - chain_of_custody       (hashing + UTC timestamps work — system health)
- *   - byok_keys              (≥1 ACTIVE Anthropic or OpenAI key that validates,
+ *   - byok_keys              (≥1 ACTIVE operating-provider key that validates,
  *                            or a funded TRIAL with platform credits — yellow)
  *
  * Optional (YELLOW-when-unmet) — do not block activation:
@@ -546,8 +546,8 @@ export const byokKeysCheck: Check = async (orgId) => {
 
   const connections = await listProviderConnections(workspace.id);
 
-  // Operating providers (ANTHROPIC / OPENAI / OPENROUTER) power client report
-  // generation. Sourced from the shared OPERATING_PROVIDERS list so this gate
+  // Operating providers (see OPERATING_PROVIDERS, including Meta) power client
+  // report generation. Sourced from that shared list so this gate
   // and the onboarding presence check never disagree about what "has a key" is.
   const operatingActive = connections.filter(
     (c) =>

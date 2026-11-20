@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const EMPTY_FORM = {
   name: "",
@@ -57,7 +58,7 @@ export default function JobFileAuditIntakePage() {
       if (!response.ok) {
         const firstIssue = data.issues?.[0]?.message;
         throw new Error(
-          firstIssue || data.message || data.error || "Unable to submit intake.",
+          firstIssue || data.message || apiErrorMessage(data) || "Unable to submit intake.",
         );
       }
 
@@ -79,7 +80,7 @@ export default function JobFileAuditIntakePage() {
     <div className={darkMode ? "min-h-screen bg-brand-navy" : "min-h-screen bg-brand-cloud"}>
       <main className="px-6 pb-20 pt-40">
         <div className="mx-auto max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-gold">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-bronze">
             Paid Job File Audit
           </p>
           <h1 className={`mt-4 text-4xl font-bold md:text-5xl ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>

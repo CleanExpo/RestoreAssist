@@ -9,7 +9,9 @@
 #   apply          — do they apply to an EMPTY database, in order, and does the
 #                    resulting schema match schema.prisma with no drift?
 #   rollback       — is there a down.sql that undoes them, and does it leave the
-#                    database with none of the objects the migration created?
+#                    database with none of the tables, types, functions,
+#                    policies, added columns, standalone indexes and named
+#                    constraints the migration created?
 #   additive-only  — do they touch anything that existed BEFORE this branch?
 #
 # "New migrations" = directories under prisma/migrations present here and absent
@@ -100,6 +102,32 @@ start_db() {
 }
 
 psql_q() { docker exec "$CONTAINER" psql -U ci -d ci -tAq -c "$1"; }
+
+# A name as a SQL string literal body: single quotes doubled.
+sql_lit() { printf '%s' "$1" | sed "s/'/''/g"; }
+
+# How many objects of this kind, on this table, with this name exist now.
+# The three kinds are the ones scripts/ci/sql_list_added_objects.py emits.
+count_added_object() {
+  local kind="$1" tbl name
+  tbl="$(sql_lit "$2")"
+  name="$(sql_lit "$3")"
+  case "$kind" in
+    column)
+      psql_q "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='$tbl' AND column_name='$name';"
+      ;;
+    index)
+      psql_q "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='$tbl' AND indexname='$name';"
+      ;;
+    constraint)
+      psql_q "SELECT count(*) FROM pg_constraint c JOIN pg_class r ON r.oid = c.conrelid JOIN pg_namespace ns ON ns.oid = r.relnamespace WHERE ns.nspname='public' AND r.relname='$tbl' AND c.conname='$name';"
+      ;;
+    *)
+      echo "count_added_object: unknown kind '$kind'" >&2
+      return 2
+      ;;
+  esac
+}
 
 export_db_url() {
   export DATABASE_URL="postgresql://ci:ci@localhost:${PORT}/ci"
@@ -252,6 +280,50 @@ case "$MODE" in
       }
     done
 
+    # Columns, standalone indexes and named constraints the new migrations ADD
+    # TO TABLES (RA-8388). The passes further down enumerate only CREATE TABLE,
+    # CREATE TYPE, CREATE FUNCTION and policies; a migration that only adds
+    # columns, indexes and foreign keys to tables that already exist creates
+    # none of those, so an EMPTY down.sql still printed PASS.
+    #
+    # The list is taken BEFORE the rollback and each object must be PRESENT
+    # now. That is the positive control: it proves the query can see this very
+    # object, so "absent" after the down.sql means "removed" and not "looked in
+    # the wrong place" or "misread the name".
+    python3 scripts/ci/sql_list_added_objects.py --selftest >&2 || {
+      echo "REFUSING TO RUN: sql_list_added_objects.py failed its own selftest" >&2
+      exit 5
+    }
+    added_files=()
+    for mig in "${migs[@]}"; do
+      if [ -f "prisma/migrations/$mig/migration.sql" ]; then
+        added_files+=("prisma/migrations/$mig/migration.sql")
+      fi
+    done
+    ADDED=""
+    if [ "${#added_files[@]}" -gt 0 ]; then
+      # A parse failure exits non-zero and stops here (set -e): a short list
+      # would read as "nothing else to check".
+      ADDED="$(python3 scripts/ci/sql_list_added_objects.py "${added_files[@]}")"
+    fi
+    n_col=0; n_idx=0; n_con=0
+    while IFS="$(printf '\t')" read -r kind tbl name; do
+      [ -n "$kind" ] || continue
+      n="$(count_added_object "$kind" "$tbl" "$name")"
+      if [ "$n" != "1" ]; then
+        echo "CONTROL FAILED - $kind $name on $tbl is not visible after apply (count=$n), so its absence after rollback would prove nothing" >&2
+        exit 1
+      fi
+      case "$kind" in
+        column) n_col=$((n_col + 1)) ;;
+        index) n_idx=$((n_idx + 1)) ;;
+        constraint) n_con=$((n_con + 1)) ;;
+      esac
+    done <<EOF_ADDED
+$ADDED
+EOF_ADDED
+    echo "control: present after apply - $n_col added column(s), $n_idx standalone index(es), $n_con named constraint(s)"
+
     # Reverse order, so a later migration's objects go before an earlier one's.
     for (( idx=${#migs[@]}-1 ; idx>=0 ; idx-- )); do
       mig="${migs[idx]}"
@@ -306,15 +378,30 @@ case "$MODE" in
         [ "$n" = "0" ] || { echo "STILL PRESENT after rollback: policy $pol on $tbl" >&2; rc=1; }
       done < <(python3 scripts/ci/sql_list_policies.py "$f")
     done < <(new_migrations)
+    # Every added column, standalone index and named constraint seen present
+    # above must now be gone, each named if it is not.
+    while IFS="$(printf '\t')" read -r kind tbl name; do
+      [ -n "$kind" ] || continue
+      n="$(count_added_object "$kind" "$tbl" "$name")"
+      [ "$n" = "0" ] || { echo "STILL PRESENT after rollback: $kind $name on $tbl" >&2; rc=1; }
+    done <<EOF_ADDED
+$ADDED
+EOF_ADDED
     # The claim names its own SCOPE. "Every object" was wider than what this
     # check inspects, and review round 3 was right to call it: an unscoped claim
     # is how a leak of some object class nobody enumerated gets read as proof
-    # there was none. Inspected here: tables, types, functions, policies. NOT
-    # inspected: sequences, views, extensions, grants, and indexes created
-    # outside a CREATE TABLE. None of those are created by this branch; a branch
-    # that creates one must extend this list rather than inherit the word
-    # "every".
-    [ "$rc" = "0" ] && echo "rollback: PASS — every table, type, function and policy the new migrations created is gone, and pre-existing tables remain"
+    # there was none. Inspected here: tables, types, functions, policies, and
+    # (RA-8388) columns added by ALTER TABLE, standalone indexes and named
+    # constraints. NOT inspected: sequences, views, extensions, grants, triggers
+    # on pre-existing tables, changed defaults, and the _prisma_migrations row,
+    # which no down.sql removes: after a rollback the ledger still says the
+    # migration is applied (scripts/ci/ra-8388-migration-applied.sql reads the
+    # objects for that reason). A branch that creates an uninspected kind must
+    # extend this list rather than inherit the word "every".
+    if [ "$rc" = "0" ]; then
+      echo "rollback: PASS — every table, type, function, policy, added column, standalone index and named constraint the new migrations created is gone ($n_col column(s), $n_idx index(es) and $n_con constraint(s) were seen present before the rollback), and pre-existing tables remain"
+      echo "       NOT inspected: sequences, views, extensions, grants, triggers on pre-existing tables, and the _prisma_migrations row (down.sql leaves it saying applied)"
+    fi
     exit "$rc"
     ;;
 

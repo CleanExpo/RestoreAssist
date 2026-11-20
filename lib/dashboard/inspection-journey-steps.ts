@@ -22,8 +22,10 @@ export function buildInspectionJourneySteps(input: {
   moistureCount: number;
   hasClassification: boolean;
   clientEmailSent?: boolean;
-  emailServiceConfigured?: boolean;
-  completenessGapCount?: number;
+  /** null when readiness could not be read: unknown, not configured. */
+  emailServiceConfigured?: boolean | null;
+  /** null when the check could not run: unknown, not zero. */
+  completenessGapCount?: number | null;
   showCompletenessInbox?: boolean;
 }): InspectionJourneyStep[] {
   const {
@@ -102,9 +104,11 @@ export function buildInspectionJourneySteps(input: {
       label: "Email the client",
       description: clientEmailSent
         ? "Portal or report email is on record for this job."
-        : emailServiceConfigured
-          ? "Send the claim portal link or completed report from the report page."
-          : "Email provider not configured — set Mailtrap env or Settings → Email, then send.",
+        : emailServiceConfigured === null
+          ? "Could not check whether email is set up. Reload the page to check again."
+          : emailServiceConfigured
+            ? "Send the claim portal link or completed report from the report page."
+            : "Email provider not configured — set Mailtrap env or Settings → Email, then send.",
       href: reportId
         ? `/dashboard/reports/${reportId}`
         : `/dashboard/settings/email`,
@@ -132,7 +136,20 @@ export function buildInspectionJourneySteps(input: {
     return { ...step, state: "upcoming" as const };
   });
 
-  if (showCompletenessInbox && completenessGapCount > 0) {
+  if (showCompletenessInbox && completenessGapCount === null) {
+    mapped.push({
+      id: "completeness",
+      label: "Completeness not checked",
+      description:
+        "Could not check this job for evidence gaps. Do not read this as none found.",
+      href: `/dashboard/operations/completeness-inbox`,
+      state: "current",
+    });
+  } else if (
+    showCompletenessInbox &&
+    completenessGapCount !== null &&
+    completenessGapCount > 0
+  ) {
     mapped.push({
       id: "completeness",
       label: "Completeness blockers",

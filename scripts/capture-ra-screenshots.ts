@@ -7,7 +7,7 @@
  *
  * Requirements for local capture:
  *   1. Dev server running on http://localhost:3000
- *   2. Demo account seeded (demo@restoreassist.com.au / DemoAccount-2024)
+ *   2. Demo account seeded (demo@restoreassist.app / DemoAccount-2024)
  *
  * Requirements for prod capture:
  *   1. Valid session cookie or credentials
@@ -135,7 +135,7 @@ function getBaseUrl(): string {
   switch (env) {
     case 'local': return 'http://localhost:3000';
     case 'staging': return 'https://restoreassist-staging.vercel.app';
-    case 'prod': return 'https://restoreassist.com.au';
+    case 'prod': return 'https://restoreassist.app';
     default: return 'http://localhost:3000';
   }
 }

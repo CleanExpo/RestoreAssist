@@ -17,6 +17,7 @@ import {
   type EvidenceClass as RequiredEvidenceClass,
 } from "@/lib/types/evidence";
 import type { EvidenceClass } from "@prisma/client";
+import { countableEvidence } from "./countable-evidence";
 
 export interface ValidationGap {
   evidenceClass: RequiredEvidenceClass;
@@ -70,8 +71,9 @@ export async function validateSubmission(
   claimType: string,
 ): Promise<SubmissionValidation> {
   // 1. Get all evidence items for this inspection
+  // RA-8388: only evidence that counts (a retired reading's record does not).
   const evidenceItems = await prisma.evidenceItem.findMany({
-    where: { inspectionId },
+    where: countableEvidence({ inspectionId }),
     orderBy: { capturedAt: "desc" },
     take: 500,
     select: { evidenceClass: true, status: true },

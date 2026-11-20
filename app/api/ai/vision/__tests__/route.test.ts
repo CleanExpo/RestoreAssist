@@ -21,9 +21,18 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 vi.mock("@/lib/ai/byok-vision-client", () => ({
   analyseImageWithBYOK: (...args: unknown[]) => analyseImageWithBYOK(...args),
+  VisionProviderUnsupportedError: class VisionProviderUnsupportedError extends Error {
+    constructor(provider: string) {
+      super(
+        `Photo analysis is not available for ${provider}. Add an Anthropic, OpenAI, Gemini, or Meta key in Settings → AI Providers.`,
+      );
+      this.name = "VisionProviderUnsupportedError";
+    }
+  },
 }));
 
 import { POST } from "../route";
+import { VisionProviderUnsupportedError } from "@/lib/ai/byok-vision-client";
 
 beforeEach(() => {
   getServerSession.mockReset();
@@ -54,5 +63,32 @@ describe("POST /api/ai/vision", () => {
 
     expect(response.status).toBe(402);
     expect(body).toEqual({ error: "Vision provider is not configured" });
+  });
+
+  it("returns 422, not 500, when the connected provider cannot analyse photos", async () => {
+    analyseImageWithBYOK.mockRejectedValueOnce(
+      new VisionProviderUnsupportedError("openrouter"),
+    );
+
+    const response = await POST(postRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.error?.code).toBe("FEATURE_UNAVAILABLE");
+    expect(body.error?.message).toMatch(/photo analysis is not available/i);
+    expect(JSON.stringify(body)).not.toMatch(/sk-or-|LLM_/);
+  });
+
+  it("does not 500 when the old Unsupported provider: meta error is thrown", async () => {
+    analyseImageWithBYOK.mockRejectedValueOnce(
+      new Error("Unsupported provider: meta"),
+    );
+
+    const response = await POST(postRequest());
+    const body = await response.json();
+
+    expect(response.status).not.toBe(500);
+    expect(response.status).toBe(422);
+    expect(body.error?.message).toMatch(/photo analysis is not available/i);
   });
 });

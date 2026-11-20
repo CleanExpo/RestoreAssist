@@ -29,6 +29,7 @@ import type {
   SyncedListPagination,
   SyncedListResponse,
 } from "@/lib/synced-data/types";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface SyncedClientsPanelProps {
   source: ExternalDataSource;
@@ -89,7 +90,7 @@ export function SyncedClientsPanel({
           total: 0,
           totalPages: 0,
         });
-        setError(body.error || body.message || "Failed to load synced clients");
+        setError(apiErrorMessage(body) || body.message || "Failed to load synced clients");
         return;
       }
 
@@ -142,7 +143,7 @@ export function SyncedClientsPanel({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500" />
       </div>
     );
   }
@@ -230,7 +231,7 @@ export function SyncedClientsPanel({
                 </div>
               )}
               {row.address && (
-                <div className="text-sm text-neutral-500 dark:text-slate-500 mt-1">
+                <div className="text-sm text-neutral-600 dark:text-slate-500 mt-1">
                   {row.address}
                 </div>
               )}
@@ -388,26 +389,26 @@ export function SyncedClientsPanel({
           {detail && (
             <dl className="space-y-3 text-sm">
               <div>
-                <dt className="text-neutral-500 dark:text-slate-500">Email</dt>
+                <dt className="text-neutral-600 dark:text-slate-500">Email</dt>
                 <dd>{detail.email || "—"}</dd>
               </div>
               <div>
-                <dt className="text-neutral-500 dark:text-slate-500">Phone</dt>
+                <dt className="text-neutral-600 dark:text-slate-500">Phone</dt>
                 <dd>{detail.phone || "—"}</dd>
               </div>
               <div>
-                <dt className="text-neutral-500 dark:text-slate-500">Address</dt>
+                <dt className="text-neutral-600 dark:text-slate-500">Address</dt>
                 <dd>{detail.address || "—"}</dd>
               </div>
               <div>
-                <dt className="text-neutral-500 dark:text-slate-500">
+                <dt className="text-neutral-600 dark:text-slate-500">
                   External ID
                 </dt>
                 <dd className="font-mono text-xs">{detail.externalId}</dd>
               </div>
               {detail.jobCount != null && (
                 <div>
-                  <dt className="text-neutral-500 dark:text-slate-500">
+                  <dt className="text-neutral-600 dark:text-slate-500">
                     Linked jobs
                   </dt>
                   <dd>{detail.jobCount}</dd>

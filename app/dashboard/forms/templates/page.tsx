@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import {
   Plus,
   Search,
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -171,7 +173,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error ?? `Server error ${res.status}`);
+        throw new Error(apiErrorMessage(data) ?? `Server error ${res.status}`);
       }
       const data = await res.json();
       onCreated(data.template ?? data);
@@ -196,7 +198,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
         <button
           type="button"
           onClick={onCancel}
-          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          className="text-brand-slate dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
           aria-label="Close"
         >
           <X className="h-4 w-4" />
@@ -367,6 +369,7 @@ export default function FormTemplatesPage() {
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // UI state
   const [search, setSearch] = useState("");
@@ -403,7 +406,7 @@ export default function FormTemplatesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   // ── Derived lists ──────────────────────────────────────────────────────────
 
@@ -528,7 +531,7 @@ export default function FormTemplatesPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-brand-slate dark:text-slate-400 pointer-events-none" />
           <Input
             placeholder="Search templates…"
             value={search}
@@ -562,6 +565,13 @@ export default function FormTemplatesPage() {
       {error && (
         <div className="rounded-md border border-destructive-subtle-foreground/30 bg-destructive-subtle px-4 py-3 text-sm text-destructive-subtle-foreground">
           {error}
+          <button
+            type="button"
+            className="ml-3 underline"
+            onClick={() => setReloadKey((k) => k + 1)}
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -599,8 +609,11 @@ export default function FormTemplatesPage() {
                   className="py-16 text-center text-sm text-slate-500 dark:text-slate-400"
                 >
                   <div className="flex flex-col items-center gap-3">
-                    <FileText className="h-8 w-8 text-slate-300 dark:text-slate-600" />
-                    {templates.length === 0 ? (
+                    <FileText className="h-8 w-8 text-brand-slate dark:text-slate-600" />
+                    {templates.length === 0 && !isConfirmedEmpty(error, 0) ? (
+                      // RA-8084: a failed load is unknown, not empty.
+                      <span>Templates could not be loaded.</span>
+                    ) : templates.length === 0 ? (
                       <span>
                         No form templates yet. Create a custom template for your
                         inspection forms.
@@ -608,7 +621,7 @@ export default function FormTemplatesPage() {
                     ) : (
                       <span>No templates match your current filters.</span>
                     )}
-                    {templates.length === 0 && (
+                    {templates.length === 0 && isConfirmedEmpty(error, 0) && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -682,7 +695,7 @@ export default function FormTemplatesPage() {
                         onCheckedChange={() => handleToggleActive(template)}
                         disabled={isToggling}
                         aria-label={`Toggle ${template.name} active state`}
-                        className="data-[state=checked]:bg-cyan-500"
+                        className="data-[state=checked]:bg-brand-harbour-500"
                       />
                     </TableCell>
 

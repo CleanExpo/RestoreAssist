@@ -4,8 +4,8 @@
  *
  * - NRPG: the DR-NRPG referral network is the founder's own product and is not
  *   ready. Nothing a customer sees may mention it until he says so.
- * - ServiceM8, MYOB, QuickBooks: none has passed a real sync test, so each is
- *   hidden rather than shown with a badge saying it may not work.
+ * - ServiceM8, MYOB, QuickBooks, Zoho CRM: none has passed a real sync test,
+ *   so each is hidden rather than shown with a badge saying it may not work.
  * - Import Data: the Integrations page button re-pulls through a jobs path
  *   that always fails yet reports success (RA-7663).
  *
@@ -47,6 +47,13 @@ export function isMyobEnabled(
 /** QuickBooks card on the Integrations page and in the Bookkeeping add-on copy. */
 export function isQuickBooksEnabled(
   raw: string | undefined = process.env.NEXT_PUBLIC_QUICKBOOKS_ENABLED,
+): boolean {
+  return isOn(raw);
+}
+
+/** Zoho CRM card on the Integrations page. Hidden until a sandbox sync is proven. */
+export function isZohoEnabled(
+  raw: string | undefined = process.env.NEXT_PUBLIC_ZOHO_ENABLED,
 ): boolean {
   return isOn(raw);
 }

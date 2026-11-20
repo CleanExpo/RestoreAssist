@@ -10,7 +10,7 @@ import {
   calculateTotalAmps,
   desiccantDehumidifiers,
   getEquipmentGroupById,
-  getEquipmentPricingField,
+  getEquipmentDailyRateOrNull,
   lgrDehumidifiers,
   type EquipmentSelection,
 } from "@/lib/equipment-matrix";
@@ -55,6 +55,12 @@ import { useRouter } from "next/navigation";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import {
+  addEquipmentAmounts,
+  editableStoredEquipment,
+  equipmentLineAmount,
+} from "@/lib/reports/stored-equipment-pricing";
+import { UnreadableEquipmentNotice } from "@/components/UnreadableEquipmentNotice";
 import type { InitialDataEntryFormProps } from "./initial-data-entry/types";
 import { normalizeDate } from "./initial-data-entry/normalize-date";
 import { shouldCreateReport } from "@/lib/reports/should-create-report";
@@ -479,6 +485,12 @@ export default function InitialDataEntryForm({
   );
   // Calculator defaults are examples, not site measurements or an approved plan.
   const [includeEquipmentEstimate, setIncludeEquipmentEstimate] = useState(false);
+  // Saved equipment lines the one reader could not read. They are not in the
+  // list shown here, and the user is told so for as long as the form is open.
+  // This form sends equipment only when it CREATES a report; saved lines are
+  // loaded only for an existing report, which it never writes back (see
+  // shouldCreateReport in handleSubmit), so it cannot delete the line.
+  const [unreadableSavedLines, setUnreadableSavedLines] = useState(0);
 
   // NIR State (only used when reportType is 'nir')
   const [nirEnvironmentalData, setNirEnvironmentalData] = useState({
@@ -737,11 +749,17 @@ export default function InitialDataEntryForm({
             );
           }
 
-          if (
-            equipmentData.equipmentSelection &&
-            Array.isArray(equipmentData.equipmentSelection)
-          ) {
-            setEquipmentSelections(equipmentData.equipmentSelection);
+          // RA-8281 B1 round 13: saved lines are read through the one
+          // reader. A line that cannot be read is left out of the editable
+          // list, counted and shown as a standing notice.
+          const saved = editableStoredEquipment(
+            equipmentData.equipmentSelection,
+          );
+          // Set on every load, also when nothing is stored, so a count
+          // from an earlier report never outlives it.
+          setUnreadableSavedLines(saved.unusableCount);
+          if (saved.hasLines) {
+            setEquipmentSelections(saved.selections);
             hasAutoSelectedEquipment.current = true; // Mark as already set to prevent auto-selection
           }
 
@@ -1169,22 +1187,28 @@ export default function InitialDataEntryForm({
       ?.circuitsRequired ?? 0;
   // A preview price exists only when the actual rate card has a finite,
   // non-negative rate for the group. Zero is a real configured price.
+  // It is the BILLABLE rate (the price-list rate to the whole cent) from the
+  // rate reader, so the rate shown here is the rate the running total and the
+  // server use: 49.995 reads $50.00/day, never $49.99 beside a $50.00 bill.
   const knownDailyRate = (groupId: string): number | null => {
-    const field = getEquipmentPricingField(groupId);
-    const rate = field && pricingConfig ? pricingConfig[field] : undefined;
-    return typeof rate === "number" && Number.isFinite(rate) && rate >= 0
-      ? rate
-      : null;
+    const rate = getEquipmentDailyRateOrNull(groupId, pricingConfig);
+    return rate !== null && rate >= 0 ? rate : null;
   };
   const selectionRates = equipmentSelections.map((sel) =>
     knownDailyRate(sel.groupId),
   );
   const totalCost = selectionRates.every((rate) => rate !== null)
-    ? equipmentSelections.reduce(
-        (total, sel, i) =>
-          total + (selectionRates[i] as number) * sel.quantity * durationDays,
-        0,
-      )
+    ? equipmentSelections.reduce<number | null>((total, sel, i) => {
+        // Whole cents, through the same arithmetic the server stores.
+        const amount = equipmentLineAmount(
+          selectionRates[i] as number,
+          sel.quantity,
+          durationDays,
+        );
+        return total === null || amount === null
+          ? null
+          : addEquipmentAmounts(total, amount);
+      }, 0)
     : null;
   const dailyRateLabel = (groupId: string) => {
     const rate = knownDailyRate(groupId);
@@ -2708,7 +2732,7 @@ export default function InitialDataEntryForm({
             <div
               className={cn(
                 "px-3 py-1.5 rounded-full text-sm font-semibold",
-                "bg-blue-500/10 dark:bg-cyan-500/10 text-blue-600 dark:text-cyan-400",
+                "bg-blue-500/10 dark:bg-brand-harbour-500/10 text-blue-600 dark:text-brand-harbour-400",
               )}
             >
               {Math.round(((currentStep + 1) / visibleSteps.length) * 100)}%
@@ -2726,7 +2750,7 @@ export default function InitialDataEntryForm({
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-500 ease-out",
-                "bg-gradient-to-r from-blue-500 to-cyan-500",
+                "bg-gradient-to-r from-blue-500 to-brand-harbour-500",
               )}
               style={{
                 width: `${((currentStep + 1) / visibleSteps.length) * 100}%`,
@@ -4384,7 +4408,7 @@ export default function InitialDataEntryForm({
                         e.target.checked,
                       )
                     }
-                    className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-700 bg-slate-700 text-cyan-500 focus:ring-cyan-500"
+                    className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-700 bg-slate-700 text-brand-harbour-500 focus:ring-brand-harbour-500"
                   />
                   Visible bio/mould growth recorded
                 </label>
@@ -4603,6 +4627,7 @@ export default function InitialDataEntryForm({
               />
               Include this equipment estimate and its inputs in the saved draft
             </label>
+            <UnreadableEquipmentNotice count={unreadableSavedLines} />
 
             {/* Psychrometric Assessment */}
             <div className="space-y-4">
@@ -4635,7 +4660,7 @@ export default function InitialDataEntryForm({
                         onClick={() => setWaterClass(cls as 1 | 2 | 3 | 4)}
                         className={`px-4 py-2 rounded-lg border transition-colors ${
                           waterClass === cls
-                            ? "border-cyan-500 bg-cyan-500/20 text-primary-600 dark:text-primary-400"
+                            ? "border-brand-harbour-500 bg-brand-harbour-500/20 text-primary-600 dark:text-primary-400"
                             : "border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-slate-500"
                         }`}
                       >
@@ -4754,7 +4779,7 @@ export default function InitialDataEntryForm({
                         </div>
                         <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                           <div
-                            className="bg-cyan-500 h-2 rounded-full"
+                            className="bg-brand-harbour-500 h-2 rounded-full"
                             style={{
                               width: `${Math.min(
                                 100,
@@ -4777,7 +4802,7 @@ export default function InitialDataEntryForm({
                         </div>
                         <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                           <div
-                            className="bg-cyan-500 h-2 rounded-full"
+                            className="bg-brand-harbour-500 h-2 rounded-full"
                             style={{
                               width: `${Math.min(
                                 100,
@@ -4800,7 +4825,7 @@ export default function InitialDataEntryForm({
                           </div>
                           <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                             <div
-                              className="bg-cyan-500 h-2 rounded-full"
+                              className="bg-brand-harbour-500 h-2 rounded-full"
                               style={{
                                 width: `${Math.min(
                                   100,
@@ -4862,7 +4887,7 @@ export default function InitialDataEntryForm({
                   <button
                     type="button"
                     onClick={handleAutoSelect}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                   >
                     <Wrench className="w-4 h-4" />
                     Auto-Select Best Fit
@@ -4883,7 +4908,7 @@ export default function InitialDataEntryForm({
                             key={group.id}
                             className={`p-3 rounded-lg border ${
                               quantity > 0
-                                ? "border-cyan-500/50 bg-cyan-500/10"
+                                ? "border-brand-harbour-500/50 bg-brand-harbour-500/10"
                                 : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50"
                             }`}
                           >
@@ -4897,7 +4922,7 @@ export default function InitialDataEntryForm({
                                 </div>
                               </div>
                               {quantity > 0 && (
-                                <div className="px-3 py-1 bg-cyan-500/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
+                                <div className="px-3 py-1 bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                   {quantity}
                                 </div>
                               )}
@@ -4941,7 +4966,7 @@ export default function InitialDataEntryForm({
                             key={group.id}
                             className={`p-3 rounded-lg border ${
                               quantity > 0
-                                ? "border-cyan-500/50 bg-cyan-500/10"
+                                ? "border-brand-harbour-500/50 bg-brand-harbour-500/10"
                                 : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50"
                             }`}
                           >
@@ -4955,7 +4980,7 @@ export default function InitialDataEntryForm({
                                 </div>
                               </div>
                               {quantity > 0 && (
-                                <div className="px-3 py-1 bg-cyan-500/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
+                                <div className="px-3 py-1 bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                   {quantity}
                                 </div>
                               )}
@@ -5003,7 +5028,7 @@ export default function InitialDataEntryForm({
                             key={group.id}
                             className={`p-3 rounded-lg border ${
                               quantity > 0
-                                ? "border-cyan-500/50 bg-cyan-500/10"
+                                ? "border-brand-harbour-500/50 bg-brand-harbour-500/10"
                                 : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50"
                             }`}
                           >
@@ -5017,7 +5042,7 @@ export default function InitialDataEntryForm({
                                 </div>
                               </div>
                               {quantity > 0 && (
-                                <div className="px-3 py-1 bg-cyan-500/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
+                                <div className="px-3 py-1 bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                   {quantity}
                                 </div>
                               )}
@@ -5066,6 +5091,9 @@ export default function InitialDataEntryForm({
       </form>
 
       {/* Review Section - Shows all data before report type selection */}
+      {showReview && (
+        <UnreadableEquipmentNotice count={unreadableSavedLines} />
+      )}
       {showReview && (
         <ReviewSection
           formData={formData}

@@ -89,7 +89,7 @@ export async function evidencePhotoFromFile(
   const filename =
     (file instanceof File && file.name) ||
     filenameHint ||
-    `capture-${Date.now()}.${mimeType.includes("png") ? "png" : mimeType.includes("pdf") ? "pdf" : "jpg"}`;
+    `capture-${Date.now()}.${mimeType.includes("png") ? "png" : mimeType.includes("pdf") ? "pdf" : mimeType.includes("quicktime") ? "mov" : mimeType.includes("webm") ? "webm" : mimeType.startsWith("video/") ? "mp4" : "jpg"}`;
 
   const [loc, sha256] = await Promise.all([
     getCurrentLocation().catch(() => null),
@@ -109,6 +109,11 @@ export async function evidencePhotoFromFile(
     },
   };
 }
+
+/** Picker filter for video evidence. A video-only accept list plus
+ * capture="environment" makes phones open the camera in video mode; a mixed
+ * image/video list opens the stills camera, so video could never be recorded. */
+export const VIDEO_EVIDENCE_ACCEPT = "video/mp4,video/quicktime,video/webm,video/*";
 
 let pickerOpen = false;
 
@@ -191,7 +196,11 @@ export function pickEvidencePhotoFile(options?: {
 // different server-side fingerprint, so reusing the signed attempt's key
 // would collide into a false 409 and block the technician entirely.
 export async function evidenceIdempotencyKey(
-  manifest: IOSCaptureManifest,
+  // RA-8388: only these two fields are read, and metadata submissions have
+  // both — the canonical payload digest and the capture time. Narrowing the
+  // parameter to what is actually used lets the metadata writer share this
+  // derivation instead of growing a second, subtly different key scheme.
+  manifest: Pick<IOSCaptureManifest, "sha256" | "capturedAt">,
   context: {
     inspectionId: string;
     workflowStepId?: string | null;

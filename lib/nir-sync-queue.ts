@@ -20,6 +20,12 @@ import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineRep
 
 import { sameOfflineOwner } from "@/lib/offline/ownership";
 import { notifySyncQueueChanged } from "@/lib/offline/sync-status-event";
+import toast from "react-hot-toast";
+import {
+  FLOOR_REVISION_HEADER,
+  isFloorRevisionConflict,
+  readFloorRevision,
+} from "@/lib/sketch/floor-revision";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -86,8 +92,45 @@ export interface SketchSavePayload {
   equipmentPoints?: unknown;
   /** RA-7091 — ClaimSketch.captureAdapter (manual | roomplan | …). */
   captureAdapter?: string;
+  /**
+   * RA-7656 — the user removed rooms on purpose (Clear Canvas or a room
+   * delete). Replayed unchanged so the route applies a save without rooms.
+   */
+  userRemovedRooms?: boolean;
   /** Epoch ms at the moment the local sketch state was captured. */
   clientUpdatedAt: number;
+  /**
+   * RA-8056 — the floor revision the editor based this save on (the one it
+   * loaded or last saved, or `none` for a floor it never saw saved). Sent
+   * unchanged as `x-sketch-revision` on replay. Absent on entries queued
+   * before revisions existed; those keep the timestamp check.
+   */
+  baseRevision?: string;
+  /**
+   * RA-8056 — the editor session (one mounted editor) that queued the save.
+   * Coalescing collapses only this session's own saves for a floor.
+   */
+  editorSessionId?: string;
+  /**
+   * RA-8056 — the route refused this save as a revision conflict and the
+   * editor queued it so the user keeps it (it lands in Sync failed). It is
+   * never coalesced away or dropped as superseded: no later save holds it.
+   */
+  refusedAsConflict?: boolean;
+}
+
+/**
+ * RA-8056 — fired on `window` after a queued sketch save replays
+ * successfully, so the editor session that queued it adopts the floor's new
+ * revision instead of refusing its own next save as a conflict.
+ */
+export const SKETCH_SAVE_REPLAYED_EVENT = "restoreassist:sketch-save-replayed";
+export interface SketchSaveReplayedDetail {
+  inspectionId: string;
+  floorNumber: number;
+  editorSessionId: string | null;
+  baseRevision: string | null;
+  revision: string | null;
 }
 
 export interface SyncQueueEntry {
@@ -105,6 +148,32 @@ export interface SyncQueueEntry {
   lastAttemptAt?: string;
   retryCount: number;
   status: "pending" | "processing" | "failed";
+  /** RA-7862 B15 — POST succeeded; verify on server before another POST. */
+  verifyPending?: boolean;
+  /** Moisture / environmental row id from a successful POST body. */
+  serverResourceId?: string;
+  /**
+   * RA-8242 - the HTTP status of a permanent rejection. Set only when the
+   * server refused the save for good; the entry is then `failed` and the
+   * payload is kept untouched for the technician to fix, export or discard.
+   */
+  rejectedStatus?: number;
+}
+
+/**
+ * RA-8242 - a 4xx the server will give again for the same payload. 408
+ * (timeout), 409 (handled on its own below) and 429 (rate limit) can succeed
+ * later, so they are not permanent. 401 and 403 never reach this check:
+ * `fetchOfflineReplay` pauses the queue on them.
+ */
+function isPermanentRejection(status: number): boolean {
+  return (
+    status >= 400 &&
+    status < 500 &&
+    status !== 408 &&
+    status !== 409 &&
+    status !== 429
+  );
 }
 
 export interface SyncConflict {
@@ -280,7 +349,17 @@ export async function enqueueSketchSave(
           existing.type === "sketch-save" &&
           existing.status === "pending" &&
           (existing.payload as SketchSavePayload | null)?.floorNumber ===
-            payload.floorNumber
+            payload.floorNumber &&
+          // RA-8056: another tab's queued edit for this floor is its own
+          // work; keep it and let the route's revision check decide. An edit
+          // the route refused as a conflict is kept whatever comes after it.
+          (existing.payload as SketchSavePayload | null)?.refusedAsConflict !==
+            true &&
+          (payload.editorSessionId == null ||
+            (existing.payload as SketchSavePayload | null)?.editorSessionId ==
+              null ||
+            (existing.payload as SketchSavePayload).editorSessionId ===
+              payload.editorSessionId)
         ) {
           cursor.delete();
         }
@@ -417,6 +496,51 @@ export async function retryFailedEntry(id: string): Promise<boolean> {
  * confirmation gate at this layer; the caller (UI) is responsible for
  * asking the user before invoking.
  */
+/**
+ * RA-8056 — a live save from an editor session carries that session's newest
+ * canvas for the floor, so its own older queued saves for the floor are
+ * superseded. Drop them: replayed with the older revision they would be
+ * refused and sit in Sync failed with nothing left to retry. Other sessions'
+ * entries, other floors and failed entries are left alone.
+ */
+export async function discardSupersededSketchSaves(
+  inspectionId: string,
+  floorNumber: number,
+  editorSessionId: string,
+): Promise<void> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, "readwrite");
+    const index = tx.objectStore(QUEUE_STORE).index("by-inspection");
+    const cursorReq = index.openCursor(IDBKeyRange.only(inspectionId));
+    let removed = 0;
+    cursorReq.onsuccess = (evt) => {
+      const cursor = (evt.target as IDBRequest<IDBCursorWithValue>).result;
+      if (!cursor) return;
+      const entry = cursor.value as SyncQueueEntry;
+      const payload = entry.payload as SketchSavePayload | null;
+      if (
+        ownsOfflineEntry(entry) &&
+        entry.type === "sketch-save" &&
+        entry.status === "pending" &&
+        payload?.floorNumber === floorNumber &&
+        payload?.editorSessionId === editorSessionId &&
+        payload?.refusedAsConflict !== true
+      ) {
+        cursor.delete();
+        removed++;
+      }
+      cursor.continue();
+    };
+    cursorReq.onerror = () => reject(cursorReq.error);
+    tx.onerror = () => reject(tx.error);
+    tx.oncomplete = () => {
+      if (removed > 0) notifySyncQueueChanged();
+      resolve();
+    };
+  });
+}
+
 export async function removeFailedEntry(id: string): Promise<void> {
   const entry = (await getFailedEntries()).find((item) => item.id === id);
   if (!entry || !ownsOfflineEntry(entry)) return;
@@ -465,6 +589,105 @@ export async function drainQueue(): Promise<number> {
   return withOfflineDrainLock(SYNC_DRAIN_LOCK_NAME, drainQueueImpl);
 }
 
+type ExportMoistureRow = {
+  location?: string;
+  material?: string;
+  moistureContent?: number;
+};
+
+function moisturePayloadMatchesExport(
+  payload: unknown,
+  row: ExportMoistureRow,
+): boolean {
+  if (!payload || typeof payload !== "object") return false;
+  const p = payload as {
+    location?: string;
+    surfaceType?: string;
+    moistureLevel?: number;
+  };
+  return (
+    typeof p.location === "string" &&
+    typeof p.surfaceType === "string" &&
+    typeof p.moistureLevel === "number" &&
+    p.location.trim() === row.location &&
+    p.surfaceType === row.material &&
+    p.moistureLevel === row.moistureContent
+  );
+}
+
+async function putQueueEntry(
+  db: IDBDatabase,
+  entry: SyncQueueEntry,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, "readwrite");
+    const req = tx.objectStore(QUEUE_STORE).put(entry);
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => {
+      notifySyncQueueChanged();
+      resolve();
+    };
+  });
+}
+
+/**
+ * RA-7862 B15 — moisture rows are time-series; after idempotency TTL expires a
+ * blind re-POST duplicates. List via export-data and match payload fingerprint.
+ */
+async function tryClearMoistureViaExportListing(
+  db: IDBDatabase,
+  entry: SyncQueueEntry,
+): Promise<"cleared" | "missing" | "offline"> {
+  const readback = await fetchOfflineReplay(
+    entry.owner,
+    `/api/inspections/${entry.inspectionId}/export-data`,
+    { cache: "no-store" },
+  );
+  if (!readback) return "offline";
+  const data = readback.ok ? await readback.json().catch(() => null) : null;
+  const readings = data?.moistureReadings;
+  if (
+    Array.isArray(readings) &&
+    readings.some((row: ExportMoistureRow) =>
+      moisturePayloadMatchesExport(entry.payload, row),
+    )
+  ) {
+    await removeEntry(db, entry.id);
+    return "cleared";
+  }
+  return "missing";
+}
+
+/**
+ * Server-side Idempotency-Key lifetime, `TTL_MS` in lib/idempotency.ts (a
+ * server module, so not imported here; a test pins the two together). While
+ * a key lives, a replayed POST cannot insert twice.
+ */
+export const MOISTURE_IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+// Read back an hour early so a slow clock or a long drain cannot straddle expiry.
+const MOISTURE_VERIFY_AFTER_MS = MOISTURE_IDEMPOTENCY_TTL_MS - 60 * 60 * 1000;
+
+/**
+ * Read back before re-POSTing only where the key cannot be trusted: an
+ * unconfirmed 2xx, or an entry old enough that its key may have expired.
+ * Inside the TTL a retry (409 in flight, 5xx, lost response) is safe to POST,
+ * and gating every retry on the read-back left readings unsynced.
+ */
+function moistureNeedsVerifyBeforePost(
+  entry: SyncQueueEntry,
+  now: number = Date.now(),
+): boolean {
+  if (entry.type !== "moisture-reading") return false;
+  if (entry.verifyPending === true || Boolean(entry.serverResourceId)) {
+    return true;
+  }
+  const queuedAt = Date.parse(entry.queuedAt);
+  return (
+    entry.retryCount > 0 &&
+    (!Number.isFinite(queuedAt) || now - queuedAt >= MOISTURE_VERIFY_AFTER_MS)
+  );
+}
+
 async function drainQueueImpl(): Promise<number> {
   if (typeof window === "undefined" || !navigator.onLine) return 0;
 
@@ -497,6 +720,19 @@ async function drainQueueImpl(): Promise<number> {
     }
 
     try {
+      if (moistureNeedsVerifyBeforePost(entry)) {
+        const verify = await tryClearMoistureViaExportListing(db, entry);
+        if (verify === "cleared") {
+          syncedCount++;
+          continue;
+        }
+        if (verify === "offline") break;
+        // "missing": the server does not hold this reading, so POST it. The
+        // Idempotency-Key still dedupes a replay inside the TTL. Re-queueing
+        // for another read-back here would never POST, and the reading would
+        // never sync.
+      }
+
       // RA-1762 — sketch-save entries piggyback the staleness check on
       // the `x-client-updated-at` header. Idempotency-Key is sent for every
       // type (RA-7568 moisture replay; evidence/mobile already did this).
@@ -516,6 +752,10 @@ async function drainQueueImpl(): Promise<number> {
             sketchPayload.clientUpdatedAt,
           );
         }
+        // RA-8056: the revision the save was based on, replayed unchanged.
+        if (typeof sketchPayload?.baseRevision === "string") {
+          headers[FLOOR_REVISION_HEADER] = sketchPayload.baseRevision;
+        }
       }
 
       const response = await fetchOfflineReplay(entry.owner, entry.endpoint, {
@@ -526,6 +766,41 @@ async function drainQueueImpl(): Promise<number> {
 
       if (!response) break;
       if (response.ok) {
+        if (entry.type === "moisture-reading") {
+          const posted = await response.json().catch(() => null);
+          const serverResourceId =
+            typeof posted?.moistureReading?.id === "string"
+              ? posted.moistureReading.id
+              : undefined;
+          // A 2xx naming the committed row is the server's own confirmation.
+          // Only an unconfirmed 2xx falls back to the export-data read-back,
+          // whose fingerprint match is too strict to gate every success on.
+          if (serverResourceId) {
+            await removeEntry(db, entry.id);
+            syncedCount++;
+            continue;
+          }
+          const verify = await tryClearMoistureViaExportListing(db, {
+            ...entry,
+            serverResourceId,
+          });
+          if (verify === "cleared") {
+            syncedCount++;
+            continue;
+          }
+          if (verify === "offline") break;
+          await putQueueEntry(db, {
+            ...entry,
+            serverResourceId,
+            verifyPending: true,
+            retryCount: entry.retryCount + 1,
+            lastAttemptAt: new Date().toISOString(),
+          });
+          continue;
+        }
+        if (entry.type === "sketch-save") {
+          await announceSketchReplay(entry, response);
+        }
         await removeEntry(db, entry.id);
         syncedCount++;
       } else if (response.status === 409) {
@@ -541,6 +816,14 @@ async function drainQueueImpl(): Promise<number> {
         if (serverPayload?.stale === true) {
           await removeEntry(db, entry.id);
         } else if (
+          entry.type === "sketch-save" &&
+          isFloorRevisionConflict(serverPayload)
+        ) {
+          // RA-8056 — the floor changed elsewhere after this save's revision.
+          // Keep the edit in the failed list the editor shows (retry, export,
+          // discard); applying it would delete or detach the newer rooms.
+          await markEntryFailed(db, entry.id);
+        } else if (
           entry.type === "moisture-reading" ||
           entry.type === "environmental-data"
         ) {
@@ -552,6 +835,15 @@ async function drainQueueImpl(): Promise<number> {
           await storeConflict(db, entry, serverPayload);
           await removeEntry(db, entry.id);
         }
+      } else if (
+        entry.type === "sketch-save" &&
+        isPermanentRejection(response.status)
+      ) {
+        // RA-8242 - the server will never accept this payload (for example
+        // two rooms sharing one id). Stop replaying it, keep the technician's
+        // work in the failed list (retry, export, discard) and say so.
+        await markEntryFailed(db, entry.id, response.status);
+        announceSketchRejection(entry, response.status);
       } else {
         // Retriable error
         await incrementRetry(db, entry);
@@ -669,17 +961,65 @@ async function removeEntry(db: IDBDatabase, id: string): Promise<void> {
   });
 }
 
-async function markEntryFailed(db: IDBDatabase, id: string): Promise<void> {
+/**
+ * RA-8056 — tell the editor session that queued a sketch save which revision
+ * the floor is at now. Best-effort: a missing or unreadable body announces no
+ * revision, and the editor then keeps the one it had.
+ */
+async function announceSketchReplay(
+  entry: SyncQueueEntry,
+  response: Response,
+): Promise<void> {
+  const payload = entry.payload as SketchSavePayload | null;
+  if (!payload || typeof window === "undefined") return;
+  const saved: unknown = await response
+    .clone()
+    .json()
+    .catch(() => null);
+  const detail: SketchSaveReplayedDetail = {
+    inspectionId: entry.inspectionId,
+    floorNumber: payload.floorNumber,
+    editorSessionId: payload.editorSessionId ?? null,
+    baseRevision: payload.baseRevision ?? null,
+    revision: readFloorRevision(saved),
+  };
+  window.dispatchEvent(
+    new CustomEvent(SKETCH_SAVE_REPLAYED_EVENT, { detail }),
+  );
+}
+
+function announceSketchRejection(entry: SyncQueueEntry, status: number): void {
+  const payload = entry.payload as Partial<SketchSavePayload> | null;
+  const floor = payload?.floorLabel ?? `Floor ${payload?.floorNumber ?? "?"}`;
+  toast.error(
+    `${floor} is not saved. The server rejected it (error ${status}) and will not accept it as it is. ` +
+      "Your work is kept on this device under Sync failed. Fix the problem, then press Retry, or export it.",
+    { id: `sketch-rejected-${entry.id}`, duration: 15000 },
+  );
+}
+
+async function markEntryFailed(
+  db: IDBDatabase,
+  id: string,
+  rejectedStatus?: number,
+): Promise<void> {
   const entry = await new Promise<SyncQueueEntry>((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readonly");
     const req = tx.objectStore(QUEUE_STORE).get(id);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
+  // RA-8056: the entry was removed while its replay was in flight (a live
+  // save superseded it). There is nothing left to keep.
+  if (!entry) return;
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction(QUEUE_STORE, "readwrite");
-    const req = tx.objectStore(QUEUE_STORE).put({ ...entry, status: "failed" });
+    const req = tx.objectStore(QUEUE_STORE).put({
+      ...entry,
+      status: "failed",
+      ...(rejectedStatus !== undefined ? { rejectedStatus } : {}),
+    });
     req.onerror = () => reject(req.error);
     tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
   });

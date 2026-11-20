@@ -1023,10 +1023,38 @@ model Organization {
   // RA-8043e: claim analysis batches run on this firm's own Drive (FIRM_OAUTH only)
   claimAnalysisBatches ClaimAnalysisBatch[]
 
+  // RA-8156: Pulse address withdrawal is organisation-wide, not per staff user.
+  pulseAddressOptOuts PulseOrgAddressOptOut[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
+}
+
+/// RA-8156 — durable Pulse consent lock for one address inside one organisation.
+///
+/// Client.pulseOptOut stays on the person (the client row). This table is the
+/// address lock: an unsubscribe still holds after that row's email is replaced
+/// or a colleague creates a new client with the same address. Keyed by
+/// organisation, never by staff userId, so two members of one firm cannot
+/// bypass each other, and two firms never share a withdrawal.
+///
+/// No FK to Client or User: deleting a client or a staff account must not
+/// restore mail to an address that already withdrew.
+model PulseOrgAddressOptOut {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// HMAC fingerprint from pulseAddressTag(); never the raw address.
+  addressTag     String
+  optedOutAt     DateTime @default(now())
+  sourceClientId String?
+  sourceUserId   String?
+
+  @@unique([organizationId, addressTag])
+  @@index([addressTag])
+  @@index([organizationId])
 }
 
 model UserInvite {
@@ -1320,6 +1348,7 @@ enum IntegrationProvider {
   MYOB
   SERVICEM8
   ASCORA
+  ZOHO
 }
 
 // External Client from integration (synced data)
@@ -1719,39 +1748,39 @@ model CompanyPricingConfig {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Labour Rates - Master Qualified Technician
-  masterQualifiedNormalHours Float
-  masterQualifiedSaturday    Float
-  masterQualifiedSunday      Float
+  masterQualifiedNormalHours Float?
+  masterQualifiedSaturday    Float?
+  masterQualifiedSunday      Float?
 
   // Labour Rates - Qualified Technician
-  qualifiedTechnicianNormalHours Float
-  qualifiedTechnicianSaturday    Float
-  qualifiedTechnicianSunday      Float
+  qualifiedTechnicianNormalHours Float?
+  qualifiedTechnicianSaturday    Float?
+  qualifiedTechnicianSunday      Float?
 
   // Labour Rates - Labourer
-  labourerNormalHours Float
-  labourerSaturday    Float
-  labourerSunday      Float
+  labourerNormalHours Float?
+  labourerSaturday    Float?
+  labourerSunday      Float?
 
   // Equipment Daily Rental Rates
-  airMoverAxialDailyRate           Float
-  airMoverCentrifugalDailyRate     Float
-  dehumidifierLGRDailyRate         Float
-  dehumidifierDesiccantDailyRate   Float
-  afdUnitLargeDailyRate            Float
-  extractionTruckMountedHourlyRate Float
-  extractionElectricHourlyRate     Float
-  injectionDryingSystemDailyRate   Float
+  airMoverAxialDailyRate           Float?
+  airMoverCentrifugalDailyRate     Float?
+  dehumidifierLGRDailyRate         Float?
+  dehumidifierDesiccantDailyRate   Float?
+  afdUnitLargeDailyRate            Float?
+  extractionTruckMountedHourlyRate Float?
+  extractionElectricHourlyRate     Float?
+  injectionDryingSystemDailyRate   Float?
 
   // Chemical Treatment Rates (per sqm)
-  antimicrobialTreatmentRate    Float
-  mouldRemediationTreatmentRate Float
-  biohazardTreatmentRate        Float
+  antimicrobialTreatmentRate    Float?
+  mouldRemediationTreatmentRate Float?
+  biohazardTreatmentRate        Float?
 
   // Fees
-  administrationFee                 Float
-  callOutFee                        Float
-  thermalCameraUseCostPerAssessment Float
+  administrationFee                 Float?
+  callOutFee                        Float?
+  thermalCameraUseCostPerAssessment Float?
 
   // Custom Fields (JSON: { category: [{ name: string, value: number }] })
   customFields String? @db.Text
@@ -1763,6 +1792,24 @@ model CompanyPricingConfig {
   mobilisationFee             Float?
   wasteDisposalPerBinRate     Float?
   photoDocumentationFee       Float?
+
+  // RA-8281: fire and contents price-list fields (nullable = not yet set; never priced at $0)
+  rateFireRestoration          Float?
+  rateOzoneGenerator           Float?
+  rateHydroxylUnit             Float?
+  rateContentsClean            Float?
+  rateFireEnzymeAdditionalPass Float?
+  rateFireSolventClean         Float?
+  rateFireDeodorisation        Float?
+  rateFireWallCeilingWash      Float?
+  rateFireWindowTrackClean     Float?
+  rateFireCupboardBenchClean   Float?
+  rateCarpetClean              Float?
+  rateSoftFurnishingClean      Float?
+  rateHvacDuctClean            Float?
+  rateLightFittingClean        Float?
+  rateStructuralAssessment     Float?
+  rateFireDebrisRemoval        Float?
 
   // RA-848: Multipliers (NRPG standard defaults)
   afterHoursMultiplier     Float @default(1.5)
@@ -2461,6 +2508,14 @@ model EnvironmentalData {
   grainsPerPound Float?
   vaporPressure  Float?
 
+  // RA-8388: the signed evidence record this row was written from. Null for
+  // every row not written by a signed capture. Unique: one evidence record
+  // backs at most one counted row. ON DELETE NO ACTION - the evidence record
+  // under a counted reading cannot be removed on its own; NO ACTION rather
+  // than RESTRICT so deleting the whole inspection still cascades cleanly.
+  evidenceItemId String?       @unique
+  evidenceItem   EvidenceItem? @relation(fields: [evidenceItemId], references: [id], onDelete: NoAction)
+
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -2522,6 +2577,15 @@ model MoistureReading {
   // partitionStaleRooms detaches rather than deletes rooms that hold these.
   sketchRoomId String?
   sketchRoom   SketchRoom? @relation("JobMoistureReadings", fields: [sketchRoomId], references: [id], onDelete: SetNull)
+
+  // RA-8388: the signed evidence record this reading was written from. Null
+  // for every reading not written by a signed capture. Unique: one evidence
+  // record backs at most one reading. ON DELETE NO ACTION, deliberately not
+  // Cascade: a reading is retained for audit under controlled invalidation
+  // (invalidatedAt above), so removing its evidence record must never delete
+  // it, and must not silently unlink it either (Set Null).
+  evidenceItemId String?       @unique
+  evidenceItem   EvidenceItem? @relation(fields: [evidenceItemId], references: [id], onDelete: NoAction)
 
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -3189,6 +3253,10 @@ model CostEstimate {
   // Source
   costDatabaseId String? // Link to CostDatabase entry if used
   isEstimated    Boolean @default(true) // True if from database, false if custom
+  // RA-8419: "SPM" marks the Senior Project Manager line, which the business
+  // adds itself (addSpmRow); generate and submit never write it. Null for
+  // every other line. Never identify the SPM line by its description.
+  lineKind       String?
 
   // Totals
   contingency Float? // Contingency percentage applied
@@ -5747,9 +5815,21 @@ model EvidenceItem {
   // RA-6996 — chain-of-custody audit trail (verified against prod 2026-07-05).
   custodyEvents CustodyEvent[]
 
+  // RA-8388: SHA-256 of the canonical metadata payload, set ONLY for a signed
+  // metadata submission. The digest does not contain the capture time, so the
+  // duplicate guard below pairs it with the signed capturedAt: a retry of one
+  // capture collides, a second reading of the same value does not. Every row
+  // written before this column existed holds NULL, and NULLs never collide.
+  metadataSha256 String?
+
+  // RA-8388: the counted row written from this evidence record, if any.
+  moistureReading   MoistureReading?
+  environmentalData EnvironmentalData?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([inspectionId, evidenceClass, metadataSha256, capturedAt], map: "EvidenceItem_signed_capture_key")
   @@index([inspectionId])
   @@index([evidenceClass])
   @@index([capturedById])
@@ -6039,6 +6119,15 @@ model Workspace {
   tenantDbProvisionPhase String?
   stripeCustomerId       String?         @unique
   stripeSubscriptionId   String?         @unique
+
+  // P1-MNY-01 — the firm's own Stripe account (Connect, Standard). Invoice card
+  // payments are direct charges on this account, so the money is the firm's.
+  // Status mirrors Stripe (account.updated webhook / onboarding return) and is
+  // never trusted from a browser redirect alone.
+  stripeConnectAccountId        String?   @unique
+  stripeConnectChargesEnabled   Boolean   @default(false)
+  stripeConnectDetailsSubmitted Boolean   @default(false)
+  stripeConnectStatusAt         DateTime?
 
   // RA-1707 / P0-2 — Anthropic + AI org-spend cap. Daily ceiling in USD.
   // Null falls back to AI_DEFAULT_DAILY_BUDGET_USD env (defaults to 50).
@@ -6474,6 +6563,7 @@ enum AiProvider {
   GEMMA
   ELEVENLABS
   OPENROUTER
+  META
 }
 
 enum ProviderConnectionStatus {
@@ -7712,6 +7802,27 @@ model InvoiceSyncJob {
   @@index([invoiceId])
 }
 
+/// RA-8199 — durable Zoho CRM outbound upserts. The invoice-sync cron drains
+/// this queue; a create/update also kicks one batch. Payload is CRM fields
+/// only. Tokens never land here.
+model ZohoSyncJob {
+  id           String    @id @default(cuid())
+  userId       String
+  entityType   String
+  entityId     String
+  payload      Json
+  status       String    @default("PENDING")
+  retryCount   Int       @default(0)
+  errorMessage String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  completedAt  DateTime?
+
+  @@unique([userId, entityType, entityId])
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
 // ─── RA-1132a: AI Live Teacher ───────────────────────────────────────────────
 // On-device (Gemma 3n) + cloud (Claude) hybrid coaching sessions during
 // inspection. Captures token accounting, standards citations (IICRC S500,
@@ -8394,39 +8505,39 @@ model OrganizationPricingConfig {
   organizationId String @unique
 
   // Labour Rates - Master Qualified Technician
-  masterQualifiedNormalHours Float
-  masterQualifiedSaturday    Float
-  masterQualifiedSunday      Float
+  masterQualifiedNormalHours Float?
+  masterQualifiedSaturday    Float?
+  masterQualifiedSunday      Float?
 
   // Labour Rates - Qualified Technician
-  qualifiedTechnicianNormalHours Float
-  qualifiedTechnicianSaturday    Float
-  qualifiedTechnicianSunday      Float
+  qualifiedTechnicianNormalHours Float?
+  qualifiedTechnicianSaturday    Float?
+  qualifiedTechnicianSunday      Float?
 
   // Labour Rates - Labourer
-  labourerNormalHours Float
-  labourerSaturday    Float
-  labourerSunday      Float
+  labourerNormalHours Float?
+  labourerSaturday    Float?
+  labourerSunday      Float?
 
   // Equipment Daily Rental Rates
-  airMoverAxialDailyRate           Float
-  airMoverCentrifugalDailyRate     Float
-  dehumidifierLGRDailyRate         Float
-  dehumidifierDesiccantDailyRate   Float
-  afdUnitLargeDailyRate            Float
-  extractionTruckMountedHourlyRate Float
-  extractionElectricHourlyRate     Float
-  injectionDryingSystemDailyRate   Float
+  airMoverAxialDailyRate           Float?
+  airMoverCentrifugalDailyRate     Float?
+  dehumidifierLGRDailyRate         Float?
+  dehumidifierDesiccantDailyRate   Float?
+  afdUnitLargeDailyRate            Float?
+  extractionTruckMountedHourlyRate Float?
+  extractionElectricHourlyRate     Float?
+  injectionDryingSystemDailyRate   Float?
 
   // Chemical Treatment Rates (per sqm)
-  antimicrobialTreatmentRate    Float
-  mouldRemediationTreatmentRate Float
-  biohazardTreatmentRate        Float
+  antimicrobialTreatmentRate    Float?
+  mouldRemediationTreatmentRate Float?
+  biohazardTreatmentRate        Float?
 
   // Fees
-  administrationFee                 Float
-  callOutFee                        Float
-  thermalCameraUseCostPerAssessment Float
+  administrationFee                 Float?
+  callOutFee                        Float?
+  thermalCameraUseCostPerAssessment Float?
 
   // Custom Fields (JSON: { category: [{ name: string, value: number }] })
   customFields String? @db.Text
@@ -8438,6 +8549,24 @@ model OrganizationPricingConfig {
   mobilisationFee             Float?
   wasteDisposalPerBinRate     Float?
   photoDocumentationFee       Float?
+
+  // RA-8281: fire and contents price-list fields (nullable = not yet set; never priced at $0)
+  rateFireRestoration          Float?
+  rateOzoneGenerator           Float?
+  rateHydroxylUnit             Float?
+  rateContentsClean            Float?
+  rateFireEnzymeAdditionalPass Float?
+  rateFireSolventClean         Float?
+  rateFireDeodorisation        Float?
+  rateFireWallCeilingWash      Float?
+  rateFireWindowTrackClean     Float?
+  rateFireCupboardBenchClean   Float?
+  rateCarpetClean              Float?
+  rateSoftFurnishingClean      Float?
+  rateHvacDuctClean            Float?
+  rateLightFittingClean        Float?
+  rateStructuralAssessment     Float?
+  rateFireDebrisRemoval        Float?
 
   // RA-848: Multipliers (NRPG standard defaults)
   afterHoursMultiplier     Float @default(1.5)

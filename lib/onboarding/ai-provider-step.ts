@@ -20,6 +20,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   OPENAI: "OpenAI",
   GOOGLE: "Google",
   OPENROUTER: "OpenRouter",
+  META: "Meta",
 };
 
 const SETTINGS_PROVIDERS = [
@@ -28,6 +29,7 @@ const SETTINGS_PROVIDERS = [
   "GOOGLE",
   "GEMMA",
   "OPENROUTER",
+  "META",
 ] as const;
 
 export function labelForAiProvider(provider: string): string {

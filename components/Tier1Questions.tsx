@@ -281,7 +281,7 @@ export default function Tier1Questions({
 
       {/* Initial Data Entry Form Fields - For Refinement */}
       <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-cyan-600 dark:text-cyan-400">
+        <h3 className="text-lg font-semibold mb-4 text-brand-harbour-600 dark:text-brand-harbour-400">
           Basic Information Review
         </h3>
         <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
@@ -570,7 +570,7 @@ export default function Tier1Questions({
                     T1_Q1_propertyType: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-harbour-500"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -624,7 +624,7 @@ export default function Tier1Questions({
                     T1_Q2_constructionYear: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-harbour-500"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -667,7 +667,7 @@ export default function Tier1Questions({
                     T1_Q3_waterSource: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-harbour-500"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -723,7 +723,7 @@ export default function Tier1Questions({
                     T1_Q4_occupancyStatus: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-harbour-500"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -769,7 +769,7 @@ export default function Tier1Questions({
           }
           rows={6}
           placeholder="List each room separately (e.g., Kitchen, Master Bedroom, Hallway, Lounge). Specify if water affected: floor only, walls, ceiling, cabinetry, insulation"
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
@@ -808,7 +808,7 @@ export default function Tier1Questions({
                 onChange={() =>
                   handleMultiSelect("T1_Q6_materialsAffected", option)
                 }
-                className="w-4 h-4 text-cyan-500 rounded"
+                className="w-4 h-4 text-brand-harbour-500 rounded"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -918,7 +918,7 @@ export default function Tier1Questions({
                     T1_Q8_waterDuration: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-harbour-500"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -942,9 +942,9 @@ export default function Tier1Questions({
         </div>
       ) : reportType === "enhanced" &&
         (onGenerateEnhanced || onContinueToTier2) ? (
-        <div className="p-6 rounded-lg border-2 border-cyan-500/50 bg-cyan-50 dark:bg-cyan-500/10 space-y-4">
+        <div className="p-6 rounded-lg border-2 border-brand-harbour-500/50 bg-brand-harbour-50 dark:bg-brand-harbour-500/10 space-y-4">
           <div className="text-center">
-            <h3 className="text-xl font-semibold text-cyan-700 dark:text-cyan-400 mb-2">
+            <h3 className="text-xl font-semibold text-brand-harbour-700 dark:text-brand-harbour-400 mb-2">
               Tier 1 Completed Successfully!
             </h3>
             <p className="text-sm text-slate-700 dark:text-slate-300 mb-6">
@@ -974,10 +974,10 @@ export default function Tier1Questions({
             {onContinueToTier2 && (
               <button
                 onClick={onContinueToTier2}
-                className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all group"
+                className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-brand-harbour-500 bg-gradient-to-br from-brand-harbour-500/20 to-blue-500/20 hover:from-brand-harbour-500/30 hover:to-blue-500/30 transition-all group"
               >
-                <div className="w-12 h-12 rounded-full bg-cyan-500/30 flex items-center justify-center group-hover:bg-cyan-500/40 transition-colors">
-                  <ArrowRight className="w-6 h-6 text-cyan-600 dark:text-cyan-300" />
+                <div className="w-12 h-12 rounded-full bg-brand-harbour-500/30 flex items-center justify-center group-hover:bg-brand-harbour-500/40 transition-colors">
+                  <ArrowRight className="w-6 h-6 text-brand-harbour-600 dark:text-brand-harbour-300" />
                 </div>
                 <div className="text-center">
                   <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">

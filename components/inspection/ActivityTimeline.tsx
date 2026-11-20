@@ -73,7 +73,7 @@ export default function ActivityTimeline({
 
   if (activity.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-neutral-400 gap-3">
+      <div className="flex flex-col items-center justify-center py-12 text-neutral-600 dark:text-neutral-400 gap-3">
         <History size={32} className="opacity-40" />
         <p className="text-sm">No activity recorded yet</p>
       </div>
@@ -118,13 +118,13 @@ export default function ActivityTimeline({
               )}
 
               {/* Relative time */}
-              <span className="text-xs text-neutral-400 dark:text-slate-500">
+              <span className="text-xs text-neutral-600 dark:text-slate-500">
                 {relativeTime(entry.createdAt)}
               </span>
 
               {/* User name */}
               {entry.userName && (
-                <span className="text-xs text-neutral-400 dark:text-slate-500">
+                <span className="text-xs text-neutral-600 dark:text-slate-500">
                   · {entry.userName}
                 </span>
               )}

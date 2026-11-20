@@ -196,7 +196,7 @@ function MargotChatWorkspace() {
         eyebrow={`${ADVANCED_WORKSPACE_EYEBROW} · ${MARGOT_DISPLAY_NAME}`}
         title="Chat"
         description="Ops briefings, Linear tools, research, and social-comment drafts. The restoration gate applies to comment training."
-        icon={<Bot className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<Bot className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         primaryAction={
           <div className="flex flex-wrap gap-2">
             <Button

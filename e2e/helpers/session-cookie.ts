@@ -1,4 +1,5 @@
 import type { APIResponse, BrowserContext } from "@playwright/test";
+import { LOCAL_ORIGIN } from "./local-origin";
 
 export async function applySessionCookieFromResponse(
   context: BrowserContext,
@@ -15,9 +16,7 @@ export async function applySessionCookieFromResponse(
     throw new Error("Malformed Set-Cookie header from sign-in helper");
   }
 
-  const url = new URL(
-    process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
-  );
+  const url = new URL(process.env.PLAYWRIGHT_BASE_URL ?? LOCAL_ORIGIN);
 
   await context.addCookies([
     {

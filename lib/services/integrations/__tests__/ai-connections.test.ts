@@ -59,7 +59,7 @@ describe("configured AI connection metadata", () => {
     });
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
       select: { id: true, provider: true, status: true, lastValidatedAt: true, createdAt: true, updatedAt: true },
-      take: 6,
+      take: 7,
     }));
     expect(mocks.decrypt).not.toHaveBeenCalled();
   });

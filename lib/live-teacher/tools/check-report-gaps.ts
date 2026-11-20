@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { S500_FIELD_MAP, standardCite } from "@/lib/nir-standards-mapping";
 import { prisma } from "@/lib/prisma";
+import { loadMakeSafeCompletion } from "@/lib/compliance/make-safe-list";
 
 export const checkReportGapsSchema = z.object({
   inspectionId: z.string(),
@@ -43,10 +44,7 @@ export async function checkReportGaps(
       photos: { take: 1, select: { id: true } },
       scopeItems: { take: 1, select: { id: true } },
       classifications: { take: 1, select: { id: true } },
-      makeSafeActions: {
-        take: 50,
-        select: { action: true, applicable: true, completed: true },
-      },
+      claimType: true,
     },
   });
 
@@ -96,11 +94,12 @@ export async function checkReportGaps(
     });
   }
 
-  // Make-safe: water_stopped applicable but not completed
-  const waterStopped = inspection.makeSafeActions.find(
-    (a) => a.action === "water_stopped",
-  );
-  if (waterStopped && waterStopped.applicable && !waterStopped.completed) {
+  // Make-safe: water_stopped open on the job's own list (RA-8327: the list
+  // owner judges it; a row kept from another list is history, not a gap).
+  const makeSafe = await loadMakeSafeCompletion(inspectionId, {
+    claimType: inspection.claimType,
+  });
+  if (makeSafe.open.some((a) => a.action === "water_stopped")) {
     gaps.push({
       field: "makeSafe.water_stopped",
       severity: "block",

@@ -80,7 +80,7 @@ export default function EmailSettingsPage() {
           Mailtrap
           {hasPlatformFallback ? "." : " (not configured on this environment)."}
         </p>
-        <p className="text-xs text-neutral-400 mt-2">
+        <p className="text-xs text-brand-slate dark:text-neutral-400 mt-2">
           <a
             href="/dashboard/settings/connections"
             className="underline underline-offset-2 hover:text-neutral-600"

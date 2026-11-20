@@ -31,6 +31,31 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("OnboardingClient invite link", () => {
+  const fetchStatus = () =>
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      json: async () => ({}),
+    } as Response);
+
+  it("is shown to someone who can invite", async () => {
+    fetchStatus();
+    render(<OnboardingClient canInvite />);
+    expect(
+      await screen.findByRole("link", { name: "Invite a technician" }),
+    ).toBeInTheDocument();
+  });
+
+  it("is hidden from a technician, who has no invite form to reach", async () => {
+    fetchStatus();
+    render(<OnboardingClient canInvite={false} />);
+    await screen.findByText("Checklist");
+    expect(
+      screen.queryByRole("link", { name: "Invite a technician" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("OnboardingClient", () => {
   it("renders exactly the server's canonical steps with no contradicting duplicates", async () => {
     vi.stubGlobal(

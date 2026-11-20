@@ -181,7 +181,7 @@ export function MobilePullToRefresh({ children }: { children: ReactNode }) {
         <div
           role="status"
           aria-live="polite"
-          className="pointer-events-none fixed left-1/2 top-[calc(4.5rem+env(safe-area-inset-top))] z-50 -translate-x-1/2 rounded-full border border-cyan-400/40 bg-slate-900 px-4 py-2 text-sm text-white shadow-lg md:hidden"
+          className="pointer-events-none fixed left-1/2 top-[calc(4.5rem+env(safe-area-inset-top))] z-50 -translate-x-1/2 rounded-full border border-brand-harbour-400/40 bg-slate-900 px-4 py-2 text-sm text-white shadow-lg md:hidden"
           style={{ transform: `translate(-50%, ${phase === "pulling" || phase === "ready" ? distance : 0}px)` }}
         >
           {phase === "pulling" ? "Pull down to refresh" :

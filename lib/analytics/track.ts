@@ -16,7 +16,15 @@ export type ActivationEventName =
   | "first_report_started"
   | "first_report_saved"
   | "first_interview_completed"
-  | "first_integration_connected";
+  | "first_integration_connected"
+  | "org_created_oauth"
+  | "terms_accepted"
+  | "setup_completed"
+  | "seat_limit_hit"
+  | "seat_checkout_started"
+  | "seat_granted"
+  | "invite_sent_after_purchase"
+  | "technician_accepted";
 
 export async function track(
   userId: string,

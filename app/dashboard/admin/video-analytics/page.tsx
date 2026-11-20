@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { RAIcon } from "@/components/brand/RAIcon";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type MarkProps = { className?: string };
 
@@ -53,7 +54,7 @@ export default function VideoAnalyticsPage() {
         const res = await fetch(`/api/video/analytics?period=${period}`);
         if (!res.ok) {
           const err = await res.json();
-          throw new Error(err.error || `HTTP ${res.status}`);
+          throw new Error(apiErrorMessage(err) || `HTTP ${res.status}`);
         }
         const json = await res.json();
         setData(json.data);

@@ -13,6 +13,7 @@
  *   const rate = await lookupRate(prisma, { userId, field: 'masterQualifiedNormalHours', region: 'QLD' })
  */
 
+import { requireRate } from "@/lib/pricing/rate-not-set";
 import type { PrismaClient } from "@prisma/client";
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 import { resolveEffectivePricing } from "@/lib/pricing/effective-pricing";
@@ -114,6 +115,9 @@ export async function lookupRate(
   // --- Priority 1: contractor's configured rates (org config is SSOT) ---
   const config = await resolveEffectivePricing(prisma, userId);
   if (config) {
+    // RA-8281: a price-list field the contractor left unset is "rate not
+    // set". It never falls through to CostDatabase or an NRPG default.
+    if (field in config) requireRate(config, field);
     const value = (config as Record<string, unknown>)[field];
     if (typeof value === "number") {
       const meta = NRPG_RATE_RANGES[field];
@@ -185,6 +189,8 @@ export async function lookupRates(
   const config = await resolveEffectivePricing(prisma, userId);
   for (const field of fields) {
     if (config) {
+      // RA-8281: same rule as lookupRate; an unset price-list rate throws.
+      if (field in config) requireRate(config, field);
       const value = (config as Record<string, unknown>)[field];
       if (typeof value === "number") {
         const meta = NRPG_RATE_RANGES[field];

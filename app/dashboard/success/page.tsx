@@ -24,16 +24,26 @@ import {
   simpleDashboardHeroShine,
 } from "@/lib/dashboard/simple-dashboard-theme";
 import { cn } from "@/lib/utils";
+import { TeamInviteReturn } from "./TeamInviteReturn";
+import { addonDonePath } from "@/lib/billing/checkout-return";
 
 // Module-level flag to prevent verification from running multiple times across remounts
 let globalVerificationComplete = false;
 
 export default function SuccessPage() {
+  const searchParams = useSearchParams();
+  if (searchParams?.get("next") === "team-invite") return <TeamInviteReturn />;
+  return <PurchaseSuccess />;
+}
+
+function PurchaseSuccess() {
   const router = useRouter();
   const searchParams = useSearchParams() ?? new URLSearchParams();
-  const { data: session, update } = useSession();
+  const { data: _session, update } = useSession();
   const addonKey = searchParams.get("addon");
   const isAddonPurchase = !!addonKey;
+  // RA-8466: a pack bought from setup or Field Add-Ons goes back there.
+  const addonDone = addonDonePath(searchParams.get("next"));
   // app/api/checkout-lifetime/route.ts returns lifetime buyers with ?lifetime=1.
   const isLifetimeReturn = searchParams.get("lifetime") === "1";
   const [purchasedPlan, setPurchasedPlan] = useState<{
@@ -53,7 +63,7 @@ export default function SuccessPage() {
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper to safely set state only if not completed
-  const safeSetState = (fn: () => void) => {
+  const _safeSetState = (fn: () => void) => {
     if (!isCompletedRef.current && !isProcessingRef.current) {
       fn();
     }
@@ -174,7 +184,7 @@ export default function SuccessPage() {
                 }
                 cleanup();
                 if (!isCapacitorIOS()) {
-                  router.push("/dashboard/subscription?addon=success");
+                  router.push(addonDone);
                 }
                 return;
               }
@@ -202,7 +212,7 @@ export default function SuccessPage() {
                 showToastOnce("Add-on pack activated successfully!");
                 cleanup();
                 if (!isCapacitorIOS()) {
-                  router.push("/dashboard/subscription?addon=success");
+                  router.push(addonDone);
                 }
                 return;
               }
@@ -224,7 +234,7 @@ export default function SuccessPage() {
                 );
                 cleanup();
                 if (!isCapacitorIOS()) {
-                  router.push("/dashboard/subscription?addon=success");
+                  router.push(addonDone);
                 }
                 return;
               }
@@ -239,7 +249,7 @@ export default function SuccessPage() {
           );
           cleanup();
           if (!isCapacitorIOS()) {
-            router.push("/dashboard/subscription?addon=success");
+            router.push(addonDone);
           }
           return;
         }
@@ -261,7 +271,7 @@ export default function SuccessPage() {
                 return;
               }
 
-              const checkData = await checkResponse.json();
+              const _checkData = await checkResponse.json();
 
               // DON'T call update() here - it causes re-renders/remounts
               // Just mark as completed - session will update naturally
@@ -327,7 +337,7 @@ export default function SuccessPage() {
             return;
           }
 
-          const verifyData = await verifyResponse.json();
+          const _verifyData = await verifyResponse.json();
 
           // DON'T call update() - it causes remounts and infinite loops
           markCompleted();
@@ -335,7 +345,7 @@ export default function SuccessPage() {
           cleanup();
         } else {
           // If verification fails, try checking active subscription directly
-          const errorData = await verifyResponse
+          const _errorData = await verifyResponse
             .json()
             .catch(() => ({ error: "Unknown error" }));
 
@@ -357,7 +367,7 @@ export default function SuccessPage() {
               return;
             }
 
-            const checkData = await checkResponse.json();
+            const _checkData = await checkResponse.json();
 
             // DON'T call update() - it causes remounts
             markCompleted();
@@ -531,7 +541,7 @@ export default function SuccessPage() {
     return (
       <DashboardPageFrame className="flex min-h-[50vh] items-center justify-center pb-10 pt-2">
         <div className="space-y-4 text-center">
-          <Loader2 className="mx-auto h-12 w-12 animate-spin text-cyan-500" />
+          <Loader2 className="mx-auto h-12 w-12 animate-spin text-brand-harbour-500" />
           <p className="text-muted-foreground">Activating your add-on pack…</p>
         </div>
       </DashboardPageFrame>
@@ -566,7 +576,7 @@ export default function SuccessPage() {
     return (
       <DashboardPageFrame className="flex min-h-[50vh] items-center justify-center pb-10 pt-2">
         <div className="space-y-4 text-center">
-          <Loader2 className="mx-auto h-12 w-12 animate-spin text-cyan-500" />
+          <Loader2 className="mx-auto h-12 w-12 animate-spin text-brand-harbour-500" />
           <p className="text-muted-foreground">Processing your subscription…</p>
         </div>
       </DashboardPageFrame>
@@ -628,16 +638,16 @@ export default function SuccessPage() {
         <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 ring-1 ring-emerald-400/30">
-              <CheckCircle className="h-8 w-8 text-emerald-400" aria-hidden />
+              <CheckCircle className="h-8 w-8 text-emerald-700 dark:text-emerald-400" aria-hidden />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-harbour-700 dark:text-brand-harbour-200/90">
                 Payment confirmed
               </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-brand-navy dark:text-white sm:text-3xl">
                 Payment Successful!
               </h1>
-              <p className="mt-2 text-sm leading-relaxed text-white/65">
+              <p className="mt-2 text-sm leading-relaxed text-brand-slate dark:text-white/65">
                 Thank you for your payment.
                 {planDetail ?? " Your workspace is being updated."}
               </p>
@@ -647,7 +657,7 @@ export default function SuccessPage() {
             type="button"
             onClick={() => void handleStartSetup()}
             disabled={isRedirecting}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-5 text-sm font-semibold text-white shadow-lg hover:from-blue-500 hover:to-cyan-500 disabled:opacity-50"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-brand-harbour-600 px-5 text-sm font-semibold text-white shadow-lg hover:from-blue-500 hover:to-brand-harbour-500 disabled:opacity-50"
           >
             {isRedirecting ? "Opening setup…" : "Start setup"}
             <ArrowRight className="h-4 w-4" aria-hidden />
@@ -659,7 +669,7 @@ export default function SuccessPage() {
         variant="plain"
         title="Complete your setup"
         description="Three quick steps to unlock the full potential of your account. Each takes just a few minutes."
-        icon={<Sparkles className="h-7 w-7 text-cyan-500" aria-hidden />}
+        icon={<Sparkles className="h-7 w-7 text-brand-harbour-500" aria-hidden />}
       />
 
       <ul className="grid gap-4 lg:grid-cols-1">
@@ -670,8 +680,8 @@ export default function SuccessPage() {
               <DashboardPanel className="p-5 sm:p-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                   <div className="flex shrink-0 items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-md">
-                      <Icon className="h-6 w-6 text-white" aria-hidden />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-harbour-500 to-blue-600 shadow-md">
+                      <Icon className="h-6 w-6 text-brand-navy dark:text-white" aria-hidden />
                     </div>
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:hidden">
                       Step {step.number}
@@ -714,7 +724,7 @@ export default function SuccessPage() {
                           await update();
                           router.push(step.route);
                         }}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 text-sm font-medium text-white hover:from-cyan-500 hover:to-blue-500"
+                        className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-brand-harbour-600 to-blue-600 px-4 text-sm font-medium text-white hover:from-brand-harbour-500 hover:to-blue-500"
                       >
                         Start
                         <ArrowRight className="h-3.5 w-3.5" />
@@ -728,7 +738,7 @@ export default function SuccessPage() {
         })}
       </ul>
 
-      <DashboardPanel className="border-cyan-500/20 bg-cyan-500/5">
+      <DashboardPanel className="border-brand-harbour-500/20 bg-brand-harbour-500/5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-foreground">
             {countdown > 0 ? (
@@ -747,7 +757,7 @@ export default function SuccessPage() {
             type="button"
             onClick={() => void handleStartSetup()}
             disabled={isRedirecting}
-            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-cyan-500/40 bg-background px-4 text-sm font-medium text-foreground hover:bg-muted"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-brand-harbour-500/40 bg-background px-4 text-sm font-medium text-foreground hover:bg-muted"
           >
             Open integrations setup
           </button>

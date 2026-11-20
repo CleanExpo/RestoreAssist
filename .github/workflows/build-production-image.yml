@@ -157,6 +157,14 @@ jobs:
         env:
           IMAGE: ${{ steps.meta.outputs.image }}
           PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID || '292141944467-8hhd4eub33tplq6ep5lc9iltu8jcatvp.apps.googleusercontent.com' }}
+          # Company trust details (lib/brand.ts), baked in at build time.
+          # The ABN default is UNITE-GROUP NEXUS PTY LTD as read from the ABR
+          # on 2026-10-31 (active, GST registered from 2025-10-01), matching
+          # app/privacy and app/terms. Override with a repository variable.
+          PUBLIC_COMPANY_ABN: ${{ vars.NEXT_PUBLIC_COMPANY_ABN || '95 691 477 844' }}
+          PUBLIC_COMPANY_ADDRESS: ${{ vars.NEXT_PUBLIC_COMPANY_ADDRESS }}
+          PUBLIC_SUPPORT_EMAIL: ${{ vars.NEXT_PUBLIC_SUPPORT_EMAIL }}
+          PUBLIC_SECURITY_EMAIL: ${{ vars.NEXT_PUBLIC_SECURITY_EMAIL }}
           SHA: ${{ steps.meta.outputs.sha }}
         run: |
           set -euo pipefail
@@ -164,6 +172,10 @@ jobs:
             echo "::error::NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID repository variable is required." >&2
             exit 1
           }
+          # Not fatal: brand.ts hides an empty address line. Said out loud so
+          # a footer with no address is a known state, not a silent one.
+          test -n "${PUBLIC_COMPANY_ADDRESS}" || \
+            echo "::warning::NEXT_PUBLIC_COMPANY_ADDRESS repository variable is unset; the footer and legal pages will show no business address."
           # The commit-SHA tag is always applied. The floating :main tag is
           # applied ONLY for a real push to main. workflow_dispatch accepts an
           # arbitrary ref, so rebuilding an old commit would otherwise drag
@@ -180,6 +192,10 @@ jobs:
           docker build \
             --build-arg "GIT_SHA=${SHA}" \
             --build-arg "NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=${PUBLIC_GOOGLE_CLIENT_ID}" \
+            --build-arg "NEXT_PUBLIC_COMPANY_ABN=${PUBLIC_COMPANY_ABN}" \
+            --build-arg "NEXT_PUBLIC_COMPANY_ADDRESS=${PUBLIC_COMPANY_ADDRESS}" \
+            --build-arg "NEXT_PUBLIC_SUPPORT_EMAIL=${PUBLIC_SUPPORT_EMAIL}" \
+            --build-arg "NEXT_PUBLIC_SECURITY_EMAIL=${PUBLIC_SECURITY_EMAIL}" \
             ${TAGS} \
             --file Dockerfile \
             .

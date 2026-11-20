@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type AuditPackage = "single" | "three";
 
@@ -42,7 +43,7 @@ export default function JobFileAuditPage() {
       };
       if (!response.ok || !data.url) {
         throw new Error(
-          data.message || data.error || "Unable to start secure checkout.",
+          data.message || apiErrorMessage(data) || "Unable to start secure checkout.",
         );
       }
       window.location.assign(data.url);
@@ -62,7 +63,7 @@ export default function JobFileAuditPage() {
         <section className="px-6 pb-20 pt-12">
           <div className="mx-auto max-w-6xl">
             <div className="max-w-4xl">
-              <p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-brand-gold">
+              <p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-brand-bronze">
                 Restoration Job File Audit
               </p>
               <h1 className={`text-4xl font-bold leading-tight md:text-6xl ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>
@@ -75,13 +76,13 @@ export default function JobFileAuditPage() {
                 the next actions to strengthen the file.
               </p>
               <div className="mt-8 flex flex-wrap gap-3 text-sm font-medium">
-                <span className="rounded-full border border-brand-bronze/40 px-4 py-2 text-brand-gold">
+                <span className="rounded-full border border-brand-bronze/40 px-4 py-2 text-brand-bronze">
                   24-hour target turnaround
                 </span>
-                <span className="rounded-full border border-brand-bronze/40 px-4 py-2 text-brand-gold">
+                <span className="rounded-full border border-brand-bronze/40 px-4 py-2 text-brand-bronze">
                   AU/NZ restoration focus
                 </span>
-                <span className="rounded-full border border-brand-bronze/40 px-4 py-2 text-brand-gold">
+                <span className="rounded-full border border-brand-bronze/40 px-4 py-2 text-brand-bronze">
                   Human professional review
                 </span>
               </div>
@@ -98,7 +99,7 @@ export default function JobFileAuditPage() {
               <div className="mt-6 space-y-3">
                 {REVIEW_ITEMS.map((item, index) => (
                   <div key={item} className="flex gap-4 rounded-2xl border border-brand-slate/20 p-4">
-                    <span className="font-semibold text-brand-gold">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="font-semibold text-brand-bronze">{String(index + 1).padStart(2, "0")}</span>
                     <p className={darkMode ? "text-brand-mist" : "text-brand-slate"}>{item}</p>
                   </div>
                 ))}
@@ -130,7 +131,7 @@ export default function JobFileAuditPage() {
         <section className="px-6 py-20">
           <div className="mx-auto max-w-6xl">
             <div className="mb-10 max-w-3xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-gold">Founding offer</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-bronze">Founding offer</p>
               <h2 className={`mt-3 text-3xl font-bold md:text-4xl ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>
                 Start with a real file, not another software demo.
               </h2>
@@ -143,7 +144,7 @@ export default function JobFileAuditPage() {
 
             <div className="grid gap-6 md:grid-cols-2">
               <article className="rounded-3xl border border-brand-slate/25 p-7">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-gold">Single audit</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-bronze">Single audit</p>
                 <p className={`mt-3 text-5xl font-bold ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>A$149</p>
                 <p className={`mt-1 text-sm ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>ex GST</p>
                 <p className={`mt-5 min-h-14 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>
@@ -160,7 +161,7 @@ export default function JobFileAuditPage() {
               </article>
 
               <article className="rounded-3xl border border-brand-gold/60 bg-brand-bronze/10 p-7">
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-gold">Three-job pack</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-bronze">Three-job pack</p>
                 <p className={`mt-3 text-5xl font-bold ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>A$399</p>
                 <p className={`mt-1 text-sm ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>ex GST</p>
                 <p className={`mt-5 min-h-14 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}>

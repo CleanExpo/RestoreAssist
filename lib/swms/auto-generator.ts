@@ -174,6 +174,7 @@ export async function generateSwmsDraft(
       propertyPostcode: true,
       propertyCountry: true,
       propertyYearBuilt: true,
+      // RA-8327: reads every row, history included, on purpose: a row can only add a hazard, never judge completion.
       makeSafeActions: {
         select: { action: true, applicable: true, completed: true },
         take: 10,

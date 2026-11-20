@@ -46,6 +46,7 @@ export function ReportClientSendChecklist({
         portalLinkEmailedAt: null,
         clientEmailSentAt: null,
         completenessBlockerCount: 0,
+        requiredFieldEvidenceGapCount: null,
       });
       setLoading(false);
       return;
@@ -80,6 +81,8 @@ export function ReportClientSendChecklist({
       portalLinkEmailedAt: null,
       clientEmailSentAt: null,
       completenessBlockerCount: 0,
+      requiredFieldEvidenceGapCount: null,
+      inspectionId,
     };
 
   const items = buildClientSendChecklist(merged);
@@ -109,7 +112,7 @@ export function ReportClientSendChecklist({
             className={cn(
               "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
               allReady && canSend
-                ? "bg-cyan-600 text-white hover:bg-cyan-500"
+                ? "bg-brand-harbour-600 text-white hover:bg-brand-harbour-500"
                 : "bg-slate-700 text-slate-400 cursor-not-allowed",
             )}
           >
@@ -151,7 +154,7 @@ export function ReportClientSendChecklist({
                 {!item.ok && item.href && (
                   <Link
                     href={item.href}
-                    className="text-xs text-cyan-400 hover:underline"
+                    className="text-xs text-brand-harbour-400 hover:underline"
                   >
                     Fix in settings or report →
                   </Link>

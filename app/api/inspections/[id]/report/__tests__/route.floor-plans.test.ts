@@ -108,8 +108,10 @@ beforeEach(() => {
 });
 
 describe("GET /api/inspections/[id]/report — floor-plan output", () => {
-  it.each(["ESTIMATED", "SUBMITTED"])(
-    "generates a report for review-ready %s work",
+  // RA-8421: invoiced, closed and archived jobs keep their report; the route
+  // only reads, and a dispute arrives after the invoice.
+  it.each(["ESTIMATED", "SUBMITTED", "IN_BILLING", "CLOSED", "ARCHIVED"])(
+    "generates a report for review-ready or later %s work",
     async (status) => {
       inspectionFindFirst.mockResolvedValue(inspection({ status }));
 
@@ -126,9 +128,6 @@ describe("GET /api/inspections/[id]/report — floor-plan output", () => {
     "CLASSIFIED",
     "SCOPED",
     "REJECTED",
-    "IN_BILLING",
-    "CLOSED",
-    "ARCHIVED",
   ])(
     "rejects report generation from %s",
     async (status) => {

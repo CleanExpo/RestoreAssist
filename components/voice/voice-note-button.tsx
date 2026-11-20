@@ -29,6 +29,7 @@ import {
   mapVoiceTranscriptToFields,
   type VoiceFieldMapping,
 } from "@/lib/services/ai/voice-to-fields";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type Status = "idle" | "recording" | "uploading";
 
@@ -142,8 +143,8 @@ export function VoiceNoteButton({
 
         if (item.status === "error" || !item.transcript?.trim()) {
           setMappingNote(
-            item.error
-              ? `Queued voice note failed: ${item.error}. Mapping was skipped.`
+            apiErrorMessage(item.error)
+              ? `Queued voice note failed: ${apiErrorMessage(item.error)}. Mapping was skipped.`
               : "Queued voice note had no words. Mapping was skipped.",
           );
           await markConsumed(item.id);
@@ -310,7 +311,7 @@ export function VoiceNoteButton({
 
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || `HTTP ${res.status}`);
+        throw new Error(apiErrorMessage(body) || `HTTP ${res.status}`);
       }
 
       const data = (await res.json()) as { transcript?: string };

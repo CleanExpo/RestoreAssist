@@ -88,10 +88,7 @@ const MAX_REMOVED_MEMBERS = 50;
  * fails closed."
  */
 export function isPlatformSupportOperator(userId: string): boolean {
-  const allowlist = (process.env.PLATFORM_SUPPORT_USER_IDS ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const allowlist = platformSupportAllowlist();
   if (allowlist.includes(userId)) return true;
   // Local dev only: empty allowlist + explicit opt-in lets Margot/Mission Control
   // work for DB-verified ADMIN without hand-editing ids on every machine.
@@ -103,6 +100,27 @@ export function isPlatformSupportOperator(userId: string): boolean {
     return true;
   }
   return false;
+}
+
+function platformSupportAllowlist(): string[] {
+  return (process.env.PLATFORM_SUPPORT_USER_IDS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Strict form of `isPlatformSupportOperator`: membership of
+ * PLATFORM_SUPPORT_USER_IDS only, with NO development fallback. An unset or
+ * empty allowlist refuses everyone in every environment, including
+ * NODE_ENV=development with PLATFORM_SUPPORT_DEV_OPEN=true.
+ *
+ * Used where the dev fallback would otherwise show staff pages and nav to any
+ * business owner on a reachable development deployment: the staff page gate
+ * (`requirePlatformSupportPage`) and the dashboard nav flag.
+ */
+export function isAllowlistedPlatformSupportOperator(userId: string): boolean {
+  return platformSupportAllowlist().includes(userId);
 }
 
 /**
@@ -131,6 +149,7 @@ export type ScopeIntent = "read" | "read-financial" | "write";
 async function resolveTenantScope(
   session: SessionLike | null | undefined,
   intent: ScopeIntent = "write",
+  { singleTenant = false }: { singleTenant?: boolean } = {},
 ): Promise<TenantScope> {
   const sessionUserId = session?.user?.id;
   if (!sessionUserId) return { kind: "self" };
@@ -157,7 +176,12 @@ async function resolveTenantScope(
   // Cross-tenant support is an ADMIN-only allowlist, for reads and writes
   // alike. The allowlist widens an admin's scope; it is not a role of its own.
   if (user.role === "ADMIN" && isPlatformSupportOperator(sessionUserId)) {
-    return { kind: "platform" };
+    if (!singleTenant) return { kind: "platform" };
+    // Falls through as the ADMIN of their own organisation. With none, the
+    // check below leaves them `self`, never every tenant.
+    console.warn("[tenancy.totals_operator_own_tenant]", {
+      userId: sessionUserId,
+    });
   }
 
   // Writing beyond your own records remains an ADMIN privilege. Reading a JOB
@@ -586,11 +610,12 @@ export async function resolveInspectionReach(
 async function resolveReach(
   session: SessionLike | null,
   intent: ScopeIntent,
+  options?: { singleTenant?: boolean },
 ): Promise<TenancyResult<object>> {
   if (!session?.user?.id) {
     return { ok: false, status: 401, reason: "Unauthorized" };
   }
-  const scope = await resolveTenantScope(session, intent);
+  const scope = await resolveTenantScope(session, intent, options);
   if (scope.kind === "platform") return { ok: true, data: {} };
   // Returned pre-wrapped in `AND`. A caller who later writes
   // `where.OR = [...]` for a search box then cannot erase the tenancy filter,
@@ -600,6 +625,21 @@ async function resolveReach(
     ok: true,
     data: { AND: [{ OR: ownershipClauses(session.user.id, scope) }] },
   };
+}
+
+/**
+ * Reach for a total on a dashboard: the same rules as `resolveReach`, except
+ * that a total never spans tenants. A platform operator is the ADMIN of their
+ * own organisation here, and `self` without one, so the unbounded `{}` cannot
+ * reach a figure. Pass `read` for jobs and reports, `read-financial` for money.
+ */
+export async function resolveTotalsReach<T extends object>(
+  session: SessionLike | null,
+  intent: "read" | "read-financial",
+): Promise<TenancyResult<T>> {
+  return resolveReach(session, intent, { singleTenant: true }) as Promise<
+    TenancyResult<T>
+  >;
 }
 
 /**

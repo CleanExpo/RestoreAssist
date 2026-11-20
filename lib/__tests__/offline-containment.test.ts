@@ -259,24 +259,243 @@ describe("offline ownership containment", () => {
         : new Response(JSON.stringify({ error: "not found" }), { status: 404 }));
     expect(await queue.drainEvidenceQueue()).toBe(0);
     expect(await rows("ra-evidence-queue", "uploads")).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id, retryCount: 1, readbackPending: true, readbackStatus: 404, lastStatus: undefined }),
+      expect.objectContaining({
+        id,
+        retryCount: 1,
+        readbackPending: true,
+        readbackStatus: 404,
+        lastStatus: undefined,
+        serverPhotoId: "persisted-photo",
+      }),
     ]));
   });
 
-  it("keeps an accepted-but-unverified photo status through a later failed replay", async () => {
+  it("does not re-POST a readback-pending photo — listing verify only (RA-7862 B15)", async () => {
     await login();
     const queue = await import("../evidence-upload-queue");
-    await queue.getQueuedEvidenceCount();
     await put("ra-evidence-queue", "uploads", {
-      id: "photo-pending-readback", owner: A, inspectionId: "job-1",
-      blob: audio(), filename: "room.webp", mimeType: "image/webp",
-      queuedAt: "2026-10-01", retryCount: 1, readbackPending: true, readbackStatus: 404,
+      id: "photo-pending-readback",
+      owner: A,
+      inspectionId: "job-1",
+      blob: audio(),
+      filename: "room.webp",
+      mimeType: "image/webp",
+      queuedAt: "2026-10-01",
+      retryCount: 1,
+      readbackPending: true,
+      readbackStatus: 404,
+      serverPhotoId: "persisted-photo",
+      originalSize: 8,
+      compressedSize: 8,
+      cocoaSha256: "deadbeef",
     });
-    uploadStatus = 400;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url === "/api/auth/offline-context"
+        ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+        : init?.method === "POST"
+          ? new Response(JSON.stringify({ error: "must not replay POST" }), {
+              status: 400,
+            })
+          : new Response(JSON.stringify({ error: "not found" }), { status: 404 }),
+    );
     expect(await queue.drainEvidenceQueue()).toBe(0);
-    expect(await rows("ra-evidence-queue", "uploads")).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: "photo-pending-readback", retryCount: 2, lastStatus: 400, readbackPending: true, readbackStatus: 404 }),
-    ]));
+    expect(
+      replayCalls().filter(([, init]) => init?.method === "POST"),
+    ).toHaveLength(0);
+    expect(await rows("ra-evidence-queue", "uploads")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "photo-pending-readback",
+          retryCount: 2,
+          lastStatus: undefined,
+          readbackPending: true,
+          readbackStatus: 404,
+        }),
+      ]),
+    );
+  });
+
+  it("clears a readback-pending row when the job listing shows the server photo (RA-7862 B15)", async () => {
+    await login();
+    const queue = await import("../evidence-upload-queue");
+    await put("ra-evidence-queue", "uploads", {
+      id: "photo-pending-readback",
+      owner: A,
+      inspectionId: "job-1",
+      blob: audio(),
+      filename: "room.webp",
+      mimeType: "image/webp",
+      queuedAt: "2026-10-01",
+      retryCount: 2,
+      readbackPending: true,
+      readbackStatus: 404,
+      serverPhotoId: "persisted-photo",
+      originalSize: 8,
+      compressedSize: 8,
+      cocoaSha256: "deadbeef",
+    });
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url === "/api/auth/offline-context"
+        ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+        : init?.method === "POST"
+          ? new Response(JSON.stringify({ error: "must not replay POST" }), {
+              status: 400,
+            })
+          : new Response(
+              JSON.stringify({
+                photos: [
+                  {
+                    id: "persisted-photo",
+                    url: "https://synthetic.invalid/signed-photo",
+                  },
+                ],
+              }),
+              { status: 200 },
+            ),
+    );
+    expect(await queue.drainEvidenceQueue()).toBe(1);
+    expect(
+      (await rows("ra-evidence-queue", "uploads")).some(
+        (row) => row.id === "photo-pending-readback",
+      ),
+    ).toBe(false);
+  });
+
+  describe("read-back outcomes before a re-upload", () => {
+    const signed = "https://synthetic.invalid/signed-photo";
+
+    async function pendingRow(listing: () => Response, post?: () => Response) {
+      await login();
+      const queue = await import("../evidence-upload-queue");
+      await put("ra-evidence-queue", "uploads", {
+        id: "photo-pending-readback",
+        owner: A,
+        inspectionId: "job-1",
+        blob: audio(),
+        filename: "room.webp",
+        mimeType: "image/webp",
+        queuedAt: "2026-10-01",
+        retryCount: 1,
+        readbackPending: true,
+        readbackStatus: 200,
+        serverPhotoId: "persisted-photo",
+        originalSize: 8,
+        compressedSize: 8,
+        cocoaSha256: "deadbeef",
+      });
+      fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+        url === "/api/auth/offline-context"
+          ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+          : init?.method === "POST"
+            ? (post?.() ?? new Response(JSON.stringify({ error: "must not POST" }), { status: 400 }))
+            : listing(),
+      );
+      return queue;
+    }
+    const posts = () => replayCalls().filter(([, init]) => init?.method === "POST");
+    const pending = async () =>
+      (await rows("ra-evidence-queue", "uploads")).find((row) => row.id === "photo-pending-readback");
+
+    it("re-uploads under the same key when a complete listing proves the photo absent (RA-8131)", async () => {
+      let listed = false;
+      const queue = await pendingRow(
+        () => new Response(JSON.stringify({ photos: listed ? [{ id: "new-photo", url: signed }] : [] }), { status: 200 }),
+        () => {
+          listed = true;
+          return new Response(JSON.stringify({ photo: { id: "new-photo" } }), { status: 201 });
+        },
+      );
+      expect(await queue.drainEvidenceQueue()).toBe(1);
+      expect(posts()).toHaveLength(1);
+      expect(new Headers(posts()[0][1]?.headers).get("Idempotency-Key")).toBe("photo-pending-readback");
+      expect(await pending()).toBeUndefined();
+    });
+
+    it("keeps the row without re-uploading when a 500 means absence is unproven (RA-8131)", async () => {
+      const queue = await pendingRow(() => new Response("{}", { status: 500 }));
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2, readbackPending: true, readbackStatus: 500 }));
+    });
+
+    it("keeps the row without re-uploading when a 200 listing is malformed (RA-8131)", async () => {
+      const queue = await pendingRow(() => new Response("not json", { status: 200 }));
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
+    });
+
+    it("does not re-upload a photo whose row is listed without a usable URL (RA-8131)", async () => {
+      const queue = await pendingRow(
+        () => new Response(JSON.stringify({ photos: [{ id: "persisted-photo", url: "" }] }), { status: 200 }),
+      );
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
+    });
+
+    it("does not treat a listing at the server's 500-row cap as proof of absence (RA-8131)", async () => {
+      const full = Array.from({ length: 500 }, (_, i) => ({ id: `other-${i}`, url: signed }));
+      const queue = await pendingRow(() => new Response(JSON.stringify({ photos: full }), { status: 200 }));
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
+    });
+
+    it("does not re-upload when the row has nothing to identify its photo by (RA-8131)", async () => {
+      const queue = await pendingRow(() => new Response(JSON.stringify({ photos: [] }), { status: 200 }));
+      const row = await pending();
+      await put("ra-evidence-queue", "uploads", { ...row, serverPhotoId: undefined, cocoaSha256: undefined });
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
+    });
+
+    async function hashOnly(queue: Awaited<ReturnType<typeof pendingRow>>) {
+      await put("ra-evidence-queue", "uploads", { ...(await pending()), serverPhotoId: undefined });
+      return queue;
+    }
+
+    it("finds a photo by hash alone and sends no second upload (RA-8131)", async () => {
+      const queue = await hashOnly(await pendingRow(
+        () => new Response(JSON.stringify({ photos: [{ id: "created", url: signed, cocoaSha256: "deadbeef" }] }), { status: 200 }),
+      ));
+      expect(await queue.drainEvidenceQueue()).toBe(1);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toBeUndefined();
+    });
+
+    it("re-uploads a hash-only row when no listed photo carries its hash (RA-8131)", async () => {
+      let listed = false;
+      const queue = await hashOnly(await pendingRow(
+        () => new Response(JSON.stringify({ photos: [{ id: listed ? "new-photo" : "other", url: signed, cocoaSha256: listed ? "deadbeef" : null }] }), { status: 200 }),
+        () => {
+          listed = true;
+          return new Response(JSON.stringify({ photo: { id: "new-photo" } }), { status: 201 });
+        },
+      ));
+      expect(await queue.drainEvidenceQueue()).toBe(1);
+      expect(posts()).toHaveLength(1);
+      expect(await pending()).toBeUndefined();
+    });
+
+    it("does not re-upload a hash-only row when the listing leaves out the hash (RA-8131)", async () => {
+      const queue = await hashOnly(await pendingRow(
+        () => new Response(JSON.stringify({ photos: [{ id: "created", url: signed }] }), { status: 200 }),
+      ));
+      expect(await queue.drainEvidenceQueue()).toBe(0);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
+    });
+
+    it("sends no second upload when the listing shows the photo the timed-out POST created (RA-8131)", async () => {
+      const queue = await pendingRow(
+        () => new Response(JSON.stringify({ photos: [{ id: "persisted-photo", url: signed }] }), { status: 200 }),
+      );
+      expect(await queue.drainEvidenceQueue()).toBe(1);
+      expect(posts()).toHaveLength(0);
+      expect(await pending()).toBeUndefined();
+    });
   });
 
   it("retains an unidentified 2xx row and continues syncing later photos", async () => {
@@ -354,10 +573,140 @@ describe("offline ownership containment", () => {
     expect(replayCalls()).toHaveLength(0);
   });
 
+  it("clears a verify-pending moisture row via export-data without re-POST (RA-7862 B15)", async () => {
+    await login();
+    const queue = await import("../nir-sync-queue");
+    const id = await queue.queueWrite({
+      id: "moisture-pending-verify",
+      type: "moisture-reading",
+      endpoint: "/api/inspections/job-1/moisture",
+      method: "POST",
+      payload: {
+        location: "Kitchen",
+        surfaceType: "timber",
+        moistureLevel: 18,
+      },
+      inspectionId: "job-1",
+    });
+    const seeded = (await rows("nir-offline-queue", "sync-queue")).find(
+      (row) => row.id === id,
+    );
+    await put("nir-offline-queue", "sync-queue", {
+      ...seeded,
+      retryCount: 1,
+      verifyPending: true,
+      serverResourceId: "mr_1",
+    });
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url === "/api/auth/offline-context"
+        ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+        : init?.method === "POST"
+          ? new Response(JSON.stringify({ error: "must not replay POST" }), {
+              status: 400,
+            })
+          : url.includes("/export-data")
+            ? new Response(
+                JSON.stringify({
+                  moistureReadings: [
+                    {
+                      location: "Kitchen",
+                      material: "timber",
+                      moistureContent: 18,
+                    },
+                  ],
+                }),
+                { status: 200 },
+              )
+            : new Response("{}", { status: 404 }),
+    );
+    expect(await queue.drainQueue()).toBe(1);
+    expect(
+      replayCalls().filter(([, init]) => init?.method === "POST"),
+    ).toHaveLength(0);
+    expect(
+      (await rows("nir-offline-queue", "sync-queue")).some(
+        (row) => row.id === "moisture-pending-verify",
+      ),
+    ).toBe(false);
+  });
+
+  // The B15 read-back must never stand between a reading and the server.
+  async function seedMoisture(fields: Record<string, unknown>) {
+    const queue = await import("../nir-sync-queue");
+    const id = await queue.queueWrite({
+      id: "moisture-b15",
+      type: "moisture-reading",
+      endpoint: "/api/inspections/job-1/moisture",
+      method: "POST",
+      payload: { location: "Kitchen", surfaceType: "timber", moistureLevel: 18 },
+      inspectionId: "job-1",
+    });
+    const seeded = (await rows("nir-offline-queue", "sync-queue")).find((row) => row.id === id);
+    await put("nir-offline-queue", "sync-queue", { ...seeded, ...fields });
+    return queue;
+  }
+  function moistureServer(exported: unknown[], postStatus = 201) {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url === "/api/auth/offline-context"
+        ? new Response(JSON.stringify({ owner: serverOwner }), { status: 200 })
+        : init?.method === "POST"
+          ? new Response(JSON.stringify({ moistureReading: { id: "mr_1" } }), { status: postStatus })
+          : url.includes("/export-data")
+            ? new Response(JSON.stringify({ moistureReadings: exported }), { status: 200 })
+            : new Response("{}", { status: 404 }),
+    );
+  }
+  const posts = () => replayCalls().filter(([, init]) => init?.method === "POST");
+  const queued = async () =>
+    (await rows("nir-offline-queue", "sync-queue")).some((row) => row.id === "moisture-b15");
+
+  it("POSTs a moisture row whose read-back finds nothing, instead of re-queueing it forever (RA-7862 B15)", async () => {
+    await login();
+    const queue = await seedMoisture({ retryCount: 1, verifyPending: true });
+    moistureServer([]);
+    expect(await queue.drainQueue()).toBe(1);
+    expect(posts()).toHaveLength(1);
+    expect(await queued()).toBe(false);
+  });
+
+  it("clears a moisture row on a 2xx that names the committed reading (RA-7862 B15)", async () => {
+    await login();
+    const queue = await seedMoisture({});
+    moistureServer([]);
+    expect(await queue.drainQueue()).toBe(1);
+    expect(posts()).toHaveLength(1);
+    expect(await queued()).toBe(false);
+  });
+
+  it("reads back before re-POSTing a retried moisture row old enough for its key to expire (RA-7862 B15)", async () => {
+    await login();
+    const queue = await seedMoisture({ retryCount: 1, queuedAt: "2020-01-01T00:00:00.000Z" });
+    moistureServer([{ location: "Kitchen", material: "timber", moistureContent: 18 }]);
+    expect(await queue.drainQueue()).toBe(1);
+    expect(posts()).toHaveLength(0);
+    expect(await queued()).toBe(false);
+  });
+
+  it("keeps the read-back window tied to the server idempotency TTL", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(`${process.cwd()}/lib/idempotency.ts`, "utf8");
+    const expr = source.match(/const TTL_MS = ([\d\s*]+);/)?.[1];
+    expect(expr, "lib/idempotency.ts TTL_MS not found").toBeTruthy();
+    const serverTtl = expr!.split("*").reduce((n, part) => n * Number(part.trim()), 1);
+    const queue = await import("../nir-sync-queue");
+    expect(queue.MOISTURE_IDEMPOTENCY_TTL_MS).toBe(serverTtl);
+  });
+
   it("drains owned NIR work once and leaves legacy and foreign entries unchanged", async () => {
     await login();
     const queue = await import("../nir-sync-queue");
-    await queue.queueWrite({ type: "moisture-reading", endpoint: "/api/inspections/i/moisture", method: "POST", payload: {}, inspectionId: "i" });
+    await queue.queueWrite({
+      type: "inspection-update",
+      endpoint: "/api/inspections/i",
+      method: "PATCH",
+      payload: { notes: "offline patch" },
+      inspectionId: "i",
+    });
     const original = (await rows("nir-offline-queue", "sync-queue"))[0];
     await put("nir-offline-queue", "sync-queue", { ...original, id: "legacy", owner: undefined });
     await put("nir-offline-queue", "sync-queue", { ...original, id: "foreign", owner: B });
