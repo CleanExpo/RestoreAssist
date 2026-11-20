@@ -238,10 +238,10 @@ export default function ServiceAreasPage() {
       <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <MapPin className="h-12 w-12 text-slate-500 mb-4" />
-          <h2 className="text-xl font-semibold text-white mb-2">
+          <h2 className="text-xl font-semibold text-brand-navy dark:text-white mb-2">
             Profile Not Set Up
           </h2>
-          <p className="text-slate-400 max-w-sm">
+          <p className="text-brand-slate dark:text-slate-400 max-w-sm">
             Complete your contractor profile first to manage service areas.
           </p>
           <Button
@@ -262,8 +262,8 @@ export default function ServiceAreasPage() {
       <ContractorsBackLink />
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-white">Service Areas</h1>
-          <p className="text-slate-400 mt-1">
+          <h1 className="text-3xl font-bold text-brand-navy dark:text-white">Service Areas</h1>
+          <p className="text-brand-slate dark:text-slate-400 mt-1">
             Postcodes and suburbs you cover for restoration work
           </p>
         </div>
@@ -275,19 +275,19 @@ export default function ServiceAreasPage() {
 
       {/* Summary bar */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold text-white">{totalAreas}</div>
-          <div className="text-sm text-slate-400 mt-1">Total Areas</div>
+        <div className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-4 text-center">
+          <div className="text-3xl font-bold text-brand-navy dark:text-white">{totalAreas}</div>
+          <div className="text-sm text-brand-slate dark:text-slate-400 mt-1">Total Areas</div>
         </div>
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold text-brand-harbour-400">{activeAreas}</div>
-          <div className="text-sm text-slate-400 mt-1">Active Areas</div>
+        <div className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-4 text-center">
+          <div className="text-3xl font-bold text-brand-harbour-700 dark:text-brand-harbour-400">{activeAreas}</div>
+          <div className="text-sm text-brand-slate dark:text-slate-400 mt-1">Active Areas</div>
         </div>
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4 text-center">
-          <div className="text-lg font-semibold text-white truncate">
+        <div className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-4 text-center">
+          <div className="text-lg font-semibold text-brand-navy dark:text-white truncate">
             {statesCovered}
           </div>
-          <div className="text-sm text-slate-400 mt-1">States Covered</div>
+          <div className="text-sm text-brand-slate dark:text-slate-400 mt-1">States Covered</div>
         </div>
       </div>
 
@@ -295,7 +295,7 @@ export default function ServiceAreasPage() {
       {serviceAreas.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <MapPin className="h-12 w-12 text-slate-500 mb-4" />
-          <p className="text-slate-400 max-w-sm">
+          <p className="text-brand-slate dark:text-slate-400 max-w-sm">
             No service areas yet. Add your first postcode to start appearing in
             contractor searches.
           </p>
@@ -312,44 +312,44 @@ export default function ServiceAreasPage() {
             return (
               <div
                 key={state}
-                className="bg-slate-800/30 border border-slate-700 rounded-lg overflow-hidden"
+                className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg overflow-hidden"
               >
                 {/* State group header */}
                 <button
                   onClick={() => toggleCollapse(state)}
-                  className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-700/30 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-3 hover:bg-brand-cream dark:hover:bg-slate-700/30 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <MapPin className="h-4 w-4 text-brand-harbour-400" />
-                    <span className="font-semibold text-white">{state}</span>
+                    <MapPin className="h-4 w-4 text-brand-harbour-700 dark:text-brand-harbour-400" />
+                    <span className="font-semibold text-brand-navy dark:text-white">{state}</span>
                     <Badge variant="secondary" className="text-xs">
                       {areas.length} {areas.length === 1 ? "area" : "areas"}
                     </Badge>
                   </div>
                   {isCollapsed ? (
-                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                    <ChevronRight className="h-4 w-4 text-brand-slate dark:text-slate-400" />
                   ) : (
-                    <ChevronDown className="h-4 w-4 text-slate-400" />
+                    <ChevronDown className="h-4 w-4 text-brand-slate dark:text-slate-400" />
                   )}
                 </button>
 
                 {/* Areas list */}
                 {!isCollapsed && (
-                  <div className="divide-y divide-slate-700/50">
+                  <div className="divide-y divide-brand-mist dark:divide-slate-700/50">
                     {areas.map((area) => (
                       <div
                         key={area.id}
-                        className="flex items-center justify-between px-5 py-4 hover:bg-slate-700/20 transition-colors"
+                        className="flex items-center justify-between px-5 py-4 hover:bg-brand-cream dark:hover:bg-slate-700/20 transition-colors"
                       >
                         {/* Left: postcode + suburb + state */}
                         <div className="flex items-center gap-4 min-w-0">
                           <div>
                             <div className="flex items-baseline gap-2">
-                              <span className="text-xl font-bold text-white">
+                              <span className="text-xl font-bold text-brand-navy dark:text-white">
                                 {area.postcode}
                               </span>
                               {area.suburb && (
-                                <span className="text-slate-300 text-sm">
+                                <span className="text-brand-slate dark:text-slate-300 text-sm">
                                   {area.suburb}
                                 </span>
                               )}
@@ -361,7 +361,7 @@ export default function ServiceAreasPage() {
                               {area.radius != null && (
                                 <Badge
                                   variant="outline"
-                                  className="text-xs border-brand-harbour-500/40 text-brand-harbour-400"
+                                  className="text-xs border-brand-harbour-500/40 text-brand-harbour-700 dark:text-brand-harbour-400"
                                 >
                                   {area.radius} km radius
                                 </Badge>
@@ -407,15 +407,15 @@ export default function ServiceAreasPage() {
 
       {/* Add Service Area Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white sm:max-w-md">
+        <DialogContent className="bg-white dark:bg-slate-900 border-brand-mist dark:border-slate-700 text-brand-navy dark:text-white sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-white">Add Service Area</DialogTitle>
+            <DialogTitle className="text-brand-navy dark:text-white">Add Service Area</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             {/* Postcode */}
             <div className="space-y-1.5">
-              <Label htmlFor="postcode" className="text-slate-300">
+              <Label htmlFor="postcode" className="text-brand-slate dark:text-slate-300">
                 Postcode <span className="text-destructive">*</span>
               </Label>
               <Input
@@ -426,13 +426,13 @@ export default function ServiceAreasPage() {
                 }
                 placeholder="e.g. 2000"
                 maxLength={4}
-                className="bg-slate-800 border-slate-600 text-white placeholder-slate-500"
+                className="bg-white dark:bg-slate-800 border-slate-600 text-brand-navy dark:text-white placeholder-slate-500"
               />
             </div>
 
             {/* Suburb */}
             <div className="space-y-1.5">
-              <Label htmlFor="suburb" className="text-slate-300">
+              <Label htmlFor="suburb" className="text-brand-slate dark:text-slate-300">
                 Suburb (optional)
               </Label>
               <Input
@@ -442,28 +442,28 @@ export default function ServiceAreasPage() {
                   setForm((f) => ({ ...f, suburb: e.target.value }))
                 }
                 placeholder="e.g. Sydney CBD"
-                className="bg-slate-800 border-slate-600 text-white placeholder-slate-500"
+                className="bg-white dark:bg-slate-800 border-slate-600 text-brand-navy dark:text-white placeholder-slate-500"
               />
             </div>
 
             {/* State */}
             <div className="space-y-1.5">
-              <Label className="text-slate-300">
+              <Label className="text-brand-slate dark:text-slate-300">
                 State <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={form.state}
                 onValueChange={(val) => setForm((f) => ({ ...f, state: val }))}
               >
-                <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                <SelectTrigger className="bg-white dark:bg-slate-800 border-slate-600 text-brand-navy dark:text-white">
                   <SelectValue placeholder="Select state..." />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700">
+                <SelectContent className="bg-white dark:bg-slate-800 border-brand-mist dark:border-slate-700">
                   {AU_STATES.map((s) => (
                     <SelectItem
                       key={s}
                       value={s}
-                      className="text-white hover:bg-slate-700"
+                      className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                     >
                       {s}
                     </SelectItem>
@@ -474,7 +474,7 @@ export default function ServiceAreasPage() {
 
             {/* Radius */}
             <div className="space-y-1.5">
-              <Label htmlFor="radius" className="text-slate-300">
+              <Label htmlFor="radius" className="text-brand-slate dark:text-slate-300">
                 Radius (km, optional)
               </Label>
               <Input
@@ -486,13 +486,13 @@ export default function ServiceAreasPage() {
                   setForm((f) => ({ ...f, radius: e.target.value }))
                 }
                 placeholder="e.g. 25"
-                className="bg-slate-800 border-slate-600 text-white placeholder-slate-500"
+                className="bg-white dark:bg-slate-800 border-slate-600 text-brand-navy dark:text-white placeholder-slate-500"
               />
             </div>
 
             {/* Priority */}
             <div className="space-y-1.5">
-              <Label htmlFor="priority" className="text-slate-300">
+              <Label htmlFor="priority" className="text-brand-slate dark:text-slate-300">
                 Priority (default 0)
               </Label>
               <Input
@@ -502,7 +502,7 @@ export default function ServiceAreasPage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, priority: e.target.value }))
                 }
-                className="bg-slate-800 border-slate-600 text-white"
+                className="bg-white dark:bg-slate-800 border-slate-600 text-brand-navy dark:text-white"
               />
             </div>
           </div>
@@ -511,7 +511,7 @@ export default function ServiceAreasPage() {
             <Button
               variant="outline"
               onClick={() => setDialogOpen(false)}
-              className="border-slate-600 text-slate-300 hover:bg-slate-800"
+              className="border-slate-600 text-brand-slate dark:text-slate-300 hover:bg-brand-cream dark:hover:bg-slate-800"
               disabled={submitting}
             >
               Cancel

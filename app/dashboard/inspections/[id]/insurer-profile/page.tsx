@@ -278,7 +278,7 @@ export default function InsurerProfilePage({
                     value={claimRef}
                     onChange={(e) => setClaimRef(e.target.value)}
                     placeholder="e.g. CLM-2026-001234"
-                    className="w-full text-sm px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
+                    className="w-full text-sm px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-brand-slate dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
                   />
                 </div>
               </div>
@@ -362,7 +362,7 @@ export default function InsurerProfilePage({
                           <p className="text-xs text-neutral-500 dark:text-slate-400">
                             Required: {m.required} — Submitted: {m.submitted}
                           </p>
-                          <p className="text-xs text-neutral-400 dark:text-slate-500 mt-0.5">
+                          <p className="text-xs text-brand-slate dark:text-slate-500 mt-0.5">
                             {m.instructions}
                           </p>
                         </div>
@@ -392,9 +392,9 @@ export default function InsurerProfilePage({
                     </Badge>
                   </div>
                   {expandedSections.evidence ? (
-                    <ChevronDown size={18} className="text-neutral-400" />
+                    <ChevronDown size={18} className="text-brand-slate dark:text-neutral-400" />
                   ) : (
-                    <ChevronRight size={18} className="text-neutral-400" />
+                    <ChevronRight size={18} className="text-brand-slate dark:text-neutral-400" />
                   )}
                 </button>
                 {expandedSections.evidence && (
@@ -472,9 +472,9 @@ export default function InsurerProfilePage({
                     </span>
                   </div>
                   {expandedSections.report ? (
-                    <ChevronDown size={18} className="text-neutral-400" />
+                    <ChevronDown size={18} className="text-brand-slate dark:text-neutral-400" />
                   ) : (
-                    <ChevronRight size={18} className="text-neutral-400" />
+                    <ChevronRight size={18} className="text-brand-slate dark:text-neutral-400" />
                   )}
                 </button>
                 {expandedSections.report && (
@@ -564,9 +564,9 @@ export default function InsurerProfilePage({
                     </span>
                   </div>
                   {expandedSections.submission ? (
-                    <ChevronDown size={18} className="text-neutral-400" />
+                    <ChevronDown size={18} className="text-brand-slate dark:text-neutral-400" />
                   ) : (
-                    <ChevronRight size={18} className="text-neutral-400" />
+                    <ChevronRight size={18} className="text-brand-slate dark:text-neutral-400" />
                   )}
                 </button>
                 {expandedSections.submission && (
@@ -643,9 +643,9 @@ export default function InsurerProfilePage({
                     </span>
                   </div>
                   {expandedSections.s500 ? (
-                    <ChevronDown size={18} className="text-neutral-400" />
+                    <ChevronDown size={18} className="text-brand-slate dark:text-neutral-400" />
                   ) : (
-                    <ChevronRight size={18} className="text-neutral-400" />
+                    <ChevronRight size={18} className="text-brand-slate dark:text-neutral-400" />
                   )}
                 </button>
                 {expandedSections.s500 && (

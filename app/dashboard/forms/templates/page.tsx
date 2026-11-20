@@ -198,7 +198,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
         <button
           type="button"
           onClick={onCancel}
-          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          className="text-brand-slate dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
           aria-label="Close"
         >
           <X className="h-4 w-4" />
@@ -531,7 +531,7 @@ export default function FormTemplatesPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-brand-slate dark:text-slate-400 pointer-events-none" />
           <Input
             placeholder="Search templates…"
             value={search}
@@ -609,7 +609,7 @@ export default function FormTemplatesPage() {
                   className="py-16 text-center text-sm text-slate-500 dark:text-slate-400"
                 >
                   <div className="flex flex-col items-center gap-3">
-                    <FileText className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                    <FileText className="h-8 w-8 text-brand-slate dark:text-slate-600" />
                     {templates.length === 0 && !isConfirmedEmpty(error, 0) ? (
                       // RA-8084: a failed load is unknown, not empty.
                       <span>Templates could not be loaded.</span>

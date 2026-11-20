@@ -202,7 +202,7 @@ export default function WebhookLogsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-brand-harbour-500 flex items-center justify-center">
-            <Activity size={20} className="text-white" />
+            <Activity size={20} className="text-brand-navy dark:text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-neutral-900 dark:text-slate-50">
@@ -357,13 +357,13 @@ export default function WebhookLogsPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <RefreshCw size={24} className="animate-spin text-neutral-400" />
+              <RefreshCw size={24} className="animate-spin text-brand-slate dark:text-neutral-400" />
             </div>
           ) : events.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center px-4">
               <Activity
                 size={40}
-                className="text-neutral-300 dark:text-slate-700 mb-4"
+                className="text-brand-slate dark:text-slate-700 mb-4"
               />
               <p className="text-neutral-500 dark:text-slate-400 text-sm max-w-sm">
                 No webhook events recorded yet. Events appear here when

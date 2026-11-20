@@ -21,6 +21,11 @@ import {
   type CheckoutReply,
 } from "@/lib/billing/checkout-return";
 import BillingGate from "@/components/capacitor/BillingGate";
+import {
+  ADDON_LABEL_TEXT,
+  type AddonAccess,
+  type AddonLabel,
+} from "@/lib/billing/addon-access";
 
 export interface CatalogAddon {
   sku: string;
@@ -32,11 +37,36 @@ export interface CatalogAddon {
   perSeat: boolean;
 }
 
-interface CatalogResponse {
+export interface CatalogResponse {
   addons: CatalogAddon[];
   owned: string[];
   technicianSeats?: { purchased: number; used: number } | null;
+  /** RA-8466: label and allowed action per pack, decided on the server. */
+  access?: Record<string, AddonAccess>;
+  canManageBilling?: boolean;
 }
+
+/**
+ * The card's access when the server sent none (an older deployment answering
+ * mid-release): today's behaviour, Manage on an owned pack, otherwise Add.
+ */
+export function cardAccess(
+  data: Pick<CatalogResponse, "access">,
+  sku: string,
+  isOwned: boolean,
+  perSeat: boolean,
+): AddonAccess {
+  const fromServer = data.access?.[sku];
+  if (fromServer) return fromServer;
+  return {
+    label: "optional_paid",
+    holding: isOwned ? "paid" : "none",
+    action: isOwned ? (perSeat ? "add_seat" : "manage") : "buy",
+    reason: "",
+  };
+}
+
+export type AddonReturnTarget = "setup" | "addons";
 
 /** Where an owner chooses or manages the plan. Reachable during setup too. */
 export const PLAN_PAGE_HREF = "/dashboard/subscription";
@@ -196,6 +226,11 @@ type PendingKey = {
    * the count of the first press, not a re-read one.
    */
   expectedSeats?: number;
+  /**
+   * RA-8466: where the checkout returns. Kept with the key for the same
+   * reason as the seat count: a retry must resend the first press's body.
+   */
+  returnTo?: AddonReturnTarget;
 };
 
 const PENDING_KEY_PREFIX = "restoreassist:addon-checkout-key:";
@@ -224,6 +259,9 @@ function readPendingKey(slot: string): PendingKey | null {
     attempt: typeof e.attempt === "string" ? e.attempt : "",
     ...(typeof e.expectedSeats === "number"
       ? { expectedSeats: e.expectedSeats }
+      : {}),
+    ...(e.returnTo === "setup" || e.returnTo === "addons"
+      ? { returnTo: e.returnTo }
       : {}),
   };
 }
@@ -254,7 +292,17 @@ type CardNotice = { text: string; link?: { href: string; label: string } };
 
 export interface AddonCardDeckProps {
   className?: string;
+  /** RA-8466: where a checkout started here returns, paid or cancelled. */
+  returnTo?: AddonReturnTarget;
 }
+
+const LABEL_STYLE: Record<AddonLabel, string> = {
+  included: "bg-success-subtle text-success-subtle-foreground ring-success/20",
+  complimentary_pilot:
+    "bg-success-subtle text-success-subtle-foreground ring-success/20",
+  optional_paid: "bg-brand-navy/5 text-brand-navy ring-brand-navy/15 dark:text-slate-100",
+  unavailable: "bg-muted text-muted-foreground ring-border",
+};
 
 /**
  * The deck is a purchase surface, so it carries its own BillingGate: every
@@ -273,18 +321,30 @@ export function AddonCardDeck(props: AddonCardDeckProps) {
         </p>
       }
     >
-      <AddonCardDeckContent {...props} />
+      <AddonCardDeckWithAccount {...props} />
     </BillingGate>
   );
 }
 
-function AddonCardDeckContent({ className }: AddonCardDeckProps) {
+/**
+ * Everything the deck holds (catalogue access, notices, pending purchases)
+ * belongs to one signed-in account. Keying the content by account means a
+ * different account signing in gets a fresh deck that loads its own access,
+ * rather than one field at a time remembering to reset.
+ */
+function AddonCardDeckWithAccount(props: AddonCardDeckProps) {
+  const accountId = useSession().data?.user?.id ?? null;
+  return <AddonCardDeckContent key={accountId ?? "no-account"} {...props} />;
+}
+
+function AddonCardDeckContent({ className, returnTo }: AddonCardDeckProps) {
   // Pending purchase keys are stored per account (see readPendingKey). No
   // purchase starts until the signed-in account is known.
   const accountId = useSession().data?.user?.id ?? null;
   const [addons, setAddons] = useState<CatalogAddon[]>([]);
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [seats, setSeats] = useState<CatalogResponse["technicianSeats"]>(null);
+  const [access, setAccess] = useState<CatalogResponse["access"]>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
@@ -299,6 +359,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
     setAddons(data.addons ?? []);
     setOwned(new Set(data.owned ?? []));
     setSeats(data.technicianSeats ?? null);
+    setAccess(data.access);
   }, []);
 
   useEffect(() => {
@@ -343,6 +404,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
       unresolved: false,
       attempt,
       ...(seatPack && seats ? { expectedSeats: seats.purchased } : {}),
+      ...(returnTo ? { returnTo } : {}),
     };
     writePendingKey(slot, { ...pending, unresolved: true, attempt });
     try {
@@ -357,6 +419,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
           ...(pending.expectedSeats !== undefined
             ? { expectedSeats: pending.expectedSeats }
             : {}),
+          ...(pending.returnTo ? { returnTo: pending.returnTo } : {}),
         }),
       });
       const json: unknown = await res.json().catch(() => null);
@@ -463,6 +526,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
         const seatUse = addon.perSeat ? seats : null;
         const notice = notices[addon.sku];
         const busy = buying === addon.sku;
+        const cardState = cardAccess({ access }, addon.sku, isOwned, addon.perSeat);
         return (
           <li key={addon.sku} data-testid={`addon-card-${addon.sku}`}>
             <article
@@ -519,7 +583,23 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
               </div>
 
               <div className="mx-3 mt-3 mb-5">
-                {isOwned && !addon.perSeat ? (
+                <div className="mb-2 flex flex-col items-center gap-1 text-center">
+                  <span
+                    data-testid={`addon-label-${addon.sku}`}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs font-semibold ring-1",
+                      LABEL_STYLE[cardState.label],
+                    )}
+                  >
+                    {ADDON_LABEL_TEXT[cardState.label]}
+                  </span>
+                  {cardState.reason ? (
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {cardState.reason}
+                    </p>
+                  ) : null}
+                </div>
+                {cardState.action === "manage" ? (
                   <div className="flex items-center justify-between gap-2">
                     <span className="rounded-md bg-success-subtle px-2.5 py-1 text-xs font-semibold text-success-subtle-foreground ring-1 ring-success/20">
                       Active
@@ -531,7 +611,8 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
                       Manage
                     </Link>
                   </div>
-                ) : (
+                ) : cardState.action === "buy" ||
+                  cardState.action === "add_seat" ? (
                   <button
                     type="button"
                     onClick={() => handleAdd(addon.sku)}
@@ -540,11 +621,18 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
                   >
                     {busy
                       ? "Please wait"
-                      : isOwned && addon.perSeat
+                      : cardState.action === "add_seat"
                         ? "Add a seat"
                         : "Add pack"}
                   </button>
-                )}
+                ) : cardState.action === "choose_plan" ? (
+                  <Link
+                    href={PLAN_PAGE_HREF}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-brand-navy/20 px-4 text-sm font-medium text-brand-navy hover:bg-brand-navy/5 dark:text-slate-100"
+                  >
+                    Choose a plan
+                  </Link>
+                ) : null}
                 {notice ? (
                   <p
                     role="status"

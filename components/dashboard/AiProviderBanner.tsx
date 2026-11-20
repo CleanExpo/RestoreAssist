@@ -89,7 +89,7 @@ export function AiProviderBanner() {
                 ? step.title
                 : "Reports will not generate without an AI key"}
             </p>
-            <p className="text-xs text-amber-800/80 dark:text-amber-200/80">
+            <p className="text-xs text-amber-800 dark:text-amber-200/80">
               {rejected
                 ? step.description
                 : "RestoreAssist runs report generation on your Anthropic or OpenAI key. Until you add one, generating a report fails instead of producing a document."}
@@ -98,7 +98,7 @@ export function AiProviderBanner() {
         </div>
         <Link
           href={step.route || DEFAULT_AI_PROVIDER_ROUTE}
-          className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors min-h-[36px] inline-flex items-center bg-amber-500 hover:bg-amber-600 text-white flex-shrink-0"
+          className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors min-h-[36px] inline-flex items-center bg-amber-700 hover:bg-amber-800 text-white flex-shrink-0"
         >
           {rejected ? "Replace key" : "Add AI key"}
         </Link>

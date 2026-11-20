@@ -2,12 +2,22 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { SetupShell } from '@/components/setup/SetupShell';
+import { SetupShell, type SetupCheckoutReturn } from '@/components/setup/SetupShell';
 import { ensureOwnerOrganization } from '@/lib/organization/ensure-owner-organization';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SetupPage() {
+/** RA-8466: a closed list, so the query string can only pick a notice. */
+function readCheckoutReturn(value: string | string[] | undefined): SetupCheckoutReturn {
+  return value === 'done' || value === 'cancelled' ? value : null;
+}
+
+export default async function SetupPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+} = {}) {
+  const checkoutReturn = readCheckoutReturn((await searchParams)?.checkout);
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     redirect('/login');
@@ -76,5 +86,5 @@ export default async function SetupPage() {
     setupCompletedAt: (setupCompletedAt as Date | null)?.toISOString() ?? null,
   };
 
-  return <SetupShell initial={initial} />;
+  return <SetupShell initial={initial} checkoutReturn={checkoutReturn} />;
 }

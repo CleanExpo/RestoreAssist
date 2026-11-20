@@ -16,14 +16,14 @@ import { TECHNICIAN_SEATS_MAX_PER_CHECKOUT } from "@/lib/billing/technician-seat
 import { isComplimentaryEntitlement } from "@/lib/billing/founding-trial-grant";
 import { CHECKOUT_CANCEL_PATH } from "@/lib/billing/checkout-presentation";
 import {
-  parseCheckoutReturn,
+  parseAddonCheckoutReturn,
   seatReturnUrls,
 } from "@/lib/billing/checkout-return";
 import {
   seatWorkspaceFor,
   seatsNeededToBuy,
 } from "@/lib/billing/technician-seats";
-import { isCurrentTrial } from "@/lib/billing/trial-expired-pay-route";
+import { planAllowsAddonPurchase } from "@/lib/billing/addon-access";
 import { syncRecurringAddonsFromStripe } from "@/lib/billing/fulfill-recurring-addon";
 import { ensureWorkspaceForUser } from "@/lib/workspace/provision";
 import { reportError } from "@/lib/observability";
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       }
       const { addonKey } = parsedBody;
 
-      const checkoutReturn = parseCheckoutReturn(parsedBody.returnTo);
+      const checkoutReturn = parseAddonCheckoutReturn(parsedBody.returnTo);
       if (!checkoutReturn.ok) {
         return apiError(request, {
           code: "VALIDATION",
@@ -163,10 +163,13 @@ export async function POST(request: NextRequest) {
       // A technician seat can be bought during a current trial: the free seat
       // ends on day 15, well before the trial does. Every other add-on, and an
       // expired trial, still takes the plan first.
-      const seatOnTrial =
-        !!getRecurringAddon(addonKey)?.perSeat &&
-        isCurrentTrial(user.subscriptionStatus, user.trialEndsAt);
-      if (user.subscriptionStatus !== "ACTIVE" && !seatOnTrial) {
+      // RA-8466: one owner for this rule, shared with the Field Add-Ons labels.
+      const plan = planAllowsAddonPurchase(
+        !!getRecurringAddon(addonKey)?.perSeat,
+        user.subscriptionStatus,
+        user.trialEndsAt,
+      );
+      if (!plan.allowed) {
         // Preserve upgradeRequired flag for client UX
         return NextResponse.json(
           {

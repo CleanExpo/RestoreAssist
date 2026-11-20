@@ -55,7 +55,7 @@ function StatusBadge({ status }: { status: string }) {
     SENT: "bg-info-subtle text-info-subtle-foreground",
     PAID: "bg-success-subtle text-success-subtle-foreground",
     OVERDUE: "bg-destructive-subtle text-destructive-subtle-foreground",
-    CANCELLED: "bg-neutral-100 dark:bg-slate-800 text-neutral-400",
+    CANCELLED: "bg-neutral-100 dark:bg-slate-800 text-brand-slate dark:text-neutral-400",
   };
   return (
     <span
@@ -230,12 +230,12 @@ export default function InspectionInvoicePage({
         <div className="p-12 rounded-xl border border-dashed border-neutral-300 dark:border-slate-700 text-center space-y-3">
           <Receipt
             size={40}
-            className="mx-auto text-neutral-300 dark:text-slate-600"
+            className="mx-auto text-brand-slate dark:text-slate-600"
           />
           <p className="text-neutral-500 dark:text-slate-400 font-medium">
             No invoice generated yet
           </p>
-          <p className="text-sm text-neutral-400 dark:text-slate-500">
+          <p className="text-sm text-brand-slate dark:text-slate-500">
             Click &quot;Generate Invoice&quot; to create a draft invoice from
             this inspection&apos;s approved estimate.
           </p>
@@ -267,7 +267,7 @@ export default function InspectionInvoicePage({
                 <p className="text-sm text-neutral-500 dark:text-slate-400">
                   {invoice.customerName} &bull; {invoice.customerEmail}
                 </p>
-                <p className="text-sm text-neutral-400 dark:text-slate-500 mt-0.5">
+                <p className="text-sm text-brand-slate dark:text-slate-500 mt-0.5">
                   Due:{" "}
                   {new Date(invoice.dueDate).toLocaleDateString("en-AU", {
                     day: "2-digit",
@@ -277,7 +277,7 @@ export default function InspectionInvoicePage({
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-neutral-400 uppercase tracking-wider mb-0.5">
+                <p className="text-xs text-brand-slate dark:text-neutral-400 uppercase tracking-wider mb-0.5">
                   Total inc. GST
                 </p>
                 <p className="text-2xl font-bold text-success">
@@ -289,7 +289,7 @@ export default function InspectionInvoicePage({
             {/* Totals row */}
             <div className="flex gap-6 pt-3 border-t border-neutral-100 dark:border-slate-800 text-sm">
               <div>
-                <span className="text-neutral-400 text-xs uppercase tracking-wider block">
+                <span className="text-brand-slate dark:text-neutral-400 text-xs uppercase tracking-wider block">
                   Subtotal ex. GST
                 </span>
                 <span className="font-semibold">
@@ -297,7 +297,7 @@ export default function InspectionInvoicePage({
                 </span>
               </div>
               <div>
-                <span className="text-neutral-400 text-xs uppercase tracking-wider block">
+                <span className="text-brand-slate dark:text-neutral-400 text-xs uppercase tracking-wider block">
                   GST
                 </span>
                 <span className="font-semibold">
@@ -305,7 +305,7 @@ export default function InspectionInvoicePage({
                 </span>
               </div>
               <div>
-                <span className="text-neutral-400 text-xs uppercase tracking-wider block">
+                <span className="text-brand-slate dark:text-neutral-400 text-xs uppercase tracking-wider block">
                   Amount Due
                 </span>
                 <span className="font-semibold text-brand-harbour-600 dark:text-brand-harbour-400">
@@ -357,7 +357,7 @@ export default function InspectionInvoicePage({
                           {item.description}
                         </span>
                         {item.category && (
-                          <span className="text-xs text-neutral-400 dark:text-slate-500">
+                          <span className="text-xs text-brand-slate dark:text-slate-500">
                             {item.category}
                           </span>
                         )}
@@ -399,7 +399,7 @@ export default function InspectionInvoicePage({
           </div>
 
           {/* Footer note */}
-          <p className="text-xs text-neutral-400 dark:text-slate-500 text-center pb-4">
+          <p className="text-xs text-brand-slate dark:text-slate-500 text-center pb-4">
             Line items and prices are copied from the approved estimate. Review
             the draft in the full invoice editor before sending.
           </p>

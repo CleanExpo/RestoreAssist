@@ -466,7 +466,7 @@ export default function MobileDashboardPage() {
       <div>
         <div className="flex items-center gap-3 mb-1">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-brand-harbour-500 flex items-center justify-center">
-            <Smartphone size={20} className="text-white" />
+            <Smartphone size={20} className="text-brand-navy dark:text-white" />
           </div>
           <div>
             <h1
@@ -830,7 +830,7 @@ export default function MobileDashboardPage() {
           <Separator className="my-4 dark:border-slate-800" />
 
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <p className="text-xs text-neutral-400 dark:text-slate-500">
+            <p className="text-xs text-brand-slate dark:text-slate-500">
               Linear: RA-162 · EPIC: RA-241 · Directory:{" "}
               <span className="font-mono">D:\RestoreAssist\mobile\</span>
             </p>
