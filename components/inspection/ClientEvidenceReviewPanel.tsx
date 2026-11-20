@@ -14,7 +14,7 @@
  * Self-hides when there is nothing awaiting review.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 interface Submission {
   id: string;
@@ -26,6 +26,12 @@ interface Submission {
   viewUrl: string | null;
 }
 
+// RA-8388 (founder ruling 16/11/2026): photos a client sends through the
+// portal are evidence, but they are not signed captures by the technician, so
+// they stay out of the count of required photos at submit. Say so on screen.
+const NOT_COUNTED_NOTE =
+  "Client photos do not count toward the photos your technician must capture before the job can be submitted.";
+
 export function ClientEvidenceReviewPanel({
   inspectionId,
 }: {
@@ -34,6 +40,9 @@ export function ClientEvidenceReviewPanel({
   const [submissions, setSubmissions] = useState<Submission[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  // RA-8388: ties the not-counted note to the accept button, so assistive
+  // technology reads it out before the button is pressed.
+  const noteId = useId();
 
   const load = useCallback(async () => {
     try {
@@ -52,6 +61,8 @@ export function ClientEvidenceReviewPanel({
     load();
   }, [load]);
 
+  const [accepted, setAccepted] = useState(false);
+
   async function acceptAll() {
     setBusy(true);
     setMessage("");
@@ -64,6 +75,9 @@ export function ClientEvidenceReviewPanel({
       if (!res.ok) throw new Error();
       setSubmissions([]);
       setMessage(`Added ${body.data.promoted} item(s) to the report.`);
+      // The not-counted note is about photos that were added. When nothing
+      // was (another staff member accepted first), it would say so of nothing.
+      setAccepted(Number(body.data.promoted) > 0);
     } catch {
       setMessage("Couldn’t add those to the report. Try again.");
     } finally {
@@ -72,16 +86,19 @@ export function ClientEvidenceReviewPanel({
   }
 
   if (submissions === null) return null; // not loaded yet
-  if (submissions.length === 0) {
-    // Show a brief confirmation after a successful accept, else hide entirely.
-    return message ? (
-      <p role="status" className="text-xs text-success">
-        {message}
-      </p>
-    ) : null;
-  }
+  const pending = submissions.length > 0;
+  // Nothing to review and nothing to confirm: hide entirely.
+  if (!pending && !message) return null;
 
+  // RA-8388: ONE status region, mounted from the moment there is something
+  // to review and kept in the same place when the review list goes away. The
+  // confirmation is written INTO it. A region that is inserted with its text
+  // already inside is often not announced by a screen reader.
+  // One wrapper, so the page's spacing sees one child as it always has; the
+  // empty region inside it takes no room.
   return (
+    <div>
+    {pending && (
     <section className="bg-white rounded-2xl shadow-sm border border-amber-200 p-5 space-y-3">
       <div>
         <h2 className="text-sm font-semibold text-slate-900">
@@ -94,6 +111,7 @@ export function ClientEvidenceReviewPanel({
           Your client sent these through their portal link. Review them, then
           add them to the report’s evidence record.
         </p>
+        <p id={noteId} className="text-xs text-slate-500 mt-1">{NOT_COUNTED_NOTE}</p>
       </div>
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -132,7 +150,8 @@ export function ClientEvidenceReviewPanel({
         onClick={acceptAll}
         disabled={busy}
         aria-label="Add all client photos to the report"
-        className="min-h-11 px-4 rounded-lg bg-cyan-600 text-white text-sm font-medium hover:bg-cyan-700 disabled:opacity-40"
+        aria-describedby={noteId}
+        className="min-h-11 px-4 rounded-lg bg-brand-harbour-600 text-white text-sm font-medium hover:bg-brand-harbour-700 disabled:opacity-40"
       >
         {busy ? "Adding…" : "Add all to report"}
       </button>
@@ -143,5 +162,13 @@ export function ClientEvidenceReviewPanel({
         </p>
       )}
     </section>
+    )}
+    <p role="status" className="text-xs text-success">
+      {!pending && message}
+      {!pending && accepted && (
+        <span className="block text-slate-500">{NOT_COUNTED_NOTE}</span>
+      )}
+    </p>
+    </div>
   );
 }

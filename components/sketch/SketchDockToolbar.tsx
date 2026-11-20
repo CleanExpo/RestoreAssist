@@ -11,6 +11,7 @@
  */
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import {
   MousePointer2,
@@ -318,7 +319,7 @@ export function SketchDockToolbar({
 
   const iconActionCls = cn(
     "flex items-center justify-center transition-all duration-150",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-400",
     compact ? "w-9 h-9 rounded-md" : "w-14 h-14 rounded-xl",
   );
 
@@ -506,7 +507,7 @@ export function SketchDockToolbar({
                 className={cn(
                   "h-8 w-8 rounded-lg border text-[9px] font-semibold uppercase tracking-wide",
                   damageKind === kind
-                    ? "border-[#D4A574] ring-1 ring-[#D4A574]"
+                    ? "border-brand-gold ring-1 ring-brand-gold"
                     : "border-white/10 opacity-70 hover:opacity-100",
                 )}
                 style={{ background: DAMAGE_KIND_STYLES[kind].fill }}
@@ -540,7 +541,7 @@ export function SketchDockToolbar({
                 className={cn(
                   "h-8 min-w-8 px-1 rounded-lg border text-[9px] font-semibold tracking-wide",
                   equipmentKind === kind
-                    ? "border-[#D4A574] ring-1 ring-[#D4A574] text-white"
+                    ? "border-brand-gold ring-1 ring-brand-gold text-white"
                     : "border-white/10 opacity-70 hover:opacity-100 text-white/80",
                 )}
                 style={{
@@ -583,7 +584,7 @@ export function SketchDockToolbar({
                 className={cn(
                   "h-8 min-w-8 px-1.5 rounded-lg border text-[10px] font-semibold tracking-wide",
                   roomTemplateKind === kind
-                    ? "border-[#D4A574] ring-1 ring-[#D4A574] text-brand-gold bg-brand-gold/15"
+                    ? "border-brand-gold ring-1 ring-brand-gold text-brand-gold bg-brand-gold/15"
                     : "border-white/10 text-white/70 hover:opacity-100",
                 )}
               >
@@ -717,6 +718,10 @@ export function SketchDockToolbar({
               setIsImporting(true);
               try {
                 await onImportSketch(file);
+              } catch (err) {
+                toast.error(
+                  err instanceof Error ? err.message : "Sketch import failed",
+                );
               } finally {
                 setIsImporting(false);
               }
@@ -726,11 +731,12 @@ export function SketchDockToolbar({
             type="button"
             title="Import hand-drawn sketch (Claude Vision)"
             aria-label="Import hand-drawn sketch"
+            aria-busy={isImporting}
             disabled={isImporting || isScanning}
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               iconActionCls,
-              "text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300",
+              "text-brand-harbour-400 hover:bg-brand-harbour-500/20 hover:text-brand-harbour-300",
               (isImporting || isScanning) && "opacity-50 cursor-not-allowed",
             )}
           >
@@ -812,12 +818,12 @@ function ToolBtn({
       disabled={disabled}
       className={cn(
         "flex items-center justify-center transition-all duration-150",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-400",
         compact ? "w-9 h-9 rounded-md" : "w-14 h-14 rounded-xl",
         active
           ? compact
-            ? "bg-cyan-500 text-white shadow-sm shadow-cyan-500/25"
-            : "bg-cyan-500 text-white shadow-md shadow-cyan-500/30"
+            ? "bg-brand-harbour-500 text-white shadow-sm shadow-brand-harbour-500/25"
+            : "bg-brand-harbour-500 text-white shadow-md shadow-brand-harbour-500/30"
           : danger
             ? "text-rose-400 hover:bg-rose-500/20 hover:text-rose-300"
             : "text-white/60 hover:bg-white/10 hover:text-white",

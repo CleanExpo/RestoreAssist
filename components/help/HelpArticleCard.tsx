@@ -85,7 +85,7 @@ export default function HelpArticleCard({
 
       <div className="flex min-w-0 flex-1 flex-row items-center gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-4">
         {typeof index === "number" ? (
-          <span className="hidden sm:block shrink-0 font-mono text-xs font-semibold tabular-nums tracking-wider text-muted-foreground/80">
+          <span className="hidden sm:block shrink-0 font-mono text-xs font-semibold tabular-nums tracking-wider text-muted-foreground">
             {String(index).padStart(2, "0")}
           </span>
         ) : null}
@@ -101,7 +101,7 @@ export default function HelpArticleCard({
               <Clock className="h-3 w-3" aria-hidden="true" />
               {readTimeMin} min read
             </span>
-            <span className="hidden md:inline text-muted-foreground/70">
+            <span className="hidden md:inline text-muted-foreground">
               · Updated {updatedAt}
             </span>
           </div>

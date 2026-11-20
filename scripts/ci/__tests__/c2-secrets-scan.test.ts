@@ -1,15 +1,25 @@
-import { readFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
   C2_CANARY_PATH,
+  C2_CANARY_PATHS,
   C2_ENV_SOURCE,
   C2_SCANNED_REF,
   c2CanaryDocument,
   c2CanarySecret,
   parseGitleaksReport,
   readEnvCompleteness,
+  scanDirectory,
   summariseC2,
   type GitleaksFinding,
 } from "../producers/c2-secrets-scan";
@@ -29,9 +39,10 @@ const SCAN = {
   scannerVersion: "8.30.1",
   scannedFileCount: 5093,
   findings: [] as GitleaksFinding[],
-  controlFindings: [
-    { RuleID: "stripe-access-token", File: `/tmp/export/${C2_CANARY_PATH}` },
-  ] as GitleaksFinding[],
+  controlFindings: C2_CANARY_PATHS.map((path) => ({
+    RuleID: "stripe-access-token",
+    File: `/tmp/export/${path}`,
+  })) as GitleaksFinding[],
   envStatus: "ok",
   missingEnvVars: 0,
 };
@@ -76,7 +87,9 @@ describe("readEnvCompleteness", () => {
   it("counts the variables a degraded environment names", () => {
     expect(
       readEnvCompleteness({
-        checks: { env: { status: "degraded", missing: ["SENDER_EMAIL", "CRON_SECRET"] } },
+        checks: {
+          env: { status: "degraded", missing: ["SENDER_EMAIL", "CRON_SECRET"] },
+        },
       }),
     ).toEqual({ envStatus: "degraded", missingEnvVars: 2 });
   });
@@ -84,9 +97,15 @@ describe("readEnvCompleteness", () => {
   it.each([
     ["a payload that is not an object", "ok"],
     ["a payload with no checks block", { status: "ok" }],
-    ["a payload whose checks carry no env block", { checks: { database: { status: "ok" } } }],
+    [
+      "a payload whose checks carry no env block",
+      { checks: { database: { status: "ok" } } },
+    ],
     ["a checks.env with no status", { checks: { env: { missing: [] } } }],
-    ["a checks.env whose missing is not an array", { checks: { env: { status: "degraded", missing: 3 } } }],
+    [
+      "a checks.env whose missing is not an array",
+      { checks: { env: { status: "degraded", missing: 3 } } },
+    ],
   ])("refuses %s", (_label, payload) => {
     // An endpoint that does not report the check has not reported it as
     // passing. Defaulting any of these to zero would earn the criterion its
@@ -119,17 +138,35 @@ describe("summariseC2", () => {
     // The instrument is blind. `findings: 0` from a scanner that cannot see
     // the file it was pointed at is silence, not evidence -- which is exactly
     // how the blanket `(?i)\\.md$` allowlist held a PASS.
-    expect(summariseC2({ ...SCAN, controlFindings: [] }).controlCanaryDetected).toBe(
-      false,
-    );
+    expect(
+      summariseC2({ ...SCAN, controlFindings: [] }).controlCanaryDetected,
+    ).toBe(false);
   });
+
+  it.each(C2_CANARY_PATHS.map((path) => [path]))(
+    "reports the control as failed when only %s is unseen",
+    (missing) => {
+      // One blind file class is enough to make the real scan's silence
+      // meaningless for that class: the `.claude/` and `__tests__/` holes
+      // closed on 2026-10-31 each hid a planted token while `.md` was seen.
+      const m = summariseC2({
+        ...SCAN,
+        controlFindings: SCAN.controlFindings.filter(
+          (finding) => !(finding.File ?? "").endsWith(missing),
+        ),
+      });
+      expect(m.controlCanaryDetected).toBe(false);
+    },
+  );
 
   it("does not accept a finding elsewhere as proof the canary was seen", () => {
     // Matching on count rather than path would let any unrelated finding in
     // the control scan stand in for the canary.
     const m = summariseC2({
       ...SCAN,
-      controlFindings: [{ RuleID: "stripe-access-token", File: "/tmp/export/lib/other.ts" }],
+      controlFindings: [
+        { RuleID: "stripe-access-token", File: "/tmp/export/lib/other.ts" },
+      ],
     });
     expect(m.controlCanaryDetected).toBe(false);
   });
@@ -174,5 +211,38 @@ describe("the control canary", () => {
       "utf8",
     );
     expect(source).not.toMatch(/sk_live_[0-9a-zA-Z]{20,}/);
+  });
+});
+
+describe("scanDirectory", () => {
+  it("scans from inside the export with a relative source, as CI does", () => {
+    // gitleaks matches `paths` allowlists against the path as it reports it.
+    // An absolute --source makes that path absolute, so every `^`-anchored
+    // exemption stops matching and the measurement sees more than CI. A fake
+    // binary records how it was called; no real gitleaks is needed.
+    const dir = mkdtempSync(join(tmpdir(), "c2-scan-dir-"));
+    const tree = join(dir, "tree");
+    mkdirSync(tree);
+    const log = join(dir, "call.log");
+    const binary = join(dir, "fake-gitleaks");
+    writeFileSync(
+      binary,
+      [
+        "#!/bin/sh",
+        `pwd -P > "${log}"`,
+        `printf '%s\\n' "$@" >> "${log}"`,
+        'while [ "$#" -gt 0 ]; do',
+        '  if [ "$1" = "--report-path" ]; then printf "[]" > "$2"; fi',
+        "  shift",
+        "done",
+      ].join("\n"),
+    );
+    chmodSync(binary, 0o755);
+
+    scanDirectory(binary, tree, join(dir, "cfg.toml"), join(dir, "r.json"));
+
+    const [cwd, ...args] = readFileSync(log, "utf8").trim().split("\n");
+    expect(cwd).toBe(realpathSync(tree));
+    expect(args[args.indexOf("--source") + 1]).toBe(".");
   });
 });

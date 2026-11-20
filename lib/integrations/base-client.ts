@@ -372,6 +372,7 @@ export function getClientId(provider: IntegrationProvider): string {
     MYOB: process.env.MYOB_CLIENT_ID,
     SERVICEM8: process.env.SERVICEM8_CLIENT_ID,
     ASCORA: process.env.ASCORA_CLIENT_ID,
+    ZOHO: process.env.ZOHO_CLIENT_ID,
   };
   // hasOwn: a plain index would return Object.prototype members such as
   // "constructor" instead of treating them as unconfigured.
@@ -403,6 +404,7 @@ export function getClientSecret(provider: IntegrationProvider): string {
     MYOB: process.env.MYOB_CLIENT_SECRET,
     SERVICEM8: process.env.SERVICEM8_CLIENT_SECRET,
     ASCORA: process.env.ASCORA_CLIENT_SECRET,
+    ZOHO: process.env.ZOHO_CLIENT_SECRET,
   };
   const clientSecret = Object.hasOwn(clientSecrets, provider)
     ? clientSecrets[provider]

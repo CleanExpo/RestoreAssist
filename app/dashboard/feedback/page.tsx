@@ -21,6 +21,7 @@ import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardLis
 import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
 import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type FeedbackItem = {
   id: string;
@@ -54,7 +55,7 @@ export default function FeedbackPage() {
     try {
       const res = await fetch(`/api/feedback?inbox=1&page=${page}&limit=20`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to load");
+      if (!res.ok) throw new Error(apiErrorMessage(data) || "Failed to load");
       const list = data.feedback ?? [];
       setInboxList((prev) => (append ? [...prev, ...list] : list));
       setInboxTotal(data.pagination?.total ?? 0);
@@ -86,7 +87,7 @@ export default function FeedbackPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to submit");
+      if (!res.ok) throw new Error(apiErrorMessage(data) || "Failed to submit");
       setSubmitted(true);
       setRating(null);
       setWhatDoing("");
@@ -114,7 +115,7 @@ export default function FeedbackPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Feedback"
         description="Share your experience and help us improve RestoreAssist."
-        icon={<Send className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<Send className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/feedback" })}
       />
 

@@ -20,7 +20,7 @@ export function LandingOverviewVideo() {
   const posterFallback = youtubeThumbnailSrc(youtubeId, "hqdefault");
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#0B1F3A]/12 bg-[#0B1F3A] shadow-[0_12px_40px_rgba(11,31,58,0.12)]">
+    <div className="overflow-hidden rounded-2xl border border-brand-navy/12 bg-brand-navy shadow-[0_12px_40px_rgba(11,31,58,0.12)]">
       <div className="relative aspect-video w-full">
         {playing && embedSrc ? (
           <iframe
@@ -56,13 +56,13 @@ export function LandingOverviewVideo() {
               }}
             />
             <span
-              className="absolute inset-0 bg-[#0B1F3A]/45 transition-colors duration-200 group-hover:bg-[#0B1F3A]/30"
+              className="absolute inset-0 bg-brand-navy/45 transition-colors duration-200 group-hover:bg-brand-navy/30"
               aria-hidden
             />
             <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-[0_8px_24px_rgba(11,31,58,0.28)] transition-transform duration-200 ease-out group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100 sm:h-[4.5rem] sm:w-[4.5rem]">
               <svg
                 viewBox="0 0 24 24"
-                className="ml-0.5 h-7 w-7 text-[#0B1F3A] sm:h-8 sm:w-8"
+                className="ml-0.5 h-7 w-7 text-brand-navy sm:h-8 sm:w-8"
                 fill="currentColor"
                 aria-hidden
               >

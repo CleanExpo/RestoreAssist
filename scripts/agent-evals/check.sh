@@ -56,14 +56,31 @@ apply_checks() {
     pattern=$(jq -r ".checks[$i].pattern" "$case_file")
     why=$(jq -r ".checks[$i].why" "$case_file")
 
-    # -P for Perl regex: the patterns use lookahead, which ERE cannot express.
-    # -z reads the whole file as ONE record. Without it grep matches line by
-    # line, so a pattern like `all tests pass(?![\s\S]{0,200}(not|haven't))`
-    # cannot see the qualification on the next line and the check passes for the
-    # wrong reason. An assertion that is right by accident is not an assertion.
-    # A pattern that will not compile is a broken check, not a pass, so the grep
-    # exit code is distinguished from a plain no-match.
-    grep -Pzq -- "$pattern" "$answer_file" 2>/dev/null
+    # Perl, not `grep -P`: the patterns use lookahead, which ERE cannot express,
+    # and macOS grep has no -P at all, so every check reported "did not compile"
+    # on a Mac. perl ships with macOS and ubuntu-latest alike.
+    # The whole file is slurped and matched as ONE string (what `grep -z` did).
+    # Matched line by line, a pattern like
+    # `all tests pass(?![\s\S]{0,200}(not|haven't))` cannot see the
+    # qualification on the next line and the check passes for the wrong reason.
+    # An assertion that is right by accident is not an assertion.
+    # The text is decoded as UTF-8 so `.{0,60}` counts characters, as grep -P
+    # did under a UTF-8 locale, not bytes.
+    # The pattern arrives as an argument, never spliced into the perl source, so
+    # case JSON cannot inject code; perl also refuses (?{...}) in a runtime
+    # pattern. Exit contract: 0 match, 1 no match, 2 pattern did not compile or
+    # file unreadable. A broken pattern is a broken check, not a pass.
+    perl -e '
+      my ($pat, $file) = @ARGV;
+      my $re = eval { qr/$pat/ };
+      exit 2 unless defined $re;
+      open(my $fh, "<:raw", $file) or exit 2;
+      my $text = do { local $/; <$fh> };
+      close $fh;
+      $text = "" unless defined $text;
+      utf8::decode($text);
+      exit($text =~ $re ? 0 : 1);
+    ' -- "$pattern" "$answer_file" 2>/dev/null
     local rc=$?
     if (( rc > 1 )); then
       echo "      check $i: PATTERN DID NOT COMPILE — $pattern"

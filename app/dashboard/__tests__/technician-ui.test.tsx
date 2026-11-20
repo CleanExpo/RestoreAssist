@@ -191,7 +191,9 @@ describe("inspection detail: owner-only actions for an assigned technician", () 
     expect(guardedBefore('"Dispute Defence Pack"}')).toMatch(/disputePackAction &&/);
     expect(guardedBefore('"Dispute Defence Pack"}')).not.toMatch(/ownerActions &&/);
     expect(guardedBefore("aria-label={`Delete moisture reading for")).toMatch(/ownerActions &&/);
-    expect(guardedBefore("Automatic progress updates")).toMatch(/ownerActions &&/);
+    expect(guardedBefore("aria-label={PULSE_JOB_TOGGLE_LABEL}")).toMatch(
+      /ownerActions &&/,
+    );
     // Report and PDF stay visible to the technician (not wrapped).
     expect(guardedBefore("<ExportPdfButton inspectionId").slice(-300)).not.toMatch(/ownerActions &&/);
   });

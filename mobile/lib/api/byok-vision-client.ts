@@ -46,7 +46,7 @@ export interface S500VisionResult {
   rawDescription: string;
   confidence: number;
   model: string;
-  provider: "anthropic" | "openai" | "gemini";
+  provider: "anthropic" | "openai" | "gemini" | "meta";
 }
 
 const API_BASE =

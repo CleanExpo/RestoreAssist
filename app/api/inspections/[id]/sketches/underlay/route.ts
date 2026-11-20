@@ -13,17 +13,57 @@ import {
   evaluateUnderlayAttestation,
   type UnderlaySource,
 } from "@/lib/sketch/underlay-attestation";
+import { formDataFromBytes, readBoundedBody } from "@/lib/media/bounded-body";
+import { validateImageUploadDecoded } from "@/lib/media/decode-check";
 import {
   prepareUnderlayBytes,
   removeStoredUnderlay,
   storeUnderlay,
 } from "@/lib/sketch/server-underlay-import";
 
+import { ALLOWED_UNDERLAY_TYPES } from "@/lib/sketch/validate-underlay-upload";
+
+const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
+
+const UPLOAD_REJECTION_MESSAGES = {
+  empty: "The floor-plan file is empty.",
+  "too-large": "Floor-plan image must not exceed 10 MB.",
+  "unsupported-type": "A PNG, JPEG or WebP floor-plan file is required.",
+  "mime-mismatch": "The file content does not match its declared type.",
+  malformed: "The floor-plan image is damaged or incomplete.",
+  undecodable: "The floor-plan image could not be decoded.",
+  "pixel-bomb": "The floor-plan image dimensions are too large.",
+} as const;
+
 function floorNumberFrom(
   value: FormDataEntryValue | string | null,
 ): number | null {
   const floor = Number(value ?? "0");
   return Number.isInteger(floor) && floor >= 0 && floor <= 50 ? floor : null;
+}
+
+/**
+ * RA-8236: what the browser says the file was before it became a raster. The
+ * server only ever sees the raster, so this is recorded as browser-declared.
+ * A PDF is recorded only as page 1: no other page is ever imported.
+ */
+function originalSourceFrom(form: FormData) {
+  const mimeType = form.get("originalMimeType");
+  if (
+    typeof mimeType !== "string" ||
+    !ALLOWED_UNDERLAY_TYPES.includes(mimeType as never)
+  ) {
+    return null;
+  }
+  const isPdf = mimeType === "application/pdf";
+  if (isPdf && form.get("originalPage") !== "1") return null;
+  const count = Number(form.get("originalPageCount"));
+  return {
+    mimeType,
+    page: isPdf ? 1 : null,
+    pageCount: isPdf && Number.isInteger(count) && count > 0 ? count : null,
+    declaredBy: "browser",
+  };
 }
 
 /**
@@ -54,20 +94,16 @@ export async function POST(
       });
     }
 
-    const declaredRequestBytes = Number(
-      request.headers.get("content-length") ?? "0",
-    );
-    if (
-      Number.isFinite(declaredRequestBytes) &&
-      declaredRequestBytes > 12 * 1024 * 1024
-    ) {
+    // Count the bytes that really arrive; Content-Length is only a hint.
+    const body = await readBoundedBody(request, MAX_REQUEST_BYTES);
+    if (!body) {
       return apiError(request, {
         code: "PAYLOAD_TOO_LARGE",
         message: "Floor-plan upload request must not exceed 12 MB.",
         status: 413,
       });
     }
-    const form = await request.formData();
+    const form = await formDataFromBytes(request, body);
     const floorNumber = floorNumberFrom(form.get("floorNumber"));
     if (floorNumber == null) {
       return apiError(request, {
@@ -120,8 +156,28 @@ export async function POST(
           status: 413,
         });
       }
-      declaredMime = file.type;
       sourceBytes = Buffer.from(await file.arrayBuffer());
+      // Strict policy on the actual bytes: nothing invalid reaches prepare,
+      // storage or the database.
+      const check = await validateImageUploadDecoded({
+        declaredType: file.type,
+        buffer: sourceBytes,
+        allowedTypes: ["image/png", "image/jpeg", "image/webp"],
+      });
+      if (!check.ok) {
+        return check.reason === "too-large"
+          ? apiError(request, {
+              code: "PAYLOAD_TOO_LARGE",
+              message: "Floor-plan image must not exceed 10 MB.",
+              status: 413,
+            })
+          : apiError(request, {
+              code: "VALIDATION",
+              message: UPLOAD_REJECTION_MESSAGES[check.reason],
+              status: 400,
+            });
+      }
+      declaredMime = check.mediaType;
     }
 
     const prepared = await prepareUnderlayBytes(sourceBytes, declaredMime);
@@ -162,7 +218,9 @@ export async function POST(
                 inspectionId: id,
                 floorNumber,
                 floorLabel:
-                  floorNumber === 0 ? "Ground Floor" : `Floor ${floorNumber + 1}`,
+                  floorNumber === 0
+                    ? "Ground Floor"
+                    : `Floor ${floorNumber + 1}`,
                 backgroundImageUrl: `storage://sketch-media/${stored.storagePath}`,
                 captureAdapter: "underlay_import",
               },
@@ -212,6 +270,7 @@ export async function POST(
                 floorNumber,
                 source,
                 contentSha256: prepared.contentSha256,
+                originalSource: originalSourceFrom(form),
                 exportPolicy: "reference_only_never_export",
               }),
             },
@@ -243,6 +302,7 @@ export async function POST(
         sketchId: saved.sketchId,
         referenceId: saved.referenceId,
         contentSha256: prepared.contentSha256,
+        floorNumber,
       },
       { status: 201 },
     );

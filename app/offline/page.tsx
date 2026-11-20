@@ -32,7 +32,7 @@ export default function OfflinePage() {
         </p>
         <Link
           href="/dashboard/field"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white rounded-lg font-medium transition-colors"
         >
           Try again
         </Link>

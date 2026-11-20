@@ -30,6 +30,7 @@ import type {
   SyncedListPagination,
   SyncedListResponse,
 } from "@/lib/synced-data/types";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const STATUS_TONES: Record<string, StatusTone> = {
   COMPLETED: "success",
@@ -98,7 +99,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
           total: 0,
           totalPages: 0,
         });
-        setError(body.error || body.message || "Failed to load synced jobs");
+        setError(apiErrorMessage(body) || body.message || "Failed to load synced jobs");
         return;
       }
 
@@ -151,14 +152,14 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300 mb-4">
+      <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300 mb-4">
         {error}
         <button type="button" className="ml-3 underline" onClick={() => void fetchItems()}>
           Retry
@@ -169,7 +170,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
 
   if (!connected || (items.length === 0 && pagination.total === 0)) {
     return (
-      <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
+      <div className="rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/30 dark:bg-slate-800/30 overflow-hidden">
         <EmptyState
           icon={<ChromePlug className="h-10 w-10" />}
           title={
@@ -202,16 +203,16 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
 
   return (
     <>
-      <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden">
+      <div className="rounded-lg border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/30 dark:bg-slate-800/30 overflow-hidden">
         <div className="sm:hidden space-y-3 p-4">
           {items.map((row) => (
             <div
               key={row.id}
-              className="rounded-xl border border-slate-700/50 bg-slate-900/50 p-4"
+              className="rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/50 p-4"
             >
-              <div className="font-medium text-white">{row.title}</div>
+              <div className="font-medium text-slate-900 dark:text-white">{row.title}</div>
               {row.clientName && (
-                <div className="text-sm text-slate-400">{row.clientName}</div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">{row.clientName}</div>
               )}
               {row.address && (
                 <div className="text-sm text-slate-500 mt-1">{row.address}</div>
@@ -225,10 +226,10 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
                   </StatusBadge>
                 )}
                 {row.claimType && (
-                  <span className="text-xs text-slate-400">{row.claimType}</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">{row.claimType}</span>
                 )}
                 {row.totalExTax != null && (
-                  <span className="text-xs text-cyan-400">
+                  <span className="text-xs text-brand-harbour-700 dark:text-brand-harbour-400">
                     ${row.totalExTax.toLocaleString()}
                   </span>
                 )}
@@ -268,39 +269,39 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-700 bg-slate-900/50">
-                <th className="text-left py-4 px-6 font-medium text-slate-400">
+              <tr className="border-b border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50">
+                <th className="text-left py-4 px-6 font-medium text-slate-600 dark:text-slate-400">
                   Title
                 </th>
-                <th className="text-left py-4 px-6 font-medium text-slate-400">
+                <th className="text-left py-4 px-6 font-medium text-slate-600 dark:text-slate-400">
                   Client
                 </th>
-                <th className="text-left py-4 px-6 font-medium text-slate-400">
+                <th className="text-left py-4 px-6 font-medium text-slate-600 dark:text-slate-400">
                   Status
                 </th>
-                <th className="text-left py-4 px-6 font-medium text-slate-400">
+                <th className="text-left py-4 px-6 font-medium text-slate-600 dark:text-slate-400">
                   Address
                 </th>
-                <th className="text-left py-4 px-6 font-medium text-slate-400">
+                <th className="text-left py-4 px-6 font-medium text-slate-600 dark:text-slate-400">
                   Value
                 </th>
-                <th className="text-left py-4 px-6 font-medium text-slate-400">
+                <th className="text-left py-4 px-6 font-medium text-slate-600 dark:text-slate-400">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody>
               {items.map((row) => (
-                <tr key={row.id} className="border-b border-slate-800/80">
-                  <td className="py-4 px-6 text-white font-medium">
+                <tr key={row.id} className="border-b border-slate-200/80 dark:border-slate-800/80">
+                  <td className="py-4 px-6 text-slate-900 dark:text-white font-medium">
                     {row.title}
                     {row.importedNativeId && (
-                      <span className="ml-2 text-xs text-emerald-400">
+                      <span className="ml-2 text-xs text-emerald-700 dark:text-emerald-400">
                         Imported
                       </span>
                     )}
                   </td>
-                  <td className="py-4 px-6 text-slate-400">
+                  <td className="py-4 px-6 text-slate-600 dark:text-slate-400">
                     {row.clientName || "—"}
                   </td>
                   <td className="py-4 px-6">
@@ -316,10 +317,10 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
                       "—"
                     )}
                   </td>
-                  <td className="py-4 px-6 text-slate-400 max-w-xs truncate">
+                  <td className="py-4 px-6 text-slate-600 dark:text-slate-400 max-w-xs truncate">
                     {row.address || "—"}
                   </td>
-                  <td className="py-4 px-6 text-slate-400">
+                  <td className="py-4 px-6 text-slate-600 dark:text-slate-400">
                     {row.totalExTax != null
                       ? `$${row.totalExTax.toLocaleString()}`
                       : "—"}
@@ -329,7 +330,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
                       <button
                         type="button"
                         aria-label={`View details for ${row.title}`}
-                        className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors text-xs"
+                        className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors text-xs"
                         onClick={() => setDetail(row)}
                       >
                         <ChromeEye size={16} />
@@ -339,7 +340,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
                           type="button"
                           aria-label={`Import ${row.title}`}
                           disabled={importingId === row.id}
-                          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors text-xs disabled:opacity-50"
+                          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors text-xs disabled:opacity-50"
                           onClick={() => void importJob(row)}
                         >
                           {importingId === row.id ? (
@@ -353,7 +354,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
                         <Link
                           href={`/dashboard/reports/${row.importedNativeId}`}
                           aria-label={`Open imported report ${row.title}`}
-                          className="inline-flex items-center justify-center min-h-[44px] px-3 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors text-xs"
+                          className="inline-flex items-center justify-center min-h-[44px] px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors text-xs"
                         >
                           Open
                         </Link>

@@ -76,8 +76,8 @@ function ProgressRing({
     percentage === 100
       ? "#10b981"
       : percentage >= 50
-        ? "#d4a574"
-        : "#8a6b4e";
+        ? "var(--color-brand-cta)"
+        : "var(--color-brand-bronze)";
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
@@ -96,11 +96,11 @@ function ProgressRing({
           r={radius}
           fill="none"
           strokeWidth={10}
-          stroke={strokeColor}
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
           style={{
+            stroke: strokeColor,
             transition: "stroke-dashoffset 0.6s ease, stroke 0.4s ease",
           }}
         />
@@ -120,7 +120,11 @@ function ProgressRing({
   );
 }
 
-export default function OnboardingClient() {
+export default function OnboardingClient({
+  canInvite = false,
+}: {
+  canInvite?: boolean;
+}) {
   const [loading, setLoading] = useState(true);
   const [steps, setSteps] = useState<OnboardingDisplayStep[]>([]);
   const [isAllDone, setIsAllDone] = useState(false);
@@ -185,13 +189,13 @@ export default function OnboardingClient() {
           className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-brand-bronze/20 blur-3xl"
         />
         <div className="relative max-w-3xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-gold">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-bronze dark:text-brand-gold">
             Post-setup checklist
           </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.5rem] lg:leading-tight">
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-brand-navy dark:text-white sm:text-4xl lg:text-[2.5rem] lg:leading-tight">
             Get to your first job
           </h1>
-          <p className="mt-3 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
+          <p className="mt-3 max-w-2xl text-base leading-relaxed text-brand-slate dark:text-white/75 sm:text-lg">
             Setup is complete. Finish the steps below to run a real inspection
             — floor plan, moisture, report, and client delivery — on
             RestoreAssist.
@@ -301,6 +305,15 @@ export default function OnboardingClient() {
             </span>
           </div>
 
+          {canInvite && (
+            <p className="mb-4 text-sm text-neutral-600 dark:text-slate-400">
+              Working with a crew?{" "}
+              <Link href="/dashboard/team?invite=1" className="font-semibold underline">
+                Invite a technician
+              </Link>
+            </p>
+          )}
+
           <ul className="space-y-3 sm:space-y-4">
             {steps.map((step, index) => {
               const isNext = step.id === nextStepId && !step.completed;
@@ -361,7 +374,7 @@ export default function OnboardingClient() {
                         <p className="mt-1 text-sm leading-relaxed text-neutral-600 dark:text-slate-400">
                           {step.description}
                         </p>
-                        <p className="mt-1.5 text-xs font-medium text-neutral-400 dark:text-slate-500">
+                        <p className="mt-1.5 text-xs font-medium text-brand-slate dark:text-slate-500">
                           ~{step.time}
                         </p>
                       </div>

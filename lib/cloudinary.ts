@@ -341,6 +341,9 @@ export async function uploadFileToCloudinary(
     ttl?: number;
     tags?: string[];
     resourceType?: "image" | "video" | "raw" | "auto";
+    /** Immutable asset id. Evidence callers pass the content SHA-256 so two
+     * different files that share a filename can never target one asset. */
+    publicId?: string;
   } = {},
 ): Promise<{ url: string; publicId: string; format: string }> {
   ensureCloudinaryConfigured();
@@ -351,7 +354,10 @@ export async function uploadFileToCloudinary(
     const uploadOptions: any = {
       folder,
       resource_type: options.resourceType || "auto",
-      public_id: filename.replace(/\.[^/.]+$/, ""), // Remove extension
+      public_id: options.publicId ?? filename.replace(/\.[^/.]+$/, ""),
+      // Cloudinary overwrites by default; stored evidence must never be
+      // replaced in place (the DB row keeps the original hash).
+      overwrite: false,
     };
 
     if (options.tags && options.tags.length > 0) {

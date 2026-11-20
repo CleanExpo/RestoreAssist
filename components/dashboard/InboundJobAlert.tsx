@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import { parseApiError } from "@/lib/client/parse-api-error";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface InboundJob {
   id: string;
@@ -66,7 +67,7 @@ export function InboundJobAlert() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body?.error ?? "Failed to accept inspection");
+        setError(apiErrorMessage(body) ?? "Failed to accept inspection");
         return;
       }
       // Optimistic remove
@@ -111,7 +112,7 @@ export function InboundJobAlert() {
       aria-label="Inbound referral jobs"
     >
       <div className="flex items-center gap-2 mb-3">
-        <AlertCircle className="w-5 h-5 text-brand-gold" aria-hidden="true" />
+        <AlertCircle className="w-5 h-5 text-brand-bronze dark:text-brand-gold" aria-hidden="true" />
         {/* RA-7660: NRPG is not named to customers until it is ready. */}
         <h2 className="font-semibold text-sm">
           {jobs.length === 1

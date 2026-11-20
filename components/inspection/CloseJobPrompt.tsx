@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Props {
   inspectionId: string;
@@ -64,18 +65,18 @@ export default function CloseJobPrompt({
     return (
       <div
         role="status"
-        className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50 dark:bg-cyan-950/20"
+        className="p-4 rounded-xl border border-brand-harbour-200 dark:border-brand-harbour-800/50 bg-brand-harbour-50 dark:bg-brand-harbour-950/20"
       >
         <div className="flex items-start gap-3">
           <Lock
-            className="h-5 w-5 text-cyan-600 mt-0.5 shrink-0"
+            className="h-5 w-5 text-brand-harbour-600 mt-0.5 shrink-0"
             aria-hidden="true"
           />
           <div className="min-w-0">
-            <p className="font-semibold text-cyan-700 dark:text-cyan-400">
+            <p className="font-semibold text-brand-harbour-700 dark:text-brand-harbour-400">
               Job Closed
             </p>
-            <p className="text-sm text-cyan-700/80 dark:text-cyan-300/80 mt-0.5">
+            <p className="text-sm text-brand-harbour-700/80 dark:text-brand-harbour-300/80 mt-0.5">
               Inspection {inspectionNumber} was closed on{" "}
               {new Date(completedAt as string).toLocaleString("en-AU", {
                 day: "2-digit",
@@ -181,7 +182,7 @@ function CloseJobPromptActive({
           missing?: string[];
         };
         setMissingPreconditions(body.missing ?? []);
-        setSubmitError(body.error ?? "Preconditions not met");
+        setSubmitError(apiErrorMessage(body) ?? "Preconditions not met");
         setDialogOpen(false);
         return;
       }
@@ -204,17 +205,17 @@ function CloseJobPromptActive({
 
   return (
     <div
-      className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/50 dark:bg-cyan-950/10"
+      className="p-4 rounded-xl border border-brand-harbour-200 dark:border-brand-harbour-800/50 bg-brand-harbour-50/50 dark:bg-brand-harbour-950/10"
       data-testid="close-job-prompt"
     >
       <div className="flex items-start gap-3">
         <Sparkles
-          className="h-5 w-5 text-cyan-600 mt-0.5 shrink-0"
+          className="h-5 w-5 text-brand-harbour-600 mt-0.5 shrink-0"
           aria-hidden="true"
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <p className="font-semibold text-cyan-700 dark:text-cyan-400">
+            <p className="font-semibold text-brand-harbour-700 dark:text-brand-harbour-400">
               Ready to close inspection {inspectionNumber}?
             </p>
             <button
@@ -225,7 +226,7 @@ function CloseJobPromptActive({
               Not yet
             </button>
           </div>
-          <p className="text-sm text-cyan-700/80 dark:text-cyan-300/80 mt-1">
+          <p className="text-sm text-brand-harbour-700/80 dark:text-brand-harbour-300/80 mt-1">
             Review the AI-drafted summary below before closing. You can edit
             anything before confirming.
           </p>
@@ -265,7 +266,7 @@ function CloseJobPromptActive({
               type="button"
               onClick={() => setDialogOpen(true)}
               disabled={loadingDraft || !draft.trim() || submitting}
-              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white"
             >
               {submitting ? (
                 <>
@@ -287,7 +288,7 @@ function CloseJobPromptActive({
               variant="ghost"
               onClick={() => void fetchDraft()}
               disabled={loadingDraft || submitting}
-              className="text-cyan-700 hover:text-cyan-800"
+              className="text-brand-harbour-700 hover:text-brand-harbour-800"
             >
               Regenerate draft
             </Button>
@@ -316,7 +317,7 @@ function CloseJobPromptActive({
             <Button
               onClick={() => void submitClose()}
               disabled={submitting}
-              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white"
             >
               {submitting ? (
                 <>

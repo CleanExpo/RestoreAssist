@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { logRefusal } from "@/lib/api-errors";
 
 /**
  * Idempotency-Key middleware — Stripe-style request replay protection.
@@ -262,18 +263,22 @@ async function failClientMutationLedger({
   });
 }
 
+const DEFAULT_PENDING_LEASE_MS = 60_000;
+
 async function reserveIdempotencySlot({
   cacheKey,
   scope,
   key,
   fingerprint,
   now,
+  pendingLeaseMs = DEFAULT_PENDING_LEASE_MS,
 }: {
   cacheKey: string;
   scope: string;
   key: string;
   fingerprint: string;
   now: Date;
+  pendingLeaseMs?: number;
 }): Promise<
   | { kind: "reserved"; recordId: string }
   | { kind: "replay"; response: CachedResponse }
@@ -288,7 +293,7 @@ async function reserveIdempotencySlot({
         key,
         fingerprint,
         status: "PENDING" satisfies IdempotencyStatus,
-        expiresAt: new Date(now.getTime() + 60_000),
+        expiresAt: new Date(now.getTime() + pendingLeaseMs),
       },
       select: { id: true },
     });
@@ -310,12 +315,12 @@ async function reserveIdempotencySlot({
   });
 
   if (!existing) {
-    return reserveIdempotencySlot({ cacheKey, scope, key, fingerprint, now });
+    return reserveIdempotencySlot({ cacheKey, scope, key, fingerprint, now, pendingLeaseMs });
   }
 
   if (existing.expiresAt < now) {
     await prisma.idempotencyRecord.deleteMany({ where: { cacheKey, expiresAt: { lt: now } } });
-    return reserveIdempotencySlot({ cacheKey, scope, key, fingerprint, now });
+    return reserveIdempotencySlot({ cacheKey, scope, key, fingerprint, now, pendingLeaseMs });
   }
 
   if (existing.fingerprint !== fingerprint) {
@@ -350,6 +355,7 @@ export async function withIdempotencyFingerprint({
   fingerprint,
   clientMutation,
   successCompletedInHandler,
+  pendingLeaseMs,
   handler,
 }: {
   scope: string;
@@ -359,6 +365,8 @@ export async function withIdempotencyFingerprint({
   fingerprint: string;
   clientMutation?: ClientMutationLedgerInput;
   successCompletedInHandler?: boolean | "when-marked";
+  /** How long a running request holds the key. Must outlast the handler's slowest paid call. */
+  pendingLeaseMs?: number;
   handler: () => Promise<NextResponse>;
 }): Promise<NextResponse> {
   if (!key) return handler();
@@ -375,9 +383,11 @@ export async function withIdempotencyFingerprint({
     key,
     fingerprint: requestFingerprint,
     now,
+    pendingLeaseMs,
   });
 
   if (reservation.kind === "conflict") {
+    logRefusal(path, { code: "IDEMPOTENCY_KEY_REUSED", status: 409, stage: "idempotency" });
     return NextResponse.json(
       {
         error:
@@ -388,6 +398,7 @@ export async function withIdempotencyFingerprint({
   }
 
   if (reservation.kind === "pending") {
+    logRefusal(path, { code: "IDEMPOTENCY_IN_PROGRESS", status: 409, stage: "idempotency" });
     return NextResponse.json(
       {
         error:
@@ -475,6 +486,7 @@ export async function withIdempotencyFingerprint({
     },
   });
   if (completed.count !== 1) {
+    logRefusal(path, { code: "IDEMPOTENCY_COMPLETION_UNVERIFIED", status: 409, stage: "idempotency" });
     return NextResponse.json({ error: "Request completion could not be verified; check its status before retrying" }, {
       status: 409,
       headers: { "X-RestoreAssist-Idempotency-Uncertain": "true" },
@@ -520,10 +532,12 @@ export async function withIdempotency(
 ): Promise<NextResponse> {
   const keyResult = getIdempotencyKey(req);
   if (!keyResult.ok) {
+    logRefusal(req, { code: "IDEMPOTENCY_KEY_INVALID", status: 400, stage: "idempotency" });
     return NextResponse.json({ error: keyResult.reason }, { status: 400 });
   }
   const mutationIdResult = getClientMutationId(req);
   if (!mutationIdResult.ok) {
+    logRefusal(req, { code: "CLIENT_MUTATION_ID_INVALID", status: 400, stage: "idempotency" });
     return NextResponse.json(
       { error: mutationIdResult.reason },
       { status: 400 },

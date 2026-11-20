@@ -72,10 +72,18 @@ const h = vi.hoisted(() => {
     organization: { findFirst: fn(), update: fn() },
     invoiceTemplate: { updateMany: fn() },
     idempotencyRecord: { findUnique: fn(), updateMany: fn() },
+    // The submit route reads the fire and smoke walkthrough for every claim.
+    voiceCopilotObservation: { findMany: fn() },
     $transaction: vi.fn(),
   };
 
-  return { table, track, db, getServerSession: vi.fn() };
+  const getEffectiveSubscription = vi.fn(async () => ({
+    subscriptionStatus: "TRIAL",
+    trialEndsAt: new Date(Date.now() + 7 * 86_400_000),
+    creditsRemaining: 5,
+  }));
+
+  return { table, track, db, getServerSession: vi.fn(), getEffectiveSubscription };
 });
 
 // ── Analytics: `track` mocked, `isFirstTime` real ────────────────────────────
@@ -138,11 +146,8 @@ vi.mock("@/lib/report-limits", () => ({
   trackUsageOnly: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/organization-credits", () => ({
-  getEffectiveSubscription: vi.fn(async () => ({
-    subscriptionStatus: "TRIAL",
-    trialEndsAt: new Date(Date.now() + 7 * 86_400_000),
-    creditsRemaining: 5,
-  })),
+  getEffectiveSubscription: (...a: unknown[]) =>
+    h.getEffectiveSubscription(...a),
 }));
 vi.mock("@/lib/bulk-operations", () => ({
   rateLimit: vi.fn(() => ({ allowed: true })),
@@ -307,6 +312,12 @@ const newId = (prefix: string) => `${prefix}-${++nextId}`;
 beforeEach(() => {
   h.table.length = 0;
   h.track.mockClear();
+  h.getEffectiveSubscription.mockReset();
+  h.getEffectiveSubscription.mockResolvedValue({
+    subscriptionStatus: "TRIAL",
+    trialEndsAt: new Date(Date.now() + 7 * 86_400_000),
+    creditsRemaining: 5,
+  });
   for (const model of Object.values(h.db)) {
     if (typeof model === "function") {
       (model as ReturnType<typeof vi.fn>).mockReset();
@@ -330,6 +341,8 @@ beforeEach(() => {
   // The faked withIdempotency above always grants the reservation, so the
   // route's in-transaction completion of that reservation succeeds.
   h.db.idempotencyRecord.updateMany.mockResolvedValue({ count: 1 });
+  // No walkthrough on these water jobs: the real fire gate runs and lets them through.
+  h.db.voiceCopilotObservation.findMany.mockResolvedValue([]);
   h.db.report.create.mockImplementation(async () => ({
     id: newId("report"),
     user: { name: "Tester", email: "t@example.com" },
@@ -433,10 +446,17 @@ describe("counted: POST /api/reports/generate-enhanced (AI report writer)", () =
 
   function signInSubscriber(user: string) {
     signIn(user);
+    // generate-enhanced is a paid-plan feature (L-2). Trial still records
+    // first_report_saved on Basic paths; this suite counts the Enhanced writer.
+    h.getEffectiveSubscription.mockResolvedValue({
+      subscriptionStatus: "ACTIVE",
+      trialEndsAt: null,
+      creditsRemaining: 5,
+    });
     h.db.user.findUnique.mockResolvedValue({
       name: "Tech",
       email: `${user}@example.com`,
-      subscriptionStatus: "TRIAL",
+      subscriptionStatus: "ACTIVE",
       creditsRemaining: 5,
       totalCreditsUsed: 0,
       organization: { country: "AU" },
@@ -792,6 +812,11 @@ describe("not counted: every other seed, demo, sample or partner-push writer", (
   it.each(files)("%s never records first_report_saved", (file) => {
     const source = readFileSync(join(process.cwd(), file), "utf8");
     expect(source).not.toMatch(/first_report_saved/);
-    expect(source).not.toMatch(/@\/lib\/analytics\/(track|first-report-saved)/);
+    // Setup activation records its own setup_completed event through track.
+    const writers =
+      file === "app/api/setup/activate/route.ts"
+        ? /@\/lib\/analytics\/first-report-saved/
+        : /@\/lib\/analytics\/(track|first-report-saved)/;
+    expect(source).not.toMatch(writers);
   });
 });

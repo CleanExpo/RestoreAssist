@@ -11,6 +11,7 @@ import {
   CalendarDays,
   ScrollText,
   Inbox,
+  Package,
 } from "lucide-react";
 
 /**
@@ -108,9 +109,51 @@ export const simpleNavItems: NavItem[] = [
   { icon: HelpCircle, label: "Help", href: "/dashboard/help" },
 ];
 
-/** Simple-mode sidebar — optional manager inbox appended by the shell. */
-export function buildSimpleNavItems(options?: { isManager?: boolean }): NavItem[] {
+/**
+ * RA-8271 — the side-panel tab for the optional packs. RestoreAssist is the
+ * CRM; the packs add field and admin features on top. Before this tab, the
+ * packs were only reachable in Advanced mode, and every new owner starts in
+ * Simple mode, so a new owner never saw them.
+ */
+export const FIELD_ADDONS_NAV_ITEM: NavItem = {
+  icon: Package,
+  label: "Field Add-Ons",
+  href: "/dashboard/addons",
+};
+
+/**
+ * Whether the Field Add-Ons tab shows: the business owner only (managers
+ * and technicians never buy packs), and never in the iOS app, which hides
+ * every purchase surface (Apple 3.1.1).
+ */
+export function fieldAddonsTabVisible(input: {
+  role: string | null | undefined;
+  hideBillingNav: boolean;
+}): boolean {
+  if (input.hideBillingNav) return false;
+  // The page is ADMIN-only (lib/auth/dashboard-page-access.ts); a tab that
+  // opened onto a refusal would be worse than no tab.
+  return input.role === "ADMIN";
+}
+
+/**
+ * Simple-mode sidebar — optional manager inbox appended by the shell.
+ *
+ * `showFieldAddons` is decided by the shell from the same rule as the
+ * Subscription link: the business owner only, and never in the iOS app
+ * (Apple 3.1.1). The page itself is owner-only (dashboard-page-access.ts).
+ */
+export function buildSimpleNavItems(options?: {
+  isManager?: boolean;
+  showFieldAddons?: boolean;
+}): NavItem[] {
   const items: NavItem[] = [...simpleNavItems];
+  if (options?.showFieldAddons) {
+    // Straight after Invoices, above Account & Billing, so it reads as part of
+    // the product rather than a billing setting.
+    const at = items.findIndex((i) => i.href === "/dashboard/subscription");
+    items.splice(at === -1 ? items.length : at, 0, FIELD_ADDONS_NAV_ITEM);
+  }
   if (options?.isManager) {
     for (const extra of MANAGER_NAV_HREFS) {
       if (!items.some((i) => i.href === extra.href)) {
@@ -121,14 +164,30 @@ export function buildSimpleNavItems(options?: { isManager?: boolean }): NavItem[
         });
       }
     }
+    const inbox = MANAGER_NAV_HREFS[0];
+    const withoutOverview = items.filter((i) => i.href !== "/dashboard");
+    return [
+      {
+        icon: Inbox,
+        label: inbox.label,
+        href: inbox.href,
+      },
+      ...withoutOverview,
+      {
+        icon: LayoutDashboard,
+        label: "Workspace summary",
+        href: "/dashboard?stay=1",
+      },
+    ];
   }
   return items;
 }
 
 /**
- * Admin destinations shown whenever role === ADMIN — including Simple mode.
- * Without this, admins stuck in APPRENTICE never see Admin / Margot / etc.
- * Icons are filled in by DashboardShell (this module only owns href/label).
+ * Platform (RestoreAssist staff) destinations — including Simple mode.
+ * Shown only via `platformNavHrefs`, never on role alone: every business owner
+ * is ADMIN. Icons are filled in by DashboardShell (this module only owns
+ * href/label).
  */
 export const ADMIN_NAV_HREFS = [
   { label: "Admin", href: "/dashboard/admin" },
@@ -138,6 +197,22 @@ export const ADMIN_NAV_HREFS = [
   { label: "Restoration Insights", href: "/dashboard/admin/restoration-insights" },
   { label: "Margot", href: "/dashboard/margot/home" },
 ] as const;
+
+/**
+ * The platform destinations a user may see in the sidebar. `role: "ADMIN"` is
+ * granted to every self-registered business owner, so it is not enough: the
+ * caller must also be a platform support operator, resolved on the server
+ * (`isAllowlistedPlatformSupportOperator`) and passed down as a boolean. The allowlist
+ * widens an ADMIN only; it never promotes a MANAGER or USER.
+ */
+export function platformNavHrefs(options: {
+  role: string | undefined;
+  isPlatformOperator: boolean | undefined;
+}): ReadonlyArray<(typeof ADMIN_NAV_HREFS)[number]> {
+  return options.role === "ADMIN" && options.isPlatformOperator === true
+    ? ADMIN_NAV_HREFS
+    : [];
+}
 
 /** Manager/owner ops — appended in the shell (server routes enforce access). */
 /** Appended in Advanced nav for managers — schedule is already in simpleNavItems. */
@@ -199,6 +274,7 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/interviews": "Insights",
     // Setup — Team, Integrations, Pricing Configuration, Settings (+ Feedback,
     // Tutorials, Help)
+    "/dashboard/addons": "Setup",
     "/dashboard/team": "Setup",
     "/dashboard/contractors": "Setup",
     "/dashboard/integrations": "Setup",

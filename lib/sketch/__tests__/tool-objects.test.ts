@@ -207,6 +207,11 @@ describe("describeToolObject — RA-6843 room area label", () => {
     expect(d?.data.areaM2).toBe(4);
     expect(d?.label?.text).toBe("4.0 m²");
   });
+
+  it("RA-8237: a drawn room is tagged so recalibration re-derives its area", () => {
+    const d = describeToolObject({ tool: "room", points: SQUARE_1M });
+    expect(d?.data.areaSource).toBe("geometry");
+  });
 });
 
 describe("formatRoomLabel", () => {

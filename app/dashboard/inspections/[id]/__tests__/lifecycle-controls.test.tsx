@@ -167,7 +167,8 @@ describe("inspection lifecycle controls", () => {
 
   it("exposes report generation for review-ready work without reopening billing", () => {
     expect(source).toMatch(
-      /const canGenerateReport =\s*\["ESTIMATED", "SUBMITTED", "COMPLETED"\]\.includes\(\s*inspection\.status,?\s*\)/,
+      // RA-8421: the allowed states come from lib/inspections/active-status.ts.
+      /const canGenerateReport =\s*inspectionStatusAllowsNirReport\(\s*inspection\.status,?\s*\)/,
     );
     expectOnlyUnderGate("canGenerateReport", [
       "handleGenerateReport",

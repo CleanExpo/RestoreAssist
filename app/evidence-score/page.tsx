@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type Answer = 0 | 0.5 | 1;
 
@@ -194,7 +195,7 @@ export default function EvidenceScorePage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data?.error || "Unable to submit your audit request.");
+        throw new Error(apiErrorMessage(data) || "Unable to submit your audit request.");
       }
 
       setLeadStatus("success");

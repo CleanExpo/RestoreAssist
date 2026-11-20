@@ -21,8 +21,14 @@ Golden case asserts: linked inspection (no duplicate), **no invented attendance 
 | Surface | Rule |
 | --- | --- |
 | Job list / job header | Show `inspectionDate` or **Attendance not recorded** — never `createdAt` as attendance |
-| Client portal job shell | Same — only show date when `inspectionDate` is set |
-| Field dashboard | Already uses `inspectionDate` or “Attendance unknown” |
+| Job list date filter | Filter on `inspectionDate` only; jobs without attendance excluded when range set |
+| Job print view | Same attendance rule as list/header |
+| Client portal job shell | Only show date when `inspectionDate` is set |
+| `GET /api/portal/[token]` | Public `inspectionDate` = DB field, not `createdAt` |
+| Client PDF (token + JWT) | **Site attendance:** recorded date or **Not recorded** |
+| Field dashboard | Uses `inspectionDate` or “Attendance unknown” |
+| Staff export PDF (`lib/pdf-export.ts`) | Header date from `inspectionDate` or **Attendance not recorded** |
+| Team member recent jobs | Same as job list row |
 
 ## Production trace (founder / support)
 

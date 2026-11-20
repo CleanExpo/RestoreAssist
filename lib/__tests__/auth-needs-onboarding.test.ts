@@ -49,6 +49,12 @@ vi.mock("@/lib/security-audit", () => ({
 }));
 vi.mock("@/lib/billing/constants", () => ({ TRIAL_DAYS: 14 }));
 
+const seatLock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/billing/technician-seats", async (actual) => ({
+  ...(await actual<typeof import("@/lib/billing/technician-seats")>()),
+  isTrialSeatLocked: seatLock,
+}));
+
 import { authOptions } from "@/lib/auth";
 
 async function invokeJwt(
@@ -96,6 +102,39 @@ describe("RA-1259 — JWT needsOnboarding refresh while the gate is closed", () 
     };
   }
 
+  describe("D-029 seat lock claim", () => {
+    const technician = {
+      role: "USER",
+      organizationId: "org-a",
+      organization: null,
+      needsOnboarding: false,
+    };
+
+    it("locks and unlocks a technician on a routine read, without a new sign-in", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(technician);
+      seatLock.mockResolvedValue(true);
+      const locked = await invokeJwt(settledToken({ role: "USER" }));
+      expect((locked as { seatLocked?: boolean }).seatLocked).toBe(true);
+
+      seatLock.mockResolvedValue(false);
+      const paid = await invokeJwt(locked as Record<string, unknown>);
+      expect((paid as { seatLocked?: boolean }).seatLocked).toBe(false);
+    });
+
+    it("a database blip keeps the last answer", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(technician);
+      seatLock.mockRejectedValue(new Error("db down"));
+      const held = await invokeJwt(settledToken({ role: "USER", seatLocked: true }));
+      expect((held as { seatLocked?: boolean }).seatLocked).toBe(true);
+    });
+
+    it("never locks an owner", async () => {
+      seatLock.mockResolvedValue(true);
+      const owner = await invokeJwt(settledToken());
+      expect((owner as { seatLocked?: boolean }).seatLocked).toBe(false);
+    });
+  });
+
   it("clears a stale true claim on a routine session read after onboarding is saved", async () => {
     const token = await invokeJwt(
       settledToken({ needsOnboarding: true }),
@@ -114,7 +153,7 @@ describe("RA-1259 — JWT needsOnboarding refresh while the gate is closed", () 
 
     expect(mockPrisma.user.findUnique).toHaveBeenCalledExactlyOnceWith({
       where: { id: "u1" },
-      select: { organizationId: true, organization: { select: { setupCompletedAt: true } } },
+      select: { organizationId: true, organization: { select: { setupCompletedAt: true, ownerId: true } } },
     });
     expect((token as { needsOnboarding?: boolean }).needsOnboarding).toBe(
       false,

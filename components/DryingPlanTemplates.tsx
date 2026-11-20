@@ -366,14 +366,14 @@ export default function DryingPlanTemplates({
               onClick={() => setSelectedTemplate(template.id)}
               className={`p-4 rounded-lg border transition-all ${
                 selectedTemplate === template.id
-                  ? "border-cyan-500 bg-cyan-500/20"
+                  ? "border-brand-harbour-500 bg-brand-harbour-500/20"
                   : "border-slate-600 bg-slate-700/30 hover:border-slate-500"
               }`}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
               <div className="flex items-center gap-3 mb-2">
-                <template.icon size={20} className="text-cyan-400" />
+                <template.icon size={20} className="text-brand-harbour-400" />
                 <span className="font-medium text-white">{template.name}</span>
               </div>
               <p className="text-sm text-slate-400">{template.description}</p>
@@ -440,21 +440,21 @@ export default function DryingPlanTemplates({
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-            <Calculator className="text-cyan-400" size={20} />
+            <Calculator className="text-brand-harbour-400" size={20} />
             Equipment Calculations
           </h4>
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-slate-300">Airmovers Required:</span>
-              <span className="text-2xl font-bold text-cyan-400">
+              <span className="text-2xl font-bold text-brand-harbour-400">
                 {dryingPlan.airmoversCount}
               </span>
             </div>
 
             <div className="flex items-center justify-between">
               <span className="text-slate-300">Dehumidification Capacity:</span>
-              <span className="text-2xl font-bold text-cyan-400">
+              <span className="text-2xl font-bold text-brand-harbour-400">
                 {dryingPlan.dehumidificationCapacity}L/day
               </span>
             </div>
@@ -470,7 +470,7 @@ export default function DryingPlanTemplates({
 
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-            <Thermometer className="text-cyan-400" size={20} />
+            <Thermometer className="text-brand-harbour-400" size={20} />
             Psychrometric Targets
           </h4>
 
@@ -491,7 +491,7 @@ export default function DryingPlanTemplates({
 
             <div className="flex items-center justify-between">
               <span className="text-slate-300">Water Class:</span>
-              <span className="text-lg font-bold text-cyan-400">
+              <span className="text-lg font-bold text-brand-harbour-400">
                 {waterClass}
               </span>
             </div>
@@ -502,7 +502,7 @@ export default function DryingPlanTemplates({
       {/* Equipment Placement */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-          <Wind className="text-cyan-400" size={20} />
+          <Wind className="text-brand-harbour-400" size={20} />
           Equipment Placement Guidelines
         </h4>
 
@@ -512,7 +512,7 @@ export default function DryingPlanTemplates({
             <ul className="space-y-2 text-sm text-slate-300">
               {equipmentPlacement.airmovers.map((item, index) => (
                 <li key={index} className="flex items-start gap-2">
-                  <span className="bg-cyan-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                  <span className="bg-brand-harbour-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                     {index + 1}
                   </span>
                   {item}
@@ -554,7 +554,7 @@ export default function DryingPlanTemplates({
       {/* Monitoring Schedule */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-          <Clock className="text-cyan-400" size={20} />
+          <Clock className="text-brand-harbour-400" size={20} />
           Monitoring Schedule
         </h4>
 
@@ -596,7 +596,7 @@ export default function DryingPlanTemplates({
                 <li key={index} className="flex items-start gap-2">
                   <CheckCircle
                     size={14}
-                    className="text-cyan-400 flex-shrink-0 mt-1"
+                    className="text-brand-harbour-400 flex-shrink-0 mt-1"
                   />
                   {item}
                 </li>
@@ -617,7 +617,7 @@ export default function DryingPlanTemplates({
             onChange={(e) =>
               handleInputChange("equipmentPlacement", e.target.value)
             }
-            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
             rows={3}
             placeholder="Specific equipment placement instructions, room layouts, airflow patterns"
           />
@@ -632,7 +632,7 @@ export default function DryingPlanTemplates({
             onChange={(e) =>
               handleInputChange("monitoringSchedule", e.target.value)
             }
-            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
             rows={3}
             placeholder="Detailed monitoring schedule, reading intervals, documentation requirements"
           />
@@ -647,7 +647,7 @@ export default function DryingPlanTemplates({
             onChange={(e) =>
               handleInputChange("specialConsiderations", e.target.value)
             }
-            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
             rows={3}
             placeholder="Special conditions, occupant concerns, building-specific requirements"
           />

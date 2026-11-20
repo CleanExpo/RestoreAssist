@@ -29,6 +29,10 @@ vi.mock("@/lib/prisma", () => ({
     inspection: {
       findUnique: vi.fn(),
     },
+    // RA-8327: make-safe rows are read through the list owner, not the
+    // inspection select. They come from the fixture the test last returned.
+    makeSafeAction: { findMany: vi.fn() },
+    fireSmokeDamageAssessment: { findFirst: vi.fn(async () => null) },
     assessmentGeneration: { findFirst: vi.fn() },
     pilotAdjusterReceipt: { updateMany: receiptUpdateMany },
     $transaction: transaction,
@@ -177,6 +181,59 @@ beforeEach(() => {
   requirePilotWorkspaceActorInTransaction.mockResolvedValue(undefined);
   withPilotWorkspaceProviderAuthority.mockImplementation(async (_actor: string, _workspace: string, operation: () => Promise<unknown>) => operation());
   requireAiTaskPolicy.mockReturnValue({ maxEstimatedCostUsd: 2 });
+  vi.mocked(prisma.makeSafeAction.findMany).mockImplementation((async () => {
+    const last = mockFindUnique.mock.results.at(-1)?.value;
+    const insp = (await last) as { makeSafeActions?: unknown[] } | null | undefined;
+    return insp?.makeSafeActions ?? [];
+  }) as never);
+});
+
+describe("make-safe completion follows the job's list (RA-8327)", () => {
+  it("a fire job with all six fire items complete is complete, though an old mould_containment row is open", async () => {
+    const insp = makeInspection({
+      claimType: "FIRE",
+      makeSafeActions: [
+        ...[
+          "power_isolated",
+          "gas_isolated",
+          "structure_safe",
+          "openings_secured",
+          "occupant_briefing",
+          "asbestos_presumed",
+        ].map((action) => ({ action, applicable: true, completed: true })),
+        { action: "mould_containment", applicable: true, completed: false },
+      ],
+    } as never);
+    mockFindUnique.mockResolvedValueOnce(insp);
+    mockAiResponse(aiJson("approve"));
+
+    await runAdjusterAgent("insp-001");
+
+    const { userPrompt } = mockDispatch.mock.calls[0][0] as { userPrompt: string };
+    expect(userPrompt).toContain("Complete: YES");
+    expect(userPrompt).not.toMatch(/incomplete stabilisation action/);
+  });
+
+  it("a fire job missing its fire-only rows is not complete, though its old standard list is", async () => {
+    const insp = makeInspection({
+      claimType: "FIRE",
+      makeSafeActions: [
+        "power_isolated",
+        "gas_isolated",
+        "mould_containment",
+        "water_stopped",
+        "occupant_briefing",
+      ].map((action) => ({ action, applicable: true, completed: true })),
+    } as never);
+    mockFindUnique.mockResolvedValueOnce(insp);
+    mockAiResponse(aiJson("approve"));
+
+    await runAdjusterAgent("insp-001");
+
+    const { userPrompt } = mockDispatch.mock.calls[0][0] as { userPrompt: string };
+    expect(userPrompt).toContain("Complete: NO");
+    expect(userPrompt).toMatch(/incomplete stabilisation action\(s\): .*structure_safe/);
+  });
 });
 
 it("rejects authority revoked after receipt claim but before provider dispatch", async () => {

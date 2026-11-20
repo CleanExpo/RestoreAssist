@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useFetchWithError } from "@/lib/client/useFetchWithError";
+import type { ParsedApiError } from "@/lib/client/parse-api-error";
 import toast from "react-hot-toast";
 import { TechLicenceBanner } from "@/components/dashboard/TechLicenceBanner";
 import { BasicReportWithoutKeyCta } from "@/components/onboarding/BasicReportWithoutKeyCta";
@@ -89,7 +90,7 @@ const PRIMARY_ACTIONS = [
     title: "New inspection",
     description: "Open a job on site",
     icon: ClipboardCheck,
-    accent: "from-cyan-500/15 to-blue-600/10 text-cyan-700 dark:text-cyan-300",
+    accent: "from-brand-harbour-500/15 to-blue-600/10 text-brand-harbour-700 dark:text-brand-harbour-300",
   },
   {
     href: "/dashboard/field",
@@ -407,6 +408,15 @@ function DashboardContent({
     "/api/invoices?limit=20",
   );
 
+  // The lists above are capped pages for the rows on screen. The figures come
+  // from here, and stay null rather than falling back to a list's length.
+  const {
+    data: countsRaw,
+    loading: countsLoading,
+    error: countsFetchError,
+    refetch: refetchCounts,
+  } = useFetchWithError<HomeCounts>("/api/dashboard/home-counts");
+
   useEffect(() => {
     if (!session.user?.name) return;
     const key = "ra-dashboard-welcome";
@@ -422,8 +432,17 @@ function DashboardContent({
   }, [session.user?.name]);
 
   const model = useMemo(() => {
+    const counts =
+      !countsFetchError && isHomeCounts(countsRaw) ? countsRaw : null;
+    const countsError =
+      countsFetchError ??
+      (countsLoading || counts ? null : INVALID_COUNTS_RESPONSE);
     const loadFailed = Boolean(
-      reportsError || clientsError || inspectionsError || invoicesError,
+      reportsError ||
+        clientsError ||
+        inspectionsError ||
+        invoicesError ||
+        countsError,
     );
     const reports = reportsError ? [] : (reportsRaw?.reports ?? []);
     const clients = clientsError ? [] : (clientsRaw?.clients ?? []);
@@ -457,23 +476,29 @@ function DashboardContent({
       outstandingInvoices,
       recentReports,
       hasAnyWork,
+      counts,
+      countsFailed: Boolean(countsError),
+      // Only shown once everything loaded, so these zeros never reach the page
+      // in place of a failed read.
       focus: resolveHomeFocus({
-        openReports: openReports.length,
-        activeInspections: activeInspections.length,
-        outstandingInvoices: outstandingInvoices.length,
+        openReports: counts?.openReports ?? 0,
+        activeInspections: counts?.activeJobs ?? 0,
+        outstandingInvoices: counts?.awaitingPayment ?? 0,
         hasAnyWork,
       }),
       loading:
         reportsLoading ||
         clientsLoading ||
         inspectionsLoading ||
-        invoicesLoading,
+        invoicesLoading ||
+        countsLoading,
       loadFailed,
       failures: [
         { label: "Reports", error: reportsError, loading: reportsLoading, retry: refetchReports },
         { label: "Clients", error: clientsError, loading: clientsLoading, retry: refetchClients },
         { label: "Inspections", error: inspectionsError, loading: inspectionsLoading, retry: refetchInspections },
         { label: "Invoices", error: invoicesError, loading: invoicesLoading, retry: refetchInvoices },
+        { label: "Totals", error: countsError, loading: countsLoading, retry: refetchCounts },
       ].filter((resource) => resource.error),
     };
   }, [
@@ -481,18 +506,22 @@ function DashboardContent({
     clientsRaw,
     inspectionsRaw,
     invoicesRaw,
+    countsRaw,
     reportsLoading,
     clientsLoading,
     inspectionsLoading,
     invoicesLoading,
+    countsLoading,
     reportsError,
     clientsError,
     inspectionsError,
     invoicesError,
+    countsFetchError,
     refetchReports,
     refetchClients,
     refetchInspections,
     refetchInvoices,
+    refetchCounts,
   ]);
 
   const firstName = session.user?.name?.split(" ")[0] ?? "there";
@@ -524,6 +553,13 @@ function DashboardContent({
   }, []);
 
   const simpleMode = experienceMode !== null && !isAdvancedMode(experienceMode);
+
+  useEffect(() => {
+    if (role !== "MANAGER" || !simpleMode) return;
+    if (searchParams.get("stay") === "1") return;
+    router.replace("/dashboard/operations/completeness-inbox");
+  }, [role, simpleMode, router, searchParams]);
+
   const hubLinks = simpleMode
     ? simpleWorkspaceHubLinks({ omitHref: "/dashboard", isManager })
     : workspaceHubLinks({ omitHref: "/dashboard", includeCompletenessInbox: isManager });
@@ -622,21 +658,21 @@ function DashboardContent({
         </div>
       )}
 
-      <header className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-indigo-950 to-cyan-950 p-6 shadow-xl shadow-cyan-950/25 sm:p-8 dark:shadow-black/50">
+      <header className="relative overflow-hidden rounded-2xl border border-brand-mist bg-gradient-to-br from-white via-brand-cloud to-brand-cream p-6 shadow-sm sm:p-8 dark:border-white/10 dark:from-brand-surface dark:via-brand-deep dark:to-brand-canvas dark:shadow-xl dark:shadow-black/50">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.08)_0%,transparent_42%,rgba(34,211,238,0.06)_100%)]"
         />
         <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
           <div className="min-w-0 space-y-4">
-            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-brand-cta dark:text-brand-harbour-light">
               <Sparkles className="h-3.5 w-3.5" aria-hidden />
               Workspace overview
             </p>
             <div>
-              <p className="text-sm text-white/70">
+              <p className="text-sm text-brand-slate dark:text-white/70">
                 Good to see you,{" "}
-                <span className="font-medium text-white">{firstName}</span>
+                <span className="font-medium text-brand-navy dark:text-white">{firstName}</span>
                 {workspaceName ? (
                   <>
                     {" "}
@@ -644,14 +680,14 @@ function DashboardContent({
                   </>
                 ) : null}
               </p>
-              <h1 className="mt-2 text-pretty text-2xl font-semibold tracking-tight text-white sm:text-3xl lg:text-[2rem] lg:leading-tight">
+              <h1 className="mt-2 text-pretty text-2xl font-semibold tracking-tight text-brand-navy dark:text-white sm:text-3xl lg:text-[2rem] lg:leading-tight">
                 {model.loadFailed
                   ? "Workspace partially available"
                   : model.loading
                     ? "Loading your board…"
                     : model.focus.title}
             </h1>
-              <p className="mt-2 max-w-9xl text-pretty text-sm leading-relaxed text-white/65">
+              <p className="mt-2 max-w-9xl text-pretty text-sm leading-relaxed text-brand-slate dark:text-white/65">
                 {model.loadFailed
                   ? "Retry the unavailable sections to see your full picture."
                   : model.loading
@@ -662,29 +698,33 @@ function DashboardContent({
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {model.loading ? (
                 <>
-                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-white/10" />
-                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-white/10" />
-                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-white/10" />
-                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-white/10" />
+                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-brand-mist/60 dark:bg-white/10" />
+                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-brand-mist/60 dark:bg-white/10" />
+                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-brand-mist/60 dark:bg-white/10" />
+                  <LineSkeleton className="h-[4.25rem] rounded-xl bg-brand-mist/60 dark:bg-white/10" />
                 </>
               ) : (
                 <>
                   <StatChip
                     variant="hero"
                     label="Active jobs"
-                    value={model.activeInspections.length}
+                    value={model.counts?.activeJobs ?? null}
                   />
                   <StatChip
                     variant="hero"
                     label="Open reports"
-                    value={model.openReports.length}
+                    value={model.counts?.openReports ?? null}
                   />
                   <StatChip
                     variant="hero"
                     label="Awaiting payment"
-                    value={model.outstandingInvoices.length}
+                    value={model.counts?.awaitingPayment ?? null}
                   />
-                  <StatChip variant="hero" label="Clients" value={model.clients.length} />
+                  <StatChip
+                    variant="hero"
+                    label="Clients"
+                    value={model.counts?.clients ?? null}
+                  />
                 </>
               )}
       </div>
@@ -692,7 +732,7 @@ function DashboardContent({
           {!model.loadFailed && !model.loading && (
             <Link
               href={model.focus.href}
-              className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-8 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/30 transition hover:brightness-105 xl:w-auto"
+              className="inline-flex min-h-12 w-full shrink-0 items-center justify-center rounded-xl bg-brand-cta px-8 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-cta-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 xl:w-auto"
             >
               {model.focus.label}
             </Link>
@@ -700,13 +740,13 @@ function DashboardContent({
                 </div>
         <nav
           aria-label="Workspace shortcuts"
-          className="relative mt-8 grid grid-cols-2 gap-2 border-t border-white/10 pt-6 sm:grid-cols-3"
+          className="relative mt-8 grid grid-cols-2 gap-2 border-t border-brand-mist pt-6 sm:grid-cols-3 dark:border-white/10"
         >
           {hubLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-2.5 text-center text-xs font-medium text-white/85 backdrop-blur-sm transition hover:border-cyan-300/30 hover:bg-white/10 sm:text-sm"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-brand-mist bg-white px-2.5 text-center text-xs font-medium text-brand-navy backdrop-blur-sm transition hover:border-brand-harbour/40 hover:bg-brand-cream sm:text-sm dark:border-white/10 dark:bg-white/5 dark:text-white/85 dark:hover:border-brand-harbour-light/40 dark:hover:bg-white/10"
             >
               {link.label}
             </Link>
@@ -722,36 +762,36 @@ function DashboardContent({
             href="/dashboard/inspections"
             label="Inspect"
             hint="Jobs still open"
-            value={model.activeInspections.length}
-            loading={inspectionsLoading}
-            unavailable={Boolean(inspectionsError)}
+            value={model.counts?.activeJobs ?? null}
+            loading={countsLoading}
+            unavailable={model.countsFailed}
           />
           <PipelineStep
             index={1}
             href="/dashboard/reports"
             label="Report"
             hint="Drafts and reviews"
-            value={model.openReports.length}
-            loading={reportsLoading}
-            unavailable={Boolean(reportsError)}
+            value={model.counts?.openReports ?? null}
+            loading={countsLoading}
+            unavailable={model.countsFailed}
           />
           <PipelineStep
             index={2}
             href="/dashboard/invoices"
             label="Invoice"
             hint="Waiting on payment"
-            value={model.outstandingInvoices.length}
-            loading={invoicesLoading}
-            unavailable={Boolean(invoicesError)}
+            value={model.counts?.awaitingPayment ?? null}
+            loading={countsLoading}
+            unavailable={model.countsFailed}
           />
           <PipelineStep
             index={3}
             href="/dashboard/clients"
             label="Clients"
             hint="People on file"
-            value={model.clients.length}
-            loading={clientsLoading}
-            unavailable={Boolean(clientsError)}
+            value={model.counts?.clients ?? null}
+            loading={countsLoading}
+            unavailable={model.countsFailed}
           />
         </ol>
       </section>
@@ -806,7 +846,7 @@ function DashboardContent({
       <ManagerOpsSummary session={session} />
 
       <div className="grid gap-6 xl:grid-cols-12">
-        <DashboardPanel className="xl:col-span-7 bg-gradient-to-br from-card via-card to-cyan-500/[0.04]">
+        <DashboardPanel className="xl:col-span-7 bg-gradient-to-br from-card via-card to-brand-harbour-500/[0.04]">
           <DashboardPanelHeader
             title="Needs attention"
             description="Open jobs and unfinished reports — one record each."
@@ -1066,7 +1106,7 @@ function DashboardContent({
               href={href}
               className="flex gap-3 rounded-xl border border-border/80 bg-gradient-to-br from-card to-primary/[0.06] p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-cyan-500/10 text-primary">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-brand-harbour-500/10 text-primary">
                 <Icon className="h-5 w-5" aria-hidden />
               </span>
               <span className="min-w-0">
@@ -1214,29 +1254,56 @@ function SectionLabel({
   );
 }
 
+type HomeCounts = {
+  activeJobs: number;
+  openReports: number;
+  awaitingPayment: number;
+  clients: number;
+};
+
+function isHomeCounts(value: unknown): value is HomeCounts {
+  const counts = value as Partial<HomeCounts> | null;
+  return (
+    Number.isInteger(counts?.activeJobs) &&
+    Number.isInteger(counts?.openReports) &&
+    Number.isInteger(counts?.awaitingPayment) &&
+    Number.isInteger(counts?.clients)
+  );
+}
+
+const INVALID_COUNTS_RESPONSE: ParsedApiError = {
+  code: "INVALID_RESPONSE",
+  message: "The totals response could not be read",
+  status: 200,
+};
+
 function StatChip({
   label,
   value,
   variant = "default",
 }: {
   label: string;
-  value: number;
+  value: number | null;
   variant?: "default" | "hero";
 }) {
   if (variant === "hero") {
     return (
-      <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-md">
-        <p className="text-2xl font-semibold tabular-nums leading-none text-white">
-          {value}
+      <div className="rounded-xl border border-brand-mist bg-white px-4 py-3 backdrop-blur-md dark:border-white/15 dark:bg-white/10">
+        <p className="text-2xl font-semibold tabular-nums leading-none text-brand-navy dark:text-white">
+          {value === null ? (
+            <span className="text-sm font-medium">Unavailable</span>
+          ) : (
+            value
+          )}
         </p>
-        <p className="mt-1.5 text-xs text-white/60">{label}</p>
+        <p className="mt-1.5 text-xs text-brand-slate dark:text-white/60">{label}</p>
       </div>
     );
   }
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border/60 bg-gradient-to-br from-background to-muted/30 px-3 py-2">
       <span className="text-lg font-semibold tabular-nums text-foreground">
-        {value}
+        {value === null ? "Unavailable" : value}
       </span>
       <span className="text-xs text-muted-foreground">{label}</span>
     </div>
@@ -1244,7 +1311,7 @@ function StatChip({
 }
 
 const PIPELINE_SURFACE = [
-  "from-cyan-500/12 via-card to-card",
+  "from-brand-harbour-500/12 via-card to-card",
   "from-violet-500/10 via-card to-card",
   "from-amber-500/10 via-card to-card",
   "from-emerald-500/10 via-card to-card",
@@ -1262,7 +1329,7 @@ function PipelineStep({
   href: string;
   label: string;
   hint: string;
-  value: number;
+  value: number | null;
   loading: boolean;
   unavailable: boolean;
   index?: number;

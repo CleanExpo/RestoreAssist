@@ -79,19 +79,19 @@ export default async function ClaimsIndexPage() {
             ? "All claims across the workspace — intake through closeout."
             : "Claims you have progress access to."
         }
-        icon={<FolderKanban className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<FolderKanban className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/claims" })}
         primaryAction={
           claims.length > 0 ? (
             <div className="flex flex-wrap justify-end gap-2 text-xs">
-              <span className="rounded-full border border-white/20 bg-white/5 px-2.5 py-1 text-white/80">
+              <span className="rounded-full border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 px-2.5 py-1 text-brand-navy dark:text-white/80">
                 {claims.length} total
               </span>
-              <span className="rounded-full border border-white/20 bg-white/5 px-2.5 py-1 text-white/80">
+              <span className="rounded-full border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 px-2.5 py-1 text-brand-navy dark:text-white/80">
                 {openCount} open
               </span>
               {reviewCount > 0 ? (
-                <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-amber-100">
+                <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-amber-700 dark:text-amber-100">
                   {reviewCount} need review
                 </span>
               ) : null}

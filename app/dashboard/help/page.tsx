@@ -68,17 +68,17 @@ export default async function HelpIndexPage() {
         <div className="relative space-y-5">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0 max-w-9xl">
-              <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+              <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-brand-harbour-700 dark:text-brand-harbour-200/90">
                 <Sparkles className="h-3.5 w-3.5" />
                 Workspace · Knowledge base
               </p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-brand-navy dark:text-white sm:text-3xl">
                 Help &amp; Support
               </h1>
-              <p className="mt-2 text-sm leading-relaxed text-white/65 sm:text-base">
+              <p className="mt-2 text-sm leading-relaxed text-brand-slate dark:text-white/65 sm:text-base">
                 Professional guides for RestoreAssist — from first inspection to
                 insurer-ready reporting. Search anytime with{" "}
-                <kbd className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 text-xs font-medium text-white/90">
+                <kbd className="rounded border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/10 px-1.5 py-0.5 text-xs font-medium text-brand-navy dark:text-white/90">
                   ⌘K
                 </kbd>
                 .
@@ -88,7 +88,7 @@ export default async function HelpIndexPage() {
               <Button
                 asChild
                 variant="outline"
-                className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+                className="border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-white/10 hover:text-brand-navy dark:hover:text-white"
               >
                 <Link href="/dashboard/learn">
                   <PlayCircle className="mr-1.5 h-4 w-4" />
@@ -97,7 +97,7 @@ export default async function HelpIndexPage() {
               </Button>
               <Button
                 asChild
-                className="bg-cyan-500 text-white hover:bg-cyan-400"
+                className="bg-brand-harbour-500 text-white hover:bg-brand-harbour-400"
               >
                 <Link href="/dashboard/help/contact">
                   <Headphones className="mr-1.5 h-4 w-4" />
@@ -107,49 +107,49 @@ export default async function HelpIndexPage() {
             </div>
           </div>
 
-          <div className="flex flex-row flex-wrap gap-3 border-t border-white/10 pt-5">
-            <div className="flex min-w-[140px] flex-1 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm">
-              <BookOpen className="h-4 w-4 text-cyan-300" />
+          <div className="flex flex-row flex-wrap gap-3 border-t border-brand-mist dark:border-white/10 pt-5">
+            <div className="flex min-w-[140px] flex-1 items-center gap-3 rounded-xl border border-brand-mist dark:border-white/10 bg-brand-navy/5 dark:bg-white/5 px-4 py-3 backdrop-blur-sm">
+              <BookOpen className="h-4 w-4 text-brand-harbour-700 dark:text-brand-harbour-300" />
               <div>
-                <p className="text-lg font-semibold tabular-nums text-white">
+                <p className="text-lg font-semibold tabular-nums text-brand-navy dark:text-white">
                   {publishedCount}
                 </p>
-                <p className="text-xs text-white/55">Articles</p>
+                <p className="text-xs text-brand-slate dark:text-white/55">Articles</p>
               </div>
             </div>
-            <div className="flex min-w-[140px] flex-1 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm">
-              <Keyboard className="h-4 w-4 text-cyan-300" />
+            <div className="flex min-w-[140px] flex-1 items-center gap-3 rounded-xl border border-brand-mist dark:border-white/10 bg-brand-navy/5 dark:bg-white/5 px-4 py-3 backdrop-blur-sm">
+              <Keyboard className="h-4 w-4 text-brand-harbour-700 dark:text-brand-harbour-300" />
               <div>
-                <p className="text-lg font-semibold tabular-nums text-white">
+                <p className="text-lg font-semibold tabular-nums text-brand-navy dark:text-white">
                   {categoriesWithContent.length}
                 </p>
-                <p className="text-xs text-white/55">Categories</p>
+                <p className="text-xs text-brand-slate dark:text-white/55">Categories</p>
               </div>
             </div>
             <Link
               href="/dashboard/learn"
-              className="flex min-w-[180px] flex-1 items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm transition-colors hover:border-cyan-300/30 hover:bg-white/10"
+              className="flex min-w-[180px] flex-1 items-center justify-between gap-3 rounded-xl border border-brand-mist dark:border-white/10 bg-brand-navy/5 dark:bg-white/5 px-4 py-3 backdrop-blur-sm transition-colors hover:border-brand-harbour-300/30 hover:bg-brand-cream dark:hover:bg-white/10"
             >
               <div>
-                <p className="text-sm font-semibold text-white">Tutorials</p>
-                <p className="text-xs text-white/55">Watch &amp; learn</p>
+                <p className="text-sm font-semibold text-brand-navy dark:text-white">Tutorials</p>
+                <p className="text-xs text-brand-slate dark:text-white/55">Watch &amp; learn</p>
               </div>
-              <ArrowRight className="h-4 w-4 text-white/50" />
+              <ArrowRight className="h-4 w-4 text-brand-slate dark:text-white/50" />
             </Link>
             <Link
               href="/dashboard/help/contact"
-              className="flex min-w-[180px] flex-1 items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm transition-colors hover:border-cyan-300/30 hover:bg-white/10"
+              className="flex min-w-[180px] flex-1 items-center justify-between gap-3 rounded-xl border border-brand-mist dark:border-white/10 bg-brand-navy/5 dark:bg-white/5 px-4 py-3 backdrop-blur-sm transition-colors hover:border-brand-harbour-300/30 hover:bg-brand-cream dark:hover:bg-white/10"
             >
               <div>
-                <p className="text-sm font-semibold text-white">Support</p>
-                <p className="text-xs text-white/55">1 business day</p>
+                <p className="text-sm font-semibold text-brand-navy dark:text-white">Support</p>
+                <p className="text-xs text-brand-slate dark:text-white/55">1 business day</p>
               </div>
-              <ArrowRight className="h-4 w-4 text-white/50" />
+              <ArrowRight className="h-4 w-4 text-brand-slate dark:text-white/50" />
             </Link>
           </div>
           <nav
             aria-label="Workspace shortcuts"
-            className="grid grid-cols-2 gap-2 border-t border-white/10 pt-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+            className="grid grid-cols-2 gap-2 border-t border-brand-mist dark:border-white/10 pt-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
           >
             {workspaceHubLinks({ omitHref: "/dashboard/help" }).map((link) => (
               <Link key={link.href} href={link.href} className={simpleDashboardShortcutLink}>

@@ -32,7 +32,11 @@ import {
 } from "lucide-react";
 import type { ScrapedPropertyData } from "@/lib/property-data-parser";
 import { prepareUnderlayFile } from "@/lib/sketch/prepare-underlay-file";
-import { commitUnderlayImport } from "@/lib/sketch/commit-underlay-import";
+import {
+  commitUnderlayImport,
+  type UnderlayOriginalSource,
+} from "@/lib/sketch/commit-underlay-import";
+import type { UnderlayReferenceBinding } from "@/lib/sketch/reference-room-import";
 import { isUnderlayUrlImportEnabled } from "@/lib/sketch/underlay-import-flag";
 import {
   FLOORPLAN_UNDERLAY_SKU,
@@ -89,7 +93,13 @@ export interface FloorPlanUnderlayLoaderProps {
   /** Active ClaimSketch floor number; binds custody to the exact floor. */
   floorNumber?: number;
   /** Called when the user confirms an image + opacity. */
-  onApply: (imageUrl: string, opacity: number) => void;
+  onApply: (
+    imageUrl: string,
+    opacity: number,
+    reference?: UnderlayReferenceBinding,
+  ) => void;
+  /** RA-8236: read the applied reference for room suggestions. Absent = no bound reference. */
+  onSuggestRooms?: () => Promise<void>;
   /** Called when the user removes the current underlay. */
   onClear: () => void;
   /** Whether a background image is currently set. */
@@ -112,6 +122,7 @@ export function FloorPlanUnderlayLoader({
   floorNumber = 0,
   onApply,
   onClear,
+  onSuggestRooms,
   hasBackground = false,
   autoFetch = false,
   openUploadRef,
@@ -139,6 +150,14 @@ export function FloorPlanUnderlayLoader({
   // plan is applied. Reset per selected plan (below).
   const [holdsRights, setHoldsRights] = useState(false);
   const [compliesTerms, setCompliesTerms] = useState(false);
+  // RA-8236: the watermarked preview and details of the file behind it.
+  // `selectedImage` stays the unmarked raster that is uploaded.
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+  const [uploadOriginal, setUploadOriginal] =
+    useState<UnderlayOriginalSource | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const suggestingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   // Track whether we've already auto-applied so we don't re-trigger on re-renders
@@ -376,13 +395,28 @@ export function FloorPlanUnderlayLoader({
     const result = await prepareUnderlayFile(file);
     setPreparingUnderlay(false);
     if (!result.ok) {
-      setError(result.error);
+      setError(apiErrorMessage(result));
       return;
     }
     setSelectedImage(result.dataUrl);
+    setUploadPreview(result.previewUrl);
+    setUploadNotice(result.notice ?? null);
+    setUploadOriginal(result.original);
     setResults(null);
     setExpanded(true);
   }, []);
+
+  const handleSuggestRooms = useCallback(async () => {
+    if (!onSuggestRooms || suggestingRef.current) return;
+    suggestingRef.current = true;
+    setSuggesting(true);
+    try {
+      await onSuggestRooms();
+    } finally {
+      suggestingRef.current = false;
+      setSuggesting(false);
+    }
+  }, [onSuggestRooms]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -407,13 +441,14 @@ export function FloorPlanUnderlayLoader({
       compliesWithSourceTerms: compliesTerms,
       source,
       sourcePageUrl: source === "url" ? results?.url : undefined,
+      original: source === "upload" ? (uploadOriginal ?? undefined) : undefined,
     });
     setApplying(false);
     if (!result.ok) {
-      setError(result.error);
+      setError(apiErrorMessage(result));
       return;
     }
-    onApply(result.imageUrl, opacity);
+    onApply(result.imageUrl, opacity, result.reference);
     setExpanded(false);
   };
 
@@ -432,6 +467,9 @@ export function FloorPlanUnderlayLoader({
     }
     onClear();
     setSelectedImage(null);
+    setUploadPreview(null);
+    setUploadNotice(null);
+    setUploadOriginal(null);
     setResults(null);
     setExpanded(false);
   };
@@ -449,7 +487,7 @@ export function FloorPlanUnderlayLoader({
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-colors"
       >
-        <Layers size={14} className="text-cyan-500 flex-shrink-0" />
+        <Layers size={14} className="text-brand-harbour-500 flex-shrink-0" />
         <span className="font-medium text-neutral-700 dark:text-slate-300 flex-1 text-left">
           Floor Plan Underlay
         </span>
@@ -464,6 +502,29 @@ export function FloorPlanUnderlayLoader({
           <ChevronDown size={14} className="text-neutral-400 flex-shrink-0" />
         )}
       </button>
+
+      {/* RA-8236: stays visible after Apply collapses the panel. */}
+      {onSuggestRooms && hasBackground && (
+        <div className="px-3 py-2 border-t border-neutral-100 dark:border-slate-700/50 space-y-1">
+          <button
+            type="button"
+            onClick={() => void handleSuggestRooms()}
+            disabled={suggesting}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium border border-brand-harbour-400/40 text-brand-harbour-600 dark:text-brand-harbour-300 hover:bg-brand-harbour-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {suggesting ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Sparkles size={13} />
+            )}
+            {suggesting ? "Reading plan…" : "Suggest rooms from this plan"}
+          </button>
+          <p className="text-[11px] leading-snug text-neutral-500 dark:text-slate-400">
+            Reads page 1 only. Suggested rooms carry no measurements: measure
+            and confirm each one before it can be billed.
+          </p>
+        </div>
+      )}
 
       {/* Expanded body */}
       {expanded && (
@@ -482,13 +543,13 @@ export function FloorPlanUnderlayLoader({
                   onChange={(e) => setListingUrl(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="https://www.domain.com.au/…"
-                  className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
+                  className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30 focus:border-brand-harbour-400"
                 />
                 <button
                   type="button"
                   onClick={fetchListing}
                   disabled={loading || (!listingUrl.trim() && !address.trim())}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-brand-harbour-500 text-white hover:bg-brand-harbour-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                 >
                   {loading ? (
                     <Loader2 size={13} className="animate-spin" />
@@ -507,7 +568,7 @@ export function FloorPlanUnderlayLoader({
                 onChange={(e) => setAddress(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter property address…"
-                className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
+                className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30 focus:border-brand-harbour-400"
               />
             </div>
           )}
@@ -524,7 +585,7 @@ export function FloorPlanUnderlayLoader({
                       type="button"
                       onClick={() => fetchByUrl(c)}
                       disabled={loading}
-                      className="w-full text-left text-[11px] px-2 py-1.5 rounded-md border border-neutral-200 dark:border-slate-600 hover:border-cyan-400 hover:bg-cyan-500/5 text-neutral-700 dark:text-slate-200 truncate disabled:opacity-40"
+                      className="w-full text-left text-[11px] px-2 py-1.5 rounded-md border border-neutral-200 dark:border-slate-600 hover:border-brand-harbour-400 hover:bg-brand-harbour-500/5 text-neutral-700 dark:text-slate-200 truncate disabled:opacity-40"
                       title={c}
                     >
                       {c.replace(/^https?:\/\/(www\.)?/, "")}
@@ -554,7 +615,7 @@ export function FloorPlanUnderlayLoader({
               className={cn(
                 "rounded-lg border border-dashed p-3 transition-colors",
                 dragOver
-                  ? "border-cyan-400 bg-cyan-500/5"
+                  ? "border-brand-harbour-400 bg-brand-harbour-500/5"
                   : "border-neutral-300 dark:border-slate-600",
               )}
             >
@@ -562,7 +623,7 @@ export function FloorPlanUnderlayLoader({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={preparingUnderlay}
-                className="flex items-center gap-2 text-sm text-neutral-500 dark:text-slate-400 hover:text-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 text-sm text-neutral-500 dark:text-slate-400 hover:text-brand-harbour-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {preparingUnderlay ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -585,7 +646,11 @@ export function FloorPlanUnderlayLoader({
 
           {/* Error state */}
           {error && (
-            <div className="flex items-start gap-2 p-2 rounded-lg bg-destructive-subtle text-destructive-subtle-foreground text-xs">
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="flex items-start gap-2 p-2 rounded-lg bg-destructive-subtle text-destructive-subtle-foreground text-xs"
+            >
               <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />
               {error}
             </div>
@@ -597,7 +662,7 @@ export function FloorPlanUnderlayLoader({
               quoted $9.95 for the life of the $9.95 era and would have gone
               stale the moment the amount moved. */}
           {upgradeRequired && (
-            <div className="flex flex-col gap-2 p-3 rounded-lg bg-cyan-500/10 border border-cyan-400/30 text-xs">
+            <div className="flex flex-col gap-2 p-3 rounded-lg bg-brand-harbour-500/10 border border-brand-harbour-400/30 text-xs">
               <p className="font-medium text-neutral-700 dark:text-slate-200">
                 Automatic floor plan fetch needs the Floor Plan Underlay add-on
               </p>
@@ -609,7 +674,7 @@ export function FloorPlanUnderlayLoader({
                 type="button"
                 onClick={handleUpgrade}
                 disabled={upgrading}
-                className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-sm font-medium bg-brand-harbour-500 text-white hover:bg-brand-harbour-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {upgrading ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -639,7 +704,7 @@ export function FloorPlanUnderlayLoader({
                     className={cn(
                       "relative w-16 h-12 rounded-md overflow-hidden border-2 transition-all flex-shrink-0",
                       selectedImage === img
-                        ? "border-cyan-500 shadow-md shadow-cyan-500/20"
+                        ? "border-brand-harbour-500 shadow-md shadow-brand-harbour-500/20"
                         : "border-transparent hover:border-neutral-300 dark:hover:border-slate-500",
                     )}
                   >
@@ -650,7 +715,7 @@ export function FloorPlanUnderlayLoader({
                       className="w-full h-full object-cover"
                     />
                     {results?.floorPlanImages.includes(img) && (
-                      <span className="absolute bottom-0 left-0 right-0 text-center text-white text-[9px] font-bold bg-cyan-600/70 py-0.5">
+                      <span className="absolute bottom-0 left-0 right-0 text-center text-white text-[9px] font-bold bg-brand-harbour-600/70 py-0.5">
                         Floor Plan
                       </span>
                     )}
@@ -670,12 +735,17 @@ export function FloorPlanUnderlayLoader({
               <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-900">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={selectedImage}
+                  src={uploadPreview ?? selectedImage}
                   alt="Uploaded floor plan preview"
                   className="mx-auto max-h-36 w-full object-contain"
                   style={{ opacity }}
                 />
               </div>
+              {uploadNotice && (
+                <p className="text-[11px] leading-snug text-neutral-600 dark:text-slate-300">
+                  {uploadNotice}
+                </p>
+              )}
             </div>
           )}
 
@@ -697,7 +767,7 @@ export function FloorPlanUnderlayLoader({
                 step={0.05}
                 value={opacity}
                 onChange={(e) => setOpacity(parseFloat(e.target.value))}
-                className="w-full accent-cyan-500"
+                className="w-full accent-brand-harbour-500"
               />
             </div>
           )}
@@ -714,7 +784,7 @@ export function FloorPlanUnderlayLoader({
                   type="checkbox"
                   checked={holdsRights}
                   onChange={(e) => setHoldsRights(e.target.checked)}
-                  className="mt-0.5 accent-cyan-500"
+                  className="mt-0.5 accent-brand-harbour-500"
                 />
                 The client holds the rights to use this plan.
               </label>
@@ -723,7 +793,7 @@ export function FloorPlanUnderlayLoader({
                   type="checkbox"
                   checked={compliesTerms}
                   onChange={(e) => setCompliesTerms(e.target.checked)}
-                  className="mt-0.5 accent-cyan-500"
+                  className="mt-0.5 accent-brand-harbour-500"
                 />
                 Importing it complies with the source&rsquo;s terms of use.
               </label>
@@ -741,7 +811,7 @@ export function FloorPlanUnderlayLoader({
                   ? attestation.reason
                   : undefined
               }
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium bg-brand-harbour-500 text-white hover:bg-brand-harbour-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {applying ? (
                 <Loader2 size={13} className="animate-spin" />

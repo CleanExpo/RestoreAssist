@@ -219,7 +219,7 @@ export default function AdminUsersPage() {
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-harbour-400/30 border-t-brand-harbour-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -257,7 +257,7 @@ export default function AdminUsersPage() {
             <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
               Users
               {!loading && (
-                <Badge className="ml-1 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                <Badge className="ml-1 bg-brand-harbour-500/10 text-brand-harbour-600 dark:text-brand-harbour-400">
                   {total}
                 </Badge>
               )}
@@ -315,7 +315,7 @@ export default function AdminUsersPage() {
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white">
-            <Users className="h-5 w-5 text-cyan-500" />
+            <Users className="h-5 w-5 text-brand-harbour-500" />
             All Users
           </CardTitle>
           <CardDescription>

@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface CronJob {
   id: string;
@@ -100,7 +101,7 @@ export default function CronJobsPage() {
           ...prev,
           [jobId]: {
             status: "error",
-            message: data.error ?? `HTTP ${data.status}`,
+            message: apiErrorMessage(data) ?? `HTTP ${data.status}`,
           },
         }));
       }
@@ -140,7 +141,7 @@ export default function CronJobsPage() {
   if (status === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-harbour-400/30 border-t-brand-harbour-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -203,10 +204,10 @@ export default function CronJobsPage() {
       )}
 
       {/* Info banner */}
-      <Card className="bg-cyan-500/5 border-cyan-200 dark:border-cyan-800/60">
+      <Card className="bg-brand-harbour-500/5 border-brand-harbour-200 dark:border-brand-harbour-800/60">
         <CardContent className="pt-4 pb-4">
           <div className="flex items-start gap-3">
-            <Terminal className="h-4 w-4 text-cyan-500 mt-0.5 flex-shrink-0" />
+            <Terminal className="h-4 w-4 text-brand-harbour-500 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
               These jobs run automatically on a schedule. Use "Run Now" to
               trigger them manually for testing or to catch up on missed runs.
@@ -224,7 +225,7 @@ export default function CronJobsPage() {
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white">
-            <Clock className="h-5 w-5 text-cyan-500" />
+            <Clock className="h-5 w-5 text-brand-harbour-500" />
             Scheduled Jobs
           </CardTitle>
           <CardDescription>{jobs.length} jobs configured</CardDescription>
@@ -262,7 +263,7 @@ export default function CronJobsPage() {
                       className={cn(
                         "gap-2",
                         !isRunning &&
-                          "border-cyan-200 dark:border-cyan-800/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/30",
+                          "border-brand-harbour-200 dark:border-brand-harbour-800/60 text-brand-harbour-600 dark:text-brand-harbour-400 hover:bg-brand-harbour-50 dark:hover:bg-brand-harbour-950/30",
                       )}
                     >
                       {isRunning ? (

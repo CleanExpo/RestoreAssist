@@ -165,7 +165,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({children}) => {
           <div style={{width: 12, height: 12, borderRadius: '50%', backgroundColor: '#ef4444'}} />
           <div style={{width: 12, height: 12, borderRadius: '50%', backgroundColor: '#f59e0b'}} />
           <div style={{width: 12, height: 12, borderRadius: '50%', backgroundColor: '#22c55e'}} />
-          <span style={{color: '#D4A574', fontSize: 12, marginLeft: 12, fontFamily: 'Inter'}}>restoreassist.com.au</span>
+          <span style={{color: '#D4A574', fontSize: 12, marginLeft: 12, fontFamily: 'Inter'}}>restoreassist.app</span>
         </div>
         <div style={{width: '100%', height: '100%', paddingTop: 40, position: 'relative'}}>
           {children}

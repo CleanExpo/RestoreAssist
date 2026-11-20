@@ -2,7 +2,7 @@
  * NIR Content Gate Status — Admin
  *
  * Route: /dashboard/admin/content-gate
- * Auth:  ADMIN role required (server-side redirect)
+ * Auth:  platform support operators only (requirePlatformSupportPage)
  *
  * Server component — renders gate statuses directly from lib/nir-content-gate.ts
  * with no client-side fetch. This is intentional: gate status changes are code
@@ -15,6 +15,7 @@
 import { NirContentGateDashboard } from "@/components/nir-content-gate-status";
 import { Lock, ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { requirePlatformSupportPage } from "@/lib/admin-auth";
 
 export const metadata = {
   title: "NIR Content Gate — Admin | RestoreAssist",
@@ -23,9 +24,12 @@ export const metadata = {
 };
 
 /**
- * Auth: segment layout (`app/dashboard/admin/layout.tsx`) runs requireAdminPage().
+ * Auth: gated here as well as in the segment layout. Layouts and pages render
+ * in parallel, so the layout check alone would not keep this server page out
+ * of the RSC payload for a business owner.
  */
-export default function ContentGatePage() {
+export default async function ContentGatePage() {
+  await requirePlatformSupportPage();
   return (
     <div className="max-w-9xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       {/* Header */}
@@ -58,7 +62,7 @@ export default function ContentGatePage() {
             href="https://github.com/CleanExpo/RestoreAssist/blob/main/docs/CONTENT-GATE.md"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors flex-shrink-0"
+            className="inline-flex items-center gap-1.5 text-xs text-brand-harbour-600 dark:text-brand-harbour-400 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-300 transition-colors flex-shrink-0"
           >
             docs/CONTENT-GATE.md <ExternalLink size={11} />
           </a>

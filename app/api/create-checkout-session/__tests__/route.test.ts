@@ -245,6 +245,15 @@ describe("POST /api/create-checkout-session", () => {
     expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
   });
 
+  it("a live technician seat does not block buying the plan", async () => {
+    stripeMock.subscriptions.list.mockResolvedValue({
+      data: [{ status: "active", metadata: { type: "technician_seats_addon" } }],
+    });
+    const res = await POST(makeRequest({ priceId: MONTHLY }));
+    expect(res.status).not.toBe(409);
+    expect(stripeMock.checkout.sessions.create).toHaveBeenCalledTimes(1);
+  });
+
   it("E1: a trialing Stripe sub also blocks (local status may be drifted)", async () => {
     stripeMock.subscriptions.list.mockResolvedValue({
       data: [{ status: "trialing" }],

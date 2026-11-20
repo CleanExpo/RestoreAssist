@@ -15,6 +15,11 @@ import {
 } from "recharts";
 import { Loader2, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  CHART_ACCENT,
+  CHART_CHROME,
+  CHART_TOOLTIP_STYLE,
+} from "@/lib/charts/palette";
 
 // Recharts Tooltip has overly strict generic types; use an escape hatch
 const TooltipAny = Tooltip as any;
@@ -63,7 +68,7 @@ export default function CompletionMetrics({
       >
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
-            <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
+            <Loader2 className="w-8 h-8 text-brand-harbour-500 animate-spin mx-auto" />
             <p
               className={cn("text-sm", "text-muted-foreground")}
             >
@@ -337,16 +342,11 @@ export default function CompletionMetrics({
                   value: "Days",
                   angle: -90,
                   position: "insideLeft",
-                  style: { textAnchor: "middle", fill: "rgb(75 85 99)" },
+                  style: { textAnchor: "middle", fill: CHART_CHROME.axis },
                 }}
               />
               <TooltipAny
-                contentStyle={{
-                  backgroundColor: "rgb(255 255 255 / 0.95)",
-                  border: "1px solid rgb(229 231 235)",
-                  borderRadius: "8px",
-                  color: "#111827",
-                }}
+                contentStyle={CHART_TOOLTIP_STYLE}
                 className=""
                 formatter={(value: any) => [
                   `${(value as number).toFixed(1)} days`,
@@ -356,7 +356,7 @@ export default function CompletionMetrics({
               <Legend />
               <Bar
                 dataKey="avgDays"
-                fill="#f59e0b"
+                fill={CHART_ACCENT}
                 name="Average Days"
                 radius={[8, 8, 0, 0]}
               />
@@ -406,7 +406,7 @@ export default function CompletionMetrics({
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-cyan-600 dark:text-cyan-400">
+                    <p className="font-semibold text-brand-harbour-600 dark:text-brand-harbour-400">
                       {hazard.avgDays.toFixed(1)} days
                     </p>
                   </div>
@@ -455,16 +455,11 @@ export default function CompletionMetrics({
                   value: "Days",
                   angle: -90,
                   position: "insideLeft",
-                  style: { textAnchor: "middle", fill: "rgb(75 85 99)" },
+                  style: { textAnchor: "middle", fill: CHART_CHROME.axis },
                 }}
               />
               <TooltipAny
-                contentStyle={{
-                  backgroundColor: "rgb(255 255 255 / 0.95)",
-                  border: "1px solid rgb(229 231 235)",
-                  borderRadius: "8px",
-                  color: "#111827",
-                }}
+                contentStyle={CHART_TOOLTIP_STYLE}
                 className=""
                 formatter={(value: any) =>
                   `${(value as number).toFixed(1)} days`
@@ -474,9 +469,9 @@ export default function CompletionMetrics({
               <Line
                 type="monotone"
                 dataKey="avgCompletionDays"
-                stroke="#3b82f6"
+                stroke={CHART_ACCENT}
                 strokeWidth={2}
-                dot={{ fill: "#3b82f6", r: 4 }}
+                dot={{ fill: CHART_ACCENT, r: 4 }}
                 name="Avg Completion Days"
                 isAnimationActive={false}
               />

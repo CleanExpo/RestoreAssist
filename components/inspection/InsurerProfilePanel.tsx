@@ -142,7 +142,7 @@ export function InsurerProfilePanel({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-neutral-400">
+      <div className="flex items-center justify-center py-16 text-neutral-600 dark:text-neutral-400">
         <ChromeSpinner className="animate-spin mr-2" size={20} />
         Loading insurer profiles…
       </div>
@@ -158,17 +158,17 @@ export function InsurerProfilePanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
-              <ChromeBuilding className="text-cyan-500" size={18} />
+              <ChromeBuilding className="text-brand-harbour-500" size={18} />
               Insurer profile
             </h3>
-            <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1">
+            <p className="text-sm text-neutral-600 dark:text-slate-400 mt-1">
               Select the insurer for this job to unlock evidence requirements
               and submission preferences that drive Guided Capture.
             </p>
           </div>
           <Link
             href={`/dashboard/inspections/${inspectionId}/insurer-profile`}
-            className="flex items-center gap-1.5 text-sm text-cyan-600 hover:underline whitespace-nowrap"
+            className="flex items-center gap-1.5 text-sm text-brand-harbour-600 hover:underline whitespace-nowrap"
           >
             Full profile <ChromeExternalLink size={14} />
           </Link>
@@ -178,7 +178,7 @@ export function InsurerProfilePanel({
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant="outline"
-              className="bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800"
+              className="bg-brand-harbour-50 dark:bg-brand-harbour-900/20 text-brand-harbour-700 dark:text-brand-harbour-400 border-brand-harbour-200 dark:border-brand-harbour-800"
             >
               {profile.name}
             </Badge>
@@ -190,7 +190,7 @@ export function InsurerProfilePanel({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 mb-1 block">
+            <label className="text-xs font-medium text-neutral-600 dark:text-slate-400 mb-1 block">
               Insurer
             </label>
             <select
@@ -207,7 +207,7 @@ export function InsurerProfilePanel({
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 mb-1 block">
+            <label className="text-xs font-medium text-neutral-600 dark:text-slate-400 mb-1 block">
               Claim reference
             </label>
             <input
@@ -223,7 +223,7 @@ export function InsurerProfilePanel({
         <Button
           onClick={handleApply}
           disabled={!selectedInsurerId || saving}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white"
+          className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white"
           size="sm"
         >
           {saving ? (
@@ -281,7 +281,7 @@ export function InsurerProfilePanel({
           {!gapAnalysis.isComplete && (
             <Link
               href={`/dashboard/inspections/${inspectionId}/capture`}
-              className="inline-flex mt-3 text-sm font-medium text-cyan-600 hover:underline"
+              className="inline-flex mt-3 text-sm font-medium text-brand-harbour-600 hover:underline"
             >
               Open Guided Capture to close gaps →
             </Link>
@@ -290,7 +290,7 @@ export function InsurerProfilePanel({
       )}
 
       {!profile && !gapAnalysis && (
-        <div className="text-center py-8 text-neutral-400 text-sm">
+        <div className="text-center py-8 text-neutral-600 dark:text-neutral-400 text-sm">
           No insurer selected yet. Apply a profile above to see evidence
           requirements for this inspection.
         </div>

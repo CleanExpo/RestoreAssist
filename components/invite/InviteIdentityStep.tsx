@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isValidAuMobile, normaliseAuMobile } from "./phone-validator";
 import { validateHeadshotFile, squareCropToDataUrl } from "./headshot-utils";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export interface IdentityValues {
   name: string;
@@ -48,7 +49,7 @@ export function InviteIdentityStep({
     if (!file) return;
     const result = validateHeadshotFile(file);
     if (!result.ok) {
-      setError(result.error);
+      setError(apiErrorMessage(result));
       return;
     }
     try {

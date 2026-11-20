@@ -23,7 +23,7 @@ import {
   type MaterialTypeId,
 } from "@/lib/sketch/iicrc-utils";
 import { pinDryingStatus } from "@/lib/sketch/pin-drying";
-import { toNormalized, pinPixelPosition } from "@/lib/sketch/pin-coords";
+import { toNormalized } from "@/lib/sketch/pin-coords";
 import {
   IDENTITY_OVERLAY_VIEWPORT,
   overlayScenePoint,
@@ -107,8 +107,8 @@ export function SketchMoistureLayer({
       ) {
         return;
       }
-      // RA-6763: also store the normalized position so the pin stays anchored
-      // when the canvas is zoomed/panned/resized.
+      // Older readers of moisturePoints still expect nx,ny. Nothing places a
+      // pin from them now.
       const { nx, ny } = toNormalized(x, y, width, height);
       const pin: MoisturePin = {
         id: newPinId(),
@@ -172,8 +172,9 @@ export function SketchMoistureLayer({
     >
       {pins.map((pin) => {
         const info = getClassInfo(pin.iicrClass);
-        const { left, top } = pinPixelPosition(pin, width, height);
-        const screen = overlayScreenPoint(left, top, vpt);
+        // Scene x,y, not nx,ny: those are fractions of the panel the pin was
+        // dropped on, and the panel size changes between devices.
+        const screen = overlayScreenPoint(pin.x, pin.y, vpt);
         return (
           <PinMarker
             key={pin.id}
@@ -278,7 +279,7 @@ function PinMarker({
                 onChange={(e) =>
                   onUpdate({ wme: parseFloat(e.target.value) || 0 })
                 }
-                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
               />
             </div>
 
@@ -290,7 +291,7 @@ function PinMarker({
                 onChange={(e) =>
                   onUpdate({ material: e.target.value as MaterialTypeId })
                 }
-                className="w-full px-2 py-1.5 rounded-lg bg-brand-deep border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-brand-deep border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
               >
                 {MATERIAL_TYPES.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -330,7 +331,7 @@ function PinMarker({
                 value={pin.note ?? ""}
                 onChange={(e) => onUpdate({ note: e.target.value })}
                 placeholder="e.g. near skirting board"
-                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
               />
             </div>
 

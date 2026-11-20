@@ -28,6 +28,7 @@ import Link from "next/link";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
+import { PaidPlanFeatureNotice } from "@/components/billing/PaidPlanFeatureNotice";
 
 interface Subscription {
   id: string;
@@ -375,7 +376,7 @@ function SubscriptionPageContent() {
           eyebrow="Simple workspace"
           title="Account & Billing"
           description="Manage your subscription, payment method, and plan allowances."
-          icon={<CreditCard className="h-7 w-7 text-cyan-500" aria-hidden />}
+          icon={<CreditCard className="h-7 w-7 text-brand-harbour-500" aria-hidden />}
           secondaryLinks={workspaceHubLinks({
             omitHref: "/dashboard/subscription",
           })}
@@ -397,7 +398,7 @@ function SubscriptionPageContent() {
                 type="button"
                 onClick={checkSubscription}
                 disabled={checking}
-                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-brand-harbour-600 px-4 py-2 text-white transition-colors hover:bg-brand-harbour-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
               >
                 <CheckCircle
                   className={`h-4 w-4 ${checking ? "animate-spin" : ""}`}
@@ -409,8 +410,12 @@ function SubscriptionPageContent() {
           }
         />
 
+        <PaidPlanFeatureNotice
+          subscriptionStatus={userStatus?.subscriptionStatus}
+        />
+
         {loadError && (
-          <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-700 dark:text-red-300">
             <span className="text-sm">
               Could not load subscription — {loadError}
             </span>
@@ -427,16 +432,16 @@ function SubscriptionPageContent() {
         {subscription ? (
           <div className="grid lg:grid-cols-2 gap-6">
             {/* Current Plan */}
-            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className="p-6 rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Current Plan</h2>
                 <div
                   className={`px-3 py-1 rounded-full text-sm font-medium ${
                     subscription.status === "active"
-                      ? "bg-green-500/20 text-green-400"
+                      ? "bg-green-500/20 text-green-700 dark:text-green-400"
                       : subscription.status === "canceled"
-                        ? "bg-red-500/20 text-red-400"
-                        : "bg-yellow-500/20 text-yellow-400"
+                        ? "bg-red-500/20 text-red-700 dark:text-red-400"
+                        : "bg-yellow-500/20 text-yellow-800 dark:text-yellow-400"
                   }`}
                 >
                   {subscription.status.charAt(0).toUpperCase() +
@@ -446,10 +451,10 @@ function SubscriptionPageContent() {
 
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-2xl font-bold text-white">
+                  <h3 className="text-2xl font-bold text-brand-navy dark:text-white">
                     {subscription.plan.name}
                   </h3>
-                  <p className="text-slate-400">
+                  <p className="text-brand-slate dark:text-slate-400">
                     {formatPrice(
                       subscription.plan.amount,
                       subscription.plan.currency,
@@ -460,8 +465,8 @@ function SubscriptionPageContent() {
 
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="w-4 h-4 text-slate-400" />
-                    <span className="text-slate-300">
+                    <Calendar className="w-4 h-4 text-brand-slate dark:text-slate-400" />
+                    <span className="text-brand-slate dark:text-slate-300">
                       Current period:{" "}
                       {formatDate(subscription.currentPeriodStart)} -{" "}
                       {formatDate(subscription.currentPeriodEnd)}
@@ -470,7 +475,7 @@ function SubscriptionPageContent() {
 
                   {subscription.cancelAtPeriodEnd && (
                     <>
-                      <div className="flex items-center gap-2 text-sm text-yellow-400">
+                      <div className="flex items-center gap-2 text-sm text-yellow-800 dark:text-yellow-400">
                         <AlertCircle className="w-4 h-4" />
                         <span>
                           Subscription will cancel at the end of the current
@@ -479,11 +484,11 @@ function SubscriptionPageContent() {
                         </span>
                       </div>
                       {/* RA-1250: surface data export before lock-out */}
-                      <div className="flex items-center gap-2 text-sm text-slate-400">
+                      <div className="flex items-center gap-2 text-sm text-brand-slate dark:text-slate-400">
                         <Download className="w-4 h-4" />
                         <a
                           href="/api/user/export"
-                          className="underline hover:text-cyan-300"
+                          className="underline hover:text-brand-harbour-700 dark:hover:text-brand-harbour-300"
                           download
                         >
                           Export your data
@@ -499,7 +504,7 @@ function SubscriptionPageContent() {
             </div>
 
             {/* Billing Actions */}
-            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className="p-6 rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30">
               <h2 className="text-xl font-semibold mb-4">Billing Actions</h2>
 
               <div className="space-y-4">
@@ -530,7 +535,7 @@ function SubscriptionPageContent() {
                 <button
                   onClick={openBillingPortal}
                   disabled={openingPortal}
-                  className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <CreditCard className="w-4 h-4" />
                   {openingPortal ? "Opening…" : "Update Payment Method"}
@@ -539,7 +544,7 @@ function SubscriptionPageContent() {
                 <button
                   onClick={openBillingPortal}
                   disabled={openingPortal}
-                  className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Download className="w-4 h-4" />
                   {openingPortal ? "Opening…" : "Download Invoices"}
@@ -548,7 +553,7 @@ function SubscriptionPageContent() {
             </div>
 
             {/* Plan Features */}
-            <div className="lg:col-span-2 p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className="lg:col-span-2 p-6 rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30">
               <h2 className="text-xl font-semibold mb-4">Plan Features</h2>
 
               <div className="grid md:grid-cols-2 gap-4">
@@ -558,18 +563,18 @@ function SubscriptionPageContent() {
                 {typeof userStatus?.reportAllowance === "number" && (
                   <div className="flex items-center gap-3">
                     <Check className="w-5 h-5 text-success" />
-                    <span className="text-slate-300">
+                    <span className="text-brand-slate dark:text-slate-300">
                       {`${userStatus.reportAllowance} inspection reports per month`}
                     </span>
                   </div>
                 )}
                 <div className="flex items-center gap-3">
                   <Check className="w-5 h-5 text-success" />
-                  <span className="text-slate-300">PDF & Excel export</span>
+                  <span className="text-brand-slate dark:text-slate-300">PDF & Excel export</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Check className="w-5 h-5 text-success" />
-                  <span className="text-slate-300">Email support</span>
+                  <span className="text-brand-slate dark:text-slate-300">Email support</span>
                 </div>
                 {/*
                   Three claims corrected here to match /pricing:
@@ -588,7 +593,7 @@ function SubscriptionPageContent() {
                 */}
                 <div className="flex items-center gap-3">
                   <Check className="w-5 h-5 text-success" />
-                  <span className="text-slate-300">
+                  <span className="text-brand-slate dark:text-slate-300">
                     Integrations available as separately-priced add-ons
                   </span>
                 </div>
@@ -596,22 +601,22 @@ function SubscriptionPageContent() {
             </div>
 
             {/* Active add-on packs — FeatureEntitlement SSOT (same as requireAddon) */}
-            <div className="lg:col-span-2 p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+            <div className="lg:col-span-2 p-6 rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold">Active add-on packs</h2>
                 <Link
                   href="/dashboard/addons"
-                  className="text-sm text-cyan-400 hover:text-cyan-300 underline-offset-2 hover:underline"
+                  className="text-sm text-brand-harbour-700 dark:text-brand-harbour-400 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-300 underline-offset-2 hover:underline"
                 >
                   Manage packs
                 </Link>
               </div>
               {activeAddons.length === 0 ? (
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-brand-slate dark:text-slate-400">
                   No add-on packs active yet.{" "}
                   <Link
                     href="/dashboard/addons"
-                    className="text-cyan-400 hover:text-cyan-300 underline-offset-2 hover:underline"
+                    className="text-brand-harbour-700 dark:text-brand-harbour-400 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-300 underline-offset-2 hover:underline"
                   >
                     Browse add-ons
                   </Link>
@@ -621,18 +626,18 @@ function SubscriptionPageContent() {
                   {activeAddons.map((addon) => (
                     <li
                       key={addon.sku}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-600/50 bg-slate-900/40 px-4 py-3"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-600/50 bg-white dark:bg-slate-900/40 px-4 py-3"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <CheckCircle className="w-5 h-5 shrink-0 text-success" />
                         <div className="min-w-0">
-                          <p className="font-medium text-slate-100 truncate">
+                          <p className="font-medium text-brand-navy dark:text-slate-100 truncate">
                             {addon.name}
                           </p>
-                          <p className="text-xs text-slate-400">{addon.sku}</p>
+                          <p className="text-xs text-brand-slate dark:text-slate-400">{addon.sku}</p>
                         </div>
                       </div>
-                      <span className="shrink-0 text-sm text-slate-300 tabular-nums">
+                      <span className="shrink-0 text-sm text-brand-slate dark:text-slate-300 tabular-nums">
                         {formatPrice(addon.amount * 100, addon.currency)}/
                         {addon.interval === "year" ? "yr" : "mo"}
                       </span>
@@ -690,13 +695,13 @@ function SubscriptionPageContent() {
 
               return (
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CreditCard className="w-8 h-8 text-slate-400" />
+                  <div className="w-16 h-16 bg-brand-cream dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CreditCard className="w-8 h-8 text-brand-slate dark:text-slate-400" />
                   </div>
-                  <h2 className="text-2xl font-semibold text-white mb-2">
+                  <h2 className="text-2xl font-semibold text-brand-navy dark:text-white mb-2">
                     {title}
                   </h2>
-                  <p className="text-slate-400">{body}</p>
+                  <p className="text-brand-slate dark:text-slate-400">{body}</p>
                 </div>
               );
             })()}
@@ -706,16 +711,16 @@ function SubscriptionPageContent() {
               {Object.entries(PRICING_CONFIG.pricing).map(([key, plan]) => (
                 <div
                   key={key}
-                  className={`relative bg-slate-800/50 rounded-2xl border-2 p-6 transition-all duration-300 hover:scale-105 ${
+                  className={`relative bg-white dark:bg-slate-800/50 rounded-2xl border-2 p-6 transition-all duration-300 hover:scale-105 ${
                     plan.popular
-                      ? "border-cyan-500 shadow-2xl shadow-cyan-500/20"
-                      : "border-slate-700 hover:border-slate-600"
+                      ? "border-brand-harbour-500 shadow-2xl shadow-brand-harbour-500/20"
+                      : "border-brand-mist dark:border-slate-700 hover:border-slate-600"
                   }`}
                 >
                   {/* Popular Badge */}
                   {plan.popular && (
                     <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                      <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
+                      <div className="bg-gradient-to-r from-brand-harbour-500 to-blue-500 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
                         <Star className="w-4 h-4" />
                         Most Popular
                       </div>
@@ -733,15 +738,15 @@ function SubscriptionPageContent() {
                   )}
 
                   <div className="text-center mb-6">
-                    <h3 className="text-xl font-bold text-white mb-2">
+                    <h3 className="text-xl font-bold text-brand-navy dark:text-white mb-2">
                       {plan.displayName}
                     </h3>
                     <div className="mb-4">
-                      <span className="text-3xl font-bold text-cyan-400">
+                      <span className="text-3xl font-bold text-brand-harbour-700 dark:text-brand-harbour-400">
                         {formatPricingAmount(plan.amount, plan.currency)}
                       </span>
                       {"interval" in plan && plan.interval && (
-                        <span className="text-slate-400">
+                        <span className="text-brand-slate dark:text-slate-400">
                           /{plan.interval as string}
                         </span>
                       )}
@@ -750,7 +755,7 @@ function SubscriptionPageContent() {
                     {/* Monthly Equivalent */}
                     {"monthlyEquivalent" in plan &&
                       (plan as any).monthlyEquivalent && (
-                        <div className="text-sm text-slate-400">
+                        <div className="text-sm text-brand-slate dark:text-slate-400">
                           ${(plan as any).monthlyEquivalent}/month equivalent
                         </div>
                       )}
@@ -761,7 +766,7 @@ function SubscriptionPageContent() {
                     {plan.features.map((feature, index) => (
                       <div key={index} className="flex items-start gap-3">
                         <Check className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
-                        <span className="text-slate-300 text-sm">
+                        <span className="text-brand-slate dark:text-slate-300 text-sm">
                           {feature}
                         </span>
                       </div>
@@ -769,14 +774,14 @@ function SubscriptionPageContent() {
                   </div>
 
                   {/* Report Limit */}
-                  <div className="mb-6 p-3 bg-slate-700/30 rounded-lg">
+                  <div className="mb-6 p-3 bg-brand-cream dark:bg-slate-700/30 rounded-lg">
                     <div className="flex items-center gap-2 mb-1">
-                      <Zap className="w-4 h-4 text-yellow-400" />
-                      <span className="font-semibold text-white text-sm">
+                      <Zap className="w-4 h-4 text-yellow-800 dark:text-yellow-400" />
+                      <span className="font-semibold text-brand-navy dark:text-white text-sm">
                         Report Limit
                       </span>
                     </div>
-                    <div className="text-lg font-bold text-cyan-400">
+                    <div className="text-lg font-bold text-brand-harbour-700 dark:text-brand-harbour-400">
                       {plan.reportLimit}
                     </div>
                   </div>
@@ -787,13 +792,13 @@ function SubscriptionPageContent() {
                     disabled={pricingLoading === key}
                     className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
                       plan.popular
-                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50"
-                        : "bg-slate-700 text-white hover:bg-slate-600"
+                        ? "bg-gradient-to-r from-brand-harbour-500 to-blue-500 text-white hover:shadow-lg hover:shadow-brand-harbour-500/50"
+                        : "bg-brand-cream dark:bg-slate-700 text-brand-navy dark:text-white hover:bg-slate-600"
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {pricingLoading === key ? (
                       <div className="flex items-center justify-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 border-2 border-brand-mist dark:border-white/30 border-t-white rounded-full animate-spin"></div>
                         Processing...
                       </div>
                     ) : (
@@ -806,43 +811,43 @@ function SubscriptionPageContent() {
 
             {/* Features Comparison */}
             <div className="mt-12 max-w-9xl mx-auto">
-              <h3 className="text-2xl font-bold text-white text-center mb-6">
+              <h3 className="text-2xl font-bold text-brand-navy dark:text-white text-center mb-6">
                 All Plans Include
               </h3>
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Shield className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                  <h4 className="text-lg font-semibold text-white mb-2">
+                <div className="text-center p-4 bg-white dark:bg-slate-800/30 rounded-lg">
+                  <Shield className="w-6 h-6 text-brand-harbour-700 dark:text-brand-harbour-400 mx-auto mb-3" />
+                  <h4 className="text-lg font-semibold text-brand-navy dark:text-white mb-2">
                     IICRC S500 Compliant
                   </h4>
-                  <p className="text-slate-400 text-sm">
+                  <p className="text-brand-slate dark:text-slate-400 text-sm">
                     All reports follow IICRC S500 standards
                   </p>
                 </div>
-                <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Download className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                  <h4 className="text-lg font-semibold text-white mb-2">
+                <div className="text-center p-4 bg-white dark:bg-slate-800/30 rounded-lg">
+                  <Download className="w-6 h-6 text-brand-harbour-700 dark:text-brand-harbour-400 mx-auto mb-3" />
+                  <h4 className="text-lg font-semibold text-brand-navy dark:text-white mb-2">
                     PDF Export
                   </h4>
-                  <p className="text-slate-400 text-sm">
+                  <p className="text-brand-slate dark:text-slate-400 text-sm">
                     Professional PDF reports ready for submission
                   </p>
                 </div>
-                <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Users className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                  <h4 className="text-lg font-semibold text-white mb-2">
+                <div className="text-center p-4 bg-white dark:bg-slate-800/30 rounded-lg">
+                  <Users className="w-6 h-6 text-brand-harbour-700 dark:text-brand-harbour-400 mx-auto mb-3" />
+                  <h4 className="text-lg font-semibold text-brand-navy dark:text-white mb-2">
                     Client Management
                   </h4>
-                  <p className="text-slate-400 text-sm">
+                  <p className="text-brand-slate dark:text-slate-400 text-sm">
                     Manage clients and track jobs
                   </p>
                 </div>
-                <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Clock className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
-                  <h4 className="text-lg font-semibold text-white mb-2">
+                <div className="text-center p-4 bg-white dark:bg-slate-800/30 rounded-lg">
+                  <Clock className="w-6 h-6 text-brand-harbour-700 dark:text-brand-harbour-400 mx-auto mb-3" />
+                  <h4 className="text-lg font-semibold text-brand-navy dark:text-white mb-2">
                     Dashboard access
                   </h4>
-                  <p className="text-slate-400 text-sm">
+                  <p className="text-brand-slate dark:text-slate-400 text-sm">
                     Access your data anytime, anywhere
                   </p>
                 </div>

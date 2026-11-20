@@ -241,9 +241,9 @@ export async function GET(
       psychrometricAssessment: report.psychrometricAssessment
         ? JSON.parse(report.psychrometricAssessment as string)
         : null,
-      equipmentSelection: report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection as string)
-        : null,
+      // RA-8281 B1 round 13: passed on as stored; the PDF reads it through
+      // readEquipmentDeploymentLog.
+      equipmentSelection: report.equipmentSelection,
       scopeAreas: report.scopeAreas
         ? JSON.parse(report.scopeAreas as string)
         : null,

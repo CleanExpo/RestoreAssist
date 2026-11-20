@@ -24,6 +24,7 @@ import {
   useRef,
 } from "react";
 import toast from "react-hot-toast";
+import { readIfCurrent } from "@/lib/nir-draft-save";
 import {
   Droplets,
   Flame,
@@ -81,6 +82,9 @@ export type NIRClaimAssessmentPanelHandle = {
   persistAssessment: () => Promise<void>;
   persistCompliance: () => Promise<void>;
   persist: () => Promise<void>;
+  /** RA-8330: true once the saved assessment and compliance records have
+   *  loaded. Before that, persist() refuses rather than save a half-loaded form. */
+  isReady: () => boolean;
   applyQuickFillSeed: (seed: {
     assessment?: Record<string, unknown>;
     compliance?: Record<string, unknown>;
@@ -112,7 +116,7 @@ const CLAIM_TYPES: {
     label: "Water",
     icon: Droplets,
     route: "water-damage-classification",
-    color: "cyan",
+    color: "brand-harbour",
   },
   {
     type: "FIRE",
@@ -179,8 +183,12 @@ const CLAIM_TYPES: {
   },
 ];
 
+// Tailwind compiles only class names it can read literally. The form header
+// builds text-, bg- and dark:bg- classes from the claim colour at runtime, so
+// the brand harbour versions are listed here for the compiler:
+// text-brand-harbour-500 bg-brand-harbour-50 dark:bg-brand-harbour-900/10
 const COLOR_MAP: Record<string, string> = {
-  cyan: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 ring-cyan-400",
+  "brand-harbour": "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-300 ring-brand-harbour-400",
   orange:
     "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 ring-orange-400",
   green:
@@ -215,7 +223,7 @@ function FieldRow({
           {label}
         </label>
         {hint && (
-          <p className="text-xs text-neutral-400 dark:text-slate-500 mt-0.5">
+          <p className="text-xs text-neutral-600 dark:text-slate-500 mt-0.5">
             {hint}
           </p>
         )}
@@ -240,7 +248,7 @@ function Select({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
     >
       <option value="">{placeholder}</option>
       {options.map((o) => (
@@ -278,7 +286,7 @@ function Input({
       min={min}
       max={max}
       step={step}
-      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
     />
   );
 }
@@ -296,7 +304,7 @@ function Toggle({
       onClick={() => onChange(!value)}
       className={cn(
         "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
-        value ? "bg-cyan-500" : "bg-neutral-300 dark:bg-slate-600",
+        value ? "bg-brand-harbour-500" : "bg-neutral-300 dark:bg-slate-600",
       )}
     >
       <span
@@ -316,7 +324,7 @@ function GateBadge({ ok, label }: { ok: boolean; label: string }) {
         "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
         ok
           ? "bg-success-subtle text-success-subtle-foreground"
-          : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-400",
+          : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400",
       )}
     >
       {ok ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
@@ -831,7 +839,7 @@ function ContentsNewItemForm({
 
   return (
     <div className="p-4 rounded-xl border border-dashed border-neutral-200 dark:border-slate-700 space-y-3 mt-2">
-      <p className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wide">
+      <p className="text-xs font-semibold text-neutral-600 dark:text-slate-400 uppercase tracking-wide">
         Add Pack-Out Item
       </p>
       <div className="grid grid-cols-2 gap-2">
@@ -919,7 +927,7 @@ function ContentsNewItemForm({
       <button
         type="button"
         onClick={handleAdd}
-        className="px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium transition-colors"
+        className="px-4 py-1.5 rounded-lg bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white text-sm font-medium transition-colors"
       >
         Add Item
       </button>
@@ -1355,18 +1363,18 @@ function AustralianComplianceForm({
         className="w-full flex items-center justify-between px-4 py-3 bg-neutral-50 dark:bg-slate-800/60 hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Shield size={15} className="text-cyan-500" />
+          <Shield size={15} className="text-brand-harbour-500" />
           <span className="text-sm font-semibold text-neutral-700 dark:text-slate-200">
             Australian Compliance
           </span>
-          <span className="text-xs text-neutral-400 dark:text-slate-500">
+          <span className="text-xs text-neutral-600 dark:text-slate-500">
             Insurer · Technician credentials
           </span>
         </div>
         {open ? (
-          <ChevronUp size={15} className="text-neutral-400" />
+          <ChevronUp size={15} className="text-neutral-600 dark:text-neutral-400" />
         ) : (
-          <ChevronDown size={15} className="text-neutral-400" />
+          <ChevronDown size={15} className="text-neutral-600 dark:text-neutral-400" />
         )}
       </button>
       {open && (
@@ -1516,6 +1524,15 @@ const NIRClaimAssessmentPanel = forwardRef<
   const [saving, setSaving] = useState(false);
   const [savingCompliance, setSavingCompliance] = useState(false);
   const [gates, setGates] = useState<Record<string, boolean>>({});
+  // RA-8330: the Quick Fill seed must survive the first load. A claim with no
+  // saved record (404) starts from the seed, not an empty form.
+  const assessmentSeedRef = useRef<Record<string, unknown> | null>(null);
+  // Ready only after a confirmed read (200 or 404). A failed read or a reply
+  // to an older request never marks the panel ready (review round 4).
+  const assessmentLoadedRef = useRef(false);
+  const complianceLoadedRef = useRef(false);
+  const assessmentRequestRef = useRef(0);
+  const complianceRequestRef = useRef(0);
 
   // ── Load assessment for a claim type ──────────────────────────────────────
 
@@ -1523,13 +1540,19 @@ const NIRClaimAssessmentPanel = forwardRef<
     async (type: NIRClaimType) => {
       const meta = CLAIM_TYPES.find((c) => c.type === type);
       if (!meta) return;
+      const request = ++assessmentRequestRef.current;
+      const isCurrent = () => request === assessmentRequestRef.current;
+      assessmentLoadedRef.current = false;
       setLoading(true);
       try {
-        const res = await fetch(
-          `/api/inspections/${inspectionId}/${meta.route}`,
+        // RA-8330 round 7: readIfCurrent re-checks after the body is read too.
+        const res = await readIfCurrent(
+          () => fetch(`/api/inspections/${inspectionId}/${meta.route}`),
+          isCurrent,
         );
+        if (!res) return;
         if (res.ok) {
-          const record = await res.json();
+          const record = res.record as Record<string, unknown> | null;
           if (record && type !== "CONTENTS") {
             setFormData(record);
             if (type === "WATER") {
@@ -1546,16 +1569,19 @@ const NIRClaimAssessmentPanel = forwardRef<
           if (type === "CONTENTS" && Array.isArray(record?.items)) {
             setContentItems(record.items);
           }
-        } else {
-          // 404 = no record yet; reset form
-          setFormData({});
+          assessmentLoadedRef.current = true;
+        } else if (res.status === 404) {
+          // No record yet; start from the Quick Fill seed, if any
+          setFormData({ ...(assessmentSeedRef.current ?? {}) });
           setGates({});
           if (type === "CONTENTS") setContentItems([]);
+          assessmentLoadedRef.current = true;
         }
+        // Any other status: the saved record is unknown, so stay not ready.
       } catch {
-        // Network error — continue with empty form
+        // Network error: saved record unknown, stay not ready.
       } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
     },
     [inspectionId],
@@ -1564,16 +1590,22 @@ const NIRClaimAssessmentPanel = forwardRef<
   // ── Load Australian Compliance ─────────────────────────────────────────────
 
   const loadCompliance = useCallback(async () => {
+    const request = ++complianceRequestRef.current;
     try {
-      const res = await fetch(
-        `/api/inspections/${inspectionId}/australian-compliance`,
+      const res = await readIfCurrent(
+        () => fetch(`/api/inspections/${inspectionId}/australian-compliance`),
+        () => request === complianceRequestRef.current,
       );
+      if (!res) return;
       if (res.ok) {
-        const record = await res.json();
+        const record = res.record as Record<string, unknown> | null;
         if (record) setComplianceData(record);
+        complianceLoadedRef.current = true;
+      } else if (res.status === 404) {
+        complianceLoadedRef.current = true;
       }
     } catch {
-      // ignore
+      // Saved record unknown: stay not ready.
     }
   }, [inspectionId]);
 
@@ -1582,12 +1614,16 @@ const NIRClaimAssessmentPanel = forwardRef<
     if (type) {
       setSelectedType(type);
       loadAssessment(type);
+    } else {
+      assessmentLoadedRef.current = true;
     }
+    complianceLoadedRef.current = false;
     loadCompliance();
   }, [lockedClaimType, initialClaimType, loadAssessment, loadCompliance]);
 
   useEffect(() => {
     if (assessmentSeed && Object.keys(assessmentSeed).length > 0) {
+      assessmentSeedRef.current = assessmentSeed;
       setFormData((prev) => ({ ...prev, ...assessmentSeed }));
       if (lockedClaimType === "WATER" || selectedType === "WATER") {
         const c = waterChoice(assessmentSeed);
@@ -1611,6 +1647,8 @@ const NIRClaimAssessmentPanel = forwardRef<
     setSelectedType(type);
     setFormData({});
     setGates({});
+    // A seed belongs to the claim type it was made for.
+    assessmentSeedRef.current = null;
     loadAssessment(type);
     onClaimTypeChange?.(type);
   };
@@ -1713,12 +1751,17 @@ const NIRClaimAssessmentPanel = forwardRef<
     () => ({
       persistAssessment: () => persistAssessment({ silent: true }),
       persistCompliance: () => persistCompliance({ silent: true }),
+      isReady: () => assessmentLoadedRef.current && complianceLoadedRef.current,
       persist: async () => {
+        if (!(assessmentLoadedRef.current && complianceLoadedRef.current)) {
+          throw new Error("Claim assessment is still loading");
+        }
         await persistAssessment({ silent: true });
         await persistCompliance({ silent: true });
       },
       applyQuickFillSeed: (seed) => {
         if (seed.assessment) {
+          assessmentSeedRef.current = seed.assessment;
           setFormData((prev) => ({ ...prev, ...seed.assessment }));
           if (selectedTypeRef.current === "WATER") {
             const c = waterChoice(seed.assessment);
@@ -1788,7 +1831,7 @@ const NIRClaimAssessmentPanel = forwardRef<
       {/* Claim type selector — hidden when locked to upstream picker */}
       {!lockedClaimType && (
         <div>
-          <p className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+          <p className="text-xs font-semibold text-neutral-600 dark:text-slate-400 uppercase tracking-wide mb-2">
             Claim Type
           </p>
           <div
@@ -1800,7 +1843,7 @@ const NIRClaimAssessmentPanel = forwardRef<
               const isSelected = selectedType === ct.type;
               const colorCls = isSelected
                 ? COLOR_MAP[ct.color]
-                : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700";
+                : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700";
               return (
                 <button
                   key={ct.type}
@@ -1865,7 +1908,7 @@ const NIRClaimAssessmentPanel = forwardRef<
             {loading && (
               <Loader2
                 size={13}
-                className="animate-spin text-neutral-400 ml-auto"
+                className="animate-spin text-neutral-600 dark:text-neutral-400 ml-auto"
               />
             )}
           </div>
@@ -1873,7 +1916,7 @@ const NIRClaimAssessmentPanel = forwardRef<
           <div className="px-4 divide-y divide-neutral-100 dark:divide-slate-800 pb-2">
             {loading ? (
               <div className="py-8 flex items-center justify-center">
-                <Loader2 size={20} className="animate-spin text-neutral-300" />
+                <Loader2 size={20} className="animate-spin text-neutral-700 dark:text-neutral-300" />
               </div>
             ) : (
               <>
@@ -1910,7 +1953,7 @@ const NIRClaimAssessmentPanel = forwardRef<
                                 {item.itemName as string}
                               </span>
                               {item.itemCategory != null && (
-                                <span className="ml-2 text-xs text-neutral-400">
+                                <span className="ml-2 text-xs text-neutral-600 dark:text-neutral-400">
                                   {(item.itemCategory as string).toLowerCase()}
                                 </span>
                               )}
@@ -1941,7 +1984,7 @@ const NIRClaimAssessmentPanel = forwardRef<
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-neutral-400 text-center py-4">
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400 text-center py-4">
                         No contents items yet.
                       </p>
                     )}
@@ -1968,7 +2011,7 @@ const NIRClaimAssessmentPanel = forwardRef<
       )}
 
       {!selectedType && (
-        <div className="flex items-center gap-2 p-4 rounded-xl bg-neutral-50 dark:bg-slate-800/60 text-sm text-neutral-400">
+        <div className="flex items-center gap-2 p-4 rounded-xl bg-neutral-50 dark:bg-slate-800/60 text-sm text-neutral-600 dark:text-neutral-400">
           <Info size={15} />
           Select a claim type above to enter the assessment data.
         </div>

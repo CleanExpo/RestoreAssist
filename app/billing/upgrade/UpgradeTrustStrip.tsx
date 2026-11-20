@@ -28,7 +28,7 @@ export default function UpgradeTrustStrip({
       </div>
       <Link
         href={backHref}
-        className="text-sm font-medium text-cyan-600 hover:text-cyan-500 dark:text-cyan-400"
+        className="text-sm font-medium text-brand-harbour-600 hover:text-brand-harbour-500 dark:text-brand-harbour-400"
       >
         {backLabel} →
       </Link>

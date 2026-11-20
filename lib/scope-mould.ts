@@ -84,7 +84,8 @@ export function generateMouldScope(params: {
     iicrcReference: S520_CLASSIFICATION,
     quantity: area,
     unit: "m²",
-    unitCostAud: pricingConfig.mouldRemediationTreatmentRate,
+    unitCostAud: pricingConfig.mouldRemediationTreatmentRate ?? undefined,
+    rateField: "mouldRemediationTreatmentRate",
     isRequired: true,
   });
 
@@ -114,7 +115,8 @@ export function generateMouldScope(params: {
       iicrcReference: S520_HEPA_FILTRATION,
       quantity: days,
       unit: "day",
-      unitCostAud: pricingConfig.afdUnitLargeDailyRate,
+      unitCostAud: pricingConfig.afdUnitLargeDailyRate ?? undefined,
+      rateField: "afdUnitLargeDailyRate",
       isRequired: true,
     });
 
@@ -142,7 +144,8 @@ export function generateMouldScope(params: {
       iicrcReference: S520_CONTAINMENT,
       quantity: days,
       unit: "day",
-      unitCostAud: pricingConfig.afdUnitLargeDailyRate,
+      unitCostAud: pricingConfig.afdUnitLargeDailyRate ?? undefined,
+      rateField: "afdUnitLargeDailyRate",
       isRequired: true,
     });
 

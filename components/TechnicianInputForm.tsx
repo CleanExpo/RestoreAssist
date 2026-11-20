@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload, FileText, Sparkles, MessageCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import ClientQnA from "./ClientQnA";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface TechnicianInputFormProps {
   reportId?: string;
@@ -113,7 +114,7 @@ export default function TechnicianInputForm({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to generate report");
+        throw new Error(apiErrorMessage(error) || "Failed to generate report");
       }
 
       const data = await response.json();
@@ -317,7 +318,7 @@ export default function TechnicianInputForm({
     <Card className="border-slate-700 bg-slate-800/30">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-white">
-          <FileText className="h-5 w-5 text-cyan-400" />
+          <FileText className="h-5 w-5 text-brand-harbour-400" />
           Technician Input Form (AI Enhanced)
         </CardTitle>
         <CardDescription className="text-slate-300">
@@ -333,13 +334,13 @@ export default function TechnicianInputForm({
           className="w-full"
         >
           <TabsList className="grid w-full grid-cols-2 mb-6 bg-slate-800">
-            <TabsTrigger value="qa" className="data-[state=active]:bg-cyan-600">
+            <TabsTrigger value="qa" className="data-[state=active]:bg-brand-harbour-600">
               <MessageCircle className="mr-2 h-4 w-4" />
               Client Q&A
             </TabsTrigger>
             <TabsTrigger
               value="notes"
-              className="data-[state=active]:bg-cyan-600"
+              className="data-[state=active]:bg-brand-harbour-600"
             >
               <FileText className="mr-2 h-4 w-4" />
               Technician Notes
@@ -367,14 +368,14 @@ export default function TechnicianInputForm({
                 type="datetime-local"
                 value={dateOfAttendance}
                 onChange={(e) => setDateOfAttendance(e.target.value)}
-                className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500"
+                className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500 focus:border-brand-harbour-500 focus:ring-brand-harbour-500"
               />
             </div>
 
             {/* Extracted Client Information */}
             {(clientName || propertyAddress || clientEmail || clientPhone) && (
-              <div className="p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-lg space-y-3">
-                <p className="text-sm font-semibold text-cyan-400">
+              <div className="p-4 bg-brand-harbour-500/10 border border-brand-harbour-500/30 rounded-lg space-y-3">
+                <p className="text-sm font-semibold text-brand-harbour-400">
                   Client Information (Extracted from Q&A)
                 </p>
                 <div className="grid md:grid-cols-2 gap-3">
@@ -427,7 +428,7 @@ export default function TechnicianInputForm({
                 value={clientContacted}
                 onChange={(e) => setClientContacted(e.target.value)}
                 placeholder="e.g., Upon arrival, confirmed absence of more than 3 hours prior to loss"
-                className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500 min-h-[80px] focus:border-cyan-500 focus:ring-cyan-500"
+                className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500 min-h-[80px] focus:border-brand-harbour-500 focus:ring-brand-harbour-500"
               />
             </div>
 
@@ -444,7 +445,7 @@ export default function TechnicianInputForm({
                 value={technicianNotes}
                 onChange={(e) => setTechnicianNotes(e.target.value)}
                 placeholder="Enter your inspection notes here. Example:&#10;&#10;Attended site and met with the client Wednesday November 6th, 2025&#10;Inspection carried out to determine the scope of the claim and the areas affected by the recent escape of liquid from the upstairs kitchen.&#10;&#10;2 bedrooms downstairs with carpet affected&#10;Living Area carpet affected, ceiling and walls also affected with visible paint bubbling.&#10;&#10;Upstairs Areas:&#10;Kitchen - Tiled floor&#10;Hallway, dining and living areas - Floating timber floors&#10;Standing water in the upstairs and downstairs areas&#10;&#10;Took moisture readings and thermal images to determine the scope and areas affected.&#10;Extracted standing water with a truckmounted extraction unit&#10;&#10;Setup Drying Equipment:&#10;18 x Air movers&#10;4 x Dehumidifiers&#10;2 x AFD Units"
-                className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500 min-h-[300px] font-mono text-sm focus:border-cyan-500 focus:ring-cyan-500"
+                className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500 min-h-[300px] font-mono text-sm focus:border-brand-harbour-500 focus:ring-brand-harbour-500"
               />
               <p className="text-xs text-slate-300">
                 Enter all relevant information from your inspection. Include
@@ -474,7 +475,7 @@ export default function TechnicianInputForm({
                     </button>
                   </div>
                 ))}
-                <label className="w-20 h-20 border-2 border-dashed border-slate-600 rounded flex items-center justify-center cursor-pointer hover:border-cyan-500 transition-colors bg-slate-900/50">
+                <label className="w-20 h-20 border-2 border-dashed border-slate-600 rounded flex items-center justify-center cursor-pointer hover:border-brand-harbour-500 transition-colors bg-slate-900/50">
                   <Upload className="h-6 w-6 text-slate-400" />
                   <input
                     type="file"
@@ -494,7 +495,7 @@ export default function TechnicianInputForm({
             <Button
               onClick={handleGenerateReport}
               disabled={generating || !technicianNotes.trim()}
-              className="w-full bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="w-full bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white"
               size="lg"
             >
               {generating ? (

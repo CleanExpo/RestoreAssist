@@ -1,29 +1,42 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* RA-8464: Tailwind compiles every class-like string it finds in the project,
+   including test fixtures and design notes that quote old palettes. Those
+   folders never render, so keep them out of the stylesheet. Without this the
+   no-cyan guard's own sample strings shipped stock cyan rules to production.
+   tests/unit/compiled-css-no-cyan.test.ts fails if cyan rules come back. */
+@source not "../tests";
+@source not "../docs";
+@source not "../.claude";
 
+/* RA-8305: also match the .dark element itself, so a dark island (an element
+   with a bare dark class) honours its own dark: classes. Same specificity. */
+@custom-variant dark (&:is(.dark, .dark *));
+
+/* The shadcn semantic tokens point at the brand (design audit DSA-01), so
+   every default <Button>, focus ring and accent surface carries palette B. */
 :root {
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --foreground: var(--color-brand-navy);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: var(--color-brand-navy);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: var(--color-brand-navy);
+  --primary: var(--color-brand-cta);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-brand-cloud);
+  --secondary-foreground: var(--color-brand-navy);
+  --muted: var(--color-brand-cloud);
+  --muted-foreground: var(--color-brand-slate); /* 6.68:1 on --muted */
+  --accent: var(--color-brand-cream);
+  --accent-foreground: var(--color-brand-navy);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.577 0.245 27.325);
   /* Semantic status tokens (DESIGN.md §2 status palette). Reserved for actual
      status — never decorative. Enables text-success / bg-warning / text-info
      so components stop hardcoding text-green-600 / text-amber-500 / text-blue-500. */
-  --success: #10b981;
+  --success: #047857; /* RA-8305: AA as text on white (was #10b981, 2.5:1) */
   --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-foreground: #1c1917;
@@ -42,21 +55,36 @@
   --info-subtle-foreground: #1e40af;
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --ring: var(--color-brand-harbour);
+  /* Chart palette, light steps (RA-8465). Read through lib/charts/palette.ts,
+     never by hue name in a chart. Order and contrast: DESIGN.md "Chart palette". */
+  --chart-1: var(--color-brand-harbour);
+  --chart-2: var(--color-brand-chart-orange);
+  --chart-3: var(--color-brand-chart-aqua);
+  --chart-4: var(--color-brand-chart-amber);
+  --chart-5: var(--color-brand-chart-magenta);
+  --chart-6: var(--color-brand-chart-green);
+  --chart-7: var(--color-brand-chart-violet);
+  --chart-8: var(--color-brand-chart-red);
+  --chart-neutral: var(--muted-foreground);
+  --chart-good: var(--success);
+  --chart-info: var(--color-brand-harbour);
+  --chart-warning: var(--warning);
+  --chart-critical: var(--destructive);
+  --chart-grid: var(--border);
+  --chart-axis: var(--muted-foreground);
+  --chart-reference: var(--muted-foreground);
+  --chart-surface: var(--card);
+  --chart-ink: var(--card-foreground);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar: var(--color-brand-cloud);
+  --sidebar-foreground: var(--color-brand-navy);
+  --sidebar-primary: var(--color-brand-cta);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--color-brand-cream);
+  --sidebar-accent-foreground: var(--color-brand-navy);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-ring: var(--color-brand-harbour);
 }
 
 /* Full-viewport setup wizard — html is `.dark` but this pane is intentionally
@@ -65,42 +93,75 @@
 .report-light-surface {
   color-scheme: light;
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --foreground: var(--color-brand-navy);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: var(--color-brand-navy);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: var(--color-brand-navy);
+  --primary: var(--color-brand-cta);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-brand-cloud);
+  --secondary-foreground: var(--color-brand-navy);
+  --muted: var(--color-brand-cloud);
+  --muted-foreground: var(--color-brand-slate);
+  --accent: var(--color-brand-cream);
+  --accent-foreground: var(--color-brand-navy);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: var(--color-brand-harbour);
   --success-subtle: #dcfce7;
   --success-subtle-foreground: #166534;
   --warning-subtle: #fef3c7;
   --warning-subtle-foreground: #92400e;
+  /* Status inputs the chart aliases read: light values, or a light island
+     under .dark would draw dark-mode status hues on a white card. */
+  --success: #047857;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #1c1917;
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  /* A light island inside dark mode takes the whole light chart block. A
+     var() resolves where it is declared, so any alias not redeclared here
+     arrives with its dark value. chart-palette.test.ts enforces the match. */
+  --chart-1: var(--color-brand-harbour);
+  --chart-2: var(--color-brand-chart-orange);
+  --chart-3: var(--color-brand-chart-aqua);
+  --chart-4: var(--color-brand-chart-amber);
+  --chart-5: var(--color-brand-chart-magenta);
+  --chart-6: var(--color-brand-chart-green);
+  --chart-7: var(--color-brand-chart-violet);
+  --chart-8: var(--color-brand-chart-red);
+  --chart-neutral: var(--muted-foreground);
+  --chart-good: var(--success);
+  --chart-info: var(--color-brand-harbour);
+  --chart-warning: var(--warning);
+  --chart-critical: var(--destructive);
+  --chart-grid: var(--border);
+  --chart-axis: var(--muted-foreground);
+  --chart-reference: var(--muted-foreground);
+  --chart-surface: var(--card);
+  --chart-ink: var(--card-foreground);
 }
 
+/* Dark keeps light text (navy text on a dark canvas is unreadable); the
+   fills, ring and accent surfaces take the brand's dark-surface shades. */
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: var(--color-brand-canvas);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
+  --card: var(--color-brand-surface);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
+  --popover: var(--color-brand-surface);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  /* Lifted harbour with dark text: 6.70:1 as a fill and as link text on
+     brand-canvas. #1638c8 as text on the dark canvas is only 2.17:1. */
+  --primary: var(--color-brand-harbour-light);
+  --primary-foreground: var(--color-brand-canvas);
+  --secondary: var(--color-brand-surface-2);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted: var(--color-brand-surface-2);
+  --muted-foreground: oklch(0.78 0 0);
+  --accent: var(--color-brand-surface-2);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
@@ -120,22 +181,38 @@
   --destructive-subtle-foreground: #fecaca;
   --info-subtle: #1e3a8a;
   --info-subtle-foreground: #bfdbfe;
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
+  --border: oklch(0.3 0.02 250);
+  --input: oklch(0.3 0.02 250);
+  --ring: var(--color-brand-harbour-light);
+  /* Chart palette, dark steps: the same hues stepped for the dark card
+     surface (RA-8465), not an automatic flip. */
+  --chart-1: var(--color-brand-chart-harbour-dark);
+  --chart-2: var(--color-brand-chart-orange-dark);
+  --chart-3: var(--color-brand-chart-aqua);
+  --chart-4: var(--color-brand-chart-amber);
+  --chart-5: var(--color-brand-chart-magenta);
+  --chart-6: var(--color-brand-chart-green-dark);
+  --chart-7: var(--color-brand-chart-violet-dark);
+  --chart-8: var(--color-brand-chart-red-dark);
+  --chart-neutral: var(--muted-foreground);
+  --chart-good: var(--success);
+  --chart-info: var(--color-brand-harbour-light);
+  --chart-warning: var(--warning);
+  /* --destructive is a dark fill in this mode; the lifted red reads as a mark. */
+  --chart-critical: var(--destructive-foreground);
+  --chart-grid: var(--border);
+  --chart-axis: var(--muted-foreground);
+  --chart-reference: var(--muted-foreground);
+  --chart-surface: var(--card);
+  --chart-ink: var(--card-foreground);
+  --sidebar: var(--color-brand-ink);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-primary: var(--color-brand-harbour-light);
+  --sidebar-primary-foreground: var(--color-brand-canvas);
+  --sidebar-accent: var(--color-brand-surface-2);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --sidebar-border: oklch(0.3 0.02 250);
+  --sidebar-ring: var(--color-brand-harbour-light);
 }
 
 @theme inline {
@@ -143,41 +220,65 @@
   --font-sans: "Geist", "Geist Fallback";
   --font-mono: "Geist Mono", "Geist Mono Fallback";
 
-  /* RA-1290 item 2 — Portal brand colour tokens. These were previously
-     hardcoded as #1C2E47 / #8A6B4E / #5A6A7B in components/portal/* and
-     app/portal/page.tsx. Named tokens let Tailwind utilities like
-     `bg-brand-navy` + `text-brand-slate` replace the hex literals
-     progressively. Both light and dark theme inherit these directly
-     since the Portal is brand-themed in a single palette. */
-  --color-brand-navy: #1c2e47; /* primary — headings, accents, strong text */
-  --color-brand-bronze: #8a6b4e; /* secondary — CTAs, highlights, borders */
-  --color-brand-slate: #5a6a7b; /* muted — body copy, meta text */
-  --color-brand-gold: #d4a574; /* tertiary highlight (DESIGN.md "brand light") */
+  /* Brand palette B, "Paper and cobalt" (Phill, 19/11/2026: "B Paper";
+     design audit 18/11/2026, RA-8467). Replaced palette A (Harbour). The
+     token names are kept, so a name describes a role, not a hue:
+     `brand-harbour` and `brand-bronze` are now cobalt, `brand-navy` is ink
+     and `brand-gold` a pale cobalt.
+     Rules: solid fills with white text use `brand-cta` (8.63:1), never a
+     500 step of a hue scale (white on step 500 is 4.19:1, a fail for body
+     text). `brand-gold` is for dark surfaces only (2.07:1 on white).
+     The contrast figures in .claude/DESIGN.md are checked against these
+     values by tests/unit/brand-contrast.test.ts. */
+  --color-brand-navy: #17181c; /* headings, strong text, sidebar fill */
+  --color-brand-navy-hover: #2b2d33; /* navy button hover */
+  --color-brand-bronze: #1d3fc4; /* secondary highlight text, borders */
+  --color-brand-gold: #9db1ff; /* highlight on dark surfaces only */
+  --color-brand-gold-hover: #bccaff; /* highlight hover on dark */
+  --color-brand-slate: #5a574e; /* muted body copy, meta text */
 
-  /* Landing-page CTA palette — previously hardcoded hex literals in
-     app/page.tsx. Tokenised so components carry no raw hex (DESIGN.md §2).
-     These are the marketing-surface CTA shades, distinct from the core brand. */
-  --color-brand-cta: #765c43; /* primary CTA bronze */
-  --color-brand-cta-hover: #634a2f; /* primary CTA bronze — hover */
-  --color-brand-steel: #546272; /* secondary CTA steel */
-  --color-brand-steel-hover: #445163; /* secondary CTA steel — hover */
-  --color-brand-mist: #c4c8ca; /* light translucent glass surface on hero */
-  --color-brand-cloud: #f4f5f6; /* off-white section surface (light pages) */
-  --color-brand-canvas: #050505; /* near-black full-bleed canvas (DESIGN.md §2) */
+  /* Call-to-action and surface shades. */
+  --color-brand-cta: #1638c8; /* primary call-to-action fill */
+  --color-brand-cta-hover: #0f2a9e; /* primary call-to-action hover */
+  --color-brand-steel: #6b685f; /* secondary button fill, input borders */
+  --color-brand-steel-hover: #2e2c28; /* secondary button hover */
+  --color-brand-mist: #dedbd2; /* light divider, glass surface */
+  --color-brand-cloud: #f7f6f2; /* paper: off-white section surface */
+  --color-brand-cream: #efece4; /* soft hover surface */
+  --color-brand-cream-2: #e6e2d6; /* soft active surface */
+  --color-brand-harbour: #1638c8; /* links and focus ring on light surfaces */
+  /* Harbour lifted for dark surfaces: #1638c8 on brand-canvas is 2.17:1,
+     under the 3:1 a focus ring needs. This is 6.70:1 on brand-canvas. */
+  --color-brand-harbour-light: #7b96f4;
 
-  /* Dark-surface palette — previously hardcoded off-palette hex in the help
-     centre, sketch editor, capture flow and inspection panels. Tokenised so
-     no component carries a raw dark-hex literal (DESIGN.md §2). These are the
-     branded dark backgrounds layered above brand-canvas. */
-  --color-brand-surface: #0e1320; /* help-centre card / panel surface */
-  --color-brand-surface-2: #11172a; /* help-centre card hover surface */
-  --color-brand-deep: #0d1b2e; /* sketch editor / capture-flow surface */
-  --color-brand-ink: #0a0a0a; /* near-black drawer / sidebar surface */
-  --color-brand-abyss: #02040b; /* webgl hero deep background */
-  --color-brand-navy-hover: #263d5f; /* brand-navy button hover */
-  --color-brand-gold-hover: #e6bb8e; /* brand-gold link hover */
-  --color-brand-cream: #e7dfca; /* margot thread hover surface */
-  --color-brand-cream-2: #e1d6be; /* margot active thread surface */
+  /* Chart hues (RA-8465). Slot 1 follows brand-harbour in light (the step
+     below in dark); slots 2 to 8 are chart-owned, so a brand palette change
+     cannot make two series the same colour (palette B turned brand-bronze
+     into cobalt, next to slot 1). chart-palette.test.ts enforces both rules.
+     Validated with the dataviz validator against palette B's card
+     surfaces (#ffffff light, #1a1a1c dark): every adjacent pair clears CVD
+     delta E 8 and normal-vision delta E 15, every slot clears 3:1. Use them
+     through --chart-N and lib/charts/palette.ts, never directly. */
+  --color-brand-chart-orange: #a34a06;
+  --color-brand-chart-aqua: #199e70;
+  --color-brand-chart-amber: #c98500;
+  --color-brand-chart-magenta: #d55181;
+  --color-brand-chart-green: #008300;
+  --color-brand-chart-violet: #6250d6;
+  --color-brand-chart-red: #e34948;
+  --color-brand-chart-harbour-dark: #5b7cf0;
+  --color-brand-chart-orange-dark: #d95926;
+  --color-brand-chart-green-dark: #0ca30c;
+  --color-brand-chart-violet-dark: #9085e9;
+  --color-brand-chart-red-dark: #e66767;
+
+  /* Dark surfaces, for dark mode and the dark islands that remain. */
+  --color-brand-canvas: #121212; /* full-bleed dark canvas */
+  --color-brand-surface: #1a1a1c; /* dark card / panel surface */
+  --color-brand-surface-2: #232327; /* dark card hover surface */
+  --color-brand-deep: #17171a; /* sketch editor / capture-flow surface */
+  --color-brand-ink: #0e0e0f; /* near-black drawer / sidebar surface */
+  --color-brand-abyss: #08080a; /* deepest hero background */
 
   /* Primary Colors */
   --color-slate-950: #0f172a;
@@ -187,7 +288,23 @@
 
   /* Accent Colors */
   --color-blue-500: #3b82f6;
-  --color-cyan-500: #06b6d4;
+  /* Harbour scale (RA-8464, DSA-04): the signed-in app's accent. Eleven steps
+     on the brand-cta hue (oklch hue 265.6). It replaced the Tailwind cyan
+     utilities and the interim cyan bridge, which is gone: a cyan-N utility now
+     renders stock Tailwind teal, and tests/unit/no-cyan-utilities.test.ts
+     fails on one. Steps 600 and up carry white text at 6:1 or better; step
+     500 does not (4.19:1), so solid white-text fills use 600 or brand-cta. */
+  --color-brand-harbour-50: oklch(0.97 0.078 265.6);
+  --color-brand-harbour-100: oklch(0.94 0.078 265.6);
+  --color-brand-harbour-200: oklch(0.89 0.156 265.6);
+  --color-brand-harbour-300: oklch(0.82 0.156 265.6);
+  --color-brand-harbour-400: oklch(0.72 0.223 265.6);
+  --color-brand-harbour-500: oklch(0.6 0.223 265.6);
+  --color-brand-harbour-600: oklch(0.5 0.223 265.6);
+  --color-brand-harbour-700: oklch(0.43 0.223 265.6);
+  --color-brand-harbour-800: oklch(0.37 0.223 265.6);
+  --color-brand-harbour-900: oklch(0.31 0.223 265.6);
+  --color-brand-harbour-950: oklch(0.24 0.223 265.6);
   --color-emerald-400: #10b981;
   --color-amber-400: #f59e0b;
   --color-rose-500: #f43f5e;
@@ -268,7 +385,7 @@ html {
 }
 
 body {
-  @apply bg-slate-950 text-slate-50;
+  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50;
 }
 
 /* Smooth animations */
@@ -333,7 +450,7 @@ body {
 
 /* Gradient text */
 .gradient-text {
-  @apply bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent;
+  @apply bg-gradient-to-r from-blue-400 via-brand-harbour-400 to-blue-400 bg-clip-text text-transparent;
 }
 
 /* Smooth hover effects */

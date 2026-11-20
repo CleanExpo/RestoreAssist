@@ -118,7 +118,7 @@ export const HeroProductOverview = () => {
 
       {/* Outro */}
       <div style={{position: 'absolute', inset: 0, opacity: outroOp, zIndex: outroOp > 0 ? 100 : 0}}>
-        <OutroSlide title="restoreassist.com.au" subtitle="RestoreAssist — Built for Restoration" />
+        <OutroSlide title="restoreassist.app" subtitle="RestoreAssist — Built for Restoration" />
       </div>
     </AbsoluteFill>
   );

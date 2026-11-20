@@ -43,14 +43,14 @@ export default async function PublicArticlePage({
   return (
     <div className="container mx-auto max-w-3xl p-6">
       <nav className="mb-4 text-sm text-slate-500">
-        <Link href="/help" className="text-[#3B6D8C] hover:underline">
+        <Link href="/help" className="text-brand-harbour hover:underline">
           Help
         </Link>
         <span className="mx-2">/</span>
         <span className="text-slate-800">{HELP_CATEGORY_LABELS[category]}</span>
       </nav>
 
-      <h1 className="text-3xl md:text-4xl font-semibold text-[#0B1F3A] leading-tight">
+      <h1 className="text-3xl md:text-4xl font-semibold text-brand-navy leading-tight">
         {frontmatter.title}
       </h1>
 

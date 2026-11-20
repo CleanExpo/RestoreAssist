@@ -47,15 +47,15 @@ describe("expandFloorsWithRoomMoisture", () => {
       pngDataUrl: "data:image/png;base64,xx",
       moisturePins: [
         {
-          nx: 0.25,
-          ny: 0.25,
+          x: 200,
+          y: 150,
           wme: 18,
           iicrClass: 2,
           color: "#f59e0b",
         },
         {
-          nx: 0.9,
-          ny: 0.9,
+          x: 720,
+          y: 540,
           wme: 40,
           iicrClass: 4,
           color: "#ef4444",
@@ -184,8 +184,8 @@ describe("claimSketchesToFloors", () => {
         renderedPngUrl: canonicalRender(0),
         sketchData: null,
         moisturePoints: [
-          { nx: 0.5, ny: 0.5, wme: 20 },
-          { x: 10, y: 10, wme: 18 }, // legacy, no nx/ny — skipped
+          { x: 600, y: 400, nx: 0.5, ny: 0.5, wme: 20 },
+          { nx: 0.1, ny: 0.1, wme: 18 }, // no scene position — counted, not drawn
         ],
       },
     ];
@@ -196,9 +196,10 @@ describe("claimSketchesToFloors", () => {
     const floors = await claimSketchesToFloors(sketches, fetchImpl as never);
 
     expect(floors[0].moisturePins).toHaveLength(1);
+    expect(floors[0].moisturePinsNotShown).toBe(1);
     expect(floors[0].moisturePins?.[0]).toMatchObject({
-      nx: 0.5,
-      ny: 0.5,
+      x: 600,
+      y: 400,
       wme: 20,
       iicrClass: 2,
     });

@@ -68,7 +68,7 @@ export function ClientPortalUpload({ token }: { token: string }) {
 
       <label
         htmlFor="ev-files"
-        className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-4 text-sm font-medium text-cyan-100 hover:bg-cyan-500/20"
+        className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-brand-harbour-400/30 bg-brand-harbour-500/10 px-4 text-sm font-medium text-brand-harbour-100 hover:bg-brand-harbour-500/20"
       >
         Add photos
       </label>
@@ -92,7 +92,7 @@ export function ClientPortalUpload({ token }: { token: string }) {
         placeholder="Describe the damage (optional)…"
         rows={3}
         maxLength={2000}
-        className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-400/50"
+        className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-brand-harbour-400/50"
       />
 
       <button

@@ -12,6 +12,7 @@ import {
   SETUP_AI_KEY_OPTIONAL_HINT,
   SETUP_AI_KEY_OPTIONAL_TITLE,
 } from '@/lib/signup-pricing-honesty';
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // Inline SVG marks (Phill Rule 1: no generic icon-library imports). Matches the
 // inline-<svg> pattern used by the sibling VideoExplainer card.
@@ -54,7 +55,7 @@ function SpinnerMark({ size = 14, className }: { size?: number; className?: stri
   );
 }
 
-type Provider = 'ANTHROPIC' | 'OPENAI' | 'OPENROUTER';
+type Provider = 'ANTHROPIC' | 'OPENAI' | 'OPENROUTER' | 'META';
 
 const PROVIDER_META: Record<Provider, { label: string; placeholder: string }> = {
   ANTHROPIC: {
@@ -64,6 +65,10 @@ const PROVIDER_META: Record<Provider, { label: string; placeholder: string }> = 
   OPENAI: {
     label: 'OpenAI (GPT)',
     placeholder: 'sk-proj-…',
+  },
+  META: {
+    label: 'Meta (Llama)',
+    placeholder: 'LLM_…',
   },
   OPENROUTER: {
     label: 'OpenRouter (open models)',
@@ -222,7 +227,7 @@ export function AiKeyCard({
         } | null;
         setErrorMessage(
           validateJson?.message ??
-            validateJson?.error ??
+            apiErrorMessage(validateJson) ??
             'Key saved but validation failed — check the key and try again.',
         );
         setCardState('error');

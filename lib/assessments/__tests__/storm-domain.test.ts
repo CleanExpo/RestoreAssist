@@ -6,6 +6,22 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// RA-8281: estimates price from the contractor's own price list. These
+// tests cover report and scope content, so give a complete price list.
+vi.mock("@/lib/assessments/inspection-price-list", async () => {
+  const { NRPG_RATE_RANGES } = await import("@/lib/nrpg-rate-ranges");
+  return {
+    resolveInspectionPriceList: vi.fn(async () =>
+      Object.fromEntries(
+        Object.entries(NRPG_RATE_RANGES).map(([k, r]) => [
+          k,
+          (r.min + r.max) / 2,
+        ]),
+      ),
+    ),
+  };
+});
+
 import { prisma } from "@/lib/prisma";
 import { stormDomain } from "../domains/storm";
 
@@ -28,7 +44,7 @@ const baseInput = {
 const baseInspection = {
   id: "i_1",
   propertyAddress: "12 Smith St, Brisbane",
-  affectedAreas: [{ affectedSquareFootage: 30 }],
+  affectedAreas: [{ affectedAreaSqm: 30 }],
 };
 
 describe("stormDomain — happy paths per entry type", () => {
@@ -96,7 +112,7 @@ describe("stormDomain — duration heuristics", () => {
   it("flash_flood with ≥50 m² → 14 days", async () => {
     inspectionFindUnique.mockResolvedValueOnce({
       ...baseInspection,
-      affectedAreas: [{ affectedSquareFootage: 75 }],
+      affectedAreas: [{ affectedAreaSqm: 75 }],
     });
     const r = await stormDomain.generate({
       ...baseInput,

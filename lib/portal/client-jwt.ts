@@ -14,6 +14,14 @@
 
 import { SignJWT, jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
+import {
+  ClientPortalJwtConfigError,
+  credentialFingerprint,
+  getClientPortalSecret as getSecret,
+} from "@/lib/portal/credential-fingerprint";
+
+/** RA-7509: re-exported so callers keep importing it from client-jwt. */
+export { ClientPortalJwtConfigError };
 
 const TOKEN_TYPE = "client-portal" as const;
 const TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
@@ -26,18 +34,12 @@ export interface ClientPortalClaims {
   email: string;
   name: string;
   typ: typeof TOKEN_TYPE;
-}
-
-function getSecret(): Uint8Array {
-  const secret =
-    process.env.CLIENT_PORTAL_JWT_SECRET || process.env.NEXTAUTH_SECRET;
-  if (!secret) {
-    // Fail closed: with no secret we can neither mint nor verify.
-    throw new Error(
-      "CLIENT_PORTAL_JWT_SECRET (or NEXTAUTH_SECRET) must be set for portal auth",
-    );
-  }
-  return new TextEncoder().encode(secret);
+  /**
+   * RA-8461 — fingerprint of the password hash the token was issued for.
+   * Null on tokens minted before credential binding; requireClientAuth
+   * refuses those and any token whose fingerprint no longer matches.
+   */
+  credentialFingerprint: string | null;
 }
 
 export async function signClientPortalJwt(input: {
@@ -45,12 +47,15 @@ export async function signClientPortalJwt(input: {
   clientId: string;
   email: string;
   name: string;
+  /** Current ClientUser.passwordHash; only its fingerprint enters the token. */
+  passwordHash: string;
 }): Promise<string> {
   return new SignJWT({
     clientId: input.clientId,
     email: input.email,
     name: input.name,
     typ: TOKEN_TYPE,
+    cfp: credentialFingerprint(input.passwordHash),
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(input.clientUserId)
@@ -62,8 +67,9 @@ export async function signClientPortalJwt(input: {
 export async function verifyClientPortalJwt(
   token: string,
 ): Promise<ClientPortalClaims | null> {
+  const secret = getSecret();
   try {
-    const { payload } = await jwtVerify(token, getSecret(), {
+    const { payload } = await jwtVerify(token, secret, {
       algorithms: ["HS256"],
     });
     if (
@@ -79,6 +85,8 @@ export async function verifyClientPortalJwt(
       email: typeof payload.email === "string" ? payload.email : "",
       name: typeof payload.name === "string" ? payload.name : "",
       typ: TOKEN_TYPE,
+      credentialFingerprint:
+        typeof payload.cfp === "string" ? payload.cfp : null,
     };
   } catch {
     return null;

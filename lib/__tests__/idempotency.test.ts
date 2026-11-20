@@ -205,6 +205,7 @@ vi.mock("@/lib/agents", async (importOriginal) => {
 
 import {
   withIdempotency,
+  withIdempotencyFingerprint,
   completeIdempotentSuccessInTransaction,
   getIdempotencyKey,
   getClientMutationId,
@@ -421,6 +422,60 @@ describe("withIdempotency", () => {
     expect((await (await withIdempotency(make(), "owner-a", async () => NextResponse.json({ id: "unexpected" }))).json()).id)
       .toBe("replacement");
   });
+  it("holds a longer lease for a slow paid call, and keeps the 60 second default (RA-8236)", async () => {
+    const run = (key: string, handler: () => Promise<NextResponse>, pendingLeaseMs?: number) =>
+      withIdempotencyFingerprint({
+        scope: "lease-test",
+        key,
+        method: "POST",
+        path: "/lease",
+        fingerprint: key,
+        ...(pendingLeaseMs ? { pendingLeaseMs } : {}),
+        handler,
+      });
+    let finish!: () => void;
+    let started!: () => void;
+    const entered = new Promise<void>((resolve) => { started = resolve; });
+    const gate = new Promise<void>((resolve) => { finish = resolve; });
+    let paid = 0;
+    const slow = async () => {
+      paid++;
+      started();
+      await gate;
+      return NextResponse.json({ paid });
+    };
+
+    const first = run("long-lease", slow, 150_000);
+    await entered;
+    const realNow = Date.now();
+    vi.useFakeTimers({ toFake: ["Date"], now: realNow + 61_000 });
+    try {
+      const second = await run("long-lease", slow, 150_000);
+      expect(second.status).toBe(409);
+      expect(paid).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+    finish();
+    expect((await first).status).toBe(200);
+
+    let held!: () => void;
+    let began!: () => void;
+    const defaultEntered = new Promise<void>((resolve) => { began = resolve; });
+    const defaultGate = new Promise<void>((resolve) => { held = resolve; });
+    const byDefault = run("default-lease", async () => {
+      began();
+      await defaultGate;
+      return NextResponse.json({ ok: true });
+    });
+    await defaultEntered;
+    const record = [...idempotencyDb.records.values()].find((r) => r.key === "default-lease");
+    expect(record?.expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + 60_000);
+    expect(record?.expiresAt.getTime()).toBeGreaterThan(Date.now() + 50_000);
+    held();
+    await byDefault;
+  });
+
   it("does not let a late generic success overwrite a replacement reservation with a different fingerprint", async () => {
     const key = "reservation-success-race";
     const make = (body: string) => makeReq({ client: body }, { "idempotency-key": key });

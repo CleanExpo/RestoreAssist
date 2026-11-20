@@ -22,7 +22,7 @@ test("website URL unreachable → BrandCard falls back to manual upload", async 
   }
 
   // Valid ABN + unreachable website URL
-  await page.getByPlaceholder(/e\.g\. 53 004 085 616/i).fill("53004085616");
+  await page.getByLabel(/^ABN \(11 digits\)$/).fill("53004085616");
   await page
     .getByPlaceholder(/yourcompany\.com\.au|website url/i)
     .fill("https://this-domain-cannot-resolve-12345abcdef.invalid");

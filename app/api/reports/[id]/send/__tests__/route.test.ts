@@ -42,6 +42,11 @@ const txAuditLogCreate = vi.fn();
 const topLevelEmailAuditCreate = vi.fn();
 const topLevelAuditLogCreate = vi.fn();
 const emailSend = vi.fn();
+const auditInspectionById = vi.fn();
+
+vi.mock("@/lib/evidence/field-evidence-audit", () => ({
+  auditInspectionById: (...args: unknown[]) => auditInspectionById(...args),
+}));
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -106,7 +111,7 @@ function completedReport(overrides: Record<string, unknown> = {}) {
       businessName: "Firm A <b>Restoration</b>",
       businessEmail: "office@firm-a.example",
     },
-    client: { name: HOSTILE, email: "bob@client.example" },
+    client: { name: HOSTILE, email: "bob@restoreassist.com.au" },
     inspection: { id: INSPECTION_ID },
     ...overrides,
   };
@@ -172,9 +177,36 @@ beforeEach(() => {
     topLevelEmailAuditCreate,
     topLevelAuditLogCreate,
     emailSend,
+    auditInspectionById,
   ]) {
     fn.mockReset();
   }
+
+  auditInspectionById.mockResolvedValue({
+    inspectionId: INSPECTION_ID,
+    claimType: "WATER_DAMAGE",
+    generatedAt: "2026-11-01T00:00:00.000Z",
+    categories: {
+      required: [
+        {
+          evidenceClass: "MOISTURE_READING",
+          displayName: "Moisture",
+          stepKey: "moisture",
+          stepTitle: "Moisture",
+          riskTier: 1,
+          requiredCount: 1,
+          capturedCount: 1,
+          status: "present",
+          averageQaScore: 90,
+          s500Ref: null,
+        },
+      ],
+      recommended: [],
+    },
+    gapsByEvidenceClass: {},
+    gapsByAffectedArea: [],
+    unlinkedEvidence: [],
+  });
 
   currentReport = completedReport();
   idempotencyCache = new Map();
@@ -241,6 +273,39 @@ beforeEach(() => {
 });
 
 describe("POST /api/reports/[id]/send — refusals send nothing and write nothing", () => {
+  it("refuses when required field evidence is still missing on the linked job", async () => {
+    auditInspectionById.mockResolvedValue({
+      inspectionId: INSPECTION_ID,
+      claimType: "WATER_DAMAGE",
+      generatedAt: "2026-11-01T00:00:00.000Z",
+      categories: {
+        required: [
+          {
+            evidenceClass: "MOISTURE_READING",
+            displayName: "Moisture",
+            stepKey: "moisture",
+            stepTitle: "Moisture",
+            riskTier: 1,
+            requiredCount: 1,
+            capturedCount: 0,
+            status: "missing",
+            averageQaScore: null,
+            s500Ref: null,
+          },
+        ],
+        recommended: [],
+      },
+      gapsByEvidenceClass: {},
+      gapsByAffectedArea: [],
+      unlinkedEvidence: [],
+    });
+    const res = await POST(makeRequest(), params());
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error?.message).toMatch(/required field evidence/i);
+    expectNothingSentOrWritten();
+  });
+
   it.each(["DRAFT", "PENDING", "APPROVED", "ARCHIVED"])(
     "refuses a %s report",
     async (status) => {
@@ -286,6 +351,24 @@ describe("POST /api/reports/[id]/send — refusals send nothing and write nothin
     const res = await POST(makeRequest(), params());
 
     expect(res.status).toBe(404);
+    expectNothingSentOrWritten();
+  });
+
+  it.each([
+    "sample.client@example.com.au",
+    "sample.client@restoreassist.invalid",
+    "bob@client.example",
+    "bob@owner.test",
+  ])("refuses a demo or reserved recipient %s before send, token, or record", async (email) => {
+    currentReport = completedReport({
+      client: { name: "Sample", email },
+    });
+
+    const res = await POST(makeRequest(), params());
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error.message).toMatch(/sample or reserved/i);
     expectNothingSentOrWritten();
   });
 
@@ -349,7 +432,7 @@ describe("POST /api/reports/[id]/send — a good send", () => {
       html: string;
       text?: string;
     };
-    expect(email.to).toBe("bob@client.example");
+    expect(email.to).toBe("bob@restoreassist.com.au");
     expect(email.subject).not.toMatch(/[\r\n]/);
 
     // Every user-supplied value is escaped; nothing hostile survives raw.
@@ -374,7 +457,7 @@ describe("POST /api/reports/[id]/send — a good send", () => {
       data: {
         userId: OWNER_ID,
         reportId: REPORT_ID,
-        recipient: "bob@client.example",
+        recipient: "bob@restoreassist.com.au",
         success: true,
       },
     });

@@ -235,4 +235,15 @@ Append-only record of resolved product and architecture decisions. New decisions
 
 ---
 
+### D-029 — A trial business gets one free technician seat for 15 days, then the seat must be paid
+
+- **Status:** Amends the "every technician needs a purchased seat" ruling of 26/09/2026, which lives in the header of `lib/billing/technician-seats.ts` as J-09 / D-006. That D-006 label predates this log; the D-006 here is about BYOK and is unrelated.
+- **Decision:** Founder ruling 02/11/2026, in the founder's words: "trail seat is free..After 15 days the seat needs to be paid". An owner on a current trial may invite a technician with no plan and no payment. After 15 days that seat must be paid. Paid plans include no free seat. A seat can be bought during the trial. Three working defaults the founder has not yet confirmed: one free seat per business; the 15 days count from the owner's signup, so swapping technicians cannot restart them; and from day 15 the technician is stopped from working until the seat is paid, with nothing deleted and a clear path to pay for the owner.
+- **Reason:** A new owner should see a technician reach a real job before paying for anything. Counting from signup, not from the invite, means the free period cannot be renewed by replacing the person.
+- **Alternatives:** A new `User` or `Organization` column to hold the date (rejected: migrations do not run at deploy, RULES 29, so the column would not exist when the code did). Seat free until the trial ends (rejected: the ruling says 15 days). Deleting or suspending the technician on day 15 (rejected: their work must survive).
+- **Consequences:** Taking the free seat writes an inactive `FeatureEntitlement` marker row with `stripePriceId` `trial-seat`, under the organisation lock, so concurrent invites cannot exceed the seats. A paid checkout overwrites the marker. Only a business holding the marker can be locked, so technicians already working in a live business without a seat are never touched. The lock is a session claim refreshed in `lib/auth.ts` and enforced in `proxy.ts`: mutating API calls answer 402 and `/dashboard` goes to `/seat-required`. Known limits: the claim is stale until the session is next read; mobile bearer tokens do not pass the cookie check; moving a technician to manager clears the lock; buying a seat and cancelling it leaves no lock; and a first purchase during the 15 days bills for the technician on the free seat as well as the new one.
+- **Evidence:** `lib/billing/__tests__/trial-seat.test.ts`; `e2e/one-setup-path/one-setup-path.spec.ts`. **Date:** 2026-11-02. **Owner:** Phill McGurk.
+
+---
+
 _Non-blocking owner inputs still open (do not block V1 start): authorised drying-goal methodology source; the full per-stage water-damage completeness rule list (baseline minimum is specified; engine scaffolds now); per-organisation completeness baseline content; the approved retention matrix (D-017 — legal/privacy review before any automated destruction); pilot-partner selection. Tracked here, not escalated._

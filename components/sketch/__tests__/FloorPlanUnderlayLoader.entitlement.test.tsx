@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { FloorPlanUnderlayLoader } from "../FloorPlanUnderlayLoader";
 import { FLOORPLAN_UNDERLAY_ADDON } from "@/lib/billing/floorplan-underlay-addon";
@@ -61,5 +61,47 @@ describe("FloorPlanUnderlayLoader — 402 handling (RA-6922 add-on)", () => {
         ),
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe("FloorPlanUnderlayLoader room suggestions (RA-8236)", () => {
+  const base = { onApply: vi.fn(), onClear: vi.fn(), hasBackground: true };
+
+  it("offers suggestions only when a bound reference is available", () => {
+    const { rerender } = render(<FloorPlanUnderlayLoader {...base} />);
+    expect(
+      screen.queryByRole("button", { name: /suggest rooms/i }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <FloorPlanUnderlayLoader {...base} onSuggestRooms={async () => {}} />,
+    );
+    expect(
+      screen.getByRole("button", { name: /suggest rooms/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("states that only page 1 is read and rooms stay unmeasured", () => {
+    render(
+      <FloorPlanUnderlayLoader {...base} onSuggestRooms={async () => {}} />,
+    );
+    expect(screen.getByText(/page 1 only/i)).toBeInTheDocument();
+    expect(screen.getByText(/measure and confirm/i)).toBeInTheDocument();
+  });
+
+  it("blocks a second click while a read is running", async () => {
+    let finish: () => void = () => undefined;
+    const onSuggestRooms = vi.fn(
+      () => new Promise<void>((resolve) => (finish = resolve)),
+    );
+    render(
+      <FloorPlanUnderlayLoader {...base} onSuggestRooms={onSuggestRooms} />,
+    );
+    const button = screen.getByRole("button", { name: /suggest rooms/i });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(onSuggestRooms).toHaveBeenCalledTimes(1);
+    await act(async () => finish());
+    expect(button).not.toBeDisabled();
   });
 });
