@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { logRefusal } from "@/lib/api-errors";
 
 /**
  * Idempotency-Key middleware — Stripe-style request replay protection.
@@ -386,6 +387,7 @@ export async function withIdempotencyFingerprint({
   });
 
   if (reservation.kind === "conflict") {
+    logRefusal(path, { code: "IDEMPOTENCY_KEY_REUSED", status: 409, stage: "idempotency" });
     return NextResponse.json(
       {
         error:
@@ -396,6 +398,7 @@ export async function withIdempotencyFingerprint({
   }
 
   if (reservation.kind === "pending") {
+    logRefusal(path, { code: "IDEMPOTENCY_IN_PROGRESS", status: 409, stage: "idempotency" });
     return NextResponse.json(
       {
         error:
@@ -483,6 +486,7 @@ export async function withIdempotencyFingerprint({
     },
   });
   if (completed.count !== 1) {
+    logRefusal(path, { code: "IDEMPOTENCY_COMPLETION_UNVERIFIED", status: 409, stage: "idempotency" });
     return NextResponse.json({ error: "Request completion could not be verified; check its status before retrying" }, {
       status: 409,
       headers: { "X-RestoreAssist-Idempotency-Uncertain": "true" },
@@ -528,10 +532,12 @@ export async function withIdempotency(
 ): Promise<NextResponse> {
   const keyResult = getIdempotencyKey(req);
   if (!keyResult.ok) {
+    logRefusal(req, { code: "IDEMPOTENCY_KEY_INVALID", status: 400, stage: "idempotency" });
     return NextResponse.json({ error: keyResult.reason }, { status: 400 });
   }
   const mutationIdResult = getClientMutationId(req);
   if (!mutationIdResult.ok) {
+    logRefusal(req, { code: "CLIENT_MUTATION_ID_INVALID", status: 400, stage: "idempotency" });
     return NextResponse.json(
       { error: mutationIdResult.reason },
       { status: 400 },

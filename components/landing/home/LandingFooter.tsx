@@ -39,7 +39,7 @@ export function LandingFooter() {
           <div>
             <Link
               href="/"
-              className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50 focus-visible:ring-offset-2"
+              className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50 focus-visible:ring-offset-2"
             >
               <Image
                 src="/logo.png"
@@ -49,7 +49,7 @@ export function LandingFooter() {
                 className="object-contain"
               />
               <span
-                className={`${DISPLAY} text-[15px] font-bold tracking-tight text-[#0B1F3A]`}
+                className={`${DISPLAY} text-[15px] font-bold tracking-tight text-brand-navy`}
               >
                 {BRAND.name}
               </span>
@@ -58,7 +58,7 @@ export function LandingFooter() {
               {BRAND.shortDescription}
             </p>
             <p
-              className={`${DISPLAY} mt-5 text-sm font-semibold tracking-tight text-[#0B1F3A]`}
+              className={`${DISPLAY} mt-5 text-sm font-semibold tracking-tight text-brand-navy`}
             >
               {BRAND.slogan}
             </p>
@@ -78,7 +78,7 @@ export function LandingFooter() {
                   <li key={l.href}>
                     <Link
                       href={l.href}
-                      className="rounded-sm text-[15px] text-slate-600 transition-colors hover:text-[#0B1F3A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50"
+                      className="rounded-sm text-[15px] text-slate-600 transition-colors hover:text-brand-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50"
                     >
                       {l.label}
                     </Link>
@@ -97,7 +97,7 @@ export function LandingFooter() {
           <p>
             <a
               href={`mailto:${BRAND.company.supportEmail}`}
-              className="rounded-sm transition-colors hover:text-[#0B1F3A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50"
+              className="rounded-sm transition-colors hover:text-brand-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50"
             >
               {BRAND.company.supportEmail}
             </a>

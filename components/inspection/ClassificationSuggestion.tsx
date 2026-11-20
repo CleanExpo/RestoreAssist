@@ -78,7 +78,7 @@ export default function ClassificationSuggestion({
 
   const confidenceColour =
     suggestion.confidence === "high"
-      ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400"
+      ? "border-brand-harbour-500/50 bg-brand-harbour-500/10 text-brand-harbour-700 dark:text-brand-harbour-400"
       : suggestion.confidence === "medium"
         ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
         : "border-neutral-300 dark:border-slate-600 bg-neutral-100 dark:bg-slate-900/50 text-neutral-700 dark:text-slate-300";

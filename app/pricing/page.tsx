@@ -166,7 +166,7 @@ function PricingPageContent() {
       <section className={`bg-white border-t border-slate-200/90 ${SECTION_PAD}`}>
         <div className={CONTAINER}>
           <Alert className="mx-auto mb-12 max-w-3xl border-slate-200 bg-[#F3F5F7]">
-            <AlertTitle className="text-[#0B1F3A]">
+            <AlertTitle className="text-brand-navy">
               {PRICING_KEY_ALERT_TITLE}
             </AlertTitle>
             <AlertDescription className="text-slate-600">
@@ -188,14 +188,14 @@ function PricingPageContent() {
                 variants={fadeUp}
                 className={`${SURFACE} relative p-7 sm:p-8 ${
                   plan.popular
-                    ? "border-[#0B1F3A]/25 ring-1 ring-[#0B1F3A]/10"
+                    ? "border-brand-navy/25 ring-1 ring-brand-navy/10"
                     : plan.isFree
-                      ? "border-[#3B6D8C]/25"
+                      ? "border-brand-harbour/25"
                       : ""
                 }`}
               >
                 {plan.isFree ? (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#3B6D8C] px-3 py-1 text-xs font-semibold text-white">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-harbour px-3 py-1 text-xs font-semibold text-white">
                     {freeCfg.trialDays}-Day Free Trial
                   </div>
                 ) : null}
@@ -210,13 +210,13 @@ function PricingPageContent() {
                     verifiable "Best Value" badge, which the printed per-report
                     rates below back up arithmetically, is still rendered. */}
                 {plan.badge && !plan.isFree ? (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#0B1F3A] px-3 py-1 text-xs font-semibold text-white">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-navy px-3 py-1 text-xs font-semibold text-white">
                     {plan.badge}
                   </div>
                 ) : null}
 
                 <h3
-                  className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-brand-navy`}
                 >
                   {plan.name}
                 </h3>
@@ -226,7 +226,7 @@ function PricingPageContent() {
 
                 <div className="mt-6">
                   <span
-                    className={`${FONT_DISPLAY} text-4xl font-semibold tracking-tight text-[#0B1F3A]`}
+                    className={`${FONT_DISPLAY} text-4xl font-semibold tracking-tight text-brand-navy`}
                   >
                     {plan.price}
                   </span>
@@ -248,7 +248,7 @@ function PricingPageContent() {
                   ) : null}
                   {plan.reportLimit && typeof plan.reportLimit === "number" ? (
                     <div className="mt-3 rounded-xl bg-[#F3F5F7] p-3">
-                      <p className="text-sm font-semibold text-[#0B1F3A]">
+                      <p className="text-sm font-semibold text-brand-navy">
                         {plan.reportLimit} Inspection Reports
                         {plan.period === "/month"
                           ? " per month"
@@ -290,7 +290,7 @@ function PricingPageContent() {
                           make the arithmetic tidy. */}
                       {!plan.isFree ? (
                         <>
-                          <p className="mt-2 border-t border-slate-200/90 pt-2 text-sm font-semibold text-[#0B1F3A]">
+                          <p className="mt-2 border-t border-slate-200/90 pt-2 text-sm font-semibold text-brand-navy">
                             {formatPerReport(
                               perReportRate(plan.amountAud, plan.reportLimit),
                             )}{" "}
@@ -332,7 +332,7 @@ function PricingPageContent() {
                       key={feature}
                       className="flex items-start gap-2 text-sm text-slate-600"
                     >
-                      <span className="mt-0.5 text-[#3B6D8C]">
+                      <span className="mt-0.5 text-brand-harbour">
                         <RAIcon name="success" size={16} decorative />
                       </span>
                       {feature}
@@ -351,7 +351,7 @@ function PricingPageContent() {
                           key={capability}
                           className="flex items-start gap-2 text-sm text-slate-600"
                         >
-                          <span className="mt-0.5 text-[#3B6D8C]">
+                          <span className="mt-0.5 text-brand-harbour">
                             <RAIcon name="success" size={16} decorative />
                           </span>
                           <span>{capability}</span>
@@ -400,7 +400,7 @@ function PricingPageContent() {
         <div className="mt-20">
             <div className="mx-auto mb-12 max-w-2xl text-center">
               <h2
-                className={`${FONT_DISPLAY} text-3xl font-semibold tracking-tight text-[#0B1F3A] sm:text-4xl`}
+                className={`${FONT_DISPLAY} text-3xl font-semibold tracking-tight text-brand-navy sm:text-4xl`}
             >
               Add More Reports
             </h2>
@@ -423,7 +423,7 @@ function PricingPageContent() {
                   key={addon.name}
                   variants={fadeUp}
                   className={`${SURFACE} relative p-6 sm:p-7 ${
-                    addon.popular ? "border-[#0B1F3A]/25" : ""
+                    addon.popular ? "border-brand-navy/25" : ""
                   }`}
                 >
                   {/* The "Most Popular" badge is NOT rendered on the packs
@@ -439,12 +439,12 @@ function PricingPageContent() {
                       per-report rates printed on these three cards actually
                       support. */}
                   {addon.badge ? (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#0B1F3A] px-3 py-1 text-xs font-semibold text-white">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-navy px-3 py-1 text-xs font-semibold text-white">
                       {String(addon.badge)}
                   </div>
                   ) : null}
                   <h3
-                    className={`${FONT_DISPLAY} text-lg font-semibold text-[#0B1F3A]`}
+                    className={`${FONT_DISPLAY} text-lg font-semibold text-brand-navy`}
                 >
                   {addon.name}
                 </h3>
@@ -453,12 +453,12 @@ function PricingPageContent() {
                 </p>
                   <div className="mt-5">
                   <span
-                      className={`${FONT_DISPLAY} text-3xl font-semibold text-[#0B1F3A]`}
+                      className={`${FONT_DISPLAY} text-3xl font-semibold text-brand-navy`}
                   >
                     {addon.price}
                   </span>
                     <div className="mt-3 rounded-xl bg-[#F3F5F7] p-3">
-                      <p className="text-sm font-semibold text-[#0B1F3A]">
+                      <p className="text-sm font-semibold text-brand-navy">
                       {addon.reportLimit} Additional Reports
                     </p>
                       {/* Printed on every pack so the packs can be compared
@@ -466,7 +466,7 @@ function PricingPageContent() {
                           Two of the three are dearer per report than the plan
                           they extend; that is a pricing fact, and hiding it is
                           exactly what this piece is judged against. */}
-                      <p className="mt-2 border-t border-slate-200/90 pt-2 text-sm font-semibold text-[#0B1F3A]">
+                      <p className="mt-2 border-t border-slate-200/90 pt-2 text-sm font-semibold text-brand-navy">
                         {formatPerReport(
                           perReportRate(addon.amountAud, addon.reportLimit),
                         )}{" "}

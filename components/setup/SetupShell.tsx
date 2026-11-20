@@ -13,6 +13,8 @@ import { VideoExplainer } from './VideoExplainer';
 import { WelcomeOverview } from './WelcomeOverview';
 import { AiKeyCard } from './AiKeyCard';
 import { AddonCardDeck } from '@/components/addons/AddonCardDeck';
+import { SimpleWalkthrough } from '@/components/addons/SimpleWalkthrough';
+import { WIZARD_STEPS } from '@/lib/setup/wizard-steps';
 import { SetupStepper, type SetupStepperItem } from './SetupStepper';
 import {
   SETUP_AI_KEY_OPTIONAL_HINT,
@@ -38,7 +40,23 @@ interface InitialPayload extends SetupOrganization {
   hydrationJobs: Array<{ kind: 'ABR' | 'WEBSITE' | 'PRICING'; status: string }>;
 }
 
-export function SetupShell({ initial }: { initial: InitialPayload }) {
+/** RA-8466: how the owner came back from an add-on checkout started here. */
+export type SetupCheckoutReturn = 'done' | 'cancelled' | null;
+
+export const CHECKOUT_CANCELLED_NOTICE =
+  'You left the checkout before paying, so nothing was bought. Carry on with setup, or try the pack again.';
+export const CHECKOUT_DONE_NOTICE =
+  'Thanks. Your pack shows as switched on below once payment is confirmed. Carry on with setup.';
+
+const ADD_ONS_STEP_INDEX = WIZARD_STEPS.findIndex((s) => s.key === 'add_ons');
+
+export function SetupShell({
+  initial,
+  checkoutReturn = null,
+}: {
+  initial: InitialPayload;
+  checkoutReturn?: SetupCheckoutReturn;
+}) {
   const setOrg = useSetupStore((s) => s.setOrg);
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
   const setSectionError = useSetupStore((s) => s.setSectionError);
@@ -56,6 +74,9 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
     const started = !!(initial.legalName || id || initial.logoUrl || initial.primaryColor || initial.pricingConfig);
     if (!started) return 0;
     if (!(initial.legalName && id && initial.state && initial.timezone)) return 2; // Business details
+    // RA-8466: back from a checkout started on the Field Add-Ons step, so
+    // reopen that step rather than an earlier optional one.
+    if (checkoutReturn) return ADD_ONS_STEP_INDEX;
     if (!(initial.logoUrl || initial.primaryColor)) return 3; // Branding
     if (!initial.pricingConfig) return 4; // Pricing
     // RA-8271: Field Add-Ons follows Pricing, so a returning business sees the
@@ -274,7 +295,22 @@ export function SetupShell({ initial }: { initial: InitialPayload }) {
       required: false,
       complete: false,
       description: 'Optional packs that add field and admin features to your CRM. Add one now, or any time later from Field Add-Ons in the side panel.',
-      content: <AddonCardDeck />,
+      // RA-8466: the short, skippable walkthrough leads; the deck stays the
+      // one place to buy, and a checkout started here returns here.
+      content: (
+        <div className="space-y-6">
+          {checkoutReturn ? (
+            <p
+              role="status"
+              className="rounded-lg border border-brand-navy/10 bg-brand-navy/5 px-4 py-3 text-sm text-brand-navy dark:text-slate-100"
+            >
+              {checkoutReturn === 'cancelled' ? CHECKOUT_CANCELLED_NOTICE : CHECKOUT_DONE_NOTICE}
+            </p>
+          ) : null}
+          <SimpleWalkthrough mode="setup" />
+          <AddonCardDeck returnTo="setup" />
+        </div>
+      ),
     },
     {
       key: 'integrations',

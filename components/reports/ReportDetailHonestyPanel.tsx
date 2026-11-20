@@ -123,7 +123,7 @@ export function ReportDetailHonestyPanel({ report }: Props) {
             {REPORT_DETAIL_UPLOAD_PDF_BODY}{" "}
             <Link
               href="/dashboard/reports/new"
-              className="text-cyan-400 hover:text-cyan-300 underline"
+              className="text-brand-harbour-400 hover:text-brand-harbour-300 underline"
             >
               Create report → Upload PDF
             </Link>

@@ -53,34 +53,34 @@ const roleConfig = {
     label: "Admin",
     icon: Crown,
     bgColor: "bg-purple-500/20",
-    textColor: "text-purple-400",
+    textColor: "text-purple-700 dark:text-purple-400",
     borderColor: "border-purple-500/30",
   },
   MANAGER: {
     label: "Manager",
     icon: UserCog,
     bgColor: "bg-blue-500/20",
-    textColor: "text-blue-400",
+    textColor: "text-blue-700 dark:text-blue-400",
     borderColor: "border-blue-500/30",
   },
   USER: {
     label: "Technician",
     icon: Wrench,
-    bgColor: "bg-cyan-500/20",
-    textColor: "text-cyan-400",
-    borderColor: "border-cyan-500/30",
+    bgColor: "bg-brand-harbour-500/20",
+    textColor: "text-brand-harbour-700 dark:text-brand-harbour-400",
+    borderColor: "border-brand-harbour-500/30",
   },
 };
 
 const statusConfig: Record<string, { bg: string; text: string }> = {
-  completed: { bg: "bg-emerald-500/20", text: "text-emerald-400" },
-  COMPLETED: { bg: "bg-emerald-500/20", text: "text-emerald-400" },
-  submitted: { bg: "bg-blue-500/20", text: "text-blue-400" },
-  SUBMITTED: { bg: "bg-blue-500/20", text: "text-blue-400" },
-  in_progress: { bg: "bg-amber-500/20", text: "text-amber-400" },
-  IN_PROGRESS: { bg: "bg-amber-500/20", text: "text-amber-400" },
-  draft: { bg: "bg-slate-500/20", text: "text-slate-400" },
-  DRAFT: { bg: "bg-slate-500/20", text: "text-slate-400" },
+  completed: { bg: "bg-emerald-500/20", text: "text-emerald-700 dark:text-emerald-400" },
+  COMPLETED: { bg: "bg-emerald-500/20", text: "text-emerald-700 dark:text-emerald-400" },
+  submitted: { bg: "bg-blue-500/20", text: "text-blue-700 dark:text-blue-400" },
+  SUBMITTED: { bg: "bg-blue-500/20", text: "text-blue-700 dark:text-blue-400" },
+  in_progress: { bg: "bg-amber-500/20", text: "text-amber-700 dark:text-amber-400" },
+  IN_PROGRESS: { bg: "bg-amber-500/20", text: "text-amber-700 dark:text-amber-400" },
+  draft: { bg: "bg-slate-500/20", text: "text-brand-slate dark:text-slate-400" },
+  DRAFT: { bg: "bg-slate-500/20", text: "text-brand-slate dark:text-slate-400" },
 };
 
 function getInitials(name: string | null, email: string): string {
@@ -225,7 +225,7 @@ export default function TeamMemberDetailPage({
           </div>
         </div>
         {/* Header card skeleton */}
-        <Card className="bg-slate-800/50 border-slate-700/50">
+        <Card className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700/50">
           <CardContent className="p-6">
             <div className="flex items-center gap-5">
               <Skeleton className="h-20 w-20 rounded-full" />
@@ -252,17 +252,17 @@ export default function TeamMemberDetailPage({
   if (notFound || !member) {
     return (
       <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <AlertTriangle className="h-14 w-14 text-slate-400" />
-        <h3 className="text-xl font-medium text-white">
+        <AlertTriangle className="h-14 w-14 text-brand-slate dark:text-slate-400" />
+        <h3 className="text-xl font-medium text-brand-navy dark:text-white">
           Team member not found
         </h3>
-        <p className="text-slate-400 text-sm">
+        <p className="text-brand-slate dark:text-slate-400 text-sm">
           This member may have been removed or you don&apos;t have permission to
           view them.
         </p>
         <Link
           href="/dashboard/team"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors text-sm"
         >
           <ArrowLeft size={16} />
           Back to Team
@@ -282,15 +282,15 @@ export default function TeamMemberDetailPage({
         <div className="flex items-center gap-4">
           <Link
             href="/dashboard/team"
-            className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors text-slate-400 hover:text-white"
+            className="p-2 hover:bg-brand-cream dark:hover:bg-slate-700/50 rounded-lg transition-colors text-brand-slate dark:text-slate-400 hover:text-brand-navy dark:hover:text-white"
           >
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 className="text-2xl font-semibold text-white">
+            <h1 className="text-2xl font-semibold text-brand-navy dark:text-white">
               {member.name || member.email}
             </h1>
-            <p className="text-slate-400 text-sm">Team Member Profile</p>
+            <p className="text-brand-slate dark:text-slate-400 text-sm">Team Member Profile</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -298,7 +298,7 @@ export default function TeamMemberDetailPage({
             variant="outline"
             size="sm"
             asChild
-            className="border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700/50"
+            className="border-slate-600 text-brand-slate dark:text-slate-300 hover:text-brand-navy dark:hover:text-white hover:bg-brand-cream dark:hover:bg-slate-700/50"
           >
             <Link href="/dashboard/team">
               <Send size={14} className="mr-1.5" />
@@ -309,7 +309,7 @@ export default function TeamMemberDetailPage({
             <Button
               size="sm"
               onClick={() => setEditing(!editing)}
-              className="bg-cyan-500 hover:bg-cyan-600 text-white"
+              className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
             >
               <Edit size={14} className="mr-1.5" />
               {editing ? "Cancel Edit" : "Edit Member"}
@@ -320,30 +320,30 @@ export default function TeamMemberDetailPage({
 
       {/* Inline edit form */}
       {editing && isAdmin && (
-        <Card className="bg-slate-800/50 border-cyan-500/30">
+        <Card className="bg-white dark:bg-slate-800/50 border-brand-harbour-500/30">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base text-cyan-400">
+            <CardTitle className="text-base text-brand-harbour-700 dark:text-brand-harbour-400">
               Edit Member Details
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                <label className="text-xs font-medium text-brand-slate dark:text-slate-400 uppercase tracking-wide">
                   Full Name
                 </label>
                 <input
                   type="text"
                   value={member.name || ""}
                   disabled
-                  className="w-full px-3 py-2 bg-slate-800/60 border border-slate-700 rounded-lg text-slate-400 text-sm cursor-not-allowed"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-800/60 border border-brand-mist dark:border-slate-700 rounded-lg text-brand-slate dark:text-slate-400 text-sm cursor-not-allowed"
                 />
                 <p className="text-xs text-slate-500">
                   Name is set by the member’s own account profile.
                 </p>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                <label className="text-xs font-medium text-brand-slate dark:text-slate-400 uppercase tracking-wide">
                   Role
                 </label>
                 <select
@@ -352,7 +352,7 @@ export default function TeamMemberDetailPage({
                     setEditRole(e.target.value as "MANAGER" | "USER")
                   }
                   disabled={member.role === "ADMIN"}
-                  className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:opacity-60"
+                  className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-500 disabled:opacity-60"
                 >
                   <option value="MANAGER">Manager</option>
                   <option value="USER">Technician</option>
@@ -372,7 +372,7 @@ export default function TeamMemberDetailPage({
                   setEditing(false);
                   setEditRole(member.role);
                 }}
-                className="border-slate-600 text-slate-300"
+                className="border-slate-600 text-brand-slate dark:text-slate-300"
               >
                 Cancel
               </Button>
@@ -380,7 +380,7 @@ export default function TeamMemberDetailPage({
                 size="sm"
                 onClick={handleSaveEdit}
                 disabled={saving}
-                className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
               >
                 {saving ? "Saving..." : "Save Changes"}
               </Button>
@@ -390,7 +390,7 @@ export default function TeamMemberDetailPage({
       )}
 
       {/* Profile header card */}
-      <Card className="bg-slate-800/50 border-slate-700/50">
+      <Card className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700/50">
         <CardContent className="p-6">
           <div className="flex items-start gap-5">
             {/* Avatar */}
@@ -402,12 +402,12 @@ export default function TeamMemberDetailPage({
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <h2 className="text-xl font-semibold text-white truncate">
+              <h2 className="text-xl font-semibold text-brand-navy dark:text-white truncate">
                 {member.name || (
-                  <span className="text-slate-400 italic">No name set</span>
+                  <span className="text-brand-slate dark:text-slate-400 italic">No name set</span>
                 )}
               </h2>
-              <div className="flex items-center gap-2 mt-1 text-sm text-slate-400">
+              <div className="flex items-center gap-2 mt-1 text-sm text-brand-slate dark:text-slate-400">
                 <Mail size={14} />
                 <span className="truncate">{member.email}</span>
               </div>
@@ -418,7 +418,7 @@ export default function TeamMemberDetailPage({
                   <RoleIcon size={12} />
                   {rc.label}
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-300 border border-slate-600/50">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-brand-cream dark:bg-slate-700/50 text-brand-slate dark:text-slate-300 border border-slate-600/50">
                   <Calendar size={12} />
                   Joined {formatDate(member.createdAt)}
                 </span>
@@ -428,15 +428,15 @@ export default function TeamMemberDetailPage({
         </CardContent>
       </Card>
 
-      <Separator className="bg-slate-700/50" />
+      <Separator className="bg-brand-cream dark:bg-slate-700/50" />
 
       {/* Two-column layout */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Left: Activity */}
-        <Card className="bg-slate-800/50 border-slate-700/50">
+        <Card className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <FileText size={16} className="text-blue-400" />
+              <FileText size={16} className="text-blue-700 dark:text-blue-400" />
               Recent Activity
             </CardTitle>
           </CardHeader>
@@ -450,7 +450,7 @@ export default function TeamMemberDetailPage({
             ) : inspections.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center space-y-2">
                 <FileText size={36} className="text-slate-500" />
-                <p className="text-slate-400 text-sm">
+                <p className="text-brand-slate dark:text-slate-400 text-sm">
                   No recent activity found.
                 </p>
               </div>
@@ -459,21 +459,21 @@ export default function TeamMemberDetailPage({
                 {inspections.map((inspection) => {
                   const sc = statusConfig[inspection.status] ?? {
                     bg: "bg-slate-500/20",
-                    text: "text-slate-400",
+                    text: "text-brand-slate dark:text-slate-400",
                   };
                   return (
                     <Link
                       key={inspection.id}
                       href={`/dashboard/inspections/${inspection.id}`}
-                      className="flex items-center justify-between p-3 rounded-lg bg-slate-700/30 hover:bg-slate-700/50 transition-colors group"
+                      className="flex items-center justify-between p-3 rounded-lg bg-brand-cream dark:bg-slate-700/30 hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors group"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate group-hover:text-cyan-400 transition-colors">
+                        <p className="text-sm font-medium text-brand-navy dark:text-white truncate group-hover:text-brand-harbour-700 dark:group-hover:text-brand-harbour-400 transition-colors">
                           {inspection.propertyAddress ||
                             inspection.inspectionNumber ||
                             "Inspection"}
                         </p>
-                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                        <p className="text-xs text-brand-slate dark:text-slate-400 flex items-center gap-1 mt-0.5">
                           <Clock size={11} />
                           {formatAttendanceDateEnAu(inspection.inspectionDate) ??
                             ATTENDANCE_NOT_RECORDED_LABEL}
@@ -498,27 +498,27 @@ export default function TeamMemberDetailPage({
         </Card>
 
         {/* Right: Details */}
-        <Card className="bg-slate-800/50 border-slate-700/50">
+        <Card className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <User size={16} className="text-cyan-400" />
+              <User size={16} className="text-brand-harbour-700 dark:text-brand-harbour-400" />
               Member Details
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
-                <span className="text-sm text-slate-400 flex items-center gap-2">
+              <div className="flex items-center justify-between py-2 border-b border-brand-mist dark:border-slate-700/50">
+                <span className="text-sm text-brand-slate dark:text-slate-400 flex items-center gap-2">
                   <Mail size={14} />
                   Email
                 </span>
-                <span className="text-sm text-white truncate max-w-[200px]">
+                <span className="text-sm text-brand-navy dark:text-white truncate max-w-[200px]">
                   {member.email}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
-                <span className="text-sm text-slate-400 flex items-center gap-2">
+              <div className="flex items-center justify-between py-2 border-b border-brand-mist dark:border-slate-700/50">
+                <span className="text-sm text-brand-slate dark:text-slate-400 flex items-center gap-2">
                   <Shield size={14} />
                   Role
                 </span>
@@ -530,40 +530,40 @@ export default function TeamMemberDetailPage({
                 </span>
               </div>
 
-              <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
-                <span className="text-sm text-slate-400 flex items-center gap-2">
+              <div className="flex items-center justify-between py-2 border-b border-brand-mist dark:border-slate-700/50">
+                <span className="text-sm text-brand-slate dark:text-slate-400 flex items-center gap-2">
                   <User size={14} />
                   Status
                 </span>
-                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">
+                <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-xs">
                   Active
                 </Badge>
               </div>
 
-              <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
-                <span className="text-sm text-slate-400 flex items-center gap-2">
+              <div className="flex items-center justify-between py-2 border-b border-brand-mist dark:border-slate-700/50">
+                <span className="text-sm text-brand-slate dark:text-slate-400 flex items-center gap-2">
                   <Calendar size={14} />
                   Member Since
                 </span>
-                <span className="text-sm text-white">
+                <span className="text-sm text-brand-navy dark:text-white">
                   {formatDate(member.createdAt)}
                 </span>
               </div>
 
               {member.managedById && (
-                <div className="flex items-center justify-between py-2 border-b border-slate-700/50">
-                  <span className="text-sm text-slate-400 flex items-center gap-2">
+                <div className="flex items-center justify-between py-2 border-b border-brand-mist dark:border-slate-700/50">
+                  <span className="text-sm text-brand-slate dark:text-slate-400 flex items-center gap-2">
                     <UserCog size={14} />
                     Reports To
                   </span>
-                  <span className="text-sm text-slate-300 italic">
+                  <span className="text-sm text-brand-slate dark:text-slate-300 italic">
                     Manager assigned
                   </span>
                 </div>
               )}
 
               <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-slate-400 flex items-center gap-2">
+                <span className="text-sm text-brand-slate dark:text-slate-400 flex items-center gap-2">
                   <Clock size={14} />
                   Last Login
                 </span>
@@ -573,13 +573,13 @@ export default function TeamMemberDetailPage({
               </div>
             </div>
 
-            <Separator className="bg-slate-700/50" />
+            <Separator className="bg-brand-cream dark:bg-slate-700/50" />
 
             <div className="pt-1">
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700/50"
+                className="w-full border-slate-600 text-brand-slate dark:text-slate-300 hover:text-brand-navy dark:hover:text-white hover:bg-brand-cream dark:hover:bg-slate-700/50"
                 asChild
               >
                 <Link href="/dashboard/team">

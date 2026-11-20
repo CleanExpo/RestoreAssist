@@ -268,7 +268,7 @@ export default function ReportWorkflow({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -293,7 +293,7 @@ export default function ReportWorkflow({
                     stage.completed
                       ? "bg-green-500 text-white"
                       : currentStage === stage.id
-                        ? "bg-cyan-500 text-white"
+                        ? "bg-brand-harbour-500 text-white"
                         : cn(
                             "bg-neutral-300 dark:bg-slate-700",
                             "text-neutral-600 dark:text-slate-400",
@@ -310,7 +310,7 @@ export default function ReportWorkflow({
                   className={cn(
                     "text-xs mt-2 text-center",
                     currentStage === stage.id
-                      ? "text-cyan-600 dark:text-cyan-400 font-medium"
+                      ? "text-brand-harbour-600 dark:text-brand-harbour-400 font-medium"
                       : cn("text-neutral-600 dark:text-slate-400"),
                   )}
                 >

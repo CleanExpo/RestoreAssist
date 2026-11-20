@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
       clientId: result.clientId,
       email: result.email,
       name: result.name,
+      passwordHash: result.passwordHash,
     });
 
     return NextResponse.json(

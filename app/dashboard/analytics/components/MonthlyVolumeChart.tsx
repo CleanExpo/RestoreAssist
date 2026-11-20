@@ -22,6 +22,19 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  CHART_CHROME,
+  CHART_SERIES,
+  CHART_TOOLTIP_STYLE,
+} from "@/lib/charts/palette";
+
+// Slots assigned in order: total reports, pending, completed. Pending and
+// completed stack against each other, and slots 2 and 3 are a validated pair.
+// Revenue is a single series, so it takes slot 1 as it does across analytics.
+const TOTAL_COLOUR = CHART_SERIES[0];
+const PENDING_COLOUR = CHART_SERIES[1];
+const COMPLETED_COLOUR = CHART_SERIES[2];
+const REVENUE_COLOUR = CHART_SERIES[0];
 
 interface MonthlyData {
   month: string;
@@ -368,8 +381,8 @@ export default function MonthlyVolumeChart({
                 x2="0"
                 y2="1"
               >
-                <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.3} />
+                <stop offset="5%" stopColor={TOTAL_COLOUR} stopOpacity={0.8} />
+                <stop offset="95%" stopColor={TOTAL_COLOUR} stopOpacity={0.3} />
               </linearGradient>
               <linearGradient
                 id="colorVolumeRevenue"
@@ -378,8 +391,8 @@ export default function MonthlyVolumeChart({
                 x2="0"
                 y2="1"
               >
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0.3} />
+                <stop offset="5%" stopColor={REVENUE_COLOUR} stopOpacity={0.8} />
+                <stop offset="95%" stopColor={REVENUE_COLOUR} stopOpacity={0.3} />
               </linearGradient>
             </defs>
             <CartesianGrid
@@ -401,16 +414,11 @@ export default function MonthlyVolumeChart({
                 value: viewMode === "reports" ? "Reports" : "Revenue ($)",
                 angle: -90,
                 position: "insideLeft",
-                style: { textAnchor: "middle", fill: "rgb(107 114 128)" },
+                style: { textAnchor: "middle", fill: CHART_CHROME.axis },
               }}
             />
             <Tooltip
-              contentStyle={{
-                backgroundColor: "rgb(255 255 255 / 0.95)",
-                border: "1px solid rgb(229 231 235)",
-                borderRadius: "8px",
-                color: "#111827",
-              }}
+              contentStyle={CHART_TOOLTIP_STYLE}
               formatter={
                 ((value: any, name: string) => {
                   if (name === "reports") return [value, "Reports"];
@@ -428,23 +436,23 @@ export default function MonthlyVolumeChart({
                 <Bar
                   dataKey="completed"
                   stackId="reports"
-                  fill="#10b981"
+                  fill={COMPLETED_COLOUR}
                   name="Completed"
                   radius={[0, 0, 0, 0]}
                 />
                 <Bar
                   dataKey="pending"
                   stackId="reports"
-                  fill="#f59e0b"
+                  fill={PENDING_COLOUR}
                   name="Pending"
                   radius={[4, 4, 0, 0]}
                 />
                 <Line
                   type="monotone"
                   dataKey="reports"
-                  stroke="#3b82f6"
+                  stroke={TOTAL_COLOUR}
                   strokeWidth={2}
-                  dot={{ fill: "#3b82f6", r: 4 }}
+                  dot={{ fill: TOTAL_COLOUR, r: 4 }}
                   name="Total Reports"
                 />
               </>

@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { MarketingShell } from "@/components/landing/home/MarketingShell";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
   title: "Compliance Library - IICRC S500 & Standards Reference",
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
     description: "IICRC S500 and Australian restoration standards reference.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/compliance-library" },

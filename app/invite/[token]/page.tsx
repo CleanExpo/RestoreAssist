@@ -170,7 +170,7 @@ export default function InviteAcceptPage() {
           </Alert>
           <div className="text-center text-sm text-slate-400">
             Already have an account?{" "}
-            <Link href="/login" className="text-cyan-400 hover:underline">
+            <Link href="/login" className="text-brand-harbour-400 hover:underline">
               Login
             </Link>
           </div>
@@ -369,7 +369,7 @@ export default function InviteAcceptPage() {
 
           <div className="mt-6 text-center text-xs text-slate-500">
             Already have an account?{" "}
-            <Link href="/login" className="text-cyan-400 hover:underline">
+            <Link href="/login" className="text-brand-harbour-400 hover:underline">
               Sign in
             </Link>
           </div>

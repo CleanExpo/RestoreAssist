@@ -2508,6 +2508,14 @@ model EnvironmentalData {
   grainsPerPound Float?
   vaporPressure  Float?
 
+  // RA-8388: the signed evidence record this row was written from. Null for
+  // every row not written by a signed capture. Unique: one evidence record
+  // backs at most one counted row. ON DELETE NO ACTION - the evidence record
+  // under a counted reading cannot be removed on its own; NO ACTION rather
+  // than RESTRICT so deleting the whole inspection still cascades cleanly.
+  evidenceItemId String?       @unique
+  evidenceItem   EvidenceItem? @relation(fields: [evidenceItemId], references: [id], onDelete: NoAction)
+
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -2569,6 +2577,15 @@ model MoistureReading {
   // partitionStaleRooms detaches rather than deletes rooms that hold these.
   sketchRoomId String?
   sketchRoom   SketchRoom? @relation("JobMoistureReadings", fields: [sketchRoomId], references: [id], onDelete: SetNull)
+
+  // RA-8388: the signed evidence record this reading was written from. Null
+  // for every reading not written by a signed capture. Unique: one evidence
+  // record backs at most one reading. ON DELETE NO ACTION, deliberately not
+  // Cascade: a reading is retained for audit under controlled invalidation
+  // (invalidatedAt above), so removing its evidence record must never delete
+  // it, and must not silently unlink it either (Set Null).
+  evidenceItemId String?       @unique
+  evidenceItem   EvidenceItem? @relation(fields: [evidenceItemId], references: [id], onDelete: NoAction)
 
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -3236,6 +3253,10 @@ model CostEstimate {
   // Source
   costDatabaseId String? // Link to CostDatabase entry if used
   isEstimated    Boolean @default(true) // True if from database, false if custom
+  // RA-8419: "SPM" marks the Senior Project Manager line, which the business
+  // adds itself (addSpmRow); generate and submit never write it. Null for
+  // every other line. Never identify the SPM line by its description.
+  lineKind       String?
 
   // Totals
   contingency Float? // Contingency percentage applied
@@ -5794,9 +5815,21 @@ model EvidenceItem {
   // RA-6996 — chain-of-custody audit trail (verified against prod 2026-07-05).
   custodyEvents CustodyEvent[]
 
+  // RA-8388: SHA-256 of the canonical metadata payload, set ONLY for a signed
+  // metadata submission. The digest does not contain the capture time, so the
+  // duplicate guard below pairs it with the signed capturedAt: a retry of one
+  // capture collides, a second reading of the same value does not. Every row
+  // written before this column existed holds NULL, and NULLs never collide.
+  metadataSha256 String?
+
+  // RA-8388: the counted row written from this evidence record, if any.
+  moistureReading   MoistureReading?
+  environmentalData EnvironmentalData?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([inspectionId, evidenceClass, metadataSha256, capturedAt], map: "EvidenceItem_signed_capture_key")
   @@index([inspectionId])
   @@index([evidenceClass])
   @@index([capturedById])

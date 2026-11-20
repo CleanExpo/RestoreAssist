@@ -23,7 +23,7 @@ export default function PortalHelpIndexPage() {
           <li key={article.slug}>
             <Link
               href={`${PORTAL_PATHS.help}/${article.slug}`}
-              className={`${clientPortalPanelPadding} block transition hover:border-cyan-400/30`}
+              className={`${clientPortalPanelPadding} block transition hover:border-brand-harbour-400/30`}
             >
               <h2 className="text-lg font-semibold text-white/95">
                 {article.title}

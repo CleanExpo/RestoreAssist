@@ -92,7 +92,7 @@ function ScoreRing({ score }: { score: number }) {
             stroke="currentColor"
             strokeWidth={12}
             fill="none"
-            className="text-slate-200 dark:text-slate-700"
+            className="text-brand-navy dark:text-slate-700"
           />
           <circle
             cx={90}
@@ -372,7 +372,7 @@ export default function CompletenessCheckPage() {
                             <span className="font-medium">
                               {report.reportNumber ?? report.id.slice(0, 8)}
                             </span>
-                            <span className="text-slate-400 ml-2">
+                            <span className="text-brand-slate dark:text-slate-400 ml-2">
                               — {report.clientName}
                             </span>
                           </SelectItem>

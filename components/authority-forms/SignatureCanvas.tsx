@@ -338,7 +338,7 @@ export function SignatureCanvas({
                 disabled={disabled}
                 className={`w-7 h-7 rounded border-2 ${
                   lineColor === "#000000"
-                    ? "border-cyan-500 ring-2 ring-cyan-200 dark:ring-cyan-800"
+                    ? "border-brand-harbour-500 ring-2 ring-brand-harbour-200 dark:ring-brand-harbour-800"
                     : "border-slate-300 dark:border-slate-600"
                 } bg-black transition-all`}
                 title="Black ink"
@@ -349,7 +349,7 @@ export function SignatureCanvas({
                 disabled={disabled}
                 className={`w-7 h-7 rounded border-2 ${
                   lineColor === "#0000FF"
-                    ? "border-cyan-500 ring-2 ring-cyan-200 dark:ring-cyan-800"
+                    ? "border-brand-harbour-500 ring-2 ring-brand-harbour-200 dark:ring-brand-harbour-800"
                     : "border-slate-300 dark:border-slate-600"
                 } bg-blue-600 transition-all`}
                 title="Blue ink"
@@ -366,7 +366,7 @@ export function SignatureCanvas({
                 disabled={disabled}
                 className={`w-7 h-7 rounded flex items-center justify-center ${
                   lineWidth === 1.5
-                    ? "bg-cyan-100 dark:bg-cyan-950/30 border-cyan-500"
+                    ? "bg-brand-harbour-100 dark:bg-brand-harbour-950/30 border-brand-harbour-500"
                     : "hover:bg-slate-100 dark:hover:bg-slate-800"
                 } border transition-all`}
                 title="Thin line"
@@ -379,7 +379,7 @@ export function SignatureCanvas({
                 disabled={disabled}
                 className={`w-7 h-7 rounded flex items-center justify-center ${
                   lineWidth === 2.5
-                    ? "bg-cyan-100 dark:bg-cyan-950/30 border-cyan-500"
+                    ? "bg-brand-harbour-100 dark:bg-brand-harbour-950/30 border-brand-harbour-500"
                     : "hover:bg-slate-100 dark:hover:bg-slate-800"
                 } border transition-all`}
                 title="Medium line"
@@ -392,7 +392,7 @@ export function SignatureCanvas({
                 disabled={disabled}
                 className={`w-7 h-7 rounded flex items-center justify-center ${
                   lineWidth === 3.5
-                    ? "bg-cyan-100 dark:bg-cyan-950/30 border-cyan-500"
+                    ? "bg-brand-harbour-100 dark:bg-brand-harbour-950/30 border-brand-harbour-500"
                     : "hover:bg-slate-100 dark:hover:bg-slate-800"
                 } border transition-all`}
                 title="Thick line"
@@ -407,7 +407,7 @@ export function SignatureCanvas({
           type="button"
           onClick={handleSave}
           disabled={disabled || !hasSignature}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md bg-cyan-500 hover:bg-cyan-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors w-full sm:w-auto justify-center"
+          className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors w-full sm:w-auto justify-center"
         >
           <Check className="h-3.5 w-3.5" />
           Confirm Signature

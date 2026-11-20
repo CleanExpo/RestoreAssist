@@ -158,7 +158,7 @@ export default function AccountTypeOnboardingPage() {
                         <input
                           id="acceptedTerms"
                           type="checkbox"
-                          className="mt-1 h-4 w-4 rounded border-neutral-300 text-cyan-600 focus:ring-cyan-500"
+                          className="mt-1 h-4 w-4 rounded border-neutral-300 text-brand-harbour-600 focus:ring-brand-harbour-500"
                           checked={Boolean(field.value)}
                           onChange={(e) => field.onChange(e.target.checked)}
                           aria-describedby="acceptedTerms-desc"

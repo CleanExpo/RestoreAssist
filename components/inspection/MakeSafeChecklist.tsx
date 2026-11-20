@@ -3,7 +3,7 @@
 // RA-1136a: Make-Safe first-48h compliance checklist component
 // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
 //
-// Brand: navy #1C2E47 header · warm #8A6B4E accents · shadcn/ui primitives only
+// Brand: navy header (brand-navy) · harbour accents (brand-cta) · shadcn/ui primitives only
 
 import {
   forwardRef,
@@ -305,7 +305,7 @@ const MakeSafeChecklistForInspection = forwardRef<
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-3"
-        style={{ backgroundColor: "#1C2E47" }}
+        style={{ backgroundColor: "var(--color-brand-navy)" }}
       >
         <div>
           <h2 className="text-base font-semibold text-white">
@@ -351,7 +351,7 @@ const MakeSafeChecklistForInspection = forwardRef<
                   aria-label={`Mark "${ACTION_LABELS[action]}" as completed`}
                   style={
                     row.completed && row.applicable
-                      ? { accentColor: "#8A6B4E" }
+                      ? { accentColor: "var(--color-brand-cta)" }
                       : undefined
                   }
                 />

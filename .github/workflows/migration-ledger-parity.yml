@@ -23,6 +23,15 @@ name: Migration ledger parity
 # closes it. Nothing applies migrations automatically, so right after such a
 # merge production IS behind until someone runs the approved apply step: the
 # issue is that request. Interim alarm only; the permanent fix is RA-7942.
+#
+# RA-8386. From 8 Nov 2026 the sandbox leg failed every day because the
+# sandbox was 30 migrations AHEAD of main (branch migrations applied by hand
+# for testing), and only production had the alarm, so the red had no owner.
+# Now each matrix leg declares an ahead policy. Sandbox (ahead: warn): behind
+# still fails, ahead passes with a warning that names the difference.
+# Production (ahead: fail): unchanged, it must match exactly. "Could not
+# check" fails both legs. Each leg keeps its own labelled issue, so a green
+# sandbox can never close a production alarm.
 
 on:
   push:
@@ -53,8 +62,8 @@ jobs:
     name: Ledger parity (${{ matrix.target.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 3
-    # issues: write is for the alarm step only. A matrix cannot vary
-    # permissions per leg; the sandbox leg never runs that step.
+    # issues: write is for the alarm step only. Both legs run it on main,
+    # each against its own label (RA-8386).
     permissions:
       contents: read
       issues: write
@@ -62,12 +71,16 @@ jobs:
       # Each database is reported on its own. A behind sandbox must not
       # cancel the production result, or the reverse.
       fail-fast: false
+      # ahead: warn only where testing branch migrations before merge is the
+      # intended workflow. Any other value (or none) is strict.
       matrix:
         target:
           - name: sandbox
             origin: https://restoreassist-sandbox.vercel.app
+            ahead: warn
           - name: production
             origin: https://restoreassist.app
+            ahead: fail
     steps:
       # The branch tip as it is NOW, not the commit that started the run
       # (RA-8227). A re-run keeps its original commit, so an old run re-run
@@ -89,23 +102,30 @@ jobs:
       # Exit 1 = the database is behind or differs. Exit 2 = could not check.
       # Both fail the job; the log line says which. continue-on-error lets the
       # alarm step below run; the last step turns the job red again.
+      # With --allow-ahead (sandbox only), a clean ledger ahead of this
+      # revision exits 0 and prints a WARN line plus a ::warning:: annotation.
       - name: Compare the deployed ledger with this revision
         id: parity
         continue-on-error: true
         env:
           TARGET_ORIGIN: ${{ matrix.target.origin }}
+          AHEAD_POLICY: ${{ matrix.target.ahead }}
         run: |
+          args=("$TARGET_ORIGIN")
+          if [ "$AHEAD_POLICY" = "warn" ]; then args+=(--allow-ahead); fi
           status=0
-          node scripts/ci/check-migration-ledger-parity.mjs "$TARGET_ORIGIN" >"$RUNNER_TEMP/parity.log" 2>&1 || status=$?
+          node scripts/ci/check-migration-ledger-parity.mjs "${args[@]}" >"$RUNNER_TEMP/parity.log" 2>&1 || status=$?
           cat "$RUNNER_TEMP/parity.log"
           exit "$status"
 
-      # Production on main only: a branch's migrations folder is not what
-      # production should match. Any outcome except "success" (failure,
-      # skipped) counts as behind, so an unclear result never closes the issue.
-      - name: Keep one issue open while production is behind
-        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && matrix.target.name == 'production' && github.ref == 'refs/heads/main' }}
+      # Main only: a branch's migrations folder is not what a shared database
+      # should match. Each leg keeps its own issue (LEDGER_TARGET picks the
+      # label). Any outcome except "success" (failure, skipped) counts as
+      # behind, so an unclear result never closes the issue.
+      - name: Keep one issue open while this database is behind
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && github.ref == 'refs/heads/main' }}
         env:
+          LEDGER_TARGET: ${{ matrix.target.name }}
           PARITY_OUTCOME: ${{ steps.parity.outcome }}
           PARITY_LOG: ${{ runner.temp }}/parity.log
           TARGET_ORIGIN: ${{ matrix.target.origin }}

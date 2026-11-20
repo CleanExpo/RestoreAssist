@@ -1,0 +1,63 @@
+{
+  "schema": "done/1",
+  "criterion_evidence": "PROVEN",
+  "verification_status": "PASS",
+  "delivery_status": "NOT_STARTED",
+  "verified_head": "a28bb50871f791bfe41d623e4e5aad7c108317f1",
+  "updated_at_utc": "2026-11-19T02:07:08Z",
+  "last_verify": {
+    "head": "a28bb50871f791bfe41d623e4e5aad7c108317f1",
+    "at_utc": "2026-11-19T02:07:08Z",
+    "matrix": [
+      {
+        "id": "RA-PORTS-CONFIG-TEST",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js tests/unit/playwright-e2e-ports.test.ts",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 1.0,
+        "output_digest": "e6c25038487f0224dc778fe4627038adb2969c83cfcab75a1bc353cad0c24a2a",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_129164bf1317/a28bb50871f7/RA-PORTS-CONFIG-TEST-4b4df30b3b1b-e6c25038487f0224.log",
+        "output_tail": "\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-e2e-ports\u001b[39m\n\n \u001b[32m✓\u001b[39m tests/unit/playwright-e2e-ports.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 235\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m3 passed\u001b[39m\u001b[22m\u001b[90m (3)\u001b[39m\n\u001b[2m   Start at \u001b[22m 12:07:07\n\u001b[2m   Duration \u001b[22m 439ms\u001b[2m (transform 42ms, setup 72ms, import 6ms, tests 235ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "RA-PORTS-ONE-OWNER",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "git grep -n 'localhost:3000' -- config/playwright.config.ts e2e/helpers/session-cookie.ts e2e/pilot-workflow.spec.ts e2e/stripe-connect-payments.spec.ts e2e/setup-storage-google-drive.spec.ts; test $? -eq 1",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 0.0,
+        "output_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_129164bf1317/a28bb50871f7/RA-PORTS-ONE-OWNER-c9a3199386ba-e3b0c44298fc1c14.log",
+        "output_tail": ""
+      },
+      {
+        "id": "RA-PORTS-NEXTAUTH",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "git grep -q -E '^\\s+NEXTAUTH_URL: http://localhost:3000' -- .github/workflows/sketch-e2e.yml; test $? -eq 1 && git grep -q 'NEXTAUTH_URL=http://localhost:%s' -- .github/workflows/sketch-e2e.yml && /opt/homebrew/bin/actionlint .github/workflows/sketch-e2e.yml",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 0.2,
+        "output_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_129164bf1317/a28bb50871f7/RA-PORTS-NEXTAUTH-7c9d5027b249-e3b0c44298fc1c14.log",
+        "output_tail": ""
+      },
+      {
+        "id": "RA-PORTS-SCOPE",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "git diff --name-only origin/main...HEAD | grep -v -E '^(config/playwright.config.ts|e2e/helpers/local-origin.ts|e2e/helpers/session-cookie.ts|e2e/pilot-workflow.spec.ts|e2e/stripe-connect-payments.spec.ts|e2e/setup-storage-google-drive.spec.ts|.github/workflows/sketch-e2e.yml|tests/unit/playwright-e2e-ports.test.ts|\\.claude/done/.*)$'; test $? -eq 1",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 0.0,
+        "output_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_129164bf1317/a28bb50871f7/RA-PORTS-SCOPE-b3cda97f7fe4-e3b0c44298fc1c14.log",
+        "output_tail": ""
+      }
+    ],
+    "blockers": []
+  }
+}

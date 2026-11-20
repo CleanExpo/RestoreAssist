@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
+import { LOCAL_ORIGIN } from "./helpers/local-origin";
 
 /**
  * Pilot Workflow Smoke Tests — RA-1710 / P0-8.
@@ -173,7 +174,7 @@ async function unauthedJsonPost(
 }
 
 function configuredSmokeOrigin(): URL {
-  const configured = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+  const configured = process.env.PLAYWRIGHT_BASE_URL ?? LOCAL_ORIGIN;
   const parsed = new URL(configured);
   if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
     throw new Error(`smoke base URL must be an origin, observed ${configured}`);

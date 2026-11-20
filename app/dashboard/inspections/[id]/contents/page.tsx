@@ -604,7 +604,7 @@ export default function ContentsManifestPage() {
                           "w-3.5 h-3.5",
                           item.flagForReview
                             ? "text-amber-500 fill-amber-500/20"
-                            : "text-neutral-300",
+                            : "text-brand-slate dark:text-neutral-300",
                         )}
                         aria-label={
                           item.flagForReview

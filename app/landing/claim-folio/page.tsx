@@ -11,7 +11,7 @@ import { ClaimFolioLanding } from "@/components/landing/concepts/claim-folio/Cla
 export default function ClaimFolioPage() {
   return (
     <div
-      className={`${outfit.variable} ${jakarta.variable} ${jakarta.className} min-h-screen bg-[#F0F3F6] text-[#0B1F3A] antialiased [text-rendering:optimizeLegibility]`}
+      className={`${outfit.variable} ${jakarta.variable} ${jakarta.className} min-h-screen bg-[#F0F3F6] text-brand-navy antialiased [text-rendering:optimizeLegibility]`}
     >
       <LandingNav />
       <main id="main-content">

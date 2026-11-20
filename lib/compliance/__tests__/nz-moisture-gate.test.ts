@@ -99,4 +99,16 @@ describe("checkNzMoistureGate", () => {
     expect(result.canSubmit).toBe(true);
     expect(result.warnings).toHaveLength(0);
   });
+
+  // RA-8388: a retired reading is a corrected mistake and must not warn.
+  it("asks only for readings that have not been retired", async () => {
+    mockFindMany.mockResolvedValueOnce([]);
+
+    await checkNzMoistureGate("insp-005");
+
+    expect(mockFindMany.mock.calls.at(-1)?.[0]?.where).toEqual({
+      inspectionId: "insp-005",
+      invalidatedAt: null,
+    });
+  });
 });

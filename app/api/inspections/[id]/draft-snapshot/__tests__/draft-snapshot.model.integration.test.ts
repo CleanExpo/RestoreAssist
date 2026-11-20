@@ -116,6 +116,13 @@ function plantedPin(level: number, i: number, sketchRoomId: string): Record<stri
     invalidatedByUserId: `invalidator-${level}`,
     invalidationReason: `reason ${level}`,
     replacementReadingId: `replacement-${level}`,
+    // RA-8388: deliberately null, and stated rather than omitted. This model
+    // is about readings captured on another screen through POST /moisture,
+    // which are unsigned and hold no evidence link. A reading that DOES hold
+    // one follows a different rule - the form may not edit or remove it - and
+    // that rule is proved in signed-rows.test.ts and, on a real database, in
+    // lib/evidence/__tests__/authoritative-link.integration.test.ts.
+    evidenceItemId: null,
   };
   const missing = PINNED.filter((f) => !(f in values));
   // A new MoistureReading column must get a planted value here, or nothing

@@ -237,7 +237,7 @@ export function HomeownerCapturePanel({
           onClick={invite}
           disabled={busy !== null}
           aria-label="Invite homeowner to capture"
-          className={`${btn} border-cyan-400/40 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25`}
+          className={`${btn} border-brand-harbour-400/40 bg-brand-harbour-500/15 text-brand-harbour-100 hover:bg-brand-harbour-500/25`}
         >
           {busy === "invite" ? "Creating…" : "Invite homeowner…"}
         </button>

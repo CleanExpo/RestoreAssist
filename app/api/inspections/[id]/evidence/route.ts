@@ -13,7 +13,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
 import { BUCKET_OPTIMISED, BUCKET_ORIGINALS } from "@/lib/storage/types";
-import { apiError, fromException } from "@/lib/api-errors";
+import { apiError, fromException, logRefusal } from "@/lib/api-errors";
+import { bodyField, requiredIdentifier } from "@/lib/request-identifier";
+import { reportError } from "@/lib/observability";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import {
   getIdempotencyKey,
@@ -26,15 +28,67 @@ import {
   assertInspectionReadable,
 } from "@/lib/auth/assert-tenancy";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
-import {
-  checkManifestBinding,
-  parseSignedManifest,
-  verifyManifestSignature,
-} from "@/lib/evidence/manifest-verify";
 import type { SignedEvidenceManifest } from "@/lib/evidence/manifest-canonical";
-import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
+import {
+  buildEvidenceStructuredData,
+  type VerifiedManifestInput,
+} from "@/lib/evidence/structured-data";
+import {
+  canonicalMetadataPayload,
+  metadataPayloadSha256,
+} from "@/lib/evidence/metadata-payload";
+// RA-8388: this route no longer imports the signature primitives. Both of its
+// writers go through the one gate, which is what stops a sixth writer being
+// added that forgets a check. See lib/evidence/verified-evidence-gate.ts.
+import {
+  deriveAuthoritativeRow,
+  isPhotographEvidenceClass,
+  linkPlanToEvidence,
+  photoCountDecision,
+  photoRowPlan,
+} from "@/lib/evidence/authoritative-rows";
+import {
+  evidenceClassAllowedOnPath,
+  wrongSubmissionPathMessage,
+} from "@/lib/evidence/submission-path-classes";
+import { isSignedCaptureDuplicate } from "@/lib/evidence/signed-capture-key";
+import { evidenceBacksReadingRefusal } from "@/lib/evidence/signed-row-guard";
+import { verifyEvidenceSubmission } from "@/lib/evidence/verified-evidence-gate";
 import { isVideoEvidenceClass } from "@/lib/evidence/evidence-classes";
 import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
+
+/**
+ * The limits on every interactive transaction this route opens.
+ *
+ * ONE owner. Prisma's defaults (2 seconds to get a connection, 5 seconds to
+ * run) were in force by omission, and the wait is the one that matters: with
+ * five pooled connections and a few requests in flight, a capture could wait
+ * longer than 2 seconds for a connection and be refused before its
+ * transaction had even begun.
+ *
+ * `maxWait` is deliberately BELOW the pool's own connection timeout
+ * (lib/prisma-pool-config.ts, 20 seconds). If the pool gave up first the
+ * failure would arrive as a driver error this route cannot tell from a
+ * dropped connection; when Prisma gives up first it raises the one error
+ * that proves no statement ran (see `createInsertProvablyDidNotCommit`).
+ */
+const EVIDENCE_TRANSACTION_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 10_000,
+} as const;
+
+/**
+ * The text Prisma puts on a P2028 raised because no connection came free
+ * inside `maxWait`: the transaction NEVER STARTED. Read from the installed
+ * client (@prisma/client 7.10.1, runtime/client.js, "Unable to start a
+ * transaction in the given time.").
+ *
+ * Matching on message text is brittle on purpose, in the safe direction: if
+ * a Prisma upgrade rewords it, the match fails and the error falls back to
+ * "may already have been saved", the careful answer. It can never widen.
+ */
+const PRISMA_TRANSACTION_NEVER_STARTED =
+  "Unable to start a transaction in the given time";
 
 export async function GET(
   request: NextRequest,
@@ -57,6 +111,11 @@ export async function GET(
     // guided-capture readback of their own save returned 404.
     const tenancy = await assertInspectionReadable(session, inspectionId);
     if (!tenancy.ok) {
+      logRefusal(request, {
+        code: "TENANCY_REFUSED",
+        status: tenancy.status,
+        stage: "tenancy",
+      });
       return NextResponse.json(
         { error: tenancy.reason },
         { status: tenancy.status },
@@ -104,6 +163,11 @@ export async function POST(
   // the assigned technician included). Deleting stays on the write gate.
   const tenancy = await assertInspectionCapturable(session, inspectionId);
   if (!tenancy.ok) {
+    logRefusal(request, {
+      code: "TENANCY_REFUSED",
+      status: tenancy.status,
+      stage: "tenancy",
+    });
     return NextResponse.json(
       { error: tenancy.reason },
       { status: tenancy.status },
@@ -135,6 +199,21 @@ export async function POST(
     request,
     userId,
     async (rawBody) => {
+      // RA-8388 review: TRUE only once the write itself has been started.
+      // The catch below must not answer "may already have been saved" for a
+      // failure that happened BEFORE any insert (a key lookup, the policy
+      // read, hashing) - nothing can have committed then, and telling a
+      // technician to go looking for a reading that does not exist, with no
+      // Retry, is its own fault.
+      let writeStarted = false;
+      // RA-8388 AMENDMENT 05: the unique key of a signed capture, kept so
+      // the catch below can find the record a duplicate collided with.
+      let duplicateKey: {
+        inspectionId: string;
+        evidenceClass: EvidenceClass;
+        metadataSha256: string;
+        capturedAt: Date;
+      } | null = null;
       try {
         let body: any;
         try {
@@ -173,6 +252,15 @@ export async function POST(
             status: 400,
           });
         }
+        // RA-8388 (ruling 17/11/2026): this path has no file, so it stores
+        // only the classes it can build a record for. One owner decides.
+        if (!evidenceClassAllowedOnPath(evidenceClass, "json")) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: wrongSubmissionPathMessage("json"),
+            status: 400,
+          });
+        }
 
         // RA-7090 slice 2 (P0 terminal fix): there is NO unsigned-exempt path.
         // The earlier metadata-only exemption relied on inspecting the payload
@@ -195,13 +283,98 @@ export async function POST(
         // signed-metadata contract is added (client signs the canonical JSON,
         // server canonicalise-then-verifies). Same class of interim as the
         // batch writer. Do NOT re-introduce byte-detection as a substitute.
-        const policy = await evaluateUnsignedSubmission(userId);
-        if (!policy.ok) {
-          return apiError(request, {
-            code: policy.code,
-            message: policy.message,
-            status: policy.status,
+        //
+        // RA-8388 — THE INTERIM ABOVE IS NOW CLOSED. The client can sign a
+        // metadata-only submission: `lib/evidence/metadata-payload.ts` defines
+        // the canonical payload and its digest, both sides call it, and the
+        // digest travels in the manifest's `sha256` slot with `digestKind:
+        // "metadata"` beside it. Everything the comment above describes as
+        // missing now exists. What has NOT changed, and must not: there is
+        // still no unsigned-exempt path, no metadata exemption, and no
+        // byte-detection heuristic.
+        const canonicalPayload = canonicalMetadataPayload({
+          evidenceClass,
+          title,
+          notes,
+          structuredData,
+        });
+        // The canonical form refuses a value it cannot write the same way
+        // twice. JSON can carry one: `1e999` parses to Infinity. That is the
+        // sender's mistake, so it is answered in words as a 400 instead of
+        // surfacing from the catch below as an unexplained 500. Nothing has
+        // been looked up or written at this point.
+        let metadataDigest: string;
+        try {
+          metadataDigest = await metadataPayloadSha256({
+            evidenceClass,
+            title,
+            notes,
+            structuredData,
           });
+        } catch {
+          return apiError(request, {
+            code: "VALIDATION",
+            message:
+              "This submission holds a value that cannot be recorded (every number must be a finite number), so it was not saved.",
+            status: 400,
+          });
+        }
+
+        const { signedManifest, manifestSignature } = body;
+        const offersSignature =
+          signedManifest !== undefined || manifestSignature !== undefined;
+
+        let verifiedManifest: VerifiedManifestInput | null = null;
+        let persistedCapturedAt = new Date();
+        let persistedLat: number | null = capturedLat || null;
+        let persistedLng: number | null = capturedLng || null;
+        let downgradeReason: string | null = null;
+
+        if (offersSignature) {
+          // ONE gate, shared with the multipart writer. This route no longer
+          // sequences the signature checks itself — see
+          // lib/evidence/verified-evidence-gate.ts for why that matters.
+          const gate = await verifyEvidenceSubmission({
+            manifestRaw: signedManifest,
+            signatureRaw: manifestSignature,
+            userId,
+            inspectionId,
+            evidenceClass,
+            workflowStepId: workflowStepId || null,
+            submissionDigest: metadataDigest,
+            digestKind: "metadata",
+            capturedLat:
+              typeof capturedLat === "number" ? capturedLat : undefined,
+            capturedLng:
+              typeof capturedLng === "number" ? capturedLng : undefined,
+          });
+          if (!gate.ok) {
+            return apiError(request, {
+              code: gate.code,
+              message: gate.message,
+              status: gate.status,
+            });
+          }
+          verifiedManifest = {
+            manifest: gate.manifest,
+            signature: gate.signature,
+            publicKeyPem: gate.publicKeyPem,
+          };
+          // Provenance comes from the SIGNED manifest, not the server clock —
+          // the dispute pack prints these columns as a device claim.
+          persistedCapturedAt = gate.capturedAt;
+          persistedLat = gate.capturedLat;
+          persistedLng = gate.capturedLng;
+        } else {
+          const policy = await evaluateUnsignedSubmission(userId);
+          if (!policy.ok) {
+            return apiError(request, {
+              code: policy.code,
+              message: policy.message,
+              status: policy.status,
+            });
+          }
+          downgradeReason = policy.downgradeReason;
         }
 
         // RA-7090 review fix (Opus #6): the old create was cast `as any`,
@@ -212,24 +385,58 @@ export async function POST(
         // excess properties on Prisma's create-input union, so the runtime
         // test asserting `"notes" in created === false` is the real guard
         // against phantom columns.
-        const evidenceItem = await prisma.evidenceItem.create({
-          data: {
+        // RA-8388 Fault B: the completion gate counts MoistureReading and
+        // EnvironmentalData, not EvidenceItem. Writing only the evidence
+        // record is why a technician could capture everything a step asked
+        // for and still be told the job had outstanding issues it could not
+        // name. Plan the authoritative row from the SAME values the evidence
+        // record was signed over, BEFORE opening the transaction, so a
+        // missing required field is a clear refusal rather than a half-write.
+        const rowPlan = deriveAuthoritativeRow(
+          evidenceClass,
+          canonicalPayload.structuredData,
+          {
+            inspectionId,
+            capturedAt: persistedCapturedAt,
+            notes: canonicalPayload.description,
+          },
+        );
+        if (!rowPlan.ok) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: rowPlan.message,
+            status: 400,
+          });
+        }
+
+        const evidenceData = {
             inspectionId,
             workflowStepId: workflowStepId || null,
             evidenceClass: evidenceClass as EvidenceClass,
-            title:
-              typeof title === "string" && title.trim()
-                ? title.trim()
-                : evidenceClass,
-            description:
-              typeof notes === "string" && notes.length > 0 ? notes : null,
+            // RA-8388: persisted VERBATIM from the canonical payload — the
+            // same object the digest was taken over. The title fallback and
+            // the notes-to-description rename used to happen here, a second
+            // time, which is precisely how the client's signed bytes and the
+            // server's stored bytes drifted apart. Normalising twice is the
+            // defect; there is now one owner and this is its output.
+            title: canonicalPayload.title,
+            description: canonicalPayload.description,
             capturedById: userId,
             capturedByName: session.user.name || "Unknown",
-            capturedAt: new Date(),
-            capturedLat: capturedLat || null,
-            capturedLng: capturedLng || null,
+            capturedAt: persistedCapturedAt,
+            capturedLat: persistedLat,
+            capturedLng: persistedLng,
             deviceId: deviceId || null,
             deviceType: deviceType || "WEB_BROWSER",
+            // RA-8388 AMENDMENT 05: the duplicate-guard key. Set ONLY for a
+            // verified submission, where `capturedAt` above is the SIGNED
+            // capture time. With (inspectionId, evidenceClass) these two form
+            // the unique index EvidenceItem_signed_capture_key, so Postgres
+            // refuses a second copy of one signed capture however long after
+            // the first it arrives. An unsigned record stores NULL and is
+            // never compared: its capture time is the server clock, so two
+            // attempts would not share a key anyway.
+            metadataSha256: verifiedManifest ? metadataDigest : null,
             // RA-7090 slice 2 (P0 re-review): NO file fields on this path.
             // The metadata-only boundary above rejects any file/binary field,
             // so a byte-bearing record can never be created here — it must go
@@ -242,23 +449,153 @@ export async function POST(
             // sanitiser as multipart. There is no server-computed hash here,
             // so every integrity claim is stripped rather than re-stamped.
             structuredData:
-              structuredData === undefined || structuredData === null
-                ? policy.downgradeReason
-                  ? buildEvidenceStructuredData({
-                      fileSha256: null,
-                      downgradeReason: policy.downgradeReason,
-                    })
-                  : null
+              canonicalPayload.structuredData === null &&
+              !verifiedManifest &&
+              !downgradeReason
+                ? null
                 : buildEvidenceStructuredData({
-                    clientStructuredData: structuredData,
+                    clientStructuredData:
+                      canonicalPayload.structuredData ?? undefined,
                     fileSha256: null,
-                    downgradeReason: policy.downgradeReason,
+                    // Set ONLY on a verified submission: an unsigned record
+                    // must not carry an integrity claim, and on this path the
+                    // digest is the only thing that could look like one.
+                    metadataSha256: verifiedManifest ? metadataDigest : null,
+                    verified: verifiedManifest,
+                    downgradeReason,
                   }),
-          },
-        });
+        };
+
+        // ONE transaction. A partial failure must not leave a reading the
+        // completion gate can see but the evidence pack cannot cite, or an
+        // evidence record claiming a reading the gate will never count.
+        // Either both halves of the record exist or neither does.
+        const plan = rowPlan.plan;
+        duplicateKey = verifiedManifest
+          ? {
+              inspectionId,
+              evidenceClass: evidenceClass as EvidenceClass,
+              metadataSha256: metadataDigest,
+              capturedAt: persistedCapturedAt,
+            }
+          : null;
+        writeStarted = true;
+        const evidenceItem = plan
+          ? await prisma.$transaction(async (tx) => {
+              const created = await tx.evidenceItem.create({
+                data: evidenceData,
+              });
+              // RA-8388 AMENDMENT 05: the counted row carries a real foreign
+              // key to the evidence record just created. One owner sets it
+              // (linkPlanToEvidence), because the backfill sets the same
+              // column and the two must agree on what the join is.
+              const linked = linkPlanToEvidence(plan, created.id);
+              // A switch, not a dynamic `tx[table]` lookup. Indexing the
+              // client by a string erases Prisma's input types, so a column
+              // renamed in the schema would still compile and fail at
+              // runtime on a technician's phone. Each branch is checked
+              // against the real model.
+              // No casts. `AuthoritativeRowPlan` is a discriminated union of
+              // the real Prisma inputs, so each case narrows to the right
+              // one and tsc checks the columns. The casts that used to be
+              // here made a renamed or missing column compile clean.
+              switch (linked.table) {
+                case "moistureReading":
+                  await tx.moistureReading.create({ data: linked.data });
+                  break;
+                case "environmentalData":
+                  await tx.environmentalData.create({ data: linked.data });
+                  break;
+                case "inspectionPhoto":
+                  await tx.inspectionPhoto.create({ data: linked.data });
+                  break;
+              }
+              return created;
+            }, EVIDENCE_TRANSACTION_OPTIONS)
+          : await prisma.evidenceItem.create({ data: evidenceData });
 
         return NextResponse.json({ evidenceItem }, { status: 201 });
       } catch (error) {
+        // RA-8388 AMENDMENT 05. Postgres refused the insert because this
+        // exact signed capture is already stored: same inspection, class,
+        // payload digest and signed capture time. That is a retry of a
+        // capture whose first response was lost, arriving after the
+        // idempotency lease below had expired. The truthful answer is that
+        // the reading IS saved, once, so the retry succeeds and returns the
+        // record that already exists.
+        //
+        // Checked BEFORE the ambiguous-commit branch: a unique violation is
+        // raised at constraint time and proves this transaction wrote
+        // nothing. And the lookup runs here, after the transaction has
+        // rolled back, on the ordinary client - an aborted Postgres
+        // transaction cannot be queried.
+        if (duplicateKey && isSignedCaptureDuplicate(error)) {
+          const existing = await prisma.evidenceItem.findFirst({
+            where: duplicateKey,
+          });
+          if (existing) {
+            // Logged, because this answer means a first response was lost.
+            // One is a basement on 4G; a rising count is a fault somewhere
+            // between the database and the phone, and without this line it
+            // looks exactly like ordinary traffic.
+            //
+            // The two times tell a retry seconds after a lost response from
+            // a replay of an old capture: `capturedAt` is the signed capture
+            // time of the incoming item, and the age is measured from when
+            // the stored record was written. Times and ids only. A log line
+            // must never be the reason this answer fails, so a record with
+            // no readable timestamp logs nulls instead of throwing.
+            const existingCreatedAt =
+              existing.createdAt instanceof Date ? existing.createdAt : null;
+            console.warn("[evidence] already-recorded", {
+              inspectionId,
+              evidenceId: existing.id,
+              evidenceClass: existing.evidenceClass,
+              capturedAt: duplicateKey.capturedAt.toISOString(),
+              existingCreatedAt: existingCreatedAt?.toISOString() ?? null,
+              existingAgeSeconds: existingCreatedAt
+                ? Math.round((Date.now() - existingCreatedAt.getTime()) / 1000)
+                : null,
+            });
+            return NextResponse.json(
+              { evidenceItem: existing, alreadyRecorded: true },
+              { status: 200 },
+            );
+          }
+          // The index says it exists and the read cannot find it. That is
+          // not a state to guess about: fall through and report it.
+        }
+        // RA-8388 AMENDMENT 03. A Prisma throw does NOT prove the
+        // transaction rolled back: a pooler connection can drop after
+        // Postgres commits, so the row is durable and the client sees an
+        // error. `withIdempotency` RELEASES its PENDING reservation whenever
+        // the handler returns 5xx (lib/idempotency.ts:433-441), so returning
+        // 500 here hands the retry a fresh reservation and it writes a
+        // SECOND signed reading of one measurement. Neither MoistureReading
+        // nor EnvironmentalData has a unique constraint to catch that, and
+        // the dispute pack would cite both.
+        //
+        // 409 plus this header is the EXISTING seam for exactly this state -
+        // app/api/inspections/route.ts:828 and
+        // app/api/reports/initial-entry/route.ts:619 both use it. Below 500
+        // the release never runs, and the header stops the 409 being cached
+        // as the final answer, so the reservation stays PENDING and a replay
+        // is told the capture is already in flight instead of duplicating
+        // it.
+        //
+        // Bounded, and deliberately so: this holds for the PENDING lease
+        // (lib/idempotency.ts:265, 60s), not forever. A retry after the
+        // lease expires, or two devices racing the same draft, can still
+        // duplicate. Closing that needs a unique index on the authoritative
+        // row, which is a migration and is recorded as such.
+        if (writeStarted && !createInsertProvablyDidNotCommit(error)) {
+          reportError(error, {
+            route: `/api/inspections/${inspectionId}/evidence`,
+            stage: "evidence-post-ambiguous-commit",
+            inspectionId,
+          });
+          return ambiguousCommitResponse(request);
+        }
         return fromException(request, error, { stage: "evidence-post" });
       }
     },
@@ -276,6 +613,33 @@ export async function POST(
 }
 
 /**
+ * The one answer to "this write may have landed and I cannot tell".
+ *
+ * ONE owner, called from both writers, never copied. Both branches of this
+ * route reach the same ambiguous state, and two copies of this response
+ * would drift the moment one of them was corrected - which is the defect
+ * class this file has already recorded three times.
+ *
+ * Why 409 and not 500: `withIdempotency` DELETES its PENDING reservation on
+ * any 5xx (lib/idempotency.ts:433-441), which hands the retry a fresh slot
+ * and lets it write the same signed capture a second time. Below 500 that
+ * release never runs, and the header stops the 409 being cached as the final
+ * answer, so the reservation stays PENDING and the replay is told the
+ * capture is already in flight. Precedents: app/api/inspections/route.ts:828
+ * and app/api/reports/initial-entry/route.ts:619.
+ */
+function ambiguousCommitResponse(request: NextRequest) {
+  const response = apiError(request, {
+    code: "CONFLICT",
+    message:
+      "This capture may already have been saved. Check this step's evidence before capturing it again.",
+    status: 409,
+  });
+  response.headers.set("X-RestoreAssist-Idempotency-Uncertain", "true");
+  return response;
+}
+
+/**
  * RA-7090 round 3: compensation gate. TRUE only for error classes that
  * PROVE the INSERT did not commit (Prisma validation errors, and known
  * request errors raised at parse/constraint time: P2000 value too long,
@@ -283,6 +647,14 @@ export async function POST(
  * and unknown errors are AMBIGUOUS — Postgres may have committed the row
  * even though the client saw an error — so callers must NOT delete storage
  * for those.
+ *
+ * RA-8388 round 1: ONE more proven case. P2028 covers every transaction
+ * failure Prisma itself raises, and most of them are ambiguous (a
+ * transaction that expired after it started may have run its inserts). The
+ * exception is the one raised when no connection came free inside `maxWait`:
+ * the transaction never began, so no statement ran and nothing can have
+ * committed. Only that message is accepted; every other P2028 stays
+ * ambiguous, exactly as before.
  */
 function createInsertProvablyDidNotCommit(err: unknown): boolean {
   if (err instanceof Prisma.PrismaClientValidationError) return true;
@@ -290,6 +662,16 @@ function createInsertProvablyDidNotCommit(err: unknown): boolean {
     typeof err === "object" && err !== null && "code" in err
       ? (err as { code?: unknown }).code
       : undefined;
+  if (code === "P2028") {
+    const message =
+      typeof err === "object" && err !== null && "message" in err
+        ? (err as { message?: unknown }).message
+        : undefined;
+    return (
+      typeof message === "string" &&
+      message.includes(PRISMA_TRANSACTION_NEVER_STARTED)
+    );
+  }
   return code === "P2000" || code === "P2002" || code === "P2003";
 }
 
@@ -349,6 +731,15 @@ async function handleMultipartEvidencePost(
       });
     }
     const evidenceClass = evidenceClassRaw as EvidenceClass;
+    // RA-8388 (ruling 17/11/2026): this path has a file and no typed values,
+    // so it does not store a note or reading. One owner decides.
+    if (!evidenceClassAllowedOnPath(evidenceClass, "file")) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: wrongSubmissionPathMessage("file"),
+        status: 400,
+      });
+    }
     const isVideoClass = isVideoEvidenceClass(evidenceClass);
 
     // Guard before arrayBuffer() — multipart bypasses Next.js body size limits.
@@ -417,6 +808,41 @@ async function handleMultipartEvidencePost(
       });
     }
 
+    // RA-8388 round 1: the type this route RECORDS is the type the check
+    // above proved, not the type the part declared.
+    //
+    // It used to decide "is this a photograph" from the raw `file.type` and
+    // store `file.type || "image/jpeg"`. Those are two different values, so a
+    // real JPEG whose part declared no image type was saved and never
+    // counted, while the backfill, reading the stored column, would count
+    // it later: two writers, two rules. A declared type is a claim by the
+    // client; the magic bytes are what this server verified. Past the guard
+    // above, a non-video upload IS one of these four image kinds.
+    //
+    // One value, used for the stored object, `EvidenceItem.fileMimeType`,
+    // `InspectionPhoto.mimeType` and the photograph rule, so whatever reads
+    // the record later is given what this route was given.
+    const declaredType = file.type;
+    const verifiedMimeType = isVideoClass
+      ? // A video's exact subtype is not something four magic bytes settle,
+        // so a declared video type is kept. A declared type that is NOT a
+        // video type is replaced by the container the bytes proved; the old
+        // default labelled such a video "image/jpeg".
+        declaredType.toLowerCase().startsWith("video/")
+        ? declaredType
+        : buffer[0] === 0x1a
+          ? "video/webm"
+          : ftypBrand === "qt  "
+            ? "video/quicktime"
+            : "video/mp4"
+      : isJpeg
+        ? "image/jpeg"
+        : isPng
+          ? "image/png"
+          : isGif
+            ? "image/gif"
+            : "image/webp";
+
     // Server-side hash over the exact bytes that will be stored.
     const fileSha256 = crypto.createHash("sha256").update(buffer).digest("hex");
 
@@ -448,6 +874,17 @@ async function handleMultipartEvidencePost(
       typeof capturedLngRaw === "string" && capturedLngRaw.length > 0
         ? parseFloat(capturedLngRaw)
         : null;
+    // RA-8388: ONE variable for "what the client supplied", read by both the
+    // gate and the persisted row. Two copies of the same guard in two places
+    // is how a bound value and a persisted value drift apart.
+    //
+    // `undefined` means the field was ABSENT, which is not a conflict with a
+    // signed manifest. A present-but-unparseable coordinate stays NaN on
+    // purpose: the gate then sees a supplied value that disagrees with the
+    // signed one and refuses it, which is the pre-existing behaviour on the
+    // working photo path and must not be loosened into a silent accept.
+    const suppliedLat = capturedLat ?? undefined;
+    const suppliedLng = capturedLng ?? undefined;
 
     const structuredDataRaw = formData.get("structuredData");
     let clientStructuredData: Record<string, unknown> = {};
@@ -496,84 +933,43 @@ async function handleMultipartEvidencePost(
         });
       }
 
-      const parsedManifest = parseSignedManifest(signedManifestRaw);
-      if (!parsedManifest.ok) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: parsedManifest.message,
-          status: 400,
-        });
-      }
-
-      const signingKey = await prisma.deviceSigningKey.findUnique({
-        where: { publicKeyId: parsedManifest.manifest.deviceKeyId },
-      });
-      if (!signingKey || signingKey.userId !== session.user.id) {
-        // Unknown key and someone else's key are indistinguishable to the
-        // caller — do not leak which.
-        return apiError(request, {
-          code: "FORBIDDEN",
-          message: "Signing key is not registered for this user",
-          status: 403,
-        });
-      }
-      if (signingKey.revokedAt) {
-        return apiError(request, {
-          code: "FORBIDDEN",
-          message: "Signing key has been revoked",
-          status: 403,
-        });
-      }
-
-      if (
-        !verifyManifestSignature(
-          parsedManifest.manifest,
-          manifestSignatureRaw,
-          signingKey.publicKeyPem,
-        )
-      ) {
-        return apiError(request, {
-          code: "VALIDATION",
-          message:
-            "Manifest signature verification failed — manifest may have been tampered with",
-          status: 400,
-        });
-      }
-
-      const binding = checkManifestBinding(parsedManifest.manifest, {
+      // RA-8388: ONE gate, shared with the JSON writer below. The five checks
+      // that used to be sequenced inline here - parse, key identity, key
+      // revocation, signature, binding - now live in exactly one place, so a
+      // new writer cannot reach a verified record while quietly omitting one
+      // of them. Omission is the defect kind review rounds 1, 2 and 3 each
+      // found, so the fix is structural rather than another careful copy.
+      const gate = await verifyEvidenceSubmission({
+        manifestRaw: signedManifestRaw,
+        signatureRaw: manifestSignatureRaw,
+        userId: session.user.id,
         inspectionId,
         evidenceClass,
-        userId: session.user.id,
         workflowStepId,
-        fileSha256,
+        submissionDigest: fileSha256,
+        digestKind: "file",
         // MUST-FIX 2: bind the location/time that actually get persisted.
         // `undefined` = the client sent no such field, which is not a
         // conflict; a SUPPLIED value that disagrees with the signed manifest
         // is rejected rather than silently overwriting the signed one.
-        capturedLat:
-          typeof capturedLatRaw === "string" && capturedLatRaw.length > 0
-            ? capturedLat
-            : undefined,
-        capturedLng:
-          typeof capturedLngRaw === "string" && capturedLngRaw.length > 0
-            ? capturedLng
-            : undefined,
+        capturedLat: suppliedLat,
+        capturedLng: suppliedLng,
         capturedAt:
           typeof capturedAtRaw === "string" && capturedAtRaw
             ? capturedAtRaw
             : undefined,
       });
-      if (!binding.ok) {
+      if (!gate.ok) {
         return apiError(request, {
-          code: "VALIDATION",
-          message: binding.message,
-          status: 400,
+          code: gate.code,
+          message: gate.message,
+          status: gate.status,
         });
       }
 
-      verifiedManifest = parsedManifest.manifest;
-      verifiedSignature = manifestSignatureRaw;
-      verifiedPublicKeyPem = signingKey.publicKeyPem;
+      verifiedManifest = gate.manifest;
+      verifiedSignature = gate.signature;
+      verifiedPublicKeyPem = gate.publicKeyPem;
     }
 
     // Round 2 MUST-FIX 2: the unsigned-submission policy now lives in ONE
@@ -634,7 +1030,7 @@ async function handleMultipartEvidencePost(
         const uploadResult = await storageProvider.upload({
           buffer,
           filename: file.name,
-          mimeType: file.type || "image/jpeg",
+          mimeType: verifiedMimeType,
           folder: "evidence",
           orgId: user?.organizationId ?? "no-org",
           inspectionId,
@@ -663,53 +1059,129 @@ async function handleMultipartEvidencePost(
           },
         });
 
-        let evidenceItem;
-        try {
-          evidenceItem = await prisma.evidenceItem.create({
-            data: {
+        // RA-8388 AMENDMENT 03 §P / AMENDMENT 02 §I. `photoRowPlan` existed
+        // with no caller, so a new photo wrote an EvidenceItem and nothing
+        // else while `validateSubmissionPayload` counts `InspectionPhoto`.
+        // A technician's photos "worked" - visible in the evidence list - and
+        // the job still reported outstanding issues it could not name.
+        //
+        // Planned BEFORE the transaction, like the JSON branch, so the
+        // decision not to write a row is explicit rather than a failure part
+        // way through.
+        //
+        // THE photograph rule, asked once, with the type the magic-byte
+        // check proved (see `verifiedMimeType`). A verified image under a
+        // photograph class always counts, whatever its part declared.
+        // `clientPromoted` is false by construction: this is the
+        // technician's own capture path, and a portal upload reaches
+        // EvidenceItem only through promote-client.
+        const photoDecision = photoCountDecision({
+          evidenceClass,
+          mimeType: verifiedMimeType,
+          clientPromoted: false,
+        });
+        const photoPlan = photoDecision.counts
+          ? photoRowPlan({
               inspectionId,
-              workflowStepId:
-                typeof workflowStepIdRaw === "string" && workflowStepIdRaw
-                  ? workflowStepIdRaw
+              url: uploadResult.compressedUrl,
+              thumbnailUrl: uploadResult.thumbnailUrl ?? null,
+              description:
+                typeof clientStructuredData?.description === "string"
+                  ? clientStructuredData.description
                   : null,
-              evidenceClass,
-              title: file.name,
-              capturedById: session.user.id,
-              capturedByName: session.user.name || "Unknown",
-              // MUST-FIX 2: on a verified manifest the PERSISTED record is
-              // the SIGNED record — the dispute pack prints these columns,
-              // so they must come from the signed bytes, not the form.
+              location:
+                typeof clientStructuredData?.location === "string"
+                  ? clientStructuredData.location
+                  : null,
+              // The SIGNED capture time where there is one, matching the
+              // EvidenceItem beside it. A server clock here would make the
+              // two halves disagree about when the photo was taken.
               capturedAt: verifiedManifest
                 ? new Date(verifiedManifest.capturedAt)
                 : new Date(),
-              capturedLat: verifiedManifest
+              fileSize: file.size,
+              mimeType: verifiedMimeType,
+              gpsLatitude: verifiedManifest
                 ? verifiedManifest.gps.lat
-                : capturedLat !== null && !Number.isNaN(capturedLat)
-                  ? capturedLat
+                : suppliedLat !== undefined && !Number.isNaN(suppliedLat)
+                  ? suppliedLat
                   : null,
-              capturedLng: verifiedManifest
+              gpsLongitude: verifiedManifest
                 ? verifiedManifest.gps.lng
-                : capturedLng !== null && !Number.isNaN(capturedLng)
-                  ? capturedLng
+                : suppliedLng !== undefined && !Number.isNaN(suppliedLng)
+                  ? suppliedLng
                   : null,
-              deviceId:
-                typeof deviceIdRaw === "string" && deviceIdRaw
-                  ? deviceIdRaw
-                  : null,
-              deviceType:
-                typeof deviceTypeRaw === "string" && deviceTypeRaw
-                  ? deviceTypeRaw
-                  : "WEB_BROWSER",
-              fileUrl: uploadResult.compressedUrl,
-              fileName: file.name,
-              fileMimeType: file.type || "image/jpeg",
-              fileSizeBytes: file.size,
-              thumbnailUrl: uploadResult.thumbnailUrl ?? null,
-              // Integrity: ALWAYS the server-computed hash over stored bytes.
-              hashSha256: fileSha256,
-              structuredData,
-            },
-          });
+            })
+          : null;
+
+        let evidenceItem;
+        try {
+          const multipartEvidenceData = {
+            inspectionId,
+            workflowStepId:
+              typeof workflowStepIdRaw === "string" && workflowStepIdRaw
+                ? workflowStepIdRaw
+                : null,
+            evidenceClass,
+            title: file.name,
+            capturedById: session.user.id,
+            capturedByName: session.user.name || "Unknown",
+            // MUST-FIX 2: on a verified manifest the PERSISTED record is
+            // the SIGNED record — the dispute pack prints these columns,
+            // so they must come from the signed bytes, not the form.
+            capturedAt: verifiedManifest
+              ? new Date(verifiedManifest.capturedAt)
+              : new Date(),
+            // An unsigned submission can still carry a NaN here (the gate
+            // only runs on the signed path), and NaN is not a latitude.
+            capturedLat: verifiedManifest
+              ? verifiedManifest.gps.lat
+              : suppliedLat !== undefined && !Number.isNaN(suppliedLat)
+                ? suppliedLat
+                : null,
+            capturedLng: verifiedManifest
+              ? verifiedManifest.gps.lng
+              : suppliedLng !== undefined && !Number.isNaN(suppliedLng)
+                ? suppliedLng
+                : null,
+            deviceId:
+              typeof deviceIdRaw === "string" && deviceIdRaw
+                ? deviceIdRaw
+                : null,
+            deviceType:
+              typeof deviceTypeRaw === "string" && deviceTypeRaw
+                ? deviceTypeRaw
+                : "WEB_BROWSER",
+            fileUrl: uploadResult.compressedUrl,
+            fileName: file.name,
+            fileMimeType: verifiedMimeType,
+            fileSizeBytes: file.size,
+            thumbnailUrl: uploadResult.thumbnailUrl ?? null,
+            // Integrity: ALWAYS the server-computed hash over stored bytes.
+            hashSha256: fileSha256,
+            structuredData,
+          };
+
+          // ONE transaction, the same shape the JSON branch uses. A photo
+          // that exists as an EvidenceItem but not as an InspectionPhoto is
+          // invisible to `validateSubmissionPayload`, and an InspectionPhoto
+          // with no evidence record is a photograph with no chain of
+          // custody. Either both halves exist or neither does.
+          //
+          // Still inside the commit-aware compensation below: a rollback
+          // leaves no row at all, which is exactly the case that makes
+          // deleting the uploaded bytes safe.
+          evidenceItem = photoPlan
+            ? await prisma.$transaction(async (tx) => {
+                const created = await tx.evidenceItem.create({
+                  data: multipartEvidenceData,
+                });
+                await tx.inspectionPhoto.create({ data: photoPlan.data });
+                return created;
+              }, EVIDENCE_TRANSACTION_OPTIONS)
+            : await prisma.evidenceItem.create({
+                data: multipartEvidenceData,
+              });
         } catch (createErr) {
           // RA-7090 round 3: compensation must be COMMIT-AWARE. Prisma
           // throwing does not prove the INSERT failed — a pooler connection
@@ -761,6 +1233,12 @@ async function handleMultipartEvidencePost(
                 error: createErr,
               },
             );
+            // The bytes are retained above because the row may exist. For
+            // the same reason the reservation must be retained too: a 5xx
+            // here releases it and the retry uploads the same photograph
+            // again, giving the gate two InspectionPhoto rows for one
+            // photograph.
+            return ambiguousCommitResponse(request);
           }
           throw createErr;
         }
@@ -778,7 +1256,37 @@ async function handleMultipartEvidencePost(
           }
         }
 
-        return NextResponse.json({ evidenceItem }, { status: 201 });
+        // RA-8388 round 1: a photograph that is saved but NOT counted must
+        // say so. The original fault was exactly this state with nothing
+        // reporting it: 201, the photograph in the evidence list, and a
+        // submit gate still asking for photographs.
+        //
+        // False ONLY for a photograph class that wrote no counted row. A
+        // document or a video has no counted table at all, so nothing is
+        // missing for it and it is not reported as "not counted".
+        //
+        // With the rule above, this route cannot currently produce false: a
+        // verified image under a photograph class always counts. The field
+        // and the warning are here so that if the rule is ever changed to
+        // refuse something, the technician and the log both hear about it.
+        const savedButNotCounted =
+          !photoDecision.counts &&
+          photoDecision.reason !== "not-a-photograph-class";
+        if (savedButNotCounted) {
+          console.warn("[evidence] photograph-not-counted", {
+            inspectionId,
+            evidenceId: evidenceItem.id,
+            evidenceClass,
+            declaredType,
+            storedType: verifiedMimeType,
+            reason: photoDecision.reason,
+          });
+        }
+
+        return NextResponse.json(
+          { evidenceItem, countsTowardSubmission: !savedButNotCounted },
+          { status: 201 },
+        );
       },
     });
   } catch (error) {
@@ -800,8 +1308,21 @@ export async function DELETE(
   }
 
   const { id: inspectionId } = await params;
-  const body = await request.json();
-  const { evidenceId } = body;
+  // RA-8388 review round 2. The identifier is checked BEFORE it reaches any
+  // query. Prisma ignores a filter whose value is `undefined`, so a body with
+  // no `evidenceId` made `{ id: evidenceId }` match every record: the assigned
+  // technician's `deleteMany` below removed all the evidence they had captured
+  // on the job, and left every photograph counted with nothing behind it.
+  // Exactly one record is named, in text, or nothing is looked up or removed.
+  const body: unknown = await request.json().catch(() => null);
+  const evidenceId = requiredIdentifier(bodyField(body, "evidenceId"));
+  if (evidenceId === null) {
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "evidenceId is required",
+      status: 400,
+    });
+  }
 
   try {
     // RA-1711 batch 4 — adopt shared tenancy helper.
@@ -810,6 +1331,11 @@ export async function DELETE(
     // captured, and only while the job is still a DRAFT.
     const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
     if (!tenancy.ok) {
+      logRefusal(request, {
+        code: "TENANCY_REFUSED",
+        status: tenancy.status,
+        stage: "tenancy",
+      });
       return NextResponse.json(
         { error: tenancy.reason },
         { status: tenancy.status },
@@ -822,6 +1348,13 @@ export async function DELETE(
 
     const evidence = await prisma.evidenceItem.findFirst({
       where: { id: evidenceId, inspectionId, ...assigneeLimits },
+      // RA-8388 AMENDMENT 05: whether a counted reading was written from
+      // this record. Read through the same query that proves the caller may
+      // see the record, so it costs no extra round trip.
+      include: {
+        moistureReading: { select: { id: true } },
+        environmentalData: { select: { id: true } },
+      },
     });
 
     if (!evidence) {
@@ -832,26 +1365,111 @@ export async function DELETE(
       });
     }
 
-    if (!viaAssignment) {
-      await prisma.evidenceItem.delete({
-        where: {
-          id: evidenceId,
-          ...(childInspectionFilter && { inspection: childInspectionFilter }),
-        },
+    // RA-8388 AMENDMENT 05. This record is the signed evidence behind a
+    // reading the completion gate counts. Deleting it would leave that
+    // reading counted and printed with nothing to cite. The database refuses
+    // the delete as well (ON DELETE NO ACTION), deliberately: a moisture
+    // reading is retained for audit under controlled invalidation, so it is
+    // not cascaded away either. This answers in words, on BOTH branches
+    // below, instead of letting the constraint surface as a server error.
+    if (evidence.moistureReading || evidence.environmentalData) {
+      const table = evidence.moistureReading
+        ? "moistureReading"
+        : "environmentalData";
+      // Logged as well as answered. The 409 reaches one browser; without
+      // this line a technician's "it would not let me delete it" cannot be
+      // matched to a request.
+      console.warn("[evidence] signed-row-refused", {
+        inspectionId,
+        evidenceId: evidence.id,
+        evidenceClass: evidence.evidenceClass,
+        table,
       });
+      return apiError(request, {
+        code: "CONFLICT",
+        // Also refused when the reading has been retired: it is kept for
+        // audit with its link, so the evidence behind it is kept too.
+        message: evidenceBacksReadingRefusal(table),
+        status: 409,
+      });
+    }
+
+    // RA-8388 round 1. A photograph is two rows: this evidence record and
+    // the `InspectionPhoto` the submit gate counts. `InspectionPhoto` has no
+    // column pointing back here, so deleting the evidence used to leave the
+    // photograph COUNTED: upload a photograph of the wrong property, delete
+    // it, and the job still passed "has photographs" on a photograph with no
+    // chain of custody.
+    //
+    // Without a migration, the join is the one both writers already share:
+    // the capture route and the backfill each set the photo row's `url` to
+    // the evidence record's `fileUrl`, and no other writer of
+    // `InspectionPhoto` copies an evidence URL. So for a photograph class
+    // with a file, the counted row is removed in the SAME transaction as
+    // the evidence record: both go or neither does.
+    //
+    // Every other record (a note, a document, a video, a photograph record
+    // with no file) keeps the single-statement delete it always had.
+    const photographUrl =
+      isPhotographEvidenceClass(evidence.evidenceClass) && evidence.fileUrl
+        ? evidence.fileUrl
+        : null;
+    /**
+     * Remove the counted row for `url`, unless another evidence record on
+     * this inspection still cites the same file. Two records for one upload
+     * share one photo row (the backfill writes one row per URL), and
+     * deleting one of them must not turn the other into an uncounted
+     * photograph. Runs AFTER the evidence delete, inside its transaction, so
+     * the record being deleted is no longer among them.
+     */
+    const removeCountedPhotograph = async (
+      tx: Prisma.TransactionClient,
+      url: string,
+    ) => {
+      const stillCited = await tx.evidenceItem.count({
+        where: { inspectionId, fileUrl: url },
+      });
+      if (stillCited > 0) return;
+      await tx.inspectionPhoto.deleteMany({ where: { inspectionId, url } });
+    };
+
+    if (!viaAssignment) {
+      const ownerWhere = {
+        id: evidenceId,
+        ...(childInspectionFilter && { inspection: childInspectionFilter }),
+      };
+      if (photographUrl) {
+        await prisma.$transaction(async (tx) => {
+          await tx.evidenceItem.delete({ where: ownerWhere });
+          await removeCountedPhotograph(tx, photographUrl);
+        }, EVIDENCE_TRANSACTION_OPTIONS);
+      } else {
+        await prisma.evidenceItem.delete({ where: ownerWhere });
+      }
       return NextResponse.json({ success: true });
     }
 
     // Branch (b): every limit is re-checked inside the delete itself, so a
     // reassignment or a submit in between matches 0 rows and answers 404.
-    const deleted = await prisma.evidenceItem.deleteMany({
-      where: {
-        id: evidenceId,
-        inspectionId,
-        capturedById: session.user.id,
-        inspection: { ...childInspectionFilter, status: "DRAFT" },
-      },
-    });
+    const assigneeWhere = {
+      id: evidenceId,
+      inspectionId,
+      capturedById: session.user.id,
+      inspection: { ...childInspectionFilter, status: "DRAFT" as const },
+    };
+    const deleted = photographUrl
+      ? await prisma.$transaction(async (tx) => {
+          const result = await tx.evidenceItem.deleteMany({
+            where: assigneeWhere,
+          });
+          // Only when the evidence record really went. A delete that
+          // matched nothing answers 404 below and must remove nothing.
+          if (result.count === 1) {
+            await removeCountedPhotograph(tx, photographUrl);
+          }
+          return result;
+        }, EVIDENCE_TRANSACTION_OPTIONS)
+      : await prisma.evidenceItem.deleteMany({ where: assigneeWhere });
     if (deleted.count === 0) {
       return apiError(request, {
         code: "NOT_FOUND",
