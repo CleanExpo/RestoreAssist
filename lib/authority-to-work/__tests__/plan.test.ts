@@ -1,0 +1,959 @@
+import { describe, expect, it } from "vitest";
+import {
+  planAuthority,
+  type AuthorityPlan,
+  type Gate,
+  type GateState,
+} from "../plan";
+import { formatMoney } from "../money";
+import {
+  nswStrataWaterLoss,
+  nzRentalNaturalHazard,
+  qldCommercialSelfPay,
+} from "../fixtures";
+import type { JobFacts } from "../types";
+import { DEFERRED_TEMPLATES, TEMPLATES } from "../catalogue";
+import { formatDraft } from "../preview";
+
+function gate(
+  plan: AuthorityPlan,
+  line: string,
+  g: Gate,
+): { state: GateState; reason: string } {
+  const s = plan.scopes.find((x) => x.scopeLineId === line);
+  if (!s) throw new Error(`no scope ${line}`);
+  const r = s.gates.find((x) => x.gate === g);
+  if (!r) throw new Error(`no gate ${g}`);
+  return r;
+}
+
+function forms(plan: AuthorityPlan, code: string): AuthorityPlan["forms"] {
+  return plan.forms.filter((f) => f.code === code);
+}
+
+describe("every plan is preview-only", () => {
+  it.each([nswStrataWaterLoss, qldCommercialSelfPay, nzRentalNaturalHazard])(
+    "%o never marks anything sendable or released",
+    (make) => {
+      const plan = planAuthority(make());
+      expect(plan.sendable).toBe(false);
+      expect(plan.releaseEnabled).toBe(false);
+      expect(plan.deposit.enabled).toBe(false);
+      expect(plan.forms.length).toBeGreaterThan(0);
+      for (const f of plan.forms) {
+        expect(f.sendable).toBe(false);
+        expect(f.notSendableBecause[0]).toMatch(/Preview only/);
+      }
+    },
+  );
+});
+
+describe("case 1: NSW strata water loss", () => {
+  const plan = planAuthority(nswStrataWaterLoss());
+
+  it("one signer cannot clear common property, lot fixtures and tenant contents", () => {
+    expect(gate(plan, "L1", "WORK").state).toBe("CLEAR");
+    expect(gate(plan, "L2", "WORK").state).toBe("MISSING");
+    expect(gate(plan, "L2", "WORK").reason).toMatch(
+      /not control "Lot 4 floating floor"/,
+    );
+    expect(gate(plan, "L3", "WORK").state).toBe("MISSING");
+    expect(gate(plan, "L3", "WORK").reason).toMatch(
+      /not control "Tenant's sofa"/,
+    );
+  });
+
+  it("an assessor's emailed approval with no spend authority does not clear funding", () => {
+    expect(gate(plan, "L4", "PAYER").state).toBe("HOLD");
+    expect(gate(plan, "L4", "PAYER").reason).toMatch(
+      /no proven authority to commit spend/,
+    );
+    expect(plan.scopes.find((s) => s.scopeLineId === "L4")?.canStart).toBe(
+      false,
+    );
+  });
+
+  it("never addresses a funding document to a party with no spend authority", () => {
+    const funding = plan.forms.filter((f) =>
+      ["A04", "A10", "A11"].includes(f.code),
+    );
+    expect(funding.map((f) => f.recipientPartyId)).not.toContain("asr");
+    const l4 = funding.find(
+      (f) => f.code === "A04" && f.scopeLineIds.includes("L4"),
+    );
+    expect(l4?.recipientPartyId).toBeNull();
+    expect(l4?.reason).toMatch(/funding party not established/);
+    expect(l4?.notSendableBecause).toContain(
+      "recipientName: recipient not identified",
+    );
+  });
+
+  it("holds the variation that takes cumulative make-safe over the fictional limit", () => {
+    const r = gate(plan, "L1", "INSURER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toContain(
+      "A$2,400.00 ex GST committed + A$700.00 ex GST proposed = A$3,100.00 ex GST",
+    );
+    expect(r.reason).toContain("over the A$3,000.00 ex GST limit");
+    expect(r.reason).toContain("[fictional teaching fixture]");
+    expect(forms(plan, "A10").map((f) => f.recipientPartyId)).toEqual(["ins"]);
+  });
+
+  it("an unconfirmed payer is shown as unconfirmed, never as insurance paying", () => {
+    expect(gate(plan, "L3", "PAYER").state).toBe("MISSING");
+    expect(gate(plan, "L3", "PAYER").reason).toMatch(/payer not confirmed/);
+  });
+
+  it("sends separate strata drafts to the controller of each part", () => {
+    const recipients = forms(plan, "A05")
+      .map((f) => f.recipientPartyId)
+      .sort();
+    expect(recipients).toEqual(["lot", "sm"]);
+    expect(forms(plan, "A08").map((f) => f.recipientPartyId)).toEqual(["ten"]);
+    expect(forms(plan, "A09").map((f) => f.recipientPartyId)).toEqual(["lot"]);
+  });
+
+  it("nothing in the job can start yet", () => {
+    expect(plan.scopes.every((s) => !s.canStart)).toBe(true);
+  });
+});
+
+describe("fictional limit: restricted action under the limit still needs its own approval", () => {
+  function underLimit(withApproval: boolean): AuthorityPlan {
+    const job = nswStrataWaterLoss();
+    job.caps[0].committed = { minor: 0, currency: "AUD", gst: "EX" };
+    job.scope = job.scope.filter((l) => l.id === "L2");
+    if (withApproval) {
+      job.approvals.push({
+        id: "r1",
+        partyId: "ins",
+        kind: "RESTRICTED_ACTION",
+        scopeLineIds: ["L2"],
+        evidence: "verified",
+      });
+    }
+    return planAuthority(job);
+  }
+
+  it("A$100 of flooring removal is held without the insurer's separate written approval", () => {
+    const r = gate(underLimit(false), "L2", "INSURER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toMatch(
+      /flooring removal needs separate written approval/,
+    );
+    expect(r.reason).not.toMatch(/over the/);
+  });
+
+  it("the same line clears the insurer gate once that approval is verified", () => {
+    expect(gate(underLimit(true), "L2", "INSURER").state).toBe("CLEAR");
+  });
+
+  it("exactly at the limit is within it; one cent over is not", () => {
+    const at = nswStrataWaterLoss();
+    at.scope = [at.scope[0]];
+    at.caps[0].committed = { minor: 230_000, currency: "AUD", gst: "EX" };
+    expect(gate(planAuthority(at), "L1", "INSURER").state).toBe("CLEAR");
+    at.caps[0].committed = { minor: 230_001, currency: "AUD", gst: "EX" };
+    expect(gate(planAuthority(at), "L1", "INSURER").state).toBe("HOLD");
+  });
+});
+
+describe("funding rules that cannot be trusted hold the work", () => {
+  function withCap(patch: (j: JobFacts) => void): {
+    state: GateState;
+    reason: string;
+  } {
+    const job = nswStrataWaterLoss();
+    job.scope = [job.scope[0]];
+    job.caps[0].committed = { minor: 0, currency: "AUD", gst: "EX" };
+    patch(job);
+    return gate(planAuthority(job), "L1", "INSURER");
+  }
+
+  it("unreviewed rule", () => {
+    const r = withCap((j) => (j.caps[0].status = "UNREVIEWED"));
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toMatch(/unreviewed and is not applied/);
+  });
+
+  it("expired rule", () => {
+    const r = withCap((j) => (j.caps[0].expiresOn = "2026-11-01"));
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toMatch(/expired/);
+  });
+
+  it("different GST basis is not compared", () => {
+    const r = withCap(
+      (j) =>
+        (j.scope[0].amount = { minor: 70_000, currency: "AUD", gst: "INC" }),
+    );
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toMatch(/not compared/);
+  });
+
+  it("different currency is not compared", () => {
+    const r = withCap(
+      (j) =>
+        (j.scope[0].amount = { minor: 70_000, currency: "NZD", gst: "EX" }),
+    );
+    expect(r.state).toBe("HOLD");
+  });
+
+  it("no terms on file means no limit is assumed", () => {
+    const r = withCap((j) => (j.caps = []));
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toMatch(/terms are not on file/);
+  });
+});
+
+describe("case 2: QLD commercial, customer pays directly", () => {
+  const plan = planAuthority(qldCommercialSelfPay());
+
+  it("a site manager can grant access but cannot authorise the work", () => {
+    expect(gate(plan, "C1", "ACCESS").state).toBe("CLEAR");
+    expect(gate(plan, "C1", "WORK").state).toBe("MISSING");
+    expect(gate(plan, "C1", "WORK").reason).toMatch(
+      /Cafe Site Manager.*not control/,
+    );
+  });
+
+  it("a requested deposit stays disabled", () => {
+    expect(plan.deposit.requested).toBe(true);
+    expect(plan.deposit.enabled).toBe(false);
+  });
+
+  it("drafts the commercial authority and direct-pay contract for the company signatory", () => {
+    expect(forms(plan, "A07").map((f) => f.recipientPartyId)).toEqual(["dir"]);
+    expect(forms(plan, "A03").map((f) => f.recipientPartyId)).toEqual(["dir"]);
+  });
+
+  it("prefills from the business profile and names the source of each value", () => {
+    const a03 = forms(plan, "A03")[0];
+    const legal = a03.fields.find((f) => f.key === "supplierLegalName");
+    expect(legal).toEqual({
+      key: "supplierLegalName",
+      value: "Example Restoration Pty Ltd",
+      source: "business.legalName",
+    });
+    expect(a03.fields.find((f) => f.key === "amount")?.value).toBe(
+      "A$2,400.00 incl GST",
+    );
+    expect(a03.customerPreview).toMatch(
+      /does not authorise any work outside the listed scope lines/,
+    );
+  });
+
+  it("a blank business field stays blank with a reason and blocks sending", () => {
+    const job = qldCommercialSelfPay();
+    job.business = { ...job.business, businessNumber: null };
+    const a03 = forms(planAuthority(job), "A03")[0];
+    const f = a03.fields.find((x) => x.key === "supplierBusinessNumber");
+    expect(f?.value).toBeNull();
+    expect(f?.blankReason).toBe("not on the business profile");
+    expect(a03.notSendableBecause).toContain(
+      "supplierBusinessNumber: not on the business profile",
+    );
+  });
+});
+
+describe("case 3: NZ rental after a storm", () => {
+  const plan = planAuthority(nzRentalNaturalHazard());
+
+  it("an agent whose delegation is only reported cannot authorise building work", () => {
+    expect(gate(plan, "N1", "WORK").state).not.toBe("CLEAR");
+    expect(gate(plan, "N1", "WORK").reason).toMatch(
+      /emergency basis|not verified/,
+    );
+  });
+
+  it("logged notice attempts without a documented emergency basis mean hold", () => {
+    expect(gate(plan, "N1", "ACCESS").state).toBe("HOLD");
+    expect(gate(plan, "N1", "WORK").state).toBe("HOLD");
+  });
+
+  it("an emergency never covers strip-out", () => {
+    expect(gate(plan, "N2", "DISPOSAL").state).toBe("HOLD");
+    expect(gate(plan, "N2", "DISPOSAL").reason).toMatch(
+      /does not cover removal/,
+    );
+  });
+
+  it("documenting the emergency basis allows make-safe only, still not strip-out", () => {
+    const job = nzRentalNaturalHazard();
+    job.emergencyBasis = {
+      documented: true,
+      noticeAttemptsLogged: true,
+      note: "Roof open, rain forecast",
+    };
+    const p = planAuthority(job);
+    expect(gate(p, "N1", "WORK").state).toBe("CLEAR");
+    expect(gate(p, "N1", "WORK").reason).toMatch(/make-safe only/);
+    expect(gate(p, "N2", "WORK").state).not.toBe("CLEAR");
+    expect(gate(p, "N2", "DISPOSAL").state).toBe("HOLD");
+    // Payer is still unconfirmed, so even make-safe cannot be marked ready to start.
+    expect(p.scopes.find((s) => s.scopeLineId === "N1")?.canStart).toBe(false);
+  });
+
+  it("the tenant is asked about their own goods only, with no default charge for the building", () => {
+    const tenantForms = plan.forms.filter((f) => f.recipientPartyId === "tn");
+    for (const f of tenantForms) expect(f.scopeLineIds).toEqual(["N3"]);
+  });
+});
+
+describe("hazards, evidence holds and jurisdiction", () => {
+  it("hazardous work is held until safety clearance; a signature is not clearance", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].hazardous = true;
+    job.approvals.push({
+      id: "x",
+      partyId: "dir",
+      kind: "WORK",
+      scopeLineIds: ["C1"],
+      evidence: "verified",
+    });
+    expect(gate(planAuthority(job), "C1", "SAFETY").state).toBe("HOLD");
+    job.safetyClearances.push({
+      scopeLineId: "C1",
+      evidence: "verified",
+      evidenceRef: "clearance DOC-9",
+    });
+    expect(gate(planAuthority(job), "C1", "SAFETY").state).toBe("CLEAR");
+  });
+
+  it("material held as evidence cannot be discarded even with the owner's approval", () => {
+    const job = nswStrataWaterLoss();
+    job.assets[1].evidenceHold = true;
+    job.approvals.push({
+      id: "x",
+      partyId: "lot",
+      kind: "IRREVERSIBLE",
+      scopeLineIds: ["L2"],
+      evidence: "verified",
+    });
+    expect(gate(planAuthority(job), "L2", "DISPOSAL").state).toBe("HOLD");
+  });
+
+  it("a scope line naming an asset not on the job is held, not dropped silently", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].assetId = "no-such-asset";
+    const p = planAuthority(job);
+    expect(p.holds).toContain(
+      "scope line C1 names an asset that is not on the job",
+    );
+    expect(p.scopes.find((s) => s.scopeLineId === "C1")).toBeUndefined();
+    expect(p.forms.every((f) => !f.scopeLineIds.includes("C1"))).toBe(true);
+  });
+
+  it("a payer id that is not a party on the job holds the payer gate", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].payment.payerPartyId = "ghost";
+    const r = gate(planAuthority(job), "C1", "PAYER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toBe("payer ghost is not a party on this job");
+  });
+
+  it("a funded line naming a missing asset still counts toward the funder's running total", () => {
+    const job = nswStrataWaterLoss();
+    job.caps[0].committed.minor = 230_000;
+    const l1 = job.scope[0];
+    job.scope = [
+      {
+        id: "M1",
+        assetId: "missing",
+        description: "Line with a missing asset",
+        amount: { minor: 100_000, currency: "AUD", gst: "EX" },
+        payment: { basis: "INSURER_WORK_ORDER", payerPartyId: "ins" },
+      },
+      l1,
+    ];
+    // 230,000 already used + 100,000 (M1) + 70,000 (L1) = 400,000, over the 300,000 limit.
+    const r = gate(planAuthority(job), "L1", "INSURER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toContain("A$4,000.00 ex GST");
+  });
+
+  it("an unconfirmed payer never receives a payer-split form", () => {
+    const job = nswStrataWaterLoss();
+    job.scope[2].payment.payerPartyId = "asr"; // L3 stays UNCONFIRMED
+    const a11 = forms(planAuthority(job), "A11");
+    expect(a11.map((f) => f.recipientPartyId)).not.toContain("asr");
+  });
+
+  it("a self-pay payer who is not a party on the job receives no form", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].payment.payerPartyId = "ghost";
+    const plan = planAuthority(job);
+    for (const code of ["A03", "A11"]) {
+      expect(forms(plan, code).map((f) => f.recipientPartyId)).not.toContain(
+        "ghost",
+      );
+    }
+  });
+
+  it("emergency strip-out cannot start even with every owner approval and a documented basis", () => {
+    const job = nzRentalNaturalHazard();
+    job.emergencyBasis = {
+      documented: true,
+      noticeAttemptsLogged: true,
+      note: "documented",
+    };
+    job.scope[1].payment = { basis: "OWNER_DIRECT", payerPartyId: "ll" };
+    for (const kind of ["ACCESS", "WORK", "PAYMENT", "IRREVERSIBLE"] as const) {
+      job.approvals.push({
+        id: `x-${kind}`,
+        partyId: "ll",
+        kind,
+        scopeLineIds: ["N2"],
+        evidence: "verified",
+      });
+    }
+    const plan = planAuthority(job);
+    expect(plan.scopes.find((x) => x.scopeLineId === "N2")?.canStart).toBe(
+      false,
+    );
+    expect(gate(plan, "N2", "DISPOSAL").state).toBe("HOLD");
+  });
+
+  // Founder ruling 20/11/2026: rules 3 and 8 are read strictly.
+  it("an emergency line with no documented basis holds even when the owner has signed", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].emergency = true;
+    job.emergencyBasis = undefined;
+    for (const kind of ["WORK", "PAYMENT"] as const) {
+      job.approvals.push({
+        id: `x-${kind}`,
+        partyId: "dir",
+        kind,
+        scopeLineIds: ["C1"],
+        evidence: "verified",
+      });
+    }
+    const plan = planAuthority(job);
+    expect(gate(plan, "C1", "ACCESS").state).toBe("HOLD");
+    expect(gate(plan, "C1", "WORK").state).toBe("HOLD");
+    expect(plan.scopes.find((x) => x.scopeLineId === "C1")?.canStart).toBe(
+      false,
+    );
+  });
+
+  it("a payer-split form goes only to a party with proven spend authority, whatever the payment type", () => {
+    const job = nswStrataWaterLoss();
+    job.scope[2].payment = { basis: "OWNER_DIRECT", payerPartyId: "ten" };
+    const a11 = forms(planAuthority(job), "A11");
+    expect(a11.length).toBeGreaterThan(0);
+    expect(a11.map((f) => f.recipientPartyId)).not.toContain("ten");
+  });
+
+  it("an owner id that is not a party on the job never counts as established control", () => {
+    const job = qldCommercialSelfPay();
+    job.assets[0].ownerPartyId = "ghost";
+    job.approvals.push({ id: "g1", partyId: "ghost", kind: "WORK", scopeLineIds: ["C1"], evidence: "verified" });
+    job.approvals.push({ id: "g2", partyId: "dir", kind: "PAYMENT", scopeLineIds: ["C1"], evidence: "verified" });
+    const plan = planAuthority(job);
+    expect(gate(plan, "C1", "WORK").state).not.toBe("CLEAR");
+    expect(plan.scopes.find((x) => x.scopeLineId === "C1")?.canStart).toBe(false);
+  });
+
+  it("an emergency flag alone never covers work that is not a listed make-safe task", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].description = "Rebuild damaged kitchen joinery";
+    job.scope[0].emergency = true;
+    job.emergencyBasis = { documented: true, noticeAttemptsLogged: true, note: "water loss" };
+    job.approvals.push({ id: "p1", partyId: "dir", kind: "PAYMENT", scopeLineIds: ["C1"], evidence: "verified" });
+    const plan = planAuthority(job);
+    expect(gate(plan, "C1", "WORK").state).not.toBe("CLEAR");
+    expect(plan.scopes.find((x) => x.scopeLineId === "C1")?.canStart).toBe(false);
+  });
+
+  it("a running total too large to add exactly holds the line", () => {
+    const job = nswStrataWaterLoss();
+    // Every value passes entry validation; only the running total overflows.
+    job.caps[0].cap.minor = Number.MAX_SAFE_INTEGER;
+    job.caps[0].committed.minor = Number.MAX_SAFE_INTEGER;
+    job.scope = [{ ...job.scope[0], amount: { minor: 1, currency: "AUD", gst: "EX" } }];
+    const plan = planAuthority(job);
+    expect(plan.scopes.map((s) => s.scopeLineId)).toEqual(["L1"]);
+    const r = gate(plan, "L1", "INSURER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toMatch(/running total is too large/);
+  });
+
+  it("an earlier insurer line on a different GST basis leaves later totals unknown, so they hold", () => {
+    const job = nswStrataWaterLoss();
+    job.caps[0].cap.minor = 15_000;
+    job.caps[0].committed.minor = 0;
+    job.caps[0].restrictedNeedsSeparateApproval = [];
+    const l1 = job.scope[0];
+    job.scope = [
+      { ...l1, id: "G1", amount: { minor: 10_000, currency: "AUD", gst: "INC" } },
+      { ...l1, id: "G2", amount: { minor: 10_000, currency: "AUD", gst: "EX" } },
+    ];
+    const plan = planAuthority(job);
+    expect(gate(plan, "G1", "INSURER").state).toBe("HOLD");
+    expect(gate(plan, "G2", "INSURER").state).toBe("HOLD");
+  });
+
+  it("an amount that is not a safe whole number of cents holds the line, whoever pays", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].amount.minor = 2 ** 53;
+    for (const kind of ["WORK", "PAYMENT"] as const) {
+      job.approvals.push({ id: `u-${kind}`, partyId: "dir", kind, scopeLineIds: ["C1"], evidence: "verified" });
+    }
+    const plan = planAuthority(job);
+    // Rejected at entry: no scope, gate or form is produced for any line.
+    expect(plan.scopes).toEqual([]);
+    expect(plan.forms).toEqual([]);
+    expect(plan.holds.some((h) => h.includes("C1"))).toBe(true);
+  });
+
+  describe("any unusable money value stops the whole plan before any gate or form", () => {
+    const cases: Array<[string, (j: JobFacts) => void]> = [
+      ["negative committed amount", (j) => { j.caps[0].committed.minor = -70_000; }],
+      ["fractional line amount", (j) => { j.scope[0].amount.minor = 1.5; }],
+      ["unsafe cap", (j) => { j.caps[0].cap.minor = 2 ** 53; }],
+    ];
+    it.each(cases)("%s", (_label, mutate) => {
+      const job = nswStrataWaterLoss();
+      mutate(job);
+      let plan: AuthorityPlan | undefined;
+      expect(() => { plan = planAuthority(job); }).not.toThrow();
+      expect(plan?.forms).toEqual([]);
+      expect(plan?.scopes).toEqual([]);
+      expect(plan?.holds.some((h) => h.includes("not usable"))).toBe(true);
+    });
+  });
+
+  it("a form total too large to add exactly is left blank, never thrown or rounded", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].amount.minor = Number.MAX_SAFE_INTEGER;
+    job.scope.push({ ...job.scope[0], id: "C2", amount: { ...job.scope[0].amount, minor: 1 } });
+    let plan: AuthorityPlan | undefined;
+    expect(() => { plan = planAuthority(job); }).not.toThrow();
+    const a03 = forms(plan!, "A03").find((f) => f.scopeLineIds.includes("C2"));
+    const amount = a03?.fields.find((f) => f.key === "amount");
+    expect(amount?.value).toBeNull();
+    expect(amount?.blankReason).toMatch(/too large/);
+    expect(amount?.blankReason).not.toMatch(/currenc|GST/);
+  });
+
+  it("no form is ever addressed to an owner who is not a party on the job", () => {
+    const job = qldCommercialSelfPay();
+    job.assets[0].ownerPartyId = "ghost";
+    const plan = planAuthority(job);
+    expect(plan.forms.map((f) => f.recipientPartyId)).not.toContain("ghost");
+  });
+
+  // Discovery sweep 20/11/2026 (Codex, Kimi, DeepSeek in parallel).
+  it("an approval naming an asset never stands in for a line-specific approval", () => {
+    const job = nswStrataWaterLoss();
+    job.approvals.push({ id: "wide", partyId: "sm", kind: "WORK", assetIds: ["riser"], evidence: "verified" });
+    expect(gate(planAuthority(job), "L4", "WORK").state).not.toBe("CLEAR");
+  });
+
+  describe("job data that is not usable stops the whole plan before any gate or form", () => {
+    const cases: Array<[string, (j: JobFacts) => void]> = [
+      ["unknown currency", (j) => { (j.scope[0].amount as { currency: string }).currency = "UNKNOWN"; }],
+      ["unknown GST basis", (j) => { (j.scope[0].amount as { gst: string }).gst = "UNKNOWN"; }],
+      ["missing amount", (j) => { (j.scope[0] as { amount: unknown }).amount = null; }],
+      ["malformed expiry date", (j) => { j.caps[0].expiresOn = "not-a-date"; }],
+      ["malformed as-of date", (j) => { j.asOf = ""; }],
+      ["duplicate scope line id", (j) => { j.scope.push({ ...j.scope[0] }); }],
+      ["duplicate limit id", (j) => { j.caps.push({ ...j.caps[0] }); }],
+      ["duplicate party id", (j) => { j.parties.push({ ...j.parties[0] }); }],
+      ["unlisted make-safe task", (j) => { (j.scope[0] as { makeSafe?: string }).makeSafe = "REBUILD"; }],
+    ];
+    it.each(cases)("%s", (_label, mutate) => {
+      const job = nswStrataWaterLoss();
+      mutate(job);
+      let plan: AuthorityPlan | undefined;
+      expect(() => { plan = planAuthority(job); }).not.toThrow();
+      expect(plan?.forms).toEqual([]);
+      expect(plan?.scopes).toEqual([]);
+      expect(plan?.holds.some((h) => h.includes("not usable"))).toBe(true);
+    });
+  });
+
+  it("a party whose id looks like a separator never shares a form with 'no recipient'", () => {
+    const job = nswStrataWaterLoss();
+    job.parties.push({ id: "-", name: "Dash Insurer", capacity: "INSURER", canAuthoriseSpend: true });
+    job.scope[0].payment.payerPartyId = "-";
+    const a04 = forms(planAuthority(job), "A04");
+    const toDash = a04.filter((f) => f.recipientPartyId === "-");
+    expect(toDash.every((f) => !f.scopeLineIds.includes("L4"))).toBe(true);
+  });
+
+  it("an occupier can give access only to an asset they are proven to occupy", () => {
+    const job = qldCommercialSelfPay();
+    job.approvals = job.approvals.filter((a) => a.kind !== "ACCESS");
+    job.parties.push({ id: "other", name: "Unrelated Tenant", capacity: "TENANT" });
+    job.approvals.push({ id: "o1", partyId: "other", kind: "ACCESS", assetIds: ["fitout"], evidence: "verified" });
+    expect(gate(planAuthority(job), "C1", "ACCESS").state).not.toBe("CLEAR");
+  });
+
+  it("an emergency basis never clears access for a restricted line, even one naming a make-safe task", () => {
+    const job = nzRentalNaturalHazard();
+    job.emergencyBasis = { ...(job.emergencyBasis ?? {}), documented: true } as typeof job.emergencyBasis;
+    const n2 = job.scope.find((l) => l.id === "N2")!;
+    n2.makeSafe = "TEMPORARY_COVER";
+    expect(n2.restricted).toBeTruthy();
+    job.approvals = job.approvals.filter((a) => !(a.kind === "ACCESS" && (a.scopeLineIds?.includes("N2") || a.assetIds?.includes(n2.assetId))));
+    expect(gate(planAuthority(job), "N2", "ACCESS").state).not.toBe("CLEAR");
+  });
+
+  it("an asset with no established controller holds the work", () => {
+    const job = nswStrataWaterLoss();
+    job.assets[2].ownershipEvidence = "reported";
+    expect(gate(planAuthority(job), "L3", "WORK").state).toBe("HOLD");
+  });
+
+  it("a job with no jurisdiction pack is held and nothing can start", () => {
+    for (const j of ["UNKNOWN", "AU-VIC"] as const) {
+      const job = qldCommercialSelfPay();
+      job.jurisdiction = j;
+      job.approvals.push({
+        id: "x",
+        partyId: "dir",
+        kind: "WORK",
+        scopeLineIds: ["C1"],
+        evidence: "verified",
+      });
+      job.approvals.push({
+        id: "y",
+        partyId: "dir",
+        kind: "PAYMENT",
+        scopeLineIds: ["C1"],
+        evidence: "verified",
+      });
+      const p = planAuthority(job);
+      expect(p.previewAllowed).toBe(false);
+      expect(p.holds[0]).toMatch(/No jurisdiction pack/);
+      expect(p.scopes[0].canStart).toBe(false);
+    }
+  });
+
+  it("a fully authorised line in an enabled jurisdiction can start (positive control)", () => {
+    const job = qldCommercialSelfPay();
+    job.approvals.push({
+      id: "x",
+      partyId: "dir",
+      kind: "WORK",
+      scopeLineIds: ["C1"],
+      evidence: "verified",
+    });
+    job.approvals.push({
+      id: "y",
+      partyId: "dir",
+      kind: "PAYMENT",
+      scopeLineIds: ["C1"],
+      evidence: "verified",
+    });
+    expect(planAuthority(job).scopes[0].canStart).toBe(true);
+  });
+});
+
+describe("money", () => {
+  it("formats integer minor units and refuses fractions", () => {
+    expect(formatMoney({ minor: 310_000, currency: "AUD", gst: "EX" })).toBe(
+      "A$3,100.00 ex GST",
+    );
+    expect(formatMoney({ minor: 5, currency: "NZD", gst: "INC" })).toBe(
+      "NZ$0.05 incl GST",
+    );
+    expect(() =>
+      formatMoney({ minor: 1.5, currency: "AUD", gst: "EX" }),
+    ).toThrow();
+  });
+});
+
+// CodeRabbit review findings, RA-8468 (numbers match the review thread list).
+describe("review findings", () => {
+  function field(plan: AuthorityPlan, code: string, line: string, key: string) {
+    const f = forms(plan, code).find((d) => d.scopeLineIds.includes(line));
+    if (!f) throw new Error(`no ${code} draft for ${line}`);
+    return f.fields.find((x) => x.key === key);
+  }
+  const documentedNz = (): JobFacts => {
+    const job = nzRentalNaturalHazard();
+    job.emergencyBasis = { documented: true, noticeAttemptsLogged: true, note: "Roof open, rain forecast" };
+    return job;
+  };
+
+  it("3: A02 carries a stop point, blank with a reason when none is recorded", () => {
+    expect(TEMPLATES.A02.requiredFields).toContain("stopPoint");
+    const blank = field(planAuthority(documentedNz()), "A02", "N1", "stopPoint");
+    expect(blank?.value).toBeNull();
+    expect(blank?.blankReason).toMatch(/stop point/);
+    const job = documentedNz();
+    job.scope[0].stopPoint = "Roof covered and water extracted; no removal";
+    expect(field(planAuthority(job), "A02", "N1", "stopPoint")?.value).toBe(
+      "N1 Temporary tarp and water extraction: Roof covered and water extracted; no removal",
+    );
+  });
+
+  it("4: a clear insurer gate still names a fictional rule", () => {
+    const at = nswStrataWaterLoss();
+    at.scope = [at.scope[0]];
+    at.caps[0].committed = { minor: 230_000, currency: "AUD", gst: "EX" };
+    const r = gate(planAuthority(at), "L1", "INSURER");
+    expect(r.state).toBe("CLEAR");
+    expect(r.reason).toMatch(/fictional/);
+    at.caps[0].fictional = false;
+    expect(gate(planAuthority(at), "L1", "INSURER").reason).toBe("within reviewed terms");
+  });
+
+  it("5: a mixed-basis total keeps the mixed-basis reason", () => {
+    const job = qldCommercialSelfPay();
+    job.scope.push({ ...job.scope[0], id: "C2", amount: { minor: 1, currency: "AUD", gst: "EX" } });
+    const amount = field(planAuthority(job), "A03", "C2", "amount");
+    expect(amount?.value).toBeNull();
+    expect(amount?.blankReason).toMatch(/different currencies or GST bases/);
+  });
+
+  it("6: an unconfirmed payer leaves the payer field blank", () => {
+    const job = qldCommercialSelfPay();
+    job.scope[0].payment.payerPartyId = "ghost";
+    const payer = field(planAuthority(job), "A03", "C1", "payer");
+    expect(payer?.value).toBeNull();
+    expect(payer?.blankReason).toBeTruthy();
+    const ok = field(planAuthority(qldCommercialSelfPay()), "A03", "C1", "payer");
+    expect(ok?.value).toBeTruthy();
+    expect(ok?.value).not.toMatch(/unknown party/);
+  });
+
+  it("7: an emergency note is never the access basis for unrelated non-emergency lines", () => {
+    const plan = planAuthority(documentedNz());
+    const a06 = forms(plan, "A06").find((f) => f.recipientPartyId === "tn");
+    const basis = a06?.fields.find((f) => f.key === "accessBasis");
+    expect(basis).toBeDefined();
+    expect(basis?.value).toBeNull();
+    expect(field(plan, "A02", "N1", "emergencyBasis")?.value).toBe("Roof open, rain forecast");
+  });
+
+  it("8a: an unknown payment basis stops the plan before any gate", () => {
+    const job = qldCommercialSelfPay();
+    (job.scope[0].payment as { basis: string }).basis = "TYPO";
+    job.approvals.push({ id: "x", partyId: "dir", kind: "WORK", scopeLineIds: ["C1"], evidence: "verified" });
+    const plan = planAuthority(job);
+    expect(plan.scopes).toEqual([]);
+    expect(plan.forms).toEqual([]);
+    expect(plan.holds.some((h) => h.includes("not usable"))).toBe(true);
+  });
+
+  it("8b: a scope line with no payment object is a job-data hold, not a crash", () => {
+    const job = nswStrataWaterLoss();
+    (job.scope[0] as { payment: unknown }).payment = null;
+    let plan: AuthorityPlan | undefined;
+    expect(() => { plan = planAuthority(job); }).not.toThrow();
+    expect(plan?.scopes).toEqual([]);
+    expect(plan?.holds.some((h) => h.includes("not usable"))).toBe(true);
+  });
+
+  it("10: emergency strip-out with no listed make-safe task gets no A02", () => {
+    for (const job of [nzRentalNaturalHazard(), documentedNz()]) {
+      const a02 = forms(planAuthority(job), "A02");
+      expect(a02.some((f) => f.scopeLineIds.includes("N1"))).toBe(true);
+      expect(a02.some((f) => f.scopeLineIds.includes("N2"))).toBe(false);
+    }
+  });
+
+  it("11: a null payer is not counted as a second payer", () => {
+    const job = qldCommercialSelfPay();
+    job.scope.push({ ...job.scope[0], id: "C2", payment: { basis: "OWNER_DIRECT", payerPartyId: null } });
+    expect(forms(planAuthority(job), "A11")).toEqual([]);
+  });
+
+  it("12: a line naming a missing asset is kept out of A11 drafts", () => {
+    const job = nswStrataWaterLoss();
+    job.scope[0].assetId = "missing";
+    const plan = planAuthority(job);
+    expect(forms(plan, "A11").length).toBeGreaterThan(0);
+    expect(forms(plan, "A11").some((f) => f.scopeLineIds.includes("L1"))).toBe(false);
+  });
+
+  it("13: the preview prints filled values with sources, blank reasons and send blockers", () => {
+    const plan = planAuthority(qldCommercialSelfPay());
+    const a03 = forms(plan, "A03")[0];
+    const text = formatDraft(a03).join("\n");
+    const legal = a03.fields.find((f) => f.key === "supplierLegalName")!;
+    expect(text).toContain(`${legal.value} (from business.legalName)`);
+    const amount = a03.fields.find((f) => f.key === "amount")!;
+    expect(text).toContain(`${amount.value}`);
+    for (const b of a03.notSendableBecause) expect(text).toContain(b);
+  });
+});
+
+// CodeRabbit review findings, RA-8468 round 2 (thread topics in each title).
+describe("review findings, round 2", () => {
+  function draftFor(plan: AuthorityPlan, code: string, line: string) {
+    const f = forms(plan, code).find((d) => d.scopeLineIds.includes(line));
+    if (!f) throw new Error(`no ${code} draft for ${line}`);
+    return f;
+  }
+  function fieldOf(plan: AuthorityPlan, code: string, line: string, key: string) {
+    const f = draftFor(plan, code, line).fields.find((x) => x.key === key);
+    if (!f) throw new Error(`no ${key} on ${code}`);
+    return f;
+  }
+  const directPayAuthorised = (): JobFacts => {
+    const job = qldCommercialSelfPay();
+    for (const kind of ["WORK", "PAYMENT"] as const) {
+      job.approvals.push({ id: `ok-${kind}`, partyId: "dir", kind, scopeLineIds: ["C1"], evidence: "verified" });
+    }
+    return job;
+  };
+
+  it("the preview prints a blank field row separately from the blocker list", () => {
+    const job = qldCommercialSelfPay();
+    job.business = { ...job.business, businessNumber: null };
+    const text = formatDraft(forms(planAuthority(job), "A03")[0]).join("\n");
+    expect(text).toContain("supplierBusinessNumber: [blank] not on the business profile");
+    expect(text).toContain("- supplierBusinessNumber: not on the business profile");
+  });
+
+  it("A12 and A13 are recorded as deferred, never silently missing", () => {
+    for (const code of ["A12", "A13"] as const) {
+      expect(DEFERRED_TEMPLATES).toContain(code);
+      expect(TEMPLATES[code].deferredUntil).toBeTruthy();
+    }
+    for (const make of [nswStrataWaterLoss, qldCommercialSelfPay, nzRentalNaturalHazard]) {
+      const codes = planAuthority(make()).forms.map((f) => f.code);
+      for (const c of DEFERRED_TEMPLATES) expect(codes).not.toContain(c);
+    }
+    // Every template that is not deferred has no deferral note.
+    for (const t of Object.values(TEMPLATES)) {
+      expect(Boolean(t.deferredUntil)).toBe(DEFERRED_TEMPLATES.includes(t.code));
+    }
+  });
+
+  it("A04 shows the recipient's reviewed limit and exclusions, with the fictional marker", () => {
+    const plan = planAuthority(nswStrataWaterLoss());
+    const cap = fieldOf(plan, "A04", "L1", "fundingCap");
+    expect(cap.value).toContain("A$3,000.00 ex GST");
+    expect(cap.value).toContain("fictional schedule, clause 1");
+    expect(cap.value).toContain("[fictional teaching fixture]");
+    const ex = fieldOf(plan, "A04", "L1", "exclusions");
+    expect(ex.value).toMatch(/flooring removal/);
+    // The unaddressed A04 (assessor line) has no funder, so no terms are shown.
+    expect(fieldOf(plan, "A04", "L4", "fundingCap").value).toBeNull();
+    expect(fieldOf(plan, "A04", "L4", "exclusions").value).toBeNull();
+  });
+
+  it("A04 terms stay blank when the funder's rule is unreviewed or expired", () => {
+    for (const mutate of [
+      (j: JobFacts) => { j.caps[0].status = "UNREVIEWED"; },
+      (j: JobFacts) => { j.caps[0].expiresOn = "2026-01-01"; },
+    ]) {
+      const job = nswStrataWaterLoss();
+      mutate(job);
+      const plan = planAuthority(job);
+      const cap = fieldOf(plan, "A04", "L1", "fundingCap");
+      expect(cap.value).toBeNull();
+      expect(cap.blankReason).toMatch(/reviewed/);
+      expect(fieldOf(plan, "A04", "L1", "exclusions").value).toBeNull();
+    }
+  });
+
+  it("A08 has custody fields, blank with a reason when the job has no value", () => {
+    const plan = planAuthority(nzRentalNaturalHazard());
+    for (const key of ["destination", "storageDuration", "returnArrangements"]) {
+      const f = fieldOf(plan, "A08", "N3", key);
+      expect(f.value).toBeNull();
+      expect(f.blankReason).toMatch(/not recorded on the job/);
+    }
+    expect(TEMPLATES.A08.requiredFields).not.toContain("disposal");
+  });
+
+  it("an explicit no-spend-authority flag holds direct payment too", () => {
+    const job = directPayAuthorised();
+    expect(planAuthority(job).scopes[0].canStart).toBe(true);
+    job.parties.find((p) => p.id === "dir")!.canAuthoriseSpend = false;
+    const plan = planAuthority(job);
+    expect(gate(plan, "C1", "PAYER").state).toBe("HOLD");
+    expect(gate(plan, "C1", "PAYER").reason).toMatch(/no authority to commit spend/);
+    expect(plan.scopes[0].canStart).toBe(false);
+  });
+
+  it("an insurer work order with no named funder holds the insurer gate", () => {
+    const job = nswStrataWaterLoss();
+    job.scope[0].payment.payerPartyId = null;
+    const r = gate(planAuthority(job), "L1", "INSURER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toMatch(/no funder is named/);
+    // Non-insurer lines stay not applicable.
+    expect(gate(planAuthority(job), "L3", "INSURER").state).toBe("NOT_APPLICABLE");
+  });
+
+  it("a committed amount on another basis is named as the record to correct", () => {
+    const job = nswStrataWaterLoss();
+    job.caps[0].committed = { minor: 0, currency: "AUD", gst: "INC" };
+    const r = gate(planAuthority(job), "L1", "INSURER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toMatch(/amount already used is in AUD INC/);
+    expect(r.reason).not.toMatch(/amount is AUD EX; not compared/);
+    // A proposed-amount mismatch still names the proposed amount.
+    const job2 = nswStrataWaterLoss();
+    job2.scope[0].amount = { minor: 70_000, currency: "AUD", gst: "INC" };
+    expect(gate(planAuthority(job2), "L1", "INSURER").reason).toMatch(/proposed amount is AUD INC/);
+  });
+
+  it("A04 takes its order reference only from the recipient's own order for those lines", () => {
+    const plan = planAuthority(nswStrataWaterLoss());
+    const ref = fieldOf(plan, "A04", "L1", "workOrderRef");
+    expect(ref.value).toBe("WO-FICTIONAL-1");
+    expect(ref.source).toMatch(/^approval\.ap3/);
+    // The unaddressed A04 never borrows another payer's order.
+    expect(fieldOf(plan, "A04", "L4", "workOrderRef").value).toBeNull();
+    // A second insurer with spend authority and no order of its own gets a blank.
+    const job = nswStrataWaterLoss();
+    job.parties.push({ id: "ins2", name: "Second Insurer Example", capacity: "INSURER", canAuthoriseSpend: true });
+    job.scope[3].payment.payerPartyId = "ins2";
+    const p2 = planAuthority(job);
+    expect(fieldOf(p2, "A04", "L4", "workOrderRef").value).toBeNull();
+    expect(fieldOf(p2, "A04", "L1", "workOrderRef").value).toBe("WO-FICTIONAL-1");
+  });
+
+  it("each stop point on A02 is labelled with its scope line", () => {
+    const job = nzRentalNaturalHazard();
+    job.emergencyBasis = { documented: true, noticeAttemptsLogged: true, note: "Roof open" };
+    job.scope[0].stopPoint = "Tarp fixed";
+    job.scope.push({ ...job.scope[0], id: "N4", description: "Extract water from hall", makeSafe: "WATER_EXTRACTION", stopPoint: "Standing water removed" });
+    const v = fieldOf(planAuthority(job), "A02", "N4", "stopPoint").value;
+    expect(v).toBe(
+      "N1 Temporary tarp and water extraction: Tarp fixed; N4 Extract water from hall: Standing water removed",
+    );
+  });
+
+  it("A01 describes the inspection areas, not the work, as what it covers", () => {
+    const plan = planAuthority(nzRentalNaturalHazard());
+    const a01 = draftFor(plan, "A01", "N2");
+    expect(a01.customerPreview).toContain("Areas covered: Dwelling roof and ceiling");
+    expect(a01.customerPreview).not.toContain("plasterboard");
+    // Work drafts still list the work.
+    expect(draftFor(plan, "A06", "N2").customerPreview).toContain("Work covered: ");
+  });
+
+  it("an unsupported jurisdiction gets the hold and scope diagnostics but no draft forms", () => {
+    const job = directPayAuthorised();
+    job.jurisdiction = "AU-VIC";
+    const plan = planAuthority(job);
+    expect(plan.previewAllowed).toBe(false);
+    expect(plan.holds[0]).toMatch(/No jurisdiction pack/);
+    expect(plan.scopes.length).toBe(1);
+    expect(plan.forms).toEqual([]);
+  });
+
+  it("an active payment split includes the unassigned line in an unaddressed draft", () => {
+    const job = nswStrataWaterLoss();
+    // Two identified payers with spend authority, plus L3 with no payer.
+    job.parties.find((p) => p.id === "lot")!.canAuthoriseSpend = true;
+    job.scope[1].payment = { basis: "OWNER_DIRECT", payerPartyId: "lot" };
+    const a11 = forms(planAuthority(job), "A11");
+    const unaddressed = a11.find((f) => f.recipientPartyId === null);
+    expect(unaddressed?.scopeLineIds).toContain("L3");
+    expect(unaddressed?.fields.find((f) => f.key === "payer")?.value).toBeNull();
+    // One identified payer plus an unassigned line is still not a split.
+    const single = qldCommercialSelfPay();
+    single.scope.push({ ...single.scope[0], id: "C2", payment: { basis: "UNCONFIRMED", payerPartyId: null } });
+    expect(forms(planAuthority(single), "A11")).toEqual([]);
+  });
+});
