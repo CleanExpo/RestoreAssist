@@ -5,6 +5,8 @@ import {
   type IncidentDimension,
   type InsightCell,
 } from "@/lib/analytics/restorationInsights";
+// CSV cells are written by the one shared owner (RA-8401).
+import { csvField } from "@/lib/csv/csv-cell";
 
 /**
  * RA-6917 Phase 2.5 — de-identified annual report over the restoration data
@@ -103,15 +105,6 @@ export async function buildAnnualReport(
     sections,
     notes,
   };
-}
-
-/** Escape a CSV field: wrap in quotes, double internal quotes, and neutralise
- *  spreadsheet formula-injection by prefixing a leading =,+,-,@ with a quote. */
-function csvField(value: string | number | null): string {
-  if (value === null || value === undefined) return "";
-  let s = String(value);
-  if (/^[=+\-@]/.test(s)) s = `'${s}`;
-  return `"${s.replace(/"/g, '""')}"`;
 }
 
 /** Flatten an AnnualReport to a single CSV: one row per published cell. */

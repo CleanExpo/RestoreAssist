@@ -21,15 +21,39 @@ interface QueueStats {
 }
 
 /**
- * Get queue statistics
+ * Whose webhook events to count. There is no default: a signed-in user's
+ * page passes their own id, and only a CRON_SECRET-gated route may ask for
+ * every tenant (RA-8423 — the metrics endpoint used to show every user the
+ * site-wide counts).
  */
-export async function getQueueStats(): Promise<QueueStats> {
+export type QueueStatsScope = { userId: string } | { allTenants: true };
+
+/**
+ * Get queue statistics for one user's integrations, or for every tenant.
+ */
+export async function getQueueStats(
+  scope: QueueStatsScope,
+): Promise<QueueStats> {
+  let owner: { integration: { userId: string } } | Record<string, never>;
+  if ("userId" in scope) {
+    // An undefined userId would make Prisma drop the filter and count
+    // every tenant, so refuse it rather than fall through.
+    if (typeof scope.userId !== "string" || scope.userId.length === 0) {
+      throw new Error("getQueueStats: userId is required");
+    }
+    owner = { integration: { userId: scope.userId } };
+  } else if (scope.allTenants === true) {
+    owner = {};
+  } else {
+    throw new Error("getQueueStats: scope must name a user or all tenants");
+  }
+
   const [pending, processing, completed, failed, total] = await Promise.all([
-    prisma.webhookEvent.count({ where: { status: "PENDING" } }),
-    prisma.webhookEvent.count({ where: { status: "PROCESSING" } }),
-    prisma.webhookEvent.count({ where: { status: "COMPLETED" } }),
-    prisma.webhookEvent.count({ where: { status: "FAILED" } }),
-    prisma.webhookEvent.count(),
+    prisma.webhookEvent.count({ where: { ...owner, status: "PENDING" } }),
+    prisma.webhookEvent.count({ where: { ...owner, status: "PROCESSING" } }),
+    prisma.webhookEvent.count({ where: { ...owner, status: "COMPLETED" } }),
+    prisma.webhookEvent.count({ where: { ...owner, status: "FAILED" } }),
+    prisma.webhookEvent.count({ where: owner }),
   ]);
 
   return {
