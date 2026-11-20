@@ -17,7 +17,9 @@ import {
   DRAIN_ACCEPTS,
   INGEST_ROUTE_DIR,
   QBO_MYOB_DRAIN_EVENT_TYPES,
+  UNLISTABLE_STORED_VALUES,
   WEBHOOK_EVENT_TYPES,
+  type UnlistableStoredValue,
   type WebhookEventTypeEntry,
   type WebhookProvider,
 } from "@/lib/integrations/webhook-event-types";
@@ -25,29 +27,160 @@ import {
 const REPO_ROOT = join(__dirname, "..", "..", "..");
 const WEBHOOK_ROOT = join(REPO_ROOT, "app", "api", "webhooks");
 
+interface StoredTrace {
+  /** Every string a WebhookEvent write can store, traced to literals in the file. */
+  readonly values: Set<string>;
+  /** Source text of every stored expression that could not be traced to a literal. */
+  readonly untraced: string[];
+}
+
+const WRITE_METHODS = new Set(["create", "upsert", "createMany", "update", "updateMany"]);
+
+type Binding = { readonly expr: ts.Expression } | { readonly refuse: string };
+
 /**
- * Every event-type-shaped string literal ("noun.verb") in a route, read with
- * the TypeScript parser rather than matched line by line. A line pattern only
- * sees the syntax it was written for (`eventType = "x.y"`) and misses an object
- * property (`eventType: "x.y"`), a single-quoted or template literal, or a
- * value split across lines, while reading a comment as code. The parser sees
- * every string literal in any position and no comment, so a route cannot name
- * an event type the registry does not list.
+ * What a route's WebhookEvent writes store as eventType. It starts at each
+ * write and follows the value back through the file, so it fails closed: a
+ * value that is not a string literal (an import, a concatenation, a template
+ * with a substitution, a property read, a spread it cannot open, a parameter)
+ * is reported as untraced instead of being missed. Two earlier versions
+ * collected the literals a route contains, and each review found a form they
+ * could not see (PR 2557); collecting can never be complete, refusing can.
+ *
+ * Names are matched by text across the whole file, which over-approximates:
+ * every assignment to a name counts, wherever it is. null is not a stored
+ * value, because WebhookEvent.eventType is a required column and a write with
+ * null throws instead of storing a row.
  */
-function extractStoredEventTypes(source: string): Set<string> {
+function traceStoredEventTypes(source: string): StoredTrace {
   const file = ts.createSourceFile("route.ts", source, ts.ScriptTarget.Latest, true);
-  const found = new Set<string>();
-  const visit = (node: ts.Node): void => {
-    if (
-      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
-      /^[a-z]+\.[a-z_]+$/.test(node.text)
-    ) {
-      found.add(node.text);
-    }
-    ts.forEachChild(node, visit);
+  const values = new Set<string>();
+  const untraced: string[] = [];
+  const bindings = new Map<string, Binding[]>();
+  const functions = new Map<string, ts.FunctionDeclaration>();
+  const writes: ts.CallExpression[] = [];
+  const text = (n: ts.Node): string => n.getText(file);
+  const bind = (name: string, b: Binding): void => {
+    bindings.set(name, [...(bindings.get(name) ?? []), b]);
   };
-  visit(file);
-  return found;
+
+  const index = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+      bind(node.name.text, node.initializer ? { expr: node.initializer } : { refuse: "" });
+    } else if (ts.isParameter(node) && ts.isIdentifier(node.name)) {
+      bind(node.name.text, { refuse: `parameter ${node.name.text}` });
+    } else if (ts.isBinaryExpression(node) && ts.isIdentifier(node.left)) {
+      const op = node.operatorToken.kind;
+      if (op === ts.SyntaxKind.EqualsToken) bind(node.left.text, { expr: node.right });
+      else if (op >= ts.SyntaxKind.FirstCompoundAssignment && op <= ts.SyntaxKind.LastCompoundAssignment) {
+        bind(node.left.text, { refuse: text(node) });
+      }
+    } else if (ts.isFunctionDeclaration(node) && node.name) {
+      functions.set(node.name.text, node);
+    } else if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      WRITE_METHODS.has(node.expression.name.text) &&
+      /(^|\.)webhookEvent$/.test(text(node.expression.expression))
+    ) {
+      writes.push(node);
+    }
+    ts.forEachChild(node, index);
+  };
+  index(file);
+
+  const returnsOf = (fn: ts.FunctionDeclaration): ts.Expression[] => {
+    const out: ts.Expression[] = [];
+    const visit = (node: ts.Node): void => {
+      if (ts.isFunctionLike(node)) return;
+      if (ts.isReturnStatement(node) && node.expression) out.push(node.expression);
+      ts.forEachChild(node, visit);
+    };
+    if (fn.body) ts.forEachChild(fn.body, visit);
+    return out;
+  };
+
+  const resolve = (expr: ts.Expression, seen: Set<ts.Node>): void => {
+    if (seen.has(expr)) return;
+    seen.add(expr);
+    if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) {
+      values.add(expr.text);
+    } else if (expr.kind === ts.SyntaxKind.NullKeyword) {
+      // not storable: required column
+    } else if (
+      ts.isParenthesizedExpression(expr) ||
+      ts.isAsExpression(expr) ||
+      ts.isSatisfiesExpression(expr) ||
+      ts.isNonNullExpression(expr)
+    ) {
+      resolve(expr.expression, seen);
+    } else if (ts.isConditionalExpression(expr)) {
+      resolve(expr.whenTrue, seen);
+      resolve(expr.whenFalse, seen);
+    } else if (ts.isIdentifier(expr) && bindings.has(expr.text)) {
+      for (const b of bindings.get(expr.text)!) {
+        if ("expr" in b) resolve(b.expr, seen);
+        else if (b.refuse) untraced.push(b.refuse);
+      }
+    } else if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression) && functions.has(expr.expression.text)) {
+      for (const r of returnsOf(functions.get(expr.expression.text)!)) resolve(r, seen);
+    } else {
+      untraced.push(text(expr));
+    }
+  };
+
+  const propName = (p: ts.ObjectLiteralElementLike): string | undefined =>
+    p.name && !ts.isComputedPropertyName(p.name) ? text(p.name).replace(/^["'`]|["'`]$/g, "") : undefined;
+
+  /** Resolve eventType in an object a write stores; refuse what cannot be opened. */
+  const readObject = (expr: ts.Expression): boolean => {
+    if (ts.isParenthesizedExpression(expr)) return readObject(expr.expression);
+    if (ts.isConditionalExpression(expr)) {
+      const a = readObject(expr.whenTrue);
+      const b = readObject(expr.whenFalse);
+      return a || b;
+    }
+    if (!ts.isObjectLiteralExpression(expr)) {
+      untraced.push(`...${text(expr)}`);
+      return false;
+    }
+    let named = false;
+    for (const p of expr.properties) {
+      if (ts.isSpreadAssignment(p)) {
+        named = readObject(p.expression) || named;
+      } else if (p.name && ts.isComputedPropertyName(p.name)) {
+        untraced.push(text(p));
+      } else if (propName(p) === "eventType") {
+        named = true;
+        if (ts.isPropertyAssignment(p)) resolve(p.initializer, new Set());
+        else if (ts.isShorthandPropertyAssignment(p)) resolve(p.name, new Set());
+        else untraced.push(text(p));
+      }
+    }
+    return named;
+  };
+
+  for (const call of writes) {
+    const method = (call.expression as ts.PropertyAccessExpression).name.text;
+    const arg = call.arguments[0];
+    if (!arg || !ts.isObjectLiteralExpression(arg)) {
+      untraced.push(`webhookEvent.${method}(${arg ? text(arg) : ""})`);
+      continue;
+    }
+    for (const key of method === "upsert" ? ["create", "update"] : ["data"]) {
+      const prop = arg.properties.find((p) => propName(p) === key);
+      const creates = method === "create" || method === "createMany" || (method === "upsert" && key === "create");
+      if (!prop || !ts.isPropertyAssignment(prop)) {
+        if (creates || prop) untraced.push(`webhookEvent.${method} ${key}: ${prop ? text(prop) : "missing"}`);
+        continue;
+      }
+      const named = readObject(prop.initializer);
+      if (!named && creates && ts.isObjectLiteralExpression(prop.initializer)) {
+        untraced.push(`webhookEvent.${method} ${key} sets no eventType`);
+      }
+    }
+  }
+  return { values, untraced };
 }
 
 function walkRoutes(dir: string): string[] {
@@ -66,7 +199,7 @@ function discoverIngestRoutes(): Map<string, string> {
   const routes = new Map<string, string>();
   for (const file of walkRoutes(WEBHOOK_ROOT)) {
     const source = readFileSync(file, "utf8");
-    if (!/webhookEvent\.create\(/.test(source)) continue;
+    if (!/webhookEvent\s*\.\s*(create|upsert|createMany|update|updateMany)\b/.test(source)) continue;
     routes.set(relative(WEBHOOK_ROOT, file).split(sep).slice(0, -1).join("/"), source);
   }
   return routes;
@@ -74,20 +207,34 @@ function discoverIngestRoutes(): Map<string, string> {
 
 /** Problems between what routes store and what the registry declares. */
 function compareWithRegistry(
-  stored: ReadonlyMap<WebhookProvider, ReadonlySet<string>>,
+  stored: ReadonlyMap<WebhookProvider, StoredTrace>,
   registry: readonly WebhookEventTypeEntry[],
   productionCrons: ReadonlySet<string>,
+  unlistable: readonly UnlistableStoredValue[] = UNLISTABLE_STORED_VALUES,
 ): string[] {
   const problems: string[] = [];
-  for (const [provider, types] of stored) {
-    for (const t of types) {
+  for (const [provider, trace] of stored) {
+    for (const expr of trace.untraced) {
+      if (!unlistable.some((u) => u.provider === provider && u.expression === expr)) {
+        problems.push(`${provider} route stores \`${expr}\`, which the guard cannot trace to a listed string`);
+      }
+    }
+  }
+  for (const u of unlistable) {
+    if (!stored.get(u.provider)?.untraced.includes(u.expression)) {
+      problems.push(`${u.provider} \`${u.expression}\` is listed as unlistable but no ingest route stores it`);
+    }
+    if (!/^RA-\d+$/.test(u.ticket)) problems.push(`${u.provider} \`${u.expression}\` has no ticket`);
+  }
+  for (const [provider, trace] of stored) {
+    for (const t of trace.values) {
       if (!registry.some((e) => e.provider === provider && e.eventType === t)) {
         problems.push(`${provider} route stores "${t}" but webhook-event-types.ts does not list it`);
       }
     }
   }
   for (const e of registry) {
-    if (!stored.get(e.provider)?.has(e.eventType)) {
+    if (!stored.get(e.provider)?.values.has(e.eventType)) {
       problems.push(`${e.provider} "${e.eventType}" is listed but no ingest route stores it`);
     }
     if (e.disposition.kind === "drained") {
@@ -108,12 +255,12 @@ function compareWithRegistry(
 
 const PRODUCTION_CRONS = new Set(PRODUCTION_ENABLED.map((c) => c.path));
 
-function storedByProvider(): Map<WebhookProvider, Set<string>> {
+function storedByProvider(): Map<WebhookProvider, StoredTrace> {
   const routes = discoverIngestRoutes();
-  const stored = new Map<WebhookProvider, Set<string>>();
+  const stored = new Map<WebhookProvider, StoredTrace>();
   for (const [provider, dir] of Object.entries(INGEST_ROUTE_DIR) as [WebhookProvider, string][]) {
     const source = routes.get(dir);
-    if (source) stored.set(provider, extractStoredEventTypes(source));
+    if (source) stored.set(provider, traceStoredEventTypes(source));
   }
   return stored;
 }
@@ -123,7 +270,14 @@ describe("webhook event-type registry (RA-8427)", () => {
     const known = new Set(Object.values(INGEST_ROUTE_DIR));
     const routes = [...discoverIngestRoutes().keys()];
     expect(routes.length).toBeGreaterThanOrEqual(4);
-    expect(routes.filter((r) => !known.has(r))).toEqual([]);
+    // Any other route that writes a WebhookEvent (the log retry resets status)
+    // must be proven never to set an event type.
+    const others = [...discoverIngestRoutes()].filter(([r]) => !known.has(r));
+    expect(others.map(([r]) => r)).toEqual(["logs/[id]/retry"]);
+    for (const [, source] of others) {
+      const trace = traceStoredEventTypes(source);
+      expect([...trace.values, ...trace.untraced]).toEqual([]);
+    }
     expect([...known].filter((d) => !routes.includes(d))).toEqual([]);
   });
 
@@ -144,50 +298,100 @@ describe("webhook event-type registry (RA-8427)", () => {
     expect(keys.length).toBe(new Set(keys).size);
   });
 
-  it("extracts the reversal types from the real routes (the scanner sees them)", () => {
+  it("traces the reversal types from the real routes, and only the Xero passthrough is untraced", () => {
     const stored = storedByProvider();
-    expect(stored.get("QUICKBOOKS")).toContain("payment.deleted");
-    expect(stored.get("MYOB")).toContain("payment.deleted");
-    expect(stored.get("XERO")).toContain("payment.updated");
-    expect(stored.get("XERO")).toContain("invoice.deleted");
-    expect(stored.get("SERVICEM8")).toContain("job.cancelled");
+    expect(stored.get("QUICKBOOKS")?.values).toContain("payment.deleted");
+    expect(stored.get("MYOB")?.values).toContain("payment.deleted");
+    expect(stored.get("XERO")?.values).toContain("payment.updated");
+    expect(stored.get("XERO")?.values).toContain("invoice.deleted");
+    expect(stored.get("SERVICEM8")?.values).toContain("job.cancelled");
+    expect(stored.get("QUICKBOOKS")?.values).toContain("");
+    expect(stored.get("XERO")?.untraced).toEqual(["event.eventType"]);
+    for (const p of ["QUICKBOOKS", "MYOB", "SERVICEM8"] as const) {
+      expect(stored.get(p)?.untraced).toEqual([]);
+    }
   });
 
-  // Negative controls: each plants one fault in a copy and must be reported.
-  it("fails when a route stores a type the registry does not list", () => {
-    const planted = extractStoredEventTypes(
-      readFileSync(join(WEBHOOK_ROOT, "quickbooks", "route.ts"), "utf8").replace(
-        'eventType = "payment.deleted";',
-        'eventType = "payment.reversed";',
-      ),
-    );
+  // Negative controls: each plants one fault in a copy of a real route and
+  // must be reported. The QuickBooks route is the host for every plant.
+  const qbo = (): string => readFileSync(join(WEBHOOK_ROOT, "quickbooks", "route.ts"), "utf8");
+  const problemsWith = (source: string): string[] => {
     const stored = storedByProvider();
-    stored.set("QUICKBOOKS", planted);
-    const problems = compareWithRegistry(stored, WEBHOOK_EVENT_TYPES, PRODUCTION_CRONS);
+    stored.set("QUICKBOOKS", traceStoredEventTypes(source));
+    return compareWithRegistry(stored, WEBHOOK_EVENT_TYPES, PRODUCTION_CRONS);
+  };
+  const UNLISTED = 'QUICKBOOKS route stores "planted.missed" but webhook-event-types.ts does not list it';
+
+  it("fails when a route stores a type the registry does not list", () => {
+    const problems = problemsWith(qbo().replace('eventType = "payment.deleted";', 'eventType = "payment.reversed";'));
     expect(problems).toContain('QUICKBOOKS route stores "payment.reversed" but webhook-event-types.ts does not list it');
     expect(problems).toContain('QUICKBOOKS "payment.deleted" is listed but no ingest route stores it');
   });
 
-  // Each form a line pattern would miss: a create-data property, a single
-  // quote, a template literal, and a value on the line after its key.
+  // Literal forms: each is traced to its value, so an unlisted one is named.
   it.each([
     ["an object property", "eventType,", 'eventType: "planted.missed",'],
     ["a single-quoted literal", 'eventType = "payment.deleted";', "eventType = 'planted.missed';"],
     ["a template literal", 'eventType = "payment.deleted";', "eventType = `planted.missed`;"],
     ["a value on the next line", 'eventType = "payment.deleted";', 'eventType =\n                "planted.missed";'],
-  ])("fails when a route names an unlisted type as %s", (_form, from, to) => {
-    const source = readFileSync(join(WEBHOOK_ROOT, "quickbooks", "route.ts"), "utf8");
+    ["a ternary", 'eventType = "payment.deleted";', 'eventType = operation ? "planted.missed" : "payment.deleted";'],
+    ["an alias", 'eventType = "payment.deleted";', 'const alias = "planted.missed";\n              eventType = alias;'],
+  ])("names an unlisted type stored as %s", (_form, from, to) => {
+    const source = qbo();
     expect(source).toContain(from);
-    const stored = storedByProvider();
-    stored.set("QUICKBOOKS", extractStoredEventTypes(source.replace(from, to)));
-    expect(compareWithRegistry(stored, WEBHOOK_EVENT_TYPES, PRODUCTION_CRONS)).toContain(
-      'QUICKBOOKS route stores "planted.missed" but webhook-event-types.ts does not list it',
+    expect(problemsWith(source.replace(from, to))).toContain(UNLISTED);
+  });
+
+  // Forms no list can name (review round 2 found the first three): each must
+  // fail as untraced rather than pass unseen.
+  it.each([
+    ["an imported constant", 'eventType = "payment.deleted";', "eventType = PLANTED_TYPE;", "PLANTED_TYPE"],
+    ["a concatenation", 'eventType = "payment.deleted";', 'eventType = "payment." + "reversed";', '"payment." + "reversed"'],
+    ["a substituted template", 'eventType = "payment.deleted";', "eventType = `payment.${operation}`;", "`payment.${operation}`"],
+    ["a property read", 'eventType = "payment.deleted";', "eventType = entity.type;", "entity.type"],
+    ["a compound assignment", 'eventType = "payment.deleted";', 'eventType += ".x";', 'eventType += ".x"'],
+    ["an alias of an import", 'eventType = "payment.deleted";', "const alias2 = PLANTED_TYPE;\n              eventType = alias2;", "PLANTED_TYPE"],
+    ["a call to a function the file does not define", 'eventType = "payment.deleted";', "eventType = mapIt(entity);", "mapIt(entity)"],
+    ["a spread into data", "eventType,", "...extra,", "...extra"],
+  ])("fails when a route stores %s", (_form, from, to, expr) => {
+    const source = qbo();
+    expect(source).toContain(from);
+    expect(problemsWith(source.replace(from, to))).toContain(
+      `QUICKBOOKS route stores \`${expr}\`, which the guard cannot trace to a listed string`,
     );
   });
 
-  it("does not read an event type inside a comment", () => {
-    const types = extractStoredEventTypes('// eventType = "comment.only";\n/* "block.only" */\nconst x = 1;');
-    expect([...types]).toEqual([]);
+  it("fails when the Xero passthrough exemption is removed, or names an expression no route stores", () => {
+    expect(
+      compareWithRegistry(storedByProvider(), WEBHOOK_EVENT_TYPES, PRODUCTION_CRONS, []),
+    ).toContain("XERO route stores `event.eventType`, which the guard cannot trace to a listed string");
+    const stale = [...UNLISTABLE_STORED_VALUES, { provider: "MYOB" as const, expression: "event.Kind", ticket: "RA-8427", whatHappens: "x" }];
+    expect(compareWithRegistry(storedByProvider(), WEBHOOK_EVENT_TYPES, PRODUCTION_CRONS, stale)).toContain(
+      "MYOB `event.Kind` is listed as unlistable but no ingest route stores it",
+    );
+  });
+
+  it("fails when the empty-type defect is dropped from the registry", () => {
+    const registry = WEBHOOK_EVENT_TYPES.filter((e) => !(e.provider === "QUICKBOOKS" && e.eventType === ""));
+    expect(compareWithRegistry(storedByProvider(), registry, PRODUCTION_CRONS)).toContain(
+      'QUICKBOOKS route stores "" but webhook-event-types.ts does not list it',
+    );
+  });
+
+  it("does not read an event type inside a comment or outside a write", () => {
+    const trace = traceStoredEventTypes(
+      '// eventType = "comment.only";\n/* "block.only" */\nconst eventType = "not.written";\nconst x = 1;',
+    );
+    expect([...trace.values]).toEqual([]);
+    expect(trace.untraced).toEqual([]);
+  });
+
+  it("follows a local mapping function's returns (the ServiceM8 shape)", () => {
+    const trace = traceStoredEventTypes(
+      'function m(s: string) { if (s) return "a.b"; return null; }\nconst t = m("x");\nawait prisma.webhookEvent.create({ data: { eventType: t } });',
+    );
+    expect([...trace.values]).toEqual(["a.b"]);
+    expect(trace.untraced).toEqual([]);
   });
 
   it("fails, naming the reversal and ServiceM8 types, when only drained types are registered (main before RA-8427)", () => {

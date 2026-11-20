@@ -87,6 +87,9 @@ const XERO_SKIPPED_UNREAD =
 const PAYMENT_STUB_REASON =
   "the notification is an id-only stub with no amount or invoice link (RA-6974)";
 
+const UNMAPPED_EMPTY =
+  "an operation the route does not map (for example a QuickBooks invoice Merge) is stored with an empty event type; no drain selects it, so prune-webhook-events deletes it unread";
+
 function openDefect(provider: WebhookProvider, eventType: string, whatHappens: string): WebhookEventTypeEntry {
   return { provider, eventType, disposition: { kind: "open-defect", ticket: "RA-8427", whatHappens } };
 }
@@ -123,12 +126,40 @@ export const WEBHOOK_EVENT_TYPES: readonly WebhookEventTypeEntry[] = [
   openDefect("MYOB", "customer.updated", QBO_MYOB_NOT_SCHEDULED),
   openDefect("MYOB", "customer.deleted", QBO_MYOB_NOT_SCHEDULED),
 
+  // An operation a route does not map is stored with an empty type.
+  openDefect("QUICKBOOKS", "", UNMAPPED_EMPTY),
+  openDefect("MYOB", "", UNMAPPED_EMPTY),
+
   // ServiceM8 — app/api/webhooks/servicem8/route.ts
   openDefect("SERVICEM8", "job.status_updated", PENDING_UNTIL_PRUNED),
   openDefect("SERVICEM8", "job.updated", PENDING_UNTIL_PRUNED),
   openDefect("SERVICEM8", "job.cancelled", PENDING_UNTIL_PRUNED),
   openDefect("SERVICEM8", "customer.updated", PENDING_UNTIL_PRUNED),
   openDefect("SERVICEM8", "contact.updated", PENDING_UNTIL_PRUNED),
+];
+
+/**
+ * A value a route stores that no list can name, because it is the provider's
+ * own text passed through. The guard test refuses every stored value it
+ * cannot trace to a string literal in the route, except the exact expression
+ * named here for that provider; an entry no route uses also fails the test.
+ */
+export interface UnlistableStoredValue {
+  readonly provider: WebhookProvider;
+  /** Source text of the expression, exactly as written in the route. */
+  readonly expression: string;
+  readonly ticket: string;
+  readonly whatHappens: string;
+}
+
+export const UNLISTABLE_STORED_VALUES: readonly UnlistableStoredValue[] = [
+  {
+    provider: "XERO",
+    expression: "event.eventType",
+    ticket: "RA-8427",
+    whatHappens:
+      "an event the Xero route does not map (for example a deleted payment, or an unknown resource) is stored with Xero's raw type such as DELETE; the Xero drain closes it SKIPPED without reading it",
+  },
 ];
 
 /** True when `eventType` is one of `list`. Accepts the nullable column value. */
