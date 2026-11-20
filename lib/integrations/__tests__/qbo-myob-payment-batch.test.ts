@@ -97,7 +97,11 @@ describe("processQboMyobPendingPayments", () => {
     integrationFindUnique.mockResolvedValue(identity);
     webhookEventFindMany.mockResolvedValue([{ id: "synthetic-event", provider: "QUICKBOOKS", integrationId: "synthetic-id", eventType: "payment.created", payload: { id: "synthetic-payment" }, retryCount: 0 }]);
     expect(await processQboMyobPendingPayments()).toEqual({ processed: 0, failed: 0, skipped: 1 });
-    expect(webhookEventUpdateMany).not.toHaveBeenCalled(); expect(qboGetPayment).not.toHaveBeenCalled(); expect(invoiceFindFirst).not.toHaveBeenCalled();
+    // No claim on this event. (The RA-8426 stale-claim expiry runs first and
+    // touches only PROCESSING rows by age, never a row by id.)
+    expect(webhookEventUpdateMany).not.toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "synthetic-event" }) }));
+    expect(webhookEventUpdateMany.mock.calls.every(([arg]) => arg.where.status === "PROCESSING" && "updatedAt" in arg.where)).toBe(true);
+    expect(qboGetPayment).not.toHaveBeenCalled(); expect(invoiceFindFirst).not.toHaveBeenCalled();
   });
   it("queries PENDING QUICKBOOKS/MYOB payment events with explicit select + take", async () => {
     webhookEventFindMany.mockResolvedValue([]);

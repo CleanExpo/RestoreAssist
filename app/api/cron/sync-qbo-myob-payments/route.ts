@@ -6,6 +6,10 @@ import {
   retryUnresolvedQboMyobPayments,
 } from "@/lib/integrations/webhook-processor";
 
+// RA-8426 — a claim this run holds must end before WEBHOOK_STALE_CLAIM_MS
+// (10 minutes), or the next run would release a live claim. Keep it below.
+export const maxDuration = 300;
+
 /**
  * GET /api/cron/sync-qbo-myob-payments — QBO/MYOB payment reconciliation (RA-6984)
  *
