@@ -377,10 +377,10 @@ export default function DocumentExportPackage({
             </button>
           </div>
 
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
+          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-emerald-500/50 transition-colors">
             <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 rounded-lg bg-cyan-500/20">
-                <FileText className="w-5 h-5 text-cyan-400" />
+              <div className="p-2 rounded-lg bg-emerald-500/20">
+                <FileText className="w-5 h-5 text-emerald-400" />
               </div>
               <div>
                 <h4 className="font-semibold">Scope CSV (adjuster)</h4>
@@ -397,7 +397,7 @@ export default function DocumentExportPackage({
               type="button"
               onClick={() => void handleScopeCsvExport()}
               disabled={exporting !== null}
-              className="w-full min-h-[44px] px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {exporting === "scope-csv" ? (
                 <>

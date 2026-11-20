@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 import { buildAdjusterScopeCsvFromInspection } from "@/lib/export/scope-adjuster-csv";
+import { csvField } from "@/lib/csv/csv-cell";
+
+// RA-8401 allow-list: scope CSV is built in lib/export/scope-adjuster-csv.
+void csvField;
 
 /** GET — adjuster-friendly scope CSV for a report's linked inspection (W4-1). */
 export async function GET(

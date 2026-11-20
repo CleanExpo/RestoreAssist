@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "=== Wave program unit verification ==="
-pnpm exec vitest run --config config/vitest.config.js \
+npx --no-install vitest run --config config/vitest.config.js \
   lib/api/__tests__/parse-iso-query.test.ts \
   lib/automation/__tests__/v1-auth.test.ts \
   lib/evidence/__tests__/field-capture-time.test.ts \

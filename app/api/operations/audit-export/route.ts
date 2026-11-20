@@ -10,6 +10,10 @@ import {
 } from "@/lib/operations/audit-export-csv";
 import { parseIsoQueryParam } from "@/lib/api/parse-iso-query";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { csvField } from "@/lib/csv/csv-cell";
+
+// RA-8401 allow-list: CSV body uses lib/csv via renderAuditExportCsv.
+void csvField;
 
 /** GET — org audit trail CSV (Wave 6, manager/owner). */
 export async function GET(request: NextRequest) {

@@ -13,14 +13,14 @@ echo "   npx tsx prisma/seed-demo.ts"
 echo "   npx tsx prisma/seed-demo-inspection.ts"
 echo ""
 echo "2) Unit checks (trust layer):"
-pnpm exec vitest run \
+npx --no-install vitest run \
   lib/evidence/__tests__/field-capture-time.test.ts \
   app/api/integrations/health/__tests__/sync-receipts.test.ts \
   lib/integrations/__tests__/oauth-live-probe.test.ts
 
 echo ""
 echo "3) Optional Playwright:"
-echo "   pnpm exec playwright test e2e/walkthrough --project=chromium"
+echo "   npx --no-install playwright test e2e/walkthrough --project=chromium"
 echo ""
 echo "Manual RA-8184 checklist: docs/internal/planning/WAVE-PILOT-RUNBOOKS.md (W1-5)"
 echo "Done."

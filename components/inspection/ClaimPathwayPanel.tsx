@@ -138,7 +138,7 @@ export function ClaimPathwayPanel({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <ChromeLayers className="h-4 w-4 text-cyan-700 dark:text-cyan-300" />
+            <ChromeLayers className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
               Claim pathway
             </h2>
@@ -189,7 +189,7 @@ export function ClaimPathwayPanel({
                         {item.action}
                       </span>
                       {item.severity === "required" && (
-                        <Badge className="text-[10px] bg-cyan-600">Required</Badge>
+                        <Badge className="text-[10px] bg-emerald-600">Required</Badge>
                       )}
                     </div>
                     <p className="mt-1 text-xs text-neutral-600 dark:text-slate-400">

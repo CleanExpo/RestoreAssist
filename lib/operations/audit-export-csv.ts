@@ -2,6 +2,8 @@
  * W6-1 — org-scoped audit trail CSV (inspection-linked AuditLog rows).
  */
 
+import { toCsv } from "@/lib/csv/csv-cell";
+
 export type AuditExportRow = {
   timestamp: string;
   inspectionId: string;
@@ -13,34 +15,31 @@ export type AuditExportRow = {
   device: string | null;
 };
 
-function cell(value: string | null | undefined): string {
-  const raw = value ?? "";
-  if (/[",\n\r]/.test(raw)) return `"${raw.replace(/"/g, '""')}"`;
-  return raw;
-}
+const HEADER = [
+  "timestamp",
+  "inspection_id",
+  "inspection_number",
+  "action",
+  "entity_type",
+  "entity_id",
+  "user_id",
+  "device",
+] as const;
 
 export function renderAuditExportCsv(rows: readonly AuditExportRow[]): string {
-  const header = [
-    "timestamp",
-    "inspection_id",
-    "inspection_number",
-    "action",
-    "entity_type",
-    "entity_id",
-    "user_id",
-    "device",
-  ].join(",");
-  const body = rows.map((r) =>
-    [
-      cell(r.timestamp),
-      cell(r.inspectionId),
-      cell(r.inspectionNumber),
-      cell(r.action),
-      cell(r.entityType),
-      cell(r.entityId),
-      cell(r.userId),
-      cell(r.device),
-    ].join(","),
-  );
-  return [header, ...body].join("\n");
+  return toCsv([
+    [...HEADER],
+    ...rows.map((r) =>
+      [
+        r.timestamp,
+        r.inspectionId,
+        r.inspectionNumber,
+        r.action,
+        r.entityType,
+        r.entityId,
+        r.userId,
+        r.device,
+      ] as const,
+    ),
+  ]);
 }

@@ -17,7 +17,7 @@ bash scripts/w1-5-staging-journey.sh
 ### Seed
 
 ```bash
-pnpm prisma db seed   # if org seed configured
+npx prisma db seed   # if org seed configured
 npx tsx prisma/seed-demo.ts
 npx tsx prisma/seed-demo-inspection.ts
 npx tsx e2e/seed-full-access-account.ts
@@ -34,7 +34,7 @@ npx tsx e2e/seed-full-access-account.ts
 ### Playwright (optional)
 
 ```bash
-pnpm exec playwright test e2e/walkthrough --project=chromium
+npx --no-install playwright test e2e/walkthrough --project=chromium
 ```
 
 ---
@@ -278,7 +278,7 @@ export SLO_BASE_URL="https://staging.restoreassist.example"
 # OPS_LOAD_CONCURRENCY=5
 # OPS_LOAD_REQUESTS=25
 
-pnpm exec tsx scripts/slo-load-harness.ts
+npx --no-install tsx scripts/slo-load-harness.ts
 ```
 
 Exit `0` = pass, `1` = fail. Writes `docs/internal/metrics/slo-last-run.json` for `GET /api/operations/program-status`.

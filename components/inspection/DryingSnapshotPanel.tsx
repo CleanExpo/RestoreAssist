@@ -152,7 +152,7 @@ export function DryingSnapshotPanel({
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Droplets className="h-4 w-4 text-cyan-700 dark:text-cyan-300" />
+          <Droplets className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
           <h2 className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
             Drying snapshot
           </h2>
