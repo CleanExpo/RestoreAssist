@@ -8,15 +8,19 @@
  *   - payment.created  → mark local invoice as PAID via payment reference
  *
  * Called by /api/cron/sync-xero-payments (and directly from tests).
- * All events are marked COMPLETED or FAILED — never left in PROCESSING indefinitely.
+ * Events are marked COMPLETED, SKIPPED or FAILED. A run that dies before it
+ * writes the outcome leaves the row PROCESSING; reclaimStaleWebhookEvents
+ * releases it at the start of a later batch (RA-8426).
  */
 
 import { createHmac, timingSafeEqual } from "crypto";
 import type { Integration } from "@prisma/client";
 import { isOAuthIntegration } from "@/lib/integrations/identity";
+import { reclaimStaleWebhookEvents } from "@/lib/jobs/webhook-reclaim";
 import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
+import { XERO_REQUEST_TIMEOUT_MS } from "@/lib/integrations/xero/request-timeout";
 
 /** Identity metadata only. Legacy config stays internal: never log or serialize it. */
 export const XERO_WEBHOOK_INTEGRATION_SELECT = {
@@ -121,6 +125,10 @@ export async function processXeroWebhookBatch(
 ): Promise<ProcessBatchResult> {
   const result: ProcessBatchResult = { processed: 0, failed: 0, skipped: 0 };
 
+  // RA-8426 — release claims left PROCESSING by a run that died, before
+  // selecting PENDING rows; otherwise they are never selected again.
+  await reclaimStaleWebhookEvents();
+
   // Claim a batch — transition PENDING → PROCESSING atomically per event
   const events = await prisma.webhookEvent.findMany({
     where: {
@@ -172,7 +180,9 @@ export async function processXeroWebhookBatch(
         // Unrecognised event type — skip cleanly, no retry needed
         await prisma.webhookEvent.update({
           where: { id: event.id },
-          data: { status: "SKIPPED", processedAt: new Date() },
+          // errorMessage: null clears a reclaim note left by an earlier
+          // interrupted attempt (RA-8426).
+          data: { status: "SKIPPED", processedAt: new Date(), errorMessage: null },
         });
         result.skipped++;
         continue;
@@ -180,7 +190,7 @@ export async function processXeroWebhookBatch(
 
       await prisma.webhookEvent.update({
         where: { id: event.id },
-        data: { status: "COMPLETED", processedAt: new Date() },
+        data: { status: "COMPLETED", processedAt: new Date(), errorMessage: null },
       });
       result.processed++;
     } catch (err) {
@@ -333,6 +343,9 @@ async function handlePaymentCreated(
         "Xero-tenant-id": integration.tenantId,
         Accept: "application/json",
       },
+      // RA-8426: an unbounded call could hold this claim past
+      // WEBHOOK_STALE_CLAIM_MS and let a later run release it while live.
+      signal: AbortSignal.timeout(XERO_REQUEST_TIMEOUT_MS),
     },
   );
 

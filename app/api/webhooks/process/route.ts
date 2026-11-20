@@ -5,10 +5,10 @@ import { verifyCronAuth } from "@/lib/cron/auth";
 /**
  * POST /api/webhooks/process - Trigger webhook queue processing
  *
- * This endpoint can be called by:
- * - Vercel Cron (hourly or every 15 minutes)
- * - Manual trigger from admin dashboard
- * - External monitoring system
+ * Manual trigger only. No cron calls this route: it is not in vercel.json,
+ * and Vercel cron sends GET, which here returns statistics. The scheduled
+ * drains are /api/cron/sync-xero-payments and /api/cron/sync-qbo-myob-payments
+ * (every 15 minutes) and /api/cron/retry-failed-webhooks (every 30 minutes).
  *
  * Requires CRON_SECRET for security
  */
