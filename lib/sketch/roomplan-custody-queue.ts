@@ -6,10 +6,14 @@
  * crash or offline gap cannot lose the only copy of the LiDAR geometry.
  *
  * Integrity: SHA-256 is computed over UTF-8 bytes of stable JSON for the
- * CapturedRoom payload — never over a Data URL string. After ingest, the
- * editor also POSTs the same payload to `/api/inspections/.../roomplan-custody`
- * so the server persists a receipt whose hash is over the exact stored bytes
- * (RA-7090 bridge). Ed25519 tamper-evident claims still require a signed
+ * CapturedRoom payload — never over a Data URL string. The editor also POSTs
+ * the same payload to `/api/inspections/.../roomplan-custody` so the server
+ * persists a receipt whose hash is over the exact stored bytes (RA-7090
+ * bridge). That receipt has its own state (`serverReceipt`), separate from the
+ * canvas `status`: `flushRoomPlanServerReceipts` sends every entry not yet
+ * `sent` right after a scan, when the sketch loads and when the browser comes
+ * back online, until the server accepts it (2xx) or refuses it for good
+ * (`rejected`, RA-8325). Ed25519 tamper-evident claims still require a signed
  * EvidenceItem; this queue alone is custody-of-bytes.
  *
  * Browser-only (IndexedDB). Tests inject an in-memory store.
@@ -21,10 +25,14 @@ const DB_NAME = "roomplan-custody";
 const DB_VERSION = 1;
 const STORE = "captures";
 
-export type RoomPlanCustodyStatus =
-  | "pending_ingest"
-  | "ingested"
-  | "failed";
+export type RoomPlanCustodyStatus = "pending_ingest" | "ingested" | "failed";
+
+/**
+ * Server custody receipt state (RA-8325), independent of the canvas `status`.
+ * Entries written before RA-8325 have no value and are treated as `pending`;
+ * the route answers a repeat with its existing receipt, so a resend is safe.
+ */
+export type RoomPlanServerReceiptState = "pending" | "sent" | "rejected";
 
 export interface RoomPlanCustodyEntry {
   id: string;
@@ -37,6 +45,9 @@ export interface RoomPlanCustodyEntry {
   capturedAt: string;
   status: RoomPlanCustodyStatus;
   lastError?: string;
+  serverReceipt?: RoomPlanServerReceiptState;
+  /** Server message when `serverReceipt` is `rejected`. */
+  serverReceiptError?: string;
 }
 
 export interface RoomPlanCustodyStore {
@@ -46,7 +57,14 @@ export interface RoomPlanCustodyStore {
   update(
     id: string,
     patch: Partial<
-      Pick<RoomPlanCustodyEntry, "status" | "lastError" | "capturedRoom">
+      Pick<
+        RoomPlanCustodyEntry,
+        | "status"
+        | "lastError"
+        | "capturedRoom"
+        | "serverReceipt"
+        | "serverReceiptError"
+      >
     >,
   ): Promise<void>;
   delete(id: string): Promise<void>;
@@ -175,15 +193,31 @@ function idbStore(): RoomPlanCustodyStore {
         const req = idx.getAll(inspectionId);
         req.onsuccess = () => {
           const rows = (req.result as RoomPlanCustodyEntry[]) ?? [];
-          resolve(rows.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)));
+          resolve(
+            rows.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
+          );
         };
         req.onerror = () => reject(req.error ?? new Error("IDB list failed"));
       });
     },
     async update(id, patch) {
-      const cur = await this.get(id);
-      if (!cur) return;
-      await this.put({ ...cur, ...patch });
+      // Read and write inside ONE readwrite transaction. Two transactions
+      // (get, then put) let a receipt patch and an ingest patch overwrite
+      // each other with stale data.
+      const db = await openDb();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        const os = tx.objectStore(STORE);
+        const req = os.get(id);
+        req.onsuccess = () => {
+          const cur = req.result as RoomPlanCustodyEntry | undefined;
+          if (cur) os.put({ ...cur, ...patch });
+        };
+        req.onerror = () => reject(req.error ?? new Error("IDB update failed"));
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error ?? new Error("IDB update failed"));
+        tx.onabort = () => reject(tx.error ?? new Error("IDB update aborted"));
+      });
     },
     async delete(id) {
       const db = await openDb();
@@ -232,6 +266,7 @@ export async function enqueueRoomPlanCapture(opts: {
     contentSha256,
     capturedAt: new Date().toISOString(),
     status: "pending_ingest",
+    serverReceipt: "pending",
   };
   await getStore().put(entry);
   return entry;
@@ -252,7 +287,9 @@ export async function listPendingRoomPlanCaptures(
   inspectionId: string,
 ): Promise<RoomPlanCustodyEntry[]> {
   const all = await getStore().listByInspection(inspectionId);
-  return all.filter((e) => e.status === "pending_ingest" || e.status === "failed");
+  return all.filter(
+    (e) => e.status === "pending_ingest" || e.status === "failed",
+  );
 }
 
 export async function getRoomPlanCapture(
@@ -272,4 +309,149 @@ export async function verifyRoomPlanCustodyIntegrity(
   if (!entry) return false;
   const digest = await hashCapturedRoomJson(entry.capturedRoom);
   return digest === entry.contentSha256;
+}
+
+// ─── Server receipt replay (RA-8325) ──────────────────────────────────────────
+
+/**
+ * 4xx answers that can succeed on a later attempt: expired session, timeout,
+ * too early, rate limit. Every other 4xx (for example a hash mismatch) will
+ * never succeed and is marked `rejected` so it is not retried forever.
+ */
+/** Abort a receipt POST that gets no answer after this long. */
+export const RECEIPT_POST_TIMEOUT_MS = 30_000;
+
+const RETRYABLE_4XX = new Set([401, 408, 425, 429]);
+
+export interface RoomPlanReceiptFlushResult {
+  sent: number;
+  /** Entries the server refused for good during this flush. */
+  rejected: Array<{ id: string; message: string }>;
+}
+
+type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
+
+const _flushChains = new Map<string, Promise<unknown>>();
+
+type ReceiptVerdict =
+  | { kind: "sent" }
+  | { kind: "rejected"; message: string }
+  | { kind: "pending" };
+
+function refusalMessage(text: string, status: number): string {
+  try {
+    const body = JSON.parse(text) as { error?: { message?: unknown } };
+    const message = body?.error?.message;
+    if (typeof message === "string" && message.trim()) return message;
+  } catch {
+    // Non-JSON body: fall through to the status line.
+  }
+  return `Server refused the receipt (HTTP ${status})`;
+}
+
+/**
+ * The ONE place that turns a server answer into a verdict. The body is read
+ * to the end first, for every status: headers alone are not an answer. If the
+ * read fails or is cut off by the deadline, the verdict is `pending` so the
+ * next trigger retries. No other code may decide sent or rejected.
+ */
+async function classifyReceiptResponse(res: Response): Promise<ReceiptVerdict> {
+  let text: string;
+  try {
+    text = await res.text();
+  } catch {
+    return { kind: "pending" };
+  }
+  if (res.ok) return { kind: "sent" };
+  if (res.status >= 400 && res.status < 500 && !RETRYABLE_4XX.has(res.status)) {
+    return { kind: "rejected", message: refusalMessage(text, res.status) };
+  }
+  // 5xx or a retryable 4xx: leave pending for the next trigger.
+  return { kind: "pending" };
+}
+
+async function runReceiptFlush(
+  inspectionId: string,
+  fetchImpl: FetchLike,
+): Promise<RoomPlanReceiptFlushResult> {
+  const result: RoomPlanReceiptFlushResult = { sent: 0, rejected: [] };
+  const store = getStore();
+  const entries = (await store.listByInspection(inspectionId)).filter(
+    (e) => e.serverReceipt !== "sent" && e.serverReceipt !== "rejected",
+  );
+  for (const entry of entries) {
+    let res: Response;
+    // A hung request must not stall later flushes for this inspection.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), RECEIPT_POST_TIMEOUT_MS);
+    try {
+      try {
+        res = await fetchImpl(
+          `/api/inspections/${encodeURIComponent(inspectionId)}/roomplan-custody`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              capturedRoom: entry.capturedRoom,
+              clientSha256: entry.contentSha256,
+              clientCustodyId: entry.id,
+              floorNumber: entry.floorNumber,
+            }),
+          },
+        );
+      } catch {
+        // Offline, network drop or timeout: this entry stays pending and the
+        // next load or `online` event retries it. Carry on with the later
+        // entries so one entry that keeps failing cannot starve them.
+        continue;
+      }
+      const verdict = await classifyReceiptResponse(res);
+      if (verdict.kind === "sent") {
+        await store.update(entry.id, {
+          serverReceipt: "sent",
+          serverReceiptError: undefined,
+        });
+        result.sent++;
+      } else if (verdict.kind === "rejected") {
+        await store.update(entry.id, {
+          serverReceipt: "rejected",
+          serverReceiptError: verdict.message,
+        });
+        result.rejected.push({ id: entry.id, message: verdict.message });
+      }
+    } finally {
+      // The deadline covers reading an error body too, not only the headers.
+      clearTimeout(timer);
+    }
+  }
+  return result;
+}
+
+/**
+ * Send the server custody receipt for every entry of this inspection whose
+ * receipt is not yet `sent` or `rejected`. A 2xx (including the route's
+ * duplicate answer) marks it `sent`; a permanent 4xx marks it `rejected` with
+ * the server message; anything else leaves it `pending`.
+ *
+ * Calls for the same inspection run one after another, so a load and an
+ * `online` event that fire together cannot send the same receipt twice.
+ */
+export function flushRoomPlanServerReceipts(
+  inspectionId: string,
+  fetchImpl: FetchLike = (input, init) => fetch(input, init),
+): Promise<RoomPlanReceiptFlushResult> {
+  const previous = _flushChains.get(inspectionId) ?? Promise.resolve();
+  const run = previous
+    .catch(() => undefined)
+    .then(() => runReceiptFlush(inspectionId, fetchImpl));
+  _flushChains.set(inspectionId, run);
+  void run
+    .catch(() => undefined)
+    .then(() => {
+      if (_flushChains.get(inspectionId) === run) {
+        _flushChains.delete(inspectionId);
+      }
+    });
+  return run;
 }
