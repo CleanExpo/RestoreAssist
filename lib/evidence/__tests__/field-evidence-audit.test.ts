@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import {
   buildFieldEvidenceChecklist,
   auditInspectionById,
+  UnknownJobTypeError,
   type EvidenceItemForAudit,
   type MoistureReadingForAudit,
   type PsychrometricReadingForAudit,
@@ -458,6 +459,48 @@ describe("auditInspectionById", () => {
     p.inspection.findUnique.mockResolvedValue(null);
     await expect(auditInspectionById("missing")).rejects.toThrow(
       /not found/,
+    );
+  });
+
+  // RA-8488: Guided Capture stores the job type the technician chose on the
+  // workflow, and the inspection's claim type can still be empty. The
+  // checklist must use the workflow's job type rather than fail.
+  it("uses the Guided Capture job type when the inspection has no claim type", async () => {
+    p.inspection.findUnique.mockResolvedValue({
+      id: "insp-1",
+      claimType: null,
+      inspectionWorkflow: { jobType: "WATER_DAMAGE" },
+    });
+
+    const result = await auditInspectionById("insp-1");
+
+    expect(result.claimType).toBe("WATER_DAMAGE");
+    expect(p.inspection.findUnique.mock.calls[0][0].select).toMatchObject({
+      inspectionWorkflow: { select: { jobType: true } },
+    });
+  });
+
+  it("prefers the inspection's claim type over the workflow's job type", async () => {
+    p.inspection.findUnique.mockResolvedValue({
+      id: "insp-1",
+      claimType: "FIRE",
+      inspectionWorkflow: { jobType: "WATER_DAMAGE" },
+    });
+
+    const result = await auditInspectionById("insp-1");
+
+    expect(result.claimType).toBe("FIRE_SMOKE");
+  });
+
+  it("says the job type is unknown, as its own error, when neither is set", async () => {
+    p.inspection.findUnique.mockResolvedValue({
+      id: "insp-1",
+      claimType: null,
+      inspectionWorkflow: null,
+    });
+
+    await expect(auditInspectionById("insp-1")).rejects.toBeInstanceOf(
+      UnknownJobTypeError,
     );
   });
 });
