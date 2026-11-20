@@ -220,6 +220,18 @@ describe("light-mode surfaces (RA-8305, RA-8383)", () => {
     expect(
       findSameToneTextOnFill("a = `p-2\n ${on ? \"bg-white text-white\" : \"x\"}`;"),
     ).toEqual(["2:text-white on bg-white"]);
+    // A branch is judged with the template's static classes (CodeRabbit, #2583).
+    expect(
+      findSameToneTextOnFill("a = `bg-white ${on ? \"text-white\" : \"text-black\"}`;"),
+    ).toEqual(["1:text-white on bg-white"]);
+    // Code left inside a string segment is not a static class string.
+    expect(
+      findSameToneTextOnFill("a = `x ${f(\"bg-white\")} <b className=text-white>`;"),
+    ).toEqual([]);
+    // A branch's own fill replaces the static one.
+    expect(
+      findSameToneTextOnFill("a = `bg-white ${on ? \"bg-brand-cta text-white\" : \"text-brand-navy\"}`;"),
+    ).toEqual([]);
     // A translucent fill shows what is behind it; a bare dark island is dark by design.
     expect(findSameToneTextOnFill(`a = "bg-white/10 text-white";`)).toEqual([]);
     expect(findSameToneTextOnFill(`a = "dark bg-slate-900 text-slate-900";`)).toEqual([]);

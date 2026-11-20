@@ -190,28 +190,102 @@ const tone = (colour: string) =>
  * Only plain classes count (no variant prefix); a translucent fill (`/N`)
  * shows what is behind it, so it is not a fill here. A bare `dark` island
  * string is dark in both themes by design and is skipped.
+ *
+ * A template literal is judged as its static classes alone, and as the static
+ * classes plus each quoted branch inside ${...}. Branches stay apart from each
+ * other (a ternary renders one of them). A branch that sets its own fill or
+ * text colour replaces the static one for that combination.
  */
 export function findSameToneTextOnFill(source: string): string[] {
   const hits: string[] = [];
+  const fillsOf = (tokens: string[]) =>
+    tokens.filter((t) => /^bg-[^/:]+$/.test(t)).map((t) => t.slice(3));
+  const textsOf = (tokens: string[]) =>
+    tokens.filter((t) => /^text-[^/:]+$/.test(t)).map((t) => t.slice(5));
+  const check = (line: number, fills: string[], texts: string[]) => {
+    for (const f of fills) {
+      for (const t of texts) {
+        const ft = tone(f);
+        const hit = `${line}:text-${t} on bg-${f}`;
+        if (ft && ft === tone(t) && !hits.includes(hit)) hits.push(hit);
+      }
+    }
+  };
+
   for (const seg of segments(source)) {
     if (!seg.isString) continue;
-    // A template literal holds several class strings: its static text and
-    // each quoted ternary branch inside ${...}. Judge each one on its own.
-    let line = seg.line;
-    for (const part of seg.text.split(/["'`]|\$\{|\}/)) {
-      const tokens = part.split(TOKEN_SPLIT).filter(Boolean);
-      if (!tokens.includes("dark")) {
-        const fills = tokens.filter((t) => /^bg-[^/:]+$/.test(t)).map((t) => t.slice(3));
-        const texts = tokens.filter((t) => /^text-[^/:]+$/.test(t)).map((t) => t.slice(5));
-        for (const f of fills) {
-          for (const t of texts) {
-            const ft = tone(f);
-            if (ft && ft === tone(t)) hits.push(`${line}:text-${t} on bg-${f}`);
-          }
-        }
-      }
-      line += part.split("\n").length - 1;
+    const { staticText, branches } = templateParts(seg.text);
+    // Static text with code in it is not a class string (a nested template
+    // can leave code inside a string segment); judge its branches alone.
+    const statics = /[=;<>()]/.test(staticText)
+      ? []
+      : staticText.split(TOKEN_SPLIT).filter(Boolean);
+    if (statics.includes("dark")) continue;
+    check(seg.line, fillsOf(statics), textsOf(statics));
+    for (const b of branches) {
+      const tokens = b.text.split(TOKEN_SPLIT).filter(Boolean);
+      if (tokens.includes("dark")) continue;
+      const fills = fillsOf(tokens);
+      const texts = textsOf(tokens);
+      check(
+        seg.line + b.lineOffset,
+        fills.length ? fills : fillsOf(statics),
+        texts.length ? texts : textsOf(statics),
+      );
     }
   }
   return hits;
+}
+
+/**
+ * Split template-literal text into its static text (outside ${...}) and the
+ * quoted strings inside each ${...}, with the line offset of each.
+ */
+function templateParts(text: string): {
+  staticText: string;
+  branches: { text: string; lineOffset: number }[];
+} {
+  let staticText = "";
+  const branches: { text: string; lineOffset: number }[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  let buf = "";
+  let bufOffset = 0;
+  let offset = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === "\n") offset++;
+    if (depth === 0) {
+      if (c === "$" && text[i + 1] === "{") {
+        depth = 1;
+        staticText += " ";
+        i++;
+      } else {
+        staticText += c;
+      }
+      continue;
+    }
+    if (quote) {
+      if (c === "\\") {
+        buf += c + (text[i + 1] ?? "");
+        i++;
+      } else if (c === quote) {
+        branches.push({ text: buf, lineOffset: bufOffset });
+        buf = "";
+        quote = null;
+      } else {
+        buf += c;
+      }
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      quote = c;
+      bufOffset = offset;
+    } else if (c === "{") {
+      depth++;
+    } else if (c === "}") {
+      depth--;
+    }
+  }
+  return { staticText, branches };
 }
