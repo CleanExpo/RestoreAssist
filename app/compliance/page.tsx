@@ -213,8 +213,8 @@ export default function CompliancePage() {
                 For Australian restoration companies, the standard matters most
                 in three situations: insurer claim audits, adjuster reviews, and
                 any dispute where the quality or completeness of your
-                documentation is challenged. A report that cannot demonstrate
-                S500:2021 compliance is a liability.
+                documentation is challenged. A report that cannot show which
+                S500:2021 sections its findings rest on is a liability.
               </p>
               <p>
                 RestoreAssist was built around S500:2021 from the ground up.

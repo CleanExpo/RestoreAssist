@@ -117,7 +117,7 @@ export async function GET(
         id: "add_readings",
         title: "Add moisture readings",
         description:
-          "Log S500:2021-compliant moisture data across affected areas",
+          "Log moisture data across affected areas (structured on S500:2021)",
         href: "/dashboard/inspections",
         completed: readingCount > 0,
       },
@@ -125,7 +125,7 @@ export async function GET(
         id: "generate_report",
         title: "Generate AI report",
         description:
-          "Create an insurance-grade IICRC S500:2021 compliance report",
+          "Create an insurance-grade report that cites IICRC S500:2021",
         href: "/dashboard/reports/new",
         completed: reportCount > 0,
       },

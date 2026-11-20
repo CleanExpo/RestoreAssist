@@ -988,7 +988,7 @@ export default function CaptureWorkflowPage({
                   </SelectContent>
                 </Select>
                 <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  Defines required evidence steps for IICRC S500:2021 compliance.
+                  Defines the evidence steps, structured on IICRC S500:2021.
                 </p>
               </div>
 

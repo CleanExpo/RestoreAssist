@@ -1,7 +1,7 @@
 /**
  * Sprint G: Job-Type Workflow Definitions
  * Required evidence per claim type for 13 job types
- * IICRC S500:2021 compliant workflow configurations
+ * Workflow configurations structured on IICRC S500:2021
  *
  * Each job type defines a sequence of workflow steps.
  * Each step specifies required and optional evidence classes,

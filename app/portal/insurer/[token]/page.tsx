@@ -108,7 +108,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
-                IICRC S500:2021 Compliant Inspection Report
+                Inspection Report (cites ANSI/IICRC S500:2021)
               </p>
               <h1 className="text-xl font-bold text-slate-900">
                 {report.reportNumber ??
@@ -373,7 +373,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
               Full PDF Report Available
             </p>
             <p className="text-xs text-slate-400 mt-0.5">
-              Download the complete IICRC S500:2021 compliant report for your
+              Download the complete report (cites IICRC S500:2021) for your
               records.
             </p>
           </div>

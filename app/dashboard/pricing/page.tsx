@@ -79,8 +79,8 @@ function PricingPageContent() {
             </h1>
             <p className="text-xl text-brand-slate dark:text-slate-400 max-w-9xl mx-auto">
               Select the perfect plan for your water damage restoration
-              business. All plans include IICRC S500 compliance and professional
-              reporting tools.
+              business. All plans include reports structured on IICRC S500 and
+              professional reporting tools.
             </p>
           </div>
 
@@ -195,11 +195,11 @@ function PricingPageContent() {
               <div className="text-center p-6 bg-white dark:bg-slate-800/30 rounded-lg">
                 <Shield className="w-8 h-8 text-brand-harbour-700 dark:text-brand-harbour-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-brand-navy dark:text-white mb-2">
-                  IICRC S500 Compliant
+                  Cites IICRC S500:2021
                 </h3>
                 <p className="text-brand-slate dark:text-slate-400 text-sm">
-                  All reports follow IICRC S500 standards for professional water
-                  damage restoration
+                  Reports are structured on, and cite, IICRC S500:2021 section
+                  numbers
                 </p>
               </div>
               <div className="text-center p-6 bg-white dark:bg-slate-800/30 rounded-lg">

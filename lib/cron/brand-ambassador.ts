@@ -41,7 +41,7 @@ const ACTIVE_PROJECTS: Project[] = [
   {
     key: "restore-assist",
     name: "RestoreAssist",
-    tagline: "IICRC-compliant water damage restoration platform",
+    tagline: "Water damage restoration platform that cites IICRC standards",
     audience:
       "restoration contractors, insurance assessors, property managers in Australia",
   },

@@ -111,7 +111,7 @@ export default async function ResourceArticlePage({
                 Restore smarter with RestoreAssist
               </h3>
               <p className="mx-auto mt-3 max-w-lg text-[15px] leading-relaxed text-slate-600">
-                IICRC S500-compliant inspections, automated scope generation, and
+                Inspections that cite IICRC S500, automated scope generation, and
                 drying validation in one platform.
               </p>
               <Link href="/signup" className={`${CTA} mt-6`}>

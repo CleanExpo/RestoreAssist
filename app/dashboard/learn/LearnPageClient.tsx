@@ -44,7 +44,7 @@ const LIBRARY: { slug: string; subtitle: string; category: string }[] = [
   { slug: "remotion-hero-product-overview", subtitle: "Complete platform overview for new users.", category: "getting-started" },
   { slug: "remotion-dashboard", subtitle: "Navigate the dashboard and key metrics.", category: "getting-started" },
   { slug: "remotion-create-inspection", subtitle: "Start a new inspection from scratch.", category: "inspections" },
-  { slug: "remotion-report-builder", subtitle: "Build professional S500-compliant reports.", category: "reports" },
+  { slug: "remotion-report-builder", subtitle: "Build professional reports that cite S500.", category: "reports" },
   { slug: "remotion-client-portal", subtitle: "Share reports and manage client access.", category: "marketing" },
   { slug: "remotion-evidence-capture", subtitle: "Capture and annotate photo evidence.", category: "inspections" },
   { slug: "remotion-moisture-mapping", subtitle: "Map moisture readings and dry goals.", category: "inspections" },

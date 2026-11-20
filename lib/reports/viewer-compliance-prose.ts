@@ -76,12 +76,12 @@ export function viewerClosingCompliance(
   jurisdiction: ViewerJurisdiction,
 ): string {
   if (jurisdiction === "NZ") {
-    return `All remediation procedures will be conducted in strict compliance with IICRC S500 standards, the ${HSWA_2015}, and AS/NZS 3000 electrical safety standards where applicable.`;
+    return `All remediation procedures will be conducted following IICRC S500 standards, the ${HSWA_2015}, and AS/NZS 3000 electrical safety standards where applicable.`;
   }
   if (jurisdiction === "AU") {
-    return `All remediation procedures will be conducted in strict compliance with IICRC S500 standards, National Construction Code requirements, ${WHS_ACT_2011}, and AS/NZS 3000 electrical safety standards where applicable.`;
+    return `All remediation procedures will be conducted following IICRC S500 standards, National Construction Code requirements, ${WHS_ACT_2011}, and AS/NZS 3000 electrical safety standards where applicable.`;
   }
-  return "All remediation procedures will be conducted in strict compliance with IICRC S500 standards and AS/NZS 3000 electrical safety standards where applicable.";
+  return "All remediation procedures will be conducted following IICRC S500 standards and AS/NZS 3000 electrical safety standards where applicable.";
 }
 
 export function viewerCostStandardsPhrase(

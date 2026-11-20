@@ -170,7 +170,7 @@ Word count: 203. Within RIA editorial tolerance of 200 ± 10. UTM tag for click-
 
 Per T-6 in the runbook, four long-tail walk-throughs ship across the first 30 days. Each thumbnail brief is one paragraph describing the visual concept and on-screen text overlay. Brand colours from `BrandConfig.colour`: primary `#E55A2B` (candy orange), accent `#C5E063` (lime). Aspect 16:9, 1280 × 720 minimum. Font: Inter ExtraBold for the overlay headline.
 
-### Thumbnail 1 — Writing an IICRC S500-compliant water damage report
+### Thumbnail 1 — Writing a water damage report that cites IICRC S500
 
 Split-frame composition. Left half: an iPad held in landscape, showing a completed report with the IICRC S500:2021 §7.1 citation visible in the footer, photo evidence rendered in a 2 × 2 grid above the citation. Right half: a clipboard with a handwritten report scratched out in red marker. The overlay headline reads "STOP HANDWRITING S500 REPORTS" in white Inter ExtraBold on a candy-orange diagonal banner across the top third. A small lime accent badge bottom-right reads "IICRC S500:2021 §7.1". Phill's face is not in this thumbnail — the iPad is the protagonist. Avoid the over-used pointing-and-shocked-face pattern.
 

@@ -66,7 +66,7 @@
 
 > "Initial psychrometric readings, containment approach, and your target conditions.
 >
-> For S500:2021 compliance, include: initial dry bulb temperature, initial relative humidity, initial grain pressure (GPP) reading, target GPP based on material class, and projected drying timeline.
+> To document drying against S500:2021, include: initial dry bulb temperature, initial relative humidity, initial grain pressure (GPP) reading, target GPP based on material class, and projected drying timeline.
 >
 > If you can't do a GPP calculation, at minimum record the dry bulb and RH and reference the S500 §6 table for your region's ambient baseline."
 

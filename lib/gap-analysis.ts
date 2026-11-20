@@ -82,7 +82,7 @@ async function analyzeSinglePDF(
   const anthropic = new Anthropic({ apiKey: anthropicApiKey });
   const base64Data = file.buffer.toString("base64");
 
-  const systemPrompt = `You are a senior IICRC-certified water damage restoration consultant and compliance expert with 30+ years of experience in Australia. You are performing comprehensive gap analysis on completed claim reports to identify ALL missing elements, compliance gaps, and billable items.
+  const systemPrompt = `You are a senior water damage restoration consultant who cites IICRC standards by section number, and a compliance expert with 30+ years of experience in Australia. You are performing comprehensive gap analysis on completed claim reports to identify ALL missing elements, compliance gaps, and billable items.
 
 Your analysis must be thorough and identify:
 1. Missing IICRC compliance elements (with specific standard references)

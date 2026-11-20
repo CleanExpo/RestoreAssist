@@ -313,7 +313,7 @@ function buildSocialMeta(params: {
   const title = `${damageType} — ${location} Inspection`.trim();
   const description = asset.altText
     ? asset.altText
-    : `Professional water damage restoration documentation${location ? ` in ${location}` : ""}. IICRC S500:2021 compliant inspection photos.`;
+    : `Professional water damage restoration documentation${location ? ` in ${location}` : ""}. Inspection photos documented with reference to IICRC S500:2021.`;
 
   return {
     ogTitle: title,
