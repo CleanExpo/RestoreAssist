@@ -90,7 +90,7 @@ export function PhaseSidebar({
                 className={cn(
                   "w-full rounded-lg px-3 py-2.5 text-left transition-colors",
                   isCurrent
-                    ? "border border-cyan-500/40 bg-cyan-500/10"
+                    ? "border border-brand-harbour-500/40 bg-brand-harbour-500/10"
                     : "hover:bg-white/5",
                 )}
               >
@@ -98,7 +98,7 @@ export function PhaseSidebar({
                   <span
                     className={cn(
                       "text-sm font-medium",
-                      isCurrent ? "text-cyan-400" : "text-zinc-300",
+                      isCurrent ? "text-brand-harbour-400" : "text-zinc-300",
                     )}
                   >
                     {phase.displayName}
@@ -110,7 +110,7 @@ export function PhaseSidebar({
                     <div
                       className={cn(
                         "h-1 rounded-full transition-all",
-                        complete ? "bg-emerald-400" : "bg-cyan-500",
+                        complete ? "bg-emerald-400" : "bg-brand-harbour-500",
                       )}
                       style={{
                         width:

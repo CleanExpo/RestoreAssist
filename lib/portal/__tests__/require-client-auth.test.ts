@@ -21,6 +21,12 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { requireClientAuth } from "@/lib/portal/require-client-auth";
+import { credentialFingerprint } from "@/lib/portal/credential-fingerprint";
+
+process.env.CLIENT_PORTAL_JWT_SECRET = "test-secret-at-least-32-chars-long!!";
+
+const OLD_HASH = "$2a$10$hash-for-the-old-password";
+const NEW_HASH = "$2a$10$hash-for-the-new-password";
 
 const CLAIMS = {
   sub: "client_user_1",
@@ -28,6 +34,7 @@ const CLAIMS = {
   email: "homeowner@example.com",
   name: "Home Owner",
   typ: "client-portal" as const,
+  credentialFingerprint: credentialFingerprint(OLD_HASH),
 };
 
 function request() {
@@ -58,6 +65,7 @@ describe("requireClientAuth", () => {
     clientUserFindUnique.mockResolvedValue({
       id: "client_user_1",
       clientId: "client_1",
+      passwordHash: OLD_HASH,
     });
 
     const result = await requireClientAuth(request());
@@ -65,7 +73,49 @@ describe("requireClientAuth", () => {
     expect(result).toEqual({ ok: true, claims: CLAIMS });
     expect(clientUserFindUnique).toHaveBeenCalledWith({
       where: { id: "client_user_1" },
-      select: { id: true, clientId: true },
+      select: { id: true, clientId: true, passwordHash: true },
+    });
+  });
+
+  it("rejects a token signed before the password was changed (RA-8461)", async () => {
+    clientUserFindUnique.mockResolvedValue({
+      id: "client_user_1",
+      clientId: "client_1",
+      passwordHash: NEW_HASH,
+    });
+
+    await expectSafeUnauthorized(await requireClientAuth(request()));
+  });
+
+  it("accepts a token signed after the password was changed (RA-8461)", async () => {
+    const fresh = { ...CLAIMS, credentialFingerprint: credentialFingerprint(NEW_HASH) };
+    authenticateClientRequest.mockResolvedValue(fresh);
+    clientUserFindUnique.mockResolvedValue({
+      id: "client_user_1",
+      clientId: "client_1",
+      passwordHash: NEW_HASH,
+    });
+
+    expect(await requireClientAuth(request())).toEqual({ ok: true, claims: fresh });
+  });
+
+  // Interim (RA-8461 slice 1): nothing can change a portal password yet, so a
+  // token minted before binding cannot be stale. Refusing it would sign out
+  // homeowners who have forgotten their password before recovery exists.
+  // The change that first writes ClientUser.passwordHash must flip this test
+  // to a refusal in the same commit.
+  it("still accepts a token issued before credential binding existed (RA-8461 interim)", async () => {
+    const legacy = { ...CLAIMS, credentialFingerprint: null };
+    authenticateClientRequest.mockResolvedValue(legacy);
+    clientUserFindUnique.mockResolvedValue({
+      id: "client_user_1",
+      clientId: "client_1",
+      passwordHash: OLD_HASH,
+    });
+
+    expect(await requireClientAuth(request())).toEqual({
+      ok: true,
+      claims: legacy,
     });
   });
 
@@ -79,6 +129,7 @@ describe("requireClientAuth", () => {
     clientUserFindUnique.mockResolvedValue({
       id: "client_user_1",
       clientId: "client_2",
+      passwordHash: OLD_HASH,
     });
 
     await expectSafeUnauthorized(await requireClientAuth(request()));

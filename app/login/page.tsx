@@ -204,7 +204,7 @@ function LoginForm() {
         {/* Logo */}
         <div className="mb-8 text-center">
           <motion.h1
-            className={`${FONT_DISPLAY} mb-2 text-3xl font-semibold tracking-[-0.03em] text-[#0B1F3A] sm:text-4xl`}
+            className={`${FONT_DISPLAY} mb-2 text-3xl font-semibold tracking-[-0.03em] text-brand-navy sm:text-4xl`}
           >
             RestoreAssist
           </motion.h1>
@@ -240,7 +240,7 @@ function LoginForm() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-[#0B1F3A] mb-2"
+                className="block text-sm font-medium text-brand-navy mb-2"
               >
                 Email Address
               </label>
@@ -260,7 +260,7 @@ function LoginForm() {
                   autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-brand-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour/25 focus:border-brand-harbour transition-all duration-300"
                   placeholder="Enter your email"
                   required
                 />
@@ -271,7 +271,7 @@ function LoginForm() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-[#0B1F3A] mb-2"
+                className="block text-sm font-medium text-brand-navy mb-2"
               >
                 Password
               </label>
@@ -291,7 +291,7 @@ function LoginForm() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-[#0B1F3A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B6D8C]/25 focus:border-[#3B6D8C] transition-all duration-300"
+                  className="w-full pl-10 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-brand-navy placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour/25 focus:border-brand-harbour transition-all duration-300"
                   placeholder="Enter your password"
                   required
                 />
@@ -299,7 +299,7 @@ function LoginForm() {
                   type="button"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-1 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center p-3 text-slate-500 transition-colors hover:text-[#0B1F3A]"
+                  className="absolute right-1 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center p-3 text-slate-500 transition-colors hover:text-brand-navy"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -315,7 +315,7 @@ function LoginForm() {
               <div>
                 <label
                   htmlFor="totp"
-                  className="block text-sm font-medium text-[#0B1F3A] mb-2"
+                  className="block text-sm font-medium text-brand-navy mb-2"
                 >
                   6-digit code or recovery code
                 </label>
@@ -329,7 +329,7 @@ function LoginForm() {
                   onChange={(e) => setTotp(e.target.value.slice(0, 16))}
                   placeholder="123456 or ABCDE-FGHIJ"
                   required
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[#0B1F3A] placeholder:text-slate-400 focus:outline-none focus:border-[#3B6D8C] focus:ring-2 focus:ring-[#3B6D8C]/25 tracking-widest text-center text-lg"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-brand-navy placeholder:text-slate-400 focus:outline-none focus:border-brand-harbour focus:ring-2 focus:ring-brand-harbour/25 tracking-widest text-center text-lg"
                   autoFocus
                 />
                 <p className="text-xs text-slate-600 mt-2">
@@ -354,7 +354,7 @@ function LoginForm() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 bg-white text-[#3B6D8C] focus:ring-2 focus:ring-[#3B6D8C]/30"
+                  className="h-4 w-4 rounded border-slate-300 bg-white text-brand-harbour focus:ring-2 focus:ring-brand-harbour/30"
                 />
                 Stay signed in
               </label>
@@ -377,7 +377,7 @@ function LoginForm() {
             <motion.button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-[#0B1F3A] rounded-xl font-semibold text-white hover:bg-[#16345A] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-brand-navy rounded-xl font-semibold text-white hover:bg-brand-navy-hover transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
@@ -410,7 +410,7 @@ function LoginForm() {
           <motion.button
             onClick={() => handleOAuthSignIn("google")}
             disabled={isLoading}
-            className="w-full py-3 bg-white border border-slate-200 rounded-xl font-medium text-[#0B1F3A] hover:bg-slate-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+            className="w-full py-3 bg-white border border-slate-200 rounded-xl font-medium text-brand-navy hover:bg-slate-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
@@ -456,7 +456,7 @@ function LoginForm() {
             <motion.button
               onClick={() => handleOAuthSignIn("apple")}
               disabled={isLoading}
-              className="mt-3 flex w-full items-center justify-center gap-3 rounded-xl border border-[#0B1F3A] bg-[#0B1F3A] py-3 font-medium text-white transition-colors duration-200 hover:bg-[#16345A] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-3 flex w-full items-center justify-center gap-3 rounded-xl border border-brand-navy bg-brand-navy py-3 font-medium text-white transition-colors duration-200 hover:bg-brand-navy-hover disabled:cursor-not-allowed disabled:opacity-50"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               style={{ fontFamily: "var(--font-landing-display), Outfit, sans-serif" }}
@@ -485,7 +485,7 @@ function LoginForm() {
             <div>
               <Link
                 href="/forgot-password"
-                className="text-[#3B6D8C] hover:text-[#0B1F3A] transition-colors text-sm font-medium"
+                className="text-brand-harbour hover:text-brand-navy transition-colors text-sm font-medium"
               >
                 Forgot password?
               </Link>
@@ -496,7 +496,7 @@ function LoginForm() {
                   Don't have an account?{" "}
                   <Link
                     href="/signup"
-                    className="text-[#3B6D8C] hover:text-[#0B1F3A] transition-colors font-medium"
+                    className="text-brand-harbour hover:text-brand-navy transition-colors font-medium"
                   >
                     Sign up for free
                   </Link>
@@ -508,7 +508,7 @@ function LoginForm() {
                 {CLIENT_PORTAL_PUBLIC_CTA.invitedLabel}{" "}
                 <Link
                   href={CLIENT_PORTAL_PUBLIC_CTA.href}
-                  className="text-[#3B6D8C] hover:text-[#0B1F3A] transition-colors font-medium"
+                  className="text-brand-harbour hover:text-brand-navy transition-colors font-medium"
                 >
                   {CLIENT_PORTAL_PUBLIC_CTA.label}
                 </Link>
@@ -527,7 +527,7 @@ export default function LoginPage() {
       <Suspense
         fallback={
           <div className="flex min-h-[40vh] items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#3B6D8C]/25 border-t-[#3B6D8C]" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-harbour/25 border-t-brand-harbour" />
           </div>
         }
       >

@@ -173,13 +173,13 @@ function ClaimDossier() {
               onClick={() => setActive(i)}
               className={[
                 FONT_DISPLAY,
-                "relative shrink-0 rounded-t-xl border px-4 py-3 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50 focus-visible:ring-offset-2 sm:px-5",
+                "relative shrink-0 rounded-t-xl border px-4 py-3 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50 focus-visible:ring-offset-2 sm:px-5",
                 selected
-                  ? "z-10 border-slate-200/90 border-b-white bg-white text-[#0B1F3A]"
-                  : "border-transparent bg-slate-200/40 text-slate-500 hover:bg-slate-200/70 hover:text-[#16345A]",
+                  ? "z-10 border-slate-200/90 border-b-white bg-white text-brand-navy"
+                  : "border-transparent bg-slate-200/40 text-slate-500 hover:bg-slate-200/70 hover:text-brand-navy-hover",
               ].join(" ")}
             >
-              <span className="block text-[10px] font-bold tabular-nums tracking-[0.14em] text-[#3B6D8C]">
+              <span className="block text-[10px] font-bold tabular-nums tracking-[0.14em] text-brand-harbour">
                 {item.number}
               </span>
               <span className="mt-0.5 block text-[13px] font-semibold tracking-[-0.01em] sm:text-sm">
@@ -203,7 +203,7 @@ function ClaimDossier() {
           aria-hidden
         >
           <motion.div
-            className="h-full bg-[#3B6D8C]"
+            className="h-full bg-brand-harbour"
             initial={false}
             animate={{ width: `${((active + 1) / total) * 100}%` }}
             transition={
@@ -219,18 +219,18 @@ function ClaimDossier() {
           <div className="relative flex flex-col justify-between border-b border-slate-200/80 bg-[#F8FAFB] px-6 py-8 sm:px-8 sm:py-10 lg:border-r lg:border-b-0 lg:px-10 lg:py-12">
             <div>
               <p
-                className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.2em] text-[#3B6D8C]`}
+                className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-harbour`}
               >
                 Claim stage
               </p>
               <p
-                className={`${FONT_DISPLAY} mt-4 text-[4.5rem] font-semibold leading-none tracking-[-0.06em] text-[#0B1F3A] sm:text-[5.5rem] lg:text-[6.5rem]`}
+                className={`${FONT_DISPLAY} mt-4 text-[4.5rem] font-semibold leading-none tracking-[-0.06em] text-brand-navy sm:text-[5.5rem] lg:text-[6.5rem]`}
                 aria-hidden
               >
                 {step.number}
               </p>
               <p
-                className={`${FONT_DISPLAY} mt-4 text-xl font-semibold tracking-[-0.02em] text-[#16345A] sm:text-2xl`}
+                className={`${FONT_DISPLAY} mt-4 text-xl font-semibold tracking-[-0.02em] text-brand-navy-hover sm:text-2xl`}
               >
                 {step.phase}
               </p>
@@ -240,7 +240,7 @@ function ClaimDossier() {
                 Carries forward
               </p>
               <p
-                className={`${FONT_DISPLAY} mt-2 text-[15px] font-semibold leading-snug tracking-[-0.01em] text-[#0B1F3A]`}
+                className={`${FONT_DISPLAY} mt-2 text-[15px] font-semibold leading-snug tracking-[-0.01em] text-brand-navy`}
               >
                 {step.carries}
               </p>
@@ -258,7 +258,7 @@ function ClaimDossier() {
                 transition={{ duration: 0.35, ease: EASE_OUT }}
               >
                 <h3
-                  className={`${FONT_DISPLAY} text-[1.45rem] font-semibold leading-[1.15] tracking-[-0.025em] text-[#0B1F3A] sm:text-[1.85rem] sm:leading-[1.12]`}
+                  className={`${FONT_DISPLAY} text-[1.45rem] font-semibold leading-[1.15] tracking-[-0.025em] text-brand-navy sm:text-[1.85rem] sm:leading-[1.12]`}
                 >
                   {step.title}
                 </h3>
@@ -269,7 +269,7 @@ function ClaimDossier() {
                   {step.tags.map((tag) => (
                     <li
                       key={tag}
-                      className={`${FONT_DISPLAY} rounded-md border border-slate-200/90 bg-[#F3F5F7] px-2.5 py-1 text-[12px] font-medium tracking-[-0.01em] text-[#16345A]`}
+                      className={`${FONT_DISPLAY} rounded-md border border-slate-200/90 bg-[#F3F5F7] px-2.5 py-1 text-[12px] font-medium tracking-[-0.01em] text-brand-navy-hover`}
                     >
                       {tag}
                     </li>
@@ -281,7 +281,7 @@ function ClaimDossier() {
             {/* Pager */}
             <div className="mt-10 flex items-center justify-between gap-4 border-t border-slate-200/80 pt-5">
               <p className="text-sm text-slate-500">
-                <span className={`${FONT_DISPLAY} font-semibold text-[#0B1F3A]`}>
+                <span className={`${FONT_DISPLAY} font-semibold text-brand-navy`}>
                   {active + 1}
                 </span>
                 <span className="mx-1.5 text-slate-300">/</span>
@@ -294,7 +294,7 @@ function ClaimDossier() {
                 <button
                   type="button"
                   onClick={() => go(active - 1)}
-                  className={`${FONT_DISPLAY} inline-flex h-11 min-w-11 items-center justify-center rounded-xl border border-slate-200/90 bg-white px-3 text-sm font-semibold text-[#0B1F3A] transition-colors hover:border-slate-300 hover:bg-[#F3F5F7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50`}
+                  className={`${FONT_DISPLAY} inline-flex h-11 min-w-11 items-center justify-center rounded-xl border border-slate-200/90 bg-white px-3 text-sm font-semibold text-brand-navy transition-colors hover:border-slate-300 hover:bg-[#F3F5F7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50`}
                   aria-label="Previous claim stage"
                 >
                   ←
@@ -302,7 +302,7 @@ function ClaimDossier() {
                 <button
                   type="button"
                   onClick={() => go(active + 1)}
-                  className={`${FONT_DISPLAY} inline-flex h-11 min-w-11 items-center justify-center rounded-xl bg-[#0B1F3A] px-3 text-sm font-semibold text-white transition-colors hover:bg-[#16345A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50`}
+                  className={`${FONT_DISPLAY} inline-flex h-11 min-w-11 items-center justify-center rounded-xl bg-brand-navy px-3 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50`}
                   aria-label="Next claim stage"
                 >
                   →
@@ -398,11 +398,11 @@ export default function HowItWorksPage() {
             initial={reduce ? false : "hidden"}
             whileInView="visible"
             viewport={VIEWPORT}
-            className="relative mt-12 aspect-[21/9] min-h-[14rem] overflow-hidden rounded-2xl border border-slate-200/90 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:mt-16 sm:min-h-[16rem]"
+            className="relative mt-12 aspect-[3/2] overflow-hidden rounded-2xl border border-slate-200/90 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:mt-16 sm:aspect-[21/9] sm:min-h-[16rem]"
           >
             <Image
-              src="/landing/field-capture.jpg"
-              alt="Restoration technician documenting site conditions for a claim"
+              src="/landing/field-capture.avif"
+              alt="Restoration technician on a suburban driveway photographing a house front with a rugged tablet, air movers drying a wet runner beside him"
               fill
               className="object-cover"
               sizes="80vw"
@@ -451,7 +451,7 @@ export default function HowItWorksPage() {
             {GUARDS.map((item) => (
               <motion.li key={item.title} variants={fadeUpSoft}>
                 <h3
-                  className={`${FONT_DISPLAY} text-lg font-semibold tracking-[-0.015em] text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} text-lg font-semibold tracking-[-0.015em] text-brand-navy`}
                 >
                   {item.title}
                 </h3>
@@ -509,7 +509,7 @@ export default function HowItWorksPage() {
                 className="border-t border-slate-200/90 pt-6"
               >
                 <h3
-                  className={`${FONT_DISPLAY} text-lg font-semibold tracking-[-0.015em] text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} text-lg font-semibold tracking-[-0.015em] text-brand-navy`}
                 >
                   {item.role}
                 </h3>
@@ -545,7 +545,7 @@ export default function HowItWorksPage() {
               <motion.h2
                 id="hiw-cta-heading"
                 variants={fadeUp}
-                className={`${FONT_DISPLAY} mt-4 text-[1.9rem] font-semibold leading-[1.12] tracking-[-0.02em] text-[#0B1F3A] sm:text-[2.35rem] lg:text-[2.85rem] lg:leading-[1.08]`}
+                className={`${FONT_DISPLAY} mt-4 text-[1.9rem] font-semibold leading-[1.12] tracking-[-0.02em] text-brand-navy sm:text-[2.35rem] lg:text-[2.85rem] lg:leading-[1.08]`}
               >
                 Prove it on your next claim
               </motion.h2>
@@ -570,7 +570,7 @@ export default function HowItWorksPage() {
               </motion.div>
               <motion.p
                 variants={fadeUp}
-                className={`${FONT_DISPLAY} mt-8 text-sm font-semibold tracking-[-0.01em] text-[#16345A]`}
+                className={`${FONT_DISPLAY} mt-8 text-sm font-semibold tracking-[-0.01em] text-brand-navy-hover`}
               >
                 {BRAND.slogan}
               </motion.p>

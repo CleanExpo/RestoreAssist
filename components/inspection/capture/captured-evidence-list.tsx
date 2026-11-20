@@ -71,7 +71,7 @@ export function CapturedEvidenceList({
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs text-zinc-300">{item.title}</p>
               {item.measurementValue != null && (
-                <p className="text-xs text-cyan-400">
+                <p className="text-xs text-brand-harbour-400">
                   {item.measurementValue} {item.measurementUnit ?? ""}
                 </p>
               )}

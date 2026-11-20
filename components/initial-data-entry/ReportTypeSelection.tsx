@@ -16,8 +16,8 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
     <div
       className={cn(
         "p-6 rounded-lg border-2 space-y-6 mt-6",
-        "border-cyan-500/50 dark:border-cyan-500/50",
-        "bg-cyan-500/10 dark:bg-cyan-500/10",
+        "border-brand-harbour-500/50 dark:border-brand-harbour-500/50",
+        "bg-brand-harbour-500/10 dark:bg-brand-harbour-500/10",
       )}
     >
       <h3
@@ -122,21 +122,21 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
           onClick={() => onChoose("enhanced")}
           disabled={loading || isTrial}
           className={cn(
-            "p-6 rounded-lg border-2 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50",
+            "p-6 rounded-lg border-2 bg-gradient-to-br from-brand-harbour-500/10 to-blue-500/10 hover:from-brand-harbour-500/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50",
             isTrial
               ? "border-neutral-300 dark:border-neutral-700 cursor-not-allowed"
-              : "border-cyan-500",
+              : "border-brand-harbour-500",
           )}
         >
           <div className="absolute top-4 right-4">
-            <span className="px-3 py-1 bg-cyan-500 text-white text-xs font-semibold rounded-full">
+            <span className="px-3 py-1 bg-brand-harbour-500 text-white text-xs font-semibold rounded-full">
               RECOMMENDED
             </span>
           </div>
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-cyan-500/30 flex items-center justify-center group-hover:bg-cyan-500/40 transition-colors">
-                <Sparkles className="w-6 h-6 text-cyan-300" />
+              <div className="w-12 h-12 rounded-lg bg-brand-harbour-500/30 flex items-center justify-center group-hover:bg-brand-harbour-500/40 transition-colors">
+                <Sparkles className="w-6 h-6 text-brand-harbour-300" />
               </div>
               <div>
                 <h4
@@ -161,7 +161,7 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
               className={cn(
                 "w-5 h-5 transition-colors",
                 "text-neutral-700 dark:text-primary-400",
-                "group-hover:text-cyan-600 dark:group-hover:text-cyan-300",
+                "group-hover:text-brand-harbour-600 dark:group-hover:text-brand-harbour-300",
               )}
             />
           </div>

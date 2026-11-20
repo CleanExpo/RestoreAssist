@@ -38,46 +38,170 @@ not by being loud.
 
 ## Visual Tokens
 
-The palette is navy and bronze. Use the Tailwind utility (`bg-brand-navy`)
-rather than the hex; components must carry no raw hex literal.
+The palette is B, "Paper and cobalt" (chosen 19/11/2026, replacing palette A).
+Token names describe roles, not hues: `harbour` and `bronze` are now cobalt,
+`navy` is ink and `gold` is a pale cobalt. Use the Tailwind utility (`bg-brand-navy`) rather than the hex;
+components must carry no raw hex literal.
 
 ### Colour — core brand
 
 | Token | Hex | Use |
 |---|---|---|
-| `--color-brand-navy` | `#1c2e47` | Primary — headings, accents, strong text |
-| `--color-brand-bronze` | `#8a6b4e` | Secondary — CTAs, highlights, borders |
-| `--color-brand-slate` | `#5a6a7b` | Muted — body copy, meta text |
-| `--color-brand-gold` | `#d4a574` | Tertiary highlight |
+| `--color-brand-navy` | `#17181c` | Primary — ink for headings, strong text, foreground |
+| `--color-brand-navy-hover` | `#2b2d33` | Navy, hover |
+| `--color-brand-harbour` | `#1638c8` | Cobalt — links, focus ring, accents on light |
+| `--color-brand-harbour-light` | `#7b96f4` | Cobalt for dark surfaces — links, primary in dark mode |
+| `--color-brand-bronze` | `#1d3fc4` | Cobalt — secondary highlight, borders |
+| `--color-brand-slate` | `#5a574e` | Muted — body copy, meta text |
+| `--color-brand-gold` | `#9db1ff` | Pale cobalt — highlight on dark surfaces only |
+| `--color-brand-gold-hover` | `#bccaff` | Pale cobalt, hover |
 
-### Colour — marketing CTA
+### Colour — CTA and light surfaces
 
 | Token | Hex | Use |
 |---|---|---|
-| `--color-brand-cta` | `#765c43` | Primary CTA bronze |
-| `--color-brand-cta-hover` | `#634a2f` | Primary CTA bronze, hover |
-| `--color-brand-steel` | `#546272` | Secondary CTA steel |
-| `--color-brand-steel-hover` | `#445163` | Secondary CTA steel, hover |
-| `--color-brand-mist` | `#c4c8ca` | Translucent glass surface on hero |
-| `--color-brand-cloud` | `#f4f5f6` | Off-white section surface |
+| `--color-brand-cta` | `#1638c8` | Primary CTA (solid, white text) |
+| `--color-brand-cta-hover` | `#0f2a9e` | Primary CTA, hover |
+| `--color-brand-steel` | `#6b685f` | Secondary CTA steel |
+| `--color-brand-steel-hover` | `#2e2c28` | Secondary CTA steel, hover |
+| `--color-brand-mist` | `#dedbd2` | Borders, glass surface on hero |
+| `--color-brand-cloud` | `#f7f6f2` | Paper — off-white section surface, light sidebar |
+| `--color-brand-cream` | `#efece4` | Accent surface, active nav item |
+| `--color-brand-cream-2` | `#e6e2d6` | Accent surface, hover |
 
 ### Colour — dark surfaces
 
 | Token | Hex | Use |
 |---|---|---|
-| `--color-brand-canvas` | `#050505` | Near-black full-bleed canvas |
-| `--color-brand-surface` | `#0e1320` | Help-centre card / panel |
-| `--color-brand-surface-2` | `#11172a` | Help-centre card, hover |
-| `--color-brand-deep` | `#0d1b2e` | Sketch editor / capture flow |
-| `--color-brand-ink` | `#0a0a0a` | Drawer / sidebar |
-| `--color-brand-abyss` | `#02040b` | WebGL hero background |
+| `--color-brand-canvas` | `#121212` | Dark-mode page background |
+| `--color-brand-surface` | `#1a1a1c` | Dark-mode card / panel |
+| `--color-brand-surface-2` | `#232327` | Dark-mode card, hover; muted surface |
+| `--color-brand-deep` | `#17171a` | Sketch editor / capture flow |
+| `--color-brand-ink` | `#0e0e0f` | Drawer / sidebar in dark mode |
+| `--color-brand-abyss` | `#08080a` | Deepest background |
 
-### Contrast — read before choosing a CTA colour
+### Colour — harbour scale (signed-in app accent)
 
-`--color-brand-bronze` `#8a6b4e` measures **4.33:1** on white, below the 4.5:1
-WCAG AA floor for body-size text. `--color-brand-cta` `#765c43` is the darker
-replacement and clears it. Both are still in the palette, so picking the wrong
-one is easy; use `--color-brand-cta` for anything a user must read or action.
+The signed-in app's accent tints, badges, rings and gradients use an eleven-step
+scale on the brand-cta hue (oklch hue 265.6): `brand-harbour-50` to
+`brand-harbour-950` (`bg-brand-harbour-500/10`, `text-brand-harbour-600`,
+`ring-brand-harbour-400/40`). It replaced the Tailwind cyan utilities (RA-8464),
+and the interim cyan bridge in `app/globals.css` is gone, so a `cyan-*` utility
+now renders stock Tailwind teal. New code uses `brand-harbour-*`, never `cyan-*`;
+`tests/unit/no-cyan-utilities.test.ts` fails on one.
+
+| Token | Value |
+|---|---|
+| `--color-brand-harbour-50` | `oklch(0.97 0.078 265.6)` |
+| `--color-brand-harbour-100` | `oklch(0.94 0.078 265.6)` |
+| `--color-brand-harbour-200` | `oklch(0.89 0.156 265.6)` |
+| `--color-brand-harbour-300` | `oklch(0.82 0.156 265.6)` |
+| `--color-brand-harbour-400` | `oklch(0.72 0.223 265.6)` |
+| `--color-brand-harbour-500` | `oklch(0.6 0.223 265.6)` |
+| `--color-brand-harbour-600` | `oklch(0.5 0.223 265.6)` |
+| `--color-brand-harbour-700` | `oklch(0.43 0.223 265.6)` |
+| `--color-brand-harbour-800` | `oklch(0.37 0.223 265.6)` |
+| `--color-brand-harbour-900` | `oklch(0.31 0.223 265.6)` |
+| `--color-brand-harbour-950` | `oklch(0.24 0.223 265.6)` |
+
+The single tokens `brand-harbour` (`#1638c8`) and `brand-harbour-light`
+(`#7b96f4`) stay the link and focus colours; the scale is for tints and fills.
+Steps 600 and up carry white text at 6:1 or better; step 500 measures 4.19:1, so
+a solid white-text fill uses step 600 or `brand-cta`.
+
+### Colour — chart palette (RA-8465)
+
+Every Recharts chart takes its colours from `lib/charts/palette.ts`, never a
+literal. The module hands out CSS variables (`var(--chart-1)` and so on) that
+`app/globals.css` declares under `:root` (light) and `.dark`, so light and dark
+swap in CSS. `lib/charts/__tests__/chart-palette.test.ts` fails on a hex,
+`rgb()`, `hsl()` or `oklch()` literal in any file that imports recharts, and on
+a chart variable that is not declared for both modes. It also fails if chart
+slots 2 to 8 borrow a brand token instead of a `--color-brand-chart-*` token,
+or if two adjacent slots resolve to colours closer than normal-vision delta E
+15. Slot 1 alone follows `brand-harbour`, so the charts take the brand's link
+colour; every other slot is chart-owned, because a brand palette change
+re-points brand tokens (palette B made `brand-bronze` cobalt, the same blue as
+slot 1).
+
+Colour is assigned by the job it does:
+
+- **Categorical** (which series): `CHART_SERIES`, eight slots in the fixed
+  order below. Assign in sequence and never cycle: `seriesColour(i)` folds a
+  ninth series to neutral. Give a known entity a fixed slot with
+  `colourForKey(order, key)`, so a filter never repaints the survivors.
+- **Single series**: `CHART_ACCENT` (slot 1). One series is one colour; never
+  colour bars by category when the axis already names them.
+- **Status** (a mark that means a state, such as dry or wet): `CHART_STATUS`
+  good, info, warning, critical, on the app's status tokens. Never used as a
+  series colour, and always paired with a label or icon.
+- **Neutral**: `CHART_NEUTRAL` for "Other", archived and folded series.
+- **Chrome**: `CHART_CHROME` (grid, axis, threshold lines, target curves, dot
+  ring) and `CHART_TOOLTIP_STYLE`. Values, labels and legends stay in text ink.
+
+| Slot | Hue | Light | Dark |
+|---|---|---|---|
+| 1 | cobalt | `brand-harbour` `#1638c8` | `#5b7cf0` |
+| 2 | burnt orange | `#a34a06` | `#d95926` |
+| 3 | aqua green | `#199e70` | `#199e70` |
+| 4 | amber | `#c98500` | `#c98500` |
+| 5 | magenta | `#d55181` | `#d55181` |
+| 6 | green | `#008300` | `#0ca30c` |
+| 7 | violet | `#6250d6` | `#9085e9` |
+| 8 | red | `#e34948` | `#e66767` |
+
+Validated with the dataviz skill's `validate_palette.js` against the card
+surfaces of palette B (`#ffffff` light card, `brand-surface` `#1a1a1c` dark):
+every slot inside the lightness band and chroma floor, every slot at 3:1 or
+better on its surface, worst adjacent pair CVD delta E 8.4 and normal-vision
+delta E 19.3 in both modes (tritan 7.6 light, 8.7 dark; a pair in the 6 to 8
+band needs direct labels or a gap, which the charts carry). Charts sit on white
+cards, never on the `#f7f6f2` paper canvas. Slots 1 to 3 also pass as all pairs (scatter, map, small
+multiples); those forms carry at most three series.
+
+`brand-gold` is not a chart colour: it fails 3:1 on white and sits next to the
+warning status amber.
+
+| Token | Hex | Use |
+|---|---|---|
+| `--color-brand-chart-orange` | `#a34a06` | Chart slot 2, light |
+| `--color-brand-chart-aqua` | `#199e70` | Chart slot 3, both modes |
+| `--color-brand-chart-amber` | `#c98500` | Chart slot 4, both modes |
+| `--color-brand-chart-magenta` | `#d55181` | Chart slot 5, both modes |
+| `--color-brand-chart-green` | `#008300` | Chart slot 6, light |
+| `--color-brand-chart-violet` | `#6250d6` | Chart slot 7, light |
+| `--color-brand-chart-red` | `#e34948` | Chart slot 8, light |
+| `--color-brand-chart-harbour-dark` | `#5b7cf0` | Chart slot 1, dark |
+| `--color-brand-chart-orange-dark` | `#d95926` | Chart slot 2, dark |
+| `--color-brand-chart-green-dark` | `#0ca30c` | Chart slot 6, dark |
+| `--color-brand-chart-violet-dark` | `#9085e9` | Chart slot 7, dark |
+| `--color-brand-chart-red-dark` | `#e66767` | Chart slot 8, dark |
+
+### Contrast — read before choosing a colour
+
+Measured WCAG ratios. `tests/unit/brand-contrast.test.ts` recomputes every row
+from `app/globals.css`, so a palette change that leaves this table stale fails CI.
+
+| Pair | Ratio |
+|---|---|
+| White on `brand-cta` `#1638c8` | 8.63:1 |
+| White on `brand-bronze` `#1d3fc4` | 8.20:1 |
+| `brand-slate` on white | 7.22:1 |
+| `brand-harbour-light` on `brand-canvas` | 6.70:1 |
+| `brand-gold` on `brand-navy` | 8.59:1 |
+| `brand-gold` on white | 2.07:1 (fails) |
+
+Rules that follow from these:
+
+- Solid buttons with white text use `brand-cta` (or a step 600 colour), never a
+  step 500 colour.
+- `brand-gold` is for dark surfaces only. On a light surface it fails AA.
+- In dark mode, links and the primary colour use `brand-harbour-light`;
+  `brand-harbour` on `brand-canvas` measures 2.17:1 and fails.
+- Charts sit on white cards, never straight onto the paper surface
+  `brand-cloud`, where the paler chart colours lose contrast.
+- Light mode is the default theme; every route follows the user's Appearance
+  choice.
 
 ### Typography
 

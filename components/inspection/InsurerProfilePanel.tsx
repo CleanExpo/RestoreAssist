@@ -158,7 +158,7 @@ export function InsurerProfilePanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
-              <ChromeBuilding className="text-cyan-500" size={18} />
+              <ChromeBuilding className="text-brand-harbour-500" size={18} />
               Insurer profile
             </h3>
             <p className="text-sm text-neutral-600 dark:text-slate-400 mt-1">
@@ -168,7 +168,7 @@ export function InsurerProfilePanel({
           </div>
           <Link
             href={`/dashboard/inspections/${inspectionId}/insurer-profile`}
-            className="flex items-center gap-1.5 text-sm text-cyan-600 hover:underline whitespace-nowrap"
+            className="flex items-center gap-1.5 text-sm text-brand-harbour-600 hover:underline whitespace-nowrap"
           >
             Full profile <ChromeExternalLink size={14} />
           </Link>
@@ -178,7 +178,7 @@ export function InsurerProfilePanel({
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant="outline"
-              className="bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800"
+              className="bg-brand-harbour-50 dark:bg-brand-harbour-900/20 text-brand-harbour-700 dark:text-brand-harbour-400 border-brand-harbour-200 dark:border-brand-harbour-800"
             >
               {profile.name}
             </Badge>
@@ -223,7 +223,7 @@ export function InsurerProfilePanel({
         <Button
           onClick={handleApply}
           disabled={!selectedInsurerId || saving}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white"
+          className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white"
           size="sm"
         >
           {saving ? (
@@ -281,7 +281,7 @@ export function InsurerProfilePanel({
           {!gapAnalysis.isComplete && (
             <Link
               href={`/dashboard/inspections/${inspectionId}/capture`}
-              className="inline-flex mt-3 text-sm font-medium text-cyan-600 hover:underline"
+              className="inline-flex mt-3 text-sm font-medium text-brand-harbour-600 hover:underline"
             >
               Open Guided Capture to close gaps →
             </Link>

@@ -27,7 +27,7 @@ export function PortalLinkExpired() {
               </Link>
               <Link
                 href={PORTAL_PATHS.login}
-                className="inline-block min-h-11 px-6 py-3 text-sm text-cyan-400/90 hover:underline"
+                className="inline-block min-h-11 px-6 py-3 text-sm text-brand-harbour-400/90 hover:underline"
               >
                 Sign in with a portal account
               </Link>

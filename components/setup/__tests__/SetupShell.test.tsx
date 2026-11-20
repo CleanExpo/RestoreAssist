@@ -50,7 +50,11 @@ vi.mock("../store", () => ({
     selector(storeState),
 }));
 
-import { SetupShell } from "../SetupShell";
+import {
+  SetupShell,
+  CHECKOUT_CANCELLED_NOTICE,
+  CHECKOUT_DONE_NOTICE,
+} from "../SetupShell";
 import { activationErrorMessage } from "@/lib/setup/activation-error";
 
 const initial = { id: "o1", hydrationJobs: [] } as never;
@@ -153,6 +157,52 @@ describe("SetupShell — Field Add-Ons step (RA-8271)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
     expect(screen.getByText(/Step 7 of 8: Integrations/)).toBeInTheDocument();
+  });
+});
+
+describe("SetupShell — back from an add-on checkout (RA-8466)", () => {
+  // Branding not done yet, so without a checkout return it would reopen there.
+  const started = {
+    id: "o1",
+    hydrationJobs: [],
+    country: "AU",
+    timezone: "Australia/Brisbane",
+    legalName: "Synthetic Drying Pty Ltd",
+    abn: "51824753556",
+    nzbn: null,
+    state: "QLD",
+    logoUrl: null,
+    primaryColor: null,
+    pricingConfig: null,
+  };
+
+  it("a cancelled checkout reopens the Field Add-Ons step and says nothing was bought", async () => {
+    render(<SetupShell initial={started as never} checkoutReturn="cancelled" />);
+    expect(await screen.findByText(/Step 6 of 8: Field Add-Ons/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(CHECKOUT_CANCELLED_NOTICE);
+    // Setup carries on: the step never blocks.
+    expect(screen.getByRole("button", { name: /^next/i })).not.toBeDisabled();
+  });
+
+  it("a paid checkout also comes back to the step, with the done notice", async () => {
+    render(<SetupShell initial={started as never} checkoutReturn="done" />);
+    expect(await screen.findByText(/Step 6 of 8: Field Add-Ons/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(CHECKOUT_DONE_NOTICE);
+  });
+
+  it("a return never skips the required Business details step", async () => {
+    const unfinished = { ...started, abn: null };
+    render(<SetupShell initial={unfinished as never} checkoutReturn="cancelled" />);
+    expect(await screen.findByText(/Step 3 of 8: Business details/)).toBeInTheDocument();
+  });
+
+  it("the walkthrough leads the step and can be skipped without leaving it", async () => {
+    render(<SetupShell initial={started as never} checkoutReturn="cancelled" />);
+    expect(await screen.findByLabelText("Simple walkthrough")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Skip walkthrough" }));
+    expect(screen.getByRole("button", { name: "Resume walkthrough" })).toBeInTheDocument();
+    expect(screen.getByText(/Step 6 of 8: Field Add-Ons/)).toBeInTheDocument();
+    expect(screen.getByText("ADDON_DECK_BODY")).toBeInTheDocument();
   });
 });
 

@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { AlertTriangle, TrendingDown, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHART_CHROME, seriesColour } from "@/lib/charts/palette";
 import {
   getMoistureStatus,
   STATUS_COLORS,
@@ -40,16 +41,6 @@ type SeriesData = Record<
   { time: number; label: string; [location: string]: number | string }
 >;
 
-const COLORS = [
-  "#06b6d4", // cyan-500
-  "#f59e0b", // amber-500
-  "#8b5cf6", // violet-500
-  "#10b981", // emerald-500
-  "#f97316", // orange-500
-  "#ec4899", // pink-500
-  "#3b82f6", // blue-500
-  "#14b8a6", // teal-500
-];
 
 function formatTime(ts: string) {
   const d = new Date(ts);
@@ -244,7 +235,7 @@ export default function MoistureTrendChart({
           >
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="rgba(148,163,184,0.2)"
+              stroke={CHART_CHROME.grid}
             />
             <XAxis
               dataKey="label"
@@ -270,13 +261,13 @@ export default function MoistureTrendChart({
             {/* Dry standard reference line */}
             <ReferenceLine
               y={DRY_STANDARD}
-              stroke="#10b981"
+              stroke={CHART_CHROME.reference}
               strokeDasharray="5 3"
               label={{
                 value: `Dry ≤${DRY_STANDARD}%`,
                 position: "insideTopRight",
                 fontSize: 10,
-                fill: "#10b981",
+                fill: CHART_CHROME.reference,
               }}
             />
             {locations.map((loc, i) => (
@@ -284,9 +275,9 @@ export default function MoistureTrendChart({
                 key={loc}
                 type="monotone"
                 dataKey={loc}
-                stroke={COLORS[i % COLORS.length]}
+                stroke={seriesColour(i)}
                 strokeWidth={2}
-                dot={{ r: 4, fill: COLORS[i % COLORS.length], strokeWidth: 0 }}
+                dot={{ r: 4, fill: seriesColour(i), strokeWidth: 0 }}
                 activeDot={{ r: 6 }}
                 connectNulls
               />

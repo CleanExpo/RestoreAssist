@@ -94,7 +94,7 @@ export function SignatoryFlowTimeline({
       INSURER:
         "bg-info-subtle text-info-subtle-foreground",
       CONTRACTOR:
-        "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-400",
+        "bg-brand-harbour-100 text-brand-harbour-700 dark:bg-brand-harbour-950/30 dark:text-brand-harbour-400",
       PROPERTY_OWNER:
         "bg-warning-subtle text-warning-subtle-foreground",
       MANAGER:

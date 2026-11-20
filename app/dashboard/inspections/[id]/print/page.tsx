@@ -362,7 +362,7 @@ export default function InspectionPrintPage({
           <div className="flex items-start justify-between gap-6 mb-6">
             {/* Logo placeholder */}
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-cyan-600 flex items-center justify-center text-white font-bold text-lg">
+              <div className="w-12 h-12 rounded-lg bg-brand-harbour-600 flex items-center justify-center text-white font-bold text-lg">
                 RA
               </div>
               <div>
@@ -384,7 +384,7 @@ export default function InspectionPrintPage({
                 Report No: {inspection.inspectionNumber}
               </div>
               <div className="mt-2">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-cyan-50 text-cyan-800 border border-cyan-100">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-brand-harbour-50 text-brand-harbour-800 border border-brand-harbour-100">
                   Claim type: {claimLabel}
                 </span>
               </div>
@@ -394,7 +394,7 @@ export default function InspectionPrintPage({
           <div className="grid grid-cols-2 gap-6 border-t border-neutral-100 pt-6">
             <div className="space-y-3">
               <div>
-                <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-brand-slate dark:text-neutral-400 uppercase tracking-wider">
                   Property Address
                 </div>
                 <div className="text-sm font-medium text-neutral-900 mt-0.5">
@@ -402,7 +402,7 @@ export default function InspectionPrintPage({
                 </div>
               </div>
               <div>
-                <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-brand-slate dark:text-neutral-400 uppercase tracking-wider">
                   Inspector
                 </div>
                 <div className="text-sm font-medium text-neutral-900 mt-0.5">
@@ -412,7 +412,7 @@ export default function InspectionPrintPage({
             </div>
             <div className="space-y-3">
               <div>
-                <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-brand-slate dark:text-neutral-400 uppercase tracking-wider">
                   Inspection Date
                 </div>
                 <div className="text-sm font-medium text-neutral-900 mt-0.5">
@@ -422,7 +422,7 @@ export default function InspectionPrintPage({
               </div>
               {classification && (
                 <div>
-                  <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                  <div className="text-xs font-semibold text-brand-slate dark:text-neutral-400 uppercase tracking-wider">
                     IICRC Classification
                   </div>
                   <div className="mt-0.5">
@@ -496,7 +496,7 @@ export default function InspectionPrintPage({
                       key={reading.id}
                       className={i % 2 === 0 ? "bg-white" : "bg-neutral-50"}
                     >
-                      <td className="px-3 py-2 text-neutral-400">{i + 1}</td>
+                      <td className="px-3 py-2 text-brand-slate dark:text-neutral-400">{i + 1}</td>
                       <td className="px-3 py-2 font-medium text-neutral-900">
                         {reading.location}
                       </td>
@@ -579,20 +579,20 @@ export default function InspectionPrintPage({
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs text-neutral-600 mb-2">
                     <div>
-                      <span className="text-neutral-400">Size: </span>
+                      <span className="text-brand-slate dark:text-neutral-400">Size: </span>
                       <span className="font-medium">
                         {resolveAreaSqm(area).toFixed(1)} m²
                       </span>
                     </div>
                     <div>
-                      <span className="text-neutral-400">Water Source: </span>
+                      <span className="text-brand-slate dark:text-neutral-400">Water Source: </span>
                       <span className="font-medium capitalize">
                         {area.waterSource}
                       </span>
                     </div>
                     {area.timeSinceLoss != null && (
                       <div className="col-span-2">
-                        <span className="text-neutral-400">
+                        <span className="text-brand-slate dark:text-neutral-400">
                           Time Since Loss:{" "}
                         </span>
                         <span className="font-medium">
@@ -645,11 +645,11 @@ export default function InspectionPrintPage({
                       key={item.id}
                       className={i % 2 === 0 ? "bg-white" : "bg-neutral-50"}
                     >
-                      <td className="px-3 py-2 text-neutral-400">{i + 1}</td>
+                      <td className="px-3 py-2 text-brand-slate dark:text-neutral-400">{i + 1}</td>
                       <td className="px-3 py-2 text-neutral-900">
                         <div className="font-medium">{item.description}</div>
                         {item.justification && (
-                          <div className="text-xs text-neutral-400 mt-0.5">
+                          <div className="text-xs text-brand-slate dark:text-neutral-400 mt-0.5">
                             [{item.justification}]
                           </div>
                         )}
@@ -660,7 +660,7 @@ export default function InspectionPrintPage({
                             </span>
                           )}
                           {item.autoDetermined && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-600">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-brand-harbour-50 text-brand-harbour-600">
                               Auto
                             </span>
                           )}
@@ -813,7 +813,7 @@ export default function InspectionPrintPage({
         )}
 
         {/* ── 7. Footer ───────────────────────────────────────────────────── */}
-        <div className="border-t border-neutral-200 pt-4 flex items-center justify-between text-xs text-neutral-400">
+        <div className="border-t border-neutral-200 pt-4 flex items-center justify-between text-xs text-brand-slate dark:text-neutral-400">
           <span>
             Generated by RestoreAssist — National Inspection Report Platform
           </span>

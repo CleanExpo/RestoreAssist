@@ -97,7 +97,7 @@ export default function PortalLoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-cyan-400/40 focus:outline-none focus:ring-1 focus:ring-cyan-400/40"
+                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-brand-harbour-400/40 focus:outline-none focus:ring-1 focus:ring-brand-harbour-400/40"
                 placeholder="your@email.com"
               />
             </div>
@@ -116,13 +116,13 @@ export default function PortalLoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-cyan-400/40 focus:outline-none focus:ring-1 focus:ring-cyan-400/40"
+                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-4 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-brand-harbour-400/40 focus:outline-none focus:ring-1 focus:ring-brand-harbour-400/40"
                 placeholder="••••••••"
               />
               <div className="mt-1 text-right">
                 <Link
                   href={PORTAL_PATHS.recovery}
-                  className="text-xs text-cyan-400/90 hover:text-cyan-300 hover:underline"
+                  className="text-xs text-brand-harbour-400/90 hover:text-brand-harbour-300 hover:underline"
                 >
                   Cannot sign in? Request a new invite
                 </Link>
@@ -144,7 +144,7 @@ export default function PortalLoginPage() {
               invitation, or{" "}
               <Link
                 href={PORTAL_PATHS.recovery}
-                className="text-cyan-400/90 hover:underline"
+                className="text-brand-harbour-400/90 hover:underline"
               >
                 request a new invite
               </Link>
@@ -152,7 +152,7 @@ export default function PortalLoginPage() {
             </p>
             <Link
               href={PORTAL_PATHS.help}
-              className="block text-sm text-cyan-400/90 hover:underline"
+              className="block text-sm text-brand-harbour-400/90 hover:underline"
             >
               Client help — reports, approvals, invoices
             </Link>

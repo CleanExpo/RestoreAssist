@@ -721,7 +721,7 @@ export function SketchSelectionPanel({
         <button
           type="button"
           onClick={() => onMapRoomMoisture(selected.id)}
-          className="w-full min-h-11 py-1.5 rounded-lg bg-cyan-500/15 text-cyan-50 border border-cyan-400/35 hover:bg-cyan-500/25 transition-colors text-xs font-medium"
+          className="w-full min-h-11 py-1.5 rounded-lg bg-brand-harbour-500/15 text-brand-harbour-50 border border-brand-harbour-400/35 hover:bg-brand-harbour-500/25 transition-colors text-xs font-medium"
         >
           Map moisture in this room
         </button>
@@ -747,7 +747,7 @@ export function SketchSelectionPanel({
                 );
               }
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
             placeholder="Room name…"
           />
         </div>
@@ -804,7 +804,7 @@ export function SketchSelectionPanel({
                         (e.target as HTMLInputElement).value,
                       );
                   }}
-                  className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+                  className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400 disabled:opacity-50"
                   placeholder="3.86"
                 />
               </div>
@@ -825,7 +825,7 @@ export function SketchSelectionPanel({
                     if (e.key === "Enter")
                       commitDim("widthM", (e.target as HTMLInputElement).value);
                   }}
-                  className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+                  className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400 disabled:opacity-50"
                   placeholder="3.86"
                 />
               </div>
@@ -845,7 +845,7 @@ export function SketchSelectionPanel({
                 if (e.key === "Enter")
                   commitDim("lengthM", (e.target as HTMLInputElement).value);
               }}
-              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400 disabled:opacity-50"
               placeholder="Length in metres"
               aria-label="Wall length in metres"
             />
@@ -864,7 +864,7 @@ export function SketchSelectionPanel({
                 if (e.key === "Enter")
                   commitDim("widthM", (e.target as HTMLInputElement).value);
               }}
-              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400 disabled:opacity-50"
               placeholder="Width in metres"
               aria-label="Opening width in metres"
             />
@@ -911,7 +911,7 @@ export function SketchSelectionPanel({
                 onWallThicknessChange?.(selected.id, parsed);
               }
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
             aria-label="Wall thickness in metres"
           />
         </div>
@@ -953,7 +953,7 @@ export function SketchSelectionPanel({
                 onCeilingHeightChange?.(selected.id, parsed);
               }
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
             placeholder="e.g. 2.7"
             aria-label="Ceiling height in metres"
           />
@@ -1006,7 +1006,7 @@ export function SketchSelectionPanel({
                 parseFloat((e.target as HTMLInputElement).value),
               )
             }
-            className="w-full accent-cyan-400"
+            className="w-full accent-brand-harbour-400"
           />
         </div>
       )}
@@ -1088,7 +1088,7 @@ export function SketchSelectionPanel({
               noteRoomDetailsEdited();
               onMaterialChange?.(selected.id, e.target.value);
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
           >
             <option value="" className="text-black">
               Select material…
@@ -1121,7 +1121,7 @@ export function SketchSelectionPanel({
                 e.target.value as "cat1" | "cat2" | "cat3",
               );
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
           >
             <option value="" className="text-black">
               Select category…
@@ -1188,7 +1188,7 @@ export function SketchSelectionPanel({
                 className={cn(
                   "inline-flex items-center justify-center min-w-11 min-h-11 px-2 rounded-md border text-xs",
                   country === c
-                    ? "bg-cyan-500/20 border-cyan-400 text-cyan-200"
+                    ? "bg-brand-harbour-500/20 border-brand-harbour-400 text-brand-harbour-200"
                     : "border-white/10 text-white/50 hover:text-white/80",
                 )}
               >
@@ -1207,7 +1207,7 @@ export function SketchSelectionPanel({
                 onChange={(e) =>
                   onCauseChange?.(selected.id, e.target.value as DamageCause)
                 }
-                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
               >
                 <option value="" className="text-black">
                   Select cause…

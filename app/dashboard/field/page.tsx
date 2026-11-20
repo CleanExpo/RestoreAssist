@@ -59,13 +59,13 @@ import { formatAttendanceDateEnAu } from "@/lib/inspections/format-attendance-da
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 const STATUS_COLOR: Record<string, string> = {
-  DRAFT: "text-white/50",
-  SUBMITTED: "text-amber-400",
-  PROCESSING: "text-blue-400",
-  CLASSIFIED: "text-purple-400",
-  SCOPED: "text-cyan-400",
-  ESTIMATED: "text-emerald-400",
-  IN_BILLING: "text-brand-gold",
+  DRAFT: "text-brand-slate dark:text-white/50",
+  SUBMITTED: "text-amber-700 dark:text-amber-400",
+  PROCESSING: "text-blue-700 dark:text-blue-400",
+  CLASSIFIED: "text-purple-700 dark:text-purple-400",
+  SCOPED: "text-brand-harbour-700 dark:text-brand-harbour-400",
+  ESTIMATED: "text-emerald-700 dark:text-emerald-400",
+  IN_BILLING: "text-brand-bronze dark:text-brand-gold",
   COMPLETED: "text-success",
 };
 
@@ -383,14 +383,14 @@ export default function FieldDashboardPage() {
         eyebrow="Field workspace"
         title="Field Mode"
         description={`${greeting}. ${statusText}`}
-        icon={<Smartphone className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<Smartphone className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         primaryAction={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <button
               type="button"
               onClick={() => void loadInspections()}
               disabled={loading}
-              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-50 sm:flex-none"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 px-4 text-sm font-medium text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-white/10 disabled:opacity-50 sm:flex-none"
             >
               <RefreshCw
                 className={cn("h-4 w-4", loading && "animate-spin")}
@@ -400,7 +400,7 @@ export default function FieldDashboardPage() {
             </button>
             <Link
               href="/dashboard/inspections/new"
-              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-4 text-sm font-semibold text-white shadow-md hover:from-blue-500 hover:to-cyan-500 sm:flex-none"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-brand-harbour-600 px-4 text-sm font-semibold text-white shadow-md hover:from-blue-500 hover:to-brand-harbour-500 sm:flex-none"
             >
               <Plus className="h-4 w-4" aria-hidden />
               New job
@@ -420,15 +420,15 @@ export default function FieldDashboardPage() {
           >
             <div aria-hidden className={simpleDashboardHeroShine} />
             <span className="relative min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-white">
+              <span className="block text-sm font-semibold text-brand-navy dark:text-white">
                 Continue next job
               </span>
-              <span className="mt-0.5 block truncate text-xs text-white/60">
+              <span className="mt-0.5 block truncate text-xs text-brand-slate dark:text-white/60">
                 {nextJob.propertyAddress}
               </span>
             </span>
             <ChevronRight
-              className="relative h-5 w-5 shrink-0 text-cyan-300/80"
+              className="relative h-5 w-5 shrink-0 text-brand-harbour-700 dark:text-brand-harbour-300/80"
               aria-hidden
             />
           </Link>
@@ -441,10 +441,10 @@ export default function FieldDashboardPage() {
         )}
         <Link
           href="/dashboard/field/bluetooth-pair"
-          className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-4 text-sm font-medium text-foreground shadow-sm transition-transform active:scale-[0.98] hover:border-cyan-500/30"
+          className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-4 text-sm font-medium text-foreground shadow-sm transition-transform active:scale-[0.98] hover:border-brand-harbour-500/30"
         >
           <span className="flex items-center gap-2">
-            <Droplets className="h-5 w-5 text-cyan-500" aria-hidden />
+            <Droplets className="h-5 w-5 text-brand-harbour-500" aria-hidden />
             Pair moisture meter
           </span>
           <ChevronRight className="h-5 w-5 text-muted-foreground" aria-hidden />
@@ -458,7 +458,7 @@ export default function FieldDashboardPage() {
           </p>
           <Link
             href="/dashboard/inspections"
-            className="text-xs font-medium text-cyan-600 hover:text-cyan-500 dark:text-cyan-400"
+            className="text-xs font-medium text-brand-harbour-600 hover:text-brand-harbour-500 dark:text-brand-harbour-400"
           >
             All jobs
           </Link>
@@ -481,16 +481,16 @@ export default function FieldDashboardPage() {
           >
             <div aria-hidden className={simpleDashboardHeroShine} />
             <MapPin
-              className="relative mx-auto h-8 w-8 text-cyan-400/70"
+              className="relative mx-auto h-8 w-8 text-brand-harbour-700 dark:text-brand-harbour-400/70"
               aria-hidden
             />
-            <p className="relative mt-3 text-sm text-white/70">
+            <p className="relative mt-3 text-sm text-brand-slate dark:text-white/70">
               {isOffline ? "Go online to load your jobs" : "No active jobs"}
             </p>
             {!isOffline && (
               <Link
                 href="/dashboard/inspections/new"
-                className="relative mt-4 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2.5 text-sm font-medium text-white"
+                className="relative mt-4 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-brand-harbour-600 px-4 py-2.5 text-sm font-medium text-white"
               >
                 <Plus className="h-4 w-4" aria-hidden />
                 Start new inspection
@@ -563,7 +563,7 @@ export default function FieldDashboardPage() {
                 <div className="flex flex-wrap gap-2 border-t border-border px-4 py-3">
                   <Link
                     href={`/dashboard/inspections/${insp.id}/field`}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-800 transition-colors hover:bg-cyan-500/15 dark:text-cyan-200"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-brand-harbour-500/30 bg-brand-harbour-500/10 px-3 py-1.5 text-xs font-medium text-brand-harbour-800 transition-colors hover:bg-brand-harbour-500/15 dark:text-brand-harbour-200"
                   >
                     <Droplets className="h-3 w-3" aria-hidden />
                     Readings
