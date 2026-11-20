@@ -9,9 +9,13 @@ import { prisma } from "@/lib/prisma";
  * a paid invoice stays unpaid. Every scheduled drain calls this before it
  * selects its batch, so a dead claim expires.
  *
- * The age limit must stay above the longest a drain can hold one claim. The
- * draining cron routes set `maxDuration = 300` (5 minutes); 10 minutes leaves
- * a live claim alone.
+ * The age limit must stay above the longest a drain can hold one claim. Each
+ * drain claims one event at a time, immediately before processing it, and
+ * every provider call made while a claim is held has a time limit (Xero:
+ * XERO_REQUEST_TIMEOUT_MS; QuickBooks and MYOB clients: 15 seconds), so a live
+ * claim lasts seconds and 10 minutes leaves it alone. Production runs on
+ * DigitalOcean, where the cron routes' `maxDuration` is not enforced; those
+ * request time limits are the bound that holds there.
  *
  * Each reclaim counts as an attempt (`retryCount + 1`), using the same bound
  * as every other webhook retry path. A row that kills its run every time

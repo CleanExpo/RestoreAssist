@@ -741,6 +741,10 @@ async function handleContactUpdated(event: any): Promise<void> {
 export async function processPendingWebhookEvents(
   limit: number = 10,
 ): Promise<void> {
+  // RA-8426 — every path into a WebhookEvent claim expires dead claims first
+  // (enforced by lib/jobs/__tests__/queue-claim-rescue.test.ts).
+  await reclaimStaleWebhookEvents();
+
   const pendingEvents = await prisma.webhookEvent.findMany({
     where: {
       status: "PENDING",
@@ -910,6 +914,10 @@ export async function retryUnresolvedQboMyobPayments(
     failed: 0,
     skipped: 0,
   };
+
+  // RA-8426 — this drain claims SKIPPED -> PROCESSING, so it expires dead
+  // claims itself rather than relying on the pending drain having run first.
+  await reclaimStaleWebhookEvents();
 
   const events = await prisma.webhookEvent.findMany({
     where: {

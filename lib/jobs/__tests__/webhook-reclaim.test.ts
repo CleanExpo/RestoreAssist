@@ -102,7 +102,9 @@ vi.mock("@/lib/services/xero/credentials", () => ({
 
 import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
 import { processQboMyobPendingPayments } from "@/lib/integrations/webhook-processor";
-import { retryFailedEvents } from "@/lib/jobs/webhook-queue";
+import { processWebhookQueue, retryFailedEvents } from "@/lib/jobs/webhook-queue";
+import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
+import { XERO_REQUEST_TIMEOUT_MS } from "@/lib/integrations/xero/request-timeout";
 import {
   reclaimStaleWebhookEvents,
   WEBHOOK_MAX_RETRIES,
@@ -161,6 +163,8 @@ describe("reclaimStaleWebhookEvents through the Xero drain", () => {
 
     expect(row("stale").status).toBe("COMPLETED");
     expect(row("stale").retryCount).toBe(1);
+    // The interruption note does not outlive a successful attempt.
+    expect(row("stale").errorMessage).toBeNull();
     expect(result.processed).toBe(1);
 
     expect(row("fresh").status).toBe("PROCESSING");
@@ -198,6 +202,41 @@ describe("reclaimStaleWebhookEvents through the Xero drain", () => {
     expect(row("poison").status).toBe("FAILED");
     expect(row("poison").retryCount).toBe(WEBHOOK_MAX_RETRIES);
     expect(releases).toBe(WEBHOOK_MAX_RETRIES - 1);
+  });
+});
+
+describe("the Xero payment lookup made while a claim is held", () => {
+  it("has a time limit, so a hung call cannot outlive the stale-claim age", async () => {
+    vi.mocked(getValidXeroAccessToken).mockResolvedValue({ ok: true, data: "token" } as never);
+    let init: RequestInit | undefined;
+    vi.spyOn(global, "fetch").mockImplementation(async (_url, options) => {
+      init = options;
+      throw new Error("stop after the request is made");
+    });
+    rows.push(
+      event("pay", {
+        eventType: "payment.created",
+        payload: { resourceId: "xero-pay-1", resourceType: "PAYMENT", tenantId: "tenant-abc" },
+      }),
+    );
+
+    await processXeroWebhookBatch();
+
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+    expect(XERO_REQUEST_TIMEOUT_MS).toBeLessThan(WEBHOOK_STALE_CLAIM_MS / 4);
+  });
+});
+
+describe("processWebhookQueue (the manual drain)", () => {
+  it("expires stale claims before it selects its batch", async () => {
+    await processWebhookQueue();
+
+    const firstSelect = calls.indexOf("findMany");
+    expect(firstSelect).toBeGreaterThan(0);
+    expect(calls.slice(0, firstSelect)).toEqual([
+      "updateMany:PROCESSING->FAILED",
+      "updateMany:PROCESSING->PENDING",
+    ]);
   });
 });
 

@@ -20,6 +20,7 @@ import { reclaimStaleWebhookEvents } from "@/lib/jobs/webhook-reclaim";
 import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
+import { XERO_REQUEST_TIMEOUT_MS } from "@/lib/integrations/xero/request-timeout";
 
 /** Identity metadata only. Legacy config stays internal: never log or serialize it. */
 export const XERO_WEBHOOK_INTEGRATION_SELECT = {
@@ -179,7 +180,9 @@ export async function processXeroWebhookBatch(
         // Unrecognised event type — skip cleanly, no retry needed
         await prisma.webhookEvent.update({
           where: { id: event.id },
-          data: { status: "SKIPPED", processedAt: new Date() },
+          // errorMessage: null clears a reclaim note left by an earlier
+          // interrupted attempt (RA-8426).
+          data: { status: "SKIPPED", processedAt: new Date(), errorMessage: null },
         });
         result.skipped++;
         continue;
@@ -187,7 +190,7 @@ export async function processXeroWebhookBatch(
 
       await prisma.webhookEvent.update({
         where: { id: event.id },
-        data: { status: "COMPLETED", processedAt: new Date() },
+        data: { status: "COMPLETED", processedAt: new Date(), errorMessage: null },
       });
       result.processed++;
     } catch (err) {
@@ -340,6 +343,9 @@ async function handlePaymentCreated(
         "Xero-tenant-id": integration.tenantId,
         Accept: "application/json",
       },
+      // RA-8426: an unbounded call could hold this claim past
+      // WEBHOOK_STALE_CLAIM_MS and let a later run release it while live.
+      signal: AbortSignal.timeout(XERO_REQUEST_TIMEOUT_MS),
     },
   );
 

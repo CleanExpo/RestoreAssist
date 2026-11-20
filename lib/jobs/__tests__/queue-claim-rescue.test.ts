@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import { dirname, join, relative } from "path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { PRODUCTION_ENABLED } from "@/lib/cron/production-schedule";
 
 /**
  * RA-8426 — a queue row that is claimed must have a claim that expires, and
@@ -254,9 +255,20 @@ function cronRoots(): NodeKey[] {
   return roots;
 }
 
-function reachableFromCrons(): Set<NodeKey> {
+/** GET handlers of the crons the live site runs (D-027), not the sandbox's. */
+function productionCronRoots(): NodeKey[] {
+  const roots: NodeKey[] = [];
+  for (const cron of PRODUCTION_ENABLED) {
+    const route = join(ROOT, "app", "api", "cron", cron.path, "route.ts");
+    const root = resolveExport(route, "GET");
+    if (root) roots.push(root);
+  }
+  return roots;
+}
+
+function reachableFromCrons(roots: NodeKey[] = cronRoots()): Set<NodeKey> {
   const seen = new Set<NodeKey>();
-  const queue = cronRoots();
+  const queue = [...roots];
   while (queue.length > 0) {
     const key = queue.pop()!;
     if (seen.has(key)) continue;
@@ -293,13 +305,104 @@ function discoverClaims(): Map<string, string[]> {
   return claims;
 }
 
+function rescuedModels(keys: Iterable<NodeKey>): Set<string> {
+  const out = new Set<string>();
+  for (const key of keys) {
+    for (const call of updateManyCalls(nodeText(key))) {
+      if (isRescue(call)) out.add(call.model);
+    }
+  }
+  return out;
+}
+
 const reachable = reachableFromCrons();
 const claims = discoverClaims();
-const rescued = new Set<string>();
-for (const key of reachable) {
-  for (const call of updateManyCalls(nodeText(key))) {
-    if (isRescue(call)) rescued.add(call.model);
+const rescued = rescuedModels(reachable);
+
+// ── Every path into a WebhookEvent claim expires dead claims first ──────────
+//
+// A rescue somewhere on the cron graph is not enough: a drain that claims
+// without calling the rescue first passes dead claims by, and nothing made
+// a missing call fail (Cursor review of RA-8426: deleting the call from
+// processWebhookQueue left every test green). The rule is per path: each
+// function that claims a WebhookEvent calls reclaimStaleWebhookEvents before
+// its first claim, or every caller calls it before calling that function,
+// up to an entry point.
+
+const RECLAIM = "reclaimStaleWebhookEvents";
+const ALL_SOURCES = ["app", "lib"].flatMap((dir) => sourceFiles(join(ROOT, dir)));
+const sourceCache = new Map<string, string>();
+const sourceOf = (path: string) => {
+  if (!sourceCache.has(path)) sourceCache.set(path, readFileSync(path, "utf8"));
+  return sourceCache.get(path)!;
+};
+
+/** Offsets, from the declaration's start, of identifiers named `name`; calls only if `callsOnly`. */
+function offsetsOf(key: NodeKey, name: string, callsOnly: boolean): number[] {
+  const [path, def] = key.split("#");
+  const mod = load(path)!;
+  const node = mod.defs.get(def)!;
+  const start = node.getStart(mod.file);
+  const out: number[] = [];
+  const visit = (n: ts.Node) => {
+    if (callsOnly && ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === name) {
+      out.push(n.getStart(mod.file) - start);
+    } else if (!callsOnly && ts.isIdentifier(n) && n.text === name) {
+      out.push(n.getStart(mod.file) - start);
+    }
+    ts.forEachChild(n, visit);
+  };
+  ts.forEachChild(node, visit);
+  return out;
+}
+
+function callersOf(target: NodeKey): NodeKey[] {
+  const name = target.split("#")[1];
+  const out: NodeKey[] = [];
+  for (const path of ALL_SOURCES) {
+    if (!sourceOf(path).includes(name)) continue;
+    const mod = load(path);
+    if (!mod) continue;
+    for (const def of mod.defs.keys()) {
+      const key = `${path}#${def}`;
+      if (key !== target && edges(key).includes(target)) out.push(key);
+    }
   }
+  return out;
+}
+
+/** Paths (callee <- caller ...) that reach `key` at `firstUse` with no reclaim before it. */
+function unguardedPaths(key: NodeKey, firstUse: number, trail: string[]): string[] {
+  const name = key.split("#")[1];
+  const here = `${name} (${relative(ROOT, key.split("#")[0])})`;
+  if (offsetsOf(key, RECLAIM, true).some((at) => at < firstUse)) return [];
+  if (trail.includes(here)) return [[...trail, here, "(cycle)"].join(" <- ")];
+  const callers = callersOf(key);
+  if (callers.length === 0) return [[...trail, here].join(" <- ")];
+  return callers.flatMap((caller) => {
+    const refs = offsetsOf(caller, name, false);
+    // A caller that imports it under another name cannot be ordered: fail it.
+    if (refs.length === 0) return [[...trail, here, `${caller} (aliased)`].join(" <- ")];
+    return unguardedPaths(caller, Math.min(...refs), [...trail, here]);
+  });
+}
+
+/** Every declaration that claims a WebhookEvent, with its first claim's offset. */
+function webhookClaimers(): { key: NodeKey; firstClaim: number }[] {
+  const out: { key: NodeKey; firstClaim: number }[] = [];
+  for (const path of ALL_SOURCES) {
+    if (!sourceOf(path).includes("PROCESSING")) continue;
+    const mod = load(path);
+    if (!mod) continue;
+    for (const def of mod.defs.keys()) {
+      const key = `${path}#${def}`;
+      const offsets = updateManyCalls(nodeText(key))
+        .filter((call) => call.model === "webhookEvent" && isClaim(call))
+        .map((call) => call.offset);
+      if (offsets.length > 0) out.push({ key, firstClaim: Math.min(...offsets) });
+    }
+  }
+  return out;
 }
 
 describe("RA-8426 queue claims have a scheduled expiry", () => {
@@ -322,6 +425,31 @@ describe("RA-8426 queue claims have a scheduled expiry", () => {
       .filter(([model]) => !rescued.has(model) && !(model in KNOWN_GAPS))
       .map(([model, sites]) => `${model}: claimed at ${sites.join(", ")}`);
     expect(missing).toEqual([]);
+  });
+
+  it("the WebhookEvent rescue is reachable from a cron the live site runs", () => {
+    const live = reachableFromCrons(productionCronRoots());
+    expect([...live].map((key) => key.split("#")[1])).toContain("processXeroWebhookBatch");
+    expect(rescuedModels(live).has("webhookEvent")).toBe(true);
+  });
+
+  it("finds the WebhookEvent claimers (positive control)", () => {
+    const names = webhookClaimers().map(({ key }) => key.split("#")[1]);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "processXeroWebhookBatch",
+        "processQboMyobPendingPayments",
+        "retryUnresolvedQboMyobPayments",
+        "processWebhookEvent",
+      ]),
+    );
+  });
+
+  it("every path into a WebhookEvent claim calls reclaimStaleWebhookEvents first", () => {
+    const unguarded = webhookClaimers().flatMap(({ key, firstClaim }) =>
+      unguardedPaths(key, firstClaim, []),
+    );
+    expect(unguarded).toEqual([]);
   });
 
   it("every known gap is still a gap and names its ticket", () => {
