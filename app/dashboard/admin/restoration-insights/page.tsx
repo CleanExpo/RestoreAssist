@@ -172,7 +172,7 @@ export default function RestorationInsightsPage() {
       {report && !loading && report.suppressed && (
         <Card>
           <CardContent className="py-10 text-center space-y-2">
-            <ShieldCheck className="h-8 w-8 mx-auto text-neutral-400" aria-hidden="true" />
+            <ShieldCheck className="h-8 w-8 mx-auto text-brand-slate dark:text-neutral-400" aria-hidden="true" />
             <p className="text-sm text-neutral-500">
               {report.notes[0] ??
                 `Insufficient data for ${report.year} to publish (privacy threshold not met).`}
