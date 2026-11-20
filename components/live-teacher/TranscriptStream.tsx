@@ -31,7 +31,7 @@ function ToolCallCard({ call }: { call: LiveTeacherToolCall }) {
       className={cn(
         "flex items-start gap-2 rounded-xl border px-3 py-2 text-sm",
         call.ok
-          ? "border-[#8A6B4E]/40 bg-[#8A6B4E]/5 text-neutral-800 dark:text-slate-100"
+          ? "border-brand-bronze/40 bg-brand-bronze/5 text-neutral-800 dark:text-slate-100"
           : "border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400",
       )}
     >
@@ -39,7 +39,7 @@ function ToolCallCard({ call }: { call: LiveTeacherToolCall }) {
         aria-hidden="true"
         className={cn(
           "mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full",
-          call.ok ? "bg-[#8A6B4E]" : "bg-neutral-400",
+          call.ok ? "bg-brand-bronze" : "bg-neutral-400",
         )}
       />
       <div className="flex flex-col gap-1">
@@ -130,7 +130,7 @@ function OverrideControl({
             onOverride(turn.id, turn.utteranceId as string, reason.trim());
             setOpen(false);
           }}
-          className="rounded-md bg-[#1C2E47] px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+          className="rounded-md bg-brand-navy px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
         >
           Record override
         </button>
@@ -206,7 +206,7 @@ export function TranscriptStream({
               className={cn(
                 "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap",
                 turn.role === "user"
-                  ? "bg-[#1C2E47] text-white"
+                  ? "bg-brand-navy text-white"
                   : "bg-neutral-100 text-neutral-900 dark:bg-slate-800 dark:text-slate-100",
               )}
             >
@@ -227,7 +227,7 @@ export function TranscriptStream({
                     <Badge
                       key={ref}
                       variant="outline"
-                      className="border-[#8A6B4E]/40 text-[#8A6B4E] dark:text-[#D4A574]"
+                      className="border-brand-bronze/40 text-brand-bronze dark:text-brand-gold"
                     >
                       {ref}
                     </Badge>

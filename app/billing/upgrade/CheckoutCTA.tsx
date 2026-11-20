@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RAIcon } from "@/components/brand/RAIcon";
 import { ChromeRefresh } from "@/components/brand/chrome-icons";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 /**
  * The price on this button is the last number a buyer reads before Stripe
@@ -48,7 +49,7 @@ export default function CheckoutCTA() {
 
       if (!res.ok || !body.url) {
         throw new Error(
-          body.error?.message ?? body.error ?? "Checkout failed",
+          body.error?.message ?? apiErrorMessage(body) ?? "Checkout failed",
         );
       }
       window.location.href = body.url;
@@ -64,7 +65,7 @@ export default function CheckoutCTA() {
         type="button"
         onClick={go}
         disabled={loading}
-        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-cyan-950/40 transition-[opacity,transform] hover:from-blue-500 hover:to-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:cursor-not-allowed disabled:opacity-50 min-h-12 active:scale-[0.99]"
+        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-brand-harbour-600 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-brand-harbour-950/40 transition-[opacity,transform] hover:from-blue-500 hover:to-brand-harbour-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:cursor-not-allowed disabled:opacity-50 min-h-12 active:scale-[0.99]"
       >
         {loading
           ? "Redirecting to secure checkout…"

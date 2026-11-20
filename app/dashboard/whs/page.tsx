@@ -140,19 +140,19 @@ function SeverityBadge({ severity }: { severity: WHSSeverity }) {
   const config: Record<WHSSeverity, { label: string; className: string }> = {
     LOW: {
       label: "Low",
-      className: "bg-slate-500/10 text-slate-400 border-slate-500/30",
+      className: "bg-slate-500/10 text-brand-slate dark:text-slate-400 border-slate-500/30",
     },
     MEDIUM: {
       label: "Medium",
-      className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+      className: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
     },
     HIGH: {
       label: "High",
-      className: "bg-orange-500/10 text-orange-400 border-orange-500/30",
+      className: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30",
     },
     CRITICAL: {
       label: "Critical",
-      className: "bg-red-500/10 text-red-400 border-red-500/30",
+      className: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30",
     },
   };
   const { label, className } = config[severity];
@@ -169,19 +169,19 @@ function StatusBadge({ status }: { status: WHSStatus }) {
   const config: Record<WHSStatus, { label: string; className: string }> = {
     OPEN: {
       label: "Open",
-      className: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+      className: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30",
     },
     UNDER_REVIEW: {
       label: "Under Review",
-      className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+      className: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
     },
     CLOSED: {
       label: "Closed",
-      className: "bg-green-500/10 text-green-400 border-green-500/30",
+      className: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30",
     },
     REQUIRES_ESCALATION: {
       label: "Escalation",
-      className: "bg-red-500/10 text-red-400 border-red-500/30",
+      className: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30",
     },
   };
   const { label, className } = config[status];
@@ -202,26 +202,26 @@ function LoadingSkeleton() {
       {/* Summary cards skeleton */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="bg-slate-800/30 border-slate-700">
+          <Card key={i} className="bg-white dark:bg-slate-800/30 border-brand-mist dark:border-slate-700">
             <CardContent className="pt-5 pb-5">
-              <Skeleton className="h-4 w-24 bg-slate-700 mb-2" />
-              <Skeleton className="h-8 w-12 bg-slate-700" />
+              <Skeleton className="h-4 w-24 bg-brand-cream dark:bg-slate-700 mb-2" />
+              <Skeleton className="h-8 w-12 bg-brand-cream dark:bg-slate-700" />
             </CardContent>
           </Card>
         ))}
       </div>
       {/* Table rows skeleton */}
-      <div className="rounded-xl border border-slate-700 overflow-hidden">
+      <div className="rounded-xl border border-brand-mist dark:border-slate-700 overflow-hidden">
         {[1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
-            className="flex items-center gap-4 px-4 py-3 border-b border-slate-700/60 last:border-0"
+            className="flex items-center gap-4 px-4 py-3 border-b border-brand-mist dark:border-slate-700/60 last:border-0"
           >
-            <Skeleton className="h-5 w-16 bg-slate-700 rounded" />
-            <Skeleton className="h-5 w-20 bg-slate-700 rounded" />
-            <Skeleton className="h-5 w-40 bg-slate-700 rounded" />
-            <Skeleton className="h-5 w-24 bg-slate-700 rounded" />
-            <Skeleton className="h-5 w-28 bg-slate-700 rounded" />
+            <Skeleton className="h-5 w-16 bg-brand-cream dark:bg-slate-700 rounded" />
+            <Skeleton className="h-5 w-20 bg-brand-cream dark:bg-slate-700 rounded" />
+            <Skeleton className="h-5 w-40 bg-brand-cream dark:bg-slate-700 rounded" />
+            <Skeleton className="h-5 w-24 bg-brand-cream dark:bg-slate-700 rounded" />
+            <Skeleton className="h-5 w-28 bg-brand-cream dark:bg-slate-700 rounded" />
           </div>
         ))}
       </div>
@@ -266,14 +266,14 @@ function CorrectiveActionsRow({
     <tr>
       <td
         colSpan={7}
-        className="bg-slate-800/50 px-6 py-4 border-b border-slate-700/60"
+        className="bg-white dark:bg-slate-800/50 px-6 py-4 border-b border-brand-mist dark:border-slate-700/60"
       >
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Label
                 htmlFor={`whs-status-${incident.id}`}
-                className="text-xs text-slate-400 whitespace-nowrap"
+                className="text-xs text-brand-slate dark:text-slate-400 whitespace-nowrap"
               >
                 Incident status
               </Label>
@@ -284,7 +284,7 @@ function CorrectiveActionsRow({
                 onChange={(e) =>
                   onUpdateStatus(incident.id, e.target.value as WHSStatus)
                 }
-                className="h-8 rounded-md border border-slate-600 bg-slate-900 px-2 text-xs text-slate-200 disabled:opacity-50"
+                className="h-8 rounded-md border border-slate-600 bg-white dark:bg-slate-900 px-2 text-xs text-brand-navy dark:text-slate-200 disabled:opacity-50"
               >
                 {WHS_STATUS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -296,7 +296,7 @@ function CorrectiveActionsRow({
             <Button
               size="sm"
               variant="outline"
-              className="h-7 text-xs border-slate-600 text-slate-300 hover:bg-slate-700"
+              className="h-7 text-xs border-slate-600 text-brand-slate dark:text-slate-300 hover:bg-brand-cream dark:hover:bg-slate-700"
               onClick={() => onAddAction(incident.id)}
             >
               <Plus className="h-3 w-3 mr-1" />
@@ -305,7 +305,7 @@ function CorrectiveActionsRow({
           </div>
 
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-slate-300">
+            <h4 className="text-sm font-semibold text-brand-slate dark:text-slate-300">
               Corrective Actions
             </h4>
           </div>
@@ -325,7 +325,7 @@ function CorrectiveActionsRow({
                 return (
                   <div
                     key={action.id}
-                    className="flex items-start gap-3 text-sm bg-slate-700/20 rounded-lg px-3 py-2 border border-slate-700/40"
+                    className="flex items-start gap-3 text-sm bg-brand-cream dark:bg-slate-700/20 rounded-lg px-3 py-2 border border-brand-mist dark:border-slate-700/40"
                   >
                     <button
                       type="button"
@@ -355,15 +355,15 @@ function CorrectiveActionsRow({
 
                     <div className="flex-1 min-w-0">
                       <p
-                        className={`text-slate-300 ${action.completedAt ? "line-through opacity-60" : ""}`}
+                        className={`text-brand-slate dark:text-slate-300 ${action.completedAt ? "line-through opacity-60" : ""}`}
                       >
                         {action.description}
                       </p>
                       <div className="flex flex-wrap gap-3 mt-1 text-xs">
                         {action.assignedTo && (
-                          <span className="text-slate-400">
+                          <span className="text-brand-slate dark:text-slate-400">
                             Assigned to:{" "}
-                            <span className="text-slate-300">
+                            <span className="text-brand-slate dark:text-slate-300">
                               {action.assignedTo}
                             </span>
                           </span>
@@ -373,7 +373,7 @@ function CorrectiveActionsRow({
                             className={
                               overdue
                                 ? "text-destructive font-medium"
-                                : "text-slate-400"
+                                : "text-brand-slate dark:text-slate-400"
                             }
                           >
                             Due: {formatDate(action.dueDate)}
@@ -395,14 +395,14 @@ function CorrectiveActionsRow({
 
           {incident.inspectionId && (
             <>
-              <Separator className="bg-slate-700/50" />
+              <Separator className="bg-brand-cream dark:bg-slate-700/50" />
               <div>
-                <p className="text-xs font-medium text-slate-400 mb-1">
+                <p className="text-xs font-medium text-brand-slate dark:text-slate-400 mb-1">
                   Linked inspection
                 </p>
                 <Link
                   href={`/dashboard/inspections/${incident.inspectionId}`}
-                  className="text-sm text-cyan-400 hover:underline"
+                  className="text-sm text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline"
                 >
                   Open inspection →
                 </Link>
@@ -415,22 +415,22 @@ function CorrectiveActionsRow({
 
           {incident.description && (
             <>
-              <Separator className="bg-slate-700/50" />
+              <Separator className="bg-brand-cream dark:bg-slate-700/50" />
               <div>
-                <p className="text-xs font-medium text-slate-400 mb-1">
+                <p className="text-xs font-medium text-brand-slate dark:text-slate-400 mb-1">
                   Incident Description
                 </p>
-                <p className="text-sm text-slate-300">{incident.description}</p>
+                <p className="text-sm text-brand-slate dark:text-slate-300">{incident.description}</p>
               </div>
             </>
           )}
 
           {incident.injuryDescription && (
             <div>
-              <p className="text-xs font-medium text-slate-400 mb-1">
+              <p className="text-xs font-medium text-brand-slate dark:text-slate-400 mb-1">
                 Injury Details
               </p>
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-brand-slate dark:text-slate-300">
                 {incident.injuryDescription}
               </p>
             </div>
@@ -489,14 +489,14 @@ function NewIncidentFormPanel({
 
   return (
     <div className="space-y-5">
-      <DialogTitle className="text-base font-semibold text-white">
+      <DialogTitle className="text-base font-semibold text-brand-navy dark:text-white">
         Log New WHS Incident
       </DialogTitle>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Incident Type */}
         <div className="space-y-1.5">
-          <Label htmlFor="incidentType" className="text-slate-300">
+          <Label htmlFor="incidentType" className="text-brand-slate dark:text-slate-300">
             Incident Type <span className="text-destructive">*</span>
           </Label>
           <Input
@@ -504,7 +504,7 @@ function NewIncidentFormPanel({
             value={form.incidentType}
             onChange={set("incidentType")}
             placeholder="e.g. Slip and Fall, Chemical Exposure"
-            className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
+            className="bg-brand-cream dark:bg-slate-700/50 border-slate-600 text-brand-navy dark:text-white placeholder-slate-400"
           />
           {errors.incidentType && (
             <p className="text-xs text-destructive">{errors.incidentType}</p>
@@ -513,14 +513,14 @@ function NewIncidentFormPanel({
 
         {/* Severity */}
         <div className="space-y-1.5">
-          <Label htmlFor="severity" className="text-slate-300">
+          <Label htmlFor="severity" className="text-brand-slate dark:text-slate-300">
             Severity <span className="text-destructive">*</span>
           </Label>
           <select
             id="severity"
             value={form.severity}
             onChange={set("severity")}
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
           >
             <option value="">Select severity…</option>
             <option value="LOW">Low</option>
@@ -535,14 +535,14 @@ function NewIncidentFormPanel({
 
         {/* Status */}
         <div className="space-y-1.5">
-          <Label htmlFor="status" className="text-slate-300">
+          <Label htmlFor="status" className="text-brand-slate dark:text-slate-300">
             Status <span className="text-destructive">*</span>
           </Label>
           <select
             id="status"
             value={form.status}
             onChange={set("status")}
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
           >
             <option value="">Select status…</option>
             <option value="OPEN">Open</option>
@@ -557,7 +557,7 @@ function NewIncidentFormPanel({
 
         {/* Incident Date */}
         <div className="space-y-1.5">
-          <Label htmlFor="incidentDate" className="text-slate-300">
+          <Label htmlFor="incidentDate" className="text-brand-slate dark:text-slate-300">
             Incident Date <span className="text-destructive">*</span>
           </Label>
           <Input
@@ -565,7 +565,7 @@ function NewIncidentFormPanel({
             type="date"
             value={form.incidentDate}
             onChange={set("incidentDate")}
-            className="bg-slate-700/50 border-slate-600 text-white"
+            className="bg-brand-cream dark:bg-slate-700/50 border-slate-600 text-brand-navy dark:text-white"
           />
           {errors.incidentDate && (
             <p className="text-xs text-destructive">{errors.incidentDate}</p>
@@ -574,7 +574,7 @@ function NewIncidentFormPanel({
 
         {/* Linked inspection — needed for claim WHS_HOLD guards */}
         <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="inspectionId" className="text-slate-300">
+          <Label htmlFor="inspectionId" className="text-brand-slate dark:text-slate-300">
             Linked inspection{" "}
             <span className="text-slate-500 font-normal">(recommended)</span>
           </Label>
@@ -583,7 +583,7 @@ function NewIncidentFormPanel({
             value={form.inspectionId}
             onChange={set("inspectionId")}
             disabled={inspectionsLoading}
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
+            className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 disabled:opacity-50"
           >
             <option value="">
               {inspectionsLoading
@@ -605,7 +605,7 @@ function NewIncidentFormPanel({
 
         {/* Location — spans full width */}
         <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="location" className="text-slate-300">
+          <Label htmlFor="location" className="text-brand-slate dark:text-slate-300">
             Location / Property Address
           </Label>
           <Input
@@ -613,13 +613,13 @@ function NewIncidentFormPanel({
             value={form.location}
             onChange={set("location")}
             placeholder="e.g. 42 King St, Brisbane QLD 4000"
-            className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
+            className="bg-brand-cream dark:bg-slate-700/50 border-slate-600 text-brand-navy dark:text-white placeholder-slate-400"
           />
         </div>
 
         {/* Description — spans full width */}
         <div className="space-y-1.5 md:col-span-2">
-          <Label htmlFor="description" className="text-slate-300">
+          <Label htmlFor="description" className="text-brand-slate dark:text-slate-300">
             Incident Description
           </Label>
           <textarea
@@ -628,13 +628,13 @@ function NewIncidentFormPanel({
             value={form.description}
             onChange={set("description")}
             placeholder="Describe what happened…"
-            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
+            className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 resize-none"
           />
         </div>
 
         {/* Injured Party */}
         <div className="space-y-1.5">
-          <Label htmlFor="injuredParty" className="text-slate-300">
+          <Label htmlFor="injuredParty" className="text-brand-slate dark:text-slate-300">
             Injured Party Name
           </Label>
           <Input
@@ -642,13 +642,13 @@ function NewIncidentFormPanel({
             value={form.injuredParty}
             onChange={set("injuredParty")}
             placeholder="Full name (if applicable)"
-            className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
+            className="bg-brand-cream dark:bg-slate-700/50 border-slate-600 text-brand-navy dark:text-white placeholder-slate-400"
           />
         </div>
 
         {/* Injury Description */}
         <div className="space-y-1.5">
-          <Label htmlFor="injuryDescription" className="text-slate-300">
+          <Label htmlFor="injuryDescription" className="text-brand-slate dark:text-slate-300">
             Injury Description
           </Label>
           <Input
@@ -656,7 +656,7 @@ function NewIncidentFormPanel({
             value={form.injuryDescription}
             onChange={set("injuryDescription")}
             placeholder="Nature of injury (if applicable)"
-            className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
+            className="bg-brand-cream dark:bg-slate-700/50 border-slate-600 text-brand-navy dark:text-white placeholder-slate-400"
           />
         </div>
       </div>
@@ -665,14 +665,14 @@ function NewIncidentFormPanel({
         <Button
           onClick={onSave}
           disabled={saving}
-          className="bg-cyan-500 hover:bg-cyan-600 text-white"
+          className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
         >
           {saving ? "Saving…" : "Log Incident"}
         </Button>
         <Button
           variant="outline"
           onClick={onCancel}
-          className="border-slate-600 text-slate-300 hover:bg-slate-700"
+          className="border-slate-600 text-brand-slate dark:text-slate-300 hover:bg-brand-cream dark:hover:bg-slate-700"
         >
           Cancel
         </Button>
@@ -1001,8 +1001,8 @@ export default function WHSPage() {
     return (
       <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div className="flex items-center justify-between">
-          <Skeleton className="h-9 w-64 bg-slate-700" />
-          <Skeleton className="h-10 w-40 bg-slate-700" />
+          <Skeleton className="h-9 w-64 bg-brand-cream dark:bg-slate-700" />
+          <Skeleton className="h-10 w-40 bg-brand-cream dark:bg-slate-700" />
         </div>
         <LoadingSkeleton />
       </div>
@@ -1016,8 +1016,8 @@ export default function WHSPage() {
         <div
           className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm ${
             message.type === "success"
-              ? "bg-green-500/10 border-green-500/30 text-green-400"
-              : "bg-red-500/10 border-red-500/30 text-red-400"
+              ? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400"
+              : "bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-400"
           }`}
         >
           {message.type === "success" ? (
@@ -1058,7 +1058,7 @@ export default function WHSPage() {
 
       {/* ── Overdue actions warning ── */}
       {overdueCount > 0 && (
-        <div className="flex items-start gap-3 px-4 py-4 rounded-lg border bg-red-500/10 border-red-500/30 text-red-300">
+        <div className="flex items-start gap-3 px-4 py-4 rounded-lg border bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300">
           <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
           <p className="text-sm">
             <span className="font-semibold">
@@ -1072,11 +1072,11 @@ export default function WHSPage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between flex-wrap gap-3 max-w-full">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="text-2xl font-bold text-brand-navy dark:text-white">
             WHS Incident Register
           </h1>
           {incidents.length > 0 && (
-            <span className="inline-flex items-center justify-center h-6 min-w-6 px-2 rounded-full bg-slate-700 text-slate-300 text-xs font-semibold">
+            <span className="inline-flex items-center justify-center h-6 min-w-6 px-2 rounded-full bg-brand-cream dark:bg-slate-700 text-brand-slate dark:text-slate-300 text-xs font-semibold">
               {incidents.length}
             </span>
           )}
@@ -1089,7 +1089,7 @@ export default function WHSPage() {
               setFormErrors({});
             }
           }}
-          className="bg-cyan-500 hover:bg-cyan-600 text-white gap-2"
+          className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white gap-2"
         >
           {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           {showForm ? "Cancel" : "Log New Incident"}
@@ -1098,33 +1098,33 @@ export default function WHSPage() {
 
       {/* ── Summary cards ── */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <Card className="bg-slate-800/30 border-slate-700">
+        <Card className="bg-white dark:bg-slate-800/30 border-brand-mist dark:border-slate-700">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+            <CardTitle className="text-xs font-medium text-brand-slate dark:text-slate-400 uppercase tracking-wide">
               Open Incidents
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className="text-3xl font-bold text-blue-400">{openCount}</p>
+            <p className="text-3xl font-bold text-blue-700 dark:text-blue-400">{openCount}</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800/30 border-slate-700">
+        <Card className="bg-white dark:bg-slate-800/30 border-brand-mist dark:border-slate-700">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+            <CardTitle className="text-xs font-medium text-brand-slate dark:text-slate-400 uppercase tracking-wide">
               Under Review
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className="text-3xl font-bold text-amber-400">
+            <p className="text-3xl font-bold text-amber-700 dark:text-amber-400">
               {underReviewCount}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800/30 border-slate-700">
+        <Card className="bg-white dark:bg-slate-800/30 border-brand-mist dark:border-slate-700">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+            <CardTitle className="text-xs font-medium text-brand-slate dark:text-slate-400 uppercase tracking-wide">
               Closed This Month
             </CardTitle>
           </CardHeader>
@@ -1135,15 +1135,15 @@ export default function WHSPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800/30 border-slate-700">
+        <Card className="bg-white dark:bg-slate-800/30 border-brand-mist dark:border-slate-700">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+            <CardTitle className="text-xs font-medium text-brand-slate dark:text-slate-400 uppercase tracking-wide">
               Overdue Actions
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p
-              className={`text-3xl font-bold ${overdueCount > 0 ? "text-destructive" : "text-slate-400"}`}
+              className={`text-3xl font-bold ${overdueCount > 0 ? "text-destructive" : "text-brand-slate dark:text-slate-400"}`}
             >
               {overdueCount}
             </p>
@@ -1167,7 +1167,7 @@ export default function WHSPage() {
       >
         <DialogContent
           aria-describedby={undefined}
-          className="sm:max-w-9xl max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-700"
+          className="sm:max-w-9xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 border-brand-mist dark:border-slate-700"
         >
           <NewIncidentFormPanel
             form={form}
@@ -1187,15 +1187,15 @@ export default function WHSPage() {
       </Dialog>
 
       {/* ── Filter tabs ── */}
-      <div className="flex items-center gap-1 border-b border-slate-700 overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-brand-mist dark:border-slate-700 overflow-x-auto">
         {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
               activeTab === tab.key
-                ? "border-cyan-500 text-cyan-400"
-                : "border-transparent text-slate-400 hover:text-slate-300 hover:border-slate-600"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-400"
+                : "border-transparent text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300 hover:border-slate-600"
             }`}
           >
             {tab.label}
@@ -1203,8 +1203,8 @@ export default function WHSPage() {
               <span
                 className={`inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-xs font-semibold ${
                   activeTab === tab.key
-                    ? "bg-cyan-500/20 text-cyan-400"
-                    : "bg-slate-700 text-slate-400"
+                    ? "bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-brand-harbour-400"
+                    : "bg-brand-cream dark:bg-slate-700 text-brand-slate dark:text-slate-400"
                 }`}
               >
                 {tab.count}
@@ -1217,18 +1217,18 @@ export default function WHSPage() {
       {/* ── Empty state ── */}
       {filteredIncidents.length === 0 && !loading && (
         <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-          <div className="h-16 w-16 rounded-full bg-slate-800 flex items-center justify-center">
+          <div className="h-16 w-16 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center">
             <ShieldAlert className="h-8 w-8 text-slate-500" />
           </div>
           {incidents.length === 0 ? (
-            <p className="text-slate-400 max-w-sm text-sm leading-relaxed">
+            <p className="text-brand-slate dark:text-slate-400 max-w-sm text-sm leading-relaxed">
               No WHS incidents are visible in this register. If you expected
               records, refresh and verify the active workspace before treating
               this as a zero-incident result. Use the button above to log an
               incident.
             </p>
           ) : (
-            <p className="text-slate-400 text-sm">
+            <p className="text-brand-slate dark:text-slate-400 text-sm">
               No incidents match this filter.
             </p>
           )}
@@ -1239,7 +1239,7 @@ export default function WHSPage() {
                 setForm(BLANK_FORM);
                 setFormErrors({});
               }}
-              className="bg-cyan-500 hover:bg-cyan-600 text-white gap-2 mt-2"
+              className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white gap-2 mt-2"
             >
               <Plus className="h-4 w-4" />
               Log First Incident
@@ -1250,26 +1250,26 @@ export default function WHSPage() {
 
       {/* ── Incidents table ── */}
       {filteredIncidents.length > 0 && (
-        <div className="rounded-xl border border-slate-700 overflow-hidden">
+        <div className="rounded-xl border border-brand-mist dark:border-slate-700 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-800/60 border-b border-slate-700">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+              <tr className="bg-white dark:bg-slate-800/60 border-b border-brand-mist dark:border-slate-700">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-brand-slate dark:text-slate-400 uppercase tracking-wide">
                   Severity
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-brand-slate dark:text-slate-400 uppercase tracking-wide">
                   Status
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-brand-slate dark:text-slate-400 uppercase tracking-wide">
                   Location
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-brand-slate dark:text-slate-400 uppercase tracking-wide">
                   Date
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-brand-slate dark:text-slate-400 uppercase tracking-wide">
                   Type
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-brand-slate dark:text-slate-400 uppercase tracking-wide">
                   Injured Party
                 </th>
                 <th className="px-4 py-3 w-10"></th>
@@ -1281,8 +1281,8 @@ export default function WHSPage() {
                 return (
                   <Fragment key={incident.id}>
                     <tr
-                      className={`border-b border-slate-700/60 transition-colors ${
-                        isExpanded ? "bg-slate-800/40" : "hover:bg-slate-800/30"
+                      className={`border-b border-brand-mist dark:border-slate-700/60 transition-colors ${
+                        isExpanded ? "bg-white dark:bg-slate-800/40" : "hover:bg-brand-cream dark:hover:bg-slate-800/30"
                       }`}
                     >
                       <td className="px-4 py-3">
@@ -1291,18 +1291,18 @@ export default function WHSPage() {
                       <td className="px-4 py-3">
                         <StatusBadge status={incident.status} />
                       </td>
-                      <td className="px-4 py-3 text-slate-300 max-w-[200px] truncate">
+                      <td className="px-4 py-3 text-brand-slate dark:text-slate-300 max-w-[200px] truncate">
                         {incident.location ?? (
                           <span className="text-slate-500 italic">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-slate-300 whitespace-nowrap">
+                      <td className="px-4 py-3 text-brand-slate dark:text-slate-300 whitespace-nowrap">
                         {formatDate(incident.incidentDate)}
                       </td>
-                      <td className="px-4 py-3 text-slate-300 max-w-[180px] truncate">
+                      <td className="px-4 py-3 text-brand-slate dark:text-slate-300 max-w-[180px] truncate">
                         {incident.incidentType}
                       </td>
-                      <td className="px-4 py-3 text-slate-300">
+                      <td className="px-4 py-3 text-brand-slate dark:text-slate-300">
                         {incident.injuredParty ?? (
                           <span className="text-slate-500 italic">—</span>
                         )}
@@ -1312,7 +1312,7 @@ export default function WHSPage() {
                           onClick={() =>
                             setExpandedId(isExpanded ? null : incident.id)
                           }
-                          className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                          className="p-1 rounded text-brand-slate dark:text-slate-400 hover:text-brand-navy dark:hover:text-white hover:bg-brand-cream dark:hover:bg-slate-700 transition-colors"
                           aria-label={isExpanded ? "Collapse" : "Expand"}
                         >
                           {isExpanded ? (
@@ -1348,19 +1348,19 @@ export default function WHSPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-action-title"
-            className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-xl space-y-4"
+            className="w-full max-w-md rounded-xl border border-brand-mist dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-xl space-y-4"
           >
             <div className="flex items-start justify-between gap-3">
               <h2
                 id="add-action-title"
-                className="text-lg font-semibold text-slate-100"
+                className="text-lg font-semibold text-brand-navy dark:text-slate-100"
               >
                 Add corrective action
               </h2>
               <button
                 type="button"
                 onClick={closeAddAction}
-                className="text-slate-400 hover:text-slate-200"
+                className="text-brand-slate dark:text-slate-400 hover:text-brand-navy dark:hover:text-slate-200"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
@@ -1375,7 +1375,7 @@ export default function WHSPage() {
                   value={actionDescription}
                   onChange={(e) => setActionDescription(e.target.value)}
                   placeholder="e.g. Barricade wet area and post wet-floor signs"
-                  className="bg-slate-800 border-slate-700"
+                  className="bg-white dark:bg-slate-800 border-brand-mist dark:border-slate-700"
                 />
               </div>
               <div className="space-y-1.5">
@@ -1385,7 +1385,7 @@ export default function WHSPage() {
                   value={actionAssignedTo}
                   onChange={(e) => setActionAssignedTo(e.target.value)}
                   placeholder="Name or role"
-                  className="bg-slate-800 border-slate-700"
+                  className="bg-white dark:bg-slate-800 border-brand-mist dark:border-slate-700"
                 />
               </div>
               <div className="space-y-1.5">
@@ -1395,7 +1395,7 @@ export default function WHSPage() {
                   type="date"
                   value={actionDueDate}
                   onChange={(e) => setActionDueDate(e.target.value)}
-                  className="bg-slate-800 border-slate-700"
+                  className="bg-white dark:bg-slate-800 border-brand-mist dark:border-slate-700"
                 />
               </div>
               {actionError && (

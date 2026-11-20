@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { AlertTriangle, TrendingDown, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHART_CHROME, seriesColour } from "@/lib/charts/palette";
 import {
   getMoistureStatus,
   STATUS_COLORS,
@@ -40,16 +41,6 @@ type SeriesData = Record<
   { time: number; label: string; [location: string]: number | string }
 >;
 
-const COLORS = [
-  "#06b6d4", // cyan-500
-  "#f59e0b", // amber-500
-  "#8b5cf6", // violet-500
-  "#10b981", // emerald-500
-  "#f97316", // orange-500
-  "#ec4899", // pink-500
-  "#3b82f6", // blue-500
-  "#14b8a6", // teal-500
-];
 
 function formatTime(ts: string) {
   const d = new Date(ts);
@@ -123,7 +114,7 @@ function CustomTooltip({ active, payload, label }: any) {
               entry.value <= DRY_STANDARD
                 ? "text-success"
                 : entry.value <= 25
-                  ? "text-amber-600 dark:text-amber-400"
+                  ? "text-amber-700 dark:text-amber-400"
                   : "text-destructive",
             )}
           >
@@ -137,7 +128,7 @@ function CustomTooltip({ active, payload, label }: any) {
           )}
         </div>
       ))}
-      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1 text-slate-400 dark:text-slate-500">
+      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1 text-slate-600 dark:text-slate-500">
         <span>Dry standard: ≤{DRY_STANDARD}%</span>
       </div>
     </div>
@@ -194,14 +185,14 @@ export default function MoistureTrendChart({
         <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
           <AlertTriangle
             size={16}
-            className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
+            className="text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5"
           />
           <div className="text-sm">
             <p className="font-medium text-amber-700 dark:text-amber-400">
               {alerts.length} location{alerts.length > 1 ? "s" : ""} above dry
               standard
             </p>
-            <p className="text-amber-600 dark:text-amber-500 text-xs mt-0.5">
+            <p className="text-amber-700 dark:text-amber-500 text-xs mt-0.5">
               {alerts.map((a) => a.location).join(", ")} — readings above{" "}
               {DRY_STANDARD}%
             </p>
@@ -244,7 +235,7 @@ export default function MoistureTrendChart({
           >
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="rgba(148,163,184,0.2)"
+              stroke={CHART_CHROME.grid}
             />
             <XAxis
               dataKey="label"
@@ -270,13 +261,13 @@ export default function MoistureTrendChart({
             {/* Dry standard reference line */}
             <ReferenceLine
               y={DRY_STANDARD}
-              stroke="#10b981"
+              stroke={CHART_CHROME.reference}
               strokeDasharray="5 3"
               label={{
                 value: `Dry ≤${DRY_STANDARD}%`,
                 position: "insideTopRight",
                 fontSize: 10,
-                fill: "#10b981",
+                fill: CHART_CHROME.reference,
               }}
             />
             {locations.map((loc, i) => (
@@ -284,9 +275,9 @@ export default function MoistureTrendChart({
                 key={loc}
                 type="monotone"
                 dataKey={loc}
-                stroke={COLORS[i % COLORS.length]}
+                stroke={seriesColour(i)}
                 strokeWidth={2}
-                dot={{ r: 4, fill: COLORS[i % COLORS.length], strokeWidth: 0 }}
+                dot={{ r: 4, fill: seriesColour(i), strokeWidth: 0 }}
                 activeDot={{ r: 6 }}
                 connectNulls
               />
@@ -324,7 +315,7 @@ export default function MoistureTrendChart({
                       level <= DRY_STANDARD
                         ? "text-success"
                         : level <= 25
-                          ? "text-amber-600 dark:text-amber-400"
+                          ? "text-amber-700 dark:text-amber-400"
                           : "text-destructive",
                     )}
                   >

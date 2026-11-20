@@ -110,7 +110,76 @@ describe("extractWaterCategory (IICRC S500 mapping)", () => {
       "Category 1",
     );
     expect(extractWaterCategory("Washing machine hose")).toBe("Category 1");
+  });
+
+  it("maps dishwasher discharge to Category 2, as the docstring states", () => {
+    expect(extractWaterCategory("Dishwasher")).toBe("Category 2");
+  });
+
+  // IICRC S500: water from a dishwasher's supply (inlet) line is clean,
+  // potable water (Category 1); water discharged from the dishwasher (drain,
+  // waste, overflow) is grey water (Category 2). An unspecified dishwasher
+  // source is treated as discharge.
+  it("maps a dishwasher supply line to Category 1", () => {
+    expect(extractWaterCategory("Dishwasher supply line burst")).toBe(
+      "Category 1",
+    );
     expect(extractWaterCategory("Dishwasher supply line")).toBe("Category 1");
+    expect(extractWaterCategory("Dishwasher inlet hose failed")).toBe(
+      "Category 1",
+    );
+    expect(extractWaterCategory("dishwasher water supply leak")).toBe(
+      "Category 1",
+    );
+  });
+
+  it("keeps dishwasher discharge and unspecified dishwasher at Category 2", () => {
+    expect(extractWaterCategory("Dishwasher discharge")).toBe("Category 2");
+    expect(extractWaterCategory("Dishwasher drain hose split")).toBe(
+      "Category 2",
+    );
+    expect(extractWaterCategory("dishwasher discharge onto floor")).toBe(
+      "Category 2",
+    );
+    expect(extractWaterCategory("Dishwasher leak")).toBe("Category 2");
+    // Supply and discharge both named: discharge is the worse source.
+    expect(
+      extractWaterCategory("Dishwasher supply hose and drain hose split"),
+    ).toBe("Category 2");
+  });
+
+  it("still lets a worse source override a dishwasher supply line", () => {
+    expect(
+      extractWaterCategory("Dishwasher supply line then Sewage backup"),
+    ).toBe("Category 3");
+    expect(
+      extractWaterCategory("Dishwasher supply line and Overflowing toilet"),
+    ).toBe("Category 2");
+  });
+
+  it("keeps every Tier 1 water-source option at its labelled category", () => {
+    const options: Record<string, string> = {
+      "Burst pipe (clean water — Category 1)": "Category 1",
+      "Overflowing toilet (Category 2 — grey water)": "Category 2",
+      "Flood/stormwater (Category 3 — contaminated)": "Category 3",
+      "Sewage backup (Category 3 — biohazard)": "Category 3",
+      "Roof leak (Category 1 — clean)": "Category 1",
+      "Hot water service failure (Category 1)": "Category 1",
+      "Washing machine/dishwasher (Category 1)": "Category 1",
+      "Unknown source": "Category 1",
+      Other: "Category 1",
+    };
+    for (const [option, want] of Object.entries(options)) {
+      expect(extractWaterCategory(option), option).toBe(want);
+    }
+  });
+
+  it("lets the worst source named govern (IICRC S500)", () => {
+    expect(extractWaterCategory("Roof leak Flood")).toBe("Category 3");
+    expect(extractWaterCategory("Grey water Sewage backup")).toBe("Category 3");
+    expect(extractWaterCategory("Burst pipe then Overflowing toilet")).toBe(
+      "Category 2",
+    );
   });
 
   it("maps grey-water sources to Category 2", () => {
@@ -131,6 +200,39 @@ describe("extractWaterCategory (IICRC S500 mapping)", () => {
 
   it("defaults to Category 1 for an unrecognised source", () => {
     expect(extractWaterCategory("Mystery dampness")).toBe("Category 1");
+  });
+});
+
+// Free text must never be under-classified because of its capitalisation.
+describe("extractWaterCategory ignores case", () => {
+  it.each([
+    ["flood from river", "Category 3"],
+    ["FLOOD FROM RIVER", "Category 3"],
+    ["sewage backup", "Category 3"],
+    ["BIOHAZARD SPILL", "Category 3"],
+    ["overflowing toilet", "Category 2"],
+    ["GREY WATER", "Category 2"],
+    ["dishwasher", "Category 2"],
+    ["DISHWASHER", "Category 2"],
+    ["dishwasher leak in kitchen", "Category 2"],
+    ["washing machine/dishwasher", "Category 2"],
+    ["DISHWASHER SUPPLY LINE BURST", "Category 1"],
+    ["dishwasher supply line", "Category 1"],
+    ["burst pipe", "Category 1"],
+  ])("%s -> %s", (source, want) => {
+    expect(extractWaterCategory(source)).toBe(want);
+  });
+
+  it("resolves an exact Tier 1 option from its table before any keyword rule", () => {
+    // The option bundles washing machine and dishwasher under its Category 1
+    // label; the keyword rules alone would make it Category 2.
+    expect(
+      extractWaterCategory("Washing machine/dishwasher (Category 1)"),
+    ).toBe("Category 1");
+    // Anything that is not the exact option string falls to the keyword rules.
+    expect(
+      extractWaterCategory("Washing machine/dishwasher (Category 1) drain"),
+    ).toBe("Category 2");
   });
 });
 

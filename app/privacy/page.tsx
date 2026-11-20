@@ -19,7 +19,7 @@ export default function PrivacyPage() {
     <MarketingShell>
       <div className="border-b border-slate-200/90 bg-[#F3F5F7]">
         <div className={`${CONTAINER} py-14 sm:py-16`}>
-        <h1 className="font-[family-name:var(--font-landing-display)] text-3xl font-semibold tracking-tight text-[#0B1F3A] mb-2 sm:text-4xl">
+        <h1 className="font-[family-name:var(--font-landing-display)] text-3xl font-semibold tracking-tight text-brand-navy mb-2 sm:text-4xl">
           Privacy Policy
         </h1>
         <p className="text-sm text-slate-500 mb-10">
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
 
         <div className="prose prose-slate max-w-none space-y-8 text-sm leading-relaxed">
           <section>
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               1. Who we are
             </h2>
             <p>
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
               Contact:{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
+                className="text-brand-harbour hover:text-brand-navy underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>
@@ -52,10 +52,10 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               2. Information we collect
             </h2>
-            <h3 className="font-medium text-[#0B1F3A] mb-2">
+            <h3 className="font-medium text-brand-navy mb-2">
               2.1 Account and business information
             </h3>
             <p>
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
               and comply with applicable law.
             </p>
 
-            <h3 className="font-medium text-[#0B1F3A] mt-4 mb-2">
+            <h3 className="font-medium text-brand-navy mt-4 mb-2">
               2.2 Inspection and report data
             </h3>
             <p>
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
               platform features you use.
             </p>
 
-            <h3 className="font-medium text-[#0B1F3A] mt-4 mb-2">
+            <h3 className="font-medium text-brand-navy mt-4 mb-2">
               2.3 Photographs and files
             </h3>
             <p>
@@ -85,7 +85,7 @@ export default function PrivacyPage() {
               only to authorised users of your account.
             </p>
 
-            <h3 className="font-medium text-[#0B1F3A] mt-4 mb-2">
+            <h3 className="font-medium text-brand-navy mt-4 mb-2">
               2.4 Video viewing data (CET app)
             </h3>
             <p>
@@ -98,7 +98,7 @@ export default function PrivacyPage() {
               personal details are collected from clients using the CET app.
             </p>
 
-            <h3 className="font-medium text-[#0B1F3A] mt-4 mb-2">
+            <h3 className="font-medium text-brand-navy mt-4 mb-2">
               2.5 Usage and technical data
             </h3>
             <p>
@@ -107,7 +107,7 @@ export default function PrivacyPage() {
               security monitoring and service improvement.
             </p>
 
-            <h3 className="font-medium text-[#0B1F3A] mt-4 mb-2">
+            <h3 className="font-medium text-brand-navy mt-4 mb-2">
               2.6 Support voice conversations
             </h3>
             <p>
@@ -121,16 +121,31 @@ export default function PrivacyPage() {
               assistant, you can contact us in writing at{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
+                className="text-brand-harbour hover:text-brand-navy underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>{" "}
               instead.
             </p>
+
+            <h3 className="font-medium text-brand-navy mt-4 mb-2">
+              2.7 On-site voice checklists
+            </h3>
+            <p>
+              Technicians can answer an on-site checklist, such as the fire and
+              smoke make-safe walkthrough, by speaking. Speech is turned into
+              text by the technician&apos;s own browser, which may send the
+              audio to the company that makes it for that purpose (for example
+              Google for Chrome, Apple for Safari and Microsoft for Edge).
+              RestoreAssist receives only the resulting text,
+              which is stored in the job file as part of the inspection record.
+              The checklist tells the technician this before the microphone is
+              used, and every answer can be typed instead.
+            </p>
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               3. How we use your information
             </h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -156,7 +171,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               4. Third-party services
             </h2>
             <p>
@@ -193,7 +208,7 @@ export default function PrivacyPage() {
           </section>
 
           <section id="retention">
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               5. Data storage, security, and retention
             </h2>
             <p>
@@ -334,7 +349,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               6. Camera and device permissions
             </h2>
             <p>
@@ -363,7 +378,7 @@ export default function PrivacyPage() {
           </section>
 
           <section id="exif-metadata">
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               6a. Photo metadata (EXIF, GPS, device fingerprint)
             </h2>
             <p>
@@ -383,7 +398,7 @@ export default function PrivacyPage() {
           </section>
 
           <section id="international-transfers">
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               6b. International data transfers
             </h2>
             <p>
@@ -422,7 +437,7 @@ export default function PrivacyPage() {
           </section>
 
           <section id="children">
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               6c. Children
             </h2>
             <p>
@@ -433,7 +448,7 @@ export default function PrivacyPage() {
               child has provided personal information to us, please contact{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
+                className="text-brand-harbour hover:text-brand-navy underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>{" "}
@@ -442,7 +457,7 @@ export default function PrivacyPage() {
           </section>
 
           <section id="account-deletion">
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               6d. Account deletion
             </h2>
             <p>
@@ -451,7 +466,7 @@ export default function PrivacyPage() {
               app, or by emailing{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}?subject=Account%20deletion%20request`}
-                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
+                className="text-brand-harbour hover:text-brand-navy underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>{" "}
@@ -464,7 +479,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               7. Your rights under Australian privacy law
             </h2>
             <p>
@@ -481,7 +496,7 @@ export default function PrivacyPage() {
               To exercise any of these rights, contact{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
+                className="text-brand-harbour hover:text-brand-navy underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>
@@ -490,7 +505,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               8. Cookies
             </h2>
             <p>
@@ -503,7 +518,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               9. Changes to this policy
             </h2>
             <p>
@@ -516,14 +531,14 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-[#0B1F3A] mb-3">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-lg font-semibold tracking-tight text-brand-navy mb-3">
               10. Contact
             </h2>
             <p>
               For privacy enquiries or complaints:{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-[#3B6D8C] hover:text-[#0B1F3A] underline-offset-2 hover:underline"
+                className="text-brand-harbour hover:text-brand-navy underline-offset-2 hover:underline"
               >
                 {CONTACT_EMAIL}
               </a>

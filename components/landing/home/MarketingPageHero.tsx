@@ -49,7 +49,7 @@ export function MarketingPageHero({
           ) : null}
           <motion.h1
             variants={fadeUp}
-            className={`${FONT_DISPLAY} ${eyebrow ? "mt-4" : ""} text-[2.35rem] font-semibold leading-[1.1] tracking-[-0.03em] text-[#0B1F3A] sm:text-[3rem] lg:text-[3.35rem]`}
+            className={`${FONT_DISPLAY} ${eyebrow ? "mt-4" : ""} text-[2.35rem] font-semibold leading-[1.1] tracking-[-0.03em] text-brand-navy sm:text-[3rem] lg:text-[3.35rem]`}
           >
             {title}
           </motion.h1>

@@ -35,6 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ function providerColor(provider: IntegrationProvider): string {
     case "SERVICEM8":
       return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
     case "ASCORA":
-      return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400";
+      return "bg-brand-harbour-100 text-brand-harbour-800 dark:bg-brand-harbour-900/30 dark:text-brand-harbour-400";
     default:
       return "bg-neutral-100 text-neutral-700 dark:bg-slate-800 dark:text-slate-300";
   }
@@ -173,7 +174,7 @@ export default function WebhookLogsPage() {
         method: "POST",
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Retry failed");
+      if (!res.ok) throw new Error(apiErrorMessage(json) || "Retry failed");
       toast.success("Event re-queued for processing");
       fetchLogs();
     } catch (err: unknown) {
@@ -200,8 +201,8 @@ export default function WebhookLogsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-            <Activity size={20} className="text-white" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-brand-harbour-500 flex items-center justify-center">
+            <Activity size={20} className="text-brand-navy dark:text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-neutral-900 dark:text-slate-50">
@@ -316,7 +317,7 @@ export default function WebhookLogsPage() {
                 type="date"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
-                className="h-9 rounded-md border border-neutral-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 text-neutral-900 dark:text-slate-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                className="h-9 rounded-md border border-neutral-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 text-neutral-900 dark:text-slate-50 focus:outline-none focus:ring-1 focus:ring-brand-harbour-500"
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -327,7 +328,7 @@ export default function WebhookLogsPage() {
                 type="date"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
-                className="h-9 rounded-md border border-neutral-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 text-neutral-900 dark:text-slate-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                className="h-9 rounded-md border border-neutral-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm px-3 text-neutral-900 dark:text-slate-50 focus:outline-none focus:ring-1 focus:ring-brand-harbour-500"
               />
             </div>
 
@@ -356,13 +357,13 @@ export default function WebhookLogsPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <RefreshCw size={24} className="animate-spin text-neutral-400" />
+              <RefreshCw size={24} className="animate-spin text-brand-slate dark:text-neutral-400" />
             </div>
           ) : events.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center px-4">
               <Activity
                 size={40}
-                className="text-neutral-300 dark:text-slate-700 mb-4"
+                className="text-brand-slate dark:text-slate-700 mb-4"
               />
               <p className="text-neutral-500 dark:text-slate-400 text-sm max-w-sm">
                 No webhook events recorded yet. Events appear here when

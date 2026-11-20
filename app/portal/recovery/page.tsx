@@ -9,6 +9,7 @@ import {
   clientPortalPanelPadding,
   clientPortalPrimaryLink,
 } from "@/lib/portal/client-portal-theme";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export default function PortalRecoveryPage() {
   const [email, setEmail] = useState("");
@@ -29,11 +30,7 @@ export default function PortalRecoveryPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(
-          typeof data?.error === "string"
-            ? data.error
-            : (data?.error?.message ?? "Enter a valid email address"),
-        );
+        setError(apiErrorMessage(data) ?? "Enter a valid email address");
         return;
       }
       setResult(
@@ -97,7 +94,7 @@ export default function PortalRecoveryPage() {
                 onChange={(event) => setEmail(event.target.value)}
                 required
                 autoComplete="email"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-4 py-2.5 text-slate-100 focus:border-cyan-400/40 focus:outline-none focus:ring-1 focus:ring-cyan-400/40"
+                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-4 py-2.5 text-slate-100 focus:border-brand-harbour-400/40 focus:outline-none focus:ring-1 focus:ring-brand-harbour-400/40"
               />
             </div>
             <button
@@ -112,14 +109,14 @@ export default function PortalRecoveryPage() {
           <p className="mt-6 text-sm text-slate-400">
             <Link
               href={PORTAL_PATHS.login}
-              className="text-cyan-400/90 hover:underline"
+              className="text-brand-harbour-400/90 hover:underline"
             >
               Sign in
             </Link>
             <span className="px-2 text-slate-600">·</span>
             <Link
               href={PORTAL_PATHS.help}
-              className="text-cyan-400/90 hover:underline"
+              className="text-brand-harbour-400/90 hover:underline"
             >
               Client help
             </Link>

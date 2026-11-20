@@ -92,7 +92,7 @@ export default function CronRunsPage() {
       );
     }
     return (
-      <Badge className="gap-1 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+      <Badge className="gap-1 bg-brand-harbour-500/10 text-brand-harbour-600 dark:text-brand-harbour-400">
         <span className="inline-block h-3 w-3 rounded-full border-2 border-current/30 border-t-current animate-spin" />
         Running
       </Badge>
@@ -102,7 +102,7 @@ export default function CronRunsPage() {
   if (status === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-harbour-400/30 border-t-brand-harbour-400 rounded-full animate-spin" />
       </div>
     );
   }

@@ -89,7 +89,7 @@ function makeRequest(body: Record<string, unknown>) {
 
 const VALID_BODY = {
   name: "Jane Tech",
-  email: "jane@example.com",
+  email: "jane@acme-restoration.com.au",
   password: "correct horse battery staple",
   acceptedTerms: true,
 };

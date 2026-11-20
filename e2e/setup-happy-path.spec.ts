@@ -25,7 +25,7 @@ test("happy path: signup → ABN → all sections green → Activate → dashboa
 
   // 3. /setup loaded — find ABN input
   await expect(page.getByText(/let.s get you set up/i)).toBeVisible();
-  await page.getByPlaceholder(/e\.g\. 53 004 085 616/i).fill("53004085616");
+  await page.getByLabel(/^ABN \(11 digits\)$/).fill("53004085616");
 
   // 4. Submit
   await page.getByRole("button", { name: /start setup/i }).click();

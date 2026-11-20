@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/admin-auth";
-import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
+import { isAllowlistedPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 
 /**
  * Segment gate for Override Governance — Prisma reads on the page must not
@@ -13,6 +13,6 @@ export default async function GovernanceLayout({
   children: React.ReactNode;
 }) {
   const user = await requireAdminPage();
-  if (!isPlatformSupportOperator(user.id)) notFound();
+  if (!isAllowlistedPlatformSupportOperator(user.id)) notFound();
   return children;
 }

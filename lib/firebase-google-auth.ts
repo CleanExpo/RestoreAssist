@@ -2,6 +2,7 @@
 "use client";
 
 import { getAuth } from "./firebase";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export interface GoogleAuthUser {
   id: string;
@@ -53,7 +54,7 @@ export async function signInWithGoogleFirebase(): Promise<GoogleAuthUser> {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(
-      errorData.error || "Failed to create/update user in database",
+      apiErrorMessage(errorData) || "Failed to create/update user in database",
     );
   }
 

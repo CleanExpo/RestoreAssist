@@ -17,6 +17,7 @@ import { createClientForIntegration } from "@/lib/integrations";
 import { isIntegrationDevMode } from "@/lib/integrations/dev-mode";
 import { track, isFirstTime } from "@/lib/analytics/track";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { regionFromAccountsServer, regionFromLocation } from "@/lib/integrations/zoho/regions";
 
 export async function GET(
   request: NextRequest,
@@ -96,12 +97,16 @@ export async function GET(
           tenantId:
             provider === "XERO" || provider === "MYOB"
               ? "mock-tenant-id"
-              : null,
+              : provider === "ZOHO"
+                ? "https://www.zohoapis.com.au"
+                : null,
           realmId: provider === "QUICKBOOKS" ? "mock-realm-id" : null,
           companyId:
             provider === "SERVICEM8" || provider === "ASCORA"
               ? "mock-company-id"
-              : null,
+              : provider === "ZOHO"
+                ? "AU"
+                : null,
           config: null,
           lastSyncAt: new Date(),
         },
@@ -139,6 +144,18 @@ export async function GET(
       stateData.redirectUri ||
       config.redirectUri ||
       `${process.env.NEXTAUTH_URL}/api/integrations/oauth/${providerParam.toLowerCase()}/callback`;
+
+    if (provider === "ZOHO") {
+      const hinted =
+        regionFromAccountsServer(searchParams.get("accounts-server")) ??
+        regionFromLocation(searchParams.get("location"));
+      if (hinted) {
+        await prisma.integration.update({
+          where: { id: integration.id },
+          data: { companyId: hinted },
+        });
+      }
+    }
 
     // Create client and exchange code for tokens
     const client = await createClientForIntegration(integration.id);

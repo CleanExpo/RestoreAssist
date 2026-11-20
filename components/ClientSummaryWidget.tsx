@@ -13,6 +13,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface ClientSummaryWidgetProps {
   reportId: string;
@@ -57,7 +58,7 @@ export function ClientSummaryWidget({
       const body = await response.json();
 
       if (!response.ok) {
-        setError(body?.error ?? `Request failed (${response.status})`);
+        setError(apiErrorMessage(body) ?? `Request failed (${response.status})`);
         return;
       }
 

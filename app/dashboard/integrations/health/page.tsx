@@ -10,7 +10,9 @@ import {
   WifiOff,
 } from "lucide-react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
+import { runExternalIntegrationSync } from "@/lib/integrations/external-sync-client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -483,16 +485,16 @@ export default function IntegrationHealthPage() {
   const handleRetry = async (slug: ProviderSlug) => {
     setRetryingProvider(slug);
     try {
-      await fetch("/api/integrations/nir-sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: slug }),
-      });
+      const result = await runExternalIntegrationSync(slug);
+      if (result.ok) {
+        toast.success(result.message);
+      } else {
+        toast.error(`Retry failed: ${result.message}`);
+      }
     } catch {
-      // fire-and-forget, ignore errors
+      toast.error("Retry failed: Something went wrong");
     } finally {
       setRetryingProvider(null);
-      // Re-fetch after short delay to pick up new data
       setTimeout(() => fetchAll(), 2000);
     }
   };

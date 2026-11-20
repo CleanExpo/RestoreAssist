@@ -1,0 +1,149 @@
+/**
+ * Browser-side calls for the fire and smoke walkthrough.
+ *
+ * Every POST carries an Idempotency-Key. The caller reuses the same key
+ * when it retries the same payload, so a save that reached the server but
+ * lost its reply is never recorded twice.
+ */
+
+import type { z } from "zod";
+import {
+  fireActionReplySchema,
+  fireRefusalSchema,
+  fireWalkthroughReplySchema,
+  voiceSessionReplySchema,
+} from "@/lib/voice/fire-smoke/reply-schema";
+import type { FireAction, FireBlockerBody } from "@/lib/voice/fire-smoke/schema";
+
+export type FireCallResult<T> =
+  | { ok: true; data: T }
+  /**
+   * Anything that does not prove the outcome: no reply, a timeout (408), an
+   * in-progress or unverified reply (409), throttling (429), a 5xx, or any
+   * status not on the final list below. The save may have happened, so the
+   * technician retries with the same key; it is never released.
+   */
+  | { ok: false; kind: "unconfirmed"; status?: number }
+  /** The server refused the action and said why. */
+  | { ok: false; kind: "refused"; status: number; message: string; body?: FireBlockerBody };
+
+const base = (inspectionId: string) =>
+  `/api/inspections/${inspectionId}/voice/fire-walkthrough`;
+
+/**
+ * The one place a reply body is read (round 17, kind K15). It is parsed and
+ * checked against the given schema in full; an unreadable or malformed body
+ * gives null, never a guess at its fields.
+ */
+async function readChecked<T>(res: Response, schema: z.ZodType<T>): Promise<T | null> {
+  try {
+    const parsed = schema.safeParse(await res.json());
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The only refusals that release a retry key (kind K12: an allow-list, never a
+ * list of exceptions). Each is returned before anything is written, or is the
+ * fire route's own decided refusal: 400 bad request, 401 no login, 403 wrong
+ * session, 404 no access, 422 walkthrough rule.
+ */
+export const FINAL_REFUSAL_STATUSES: ReadonlySet<number> = new Set([400, 401, 403, 404, 422]);
+
+/**
+ * How long one call may take, request and body read together. On expiry the
+ * result is "unconfirmed", so the save stays held with its key and Try again
+ * appears.
+ */
+export const FIRE_CALL_DEADLINE_MS = 20_000;
+
+/**
+ * Never throws (round 15), and never trusts a shape (round 16, kind K15). A
+ * reply is "ok" only when it is a 2xx whose body was read, parsed and passed
+ * the caller's schema in full, and "refused" only when a final status carries
+ * a refusal body that passes fireRefusalSchema. Anything that cannot be
+ * proven, from a dropped connection to an unreadable or malformed body of any
+ * status, is "unconfirmed", so a save stays frozen with its key and the
+ * screen never reads a missing field.
+ * The schema is required: no call can opt out of the check.
+ */
+async function call<T>(input: string, init: RequestInit, schema: z.ZodType<T>): Promise<FireCallResult<T>> {
+  // One deadline covers the request AND the body read, so a connection that
+  // stays open without finishing a reply cannot hold the screen on "Saving".
+  // The race is what bounds the call; abort() only frees the connection.
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<FireCallResult<T>>((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve({ ok: false, kind: "unconfirmed" });
+    }, FIRE_CALL_DEADLINE_MS);
+  });
+  try {
+    return await Promise.race([attempt(input, { ...init, signal: controller.signal }, schema), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function attempt<T>(input: string, init: RequestInit, schema: z.ZodType<T>): Promise<FireCallResult<T>> {
+  let res: Response;
+  try {
+    res = await fetch(input, init);
+  } catch {
+    return { ok: false, kind: "unconfirmed" };
+  }
+  if (res.ok) {
+    const data = await readChecked(res, schema);
+    return data === null ? { ok: false, kind: "unconfirmed", status: res.status } : { ok: true, data };
+  }
+  if (FINAL_REFUSAL_STATUSES.has(res.status)) {
+    // A refusal releases the held save only when its body proves it is one.
+    const refusal = await readChecked(res, fireRefusalSchema);
+    if (refusal !== null) return { ok: false, kind: "refused", status: res.status, ...refusal };
+  }
+  return { ok: false, kind: "unconfirmed", status: res.status };
+}
+
+export function getFireWalkthrough(inspectionId: string) {
+  return call(base(inspectionId), { cache: "no-store" }, fireWalkthroughReplySchema);
+}
+
+export function postFireAction(inspectionId: string, action: FireAction, idempotencyKey: string) {
+  return call(
+    base(inspectionId),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(action),
+    },
+    fireActionReplySchema,
+  );
+}
+
+export async function startVoiceSession(inspectionId: string): Promise<string | null> {
+  const result = await call(
+    `/api/inspections/${inspectionId}/voice/session`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "guided" }),
+    },
+    voiceSessionReplySchema,
+  );
+  return result.ok ? result.data.session.sessionId : null;
+}
+
+/**
+ * A fresh Idempotency-Key for one save. The key belongs to the frozen save it
+ * is created with (use-fire-walkthrough, HeldSave), never to the payload's
+ * contents, so nothing on screen can change it (kind K12).
+ */
+export function newIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `fire-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}

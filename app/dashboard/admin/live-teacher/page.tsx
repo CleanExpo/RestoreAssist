@@ -27,6 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { evaluateCompletenessGate } from "@/lib/live-teacher/gate-metrics";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ── Gate pass thresholds (pilot defaults — tune in review) ──────────────────
 const COST_GATE_P95_CENTS = 500; // 95th-pct inspection cost ≤ $5 AUD
@@ -214,7 +215,7 @@ export default function LiveTeacherGateMetricsDashboard() {
       const res = await fetch("/api/admin/live-teacher/gate-metrics");
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body?.error?.message ?? body?.error ?? `HTTP ${res.status}`);
+        setError(body?.error?.message ?? apiErrorMessage(body) ?? `HTTP ${res.status}`);
         return;
       }
       const json = (await res.json()) as { data: GateMetrics };
@@ -254,7 +255,7 @@ export default function LiveTeacherGateMetricsDashboard() {
         <p className="text-xs text-neutral-500 dark:text-slate-400">{error}</p>
         <button
           onClick={fetchData}
-          className="text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
+          className="text-xs font-medium text-brand-harbour-600 dark:text-brand-harbour-400 hover:underline"
         >
           Retry
         </button>
@@ -299,7 +300,7 @@ export default function LiveTeacherGateMetricsDashboard() {
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <div className="w-2 h-2 rounded-full bg-cyan-400" />
+          <div className="w-2 h-2 rounded-full bg-brand-harbour-400" />
           <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400">
             Live Teacher Pilot
           </span>

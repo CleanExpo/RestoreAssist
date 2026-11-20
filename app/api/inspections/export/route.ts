@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { fromException } from "@/lib/api-errors";
 import { toCsv } from "@/lib/csv/csv-cell";
+import { INACTIVE_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,7 +29,11 @@ export async function GET(request: NextRequest) {
       }
       where.createdAt = createdAt;
     }
-    if (status && status !== "ALL") where.status = status;
+    if (status === "active") {
+      where.status = { notIn: [...INACTIVE_INSPECTION_STATUSES] };
+    } else if (status && status !== "ALL") {
+      where.status = status;
+    }
 
     const EXPORT_LIMIT = 5000;
     const inspections = await prisma.inspection.findMany({

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import {
   Shield,
   RefreshCw,
@@ -736,7 +737,7 @@ export default function WorkflowMonitorPage() {
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white text-base">
-            <Activity className="h-5 w-5 text-cyan-500" />
+            <Activity className="h-5 w-5 text-brand-harbour-500" />
             Workflows
             <span className="text-sm font-normal text-neutral-400">
               ({workflows.length})
@@ -744,7 +745,12 @@ export default function WorkflowMonitorPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {workflows.length === 0 ? (
+          {workflows.length === 0 && !isConfirmedEmpty(loadError, 0) ? (
+            // RA-8084: a failed load is unknown, not empty. The banner above carries Retry.
+            <p className="py-12 text-center text-sm text-neutral-500 dark:text-neutral-400">
+              Workflows could not be loaded.
+            </p>
+          ) : workflows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Activity className="h-10 w-10 text-neutral-300 dark:text-neutral-600" />
               <p className="text-neutral-500 dark:text-neutral-400 text-sm">

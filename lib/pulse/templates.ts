@@ -30,7 +30,23 @@ export interface RenderedPulseEmail {
 
 const BRAND_NAME = "Restore Assist";
 
-function shell(title: string, bodyHtml: string, portalUrl: string): string {
+function unsubscribeFooterHtml(unsubscribeUrl?: string): string {
+  if (!unsubscribeUrl) return "";
+  const safe = escapeHtml(unsubscribeUrl);
+  return `<p style="font-size: 12px; color: #94a3b8; margin-top: 16px;"><a href="${safe}" style="color: #64748b;">Unsubscribe from automated progress emails</a></p>`;
+}
+
+function appendUnsubscribeText(text: string, unsubscribeUrl?: string): string {
+  if (!unsubscribeUrl) return text;
+  return `${text}\n\nStop automated progress emails: ${unsubscribeUrl}`;
+}
+
+function shell(
+  title: string,
+  bodyHtml: string,
+  portalUrl: string,
+  unsubscribeUrl?: string,
+): string {
   const safeUrl = escapeHtml(portalUrl);
   return `<!DOCTYPE html>
 <html>
@@ -45,6 +61,7 @@ function shell(title: string, bodyHtml: string, portalUrl: string): string {
         <a href="${safeUrl}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px;">View live progress</a>
       </div>
       <p style="font-size: 13px; color: #64748b; margin-top: 24px;">This is an automated update from ${escapeHtml(BRAND_NAME)}. Please do not reply to this email.</p>
+      ${unsubscribeFooterHtml(unsubscribeUrl)}
     </div>
   </body>
 </html>`;
@@ -58,6 +75,7 @@ function shell(title: string, bodyHtml: string, portalUrl: string): string {
 export function renderStepTransitionEmail(
   feed: ClientFeed,
   portalUrl: string,
+  unsubscribeUrl?: string,
 ): RenderedPulseEmail {
   const stage = feed.currentStep;
   const pct = feed.progressPct;
@@ -91,7 +109,12 @@ View live progress: ${portalUrl}
 
 This is an automated update from ${BRAND_NAME}. Please do not reply to this email.`;
 
-  return { templateKey: "pulse-step-transition", subject, html: shell("Restoration progress update", bodyHtml, portalUrl), text };
+  return {
+    templateKey: "pulse-step-transition",
+    subject,
+    html: shell("Restoration progress update", bodyHtml, portalUrl, unsubscribeUrl),
+    text: appendUnsubscribeText(text, unsubscribeUrl),
+  };
 }
 
 const DRYING_STATUS_LABEL: Record<AreaDryingState["status"], string> = {
@@ -107,6 +130,7 @@ const DRYING_STATUS_LABEL: Record<AreaDryingState["status"], string> = {
 export function renderDryingUpdateEmail(
   areas: AreaDryingState[],
   portalUrl: string,
+  unsubscribeUrl?: string,
 ): RenderedPulseEmail {
   const subject = "Drying update for your property";
 
@@ -143,7 +167,12 @@ View live progress: ${portalUrl}
 
 This is an automated update from ${BRAND_NAME}. Please do not reply to this email.`;
 
-  return { templateKey: "pulse-drying-update", subject, html: shell("Drying progress update", bodyHtml, portalUrl), text };
+  return {
+    templateKey: "pulse-drying-update",
+    subject,
+    html: shell("Drying progress update", bodyHtml, portalUrl, unsubscribeUrl),
+    text: appendUnsubscribeText(text, unsubscribeUrl),
+  };
 }
 
 /**
@@ -154,6 +183,7 @@ This is an automated update from ${BRAND_NAME}. Please do not reply to this emai
 export function renderDailyDigestEmail(
   digest: DailyDigestData,
   portalUrl: string,
+  unsubscribeUrl?: string,
 ): RenderedPulseEmail {
   const subject = `Drying update — ${digest.areasAtGoal} of ${digest.totalAreas} areas at drying goal`;
 
@@ -180,7 +210,12 @@ View live progress: ${portalUrl}
 
 This is an automated update from ${BRAND_NAME}. Please do not reply to this email.`;
 
-  return { templateKey: "pulse-daily-digest", subject, html: shell("Your daily drying update", bodyHtml, portalUrl), text };
+  return {
+    templateKey: "pulse-daily-digest",
+    subject,
+    html: shell("Your daily drying update", bodyHtml, portalUrl, unsubscribeUrl),
+    text: appendUnsubscribeText(text, unsubscribeUrl),
+  };
 }
 
 /**
@@ -193,6 +228,7 @@ This is an automated update from ${BRAND_NAME}. Please do not reply to this emai
 export function renderCodeOfPracticeUpdateEmail(
   feed: ClientFeed,
   portalUrl: string,
+  unsubscribeUrl?: string,
 ): RenderedPulseEmail {
   const stage = feed.currentStep;
   const pct = feed.progressPct;
@@ -212,7 +248,12 @@ View live progress: ${portalUrl}
 
 This is an automated update from ${BRAND_NAME}. Please do not reply to this email.`;
 
-  return { templateKey: "pulse-cop-update", subject, html: shell("Scheduled claim update", bodyHtml, portalUrl), text };
+  return {
+    templateKey: "pulse-cop-update",
+    subject,
+    html: shell("Scheduled claim update", bodyHtml, portalUrl, unsubscribeUrl),
+    text: appendUnsubscribeText(text, unsubscribeUrl),
+  };
 }
 
 // ── Review-ask (RA-6952, epic RA-6948) ──
@@ -240,6 +281,7 @@ export function renderReviewAskEmail(
   orgName: string,
   jobReference: string,
   reviewUrl: string,
+  unsubscribeUrl?: string,
 ): RenderedReviewAskEmail {
   const subject = `How did we do, from the team at ${orgName}?`;
   const safeOrg = escapeHtml(orgName);
@@ -259,11 +301,12 @@ export function renderReviewAskEmail(
         <a href="${safeUrl}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px;">Leave a review</a>
       </div>
       <p style="font-size: 13px; color: #64748b; margin-top: 24px;">This is an automated message from ${safeOrg}. Please do not reply to this email.</p>
+      ${unsubscribeFooterHtml(unsubscribeUrl)}
     </div>
   </body>
 </html>`;
 
-  const text = `${orgName} — ${subject}
+  const text = appendUnsubscribeText(`${orgName} — ${subject}
 
 Hello,
 
@@ -271,7 +314,7 @@ Your job (ref ${jobReference}) with ${orgName} is now complete. We'd value your 
 
 Leave a review: ${reviewUrl}
 
-This is an automated message from ${orgName}. Please do not reply to this email.`;
+This is an automated message from ${orgName}. Please do not reply to this email.`, unsubscribeUrl);
 
   return { templateKey: "pulse-review-ask", subject, html, text };
 }

@@ -172,6 +172,8 @@ describe("buildStructuredBasicReport — cost estimates & numeric maths", () => 
       equipmentSelection: [
         { groupId: "lgr-55", dailyRate: 60, quantity: 2 },
       ],
+      // RA-8281 B1: priced from the current price list, never the cached rate.
+      pricingConfig: { dehumidifierLGRDailyRate: 60 },
     });
     // 60 * 2 * 5 = 600
     expect(result.costEstimates).toHaveLength(1);
@@ -183,6 +185,8 @@ describe("buildStructuredBasicReport — cost estimates & numeric maths", () => 
     const result = build({
       report: baseReport({ estimatedDryingDuration: 1 }),
       equipmentSelection: [{ groupId: "lgr-55", dailyRate: 60, quantity: 1 }],
+      // RA-8281 B1: priced from the current price list, never the cached rate.
+      pricingConfig: { dehumidifierLGRDailyRate: 60 },
     });
     const eq = result.equipment[0];
     expect(eq.type).toBe("LGR_DEHUMIDIFIER");

@@ -16,6 +16,7 @@ import {
   isAiDraftPending,
   type AiOwnershipFields,
 } from "@/lib/reports/ai-ownership";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface AiOwnershipBannerProps {
   reportId: string;
@@ -56,9 +57,7 @@ export default function AiOwnershipBanner({
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         setError(
-          typeof body.error === "string"
-            ? body.error
-            : AI_OWNERSHIP_EDIT_REQUIRED,
+          apiErrorMessage(body) ?? AI_OWNERSHIP_EDIT_REQUIRED,
         );
         return;
       }

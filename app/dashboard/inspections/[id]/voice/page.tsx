@@ -29,13 +29,56 @@ import type {
   VoiceCopilotMode,
 } from "@/lib/voice/types";
 import { cn } from "@/lib/utils";
+import type { FireWalkthroughResponse } from "@/lib/voice/fire-smoke/schema";
+import { FireWalkthrough } from "./_fire/FireWalkthrough";
+import { getFireWalkthrough } from "./_fire/fire-client";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+/**
+ * Fire and smoke claims get the guided make-safe walkthrough; every other
+ * job keeps the water-damage copilot below. A failed applicability read is
+ * shown as an error, never treated as "not a fire job".
+ */
 export default function VoiceSessionPage({ params }: PageProps) {
   const { id: inspectionId } = use(params);
+  const [fire, setFire] = useState<FireWalkthroughResponse | null>(null);
+  const [checked, setChecked] = useState<"loading" | "ready" | "failed">("loading");
+
+  const check = useCallback(async () => {
+    setChecked("loading");
+    const result = await getFireWalkthrough(inspectionId);
+    if (!result.ok) {
+      setChecked("failed");
+      return;
+    }
+    setFire(result.data);
+    setChecked("ready");
+  }, [inspectionId]);
+
+  useEffect(() => {
+    void check();
+  }, [check]);
+
+  if (checked === "loading") {
+    return <div className="flex h-screen items-center justify-center bg-brand-cloud dark:bg-brand-canvas text-sm text-brand-slate dark:text-white/60">Loading</div>;
+  }
+  if (checked === "failed") {
+    return (
+      <div role="alert" className="flex h-screen flex-col items-center justify-center gap-3 bg-brand-cloud dark:bg-brand-canvas px-6 text-center text-sm text-brand-navy dark:text-white/80">
+        <p>Could not load this job's voice checklist. Check your signal and try again.</p>
+        <Button onClick={() => void check()} className="min-h-12 bg-brand-navy text-white">Try again</Button>
+      </div>
+    );
+  }
+  if (fire?.applicable) return <FireWalkthrough inspectionId={inspectionId} initial={fire} />;
+  return <WaterVoiceSession inspectionId={inspectionId} />;
+}
+
+function WaterVoiceSession({ inspectionId }: { inspectionId: string }) {
   const router = useRouter();
 
   const [mode, setMode] = useState<VoiceCopilotMode>("assisted");
@@ -129,7 +172,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
     recognition.onerror = (event: any) => {
       setIsListening(false);
       if (event.error !== "no-speech") {
-        setError(`Mic error: ${event.error}`);
+        setError(`Mic error: ${apiErrorMessage(event.error)}`);
       }
     };
 
@@ -181,26 +224,26 @@ export default function VoiceSessionPage({ params }: PageProps) {
 
   // ── Render ──
   return (
-    <div className="flex flex-col h-screen bg-brand-canvas text-white">
+    <div className="flex flex-col h-screen bg-brand-cloud dark:bg-brand-canvas text-brand-navy dark:text-white">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-brand-mist dark:border-white/10">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => router.push(`/dashboard/inspections/${inspectionId}`)}
-          className="text-white/60 hover:text-white"
+          className="text-brand-slate dark:text-white/60 hover:text-brand-navy dark:hover:text-white"
           aria-label="Back to inspection"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
-          <p className="text-sm font-semibold text-white">Voice Copilot</p>
-          <p className="text-xs text-white/50">IICRC S500:2021</p>
+          <p className="text-sm font-semibold text-brand-navy dark:text-white">Voice Copilot</p>
+          <p className="text-xs text-brand-slate dark:text-white/50">IICRC S500:2021</p>
         </div>
         {session && (
           <Badge
             variant="outline"
-            className="text-xs border-white/20 text-white/60"
+            className="text-xs border-brand-mist dark:border-white/20 text-brand-slate dark:text-white/60"
           >
             {mode}
           </Badge>
@@ -211,16 +254,16 @@ export default function VoiceSessionPage({ params }: PageProps) {
         /* ── Pre-session: mode selection ── */
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-white mb-2">
+            <h1 className="text-2xl font-bold text-brand-navy dark:text-white mb-2">
               Voice Copilot
             </h1>
-            <p className="text-white/60 text-sm max-w-xs">
+            <p className="text-brand-slate dark:text-white/60 text-sm max-w-xs">
               Captures S500:2021 evidence hands-free while you work on site.
             </p>
           </div>
 
           <div className="w-full max-w-xs space-y-3">
-            <p className="text-xs text-white/40 uppercase tracking-wider text-center">
+            <p className="text-xs text-brand-slate dark:text-white/40 uppercase tracking-wider text-center">
               Mode
             </p>
             {(["guided", "assisted", "dictation"] as VoiceCopilotMode[]).map(
@@ -231,12 +274,12 @@ export default function VoiceSessionPage({ params }: PageProps) {
                   className={cn(
                     "w-full px-4 py-3 rounded-xl border text-sm text-left transition-colors",
                     mode === m
-                      ? "border-brand-gold bg-brand-gold/10 text-white"
-                      : "border-white/10 text-white/60 hover:border-white/30",
+                      ? "border-brand-bronze dark:border-brand-gold bg-brand-bronze/10 dark:bg-brand-gold/10 text-brand-navy dark:text-white"
+                      : "border-brand-mist dark:border-white/10 text-brand-slate dark:text-white/60 hover:border-brand-mist dark:hover:border-white/30",
                   )}
                 >
                   <span className="font-medium capitalize">{m}</span>
-                  <span className="block text-xs mt-0.5 text-white/40">
+                  <span className="block text-xs mt-0.5 text-brand-slate dark:text-white/40">
                     {m === "guided" &&
                       "Step-by-step instructions — for newer techs"}
                     {m === "assisted" &&
@@ -264,18 +307,18 @@ export default function VoiceSessionPage({ params }: PageProps) {
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Copilot speech bubble */}
           {copilotSpeech && (
-            <div className="px-4 py-3 bg-brand-navy/60 border-b border-white/10">
+            <div className="dark px-4 py-3 bg-brand-navy/60 border-b border-white/10">
               <div className="flex items-start gap-2">
                 <Volume2 className="h-4 w-4 text-brand-gold mt-0.5 shrink-0" />
-                <p className="text-sm text-white/90">{copilotSpeech}</p>
+                <p className="text-sm text-brand-navy dark:text-white/90">{copilotSpeech}</p>
               </div>
             </div>
           )}
 
           {/* Missing items summary */}
           {criticalMissing.length > 0 && (
-            <div className="px-4 py-2 bg-amber-900/30 border-b border-amber-500/20">
-              <p className="text-xs text-amber-300">
+            <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/30 border-b border-amber-500/20">
+              <p className="text-xs text-amber-700 dark:text-amber-300">
                 {criticalMissing.length} critical item
                 {criticalMissing.length !== 1 ? "s" : ""} needed before you
                 leave site
@@ -291,29 +334,29 @@ export default function VoiceSessionPage({ params }: PageProps) {
             <div className="py-4 space-y-2">
               {/* Live interim transcript */}
               {currentTranscript && (
-                <Card className="p-3 bg-white/5 border-white/10">
-                  <p className="text-sm text-white/40 italic">
+                <Card className="p-3 bg-brand-navy/5 dark:bg-white/5 border-brand-mist dark:border-white/10">
+                  <p className="text-sm text-brand-slate dark:text-white/40 italic">
                     {currentTranscript}…
                   </p>
                 </Card>
               )}
 
               {observations.length === 0 && !currentTranscript && (
-                <div className="text-center py-8 text-white/30 text-sm">
+                <div className="text-center py-8 text-brand-slate dark:text-white/30 text-sm">
                   Tap the mic and start talking
                 </div>
               )}
 
               {observations.map((obs) => (
-                <Card key={obs.id} className="p-3 bg-white/5 border-white/10">
+                <Card key={obs.id} className="p-3 bg-brand-navy/5 dark:bg-white/5 border-brand-mist dark:border-white/10">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white/90 truncate">
+                      <p className="text-sm text-brand-navy dark:text-white/90 truncate">
                         {obs.rawTranscript}
                       </p>
                       {obs.parsed.value !== undefined &&
                         obs.parsed.value !== null && (
-                          <p className="text-xs text-brand-gold mt-0.5">
+                          <p className="text-xs text-brand-bronze dark:text-brand-gold mt-0.5">
                             {obs.parsed.value}
                             {obs.parsed.unit === "%"
                               ? "%"
@@ -325,7 +368,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
                           </p>
                         )}
                       {obs.parsed.s500Section && (
-                        <p className="text-xs text-white/30 mt-0.5">
+                        <p className="text-xs text-brand-slate dark:text-white/30 mt-0.5">
                           S500:2021 {obs.parsed.s500Section}
                         </p>
                       )}
@@ -341,18 +384,18 @@ export default function VoiceSessionPage({ params }: PageProps) {
           </ScrollArea>
 
           {/* S500 checklist summary */}
-          <div className="px-4 py-2 border-t border-white/10">
+          <div className="px-4 py-2 border-t border-brand-mist dark:border-white/10">
             <div className="flex gap-1 flex-wrap">
               {pendingItems.slice(0, 5).map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-1 text-xs text-white/40"
+                  className="flex items-center gap-1 text-xs text-brand-slate dark:text-white/40"
                   title={item.label}
                 >
                   {item.complete ? (
                     <CheckCircle2 className="h-3 w-3 text-success" />
                   ) : item.priority === 1 ? (
-                    <AlertCircle className="h-3 w-3 text-amber-400" />
+                    <AlertCircle className="h-3 w-3 text-amber-700 dark:text-amber-400" />
                   ) : (
                     <Circle className="h-3 w-3" />
                   )}
@@ -383,13 +426,13 @@ export default function VoiceSessionPage({ params }: PageProps) {
               }
             >
               {isListening ? (
-                <MicOff className="h-8 w-8 text-white" />
+                <MicOff className="h-8 w-8 text-brand-navy dark:text-white" />
               ) : (
-                <Mic className="h-8 w-8 text-white" />
+                <Mic className="h-8 w-8 text-brand-navy dark:text-white" />
               )}
             </button>
           </div>
-          <p className="text-center text-xs text-white/30 pb-4">
+          <p className="text-center text-xs text-brand-slate dark:text-white/30 pb-4">
             {isListening ? "Listening…" : "Hold to speak"}
           </p>
         </div>
@@ -412,9 +455,9 @@ function ConfidenceBadge({
     <span
       className={cn(
         "text-xs px-1.5 py-0.5 rounded shrink-0",
-        confidence === "high" && "bg-green-900/40 text-green-400",
-        confidence === "medium" && "bg-amber-900/40 text-amber-400",
-        confidence === "low" && "bg-red-900/40 text-red-400",
+        confidence === "high" && "bg-green-50 dark:bg-green-900/40 text-green-700 dark:text-green-400",
+        confidence === "medium" && "bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400",
+        confidence === "low" && "bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-400",
       )}
     >
       {confidence}

@@ -50,7 +50,9 @@ export async function detectMoistureTrendAnomalies(
   inspectionId: string,
 ): Promise<MoistureTrendResult> {
   const readings = await prisma.moistureReading.findMany({
-    where: { inspectionId },
+    // RA-8388: a retired reading is a corrected mistake; it must not shape
+    // the drying trend.
+    where: { inspectionId, invalidatedAt: null },
     select: {
       location: true,
       moistureLevel: true,

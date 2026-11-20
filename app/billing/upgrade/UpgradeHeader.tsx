@@ -39,10 +39,15 @@ function heroFor(reason: Reason, feature?: string): HeroCopy {
     };
   }
   if (reason === "feature") {
+    const label =
+      feature === "paid-plan"
+        ? "Enhanced reports, Optimised depth and PDF import"
+        : (feature ?? "this feature");
     return {
       headline: "Continue with RestoreAssist",
-      support: `Subscribe to the Monthly Plan to use ${feature ?? "this feature"}.`,
-      reasonLabel: feature ? `Needs ${feature}` : "Feature access",
+      support: `Subscribe to the Monthly Plan to use ${label}.`,
+      reasonLabel:
+        feature === "paid-plan" ? "Paid plan feature" : feature ? `Needs ${feature}` : "Feature access",
     };
   }
   if (reason === "canceled") {
@@ -92,11 +97,11 @@ export default function UpgradeHeader({
       <div aria-hidden className={simpleDashboardHeroShine} />
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-8 top-0 h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl"
+        className="pointer-events-none absolute -right-8 top-0 h-40 w-40 rounded-full bg-brand-harbour-400/20 blur-3xl"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute bottom-0 left-1/4 h-px w-[120%] bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent"
+        className="pointer-events-none absolute bottom-0 left-1/4 h-px w-[120%] bg-gradient-to-r from-transparent via-brand-harbour-400/40 to-transparent"
       />
       <div className="relative space-y-5">
         <div className="inline-flex items-center gap-2.5">
@@ -115,11 +120,11 @@ export default function UpgradeHeader({
 
         <div className="max-w-4xl lg:max-w-none">
           {reasonLabel ? (
-            <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-harbour-200/90">
               {reasonLabel}
             </p>
           ) : (
-            <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-harbour-200/90">
               Billing · Upgrade
             </p>
           )}

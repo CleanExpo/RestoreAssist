@@ -72,7 +72,7 @@ export default function DamageTypesSection() {
               >
                 {damage.title}
               </h3>
-              <p className="text-cyan-400 font-bold text-xl mb-4">
+              <p className="text-brand-harbour-400 font-bold text-xl mb-4">
                 Typical Range: {damage.range}
               </p>
               <p className="text-slate-400 leading-relaxed font-light">
@@ -92,7 +92,7 @@ export default function DamageTypesSection() {
         viewport={{ once: true }}
       >
         <div className="inline-flex items-center gap-3 px-6 py-3 bg-slate-800/50 border border-slate-700/50 rounded-full">
-          <Zap size={20} className="text-cyan-400" />
+          <Zap size={20} className="text-brand-harbour-400" />
           <span className="text-slate-300 font-medium">
             All damage types supported with AI-powered assessment and NCC 2022
             compliance

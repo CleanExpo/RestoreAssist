@@ -16,6 +16,7 @@ import {
   PDFImage,
 } from "pdf-lib";
 import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
+import { extractWaterCategory } from "@/lib/reports/extract-report-data";
 
 interface BusinessInfo {
   businessName?: string | null;
@@ -35,7 +36,8 @@ interface ReportData {
   stateInfo: any;
   psychrometricAssessment?: any;
   scopeAreas?: any[];
-  equipmentSelection?: any[];
+  /** Opaque: only stored-equipment-pricing.ts reads inside it. */
+  equipmentSelection?: unknown;
   standardsContext?: string;
   businessInfo?: BusinessInfo;
 }
@@ -247,7 +249,7 @@ export async function generateAssessmentReportPDF(
     jobRef,
     scopeItems,
     report,
-    equipmentSelection: equipmentSelection ?? [],
+    equipmentSelection,
     hvacAffected: report.hvacAffected || false,
   });
 
@@ -674,22 +676,6 @@ function wrapText(
   return lines;
 }
 
-/** Extract water category label from a source string */
-function extractWaterCategory(source: string): string {
-  if (!source) return "Category 1";
-  const s = source.toLowerCase();
-  if (
-    s.includes("cat 3") ||
-    s.includes("category 3") ||
-    s.includes("sewage") ||
-    s.includes("black")
-  )
-    return "Category 3";
-  if (s.includes("cat 2") || s.includes("category 2") || s.includes("grey"))
-    return "Category 2";
-  return "Category 1";
-}
-
 /** Build a forensic summary paragraph from report components */
 function buildForensicSummary(
   report: any,
@@ -776,7 +762,7 @@ async function renderPage2(
     jobRef: string;
     scopeItems: ScopeItem[];
     report: any;
-    equipmentSelection: any[];
+    equipmentSelection?: unknown;
     hvacAffected: boolean;
   },
 ): Promise<void> {

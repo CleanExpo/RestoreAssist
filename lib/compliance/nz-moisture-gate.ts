@@ -48,7 +48,8 @@ export async function checkNzMoistureGate(
   inspectionId: string,
 ): Promise<NzMoistureGateResult> {
   const readings = await prisma.moistureReading.findMany({
-    where: { inspectionId },
+    // RA-8388: a retired reading is a corrected mistake; it must not warn.
+    where: { inspectionId, invalidatedAt: null },
     select: {
       id: true,
       surfaceType: true,

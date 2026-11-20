@@ -79,7 +79,7 @@ export function FormPreviewModal({
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="flex items-center gap-2 text-xl">
-                <Eye className="h-5 w-5 text-cyan-500" />
+                <Eye className="h-5 w-5 text-brand-harbour-500" />
                 Form Preview
               </DialogTitle>
               <DialogDescription className="mt-1">

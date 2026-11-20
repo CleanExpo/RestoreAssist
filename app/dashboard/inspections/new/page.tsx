@@ -213,7 +213,7 @@ export default function NewInspectionPage() {
             "bg-neutral-50 dark:bg-slate-900/50",
           )}
         >
-          <Loader2 className="animate-spin text-cyan-500" size={28} />
+          <Loader2 className="animate-spin text-brand-harbour-500" size={28} />
           <span className={cn("text-neutral-600 dark:text-slate-400")}>
             Loading draft details...
           </span>
@@ -221,7 +221,7 @@ export default function NewInspectionPage() {
       ) : (
         <>
         {reportIdParam && (
-          <p className="rounded-lg border border-cyan-300 p-3 text-sm">
+          <p className="rounded-lg border border-brand-harbour-300 p-3 text-sm">
             This draft will use the existing report.
             {reportClientUnlinked && " Saving it will link that report to the selected client without changing its contact details."}
           </p>

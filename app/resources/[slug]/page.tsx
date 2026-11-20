@@ -4,9 +4,10 @@ import Link from "next/link";
 import { getAllResources, getResourceBySlug } from "@/lib/resources";
 import { MarketingShell } from "@/components/landing/home";
 import { CONTAINER } from "@/components/landing/home/motion";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 const CTA =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F3A] px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white shadow-[0_1px_2px_rgba(11,31,58,0.1)] transition-colors hover:bg-[#16345A]";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-navy px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white shadow-[0_1px_2px_rgba(11,31,58,0.1)] transition-colors hover:bg-brand-navy-hover";
 
 export async function generateStaticParams() {
   const resources = await getAllResources();
@@ -35,7 +36,9 @@ export async function generateMetadata({
     openGraph: {
       title: resource.title,
       description: resource.description,
-      ...(hasRealShareImage ? { images: [{ url: shareImage as string }] } : {}),
+      images: [
+        hasRealShareImage ? { url: shareImage as string } : OG_SHARE_IMAGE,
+      ],
       type: "article",
       publishedTime: resource.uploadDate,
     },
@@ -61,16 +64,16 @@ export default async function ResourceArticlePage({
           <nav className="text-sm text-slate-500">
             <Link
               href="/resources"
-              className="transition-colors hover:text-[#0B1F3A]"
+              className="transition-colors hover:text-brand-navy"
             >
               Resources
             </Link>
             <span className="mx-2 opacity-40">/</span>
-            <span className="truncate text-[#0B1F3A]">{resource.title}</span>
+            <span className="truncate text-brand-navy">{resource.title}</span>
           </nav>
 
           <article className="mt-8">
-            <h1 className="font-[family-name:var(--font-landing-display)] text-3xl font-semibold leading-tight tracking-tight text-[#0B1F3A] sm:text-4xl">
+            <h1 className="font-[family-name:var(--font-landing-display)] text-3xl font-semibold leading-tight tracking-tight text-brand-navy sm:text-4xl">
               {resource.title}
             </h1>
 
@@ -90,7 +93,7 @@ export default async function ResourceArticlePage({
               {sections.map((section, i) => (
                 <div key={i}>
                   {section.heading ? (
-                    <h2 className="font-[family-name:var(--font-landing-display)] mb-3 mt-10 text-xl font-semibold tracking-tight text-[#0B1F3A] sm:text-2xl">
+                    <h2 className="font-[family-name:var(--font-landing-display)] mb-3 mt-10 text-xl font-semibold tracking-tight text-brand-navy sm:text-2xl">
                       {section.heading}
                     </h2>
                   ) : null}
@@ -104,7 +107,7 @@ export default async function ResourceArticlePage({
             </div>
 
             <div className="mt-16 rounded-2xl border border-slate-200/90 bg-[#F3F5F7] p-8 text-center sm:p-10">
-              <h3 className="font-[family-name:var(--font-landing-display)] text-xl font-semibold text-[#0B1F3A]">
+              <h3 className="font-[family-name:var(--font-landing-display)] text-xl font-semibold text-brand-navy">
                 Restore smarter with RestoreAssist
               </h3>
               <p className="mx-auto mt-3 max-w-lg text-[15px] leading-relaxed text-slate-600">

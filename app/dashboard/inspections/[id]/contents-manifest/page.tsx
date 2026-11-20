@@ -229,7 +229,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
       )}
     >
       {/* # */}
-      <td className="px-3 py-3 w-10 text-xs text-neutral-400 tabular-nums">
+      <td className="px-3 py-3 w-10 text-xs text-brand-slate dark:text-neutral-400 tabular-nums">
         {index + 1}
       </td>
 
@@ -249,7 +249,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
               {item.description}
             </span>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-neutral-400 dark:text-slate-500">
+              <span className="text-xs text-brand-slate dark:text-slate-500">
                 {categoryLabel}
               </span>
               {item.verified && (
@@ -692,7 +692,7 @@ export default function ContentsManifestPage({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                <Package size={20} className="text-cyan-500 shrink-0" />
+                <Package size={20} className="text-brand-harbour-500 shrink-0" />
                 Contents Manifest
               </h1>
               {meta && (
@@ -728,7 +728,7 @@ export default function ContentsManifestPage({
               <Button
                 onClick={handleGenerate}
                 disabled={generating}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white shrink-0"
+                className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white shrink-0"
               >
                 {generating ? (
                   <>
@@ -802,7 +802,7 @@ export default function ContentsManifestPage({
               className={cn(
                 "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
                 viewMode === "room"
-                  ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400"
+                  ? "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-400"
                   : "text-neutral-500 hover:text-neutral-700 dark:text-slate-400",
               )}
             >
@@ -813,7 +813,7 @@ export default function ContentsManifestPage({
               className={cn(
                 "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
                 viewMode === "category"
-                  ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400"
+                  ? "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-400"
                   : "text-neutral-500 hover:text-neutral-700 dark:text-slate-400",
               )}
             >
@@ -839,7 +839,7 @@ export default function ContentsManifestPage({
           <div className="w-14 h-14 rounded-2xl bg-neutral-100 dark:bg-slate-800 flex items-center justify-center">
             <Package
               size={28}
-              className="text-neutral-400 dark:text-slate-500"
+              className="text-brand-slate dark:text-slate-500"
             />
           </div>
           <p className="text-neutral-500 dark:text-slate-400 max-w-sm">
@@ -847,7 +847,7 @@ export default function ContentsManifestPage({
             contents, then click <strong>Generate from Photos</strong> to create
             an AI-drafted inventory.
           </p>
-          <p className="text-xs text-neutral-400 dark:text-slate-500 max-w-sm">
+          <p className="text-xs text-brand-slate dark:text-slate-500 max-w-sm">
             AI analyses photos to identify items, assess condition, and estimate
             replacement values. You can edit every field after generation.
           </p>
@@ -940,7 +940,7 @@ export default function ContentsManifestPage({
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Eye size={15} className="text-cyan-500" />
+              <Eye size={15} className="text-brand-harbour-500" />
               <span>
                 Model:{" "}
                 <strong className="text-neutral-900 dark:text-white">
@@ -948,7 +948,7 @@ export default function ContentsManifestPage({
                 </strong>
               </span>
             </div>
-            <div className="text-xs text-neutral-400 dark:text-slate-500">
+            <div className="text-xs text-brand-slate dark:text-slate-500">
               Generated {new Date(manifest.generatedAt).toLocaleString("en-AU")}{" "}
               &middot; {(manifest.durationMs / 1000).toFixed(1)}s &middot; ~$
               {manifest.estimatedCostUsd.toFixed(4)} USD

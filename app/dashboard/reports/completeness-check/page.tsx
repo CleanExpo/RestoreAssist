@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { EmptyState } from "@/components/EmptyState";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Report {
   id: string;
@@ -91,7 +92,7 @@ function ScoreRing({ score }: { score: number }) {
             stroke="currentColor"
             strokeWidth={12}
             fill="none"
-            className="text-slate-200 dark:text-slate-700"
+            className="text-brand-navy dark:text-slate-700"
           />
           <circle
             cx={90}
@@ -304,7 +305,7 @@ export default function CompletenessCheckPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error ?? "Check failed");
+        throw new Error(apiErrorMessage(err) ?? "Check failed");
       }
       const data: CompletenessResult = await res.json();
       setResult(data);
@@ -371,7 +372,7 @@ export default function CompletenessCheckPage() {
                             <span className="font-medium">
                               {report.reportNumber ?? report.id.slice(0, 8)}
                             </span>
-                            <span className="text-slate-400 ml-2">
+                            <span className="text-brand-slate dark:text-slate-400 ml-2">
                               — {report.clientName}
                             </span>
                           </SelectItem>

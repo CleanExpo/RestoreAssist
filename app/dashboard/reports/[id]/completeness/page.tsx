@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Section {
   name: string;
@@ -69,7 +70,7 @@ function ScoreRing({ score }: { score: number }) {
             stroke="currentColor"
             strokeWidth={12}
             fill="none"
-            className="text-slate-200 dark:text-slate-700"
+            className="text-brand-navy dark:text-slate-700"
           />
           <circle
             cx={90}
@@ -250,7 +251,7 @@ export default function ReportCompletenessPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error ?? "Completeness check failed");
+        throw new Error(apiErrorMessage(err) ?? "Completeness check failed");
       }
       const data: CompletenessResult = await res.json();
       setResult(data);

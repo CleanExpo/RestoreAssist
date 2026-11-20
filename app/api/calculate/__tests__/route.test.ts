@@ -99,6 +99,32 @@ describe("POST /api/calculate", () => {
     expect(String(json.pricingNote)).toMatch(/Cost Libraries/i);
   });
 
+  it("RA-8281: an unset rate the quote uses blocks it and is named, never priced at $0", async () => {
+    const { BASE_RATE_FIELDS } = await import("@/lib/pricing/rate-not-set");
+    const full = Object.fromEntries(BASE_RATE_FIELDS.map((f) => [f, 70]));
+    vi.mocked(resolveEffectivePricing).mockResolvedValueOnce({
+      ...full,
+      callOutFee: null,
+    } as never);
+    const res = await POST(calcReq({ ...validBody, includeCallOut: true }));
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    // B2: the answer is the shared blocked-pricing body (route.blocked-line.test.ts).
+    expect(json.error.code).toBe("RATE_NOT_SET");
+    expect(
+      json.blocked.missing.map((m: { field: string }) => m.field),
+    ).toEqual(["callOutFee"]);
+  });
+
+  it("RA-8281 control: a complete price list prices at the contractor's rates", async () => {
+    const { BASE_RATE_FIELDS } = await import("@/lib/pricing/rate-not-set");
+    vi.mocked(resolveEffectivePricing).mockResolvedValueOnce(
+      Object.fromEntries(BASE_RATE_FIELDS.map((f) => [f, 70])) as never,
+    );
+    const res = await POST(calcReq(validBody));
+    expect(res.status).toBe(200);
+  });
+
   it("uses the organisation country for NZ GST", async () => {
     userFindUnique.mockReset();
     userFindUnique

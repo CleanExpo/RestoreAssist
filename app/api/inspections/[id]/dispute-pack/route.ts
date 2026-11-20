@@ -5,11 +5,16 @@ import { prisma } from "@/lib/prisma";
 import { generateDisputePack } from "@/lib/dispute-pack";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  DISPUTE_PACK_INSPECTION_STATUSES,
+  inspectionStatusAllowsDisputePack,
+} from "@/lib/inspections/active-status";
 
 /**
  * POST /api/inspections/[id]/dispute-pack
  *
- * Generates a Dispute Defence Pack PDF for a completed inspection.
+ * Generates a Dispute Defence Pack PDF for a submitted, invoiced or closed
+ * inspection (states owned by lib/inspections/active-status.ts).
  * The PDF contains all evidence, moisture readings, scope of works,
  * and IICRC S500:2021 citations for insurance dispute resolution.
  *
@@ -64,11 +69,10 @@ export async function POST(
         });
       }
 
-      const allowedStatuses = ["SUBMITTED", "COMPLETED"];
-      if (!allowedStatuses.includes(inspection.status)) {
+      if (!inspectionStatusAllowsDisputePack(inspection.status)) {
         return apiError(request, {
           code: "VALIDATION",
-          message: `Dispute pack can only be generated for inspections with status SUBMITTED or COMPLETED. Current status: ${inspection.status}`,
+          message: `Dispute pack can only be generated for inspections with status ${DISPUTE_PACK_INSPECTION_STATUSES.join(", ")}. Current status: ${inspection.status}`,
           status: 400,
         });
       }

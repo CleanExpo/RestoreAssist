@@ -11,6 +11,8 @@ import { prisma } from "@/lib/prisma";
 import { getWorkflowTemplate, buildWorkflowStepsData } from "@/lib/evidence";
 import type { JobType } from "@/lib/evidence";
 import { apiError, fromException } from "@/lib/api-errors";
+import { bodyField, requiredIdentifier } from "@/lib/request-identifier";
+import { countableEvidence } from "@/lib/evidence/countable-evidence";
 import {
   assertInspectionAssignedWrite,
   assertInspectionReadable,
@@ -61,8 +63,11 @@ export async function GET(
     }
 
     // Load evidence items for this inspection (grouped by step)
+    // RA-8388: the capture page counts step progress from this list, so it
+    // holds only evidence that counts. A retired reading's record stays in
+    // the database and on the evidence list; it is left out here.
     const evidenceItems = await prisma.evidenceItem.findMany({
-      where: { inspectionId },
+      where: countableEvidence({ inspectionId }),
       orderBy: { capturedAt: "desc" },
       take: 500,
     });
@@ -194,12 +199,23 @@ export async function PATCH(
 
   const { id: inspectionId } = await params;
   const body = await request.json();
-  const { stepId, status, skipReason, skipNotes } = body as {
-    stepId: string;
+  const { status, skipReason, skipNotes } = body as {
     status: "IN_PROGRESS" | "COMPLETED" | "SKIPPED" | "BLOCKED";
     skipReason?: string;
     skipNotes?: string;
   };
+  // RA-8388 review round 2. Prisma ignores a filter whose value is
+  // `undefined`, so without a `stepId` the scoped `updateMany` below matched
+  // every step of the workflow. One step is named, in text, or nothing is
+  // written.
+  const stepId = requiredIdentifier(bodyField(body, "stepId"));
+  if (stepId === null) {
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "stepId is required",
+      status: 400,
+    });
+  }
 
   try {
     // RA-7721: the owner's reach or the assigned technician.

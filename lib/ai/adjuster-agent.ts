@@ -15,6 +15,7 @@ import { z } from "zod";
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { loadMakeSafeCompletion } from "@/lib/compliance/make-safe-list";
 import { restoreAssistAiDispatch } from "@/lib/ai/restoreassist-ai-client";
 import { requireAiTaskPolicy } from "@/lib/ai/task-policy";
 import {
@@ -112,10 +113,7 @@ async function collectSignals(inspectionId: string) {
       propertyPostcode: true,
       status: true,
       inspectionDate: true,
-      makeSafeActions: {
-        select: { action: true, applicable: true, completed: true },
-        take: 20,
-      },
+      claimType: true,
       scopeVariations: {
         select: {
           id: true,
@@ -151,7 +149,13 @@ async function collectSignals(inspectionId: string) {
     },
   });
 
-  return inspection;
+  if (!inspection) return null;
+  // RA-8327: make-safe completion is judged by the list owner on the job's
+  // own list. History rows from the other list are shown, never counted.
+  const makeSafe = await loadMakeSafeCompletion(inspectionId, {
+    claimType: inspection.claimType,
+  });
+  return { ...inspection, makeSafe };
 }
 
 // ── Anomaly detection (pure, no AI) ──────────────────────────────────────────
@@ -162,9 +166,7 @@ function detectAnomalies(
   const anomalies: string[] = [];
 
   // Make-safe completeness check (ICA Code of Practice §6)
-  const incompleteHazards = inspection.makeSafeActions.filter(
-    (a) => a.applicable && !a.completed,
-  );
+  const incompleteHazards = inspection.makeSafe.open;
   if (incompleteHazards.length > 0) {
     anomalies.push(
       `${incompleteHazards.length} incomplete stabilisation action(s): ${incompleteHazards.map((a) => a.action).join(", ")} (ICA Code of Practice §6)`,
@@ -227,9 +229,12 @@ function buildUserPrompt(
     0,
   );
 
-  const makeSafeComplete = inspection.makeSafeActions.every(
-    (a) => !a.applicable || a.completed,
-  );
+  const makeSafeComplete = inspection.makeSafe.open.length === 0;
+  const makeSafeHistory = inspection.makeSafe.history.map((h) => ({
+    action: h.action,
+    applicable: h.applicable,
+    completed: h.completed,
+  }));
 
   return `CLAIM AUDIT REQUEST
 ${exactAssessment === undefined ? "" : `\nEXACT GENERATED ASSESSMENT UNDER REVIEW\nThe verdict must review this exact persisted assessment, not merely the source inspection. Identify contradictions, omissions, unsupported conclusions and unusable scope or estimate content.\n${JSON.stringify(exactAssessment)}\n`}
@@ -240,7 +245,9 @@ Date: ${inspection.inspectionDate?.toISOString().split("T")[0] ?? "Unknown"}
 
 MAKE-SAFE / STABILISATION (ICA Code of Practice §6)
 Complete: ${makeSafeComplete ? "YES" : "NO"}
-Actions: ${JSON.stringify(inspection.makeSafeActions)}
+List: ${inspection.makeSafe.kind}
+Actions: ${JSON.stringify(inspection.makeSafe.items)}
+Earlier list (history, not counted): ${JSON.stringify(makeSafeHistory)}
 
 SCOPE VARIATIONS
 Count: ${inspection.scopeVariations.length}

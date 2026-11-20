@@ -8,6 +8,7 @@ import {
   costLibraryItemsToCsv,
   parseCostLibraryCsv,
 } from "@/lib/csv/cost-library-csv";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 
 interface CostItem {
   id: string;
@@ -439,13 +440,13 @@ export default function CostLibrariesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold mb-2">Cost Libraries</h1>
-          <p className="text-slate-400">
+          <p className="text-brand-slate dark:text-slate-400">
             Manage regional and custom cost rates
           </p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
         >
           <Plus size={20} />
           New Library
@@ -453,7 +454,7 @@ export default function CostLibrariesPage() {
       </div>
 
       {loadError && (
-        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-400">
           {loadError}
           <button
             type="button"
@@ -467,18 +468,22 @@ export default function CostLibrariesPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
         </div>
       ) : (
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Library List */}
           <div className="lg:col-span-1">
-            <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 space-y-2">
-              <p className="text-xs font-semibold text-slate-400 uppercase mb-4">
+            <div className="p-4 rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30 space-y-2">
+              <p className="text-xs font-semibold text-brand-slate dark:text-slate-400 uppercase mb-4">
                 Your Libraries
               </p>
               {libraries.length === 0 ? (
-                <p className="text-slate-400 text-sm">No libraries yet</p>
+                <p className="text-brand-slate dark:text-slate-400 text-sm">
+                  {isConfirmedEmpty(loadError, libraries.length)
+                    ? "No libraries yet"
+                    : "Libraries could not be loaded"}
+                </p>
               ) : (
                 libraries.map((lib) => (
                   <button
@@ -486,8 +491,8 @@ export default function CostLibrariesPage() {
                     onClick={() => setSelectedLibrary(lib.id)}
                     className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
                       selectedLibrary === lib.id
-                        ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
-                        : "hover:bg-slate-700/50 text-slate-300"
+                        ? "dark bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white"
+                        : "hover:bg-brand-cream dark:hover:bg-slate-700/50 text-brand-slate dark:text-slate-300"
                     }`}
                   >
                     <Link
@@ -497,9 +502,9 @@ export default function CostLibrariesPage() {
                     >
                       {lib.name}
                     </Link>
-                    <p className="text-xs text-slate-400 mt-1">{lib.region}</p>
+                    <p className="text-xs text-brand-slate dark:text-slate-400 mt-1">{lib.region}</p>
                     {lib.isDefault && (
-                      <span className="inline-block mt-2 px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded">
+                      <span className="inline-block mt-2 px-2 py-1 text-xs bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded">
                         Default
                       </span>
                     )}
@@ -513,27 +518,27 @@ export default function CostLibrariesPage() {
           {currentLibrary && (
             <div className="lg:col-span-3 space-y-6">
               {/* Library Info */}
-              <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+              <div className="p-6 rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h2 className="text-2xl font-semibold">
                       {currentLibrary.name}
                     </h2>
-                    <p className="text-slate-400 text-sm mt-1">
+                    <p className="text-brand-slate dark:text-slate-400 text-sm mt-1">
                       Region: {currentLibrary.region}
                     </p>
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => openEditLibrary(currentLibrary)}
-                      className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                      className="p-2 hover:bg-brand-cream dark:hover:bg-slate-700 rounded-lg transition-colors"
                       title="Edit Library"
                     >
                       <Edit size={20} />
                     </button>
                     <button
                       onClick={() => openDeleteLibrary(currentLibrary)}
-                      className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                      className="p-2 hover:bg-brand-cream dark:hover:bg-slate-700 rounded-lg transition-colors"
                       title="Delete Library"
                     >
                       <Trash2 size={20} className="text-destructive" />
@@ -545,14 +550,14 @@ export default function CostLibrariesPage() {
                     onClick={() =>
                       handleExport(currentLibrary.id, currentLibrary.name)
                     }
-                    className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm"
+                    className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors text-sm"
                   >
                     <Download size={16} />
                     Export to CSV
                   </button>
                   <button
                     onClick={() => handleImportClick(currentLibrary.id)}
-                    className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm"
+                    className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors text-sm"
                   >
                     <Upload size={16} />
                     Import from CSV
@@ -562,24 +567,24 @@ export default function CostLibrariesPage() {
 
               {/* Cost Items */}
               {currentLibrary.items.length > 0 ? (
-                <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+                <div className="p-6 rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30">
                   <h3 className="font-semibold mb-4">Cost Items</h3>
                   <div className="space-y-2">
                     {currentLibrary.items.map((item, i) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between p-3 rounded-lg bg-slate-700/20 border border-slate-600 hover:bg-slate-700/40 transition-colors"
+                        className="flex items-center justify-between p-3 rounded-lg bg-brand-cream dark:bg-slate-700/20 border border-slate-600 hover:bg-brand-cream dark:hover:bg-slate-700/40 transition-colors"
                       >
                         <div>
                           <p className="text-sm font-medium">
                             {item.description}
                           </p>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-xs text-brand-slate dark:text-slate-400">
                             {item.category}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-medium text-cyan-400">
+                          <span className="font-medium text-brand-harbour-700 dark:text-brand-harbour-400">
                             ${item.rate.toFixed(2)}/{item.unit}
                           </span>
                           <div className="flex items-center gap-1">
@@ -604,19 +609,19 @@ export default function CostLibrariesPage() {
                   </div>
                   <button
                     onClick={() => setShowAddItemModal(true)}
-                    className="mt-4 w-full px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm"
+                    className="mt-4 w-full px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors text-sm"
                   >
                     Add Item
                   </button>
                 </div>
               ) : (
-                <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30 text-center">
-                  <p className="text-slate-400">
+                <div className="p-6 rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30 text-center">
+                  <p className="text-brand-slate dark:text-slate-400">
                     No cost items yet. Add items to get started.
                   </p>
                   <button
                     onClick={() => setShowAddItemModal(true)}
-                    className="mt-4 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm"
+                    className="mt-4 px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors text-sm"
                   >
                     Add Item
                   </button>
@@ -630,12 +635,12 @@ export default function CostLibrariesPage() {
       {/* Add Library Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-brand-mist dark:border-slate-700 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Create New Cost Library</h2>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="p-1 hover:bg-slate-700 rounded"
+                className="p-1 hover:bg-brand-cream dark:hover:bg-slate-700 rounded"
               >
                 <X size={20} />
               </button>
@@ -652,7 +657,7 @@ export default function CostLibrariesPage() {
                     setFormData({ ...formData, name: e.target.value })
                   }
                   placeholder="e.g., Regional NSW 2025"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -662,7 +667,7 @@ export default function CostLibrariesPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, region: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 >
                   <option value="">Select region</option>
                   <option value="NSW">Sydney Metro</option>
@@ -682,7 +687,7 @@ export default function CostLibrariesPage() {
                     setFormData({ ...formData, description: e.target.value })
                   }
                   placeholder="Brief description of this cost library"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   rows={3}
                 />
               </div>
@@ -694,22 +699,22 @@ export default function CostLibrariesPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, isDefault: e.target.checked })
                   }
-                  className="w-4 h-4 text-cyan-500 bg-slate-700 border-slate-600 rounded focus:ring-cyan-500 focus:ring-2"
+                  className="w-4 h-4 text-brand-harbour-500 bg-brand-cream dark:bg-slate-700 border-slate-600 rounded focus:ring-brand-harbour-500 focus:ring-2"
                 />
-                <label htmlFor="isDefault" className="text-sm text-slate-300">
+                <label htmlFor="isDefault" className="text-sm text-brand-slate dark:text-slate-300">
                   Set as default cost library
                 </label>
               </div>
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddLibrary}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Create
                 </button>
@@ -722,12 +727,12 @@ export default function CostLibrariesPage() {
       {/* Edit Library Modal */}
       {showEditModal && editingLibrary && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-brand-mist dark:border-slate-700 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Edit Cost Library</h2>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="p-1 hover:bg-slate-700 rounded"
+                className="p-1 hover:bg-brand-cream dark:hover:bg-slate-700 rounded"
               >
                 <X size={20} />
               </button>
@@ -744,7 +749,7 @@ export default function CostLibrariesPage() {
                     setFormData({ ...formData, name: e.target.value })
                   }
                   placeholder="e.g., Regional NSW 2025"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -754,7 +759,7 @@ export default function CostLibrariesPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, region: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 >
                   <option value="">Select region</option>
                   <option value="NSW">Sydney Metro</option>
@@ -774,7 +779,7 @@ export default function CostLibrariesPage() {
                     setFormData({ ...formData, description: e.target.value })
                   }
                   placeholder="Brief description of this cost library"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   rows={3}
                 />
               </div>
@@ -786,11 +791,11 @@ export default function CostLibrariesPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, isDefault: e.target.checked })
                   }
-                  className="w-4 h-4 text-cyan-500 bg-slate-700 border-slate-600 rounded focus:ring-cyan-500 focus:ring-2"
+                  className="w-4 h-4 text-brand-harbour-500 bg-brand-cream dark:bg-slate-700 border-slate-600 rounded focus:ring-brand-harbour-500 focus:ring-2"
                 />
                 <label
                   htmlFor="isDefaultEdit"
-                  className="text-sm text-slate-300"
+                  className="text-sm text-brand-slate dark:text-slate-300"
                 >
                   Set as default cost library
                 </label>
@@ -798,13 +803,13 @@ export default function CostLibrariesPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleEditLibrary}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Update Library
                 </button>
@@ -817,14 +822,14 @@ export default function CostLibrariesPage() {
       {/* Add Item Modal */}
       {showAddItemModal && currentLibrary && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-brand-mist dark:border-slate-700 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">
                 Add Cost Item to {currentLibrary.name}
               </h2>
               <button
                 onClick={() => setShowAddItemModal(false)}
-                className="p-1 hover:bg-slate-700 rounded"
+                className="p-1 hover:bg-brand-cream dark:hover:bg-slate-700 rounded"
               >
                 <X size={20} />
               </button>
@@ -844,7 +849,7 @@ export default function CostLibrariesPage() {
                     })
                   }
                   placeholder="e.g., Labour, Materials, Equipment"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -861,7 +866,7 @@ export default function CostLibrariesPage() {
                     })
                   }
                   placeholder="e.g., Water Extraction (per hour)"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -875,7 +880,7 @@ export default function CostLibrariesPage() {
                       setItemFormData({ ...itemFormData, rate: e.target.value })
                     }
                     placeholder="150.00"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div>
@@ -887,20 +892,20 @@ export default function CostLibrariesPage() {
                       setItemFormData({ ...itemFormData, unit: e.target.value })
                     }
                     placeholder="hour, day, item"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
               </div>
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowAddItemModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddItem}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Add Item
                 </button>
@@ -913,12 +918,12 @@ export default function CostLibrariesPage() {
       {/* Edit Item Modal */}
       {showEditItemModal && editingItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-brand-mist dark:border-slate-700 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Edit Cost Item</h2>
               <button
                 onClick={() => setShowEditItemModal(false)}
-                className="p-1 hover:bg-slate-700 rounded"
+                className="p-1 hover:bg-brand-cream dark:hover:bg-slate-700 rounded"
               >
                 <X size={20} />
               </button>
@@ -938,7 +943,7 @@ export default function CostLibrariesPage() {
                     })
                   }
                   placeholder="e.g., Labour, Materials, Equipment"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
@@ -955,7 +960,7 @@ export default function CostLibrariesPage() {
                     })
                   }
                   placeholder="e.g., Water Extraction (per hour)"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -969,7 +974,7 @@ export default function CostLibrariesPage() {
                       setItemFormData({ ...itemFormData, rate: e.target.value })
                     }
                     placeholder="150.00"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div>
@@ -981,20 +986,20 @@ export default function CostLibrariesPage() {
                       setItemFormData({ ...itemFormData, unit: e.target.value })
                     }
                     placeholder="hour, day, item"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
               </div>
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowEditItemModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleEditItem}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Update Item
                 </button>
@@ -1007,28 +1012,28 @@ export default function CostLibrariesPage() {
       {/* Delete Library Confirmation Modal */}
       {showDeleteModal && deletingLibrary && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-brand-mist dark:border-slate-700 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-destructive">
                 Delete Cost Library
               </h2>
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="p-1 hover:bg-slate-700 rounded"
+                className="p-1 hover:bg-brand-cream dark:hover:bg-slate-700 rounded"
               >
                 <X size={20} />
               </button>
             </div>
             <div className="space-y-4">
-              <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600">
-                <p className="text-slate-300 mb-2">
+              <div className="p-4 bg-brand-cream dark:bg-slate-700/30 rounded-lg border border-slate-600">
+                <p className="text-brand-slate dark:text-slate-300 mb-2">
                   Are you sure you want to delete the cost library{" "}
-                  <strong className="text-white">
+                  <strong className="text-brand-navy dark:text-white">
                     "{deletingLibrary.name}"
                   </strong>
                   ?
                 </p>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-brand-slate dark:text-slate-400">
                   This will permanently delete the library and all{" "}
                   {deletingLibrary._count.items} cost items in it. This action
                   cannot be undone.
@@ -1037,7 +1042,7 @@ export default function CostLibrariesPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors"
                 >
                   Cancel
                 </button>
@@ -1065,28 +1070,28 @@ export default function CostLibrariesPage() {
       {/* Delete Item Confirmation Modal */}
       {showDeleteItemModal && deletingItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg border border-brand-mist dark:border-slate-700 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-destructive">
                 Delete Cost Item
               </h2>
               <button
                 onClick={() => setShowDeleteItemModal(false)}
-                className="p-1 hover:bg-slate-700 rounded"
+                className="p-1 hover:bg-brand-cream dark:hover:bg-slate-700 rounded"
               >
                 <X size={20} />
               </button>
             </div>
             <div className="space-y-4">
-              <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600">
-                <p className="text-slate-300 mb-2">
+              <div className="p-4 bg-brand-cream dark:bg-slate-700/30 rounded-lg border border-slate-600">
+                <p className="text-brand-slate dark:text-slate-300 mb-2">
                   Are you sure you want to delete the cost item{" "}
-                  <strong className="text-white">
+                  <strong className="text-brand-navy dark:text-white">
                     "{deletingItem.description}"
                   </strong>
                   ?
                 </p>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-brand-slate dark:text-slate-400">
                   This will permanently delete the item from the cost library.
                   This action cannot be undone.
                 </p>
@@ -1094,7 +1099,7 @@ export default function CostLibrariesPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowDeleteItemModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors"
                 >
                   Cancel
                 </button>

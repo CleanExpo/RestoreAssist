@@ -22,6 +22,7 @@ import { getVariationAmountDisplay } from "@/lib/invoices/variation-amount";
 import { inheritGstRate } from "@/lib/invoices/inherit-gst-rate";
 import toast from "react-hot-toast";
 import { useAsyncAction } from "@/lib/client/use-async-action";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -208,7 +209,7 @@ export default function InvoiceVariationsPage({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to create variation");
+        throw new Error(apiErrorMessage(err) ?? "Failed to create variation");
       }
 
       toast.success("Variation created");

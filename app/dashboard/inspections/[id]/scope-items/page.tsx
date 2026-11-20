@@ -19,6 +19,7 @@ import {
   MapPin,
   CheckCircle2,
 } from "lucide-react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -120,7 +121,7 @@ function ScopeTableSkeleton() {
 
 function RowSaveIndicator({ saving }: { saving: boolean }) {
   if (!saving) return null;
-  return <Loader2 size={12} className="animate-spin text-cyan-500 shrink-0" />;
+  return <Loader2 size={12} className="animate-spin text-brand-harbour-500 shrink-0" />;
 }
 
 // ─── Editable scope row ───────────────────────────────────────────────────────
@@ -226,7 +227,7 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
             {item.autoDetermined && (
               <Badge
                 variant="secondary"
-                className="text-xs px-1.5 py-0 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-0"
+                className="text-xs px-1.5 py-0 bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-600 dark:text-brand-harbour-400 border-0"
               >
                 Auto
               </Badge>
@@ -241,7 +242,7 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
             )}
           </div>
           {item.justification && (
-            <p className="text-xs italic text-neutral-400 dark:text-slate-500">
+            <p className="text-xs italic text-brand-slate dark:text-slate-500">
               [{item.justification}]
             </p>
           )}
@@ -380,7 +381,7 @@ export default function ScopeItemsPage({
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Generation failed");
+        throw new Error(apiErrorMessage(err) ?? "Generation failed");
       }
       // The generator streams its progress — drain it before refetching.
       await res.text();
@@ -595,7 +596,7 @@ export default function ScopeItemsPage({
           <div className="w-14 h-14 rounded-2xl bg-neutral-100 dark:bg-slate-800 flex items-center justify-center">
             <FileText
               size={28}
-              className="text-neutral-400 dark:text-slate-500"
+              className="text-brand-slate dark:text-slate-500"
             />
           </div>
           <p className="text-neutral-500 dark:text-slate-400 max-w-sm">
@@ -605,7 +606,7 @@ export default function ScopeItemsPage({
           </p>
         </div>
       ) : filteredItems.length === 0 ? (
-        <div className="py-12 text-center text-neutral-400 dark:text-slate-500">
+        <div className="py-12 text-center text-brand-slate dark:text-slate-500">
           No items in the <strong>{activeCategory}</strong> category.
         </div>
       ) : (
@@ -682,7 +683,7 @@ export default function ScopeItemsPage({
               </span>
             </div>
             {totalCount - selectedCount > 0 && (
-              <div className="text-neutral-400 dark:text-slate-500 text-xs">
+              <div className="text-brand-slate dark:text-slate-500 text-xs">
                 {totalCount - selectedCount} deselected / excluded from report
               </div>
             )}

@@ -38,21 +38,21 @@ export default function DashboardError({
     <div className="min-h-[60vh] flex items-center justify-center p-6">
       <Card
         className="w-full max-w-md"
-        style={{ backgroundColor: "#1C2E47", borderColor: "#2d4566" }}
+        style={{ backgroundColor: "var(--color-brand-navy)", borderColor: "var(--color-brand-navy-hover)" }}
       >
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
               <ChromeAlertTriangle className="h-5 w-5 text-destructive" />
             </div>
-            <CardTitle className="text-white text-lg leading-tight">
+            <CardTitle className="text-brand-navy dark:text-white text-lg leading-tight">
               Dashboard Error
             </CardTitle>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-2">
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-brand-slate dark:text-slate-300">
             An unexpected error occurred. Please try again.
           </p>
           {error.digest && (
@@ -64,8 +64,8 @@ export default function DashboardError({
           <Button
             onClick={retry}
             size="sm"
-            style={{ backgroundColor: "#8A6B4E", borderColor: "#8A6B4E" }}
-            className="text-white hover:opacity-90"
+            style={{ backgroundColor: "var(--color-brand-cta)", borderColor: "var(--color-brand-cta)" }}
+            className="text-brand-navy dark:text-white hover:opacity-90"
           >
             <ChromeRefresh className="h-4 w-4" />
             Try again
@@ -74,7 +74,7 @@ export default function DashboardError({
             asChild
             variant="outline"
             size="sm"
-            className="border-slate-500 text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-400"
+            className="border-slate-500 bg-transparent text-brand-slate dark:text-slate-300 hover:bg-brand-cream dark:hover:bg-slate-700 hover:text-brand-navy dark:hover:text-white hover:border-slate-400"
           >
             <Link href="/dashboard">
               <ChromeHome className="h-4 w-4" />

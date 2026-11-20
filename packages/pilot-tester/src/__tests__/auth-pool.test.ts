@@ -63,7 +63,7 @@ describe("loadUserPool identity containment", () => {
   it("refuses an entry with a real-looking email (wrong domain)", async () => {
     const p = await poolFile([
       ...validPool.slice(1),
-      { ...validEntry, email: "phill@restoreassist.com.au" },
+      { ...validEntry, email: "phill@restoreassist.app" },
     ]);
     await expect(loadUserPool(p)).rejects.toThrow(/not a synthetic pilot/);
   });

@@ -3,8 +3,10 @@
  */
 
 import type { PrismaClient } from "@prisma/client";
+import { INACTIVE_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 import { loadClaimContext } from "@/lib/margot/claim-context";
 import { evaluateWaterDamageCompleteness } from "./water-damage-pack";
+import { daysSince } from "./inbox-ageing";
 
 export type CompletenessInboxRow = {
   inspectionId: string;
@@ -13,6 +15,10 @@ export type CompletenessInboxRow = {
   status: string;
   completionPercent: number;
   blocking: string[];
+  createdAt: string;
+  updatedAt: string;
+  /** Whole days since last job update — used for SLA badges in the inbox. */
+  daysIdle: number;
 };
 
 export async function listCompletenessInboxForOwner(
@@ -35,7 +41,7 @@ export async function listCompletenessInboxForOwner(
 
   const inspections = await prisma.inspection.findMany({
     where: {
-      status: { notIn: ["CLOSED", "ARCHIVED"] },
+      status: { notIn: [...INACTIVE_INSPECTION_STATUSES] },
       ...(orgId
         ? {
             OR: [
@@ -53,6 +59,8 @@ export async function listCompletenessInboxForOwner(
       propertyAddress: true,
       status: true,
       clientId: true,
+      createdAt: true,
+      updatedAt: true,
       report: { select: { incidentDate: true } },
     },
   });
@@ -83,6 +91,7 @@ export async function listCompletenessInboxForOwner(
 
     if (pack.blocking.length === 0) continue;
 
+    const daysIdle = daysSince(insp.updatedAt);
     rows.push({
       inspectionId: insp.id,
       inspectionNumber: insp.inspectionNumber,
@@ -90,6 +99,9 @@ export async function listCompletenessInboxForOwner(
       status: insp.status,
       completionPercent: pack.completionPercent,
       blocking: pack.blocking,
+      createdAt: insp.createdAt.toISOString(),
+      updatedAt: insp.updatedAt.toISOString(),
+      daysIdle,
     });
   }
 

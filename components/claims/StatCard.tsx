@@ -63,10 +63,10 @@ export function StatCard({
       title: "text-destructive",
     },
     info: {
-      card: "border-cyan-200 dark:border-cyan-800 bg-cyan-50/50 dark:bg-cyan-950/20",
-      icon: "text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900/30",
-      value: "text-cyan-700 dark:text-cyan-400",
-      title: "text-cyan-600 dark:text-cyan-400",
+      card: "border-brand-harbour-200 dark:border-brand-harbour-800 bg-brand-harbour-50/50 dark:bg-brand-harbour-950/20",
+      icon: "text-brand-harbour-600 dark:text-brand-harbour-400 bg-brand-harbour-100 dark:bg-brand-harbour-900/30",
+      value: "text-brand-harbour-700 dark:text-brand-harbour-400",
+      title: "text-brand-harbour-600 dark:text-brand-harbour-400",
     },
   };
 

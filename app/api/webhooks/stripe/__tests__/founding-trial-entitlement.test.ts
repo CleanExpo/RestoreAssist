@@ -53,6 +53,33 @@ vi.mock("@/lib/prisma", () => {
           store.rows.set(k, { ...create });
           return create;
         }),
+        updateMany: vi.fn(async ({ where, data }) => {
+          // Evaluate the conditions the code actually sent, including SQL null rules.
+          const holdsAll = (
+            r: Record<string, unknown>,
+            and: { OR: Record<string, unknown>[] }[],
+          ) =>
+            and.every(({ OR }) =>
+              OR.some((c) =>
+                Object.entries(c).every(([col, want]) =>
+                  want && typeof want === "object" && "notIn" in want
+                    ? r[col] != null &&
+                      !(want.notIn as unknown[]).includes(r[col])
+                    : r[col] === want,
+                ),
+              ),
+            );
+          const row = store.rows.get(key(where));
+          if (!row || !holdsAll(row, where.AND)) return { count: 0 };
+          Object.assign(row, data);
+          return { count: 1 };
+        }),
+        create: vi.fn(async ({ data }) => {
+          const k = key(data);
+          if (store.rows.has(k)) throw conflict();
+          store.rows.set(k, { ...data });
+          return data;
+        }),
         findUnique: vi.fn(async ({ where }) => {
           return store.rows.get(key(where.workspaceId_sku)) ?? null;
         }),

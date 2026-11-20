@@ -26,7 +26,13 @@ vi.mock("@/lib/idempotency", () => ({
 const stripeMock = vi.hoisted(() => ({
   customers: { create: vi.fn() },
   prices: { create: vi.fn() },
-  checkout: { sessions: { create: vi.fn(), expire: vi.fn() } },
+  checkout: {
+    sessions: {
+      create: vi.fn(),
+      expire: vi.fn(),
+      list: vi.fn(async () => ({ data: [] })),
+    },
+  },
   subscriptions: { retrieve: vi.fn(), update: vi.fn() },
 }));
 vi.mock("@/lib/stripe", () => ({ stripe: stripeMock }));
@@ -35,7 +41,16 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: vi.fn(), update: vi.fn() },
     featureEntitlement: { findUnique: vi.fn(), update: vi.fn() },
+    workspace: { findFirst: vi.fn(async () => ({ id: "ws_9" })) },
   },
+}));
+
+vi.mock("@/lib/workspace/provision", () => ({
+  ensureWorkspaceForUser: vi.fn(async () => ({ id: "ws_9" })),
+}));
+vi.mock("@/lib/billing/fulfill-recurring-addon", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  syncRecurringAddonsFromStripe: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/workspace/provider-connections", () => ({
@@ -62,6 +77,7 @@ describe("POST /api/addons/checkout — Founding Trial add-ons are not sold (RA-
       user: { id: "u1", email: "owner@example.com", name: "Owner" },
     } as never);
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      role: "ADMIN",
       subscriptionStatus: "ACTIVE",
       stripeCustomerId: "cus_1",
       subscriptionId: "sub_base_1",

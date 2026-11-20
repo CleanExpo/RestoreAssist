@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -500,8 +501,8 @@ export default function ContentsManifestPage() {
         </div>
       )}
 
-      {/* Empty state */}
-      {!draft && items.length === 0 && (
+      {/* Empty state: only when the load succeeded (RA-8084); the banner above carries Retry on failure */}
+      {!draft && items.length === 0 && isConfirmedEmpty(loadError, 0) && (
         <div className="w-full rounded-xl border border-dashed border-neutral-300 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 px-6 py-14 text-center">
           <Sparkles className="w-12 h-12 opacity-30 mx-auto mb-4" />
           <p className="text-base font-medium text-foreground">
@@ -602,7 +603,7 @@ export default function ContentsManifestPage() {
                           "w-3.5 h-3.5",
                           item.flagForReview
                             ? "text-amber-500 fill-amber-500/20"
-                            : "text-neutral-300",
+                            : "text-brand-slate dark:text-neutral-300",
                         )}
                         aria-label={
                           item.flagForReview

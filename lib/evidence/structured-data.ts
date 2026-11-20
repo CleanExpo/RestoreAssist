@@ -105,6 +105,14 @@ const VERIFIED_MANIFEST_FIELDS = [
   "gps",
   "userId",
   "deviceKeyId",
+  // RA-8388: both are inside the signed bytes. `payloadVersion` lets a stored
+  // signature still be re-verified after the payload shape evolves;
+  // `digestKind` says what `sha256` is a digest OF, so no reader has to guess
+  // whether a given row hashed file bytes or a canonical metadata payload.
+  // Additive: manifests signed before this change carry neither key, and the
+  // canonicaliser skips absent keys, so they verify exactly as before.
+  "payloadVersion",
+  "digestKind",
 ] as const;
 
 /**
@@ -147,6 +155,16 @@ export interface BuildStructuredDataInput {
   clientStructuredData?: unknown;
   /** Server-computed SHA-256 over the stored bytes; null for metadata-only. */
   fileSha256?: string | null;
+  /**
+   * RA-8388. Server-recomputed SHA-256 over the canonical metadata payload
+   * (`lib/evidence/metadata-payload.ts`), for the four classes that carry no
+   * bytes. Exactly one of `fileSha256` and `metadataSha256` is set.
+   *
+   * This is not `fileSha256` wearing a different hat: the two are kept apart
+   * so the manifest's `digestKind` always agrees with which one the server
+   * computed, and a reader is never left guessing what a stored hash covers.
+   */
+  metadataSha256?: string | null;
   /** Set ONLY after signature + binding verification succeeded. */
   verified?: VerifiedManifestInput | null;
   /** Server-owned storage locations. */
@@ -186,6 +204,7 @@ export function buildEvidenceStructuredDataObject(
   const {
     clientStructuredData,
     fileSha256 = null,
+    metadataSha256 = null,
     verified = null,
     storagePaths,
     downgradeReason = null,
@@ -228,8 +247,23 @@ export function buildEvidenceStructuredDataObject(
       if (value !== undefined) persisted[field] = value;
     }
     // sha256 is the SERVER hash by construction (binding already proved the
-    // manifest's own sha256 equals it).
-    if (fileSha256) persisted.sha256 = fileSha256;
+    // manifest's own sha256 equals it) — for BOTH digest kinds.
+    //
+    // RA-8388: this used to be `if (fileSha256)` alone, which made a signed
+    // metadata submission impossible rather than merely unsupported. With no
+    // file hash the key was dropped from the persisted subset while the
+    // signature covered it, so the fail-closed re-verify below rejected every
+    // such record — a 500 on 100% of signed metadata, not a security win.
+    //
+    // Invariant 3 of this module used to read "a metadata-only record must
+    // not carry an unverifiable integrity claim". Its reason was that
+    // metadata had nothing to hash. It now does, and the claim IS verifiable:
+    // the server recomputes the canonical payload digest itself before this
+    // point. The invariant is therefore restated rather than weakened — the
+    // persisted sha256 is always a digest THE SERVER computed, never a client
+    // claim, and `digestKind` in the signed bytes says what it covers.
+    const serverDigest = fileSha256 ?? metadataSha256;
+    if (serverDigest) persisted.sha256 = serverDigest;
 
     // (P1-2) Re-verify the signature over the EXACT persisted manifest subset
     // — the bytes we are about to store — BEFORE stamping verified. The route
