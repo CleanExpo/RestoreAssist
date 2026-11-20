@@ -45,9 +45,10 @@ afterEach(() => {
 });
 
 describe("AppThemeProvider", () => {
-  it("defaults the dashboard to dark when nothing is stored", () => {
+  it("defaults the dashboard to light when nothing is stored", () => {
     mount("/dashboard");
-    expect(html().contains("dark")).toBe(true);
+    expect(html().contains("dark")).toBe(false);
+    expect(html().contains("light")).toBe(true);
   });
 
   it("applies a stored Light choice on the dashboard", () => {
@@ -73,8 +74,14 @@ describe("AppThemeProvider", () => {
     expect(html().contains("dark")).toBe(false);
   });
 
-  it("keeps public pages dark even with Light stored", () => {
-    localStorage.setItem("theme", "light");
+  it("defaults public pages to light when nothing is stored", () => {
+    mount("/");
+    expect(html().contains("dark")).toBe(false);
+    expect(html().contains("light")).toBe(true);
+  });
+
+  it("applies a stored Dark choice on public pages", () => {
+    localStorage.setItem("theme", "dark");
     mount("/");
     expect(html().contains("dark")).toBe(true);
   });

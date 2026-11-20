@@ -52,7 +52,7 @@ export function UnderlayTransformControls({
         <button
           type="button"
           onClick={reset}
-          className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+          className="text-xs text-brand-harbour-400 hover:text-brand-harbour-300 transition-colors"
         >
           Reset
         </button>

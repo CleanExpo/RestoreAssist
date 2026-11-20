@@ -554,7 +554,7 @@ export default function ClaimsAnalysisPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-            <FileSearch className="h-6 w-6 text-cyan-500 shrink-0" aria-hidden />
+            <FileSearch className="h-6 w-6 text-brand-harbour-500 shrink-0" aria-hidden />
             Claims Analysis
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -932,7 +932,7 @@ export default function ClaimsAnalysisPage() {
         !summary && (
           <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-3">
-              <Loader2 className="h-8 w-8 text-cyan-500 animate-spin" />
+              <Loader2 className="h-8 w-8 text-brand-harbour-500 animate-spin" />
               <p className="text-sm text-muted-foreground">
                 Loading your latest analysis…
               </p>
@@ -1117,7 +1117,7 @@ export default function ClaimsAnalysisPage() {
                     {
                       label: "IICRC",
                       value: summary.totalMissingElements.iicrc || 0,
-                      tone: "text-cyan-600 dark:text-cyan-400",
+                      tone: "text-brand-harbour-600 dark:text-brand-harbour-400",
                     },
                     {
                       label: "AU Standards",
@@ -1196,7 +1196,7 @@ export default function ClaimsAnalysisPage() {
                 {analysisResults.map((result, idx) => (
                   <Card
                     key={`${result.fileId}-${idx}`}
-                    className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50! cursor-pointer transition-colors hover:border-cyan-500/40"
+                    className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50! cursor-pointer transition-colors hover:border-brand-harbour-500/40"
                     onClick={() => {
                       setSelectedDocument(result);
                       setViewMode("detail");
@@ -2025,11 +2025,11 @@ export default function ClaimsAnalysisPage() {
       )}
 
       {processing && (
-        <Card className="bg-white! dark:bg-slate-900/50! border-cyan-500/40">
+        <Card className="bg-white! dark:bg-slate-900/50! border-brand-harbour-500/40">
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-cyan-500" />
+                <Loader2 className="h-5 w-5 animate-spin text-brand-harbour-500" />
                 <CardTitle className="text-lg">Analysing claims</CardTitle>
               </div>
               <div className="flex items-center gap-3">

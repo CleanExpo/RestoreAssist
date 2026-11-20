@@ -216,14 +216,14 @@ export default function InvoiceAnalyticsPage() {
       <div>
         <Link
           href="/dashboard/invoices"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-cyan-500 dark:text-slate-400 dark:hover:text-cyan-400 transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-harbour-500 dark:text-slate-400 dark:hover:text-brand-harbour-400 transition-colors mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Invoices
         </Link>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-cyan-500/10 rounded-lg">
-            <BarChart3 className="h-6 w-6 text-cyan-500" />
+          <div className="p-2 bg-brand-harbour-500/10 rounded-lg">
+            <BarChart3 className="h-6 w-6 text-brand-harbour-500" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -268,7 +268,7 @@ export default function InvoiceAnalyticsPage() {
             Invoice analytics could not be loaded.
           </p>
         ) : !hasData ? (
-          <div className="text-center py-16 text-slate-400 dark:text-slate-500">
+          <div className="text-center py-16 text-brand-slate dark:text-slate-500">
             <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-40" />
             <p className="text-lg font-medium">No invoice data yet</p>
             <p className="text-sm mt-1">
@@ -276,7 +276,7 @@ export default function InvoiceAnalyticsPage() {
             </p>
             <Link
               href="/dashboard/invoices/new"
-              className="inline-block mt-4 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white text-sm rounded-lg transition-colors"
+              className="inline-block mt-4 px-4 py-2 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white text-sm rounded-lg transition-colors"
             >
               Create Invoice
             </Link>
@@ -337,8 +337,8 @@ export default function InvoiceAnalyticsPage() {
             {/* Paid This Month */}
             <Card className="py-5">
               <CardContent className="flex items-center gap-4">
-                <div className="p-3 bg-cyan-500/10 rounded-lg flex-shrink-0">
-                  <CheckCircle className="h-6 w-6 text-cyan-500" />
+                <div className="p-3 bg-brand-harbour-500/10 rounded-lg flex-shrink-0">
+                  <CheckCircle className="h-6 w-6 text-brand-harbour-500" />
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -363,7 +363,7 @@ export default function InvoiceAnalyticsPage() {
             </CardHeader>
             <CardContent>
               {last6Months.length === 0 ? (
-                <p className="text-sm text-slate-400 dark:text-slate-500 py-4">
+                <p className="text-sm text-brand-slate dark:text-slate-500 py-4">
                   No monthly data available.
                 </p>
               ) : (
@@ -381,7 +381,7 @@ export default function InvoiceAnalyticsPage() {
                         {/* Bar track */}
                         <div className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-6 overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500 flex items-center justify-end pr-2"
+                            className="h-full rounded-full bg-gradient-to-r from-brand-harbour-500 to-blue-500 transition-all duration-500 flex items-center justify-end pr-2"
                             style={{ width: `${Math.max(pct, 2)}%` }}
                           >
                             {pct >= 20 && (
@@ -394,7 +394,7 @@ export default function InvoiceAnalyticsPage() {
                         {/* Amount label outside bar (for narrow bars) */}
                         <div className="w-24 text-xs font-semibold text-slate-700 dark:text-slate-300 flex-shrink-0">
                           {pct < 20 ? fmt(row.revenue) : ""}
-                          <span className="text-slate-400 dark:text-slate-500 font-normal ml-1">
+                          <span className="text-brand-slate dark:text-slate-500 font-normal ml-1">
                             ({row.count} inv)
                           </span>
                         </div>
@@ -428,7 +428,7 @@ export default function InvoiceAnalyticsPage() {
                     <div className="text-xl font-bold text-slate-900 dark:text-white">
                       {fmt(bucket.amount)}
                     </div>
-                    <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    <div className="text-xs text-brand-slate dark:text-slate-500 mt-0.5">
                       {bucket.count === 0
                         ? "No invoices"
                         : bucket.count === 1
@@ -452,7 +452,7 @@ export default function InvoiceAnalyticsPage() {
             </CardHeader>
             <CardContent>
               {topClients.length === 0 ? (
-                <p className="text-sm text-slate-400 dark:text-slate-500 py-4">
+                <p className="text-sm text-brand-slate dark:text-slate-500 py-4">
                   No client data available.
                 </p>
               ) : (
@@ -474,7 +474,7 @@ export default function InvoiceAnalyticsPage() {
                         <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                           {client.name}
                         </p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                        <p className="text-xs text-brand-slate dark:text-slate-500">
                           {client.invoiceCount === 1
                             ? "1 invoice"
                             : `${client.invoiceCount} invoices`}
@@ -486,7 +486,7 @@ export default function InvoiceAnalyticsPage() {
                         <p className="text-sm font-bold text-slate-900 dark:text-white">
                           {fmt(client.totalInvoiced)}
                         </p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                        <p className="text-xs text-brand-slate dark:text-slate-500">
                           invoiced
                         </p>
                       </div>

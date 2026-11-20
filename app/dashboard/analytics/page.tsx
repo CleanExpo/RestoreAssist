@@ -23,7 +23,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
   Legend,
   Area,
   AreaChart,
@@ -69,19 +68,16 @@ import ActivityByDay from "./components/ActivityByDay";
 import PeriodComparison from "./components/PeriodComparison";
 import InsightsMovers from "./components/InsightsMovers";
 import AINarrativeCard from "./components/AINarrativeCard";
+import {
+  CHART_ACCENT,
+  CHART_SERIES,
+  CHART_TOOLTIP_STYLE,
+} from "@/lib/charts/palette";
 
-const CHART_CYAN = "#06b6d4";
-const CHART_AMBER = "#f59e0b";
-const STATE_PALETTE = [
-  "#06b6d4",
-  "#0ea5e9",
-  "#f59e0b",
-  "#10b981",
-  "#64748b",
-  "#e07020",
-  "#3b82f6",
-  "#14b8a6",
-];
+// Revenue and reports are two entities: each keeps its slot whichever one
+// the toggle shows (colour follows the entity, never its rank).
+const REVENUE_COLOUR = CHART_SERIES[0];
+const REPORTS_COLOUR = CHART_SERIES[1];
 
 interface AnalyticsData {
   kpis: {
@@ -450,7 +446,7 @@ export default function AnalyticsPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Analytics"
         description="Reports, revenue, and completion trends across your team."
-        icon={<BarChart3 className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<BarChart3 className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/analytics" })}
       />
 
@@ -471,7 +467,7 @@ export default function AnalyticsPage() {
                 "rounded-lg p-2",
                 selectedMember.role === "MANAGER"
                   ? "bg-info-subtle text-info-subtle-foreground"
-                  : "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
+                  : "bg-brand-harbour-500/10 text-brand-harbour-600 dark:text-brand-harbour-400",
               )}
             >
               {selectedMember.role === "MANAGER" ? (
@@ -708,13 +704,13 @@ export default function AnalyticsPage() {
                           <span className="text-sm font-medium text-foreground truncate">
                             {item.type || "Unknown"}
                           </span>
-                          <span className="text-sm font-semibold text-cyan-600 dark:text-cyan-400 tabular-nums">
+                          <span className="text-sm font-semibold text-brand-harbour-600 dark:text-brand-harbour-400 tabular-nums">
                             {item.count}
                           </span>
                         </div>
                         <div className="h-2 rounded-full bg-muted overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-cyan-500 transition-all duration-500"
+                            className="h-full rounded-full bg-brand-harbour-500 transition-all duration-500"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -764,26 +760,21 @@ export default function AnalyticsPage() {
                         className="text-muted-foreground"
                       />
                       <TooltipAny
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px",
-                          color: "hsl(var(--foreground))",
-                        }}
+                        contentStyle={CHART_TOOLTIP_STYLE}
                         // Let recharts infer the type. An explicit `number | string`
                         // is narrower than recharts' ValueType (which includes
                         // undefined) and fails to satisfy the overload; `?? 0` keeps
                         // an undefined value from rendering as "undefined reports".
                         formatter={(value) => [`${value ?? 0} reports`, "Count"]}
                       />
-                      <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                        {data.statePerformance.slice(0, 8).map((_, index) => (
-                          <Cell
-                            key={`state-${index}`}
-                            fill={STATE_PALETTE[index % STATE_PALETTE.length]}
-                          />
-                        ))}
-                      </Bar>
+                      {/* One series (reports per state): one colour. The axis names
+                          each bar, so colouring bars by state would only
+                          repeat the label. */}
+                      <Bar
+                        dataKey="value"
+                        fill={CHART_ACCENT}
+                        radius={[4, 4, 0, 0]}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </DashboardPanel>
@@ -851,7 +842,7 @@ export default function AnalyticsPage() {
               </div>
             ) : (
               <div className="p-10 sm:p-12 text-center space-y-3">
-                <Loader2 className="h-7 w-7 text-cyan-500 animate-spin mx-auto" />
+                <Loader2 className="h-7 w-7 text-brand-harbour-500 animate-spin mx-auto" />
                 <p className="text-sm text-muted-foreground">
                   Calculating revenue forecast…
                 </p>
@@ -935,12 +926,12 @@ export default function AnalyticsPage() {
                 <AreaChart data={data.reportTrendData}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={CHART_CYAN} stopOpacity={0.35} />
-                      <stop offset="95%" stopColor={CHART_CYAN} stopOpacity={0} />
+                      <stop offset="5%" stopColor={REVENUE_COLOUR} stopOpacity={0.35} />
+                      <stop offset="95%" stopColor={REVENUE_COLOUR} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorReports" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={CHART_AMBER} stopOpacity={0.35} />
-                      <stop offset="95%" stopColor={CHART_AMBER} stopOpacity={0} />
+                      <stop offset="5%" stopColor={REPORTS_COLOUR} stopOpacity={0.35} />
+                      <stop offset="95%" stopColor={REPORTS_COLOUR} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -966,12 +957,7 @@ export default function AnalyticsPage() {
                     className="text-muted-foreground"
                   />
                   <TooltipAny
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      color: "hsl(var(--foreground))",
-                    }}
+                    contentStyle={CHART_TOOLTIP_STYLE}
                     formatter={(value, name) => {
                       if (String(name) === "revenue")
                         return [
@@ -986,7 +972,7 @@ export default function AnalyticsPage() {
                     <Area
                       type="monotone"
                       dataKey="revenue"
-                      stroke={CHART_CYAN}
+                      stroke={REVENUE_COLOUR}
                       fillOpacity={1}
                       fill="url(#colorRevenue)"
                       name="Revenue"
@@ -996,7 +982,7 @@ export default function AnalyticsPage() {
                     <Area
                       type="monotone"
                       dataKey="reports"
-                      stroke={CHART_AMBER}
+                      stroke={REPORTS_COLOUR}
                       fillOpacity={1}
                       fill="url(#colorReports)"
                       name="Reports"

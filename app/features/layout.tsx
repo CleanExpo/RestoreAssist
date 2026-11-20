@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
   title: "Features - AI-Assisted Damage Assessment & IICRC S500 Alignment",
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
       "AI-assisted report generation, IICRC S500 alignment, and comprehensive restoration tools used by Australian professionals.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/features" },

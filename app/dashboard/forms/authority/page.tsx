@@ -215,7 +215,7 @@ export default function AuthorityFormsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FileText className="h-6 w-6 text-cyan-500" />
+          <FileText className="h-6 w-6 text-brand-harbour-500" />
           <h1 className="text-2xl font-semibold tracking-tight">
             Authority Forms
           </h1>
@@ -260,7 +260,7 @@ export default function AuthorityFormsPage() {
               onClick={() => setStatusFilter(tab.value)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                 active
-                  ? "bg-cyan-600 text-white shadow-sm"
+                  ? "bg-brand-harbour-600 text-white shadow-sm"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
@@ -269,7 +269,7 @@ export default function AuthorityFormsPage() {
                 <span
                   className={`ml-1.5 rounded-full px-1.5 py-0.5 text-xs ${
                     active
-                      ? "bg-white/20 text-white"
+                      ? "bg-brand-navy/5 dark:bg-white/20 text-brand-navy dark:text-white"
                       : "bg-slate-200 text-slate-500"
                   }`}
                 >
@@ -316,15 +316,15 @@ export default function AuthorityFormsPage() {
                 <TableRow>
                   <TableCell
                     colSpan={7}
-                    className="py-12 text-center text-slate-400"
+                    className="py-12 text-center text-brand-slate dark:text-slate-400"
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <FileText className="h-8 w-8 text-slate-300" />
+                      <FileText className="h-8 w-8 text-brand-slate dark:text-slate-300" />
                       <span>No authority forms found</span>
                       {statusFilter !== "ALL" && (
                         <button
                           onClick={() => setStatusFilter("ALL")}
-                          className="text-sm text-cyan-600 underline underline-offset-2"
+                          className="text-sm text-brand-harbour-600 underline underline-offset-2"
                         >
                           Clear filter
                         </button>
@@ -349,7 +349,7 @@ export default function AuthorityFormsPage() {
                       <TableCell>
                         <Link
                           href={`/dashboard/reports/${form.reportId}`}
-                          className="text-cyan-600 hover:underline underline-offset-2"
+                          className="text-brand-harbour-600 hover:underline underline-offset-2"
                         >
                           {form.report?.reportNumber ??
                             form.reportId.slice(0, 8)}

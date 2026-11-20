@@ -339,7 +339,7 @@ export default function ClaimsAnalysisExportPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-              <FileDown className="h-6 w-6 text-cyan-500 shrink-0" aria-hidden />
+              <FileDown className="h-6 w-6 text-brand-harbour-500 shrink-0" aria-hidden />
               Past Analyses
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -584,7 +584,7 @@ export default function ClaimsAnalysisExportPage() {
                         key={analysis.id}
                         className={
                           isSelected
-                            ? "bg-cyan-500/5 hover:bg-cyan-500/10"
+                            ? "bg-brand-harbour-500/5 hover:bg-brand-harbour-500/10"
                             : "hover:bg-muted/40"
                         }
                       >

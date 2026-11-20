@@ -39,6 +39,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  CHART_CHROME,
+  CHART_NEUTRAL,
+  CHART_STATUS,
+  seriesColour,
+} from "@/lib/charts/palette";
+import {
   getDryStandard,
   getMoistureStatus,
   STATUS_COLORS,
@@ -81,16 +87,6 @@ interface DryingProgressChartProps {
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-const SERIES_COLORS = [
-  "#06b6d4", // cyan-500
-  "#f59e0b", // amber-500
-  "#8b5cf6", // violet-500
-  "#f97316", // orange-500
-  "#ec4899", // pink-500
-  "#3b82f6", // blue-500
-  "#14b8a6", // teal-500
-  "#84cc16", // lime-500
-];
 
 /** Build a series key from location + surfaceType */
 function seriesKey(location: string, surfaceType: string) {
@@ -203,12 +199,14 @@ function seriesColor(
   index: number,
 ): string {
   const reading = latestMap[seriesK];
-  if (!reading) return SERIES_COLORS[index % SERIES_COLORS.length];
+  if (!reading) return seriesColour(index);
   const material = toMaterial(reading.surfaceType);
   const status = getMoistureStatus(reading.moistureLevel, material);
-  if (status === "dry") return "#10b981"; // emerald
-  if (status === "drying") return "#f59e0b"; // amber
-  return "#ef4444"; // red
+  // Status colours: the status table below names each state, so colour is
+  // never the only cue.
+  if (status === "dry") return CHART_STATUS.good;
+  if (status === "drying") return CHART_STATUS.warning;
+  return CHART_STATUS.critical;
 }
 
 // ── Custom Tooltip ────────────────────────────────────────────────
@@ -463,7 +461,7 @@ export default function DryingProgressChart({
           >
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="rgba(148,163,184,0.15)"
+              stroke={CHART_CHROME.grid}
             />
             <XAxis
               dataKey="day"
@@ -490,26 +488,26 @@ export default function DryingProgressChart({
             {/* Primary material dry threshold reference line */}
             <ReferenceLine
               y={primaryStd.dryThreshold}
-              stroke="#10b981"
+              stroke={CHART_CHROME.reference}
               strokeDasharray="6 3"
               label={{
                 value: `Dry target ≤${primaryStd.dryThreshold}%`,
                 position: "insideTopRight",
                 fontSize: 10,
-                fill: "#10b981",
+                fill: CHART_CHROME.reference,
               }}
             />
 
             {/* Target curve overlay — dashed navy line (S500:2021 §12.2.2) */}
             {targetCurve && (
               <>
-                {/* Gap shading between target and actual (warm brand colour) */}
+                {/* Gap shading under the target curve (neutral, faint) */}
                 <Area
                   type="monotone"
                   dataKey="__target"
                   name="Target curve"
                   stroke="none"
-                  fill="#8A6B4E"
+                  fill={CHART_NEUTRAL}
                   fillOpacity={0.1}
                   legendType="none"
                   connectNulls
@@ -517,12 +515,12 @@ export default function DryingProgressChart({
                   activeDot={false}
                   isAnimationActive={false}
                 />
-                {/* Dashed target line */}
+                {/* Dashed target line, in ink so it reads on light and dark */}
                 <Line
                   type="monotone"
                   dataKey="__target"
                   name="Target curve (S500:2021 §12.2.2)"
-                  stroke="#1C2E47"
+                  stroke={CHART_CHROME.ink}
                   strokeWidth={2}
                   strokeDasharray="8 4"
                   dot={false}
@@ -545,7 +543,7 @@ export default function DryingProgressChart({
                   stroke={color}
                   strokeWidth={2.5}
                   dot={{ r: 4.5, fill: color, strokeWidth: 0 }}
-                  activeDot={{ r: 6, strokeWidth: 2, stroke: "#fff" }}
+                  activeDot={{ r: 6, strokeWidth: 2, stroke: CHART_CHROME.surface }}
                   connectNulls
                 />
               );

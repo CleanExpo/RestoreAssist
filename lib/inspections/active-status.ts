@@ -45,6 +45,48 @@ export function finishedInPeriodWhere(range: { gte: Date; lt?: Date }) {
   };
 }
 
+/**
+ * States in which a Dispute Defence Pack may be generated (RA-8421). A dispute
+ * can only be raised after the invoice is issued (INVOICE_ISSUED -> DISPUTED in
+ * lib/progress/state-machine.ts), and issuing it moves the job to IN_BILLING,
+ * so IN_BILLING and CLOSED are the states that matter. SUBMITTED and legacy
+ * COMPLETED rows keep working. ARCHIVED is included: it is reached only from
+ * CLOSED (lib/lifecycle/inspection-state-machine.ts), and an insurer dispute can
+ * arrive after a job is archived; generating the pack does not change the job.
+ */
+export const DISPUTE_PACK_INSPECTION_STATUSES = [
+  "SUBMITTED",
+  "COMPLETED",
+  "IN_BILLING",
+  "CLOSED",
+  "ARCHIVED",
+] as const;
+
+/**
+ * States in which the NIR report may be generated: review-ready (ESTIMATED,
+ * SUBMITTED) and every later state, for the same reason as the dispute pack.
+ */
+export const NIR_REPORT_INSPECTION_STATUSES = [
+  "ESTIMATED",
+  ...DISPUTE_PACK_INSPECTION_STATUSES,
+] as const;
+
+export function inspectionStatusAllowsDisputePack(
+  status: string | null | undefined,
+): boolean {
+  return (DISPUTE_PACK_INSPECTION_STATUSES as readonly string[]).includes(
+    status ?? "",
+  );
+}
+
+export function inspectionStatusAllowsNirReport(
+  status: string | null | undefined,
+): boolean {
+  return (NIR_REPORT_INSPECTION_STATUSES as readonly string[]).includes(
+    status ?? "",
+  );
+}
+
 export function isActiveInspectionStatus(
   status: string | null | undefined,
 ): boolean {

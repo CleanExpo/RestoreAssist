@@ -24,6 +24,10 @@ import {
   failedResponseMessage,
 } from "@/lib/inspections/job-actions";
 import {
+  inspectionStatusAllowsDisputePack,
+  inspectionStatusAllowsNirReport,
+} from "@/lib/inspections/active-status";
+import {
   ATTENDANCE_NOT_RECORDED_LABEL,
   formatAttendanceDateEnAu,
 } from "@/lib/inspections/format-attendance-date";
@@ -368,7 +372,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                   "bg-success-subtle text-success-subtle-foreground",
                 isActive &&
                   !isRejected &&
-                  "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 ring-2 ring-cyan-500/30",
+                  "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-400 ring-2 ring-brand-harbour-500/30",
                 isActive &&
                   isRejected &&
                   "bg-destructive-subtle text-destructive-subtle-foreground ring-2 ring-red-500/30",
@@ -1298,7 +1302,7 @@ export default function InspectionDetailPage({
   if (loading && (!inspection || inspection.id !== id)) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin text-cyan-500" size={32} />
+        <Loader2 className="animate-spin text-brand-harbour-500" size={32} />
       </div>
     );
   }
@@ -1343,9 +1347,7 @@ export default function InspectionDetailPage({
   const canGenerateInvoice =
     (inspection.status === "SUBMITTED" && Boolean(inspection.signedAt)) ||
     inspection.status === "IN_BILLING";
-  const canGenerateReport = ["ESTIMATED", "SUBMITTED", "COMPLETED"].includes(
-    inspection.status,
-  );
+  const canGenerateReport = inspectionStatusAllowsNirReport(inspection.status);
 
   const TABS: {
     key: Tab;
@@ -1448,7 +1450,7 @@ export default function InspectionDetailPage({
           <button
             onClick={() => router.push("/dashboard/inspections")}
             aria-label="Back to inspections"
-            className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors shrink-0 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+            className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors shrink-0 focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none"
           >
             <ArrowLeft size={20} aria-hidden="true" />
           </button>
@@ -1507,7 +1509,7 @@ export default function InspectionDetailPage({
               size="sm"
               onClick={handleGenerateReport}
               disabled={generatingReport}
-              className="gap-1.5 bg-cyan-600 hover:bg-cyan-700"
+              className="gap-1.5 bg-brand-harbour-600 hover:bg-brand-harbour-700"
             >
               {generatingReport ? (
                 <>
@@ -1524,8 +1526,7 @@ export default function InspectionDetailPage({
           )}
           <ExportPdfButton inspectionId={inspection.id} />
           {disputePackAction &&
-            (inspection.status === "SUBMITTED" ||
-              inspection.status === "COMPLETED") && (
+            inspectionStatusAllowsDisputePack(inspection.status) && (
             <Button
               variant="outline"
               size="sm"
@@ -1593,7 +1594,7 @@ export default function InspectionDetailPage({
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 sm:ml-auto border-cyan-500/50 text-cyan-700 dark:text-cyan-300"
+              className="gap-1.5 sm:ml-auto border-brand-harbour-500/50 text-brand-harbour-700 dark:text-brand-harbour-300"
               asChild
             >
               <Link href={`/dashboard/inspections/${inspection.id}/invoice`}>
@@ -1618,7 +1619,7 @@ export default function InspectionDetailPage({
                     className="flex items-center justify-center py-4"
                   >
                     <Loader2
-                      className="animate-spin text-cyan-500"
+                      className="animate-spin text-brand-harbour-500"
                       size={24}
                       aria-hidden="true"
                     />
@@ -1658,7 +1659,7 @@ export default function InspectionDetailPage({
                       checked={inspection.pulseEnabled}
                       disabled={pulseSaving}
                       onChange={(e) => handleTogglePulse(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500"
+                      className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-brand-harbour-600 focus-visible:ring-2 focus-visible:ring-brand-harbour-500"
                       aria-label={PULSE_JOB_TOGGLE_LABEL}
                     />
                     <span className="text-sm">
@@ -1727,7 +1728,7 @@ export default function InspectionDetailPage({
           "p-4 flex flex-wrap items-center gap-2 sm:gap-3",
         )}
       >
-        <Button size="sm" className="gap-2 bg-cyan-600 hover:bg-cyan-700" asChild>
+        <Button size="sm" className="gap-2 bg-brand-harbour-600 hover:bg-brand-harbour-700" asChild>
           <Link href={`/dashboard/inspections/${inspection.id}/capture`}>
             <Camera className="h-4 w-4" />
             Open Guided Capture
@@ -1822,9 +1823,9 @@ export default function InspectionDetailPage({
               }
             }}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-t-md whitespace-nowrap transition-all border-b-2 -mb-px focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none",
+              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-t-md whitespace-nowrap transition-all border-b-2 -mb-px focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none",
               activeTab === tab.key
-                ? "border-cyan-500 text-cyan-700 dark:text-cyan-300 bg-white dark:bg-slate-900/60"
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-300 bg-white dark:bg-slate-900/60"
                 : "border-transparent text-neutral-600 dark:text-slate-400 hover:text-neutral-800 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-900/30",
             )}
           >
@@ -1836,7 +1837,7 @@ export default function InspectionDetailPage({
                 className={cn(
                   "px-1.5 py-0.5 rounded-full text-xs",
                   activeTab === tab.key
-                    ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600"
+                    ? "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-600"
                     : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-neutral-500",
                 )}
               >
@@ -1852,7 +1853,7 @@ export default function InspectionDetailPage({
             aria-selected={false}
             aria-expanded={moreSectionsOpen}
             onClick={() => setMoreSectionsOpen((v) => !v)}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-600 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-600 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none"
           >
             <ListChecks size={16} aria-hidden="true" />
             {moreSectionsOpen ? "Fewer sections" : "More sections"}
@@ -1862,7 +1863,7 @@ export default function InspectionDetailPage({
           href={`/dashboard/inspections/${inspection.id}/contents`}
           role="tab"
           aria-selected={false}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-600 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-600 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none"
         >
           <Package size={16} aria-hidden="true" />
           Contents
@@ -1884,7 +1885,7 @@ export default function InspectionDetailPage({
               <div className="text-xs font-medium text-neutral-600 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Moisture Readings
               </div>
-              <div className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">
+              <div className="text-2xl font-bold text-brand-harbour-700 dark:text-brand-harbour-400">
                 {inspection.moistureReadings.length}
               </div>
               {inspection.moistureReadings.length > 0 && (
@@ -1966,7 +1967,7 @@ export default function InspectionDetailPage({
                   <button
                     type="button"
                     onClick={() => setActiveTab("classification")}
-                    className="text-xs text-cyan-700 dark:text-cyan-600 hover:underline"
+                    className="text-xs text-brand-harbour-700 dark:text-brand-harbour-600 hover:underline"
                   >
                     Edit
                   </button>
@@ -2019,7 +2020,7 @@ export default function InspectionDetailPage({
                 <button
                   type="button"
                   onClick={() => setActiveTab("classification")}
-                  className="text-sm font-medium text-cyan-600 hover:underline"
+                  className="text-sm font-medium text-brand-harbour-600 hover:underline"
                 >
                   Classify now →
                 </button>
@@ -2053,12 +2054,12 @@ export default function InspectionDetailPage({
               <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Thermometer className="text-cyan-500" size={20} />
+                    <Thermometer className="text-brand-harbour-500" size={20} />
                     Environmental Data
                   </h3>
                   <button
                     onClick={() => setShowEnvForm(true)}
-                    className="text-sm text-cyan-600 hover:underline"
+                    className="text-sm text-brand-harbour-600 hover:underline"
                   >
                     Edit
                   </button>
@@ -2121,7 +2122,7 @@ export default function InspectionDetailPage({
             ) : (
               <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-4">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Thermometer className="text-cyan-500" size={20} />
+                  <Thermometer className="text-brand-harbour-500" size={20} />
                   {envData
                     ? "Edit Environmental Data"
                     : "Add Environmental Data"}
@@ -2162,7 +2163,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                 </div>
-                <div className="p-3 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 text-sm text-cyan-700 dark:text-cyan-300">
+                <div className="p-3 rounded-lg bg-brand-harbour-50 dark:bg-brand-harbour-900/20 text-sm text-brand-harbour-700 dark:text-brand-harbour-300">
                   Auto dew point:{" "}
                   <strong>
                     {envForm.ambientTemperature == null ||
@@ -2225,7 +2226,7 @@ export default function InspectionDetailPage({
                   <button
                     onClick={handleEnvSave}
                     disabled={savingEnv}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
                   >
                     {savingEnv ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -2246,7 +2247,7 @@ export default function InspectionDetailPage({
             {!envData && !showEnvForm && (
               <button
                 onClick={() => setShowEnvForm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <Plus size={16} /> Add Environmental Data
               </button>
@@ -2270,7 +2271,7 @@ export default function InspectionDetailPage({
               </h3>
               <button
                 onClick={() => setShowAddMoisture((v) => !v)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <Plus size={14} /> Add Reading
               </button>
@@ -2292,7 +2293,7 @@ export default function InspectionDetailPage({
               onApplied={() => fetchInspection()}
             />
             {showAddMoisture && (
-              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
+              <div className="p-4 rounded-xl border border-brand-harbour-200 dark:border-brand-harbour-800/50 bg-brand-harbour-50/30 dark:bg-brand-harbour-900/10 space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
@@ -2446,7 +2447,7 @@ export default function InspectionDetailPage({
                   <button
                     onClick={handleAddMoisture}
                     disabled={addingMoisture || !moistureForm.location}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
                   >
                     {addingMoisture ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -2651,13 +2652,13 @@ export default function InspectionDetailPage({
               </h3>
               <button
                 onClick={() => setShowAddAreaForm((v) => !v)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <Plus size={14} /> Add Area
               </button>
             </div>
             {showAddAreaForm && (
-              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
+              <div className="p-4 rounded-xl border border-brand-harbour-200 dark:border-brand-harbour-800/50 bg-brand-harbour-50/30 dark:bg-brand-harbour-900/10 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
@@ -2747,7 +2748,7 @@ export default function InspectionDetailPage({
                   <button
                     onClick={handleAddArea}
                     disabled={areaSubmitting}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
                   >
                     {areaSubmitting ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -2835,7 +2836,7 @@ export default function InspectionDetailPage({
                           <button
                             onClick={() => handleUpdateArea(area.id)}
                             disabled={areaSubmitting}
-                            className="px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-sm"
+                            className="px-3 py-1.5 bg-brand-harbour-600 text-white rounded-lg text-sm"
                           >
                             Save
                           </button>
@@ -2881,7 +2882,7 @@ export default function InspectionDetailPage({
                                 });
                               }}
                               aria-label={`Edit area ${area.roomZoneId}`}
-                              className="p-1 text-neutral-600 dark:text-neutral-400 hover:text-cyan-600 transition-colors rounded"
+                              className="p-1 text-neutral-600 dark:text-neutral-400 hover:text-brand-harbour-600 transition-colors rounded"
                             >
                               <Pencil size={14} aria-hidden="true" />
                             </button>
@@ -2937,7 +2938,7 @@ export default function InspectionDetailPage({
                   <button
                     type="button"
                     onClick={() => setShowAddAreaForm(true)}
-                    className="text-sm font-medium text-cyan-600 hover:underline"
+                    className="text-sm font-medium text-brand-harbour-600 hover:underline"
                   >
                     Add the first affected room →
                   </button>
@@ -3016,7 +3017,7 @@ export default function InspectionDetailPage({
                 type="button"
                 onClick={handleSaveClassification}
                 disabled={savingClass}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
               >
                 {savingClass ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -3071,10 +3072,10 @@ export default function InspectionDetailPage({
                     </div>
                     {cls.confidence && (
                       <div className="text-center">
-                        <div className="text-xs text-cyan-700 dark:text-cyan-400 uppercase font-semibold mb-1">
+                        <div className="text-xs text-brand-harbour-700 dark:text-brand-harbour-400 uppercase font-semibold mb-1">
                           Confidence
                         </div>
-                        <div className="w-16 h-16 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center text-2xl font-bold text-cyan-700 dark:text-cyan-300">
+                        <div className="w-16 h-16 rounded-full bg-brand-harbour-100 dark:bg-brand-harbour-900/30 flex items-center justify-center text-2xl font-bold text-brand-harbour-700 dark:text-brand-harbour-300">
                           {cls.confidence}%
                         </div>
                       </div>
@@ -3136,7 +3137,7 @@ export default function InspectionDetailPage({
                     unit: "",
                   });
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white transition-colors"
               >
                 <Plus size={15} />
                 Add Scope Item
@@ -3145,7 +3146,7 @@ export default function InspectionDetailPage({
                   navigation entry anywhere in the app. */}
               <Link
                 href={`/dashboard/inspections/${inspection.id}/scope-items`}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-cyan-500 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-brand-harbour-500 text-brand-harbour-600 hover:bg-brand-harbour-50 dark:hover:bg-brand-harbour-900/20 transition-colors"
               >
                 Open Scope Editor
               </Link>
@@ -3206,8 +3207,8 @@ export default function InspectionDetailPage({
             </Dialog>
 
             {showAddScope && (
-              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
-                <h4 className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">
+              <div className="p-4 rounded-xl border border-brand-harbour-200 dark:border-brand-harbour-800/50 bg-brand-harbour-50/30 dark:bg-brand-harbour-900/10 space-y-3">
+                <h4 className="text-sm font-semibold text-brand-harbour-700 dark:text-brand-harbour-300">
                   New Scope Item
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -3225,7 +3226,7 @@ export default function InspectionDetailPage({
                         }))
                       }
                       placeholder="e.g. Remove wet carpet and pad"
-                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                     />
                   </div>
                   <div>
@@ -3242,7 +3243,7 @@ export default function InspectionDetailPage({
                         }))
                       }
                       placeholder="e.g. remove_carpet"
-                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                     />
                   </div>
                   <div>
@@ -3259,7 +3260,7 @@ export default function InspectionDetailPage({
                         }))
                       }
                       placeholder="e.g. 25"
-                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                     />
                   </div>
                   <div>
@@ -3273,7 +3274,7 @@ export default function InspectionDetailPage({
                         setAddScopeForm((f) => ({ ...f, unit: e.target.value }))
                       }
                       placeholder="e.g. m²"
-                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                     />
                   </div>
                 </div>
@@ -3322,7 +3323,7 @@ export default function InspectionDetailPage({
                         toast.error("Failed to add scope item");
                       }
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white transition-colors"
                   >
                     <Save size={14} /> Add Item
                   </button>
@@ -3355,7 +3356,7 @@ export default function InspectionDetailPage({
                               description: e.target.value,
                             }))
                           }
-                          className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                          className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
@@ -3372,7 +3373,7 @@ export default function InspectionDetailPage({
                                 quantity: e.target.value,
                               }))
                             }
-                            className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                            className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                           />
                         </div>
                         <div>
@@ -3388,7 +3389,7 @@ export default function InspectionDetailPage({
                                 unit: e.target.value,
                               }))
                             }
-                            className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                            className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                           />
                         </div>
                       </div>
@@ -3434,7 +3435,7 @@ export default function InspectionDetailPage({
                               toast.error("Failed to update scope item");
                             }
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white transition-colors"
                         >
                           <Save size={14} /> Save
                         </button>
@@ -3508,7 +3509,7 @@ export default function InspectionDetailPage({
                             {item.description}
                           </span>
                           {item.autoDetermined && (
-                            <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400">
+                            <span className="px-1.5 py-0.5 rounded text-xs bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-400">
                               Auto
                             </span>
                           )}
@@ -3543,7 +3544,7 @@ export default function InspectionDetailPage({
                             });
                           }}
                           aria-label={`Edit scope item: ${item.description}`}
-                          className="p-1.5 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+                          className="p-1.5 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-brand-harbour-600 hover:bg-brand-harbour-50 dark:hover:bg-brand-harbour-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none"
                         >
                           <Pencil size={14} aria-hidden="true" />
                         </button>
@@ -3609,7 +3610,7 @@ export default function InspectionDetailPage({
                   generatingCosts ||
                   scopeItems.filter((s) => s.isSelected).length === 0
                 }
-                className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
               >
                 {generatingCosts ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -3705,7 +3706,7 @@ export default function InspectionDetailPage({
                   <button
                     type="button"
                     onClick={() => setActiveTab("scope")}
-                    className="text-sm font-medium text-cyan-600 hover:underline"
+                    className="text-sm font-medium text-brand-harbour-600 hover:underline"
                   >
                     Add / select scope items →
                   </button>
@@ -3780,7 +3781,7 @@ export default function InspectionDetailPage({
                 {inspection.photos.map((photo) => (
                   <div
                     key={photo.id}
-                    className="group relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-slate-700/50 hover:border-cyan-400 transition-all bg-neutral-100 dark:bg-slate-800"
+                    className="group relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-slate-700/50 hover:border-brand-harbour-400 transition-all bg-neutral-100 dark:bg-slate-800"
                   >
                     <a
                       href={photo.url}
@@ -3829,7 +3830,7 @@ export default function InspectionDetailPage({
                           <button
                             type="button"
                             onClick={() => handleSavePhotoCaption(photo.id)}
-                            className="flex-1 text-[11px] py-1 rounded bg-cyan-600 text-white"
+                            className="flex-1 text-[11px] py-1 rounded bg-brand-harbour-600 text-white"
                           >
                             Save
                           </button>
@@ -3861,7 +3862,7 @@ export default function InspectionDetailPage({
                   <span className="text-sm">Use Upload Photo above to choose a file.</span>
                   <Link
                     href={`/dashboard/inspections/${inspection.id}/capture`}
-                    className="text-sm font-medium text-cyan-600 hover:underline"
+                    className="text-sm font-medium text-brand-harbour-600 hover:underline"
                   >
                     Open Guided Capture →
                   </Link>

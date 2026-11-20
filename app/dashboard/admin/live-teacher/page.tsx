@@ -255,7 +255,7 @@ export default function LiveTeacherGateMetricsDashboard() {
         <p className="text-xs text-neutral-500 dark:text-slate-400">{error}</p>
         <button
           onClick={fetchData}
-          className="text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
+          className="text-xs font-medium text-brand-harbour-600 dark:text-brand-harbour-400 hover:underline"
         >
           Retry
         </button>
@@ -300,7 +300,7 @@ export default function LiveTeacherGateMetricsDashboard() {
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <div className="w-2 h-2 rounded-full bg-cyan-400" />
+          <div className="w-2 h-2 rounded-full bg-brand-harbour-400" />
           <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400">
             Live Teacher Pilot
           </span>

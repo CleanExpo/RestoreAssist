@@ -10,7 +10,30 @@ import { CHECKOUT_CANCEL_PATH } from "@/lib/billing/checkout-presentation";
 
 export type CheckoutReturnTarget = "team-invite";
 
+/**
+ * RA-8466: an add-on bought from the setup wizard or the Field Add-Ons page
+ * returns there, paid or cancelled, instead of leaving setup for the
+ * Subscription page (RA-8272 item 3). Add-on checkout only; the plan
+ * checkout keeps its own closed list above.
+ */
+export type AddonCheckoutReturnTarget = CheckoutReturnTarget | "setup" | "addons";
+
 const TEAM_INVITE_CANCEL_PATH = "/dashboard/team?invite=1&checkout=cancelled";
+
+const ADDON_CANCEL_PATHS: Record<AddonCheckoutReturnTarget, string> = {
+  "team-invite": TEAM_INVITE_CANCEL_PATH,
+  setup: "/setup?checkout=cancelled",
+  addons: "/dashboard/addons?checkout=cancelled",
+};
+
+/** Where the success page sends the buyer once an add-on is confirmed. */
+const ADDON_DONE_PATHS: Record<"setup" | "addons", string> = {
+  setup: "/setup?checkout=done",
+  addons: "/dashboard/addons?checkout=done",
+};
+
+/** Today's destination after an add-on purchase, kept for every other caller. */
+export const ADDON_DONE_DEFAULT_PATH = "/dashboard/subscription?addon=success";
 
 /** Absent is fine and keeps today's URLs; anything unknown is refused. */
 export function parseCheckoutReturn(
@@ -21,15 +44,35 @@ export function parseCheckoutReturn(
   return { ok: false };
 }
 
+/** The add-on checkout's closed list: the plan list plus setup and Field Add-Ons. */
+export function parseAddonCheckoutReturn(
+  value: unknown,
+): { ok: boolean; target?: AddonCheckoutReturnTarget } {
+  if (value === undefined) return { ok: true };
+  if (value === "team-invite" || value === "setup" || value === "addons") {
+    return { ok: true, target: value };
+  }
+  return { ok: false };
+}
+
+/**
+ * The success page's `next` value mapped to a fixed path. Anything else,
+ * including a missing or unknown value, keeps today's Subscription page.
+ */
+export function addonDonePath(next: string | null | undefined): string {
+  if (next === "setup" || next === "addons") return ADDON_DONE_PATHS[next];
+  return ADDON_DONE_DEFAULT_PATH;
+}
+
 export function seatReturnUrls(
   baseUrl: string,
   addonKey: string,
-  target: CheckoutReturnTarget | undefined,
+  target: AddonCheckoutReturnTarget | undefined,
 ): { successUrl: string; cancelUrl: string } {
   const next = target ? `&next=${target}` : "";
   return {
     successUrl: `${baseUrl}/dashboard/success?addon=${addonKey}${next}&session_id={CHECKOUT_SESSION_ID}`,
-    cancelUrl: `${baseUrl}${target ? TEAM_INVITE_CANCEL_PATH : CHECKOUT_CANCEL_PATH}`,
+    cancelUrl: `${baseUrl}${target ? ADDON_CANCEL_PATHS[target] : CHECKOUT_CANCEL_PATH}`,
   };
 }
 
