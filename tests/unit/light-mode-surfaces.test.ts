@@ -15,7 +15,10 @@ import { readFileSync, readdirSync, statSync } from "fs";
 import { join, resolve } from "path";
 import { describe, expect, it } from "vitest";
 
-import { findUnpairedDarkClasses } from "@/lib/theme/dark-only-classes";
+import {
+  findSameToneTextOnFill,
+  findUnpairedDarkClasses,
+} from "@/lib/theme/dark-only-classes";
 
 const ROOT = resolve(__dirname, "../..");
 
@@ -195,4 +198,37 @@ describe("light-mode surfaces (RA-8305, RA-8383)", () => {
   it.each(SHARED_SURFACES)("%s has no dark-only colour class", (file) => {
     expect(hitsIn(file)).toEqual([]);
   });
+
+  it("flags text the same tone as its own fill, one class string at a time (slice 1b)", () => {
+    // The defect a pairing codemod made: a dark pill relit to bg-white, text left white.
+    expect(
+      findSameToneTextOnFill(`a = "bg-white dark:bg-slate-200 text-white dark:text-slate-900";`),
+    ).toEqual(["1:text-white on bg-white"]);
+    expect(findSameToneTextOnFill(`a = "bg-slate-900 text-brand-navy";`)).toEqual([
+      "1:text-brand-navy on bg-slate-900",
+    ]);
+    // Readable pairs and dark: values are fine.
+    expect(
+      findSameToneTextOnFill(`a = "bg-brand-navy dark:bg-slate-200 text-white dark:text-slate-900";`),
+    ).toEqual([]);
+    // Each ternary branch of a template literal is its own class string.
+    expect(
+      findSameToneTextOnFill(
+        "a = `p-2 ${on ? \"bg-brand-cta text-white\" : \"bg-brand-cream text-brand-slate\"}`;",
+      ),
+    ).toEqual([]);
+    expect(
+      findSameToneTextOnFill("a = `p-2\n ${on ? \"bg-white text-white\" : \"x\"}`;"),
+    ).toEqual(["2:text-white on bg-white"]);
+    // A translucent fill shows what is behind it; a bare dark island is dark by design.
+    expect(findSameToneTextOnFill(`a = "bg-white/10 text-white";`)).toEqual([]);
+    expect(findSameToneTextOnFill(`a = "dark bg-slate-900 text-slate-900";`)).toEqual([]);
+  });
+
+  it.each([...DASHBOARD_FILES, ...SHARED_SURFACES])(
+    "%s has no text the same tone as its own fill",
+    (file) => {
+      expect(findSameToneTextOnFill(readFileSync(join(ROOT, file), "utf8"))).toEqual([]);
+    },
+  );
 });

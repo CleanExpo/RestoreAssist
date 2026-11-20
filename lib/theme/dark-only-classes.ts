@@ -173,3 +173,45 @@ export function findUnpairedDarkClasses(source: string): string[] {
   }
   return hits;
 }
+
+const LIGHT_TONE = new RegExp(
+  `^(?:white|brand-(?:cream|mist)|${NEUTRAL}-(?:50|100|200))$`,
+);
+const DARK_TONE = new RegExp(
+  `^(?:black|brand-navy|${NEUTRAL}-(?:800|900|950))$`,
+);
+const tone = (colour: string) =>
+  LIGHT_TONE.test(colour) ? "light" : DARK_TONE.test(colour) ? "dark" : null;
+
+/**
+ * Return `line:text-X on bg-Y` for every class string whose light-mode text
+ * and solid light-mode fill are both light or both dark (RA-8383 slice 1b:
+ * a pairing codemod relit a dark pill to bg-white and left text-white on it).
+ * Only plain classes count (no variant prefix); a translucent fill (`/N`)
+ * shows what is behind it, so it is not a fill here. A bare `dark` island
+ * string is dark in both themes by design and is skipped.
+ */
+export function findSameToneTextOnFill(source: string): string[] {
+  const hits: string[] = [];
+  for (const seg of segments(source)) {
+    if (!seg.isString) continue;
+    // A template literal holds several class strings: its static text and
+    // each quoted ternary branch inside ${...}. Judge each one on its own.
+    let line = seg.line;
+    for (const part of seg.text.split(/["'`]|\$\{|\}/)) {
+      const tokens = part.split(TOKEN_SPLIT).filter(Boolean);
+      if (!tokens.includes("dark")) {
+        const fills = tokens.filter((t) => /^bg-[^/:]+$/.test(t)).map((t) => t.slice(3));
+        const texts = tokens.filter((t) => /^text-[^/:]+$/.test(t)).map((t) => t.slice(5));
+        for (const f of fills) {
+          for (const t of texts) {
+            const ft = tone(f);
+            if (ft && ft === tone(t)) hits.push(`${line}:text-${t} on bg-${f}`);
+          }
+        }
+      }
+      line += part.split("\n").length - 1;
+    }
+  }
+  return hits;
+}

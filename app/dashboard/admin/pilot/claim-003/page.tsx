@@ -317,7 +317,7 @@ export default function Claim003ReInspectionPage() {
           className={cn(
             "text-xs font-medium px-3 py-1.5 rounded-lg transition-all",
             !batchMode
-              ? "bg-white dark:bg-slate-200 text-white dark:text-slate-900"
+              ? "bg-brand-navy dark:bg-slate-200 text-white dark:text-slate-900"
               : "text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800",
           )}
         >
@@ -332,7 +332,7 @@ export default function Claim003ReInspectionPage() {
           className={cn(
             "text-xs font-medium px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5",
             batchMode
-              ? "bg-white dark:bg-slate-200 text-white dark:text-slate-900"
+              ? "bg-brand-navy dark:bg-slate-200 text-white dark:text-slate-900"
               : "text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800",
           )}
         >
