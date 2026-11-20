@@ -1,4 +1,5 @@
-import { ExternalLink, GraduationCap } from "lucide-react";
+import { ChromeExternalLink as ExternalLink } from "@/components/brand/chrome-icons";
+import { RAIcon } from "@/components/brand/RAIcon";
 import { cn } from "@/lib/utils";
 import { carsiTrainingForClaimType } from "@/lib/carsi/training-links";
 
@@ -23,7 +24,7 @@ export function CarsiTrainingPanel({ claimType, className }: CarsiTrainingPanelP
       )}
     >
       <div className="flex items-center gap-2">
-        <GraduationCap aria-hidden className="h-4 w-4 text-neutral-500 dark:text-slate-400" />
+        <RAIcon name="report" decorative className="h-4 w-4 text-neutral-500 dark:text-slate-400" />
         <h2
           id="carsi-training-heading"
           className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-slate-400"
