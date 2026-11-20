@@ -84,7 +84,7 @@ export function InspectionPhotoUploadControl({
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className="rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+      <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className="rounded-lg bg-brand-harbour-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
         {busy ? "Uploading…" : label}
       </button>
       <input ref={inputRef} type="file" accept="image/*" multiple={multiple} aria-label="Choose inspection photos" className="hidden" onChange={(event) => {

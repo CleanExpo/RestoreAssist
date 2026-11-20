@@ -34,14 +34,14 @@ export function PortalAccessExplainer({
       <p className="mt-4 text-sm text-slate-400">
         <Link
           href={PORTAL_PATHS.recovery}
-          className="font-medium text-cyan-400/90 hover:underline"
+          className="font-medium text-brand-harbour-400/90 hover:underline"
         >
           Request a new invite
         </Link>
         <span className="px-2 text-slate-600">·</span>
         <Link
           href={`${PORTAL_PATHS.help}/access-and-recovery`}
-          className="font-medium text-cyan-400/90 hover:underline"
+          className="font-medium text-brand-harbour-400/90 hover:underline"
         >
           How access works
         </Link>

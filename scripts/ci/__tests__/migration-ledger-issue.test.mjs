@@ -3,13 +3,24 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import {
   LABEL,
+  TARGETS,
   contextFromEnv,
   createGitHubClient,
   planIssueActions,
   syncLedgerIssue,
+  targetConfig,
 } from "../migration-ledger-issue.mjs";
+
+const ISSUE_SCRIPT = fileURLToPath(
+  new URL("../migration-ledger-issue.mjs", import.meta.url),
+);
 
 const WORKFLOW = fileURLToPath(
   new URL(
@@ -29,12 +40,18 @@ const CONTEXT = {
  * In-memory stand-in for the parts of the GitHub REST API the alarm uses.
  * It records every request so a test can prove which endpoints were called.
  */
-function fakeGitHub({ issues = [], labels = [LABEL], failOn = null } = {}) {
+function fakeGitHub({
+  issues = [],
+  labels = [LABEL],
+  failOn = null,
+  label = LABEL,
+} = {}) {
   const state = {
     issues: issues.map((issue) => ({
       comments: [],
       state: "open",
       labels: [LABEL],
+      comments: [],
       ...issue,
     })),
     labels: [...labels],
@@ -68,9 +85,11 @@ function fakeGitHub({ issues = [], labels = [LABEL], failOn = null } = {}) {
     });
     if (failOn && failOn(method, path)) return reply(500, { message: "boom" });
 
-    if (method === "GET" && path === `/labels/${encodeURIComponent(LABEL)}`) {
-      return state.labels.includes(LABEL)
-        ? reply(200, { name: LABEL })
+    const labelGet = path.match(/^\/labels\/([^/]+)$/);
+    if (method === "GET" && labelGet) {
+      const name = decodeURIComponent(labelGet[1]);
+      return state.labels.includes(name)
+        ? reply(200, { name })
         : reply(404, { message: "Not Found" });
     }
     if (method === "POST" && path === "/labels") {
@@ -129,6 +148,7 @@ function fakeGitHub({ issues = [], labels = [LABEL], failOn = null } = {}) {
     repository: "CleanExpo/RestoreAssist",
     apiUrl: "https://api.github.com",
     fetchImpl,
+    label,
   });
   return { state, client };
 }
@@ -394,12 +414,15 @@ test("workflow: runs on every push to main that touches prisma/migrations", () =
   assert.match(on, /^ {2}workflow_dispatch:/m);
 });
 
-test("workflow: the issue step runs only for production on main, even after a failed check", () => {
-  const step = stepBlock("Keep one issue open while production is behind");
+test("workflow: the issue step runs for both legs on main, each under its own target, even after a failed check", () => {
+  // RA-8386: the sandbox leg went red daily for 8+ days with no owner because
+  // only production had the alarm. Each leg now keeps its own issue.
+  const step = stepBlock("Keep one issue open while this database is behind");
   const condition = step.match(/^\s*if:\s*(.*)$/m)?.[1] ?? "";
   assert.match(condition, /!cancelled\(\)/);
-  assert.match(condition, /matrix\.target\.name == 'production'/);
+  assert.doesNotMatch(condition, /matrix\.target\.name/);
   assert.match(condition, /github\.ref == 'refs\/heads\/main'/);
+  assert.match(step, /LEDGER_TARGET:\s*\$\{\{\s*matrix\.target\.name\s*\}\}/);
   assert.match(
     step,
     /PARITY_OUTCOME:\s*\$\{\{\s*steps\.parity\.outcome\s*\}\}/,
@@ -415,10 +438,11 @@ test("workflow: a failed check still fails the job", () => {
   const fail = stepBlock("Fail the job when the ledger is not in parity");
   assert.match(fail, /steps\.parity\.outcome != 'success'/);
   assert.match(fail, /exit 1/);
-  assert.ok(
-    code.indexOf("Fail the job when the ledger") >
-      code.indexOf("Keep one issue open"),
+  const alarmAt = code.indexOf(
+    "Keep one issue open while this database is behind",
   );
+  assert.ok(alarmAt >= 0, "the alarm step exists");
+  assert.ok(code.indexOf("Fail the job when the ledger") > alarmAt);
 });
 
 test("workflow: issues:write is granted to the job only, top level stays read-only", () => {
@@ -457,7 +481,7 @@ test("workflow: every run judges production against the current branch tip", () 
   assert.match(checkout, /^\s*id:\s*checkout$/m);
   assert.match(checkout, /^\s*with:\n\s*ref:\s*\$\{\{\s*github\.ref\s*\}\}$/m);
   assert.doesNotMatch(code, /ref:\s*\$\{\{\s*github\.sha\s*\}\}/);
-  const issue = stepBlock("Keep one issue open while production is behind");
+  const issue = stepBlock("Keep one issue open while this database is behind");
   assert.match(
     issue,
     /run:\s*CHECKED_SHA="\$\(git rev-parse HEAD\)" node scripts\/ci\/migration-ledger-issue\.mjs/,
@@ -501,4 +525,222 @@ test("workflow: never applies, resolves or pushes migrations", () => {
     /secrets\./,
     "the alarm needs no secret beyond the job token",
   );
+});
+
+// ------------------------------------------- RA-8386: per-target alarm
+
+test("RA-8386 targets: production keeps its label and title; sandbox gets its own", () => {
+  assert.equal(TARGETS.production.label, "migration-ledger-behind");
+  assert.equal(LABEL, TARGETS.production.label);
+  assert.equal(
+    TARGETS.production.title,
+    "Production database is missing migrations that are on main",
+  );
+  assert.notEqual(TARGETS.sandbox.label, TARGETS.production.label);
+  assert.match(TARGETS.sandbox.label, /sandbox/);
+  assert.match(TARGETS.sandbox.title, /^Sandbox database/);
+  assert.equal(targetConfig("sandbox"), TARGETS.sandbox);
+  assert.equal(targetConfig("production"), TARGETS.production);
+  for (const bad of [
+    undefined,
+    "",
+    "Production",
+    "sandbx",
+    "toString",
+    "__proto__",
+  ]) {
+    assert.throws(() => targetConfig(bad), /LEDGER_TARGET/, String(bad));
+  }
+});
+
+test("RA-8386 cross-talk: a passing sandbox check never closes the production issue", async () => {
+  // Both legs run in one workflow run. If they shared a label, a green sandbox
+  // would close a live production alarm.
+  const github = fakeGitHub({
+    issues: [{ number: 5, labels: [TARGETS.production.label] }],
+    labels: [TARGETS.production.label, TARGETS.sandbox.label],
+    label: TARGETS.sandbox.label,
+  });
+  await syncLedgerIssue({
+    outcome: "success",
+    line: "[migration-ledger-parity] PASS https://restoreassist-sandbox.vercel.app: ledger matches the repo",
+    context: { ...CONTEXT, target: "https://restoreassist-sandbox.vercel.app" },
+    client: github.client,
+    target: TARGETS.sandbox,
+  });
+  const production = github.state.issues.find((issue) => issue.number === 5);
+  assert.equal(production.state, "open");
+  assert.deepEqual(production.comments, []);
+});
+
+test("RA-8386 lifecycle: sandbox behind opens one sandbox issue; production's is untouched", async () => {
+  const github = fakeGitHub({
+    issues: [{ number: 5, labels: [TARGETS.production.label] }],
+    labels: [TARGETS.production.label],
+    label: TARGETS.sandbox.label,
+  });
+  const line =
+    "[migration-ledger-parity] FAIL (drift) https://restoreassist-sandbox.vercel.app: applied 245 migrations, repo has 246";
+  const context = {
+    ...CONTEXT,
+    target: "https://restoreassist-sandbox.vercel.app",
+  };
+  for (let run = 0; run < 2; run += 1) {
+    await syncLedgerIssue({
+      outcome: "failure",
+      line,
+      context,
+      client: github.client,
+      target: TARGETS.sandbox,
+    });
+  }
+  const sandboxOpen = openIssues(github.state).filter((issue) =>
+    issue.labels.includes(TARGETS.sandbox.label),
+  );
+  assert.equal(
+    sandboxOpen.length,
+    1,
+    "one sandbox issue across two failing runs",
+  );
+  assert.equal(sandboxOpen[0].title, TARGETS.sandbox.title);
+  assert.match(sandboxOpen[0].body, /sandbox database/i);
+  assert.match(sandboxOpen[0].body, /applied 245 migrations, repo has 246/);
+  assert.doesNotMatch(sandboxOpen[0].body, /production release step/);
+  assert.ok(
+    github.state.labels.includes(TARGETS.sandbox.label),
+    "sandbox label created",
+  );
+  const production = github.state.issues.find((issue) => issue.number === 5);
+  assert.equal(production.state, "open");
+  assert.deepEqual(production.comments, []);
+  const lists = github.state.requests.filter(
+    (r) => r.method === "GET" && r.path === "/issues",
+  );
+  assert.ok(
+    lists.every((r) => r.query.get("labels") === TARGETS.sandbox.label),
+  );
+});
+
+test("RA-8386 production lifecycle text is unchanged", async () => {
+  const { state, client } = fakeGitHub();
+  await syncLedgerIssue({
+    outcome: "failure",
+    line: "x",
+    context: CONTEXT,
+    client,
+  });
+  const [issue] = openIssues(state);
+  assert.equal(
+    issue.title,
+    "Production database is missing migrations that are on main",
+  );
+  assert.match(
+    issue.body,
+    /^<!-- managed-by: \.github\/workflows\/migration-ledger-parity\.yml/,
+  );
+  assert.match(issue.body, /production release step/);
+});
+
+test("RA-8386 CLI: a missing or unknown LEDGER_TARGET fails before any GitHub call", () => {
+  for (const target of [undefined, "staging"]) {
+    const env = {
+      PATH: process.env.PATH,
+      PARITY_OUTCOME: "success",
+      GITHUB_TOKEN: "test-token-not-real",
+      GITHUB_REPOSITORY: "CleanExpo/RestoreAssist",
+      // Unroutable API: if the script got as far as calling GitHub it would
+      // fail differently; the assertion below pins the refusal reason.
+      GITHUB_API_URL: "http://127.0.0.1:9",
+      ...(target ? { LEDGER_TARGET: target } : {}),
+    };
+    const run = spawnSync(process.execPath, [ISSUE_SCRIPT], {
+      env,
+      encoding: "utf8",
+    });
+    assert.equal(run.status, 1, String(target));
+    assert.match(run.stderr, /FAIL: LEDGER_TARGET/, String(target));
+  }
+});
+
+// The parity step's own shell, executed with a stand-in `node`, so the test
+// proves which arguments each leg really passes, not what the YAML looks like.
+function runParityStep(env) {
+  const step = stepBlock("Compare the deployed ledger with this revision");
+  const lines = step.split("\n");
+  const at = lines.findIndex((line) => /^\s*run:\s*\|\s*$/.test(line));
+  assert.ok(at >= 0, "parity step has a run: | block");
+  const indent = lines[at + 1].search(/\S/);
+  const body = lines
+    .slice(at + 1)
+    .filter((line) => line.trim() === "" || line.search(/\S/) >= indent)
+    .map((line) => line.slice(indent))
+    .join("\n");
+  const dir = mkdtempSync(join(tmpdir(), "ra8386-step-"));
+  const argsFile = join(dir, "args");
+  writeFileSync(
+    join(dir, "node"),
+    `#!/bin/sh\nprintf '%s\\n' "$@" > "${argsFile}"\nexit "\${FAKE_EXIT:-0}"\n`,
+  );
+  chmodSync(join(dir, "node"), 0o755);
+  const run = spawnSync("bash", ["-e", "-c", body], {
+    env: { PATH: `${dir}:${process.env.PATH}`, RUNNER_TEMP: dir, ...env },
+    encoding: "utf8",
+  });
+  let args = [];
+  try {
+    args = readFileSync(argsFile, "utf8").trim().split("\n");
+  } catch {}
+  return { status: run.status, args };
+}
+
+test("RA-8386 workflow: only the sandbox matrix entry warns on ahead; production is strict", () => {
+  const matrix = code.slice(code.indexOf("matrix:"), code.indexOf("steps:"));
+  assert.match(
+    matrix,
+    /- name: sandbox\n\s+origin: https:\/\/restoreassist-sandbox\.vercel\.app\n\s+ahead: warn\n/,
+  );
+  assert.match(
+    matrix,
+    /- name: production\n\s+origin: https:\/\/restoreassist\.app\n\s+ahead: fail\n/,
+  );
+  const parity = stepBlock("Compare the deployed ledger with this revision");
+  assert.match(parity, /AHEAD_POLICY:\s*\$\{\{\s*matrix\.target\.ahead\s*\}\}/);
+});
+
+test("RA-8386 workflow: the parity step passes --allow-ahead only for policy warn", () => {
+  const origin = "https://restoreassist-sandbox.vercel.app";
+  const warn = runParityStep({ TARGET_ORIGIN: origin, AHEAD_POLICY: "warn" });
+  assert.equal(warn.status, 0);
+  assert.deepEqual(warn.args, [
+    "scripts/ci/check-migration-ledger-parity.mjs",
+    origin,
+    "--allow-ahead",
+  ]);
+  for (const policy of ["fail", "", "Warn", "warn "]) {
+    const strict = runParityStep({
+      TARGET_ORIGIN: origin,
+      AHEAD_POLICY: policy,
+    });
+    assert.deepEqual(
+      strict.args,
+      ["scripts/ci/check-migration-ledger-parity.mjs", origin],
+      `policy ${JSON.stringify(policy)} must stay strict`,
+    );
+  }
+  const unset = runParityStep({ TARGET_ORIGIN: origin });
+  assert.deepEqual(unset.args, [
+    "scripts/ci/check-migration-ledger-parity.mjs",
+    origin,
+  ]);
+});
+
+test("RA-8386 workflow: the parity step keeps the check's exit code (1 drift, 2 unreadable)", () => {
+  for (const code of ["1", "2"]) {
+    const run = runParityStep({
+      TARGET_ORIGIN: "https://restoreassist.app",
+      AHEAD_POLICY: "warn",
+      FAKE_EXIT: code,
+    });
+    assert.equal(String(run.status), code);
+  }
 });

@@ -102,7 +102,7 @@ export function BentoFeatures() {
             </motion.p>
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-5 max-w-[38rem] text-[14px] font-medium leading-snug tracking-[-0.01em] text-[#16345A] sm:text-[15px]`}
+              className={`${FONT_DISPLAY} mt-5 max-w-[38rem] text-[14px] font-medium leading-snug tracking-[-0.01em] text-brand-navy-hover sm:text-[15px]`}
             >
               Basic reports work without an API key. Add your own Anthropic or
               OpenAI key later if you want usage billed to your account.
@@ -123,15 +123,15 @@ export function BentoFeatures() {
             </p>
             <div className="mt-4 flex items-center gap-3">
               <span
-                className={`${FONT_DISPLAY} text-sm font-semibold tracking-tight text-[#0B1F3A]`}
+                className={`${FONT_DISPLAY} text-sm font-semibold tracking-tight text-brand-navy`}
               >
                 Field
               </span>
               <div className="relative h-px flex-1 bg-slate-300" aria-hidden>
-                <span className="absolute top-1/2 left-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#3B6D8C] bg-white" />
+                <span className="absolute top-1/2 left-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-brand-harbour bg-white" />
               </div>
               <span
-                className={`${FONT_DISPLAY} text-sm font-semibold tracking-tight text-[#0B1F3A]`}
+                className={`${FONT_DISPLAY} text-sm font-semibold tracking-tight text-brand-navy`}
               >
                 Office
               </span>
@@ -153,11 +153,11 @@ export function BentoFeatures() {
         >
           {/* Desktop system spine */}
           <div
-            className="pointer-events-none absolute top-0 bottom-0 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-[#3B6D8C]/50 via-slate-300 to-transparent lg:block"
+            className="pointer-events-none absolute top-0 bottom-0 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-brand-harbour/50 via-slate-300 to-transparent lg:block"
             aria-hidden
           />
           <div
-            className={`${FONT_DISPLAY} pointer-events-none absolute top-0 left-1/2 z-20 hidden -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#3B6D8C]/30 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#3B6D8C] lg:block`}
+            className={`${FONT_DISPLAY} pointer-events-none absolute top-0 left-1/2 z-20 hidden -translate-x-1/2 -translate-y-1/2 rounded-full border border-brand-harbour/30 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-brand-harbour lg:block`}
             aria-hidden
           >
             One system
@@ -165,7 +165,7 @@ export function BentoFeatures() {
 
           {/* Mobile spine */}
           <div
-            className="pointer-events-none absolute top-2 bottom-2 left-[0.7rem] w-px bg-gradient-to-b from-[#3B6D8C]/45 via-slate-300 to-transparent lg:hidden"
+            className="pointer-events-none absolute top-2 bottom-2 left-[0.7rem] w-px bg-gradient-to-b from-brand-harbour/45 via-slate-300 to-transparent lg:hidden"
             aria-hidden
           />
 
@@ -179,13 +179,13 @@ export function BentoFeatures() {
               >
                 {/* Spine node */}
                 <span
-                  className="absolute top-10 left-[0.45rem] z-10 h-3 w-3 rounded-full border-2 border-[#3B6D8C] bg-white lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2"
+                  className="absolute top-10 left-[0.45rem] z-10 h-3 w-3 rounded-full border-2 border-brand-harbour bg-white lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2"
                   aria-hidden
                 />
                 {/* Stitch tick toward content — desktop */}
                 <span
                   className={[
-                    "pointer-events-none absolute top-1/2 hidden h-px w-8 -translate-y-1/2 bg-[#3B6D8C]/45 lg:block",
+                    "pointer-events-none absolute top-1/2 hidden h-px w-8 -translate-y-1/2 bg-brand-harbour/45 lg:block",
                     isLeft ? "right-1/2 mr-1.5" : "left-1/2 ml-1.5",
                   ].join(" ")}
                   aria-hidden
@@ -212,7 +212,7 @@ export function BentoFeatures() {
                       ].join(" ")}
                     >
                       <span
-                        className={`${FONT_DISPLAY} text-[11px] font-bold tabular-nums tracking-[0.16em] text-[#3B6D8C]`}
+                        className={`${FONT_DISPLAY} text-[11px] font-bold tabular-nums tracking-[0.16em] text-brand-harbour`}
                       >
                         {String(i + 1).padStart(2, "0")}
                       </span>
@@ -223,7 +223,7 @@ export function BentoFeatures() {
                       </span>
                     </div>
                     <h3
-                      className={`${FONT_DISPLAY} mt-3 text-xl font-semibold tracking-[-0.02em] text-[#0B1F3A] sm:text-[1.35rem]`}
+                      className={`${FONT_DISPLAY} mt-3 text-xl font-semibold tracking-[-0.02em] text-brand-navy sm:text-[1.35rem]`}
                     >
                       {f.title}
                     </h3>
@@ -248,7 +248,7 @@ export function BentoFeatures() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={VIEWPORT}
           transition={{ duration: 0.55, ease: EASE_OUT }}
-          className={`${FONT_DISPLAY} mx-auto mt-6 max-w-lg text-center text-sm font-semibold tracking-[-0.01em] text-[#16345A] sm:mt-8`}
+          className={`${FONT_DISPLAY} mx-auto mt-6 max-w-lg text-center text-sm font-semibold tracking-[-0.01em] text-brand-navy-hover sm:mt-8`}
         >
           Field speed and compliance depth — stitched into one claim record.
         </motion.p>

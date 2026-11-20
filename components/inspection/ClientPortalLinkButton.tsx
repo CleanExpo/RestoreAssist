@@ -93,7 +93,7 @@ export function ClientPortalLinkButton({
           complete approvals. Same checklist as report delivery.
         </p>
         {readiness?.portalLinkEmailedAt && (
-          <p className="mt-2 text-xs text-cyan-700 dark:text-cyan-300/90">
+          <p className="mt-2 text-xs text-brand-harbour-700 dark:text-brand-harbour-300/90">
             Portal link emailed{" "}
             {new Date(readiness.portalLinkEmailedAt).toLocaleString("en-AU", {
               dateStyle: "medium",
@@ -137,7 +137,7 @@ export function ClientPortalLinkButton({
                 {item.href && !item.ok && (
                   <Link
                     href={item.href}
-                    className="text-cyan-700 dark:text-cyan-400/90 underline-offset-2 hover:underline"
+                    className="text-brand-harbour-700 dark:text-brand-harbour-400/90 underline-offset-2 hover:underline"
                   >
                     Open settings
                   </Link>

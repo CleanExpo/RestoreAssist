@@ -215,7 +215,7 @@ export default function IICRCComplianceHelper({
   return (
     <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
       <div className="flex items-center gap-3 mb-6">
-        <BookOpen className="text-cyan-400" size={24} />
+        <BookOpen className="text-brand-harbour-400" size={24} />
         <h3
           className="text-xl font-medium text-white"
           style={{ fontFamily: "Titillium Web, sans-serif" }}
@@ -232,7 +232,7 @@ export default function IICRCComplianceHelper({
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab.id
-                ? "bg-cyan-500 text-white"
+                ? "bg-brand-harbour-500 text-white"
                 : "bg-slate-700/50 text-slate-300 hover:bg-slate-700"
             }`}
           >
@@ -254,7 +254,7 @@ export default function IICRCComplianceHelper({
             {categoryGuidelines && (
               <div>
                 <h4 className="text-lg font-medium text-white mb-3 flex items-center gap-2">
-                  <Droplets className="text-cyan-400" size={20} />
+                  <Droplets className="text-brand-harbour-400" size={20} />
                   {categoryGuidelines.title}
                 </h4>
                 <p className="text-slate-300 mb-4">
@@ -304,7 +304,7 @@ export default function IICRCComplianceHelper({
             {classGuidelines && (
               <div>
                 <h4 className="text-lg font-medium text-white mb-3 flex items-center gap-2">
-                  <Wind className="text-cyan-400" size={20} />
+                  <Wind className="text-brand-harbour-400" size={20} />
                   {classGuidelines.title}
                 </h4>
                 <p className="text-slate-300 mb-4">
@@ -440,8 +440,8 @@ export default function IICRCComplianceHelper({
         {activeTab === "equipment" && (
           <div className="space-y-6">
             {equipmentNeeds && (
-              <div className="bg-cyan-500/20 border border-cyan-500/30 rounded-lg p-4">
-                <h4 className="font-medium text-cyan-400 mb-3">
+              <div className="bg-brand-harbour-500/20 border border-brand-harbour-500/30 rounded-lg p-4">
+                <h4 className="font-medium text-brand-harbour-400 mb-3">
                   Calculated Equipment Needs
                 </h4>
                 <div className="grid md:grid-cols-2 gap-4">
@@ -452,7 +452,7 @@ export default function IICRCComplianceHelper({
                         Airmovers
                       </span>
                     </div>
-                    <p className="text-2xl font-bold text-cyan-400">
+                    <p className="text-2xl font-bold text-brand-harbour-400">
                       {equipmentNeeds.airmovers}
                     </p>
                     <p className="text-xs text-slate-400">units required</p>
@@ -464,7 +464,7 @@ export default function IICRCComplianceHelper({
                         Dehumidification
                       </span>
                     </div>
-                    <p className="text-2xl font-bold text-cyan-400">
+                    <p className="text-2xl font-bold text-brand-harbour-400">
                       {equipmentNeeds.dehumidification}L
                     </p>
                     <p className="text-xs text-slate-400">per day capacity</p>
@@ -542,25 +542,25 @@ export default function IICRCComplianceHelper({
                 </h5>
                 <ol className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-harbour-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       1
                     </span>
                     <span>Safety assessment and hazard identification</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-harbour-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       2
                     </span>
                     <span>Water source identification and control</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-harbour-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       3
                     </span>
                     <span>Category and class determination</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-harbour-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       4
                     </span>
                     <span>Documentation and photography</span>
@@ -574,25 +574,25 @@ export default function IICRCComplianceHelper({
                 </h5>
                 <ol className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-harbour-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       1
                     </span>
                     <span>Equipment placement and setup</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-harbour-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       2
                     </span>
                     <span>Psychrometric monitoring</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-harbour-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       3
                     </span>
                     <span>Moisture content measurements</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-harbour-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       4
                     </span>
                     <span>Equipment adjustments as needed</span>

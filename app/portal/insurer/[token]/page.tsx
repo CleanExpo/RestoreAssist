@@ -73,7 +73,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
       <header className="bg-brand-navy text-white">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <span className="text-lg font-bold tracking-tight text-cyan-400">
+            <span className="text-lg font-bold tracking-tight text-brand-harbour-400">
               RestoreAssist
             </span>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -82,7 +82,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           </div>
           <a
             href={pdfUrl}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 rounded-lg text-sm font-semibold transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 hover:bg-brand-harbour-400 rounded-lg text-sm font-semibold transition-colors"
           >
             <svg
               className="w-4 h-4"
@@ -379,7 +379,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           </div>
           <a
             href={pdfUrl}
-            className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 rounded-lg text-sm font-semibold text-white transition-colors"
+            className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-brand-harbour-500 hover:bg-brand-harbour-400 rounded-lg text-sm font-semibold text-white transition-colors"
           >
             Download PDF
           </a>
@@ -394,7 +394,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
         </p>
         <p className="text-xs text-slate-300 mt-1">
           Powered by{" "}
-          <span className="font-semibold text-cyan-600">RestoreAssist</span>
+          <span className="font-semibold text-brand-harbour-600">RestoreAssist</span>
         </p>
       </footer>
     </main>

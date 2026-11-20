@@ -48,7 +48,7 @@ export function FieldAssistPanel({ inspectionId }: { inspectionId: string }) {
         type="button"
         disabled={loading}
         onClick={() => void ask()}
-        className="inline-flex min-h-9 w-full sm:w-auto items-center justify-center rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium px-4 disabled:opacity-50"
+        className="inline-flex min-h-9 w-full sm:w-auto items-center justify-center rounded-lg bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white text-sm font-medium px-4 disabled:opacity-50"
       >
         {loading ? <ChromeSpinner className="h-4 w-4 animate-spin" /> : "Get guidance"}
       </button>

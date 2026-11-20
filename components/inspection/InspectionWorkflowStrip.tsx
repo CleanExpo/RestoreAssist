@@ -19,12 +19,12 @@ function linkClass(link: InspectionWorkflowLink, pathname: string) {
   const active =
     !link.current && pathname.replace(/\/$/, "") === link.href.replace(/\/$/, "");
   return cn(
-    "inline-flex min-h-9 shrink-0 items-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+    "inline-flex min-h-9 shrink-0 items-center rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-500",
     link.current &&
-      "border-cyan-500/40 bg-cyan-500/10 text-cyan-800 dark:text-cyan-200 cursor-default pointer-events-none font-semibold",
+      "border-brand-harbour-500/40 bg-brand-harbour-500/10 text-brand-harbour-800 dark:text-brand-harbour-200 cursor-default pointer-events-none font-semibold",
     !link.current &&
       link.emphasis &&
-      "border-cyan-500/50 text-cyan-800 dark:text-cyan-200 bg-cyan-50/90 dark:bg-cyan-950/40 hover:bg-cyan-100/90 dark:hover:bg-cyan-950/60",
+      "border-brand-harbour-500/50 text-brand-harbour-800 dark:text-brand-harbour-200 bg-brand-harbour-50/90 dark:bg-brand-harbour-950/40 hover:bg-brand-harbour-100/90 dark:hover:bg-brand-harbour-950/60",
     !link.current &&
       !link.emphasis &&
       !active &&

@@ -259,7 +259,7 @@ export function QuickMoistureEntry({
           className={cn(
             "px-3 py-2 rounded-xl text-sm font-medium transition-colors",
             isBaseline
-              ? "bg-cyan-600 text-white"
+              ? "bg-brand-harbour-600 text-white"
               : "bg-white/5 text-white/60 hover:bg-white/10",
           )}
         >
@@ -271,7 +271,7 @@ export function QuickMoistureEntry({
           className={cn(
             "px-3 py-2 rounded-xl text-sm font-medium transition-colors",
             isMonitoringPoint
-              ? "bg-cyan-600 text-white"
+              ? "bg-brand-harbour-600 text-white"
               : "bg-white/5 text-white/60 hover:bg-white/10",
           )}
         >

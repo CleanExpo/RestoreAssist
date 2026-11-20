@@ -203,7 +203,7 @@ export default function NewInterviewPage() {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-            <MessageSquare className="text-cyan-500" size={24} />
+            <MessageSquare className="text-brand-harbour-500" size={24} />
             Start Interview
           </h1>
           <p className="text-sm text-neutral-500 dark:text-slate-400">
@@ -239,7 +239,7 @@ export default function NewInterviewPage() {
                     : cn(
                         jt.bg,
                         "border-neutral-200 dark:border-slate-700",
-                        "hover:border-cyan-300 dark:hover:border-cyan-800",
+                        "hover:border-brand-harbour-300 dark:hover:border-brand-harbour-800",
                       ),
                 )}
               >
@@ -264,14 +264,14 @@ export default function NewInterviewPage() {
       <div className="space-y-2">
         <label className="text-sm font-semibold text-neutral-700 dark:text-slate-300 uppercase tracking-wider">
           Postcode{" "}
-          <span className="text-neutral-400 font-normal normal-case">
+          <span className="text-brand-slate dark:text-neutral-400 font-normal normal-case">
             (optional — for building code detection)
           </span>
         </label>
         <div className="relative">
           <MapPin
             size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-slate dark:text-neutral-400"
           />
           <input
             type="text"
@@ -280,7 +280,7 @@ export default function NewInterviewPage() {
             onChange={(e) =>
               setPostcode(e.target.value.replace(/\D/g, "").slice(0, 4))
             }
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-brand-slate dark:placeholder:text-neutral-400 focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
             maxLength={4}
           />
         </div>
@@ -315,7 +315,7 @@ export default function NewInterviewPage() {
                     : cn(
                         level.bg,
                         "border-neutral-200 dark:border-slate-700",
-                        "hover:border-cyan-300 dark:hover:border-cyan-800",
+                        "hover:border-brand-harbour-300 dark:hover:border-brand-harbour-800",
                       ),
                 )}
               >
@@ -355,7 +355,7 @@ export default function NewInterviewPage() {
         </label>
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="animate-spin text-cyan-500" size={24} />
+            <Loader2 className="animate-spin text-brand-harbour-500" size={24} />
           </div>
         ) : templates.length === 0 ? (
           <div className="p-4 rounded-xl border border-destructive-subtle-foreground/30 bg-destructive-subtle/50 text-sm text-destructive-subtle-foreground space-y-2">
@@ -377,8 +377,8 @@ export default function NewInterviewPage() {
                 className={cn(
                   "w-full text-left p-3 rounded-xl border transition-all duration-200",
                   selectedTemplate === tpl.id
-                    ? "border-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 ring-2 ring-cyan-500/30"
-                    : "border-neutral-200 dark:border-slate-700 hover:border-cyan-300 dark:hover:border-cyan-800",
+                    ? "border-brand-harbour-400 bg-brand-harbour-50 dark:bg-brand-harbour-900/20 ring-2 ring-brand-harbour-500/30"
+                    : "border-neutral-200 dark:border-slate-700 hover:border-brand-harbour-300 dark:hover:border-brand-harbour-800",
                 )}
               >
                 <div className="flex items-center justify-between">
@@ -414,10 +414,10 @@ export default function NewInterviewPage() {
             !!fetchError
           }
           className={cn(
-            "w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-white transition-all duration-200",
+            "w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-brand-navy dark:text-white transition-all duration-200",
             starting
-              ? "bg-cyan-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.01] active:scale-[0.99]",
+              ? "bg-brand-harbour-400 cursor-not-allowed"
+              : "bg-gradient-to-r from-blue-600 to-brand-harbour-600 hover:from-blue-600 hover:to-brand-harbour-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.01] active:scale-[0.99]",
           )}
         >
           {starting ? (
@@ -433,7 +433,7 @@ export default function NewInterviewPage() {
             </>
           )}
         </button>
-        <p className="text-xs text-neutral-400 dark:text-slate-500 text-center mt-2">
+        <p className="text-xs text-brand-slate dark:text-slate-500 text-center mt-2">
           Est. {jobType === "WATER_DAMAGE" ? "10-15" : "8-12"} minutes • IICRC
           S500 compliant questions
         </p>

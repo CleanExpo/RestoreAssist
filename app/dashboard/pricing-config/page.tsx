@@ -23,7 +23,7 @@ export default function PricingConfigPage() {
             <h1 className="text-3xl font-semibold mb-2">
               Pricing Configuration
             </h1>
-            <p className="text-slate-400">
+            <p className="text-brand-slate dark:text-slate-400">
               Configure your labour rates, equipment rental prices, and chemical
               treatment costs
             </p>

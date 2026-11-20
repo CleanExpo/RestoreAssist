@@ -69,24 +69,24 @@ export const revealImage: Variants = {
 export const LAND = {
   canvas: "bg-[#F3F5F7]",
   surface: "bg-white",
-  ink: "text-[#0B1F3A]",
+  ink: "text-brand-navy",
   muted: "text-slate-600",
   faint: "text-slate-500",
   border: "border-slate-200/90",
-  navy: "bg-[#0B1F3A]",
-  navyText: "text-[#0B1F3A]",
-  accent: "text-[#3B6D8C]",
+  navy: "bg-brand-navy",
+  navyText: "text-brand-navy",
+  accent: "text-brand-harbour",
 } as const;
 
 const FOCUS =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F3F5F7]";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F3F5F7]";
 
 export const CTA_PRIMARY = [
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl",
-  "bg-[#0B1F3A] px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white",
+  "bg-brand-navy px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white",
   "shadow-[0_1px_2px_rgba(11,31,58,0.1),0_4px_16px_rgba(11,31,58,0.08)]",
   "transition-[background-color,box-shadow,transform] duration-200 ease-out",
-  "hover:bg-[#16345A] hover:shadow-[0_2px_4px_rgba(11,31,58,0.1),0_10px_28px_rgba(11,31,58,0.12)]",
+  "hover:bg-brand-navy-hover hover:shadow-[0_2px_4px_rgba(11,31,58,0.1),0_10px_28px_rgba(11,31,58,0.12)]",
   "active:scale-[0.985]",
   FOCUS,
 ].join(" ");
@@ -94,7 +94,7 @@ export const CTA_PRIMARY = [
 export const CTA_SECONDARY = [
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl",
   "border border-slate-300/90 bg-white/90 px-7 py-3.5",
-  "text-[15px] font-semibold tracking-tight text-[#0B1F3A]",
+  "text-[15px] font-semibold tracking-tight text-brand-navy",
   "shadow-[0_1px_1px_rgba(15,23,42,0.03)]",
   "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out",
   "hover:border-slate-400 hover:bg-white hover:shadow-[0_2px_8px_rgba(15,23,42,0.06)]",
@@ -105,23 +105,23 @@ export const CTA_SECONDARY = [
 /** Hero CTAs on dark photo wash — no conflicting text-white / text-navy pairs. */
 export const CTA_ON_DARK_PRIMARY = [
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl",
-  "bg-white px-7 py-3.5 text-[15px] font-semibold tracking-tight text-[#0B1F3A]",
+  "bg-white px-7 py-3.5 text-[15px] font-semibold tracking-tight text-brand-navy",
   "shadow-[0_1px_2px_rgba(11,31,58,0.12),0_8px_24px_rgba(11,31,58,0.18)]",
   "transition-[background-color,box-shadow,transform] duration-200 ease-out",
   "hover:bg-[#F0F3F6] hover:shadow-[0_2px_4px_rgba(11,31,58,0.12),0_12px_28px_rgba(11,31,58,0.2)]",
   "active:scale-[0.985]",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-navy",
 ].join(" ");
 
 export const CTA_ON_DARK_SECONDARY = [
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl",
-  "border border-white/55 bg-[#0B1F3A]/45 px-7 py-3.5 backdrop-blur-sm",
+  "border border-white/55 bg-brand-navy/45 px-7 py-3.5 backdrop-blur-sm",
   "text-[15px] font-semibold tracking-tight text-white",
   "shadow-[0_1px_2px_rgba(0,0,0,0.2)]",
   "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out",
-  "hover:border-white/80 hover:bg-[#0B1F3A]/65",
+  "hover:border-white/80 hover:bg-brand-navy/65",
   "active:scale-[0.985]",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-navy",
 ].join(" ");
 
 export const SURFACE =
@@ -130,11 +130,11 @@ export const SURFACE =
 export const FONT_DISPLAY = "font-[family-name:var(--font-landing-display)]";
 
 export const SECTION_EYEBROW =
-  "text-[11px] font-semibold uppercase tracking-[0.2em] text-[#3B6D8C]";
+  "text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-harbour";
 
 export const SECTION_TITLE = [
   FONT_DISPLAY,
-  "mt-4 text-[1.9rem] font-semibold leading-[1.12] tracking-[-0.02em] text-[#0B1F3A]",
+  "mt-4 text-[1.9rem] font-semibold leading-[1.12] tracking-[-0.02em] text-brand-navy",
   "sm:text-[2.35rem] sm:leading-[1.1] lg:text-[2.85rem] lg:leading-[1.08]",
 ].join(" ");
 

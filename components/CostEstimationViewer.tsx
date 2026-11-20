@@ -243,7 +243,7 @@ export default function CostEstimationViewer({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand-harbour-500" />
       </div>
     );
   }
@@ -267,7 +267,7 @@ export default function CostEstimationViewer({
           {costDocument && (
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg transition-colors print:hidden"
             >
               <Printer className="w-4 h-4" />
               Print Report
@@ -297,7 +297,7 @@ export default function CostEstimationViewer({
           <button
             onClick={handleGenerateEstimation}
             disabled={generating}
-            className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+            className="px-6 py-3 bg-gradient-to-r from-brand-harbour-500 to-blue-500 hover:from-brand-harbour-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
           >
             {generating ? "Generating..." : "Generate Cost Estimation"}
           </button>
@@ -306,11 +306,11 @@ export default function CostEstimationViewer({
 
       {/* Generating Indicator */}
       {generating && (
-        <div className="p-6 rounded-lg border border-cyan-500/50 bg-cyan-500/10">
+        <div className="p-6 rounded-lg border border-brand-harbour-500/50 bg-brand-harbour-500/10">
           <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-brand-harbour-400" />
             <div>
-              <p className="text-cyan-400 font-medium">
+              <p className="text-brand-harbour-400 font-medium">
                 Processing cost estimation generation...
               </p>
               <p className="text-sm text-slate-400">

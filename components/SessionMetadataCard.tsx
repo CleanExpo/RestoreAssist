@@ -43,7 +43,7 @@ export function PhaseProgressBar({ phases }: PhaseProgressBarProps) {
       </div>
       <div className="w-full bg-slate-200/50 dark:bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
+          className="h-full rounded-full bg-gradient-to-r from-brand-harbour-500 to-blue-500 transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -56,7 +56,7 @@ export function PhaseProgressBar({ phases }: PhaseProgressBarProps) {
               title={label}
               className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold transition-colors ${
                 p.completed
-                  ? "bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-500/30"
+                  ? "bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-brand-harbour-400 border border-brand-harbour-500/30"
                   : "bg-slate-200/50 dark:bg-slate-700/50 text-slate-500 border border-slate-600/30"
               }`}
             >

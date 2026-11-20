@@ -34,8 +34,8 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 
-const NAVY = "#1C2E47";
-const WARM = "#8A6B4E";
+const NAVY = "var(--color-brand-navy)";
+const WARM = "var(--color-brand-cta)";
 
 export default function AssistantChat() {
   const { data: session, status } = useSession();

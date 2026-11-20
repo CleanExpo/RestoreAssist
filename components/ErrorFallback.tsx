@@ -41,7 +41,7 @@ export function ErrorFallback({
       <div className="flex items-center gap-3 mt-4">
         <button
           onClick={reset}
-          className="flex items-center gap-2 px-5 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors"
+          className="flex items-center gap-2 px-5 py-2.5 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white rounded-lg font-medium transition-colors"
         >
           <ChromeRefresh className="h-4 w-4" />
           Try Again

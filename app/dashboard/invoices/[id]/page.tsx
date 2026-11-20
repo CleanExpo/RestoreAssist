@@ -445,7 +445,7 @@ export default function InvoiceDetailPage({
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -509,7 +509,7 @@ export default function InvoiceDetailPage({
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push("/dashboard/invoices")}
-            className="p-2 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-brand-cream dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -577,7 +577,7 @@ export default function InvoiceDetailPage({
               <button
                 onClick={() => setShowSyncMenu(!showSyncMenu)}
                 disabled={syncing}
-                className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 <RefreshCw
                   className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`}
@@ -613,10 +613,10 @@ export default function InvoiceDetailPage({
           <button
             onClick={downloadPDF}
             disabled={generatingPdf}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-brand-cream dark:hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {generatingPdf ? (
-              <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="inline-block h-4 w-4 border-2 border-brand-mist dark:border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <Download className="h-4 w-4" />
             )}
@@ -638,7 +638,7 @@ export default function InvoiceDetailPage({
               onClick={() =>
                 router.push(`/dashboard/invoices/${invoice.id}/edit`)
               }
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white rounded-lg transition-colors"
             >
               <Edit className="h-4 w-4" />
               <span>Edit</span>
@@ -674,7 +674,7 @@ export default function InvoiceDetailPage({
         {/* External Sync Status */}
         {invoice.externalSyncStatus === "SYNCED" &&
           invoice.externalSyncProvider && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-harbour-500/10 text-brand-harbour-600 dark:text-brand-harbour-400">
               <CheckCircle className="h-4 w-4" />
               <span className="text-sm font-medium">
                 Synced to{" "}
@@ -738,7 +738,7 @@ export default function InvoiceDetailPage({
                 <Mail className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                 <a
                   href={`mailto:${invoice.customerEmail}`}
-                  className="text-cyan-500 hover:text-cyan-600 transition-colors"
+                  className="text-brand-harbour-500 hover:text-brand-harbour-600 transition-colors"
                 >
                   {invoice.customerEmail}
                 </a>
@@ -949,7 +949,7 @@ export default function InvoiceDetailPage({
               )}
               <Link
                 href={`/dashboard/invoices/${invoice.id}/variations`}
-                className="ml-auto text-sm font-medium text-cyan-500 hover:text-cyan-600 transition-colors"
+                className="ml-auto text-sm font-medium text-brand-harbour-500 hover:text-brand-harbour-600 transition-colors"
               >
                 Manage variations
               </Link>
@@ -986,7 +986,7 @@ export default function InvoiceDetailPage({
                         <div>
                           <a
                             href={`/dashboard/invoices/${v.id}`}
-                            className="text-sm font-medium text-cyan-500 hover:text-cyan-600 transition-colors"
+                            className="text-sm font-medium text-brand-harbour-500 hover:text-brand-harbour-600 transition-colors"
                           >
                             {v.invoiceNumber}
                           </a>
@@ -1082,7 +1082,7 @@ export default function InvoiceDetailPage({
                   onClick={() =>
                     router.push(`/dashboard/reports/${invoice.report?.id}`)
                   }
-                  className="text-sm text-cyan-500 hover:text-cyan-600 transition-colors"
+                  className="text-sm text-brand-harbour-500 hover:text-brand-harbour-600 transition-colors"
                 >
                   {invoice.report.title}
                 </button>
@@ -1138,7 +1138,7 @@ export default function InvoiceDetailPage({
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   required
                   max={(invoice.amountDue / 100).toFixed(2)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div>
@@ -1148,7 +1148,7 @@ export default function InvoiceDetailPage({
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 >
                   <option value="BANK_TRANSFER">Bank Transfer</option>
                   <option value="CREDIT_CARD">Credit Card</option>
@@ -1167,7 +1167,7 @@ export default function InvoiceDetailPage({
                   value={paymentReference}
                   onChange={(e) => setPaymentReference(e.target.value)}
                   placeholder="Transaction ID, Cheque #, etc."
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div>
@@ -1178,7 +1178,7 @@ export default function InvoiceDetailPage({
                   value={paymentNotes}
                   onChange={(e) => setPaymentNotes(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div className="flex gap-3 pt-4">
@@ -1255,7 +1255,7 @@ export default function InvoiceDetailPage({
                 className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {deleting ? (
-                  <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="inline-block h-4 w-4 border-2 border-brand-mist dark:border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <Trash2 className="h-4 w-4" />
                 )}

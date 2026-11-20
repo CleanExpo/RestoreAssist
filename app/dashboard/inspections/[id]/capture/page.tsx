@@ -1063,7 +1063,7 @@ export default function CaptureWorkflowPage({
                     key={step.stepKey}
                     className="flex gap-3 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800"
                   >
-                    <span className="font-mono text-xs text-slate-400">
+                    <span className="font-mono text-xs text-brand-slate dark:text-slate-400">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <span className="flex-1">{step.stepTitle}</span>
@@ -1075,7 +1075,7 @@ export default function CaptureWorkflowPage({
                   </li>
                 ))}
                 {workflowTemplate.steps.length > 8 && (
-                  <li className="px-3 py-1 text-xs text-slate-400">
+                  <li className="px-3 py-1 text-xs text-brand-slate dark:text-slate-400">
                     +{workflowTemplate.steps.length - 8} more steps
                   </li>
                 )}
@@ -1220,7 +1220,7 @@ export default function CaptureWorkflowPage({
                     ) : isActive ? (
                       <Play className="h-4 w-4 text-blue-500" />
                     ) : (
-                      <Circle className="h-4 w-4 text-slate-300 dark:text-slate-600" />
+                      <Circle className="h-4 w-4 text-brand-slate dark:text-slate-600" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1389,7 +1389,7 @@ export default function CaptureWorkflowPage({
           />
 
           {isNative && offlineCount > 0 && (
-            <div className="bg-amber-900/30 border border-amber-600/50 rounded-lg px-4 py-2 text-sm text-amber-300 mb-4">
+            <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-600/50 rounded-lg px-4 py-2 text-sm text-amber-700 dark:text-amber-300 mb-4">
               Working offline — {offlineCount} item{offlineCount > 1 ? "s" : ""} queued
             </div>
           )}

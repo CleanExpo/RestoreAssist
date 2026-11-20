@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { OG_SHARE_IMAGE } from '@/lib/og/constants';
 
 export const metadata: Metadata = {
   title: 'Bird Flu Readiness Site Documentation | RestoreAssist',
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
       'Document hotline reporting, exclusions, PPE, cleaning, disinfection, dry-fog method limits and client-ready records without alarmist messaging.',
     type: 'article',
     url: 'https://restoreassist.app/resources/avian-influenza-site-documentation',
+    images: [OG_SHARE_IMAGE],
   },
 };
 
