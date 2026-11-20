@@ -205,4 +205,30 @@ describe("GET /api/subscription — local Monthly Plan grant (no Stripe sub)", (
     expect(body.subscription.plan.amount).toBe(9900);
     expect(stripeMock.subscriptions.retrieve).not.toHaveBeenCalled();
   });
+
+  it("does not read a CANCELED row as a scheduled cancel (RA-8430)", async () => {
+    // CANCELED now means Stripe really ended the plan; a scheduled cancel
+    // keeps ACTIVE. The fallback has no stored flag, so it must not claim
+    // "cancels at period end" for a plan that has already ended.
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      subscriptionStatus: "CANCELED",
+      subscriptionPlan: "Monthly Plan",
+      subscriptionId: null,
+      stripeCustomerId: null,
+      trialEndsAt: null,
+      subscriptionEndsAt: null,
+      creditsRemaining: 0,
+      totalCreditsUsed: 0,
+      lastBillingDate: null,
+      nextBillingDate: null,
+    } as never);
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.subscription).toMatchObject({
+      status: "canceled",
+      cancelAtPeriodEnd: false,
+    });
+  });
 });
