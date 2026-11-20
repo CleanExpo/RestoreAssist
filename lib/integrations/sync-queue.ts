@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { selectOAuthIntegration } from "@/lib/services/integrations/select-oauth";
-import { Integration, IntegrationProvider } from "@prisma/client";
+import { Integration, IntegrationProvider, Prisma } from "@prisma/client";
 import { withRateLimit } from "./rate-limiter";
 import { withCircuitBreaker, DEFAULT_CIRCUIT_OPTIONS } from "./circuit-breaker";
 import { retryWithExponentialBackoff, DEFAULT_RETRY_OPTIONS } from "./retry";
@@ -259,23 +259,38 @@ async function _processJob(
 
 // ─── Status / management helpers ──────────────────────────────────────────────
 
-/** Get queue statistics (reads from DB). */
-export async function getSyncQueueStats(): Promise<{
+/**
+ * Queue statistics for one user's invoices (reads from DB). RA-8423: scoped
+ * by Invoice.userId so the metrics endpoint never shows another tenant's
+ * job counts. InvoiceSyncJob has no relation to Invoice, hence the raw join.
+ */
+export async function getSyncQueueStats(userId: string): Promise<{
   total: number;
   pending: number;
   processing: number;
   completed: number;
   failed: number;
 }> {
-  const [total, pending, processing, completed, failed] = await Promise.all([
-    prisma.invoiceSyncJob.count(),
-    prisma.invoiceSyncJob.count({ where: { status: "PENDING" } }),
-    prisma.invoiceSyncJob.count({ where: { status: "PROCESSING" } }),
-    prisma.invoiceSyncJob.count({ where: { status: "COMPLETED" } }),
-    prisma.invoiceSyncJob.count({ where: { status: "FAILED" } }),
-  ]);
+  const rows = await prisma.$queryRaw<
+    Array<{ status: string; count: number | bigint }>
+  >(Prisma.sql`
+    SELECT j."status" AS status, COUNT(*) AS count
+    FROM "InvoiceSyncJob" j
+    JOIN "Invoice" i ON i."id" = j."invoiceId"
+    WHERE i."userId" = ${userId}
+    GROUP BY j."status"
+  `);
 
-  return { total, pending, processing, completed, failed };
+  const byStatus = new Map(rows.map((r) => [r.status, Number(r.count)]));
+  const total = rows.reduce((sum, r) => sum + Number(r.count), 0);
+
+  return {
+    total,
+    pending: byStatus.get("PENDING") ?? 0,
+    processing: byStatus.get("PROCESSING") ?? 0,
+    completed: byStatus.get("COMPLETED") ?? 0,
+    failed: byStatus.get("FAILED") ?? 0,
+  };
 }
 
 /** Cancel a PENDING job. Returns true if cancelled, false if not found/not pending. */
