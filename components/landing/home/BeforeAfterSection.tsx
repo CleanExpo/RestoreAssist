@@ -84,7 +84,7 @@ export function BeforeAfterSection() {
               Before
             </p>
             <h3
-              className={`${FONT_DISPLAY} mt-3 text-xl font-semibold tracking-[-0.015em] text-[#0B1F3A]`}
+              className={`${FONT_DISPLAY} mt-3 text-xl font-semibold tracking-[-0.015em] text-brand-navy`}
             >
               Scattered tools. Repeated work.
             </h3>
@@ -106,13 +106,13 @@ export function BeforeAfterSection() {
 
           <motion.div
             variants={fadeUp}
-            className="rounded-2xl border border-[#0B1F3A]/12 bg-white p-7 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-8"
+            className="rounded-2xl border border-brand-navy/12 bg-white p-7 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-8"
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3B6D8C]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-harbour">
               With RestoreAssist
             </p>
             <h3
-              className={`${FONT_DISPLAY} mt-3 text-xl font-semibold tracking-[-0.015em] text-[#0B1F3A]`}
+              className={`${FONT_DISPLAY} mt-3 text-xl font-semibold tracking-[-0.015em] text-brand-navy`}
             >
               One system. Fewer gaps.
             </h3>
@@ -123,7 +123,7 @@ export function BeforeAfterSection() {
                   className="flex gap-3 text-[15px] leading-[1.55] text-slate-700"
                 >
                   <span
-                    className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#3B6D8C]"
+                    className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-harbour"
                     aria-hidden
                   />
                   {item}

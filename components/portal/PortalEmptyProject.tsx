@@ -22,7 +22,7 @@ export function PortalEmptyProject() {
           </Link>
           <Link
             href={PORTAL_PATHS.help}
-            className="inline-flex min-h-11 items-center justify-center px-6 py-3 text-sm text-cyan-400/90 hover:underline"
+            className="inline-flex min-h-11 items-center justify-center px-6 py-3 text-sm text-brand-harbour-400/90 hover:underline"
           >
             Client help
           </Link>

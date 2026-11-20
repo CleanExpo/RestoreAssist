@@ -106,7 +106,7 @@ export const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, InvoiceStatusConfig> =
     },
     REFUNDED: {
       label: "Refunded",
-      badgeClass: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
+      badgeClass: "bg-brand-harbour-500/10 text-brand-harbour-600 dark:text-brand-harbour-400",
       description: "Fully refunded",
     },
   };

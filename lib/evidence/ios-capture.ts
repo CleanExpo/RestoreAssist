@@ -196,7 +196,11 @@ export function pickEvidencePhotoFile(options?: {
 // different server-side fingerprint, so reusing the signed attempt's key
 // would collide into a false 409 and block the technician entirely.
 export async function evidenceIdempotencyKey(
-  manifest: IOSCaptureManifest,
+  // RA-8388: only these two fields are read, and metadata submissions have
+  // both — the canonical payload digest and the capture time. Narrowing the
+  // parameter to what is actually used lets the metadata writer share this
+  // derivation instead of growing a second, subtly different key scheme.
+  manifest: Pick<IOSCaptureManifest, "sha256" | "capturedAt">,
   context: {
     inspectionId: string;
     workflowStepId?: string | null;

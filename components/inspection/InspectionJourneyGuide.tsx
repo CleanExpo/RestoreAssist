@@ -26,7 +26,7 @@ type Props = {
 
 function dotClass(state: InspectionJourneyStep["state"]) {
   if (state === "done") return "bg-emerald-500";
-  if (state === "current") return "bg-cyan-500 ring-2 ring-cyan-500/40";
+  if (state === "current") return "bg-brand-harbour-500 ring-2 ring-brand-harbour-500/40";
   return "bg-neutral-300 dark:bg-slate-600";
 }
 
@@ -88,7 +88,7 @@ export function InspectionJourneyGuide(props: Props) {
       <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
         Your path on this job
       </h3>
-      <p className="mt-0.5 text-xs text-neutral-500 dark:text-slate-400">
+      <p className="mt-0.5 text-xs text-neutral-600 dark:text-slate-400">
         Client → floor plan → evidence → report → invoice → email (Mailtrap).
       </p>
       {comms && !comms.emailServiceConfigured && (
@@ -109,22 +109,22 @@ export function InspectionJourneyGuide(props: Props) {
             />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+                <span className="text-xs font-medium uppercase tracking-wide text-neutral-600 dark:text-neutral-400">
                   Step {index + 1}
                 </span>
                 {step.state === "current" && (
-                  <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-cyan-700 dark:text-cyan-300">
+                  <span className="rounded bg-brand-harbour-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-brand-harbour-700 dark:text-brand-harbour-300">
                     Next
                   </span>
                 )}
               </div>
               <Link
                 href={step.href}
-                className="text-sm font-medium text-cyan-700 hover:underline dark:text-cyan-400"
+                className="text-sm font-medium text-brand-harbour-700 hover:underline dark:text-brand-harbour-400"
               >
                 {step.label}
               </Link>
-              <p className="text-xs text-neutral-500 dark:text-slate-400">
+              <p className="text-xs text-neutral-600 dark:text-slate-400">
                 {step.description}
               </p>
             </div>

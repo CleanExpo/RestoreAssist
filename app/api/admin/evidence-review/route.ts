@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { fromException } from "@/lib/api-errors";
+import { COUNTABLE_EVIDENCE_WHERE } from "@/lib/evidence/countable-evidence";
 
 function forbidden() {
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -169,8 +170,12 @@ export async function GET(request: NextRequest) {
                 riskTier: true,
                 minimumEvidenceCount: true,
                 requiredEvidenceClasses: true,
+                // RA-8388: a retired reading's evidence record does not
+                // count toward the step minimum.
                 _count: {
-                  select: { evidenceItems: true },
+                  select: {
+                    evidenceItems: { where: COUNTABLE_EVIDENCE_WHERE },
+                  },
                 },
               },
               orderBy: { stepOrder: "asc" },

@@ -115,7 +115,7 @@ export default function ContractorDirectoryPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by business name or specialization..."
-                className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
             <button
@@ -140,7 +140,7 @@ export default function ContractorDirectoryPage() {
                   value={postcode}
                   onChange={(e) => setPostcode(e.target.value)}
                   placeholder="e.g. 2000"
-                  className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
@@ -151,7 +151,7 @@ export default function ContractorDirectoryPage() {
                 <select
                   value={state}
                   onChange={(e) => setState(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 >
                   <option value="">All States</option>
                   <option value="NSW">NSW</option>
@@ -172,7 +172,7 @@ export default function ContractorDirectoryPage() {
                 <select
                   value={minRating}
                   onChange={(e) => setMinRating(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 >
                   <option value="">Any Rating</option>
                   <option value="4">4+ Stars</option>
@@ -208,7 +208,7 @@ export default function ContractorDirectoryPage() {
               <Link
                 key={contractor.id}
                 href={`/contractors/${contractor.slug}`}
-                className="block bg-slate-800/30 border border-slate-700 rounded-lg p-6 hover:bg-slate-800/50 hover:border-cyan-500/50 transition-all"
+                className="block bg-slate-800/30 border border-slate-700 rounded-lg p-6 hover:bg-slate-800/50 hover:border-brand-harbour-500/50 transition-all"
               >
                 <div className="flex items-start gap-4">
                   {/* Logo */}
@@ -234,7 +234,7 @@ export default function ContractorDirectoryPage() {
                       <h3 className="text-xl font-semibold text-white flex items-center gap-2">
                         {contractor.businessName}
                         {contractor.isVerified && (
-                          <Shield className="h-5 w-5 text-cyan-400" />
+                          <Shield className="h-5 w-5 text-brand-harbour-400" />
                         )}
                       </h3>
                     </div>
@@ -284,7 +284,7 @@ export default function ContractorDirectoryPage() {
                           .map((cert, idx) => (
                             <span
                               key={idx}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded text-xs text-cyan-400"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-brand-harbour-500/10 border border-brand-harbour-500/30 rounded text-xs text-brand-harbour-400"
                             >
                               <Award className="h-3 w-3" />
                               {cert.certificationName}

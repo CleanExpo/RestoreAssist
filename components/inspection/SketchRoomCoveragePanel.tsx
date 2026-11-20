@@ -76,7 +76,7 @@ export function SketchRoomCoveragePanel({
       >
         Room coverage (drying & scope)
       </h4>
-      <p className="text-[11px] text-neutral-500 dark:text-slate-400 mt-0.5">
+      <p className="text-[11px] text-neutral-600 dark:text-slate-400 mt-0.5">
         Each affected room should have plan pins and a matching scope line.
       </p>
       <ul className="mt-2 space-y-1.5 max-h-36 overflow-y-auto">
@@ -96,14 +96,14 @@ export function SketchRoomCoveragePanel({
                   <>
                     <Link
                       href={`/dashboard/inspections/${inspectionId}?tab=sketch&sketchRoomId=${encodeURIComponent(room.id)}&mapMoisture=1`}
-                      className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-400 hover:underline"
+                      className="inline-flex items-center gap-1 text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline"
                     >
                       <ChromeMapPin size={12} />
                       Pin on plan
                     </Link>
                     <Link
                       href={`/dashboard/inspections/${inspectionId}?tab=moisture&sketchRoomId=${encodeURIComponent(room.id)}&roomName=${encodeURIComponent(room.name)}`}
-                      className="inline-flex items-center gap-1 text-cyan-600/80 dark:text-cyan-500 hover:underline"
+                      className="inline-flex items-center gap-1 text-brand-harbour-600/80 dark:text-brand-harbour-500 hover:underline"
                     >
                       <ChromeDroplet size={12} />
                       Reading

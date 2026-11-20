@@ -11,7 +11,7 @@ export default async function PublicHelpIndex() {
   return (
     <div className="container mx-auto max-w-5xl p-6">
       <header className="mb-8">
-        <h1 className="text-3xl font-semibold text-[#0B1F3A]">RestoreAssist Help</h1>
+        <h1 className="text-3xl font-semibold text-brand-navy">RestoreAssist Help</h1>
         <p className="mt-2 text-slate-600">Public knowledge base. Browse by category.</p>
       </header>
 
@@ -28,7 +28,7 @@ export default async function PublicHelpIndex() {
                   <li key={a.frontmatter.slug}>
                     <Link
                       href={`/help/${a.frontmatter.category}/${a.frontmatter.slug}`}
-                      className="font-medium text-[#3B6D8C] hover:text-[#0B1F3A] hover:underline"
+                      className="font-medium text-brand-harbour hover:text-brand-navy hover:underline"
                     >
                       {a.frontmatter.title}
                     </Link>

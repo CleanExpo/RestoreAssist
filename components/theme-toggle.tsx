@@ -38,7 +38,7 @@ export function ThemeToggle({
         className={cn(
           "relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition",
           "hover:bg-white/10 hover:text-white",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-400/60",
           "disabled:opacity-50",
           className,
         )}

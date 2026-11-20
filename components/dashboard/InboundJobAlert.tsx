@@ -112,7 +112,7 @@ export function InboundJobAlert() {
       aria-label="Inbound referral jobs"
     >
       <div className="flex items-center gap-2 mb-3">
-        <AlertCircle className="w-5 h-5 text-brand-gold" aria-hidden="true" />
+        <AlertCircle className="w-5 h-5 text-brand-bronze dark:text-brand-gold" aria-hidden="true" />
         {/* RA-7660: NRPG is not named to customers until it is ready. */}
         <h2 className="font-semibold text-sm">
           {jobs.length === 1

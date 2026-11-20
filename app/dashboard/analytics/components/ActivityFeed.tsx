@@ -43,7 +43,7 @@ export default function ActivityFeed({
       >
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
-            <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
+            <Loader2 className="w-8 h-8 text-brand-harbour-500 animate-spin mx-auto" />
             <p
               className={cn("text-sm", "text-muted-foreground")}
             >
@@ -91,7 +91,7 @@ export default function ActivityFeed({
       case "updated":
         return <Edit className="w-4 h-4 text-blue-500" />;
       case "created":
-        return <Plus className="w-4 h-4 text-cyan-500" />;
+        return <Plus className="w-4 h-4 text-brand-harbour-500" />;
       default:
         return <FileText className="w-4 h-4 text-neutral-500" />;
     }
@@ -104,7 +104,7 @@ export default function ActivityFeed({
       case "updated":
         return "bg-blue-100 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800";
       case "created":
-        return "bg-cyan-100 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800";
+        return "bg-brand-harbour-100 dark:bg-brand-harbour-900/20 border-brand-harbour-200 dark:border-brand-harbour-800";
       default:
         return "bg-muted/50 border-neutral-200 dark:border-slate-600";
     }
@@ -125,7 +125,7 @@ export default function ActivityFeed({
       USER: {
         label: "Technician",
         color:
-          "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300",
+          "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-300",
       },
     };
     const roleInfo = roleMap[role] || {

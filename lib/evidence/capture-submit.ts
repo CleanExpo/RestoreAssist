@@ -16,6 +16,83 @@
  * and a 403 rotates the key and RE-SIGNS rather than resubmitting unsigned.
  */
 
+/**
+ * RA-8388: how long the capture form waits for the evidence POST (request
+ * and answer body together) before it gives the technician Retry back.
+ *
+ * No client fetch in this repository had a shared limit to reuse. 30 seconds
+ * is longer than a slow upload of a small JSON body and shorter than a
+ * technician's patience with a form whose every control is disabled.
+ */
+export const EVIDENCE_POST_TIMEOUT_MS = 30_000;
+
+/** RA-8388: the same limit for one `POST /api/devices/signing-key` call. */
+export const DEVICE_KEY_REGISTRATION_TIMEOUT_MS = 30_000;
+
+/**
+ * RA-8388: how long the capture page waits for the evidence list it reloads
+ * after "Close and check" (request and answer body together).
+ *
+ * The step's reading form stays shut while that reload is out, so this is
+ * also the longest the technician can be held. It is a small GET; 20 seconds
+ * is a chosen figure, not a measured one.
+ */
+export const EVIDENCE_LIST_RELOAD_TIMEOUT_MS = 20_000;
+
+/**
+ * A request that was given up on. It is UNKNOWN whether the server acted on
+ * it, so the caller must treat it exactly like a lost response: keep the
+ * draft and replay the same bytes under the same key.
+ */
+export class RequestTimeoutError extends Error {
+  readonly timedOut = true;
+
+  constructor(what: string, limitMs: number) {
+    super(`${what} timed out after ${limitMs} ms`);
+    this.name = "RequestTimeoutError";
+  }
+}
+
+/** True for any error that says a request ran out of time. */
+export function isTimeLimitError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { timedOut?: unknown }).timedOut === true
+  );
+}
+
+/**
+ * Run `run` with a time limit.
+ *
+ * `AbortController` plus a timer, not `AbortSignal.timeout`: older WebViews
+ * lack the latter. The timer is RACED against the work as well as aborting
+ * it, because an abort only helps when the callee honours the signal, and a
+ * form with every control disabled cannot depend on that. The rejection is
+ * settled before the abort is raised, so the caller always sees the timeout
+ * and never the platform's own abort error.
+ */
+export async function withTimeLimit<T>(
+  what: string,
+  limitMs: number,
+  run: (signal: AbortSignal | undefined) => Promise<T>,
+): Promise<T> {
+  const controller =
+    typeof AbortController === "undefined" ? null : new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const limit = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new RequestTimeoutError(what, limitMs));
+      controller?.abort();
+    }, limitMs);
+  });
+  try {
+    return await Promise.race([run(controller?.signal), limit]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export interface CaptureSubmitResult {
   status: number;
   ok: boolean;

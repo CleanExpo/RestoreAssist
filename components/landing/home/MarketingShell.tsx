@@ -18,7 +18,7 @@ export function MarketingShell({
 }) {
   return (
     <div
-      className={`${outfit.variable} ${jakarta.variable} ${jakarta.className} min-h-screen bg-[#F3F5F7] text-[#0B1F3A] antialiased [text-rendering:optimizeLegibility]`}
+      className={`${outfit.variable} ${jakarta.variable} ${jakarta.className} min-h-screen bg-[#F3F5F7] text-brand-navy antialiased [text-rendering:optimizeLegibility]`}
     >
       {chrome ? <LandingNav /> : null}
       <main

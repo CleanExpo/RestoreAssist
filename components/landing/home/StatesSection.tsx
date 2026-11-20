@@ -140,18 +140,18 @@ export function StatesSection() {
           >
             <div className="text-left lg:text-right">
               <p
-                className={`${FONT_DISPLAY} text-[4.5rem] font-semibold leading-none tracking-[-0.07em] text-[#0B1F3A] sm:text-[5.5rem]`}
+                className={`${FONT_DISPLAY} text-[4.5rem] font-semibold leading-none tracking-[-0.07em] text-brand-navy sm:text-[5.5rem]`}
               >
                 AU
               </p>
-              <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3B6D8C]">
+              <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-harbour">
                 Designed here
               </p>
             </div>
             <div className="mb-3 h-16 w-px bg-slate-300 sm:h-20" />
             <div className="text-left">
               <p
-                className={`${FONT_DISPLAY} text-[4.5rem] font-semibold leading-none tracking-[-0.07em] text-[#3B6D8C] sm:text-[5.5rem]`}
+                className={`${FONT_DISPLAY} text-[4.5rem] font-semibold leading-none tracking-[-0.07em] text-brand-harbour sm:text-[5.5rem]`}
               >
                 NZ
               </p>
@@ -208,24 +208,24 @@ export function StatesSection() {
                       onFocus={() => setActive(i)}
                       className={[
                         FONT_DISPLAY,
-                        "group relative z-10 flex w-full flex-col items-center gap-3 rounded-xl px-1 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F3F5F7]",
+                        "group relative z-10 flex w-full flex-col items-center gap-3 rounded-xl px-1 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F3F5F7]",
                       ].join(" ")}
                     >
                       <span
                         className={[
                           "flex h-7 w-7 items-center justify-center rounded-full border-2 bg-[#F3F5F7] transition-all duration-200",
                           selected
-                            ? "border-[#3B6D8C] scale-110 shadow-[0_0_0_4px_rgba(59,109,140,0.12)]"
+                            ? "border-brand-harbour scale-110 shadow-[0_0_0_4px_rgba(59,109,140,0.12)]"
                             : isOverseas(r)
-                              ? "border-[#3B6D8C]/45"
-                              : "border-slate-300 group-hover:border-[#3B6D8C]/60",
+                              ? "border-brand-harbour/45"
+                              : "border-slate-300 group-hover:border-brand-harbour/60",
                         ].join(" ")}
                         aria-hidden
                       >
                         <span
                           className={[
                             "h-2 w-2 rounded-full transition-colors",
-                            selected ? "bg-[#3B6D8C]" : "bg-transparent",
+                            selected ? "bg-brand-harbour" : "bg-transparent",
                           ].join(" ")}
                         />
                       </span>
@@ -233,8 +233,8 @@ export function StatesSection() {
                         className={[
                           "text-sm font-bold tracking-wide transition-colors sm:text-[15px]",
                           selected
-                            ? "text-[#0B1F3A]"
-                            : "text-slate-500 group-hover:text-[#16345A]",
+                            ? "text-brand-navy"
+                            : "text-slate-500 group-hover:text-brand-navy-hover",
                         ].join(" ")}
                       >
                         {r.code}
@@ -258,15 +258,15 @@ export function StatesSection() {
                 className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
               >
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#3B6D8C]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-harbour">
                     {isOverseas(region)
                       ? "Across the ditch"
                       : "Australian jurisdiction"}
                   </p>
                   <p
-                    className={`${FONT_DISPLAY} mt-2 text-2xl font-semibold tracking-[-0.025em] text-[#0B1F3A] sm:text-3xl`}
+                    className={`${FONT_DISPLAY} mt-2 text-2xl font-semibold tracking-[-0.025em] text-brand-navy sm:text-3xl`}
                   >
-                    <span className="tabular-nums text-[#3B6D8C]">
+                    <span className="tabular-nums text-brand-harbour">
                       {region.code}
                     </span>
                     <span className="mx-3 text-slate-300">·</span>
@@ -277,7 +277,7 @@ export function StatesSection() {
                   </p>
                 </div>
                 <p
-                  className={`${FONT_DISPLAY} text-sm font-semibold tracking-[-0.01em] text-[#16345A]`}
+                  className={`${FONT_DISPLAY} text-sm font-semibold tracking-[-0.01em] text-brand-navy-hover`}
                 >
                   Same claim spine. Local rules in the flow.
                 </p>
@@ -302,7 +302,7 @@ export function StatesSection() {
                 {item.label}
               </p>
               <p
-                className={`${FONT_DISPLAY} mt-2 text-base font-semibold tracking-[-0.015em] text-[#0B1F3A]`}
+                className={`${FONT_DISPLAY} mt-2 text-base font-semibold tracking-[-0.015em] text-brand-navy`}
               >
                 {item.value}
               </p>

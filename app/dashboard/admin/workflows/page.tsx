@@ -737,7 +737,7 @@ export default function WorkflowMonitorPage() {
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white text-base">
-            <Activity className="h-5 w-5 text-cyan-500" />
+            <Activity className="h-5 w-5 text-brand-harbour-500" />
             Workflows
             <span className="text-sm font-normal text-neutral-400">
               ({workflows.length})

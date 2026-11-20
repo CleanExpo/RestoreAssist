@@ -3,6 +3,7 @@ import HomePage from "@/components/landing/HomePage";
 import { BRAND } from "@/lib/brand";
 import { HOME } from "@/components/landing/home/homeContent";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { OG_SHARE_IMAGE, OG_SHARE_PATH } from "@/lib/og/constants";
 
 const trialDays = PRICING_CONFIG.free.trialDays;
 
@@ -23,13 +24,23 @@ export const metadata: Metadata = {
     "water damage restoration software",
     "New Zealand restoration",
   ],
+  // RA-8473: a page-level openGraph replaces the root object wholesale, so
+  // locale, siteName and the share image are restated here, not inherited.
   openGraph: {
     title: `${BRAND.name} — ${BRAND.tagline}`,
     description: HOME.hero.valueLine,
     type: "website",
+    locale: "en_AU",
+    siteName: BRAND.name,
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${BRAND.name} — ${BRAND.tagline}`,
+    description: HOME.hero.valueLine,
+    images: [OG_SHARE_PATH],
   },
   alternates: { canonical: "/" },
   other: {

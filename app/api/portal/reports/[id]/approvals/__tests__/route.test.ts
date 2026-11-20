@@ -49,6 +49,10 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { POST } from "../route";
+import { credentialFingerprint } from "@/lib/portal/credential-fingerprint";
+
+process.env.CLIENT_PORTAL_JWT_SECRET = "test-secret-at-least-32-chars-long!!";
+const PASSWORD_HASH = "$2a$10$homeowner-password-hash";
 
 const clientClaims = {
   sub: "u_c",
@@ -56,6 +60,7 @@ const clientClaims = {
   email: "homeowner@example.com",
   name: "Home Owner",
   typ: "client-portal",
+  credentialFingerprint: credentialFingerprint(PASSWORD_HASH),
 };
 function postReq(body: unknown): NextRequest {
   return new NextRequest("http://localhost/api/portal/reports/r_1/approvals", {
@@ -75,7 +80,11 @@ beforeEach(() => {
   approvalUpdate.mockReset();
   clientUserFindUnique.mockReset();
   authenticateClientRequest.mockResolvedValue(clientClaims);
-  clientUserFindUnique.mockResolvedValue({ id: "u_c", clientId: "c_1" });
+  clientUserFindUnique.mockResolvedValue({
+    id: "u_c",
+    clientId: "c_1",
+    passwordHash: PASSWORD_HASH,
+  });
 });
 
 describe("POST /api/portal/reports/[id]/approvals", () => {
