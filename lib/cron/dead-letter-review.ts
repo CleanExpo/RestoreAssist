@@ -7,6 +7,15 @@ const BATCH_SIZE = 20;
 const MIN_AGE_MS = 30 * 60 * 1000; // 30 minutes
 const RETRYABLE_ERROR_CODES = ["TIMEOUT", "RATE_LIMIT", "AI_PROVIDER_ERROR"];
 const MAX_DEAD_LETTER_RETRIES = 2;
+// RA-8429: only these workflow states can take a re-queued task. The filter
+// sits in the query, not in the loop, so a task the review will never act on
+// (e.g. in a CANCELLED workflow) cannot hold a place in the oldest-first batch
+// and starve every other dead-lettered task.
+const RECOVERABLE_WORKFLOW_STATUSES = [
+  "RUNNING",
+  "PARTIALLY_FAILED",
+  "FAILED",
+] as const;
 
 /**
  * Reviews DEAD_LETTER tasks and re-queues those with transient/retryable errors.
@@ -23,6 +32,7 @@ export async function reviewDeadLetterTasks(): Promise<CronJobResult> {
       errorCode: { in: RETRYABLE_ERROR_CODES },
       updatedAt: { lt: ageThreshold },
       attempts: { lt: MAX_DEAD_LETTER_RETRIES + 3 }, // original maxRetries + dead letter retries
+      workflow: { status: { in: [...RECOVERABLE_WORKFLOW_STATUSES] } },
     },
     include: {
       workflow: { select: { status: true } },
@@ -34,9 +44,12 @@ export async function reviewDeadLetterTasks(): Promise<CronJobResult> {
   let requeued = 0;
 
   for (const task of deadLetterTasks) {
-    // Only re-queue if the workflow is still in a recoverable state
+    // The query already selects recoverable workflows only; this re-check
+    // stays as a guard against a status change between read and write.
     if (
-      ["RUNNING", "PARTIALLY_FAILED", "FAILED"].includes(task.workflow.status)
+      (RECOVERABLE_WORKFLOW_STATUSES as readonly string[]).includes(
+        task.workflow.status,
+      )
     ) {
       // RA-7999: re-queue, un-skip the cascade's dependents and reopen the
       // workflow in one transaction, so a resumed workflow cannot complete
