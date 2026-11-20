@@ -103,7 +103,12 @@ const BANNED: ReadonlyArray<{ id: string; re: RegExp }> = [
     // "adheres to" followed by an IICRC standard. Question forms such as "does
     // the output meet IICRC requirements?" are model rubrics and do not match.
     id: "conformity-verb",
-    re: /\b(complies with|in (full )?compliance with|conforms? (to|with)|in conformity with|meets|adheres to)\s+(the\s+)?(ANSI\/)?(AS-)?(IICRC|S[1-7]\d0)\b/i,
+    // Keyed on the conformity WORD, then an optional preposition and an
+    // optional modifier, so "strict compliance with", "fully compliant to the"
+    // and bare "compliance IICRC S500" match, while a feature name followed by
+    // a verb ("Compliance Checklists cite IICRC") or a drying goal ("meets its
+    // S500 dry standard") does not.
+    re: /\b(compliant|compliance|complies|conforms?|conformity|conformance|meets|adheres)\s+((with|to|under)\s+)?((the|strict|strictly|full|fully|all|relevant|applicable)\s+)?(ANSI\/)?(AS-)?(IICRC|S[1-7]\d0)\b/i,
   },
   {
     id: "compliance-watertight",
@@ -194,11 +199,42 @@ describe("IICRC claims guard (RA-8297)", () => {
       "Reports are structured on S500:2021 sections",
       "IICRC certified technician",
       "You are an experienced water damage restoration assessor who cites IICRC standards by section number.",
+      "Compliance Checklists cite IICRC S500, S520, and Australian standards for every job.",
+      "Daily moisture monitoring until every material meets its S500 dry standard.",
+      "Does the output meet IICRC/Australian regulatory requirements?",
     ];
     for (const text of allowed) {
       for (const { id, re } of BANNED) {
         expect(re.test(text), `${id} wrongly matched: ${text}`).toBe(false);
       }
+    }
+  });
+
+  it("blocks every phrasing in the founder's pass rule (fixed controls)", () => {
+    // Independent of the BANNED samples above: each phrase here must be caught
+    // by at least one pattern. Founder pass rule, 20/11/2026.
+    const required = [
+      "IICRC compliant",
+      "S500:2021 compliant",
+      "compliant with IICRC S500:2021",
+      "compliance with IICRC S500:2021",
+      "in compliance with IICRC S500:2021",
+      "in strict compliance with IICRC S500 standards",
+      "compliant IICRC S500:2021",
+      "compliance IICRC S500:2021",
+      "complies with IICRC S500",
+      "conforms to ANSI/IICRC S500",
+      "in conformity with IICRC S520",
+      "meets IICRC S500",
+      "adheres to the IICRC S500",
+      "IICRC S500:2021 compliance guaranteed",
+      "IICRC-approved software",
+    ];
+    for (const phrase of required) {
+      expect(
+        BANNED.some(({ re }) => re.test(phrase)),
+        `not blocked: ${phrase}`,
+      ).toBe(true);
     }
   });
 
