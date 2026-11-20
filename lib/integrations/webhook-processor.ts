@@ -8,6 +8,7 @@ import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-process
 import { createQuickBooksClient } from "@/lib/integrations/quickbooks/client";
 import { createMYOBClient } from "@/lib/integrations/myob/client";
 import { isOAuthIntegration } from "./identity";
+import { reclaimStaleWebhookEvents } from "@/lib/jobs/webhook-reclaim";
 
 const WEBHOOK_INTEGRATION_IDENTITY_SELECT = {
   provider: true, name: true, icon: true, config: true,
@@ -740,6 +741,10 @@ async function handleContactUpdated(event: any): Promise<void> {
 export async function processPendingWebhookEvents(
   limit: number = 10,
 ): Promise<void> {
+  // RA-8426 — every path into a WebhookEvent claim expires dead claims first
+  // (enforced by lib/jobs/__tests__/queue-claim-rescue.test.ts).
+  await reclaimStaleWebhookEvents();
+
   const pendingEvents = await prisma.webhookEvent.findMany({
     where: {
       status: "PENDING",
@@ -815,6 +820,10 @@ export async function processQboMyobPendingPayments(
     failed: 0,
     skipped: 0,
   };
+
+  // RA-8426 — release claims left PROCESSING by a run that died (this drain
+  // and the retroactive one both claim), before selecting PENDING rows.
+  await reclaimStaleWebhookEvents();
 
   const events = await prisma.webhookEvent.findMany({
     where: {
@@ -905,6 +914,10 @@ export async function retryUnresolvedQboMyobPayments(
     failed: 0,
     skipped: 0,
   };
+
+  // RA-8426 — this drain claims SKIPPED -> PROCESSING, so it expires dead
+  // claims itself rather than relying on the pending drain having run first.
+  await reclaimStaleWebhookEvents();
 
   const events = await prisma.webhookEvent.findMany({
     where: {

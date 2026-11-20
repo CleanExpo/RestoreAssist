@@ -9,6 +9,10 @@ import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-process
 
 const MAX_XERO_INTEGRATIONS_PER_CRON_RUN = 100;
 
+// RA-8426 — a claim this run holds must end before WEBHOOK_STALE_CLAIM_MS
+// (10 minutes), or the next run would release a live claim. Keep it below.
+export const maxDuration = 300;
+
 /** Xero amounts are decimal dollars; Invoice amounts are integer cents. */
 function xeroDollarsToCents(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value)
