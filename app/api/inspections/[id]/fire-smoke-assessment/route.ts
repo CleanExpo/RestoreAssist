@@ -27,6 +27,7 @@ import {
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import { ensureInspectionWorkflowFromClaimType } from "@/lib/evidence/ensure-inspection-workflow";
 
 function tenancyCode(
   status: 401 | 403 | 404,
@@ -65,6 +66,8 @@ const fireSchema = z.object({
   evacuationOrderTimestamp: z.string().datetime().nullable().optional(),
   reentryApprovalTimestamp: z.string().datetime().nullable().optional(),
   spaceVolumeM3: z.number().positive().nullable().optional(),
+  /** When the NIR panel saves an odour-only job, stamp ODOUR — not FIRE. */
+  stampClaimType: z.enum(["FIRE", "ODOUR"]).optional(),
 });
 
 // ─── Gate computation ──────────────────────────────────────────────────────────
@@ -163,14 +166,21 @@ export async function POST(
       );
     }
 
-    const data = parsed.data;
+    const { stampClaimType, ...assessmentBody } = parsed.data;
+    const data = assessmentBody;
     const gates = computeGates(data);
+    const inspectionClaimType = stampClaimType ?? "FIRE";
 
     const record = await writeWithinInspectionScope(
       tenancy.data.inspectionManyWhere,
-      { claimType: "FIRE" },
-      (tx) =>
-        tx.fireSmokeDamageAssessment.upsert({
+      { claimType: inspectionClaimType },
+      async (tx) => {
+        await ensureInspectionWorkflowFromClaimType(
+          tx,
+          id,
+          inspectionClaimType,
+        );
+        return tx.fireSmokeDamageAssessment.upsert({
           where: { inspectionId: id },
           create: {
             inspectionId: id,
@@ -252,7 +262,8 @@ export async function POST(
             }),
             ...gates,
           },
-        }),
+        });
+      },
     );
 
     // Null means the caller's scope no longer claims this inspection.

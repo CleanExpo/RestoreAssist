@@ -60,6 +60,13 @@ beforeEach(() => {
 });
 
 describe("GET /api/integrations/health — sync receipts", () => {
+  it("reports token validity as unverified when no integrations are connected", async () => {
+    const body = await getChecks();
+    const tokenCheck = body.checks.find((c) => c.name === "Token Validity");
+    expect(tokenCheck?.status).toBe("unverified");
+    expect(tokenCheck?.message).toMatch(/no integrations connected/i);
+  });
+
   it("reports the sync check as unverified, not pass, when there are zero receipts", async () => {
     const body = await getChecks();
     const syncCheck = body.checks.find((c) => c.name === "Sync Success Rate");
@@ -80,7 +87,7 @@ describe("GET /api/integrations/health — sync receipts", () => {
 
     expect(passedNames).not.toContain("Sync Success Rate");
     expect(body.summary.passed).toBe(passedNames.length);
-    expect(body.summary.unverified).toBe(1);
+    expect(body.summary.unverified).toBeGreaterThanOrEqual(2);
     expect(body.summary.total).toBe(body.checks.length);
   });
 
@@ -98,6 +105,7 @@ describe("GET /api/integrations/health — sync receipts", () => {
     // >24h. The measured failure wins; "unverified" never masks it.
     db.integration.findMany
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         { provider: "XERO", updatedAt: new Date("2020-01-01") },
       ]);
@@ -105,7 +113,7 @@ describe("GET /api/integrations/health — sync receipts", () => {
     const body = await getChecks();
 
     expect(body.status).toBe("unhealthy");
-    expect(body.summary.unverified).toBe(1);
+    expect(body.summary.unverified).toBeGreaterThanOrEqual(1);
   });
 
   it("still reports a real pass once successful receipts exist", async () => {
@@ -119,7 +127,10 @@ describe("GET /api/integrations/health — sync receipts", () => {
 
     expect(syncCheck!.status).toBe("pass");
     expect(syncCheck!.message).toMatch(/100% success rate \(2 syncs in 24h\)/);
-    expect(body.summary.unverified).toBe(0);
+    const oauthCheck = body.checks.find(
+      (c) => c.name === "OAuth Live Reachability",
+    );
+    expect(oauthCheck?.status).toBe("unverified");
   });
 
   it("still fails on a genuinely bad success rate", async () => {

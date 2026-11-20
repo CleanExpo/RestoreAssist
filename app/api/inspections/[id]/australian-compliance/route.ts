@@ -5,9 +5,9 @@
  *   Returns the current AustralianComplianceRecord (or null).
  *
  * POST /api/inspections/[id]/australian-compliance
- *   Upserts the compliance record. Does NOT stamp Inspection.claimType —
- *   the AustralianComplianceRecord is a compliance overlay applicable to any
- *   claim type, not a claim type classifier itself.
+ *   Upserts the compliance record. By default does NOT stamp Inspection.claimType
+ *   (overlay for any job). When `stampClaimType: "ASBESTOS"` is sent from the
+ *   NIR asbestos chip, stamps the inspection as an asbestos-led job.
  *
  * DELETE /api/inspections/[id]/australian-compliance
  *   Removes the record (idempotent).
@@ -22,12 +22,14 @@ import { z } from "zod";
 import {
   assertInspectionTenancy,
   resolveInspectionWrite,
+  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   asbestosEraBasis,
   presumeAsbestosFromEra,
 } from "@/lib/compliance/asbestos-era";
+import { ensureInspectionWorkflowFromClaimType } from "@/lib/evidence/ensure-inspection-workflow";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -58,6 +60,8 @@ const auComplianceSchema = z.object({
   licensedAssessorLicense: z.string().nullable().optional(),
   removalQuoteAud: z.number().nonnegative().nullable().optional(),
   separateInvoiceRequired: z.boolean().optional(),
+  /** NIR asbestos chip saves via this route but must stamp Inspection.claimType. */
+  stampClaimType: z.literal("ASBESTOS").optional(),
 });
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
@@ -141,7 +145,7 @@ export async function POST(
       );
     }
 
-    const data = parsed.data;
+    const { stampClaimType, ...data } = parsed.data;
 
     // Warn when the property pre-dates the asbestos presumption year and the
     // risk has not been acknowledged.
@@ -169,7 +173,7 @@ export async function POST(
         ? `Property built before ${asbestosEra.year} — asbestos-containing materials must be assumed present until tested. Set asbestosRiskAcknowledged: true after review.`
         : null;
 
-    const record = await prisma.australianComplianceRecord.upsert({
+    const upsertArgs = {
       where: { inspectionId: id },
       create: {
         inspectionId: id,
@@ -240,7 +244,39 @@ export async function POST(
           separateInvoiceRequired: data.separateInvoiceRequired,
         }),
       },
-    });
+    };
+
+    let record: Awaited<
+      ReturnType<typeof prisma.australianComplianceRecord.upsert>
+    >;
+
+    if (stampClaimType === "ASBESTOS") {
+      const write = await resolveInspectionWrite(session, id);
+      if (!write.ok) {
+        return NextResponse.json(
+          { error: write.reason },
+          { status: write.status },
+        );
+      }
+      const stamped = await writeWithinInspectionScope(
+        write.data.inspectionManyWhere,
+        { claimType: "ASBESTOS" },
+        async (tx) => {
+          await ensureInspectionWorkflowFromClaimType(tx, id, "ASBESTOS");
+          return tx.australianComplianceRecord.upsert(upsertArgs);
+        },
+      );
+      if (stamped === null) {
+        return apiError(req, {
+          code: "NOT_FOUND",
+          message: "Inspection not found or not writable",
+          status: 404,
+        });
+      }
+      record = stamped;
+    } else {
+      record = await prisma.australianComplianceRecord.upsert(upsertArgs);
+    }
 
     return NextResponse.json({ ...record, asbestosWarning });
   } catch (err) {

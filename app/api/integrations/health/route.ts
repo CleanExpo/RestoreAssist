@@ -3,6 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-errors";
+import {
+  isOAuthLiveProbeEnabled,
+  probeOAuthIntegrations,
+} from "@/lib/integrations/oauth-live-probe";
 
 const MAX_INTEGRATIONS_FOR_HEALTH = 100;
 const MAX_SYNC_LOGS_FOR_HEALTH = 1_000;
@@ -49,21 +53,81 @@ export async function GET(request: NextRequest) {
       (i) => i.tokenExpiresAt && i.tokenExpiresAt < new Date(),
     );
 
+    const tokenCheckStatus =
+      integrations.length === 0
+        ? "unverified"
+        : expiredTokens.length === 0
+          ? "pass"
+          : "fail";
+
     checks.push({
       name: "Token Validity",
-      status: expiredTokens.length === 0 ? "pass" : "fail",
+      status: tokenCheckStatus,
       message:
-        expiredTokens.length === 0
-          ? `All ${integrations.length} integrations have valid tokens`
-          : `${expiredTokens.length} integration(s) have expired tokens`,
-      details: expiredTokens.map((i) => ({
-        provider: i.provider,
-        expiredAt: i.tokenExpiresAt,
-      })),
+        integrations.length === 0
+          ? "Unverified — no integrations connected for this user"
+          : expiredTokens.length === 0
+            ? `All ${integrations.length} integrations have valid tokens`
+            : `${expiredTokens.length} integration(s) have expired tokens`,
+      details:
+        integrations.length === 0
+          ? { connected: 0 }
+          : expiredTokens.map((i) => ({
+              provider: i.provider,
+              expiredAt: i.tokenExpiresAt,
+            })),
     });
 
     if (expiredTokens.length > 0) {
       overallStatus = "degraded";
+    }
+
+    const connectedForProbe = await prisma.integration.findMany({
+      where: {
+        userId: session.user.id,
+        status: "CONNECTED",
+      },
+      select: { id: true, provider: true },
+      take: 8,
+    });
+
+    if (!isOAuthLiveProbeEnabled()) {
+      checks.push({
+        name: "OAuth Live Reachability",
+        status: "unverified",
+        message:
+          "Live probe disabled (INTEGRATIONS_OAUTH_PROBE=0)",
+        details: { disabled: true },
+      });
+    } else if (connectedForProbe.length === 0) {
+      checks.push({
+        name: "OAuth Live Reachability",
+        status: "unverified",
+        message: "Unverified — no connected OAuth integrations to probe",
+        details: { connected: 0 },
+      });
+    } else {
+      const probeResults = await probeOAuthIntegrations(connectedForProbe);
+      const failed = probeResults.filter((p) => !p.ok);
+      checks.push({
+        name: "OAuth Live Reachability",
+        status:
+          probeResults.length === 0
+            ? "unverified"
+            : failed.length === 0
+              ? "pass"
+              : "fail",
+        message:
+          probeResults.length === 0
+            ? "No OAuth providers to probe"
+            : failed.length === 0
+              ? `All ${probeResults.length} probed integration(s) reachable`
+              : `${failed.length} of ${probeResults.length} probe(s) failed upstream`,
+        details: probeResults,
+      });
+      if (failed.length > 0 && overallStatus === "healthy") {
+        overallStatus = "degraded";
+      }
     }
 
     // Check 2: No integrations stuck in ERROR state

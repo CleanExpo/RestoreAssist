@@ -21,6 +21,7 @@ import {
   inboxAgeingBand,
   inboxAgeingLabel,
 } from "@/lib/completeness/inbox-ageing";
+import { ProgramStatusPanel } from "@/components/operations/ProgramStatusPanel";
 
 type Row = {
   inspectionId: string;
@@ -190,6 +191,8 @@ export default function CompletenessInboxPage() {
           omitHref: "/dashboard/operations/completeness-inbox",
         })}
       />
+
+      <ProgramStatusPanel />
 
       {!error && !initialLoad && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
