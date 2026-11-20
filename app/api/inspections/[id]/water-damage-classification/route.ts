@@ -28,7 +28,6 @@ import {
 import { z } from "zod";
 import { apiError, fromException } from "@/lib/api-errors";
 import type { Prisma } from "@prisma/client";
-import { ensureInspectionWorkflowFromClaimType } from "@/lib/evidence/ensure-inspection-workflow";
 import {
   MANUAL_OVERRIDE_JUSTIFICATION,
   MANUAL_OVERRIDE_REFERENCE,
@@ -285,7 +284,6 @@ export async function POST(
         where: tenancy.data.inspectionWhere,
         data: { claimType: "WATER" },
       });
-      await ensureInspectionWorkflowFromClaimType(tx, id, "WATER");
       await syncTechnicianChoice(
         tx,
         id,

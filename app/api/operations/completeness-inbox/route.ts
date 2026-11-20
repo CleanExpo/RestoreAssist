@@ -4,7 +4,6 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { listCompletenessInboxForOwner } from "@/lib/completeness/org-inbox";
-import { summarizeInboxStalls } from "@/lib/completeness/inbox-stall-summary";
 import { canManageAppointments } from "@/lib/scheduling/can-manage-appointments";
 
 /** GET — P4-5 cross-job completeness triage (manager/owner). */
@@ -35,10 +34,7 @@ export async function GET(request: NextRequest) {
       userId: session.user.id,
       organizationId: caller?.organizationId,
     });
-    return NextResponse.json({
-      data: rows,
-      summary: summarizeInboxStalls(rows),
-    });
+    return NextResponse.json({ data: rows });
   } catch (error) {
     return fromException(request, error, { stage: "completeness-inbox-get" });
   }

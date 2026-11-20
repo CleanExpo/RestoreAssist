@@ -98,68 +98,13 @@ async function withBackoff<T>(fn: () => Promise<T>): Promise<T> {
   throw lastErr;
 }
 
-const TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000;
-
-export async function refreshMicrosoftAccessToken(input: {
-  refreshToken: string;
-  clientId: string;
-  clientSecret: string;
-}): Promise<{
-  accessToken: string;
-  refreshToken: string | null;
-  expiresAt: Date | null;
-}> {
-  const tenant = getMicrosoftTenantId();
-  const body = new URLSearchParams({
-    client_id: input.clientId,
-    client_secret: input.clientSecret,
-    refresh_token: input.refreshToken,
-    grant_type: "refresh_token",
-  });
-
-  const res = await fetch(
-    `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    },
-  );
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Microsoft token refresh failed (${res.status}): ${text}`);
-  }
-  const json = (await res.json()) as {
-    access_token?: string;
-    refresh_token?: string;
-    expires_in?: number;
-  };
-  if (!json.access_token) {
-    throw new Error("Microsoft token refresh returned no access_token");
-  }
-  return {
-    accessToken: json.access_token,
-    refreshToken: json.refresh_token ?? input.refreshToken,
-    expiresAt: json.expires_in
-      ? new Date(Date.now() + json.expires_in * 1000)
-      : null,
-  };
-}
-
 async function getTokensForUser(userId: string): Promise<{
   accessToken: string;
   refreshToken: string | null;
 }> {
   const account = await prisma.account.findFirst({
     where: { userId, provider: "azure-ad" },
-    select: {
-      id: true,
-      access_token: true,
-      refresh_token: true,
-      expires_at: true,
-      providerAccountId: true,
-      scope: true,
-    },
+    select: { access_token: true, refresh_token: true },
   });
   if (!account?.access_token) {
     throw new Error(
@@ -167,34 +112,10 @@ async function getTokensForUser(userId: string): Promise<{
     );
   }
   const tokens = decryptAccountTokens(account);
-  let accessToken = tokens.access_token!;
-  const refreshToken = tokens.refresh_token ?? null;
-
-  const expiresAtMs = account.expires_at ? account.expires_at * 1000 : null;
-  const needsRefresh =
-    expiresAtMs != null && expiresAtMs - Date.now() < TOKEN_REFRESH_SKEW_MS;
-
-  const clientId = process.env.MICROSOFT_CLIENT_ID?.trim();
-  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET?.trim();
-
-  if (needsRefresh && refreshToken && clientId && clientSecret) {
-    const refreshed = await refreshMicrosoftAccessToken({
-      refreshToken,
-      clientId,
-      clientSecret,
-    });
-    await upsertMicrosoftAccount({
-      userId,
-      providerAccountId: account.providerAccountId ?? account.id,
-      accessToken: refreshed.accessToken,
-      refreshToken: refreshed.refreshToken,
-      expiresAt: refreshed.expiresAt,
-      scope: account.scope,
-    });
-    accessToken = refreshed.accessToken;
-  }
-
-  return { accessToken, refreshToken };
+  return {
+    accessToken: tokens.access_token!,
+    refreshToken: tokens.refresh_token ?? null,
+  };
 }
 
 async function ensureFolderPath(

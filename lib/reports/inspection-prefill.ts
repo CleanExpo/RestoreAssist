@@ -187,26 +187,11 @@ export function buildReportPrefill(
   set("technicianAttendanceDate", isoDate(inspection.inspectionDate));
   set("technicianFieldReport", text(inspection.lossDescription));
 
-  // Report `hazardType` is water-centric legacy — only copy canonical loss
-  // families that belong on a damage report. Other claim stamps (asbestos,
-  // contents, carpet, …) stay absent so we never print the wrong hazard family.
-  const stamp = inspection.claimType?.trim().toUpperCase();
+  // Via the single boundary normaliser. It returns null for the ClaimType values
+  // with no unambiguous JobType (CONTENTS, BIOHAZARD, ODOUR, CARPET, HVAC,
+  // ASBESTOS) -- those leave hazardType absent rather than guessing.
   const jobType = normalizeClaimType(inspection.claimType);
-  const REPORT_HAZARD_JOB_TYPES = new Set([
-    "WATER_DAMAGE",
-    "FIRE_SMOKE",
-    "MOULD",
-    "STORM",
-  ]);
-  // Odour jobs share fire workflow steps but must not claim "fire/smoke" on reports.
-  if (
-    stamp &&
-    stamp !== "ODOUR" &&
-    jobType &&
-    REPORT_HAZARD_JOB_TYPES.has(jobType)
-  ) {
-    fields.hazardType = jobType;
-  }
+  if (jobType) fields.hazardType = jobType;
 
   // Report.buildingAge is the YEAR BUILT, not an age in years. Downstream
   // asbestos and lead logic reads it as a construction year and resolves the

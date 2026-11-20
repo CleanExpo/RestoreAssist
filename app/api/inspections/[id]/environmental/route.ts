@@ -11,7 +11,6 @@ import {
   assertInspectionAssignedWrite,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
-import { parseFieldCaptureTime } from "@/lib/evidence/field-capture-time";
 
 // POST - Add or update environmental data
 export async function POST(
@@ -105,10 +104,6 @@ export async function POST(
           ? sanitizeString(body.weatherConditions, 200)
           : null;
 
-        const recordedAt =
-          parseFieldCaptureTime(body.recordedAt ?? body.timestamp) ??
-          new Date();
-
         // D-028: re-check the caller's reach inside the write, so a
         // reassignment between the check and the write changes 0 rows.
         const environmentalData = await writeWithinInspectionScope(
@@ -124,8 +119,6 @@ export async function POST(
                 airCirculation: body.airCirculation ?? false,
                 weatherConditions: sanitizedWeather,
                 notes: sanitizedNotes,
-                timestamp: recordedAt,
-                recordedAt,
               },
             }),
         );

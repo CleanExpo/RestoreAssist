@@ -18,10 +18,6 @@ import {
   blocksReportSendForFieldEvidence,
   FIELD_EVIDENCE_SEND_REFUSAL_MESSAGE,
 } from "@/lib/reports/field-evidence-send-gate";
-import {
-  blocksReportSendForTechnicianRole,
-  MANAGER_SEND_REFUSAL_MESSAGE,
-} from "@/lib/reports/manager-send-gate";
 
 /** Same lifetime as the insurer link (`generateInsurerToken`). */
 const LINK_VALID_DAYS = 30;
@@ -101,14 +97,6 @@ export async function POST(
           code: "NOT_FOUND",
           message: "Report not found",
           status: 404,
-        });
-      }
-
-      if (blocksReportSendForTechnicianRole(session.user.role)) {
-        return apiError(request, {
-          code: "FORBIDDEN",
-          message: MANAGER_SEND_REFUSAL_MESSAGE,
-          status: 403,
         });
       }
 

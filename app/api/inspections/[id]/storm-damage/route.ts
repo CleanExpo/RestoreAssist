@@ -24,7 +24,6 @@ import {
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
-import { ensureInspectionWorkflowFromClaimType } from "@/lib/evidence/ensure-inspection-workflow";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -142,9 +141,8 @@ export async function POST(
     const record = await writeWithinInspectionScope(
       tenancy.data.inspectionManyWhere,
       { claimType: "STORM" },
-      async (tx) => {
-        await ensureInspectionWorkflowFromClaimType(tx, id, "STORM");
-        return tx.stormDamageAssessment.upsert({
+      (tx) =>
+        tx.stormDamageAssessment.upsert({
           where: { inspectionId: id },
           create: {
             inspectionId: id,
@@ -213,8 +211,7 @@ export async function POST(
               asbestosRiskFlag: data.asbestosRiskFlag,
             }),
           },
-        });
-      },
+        }),
     );
 
     // Null means the caller's scope no longer claims this inspection.

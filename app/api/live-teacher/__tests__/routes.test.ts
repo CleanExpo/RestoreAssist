@@ -235,11 +235,8 @@ describe("POST /api/live-teacher/session", () => {
     mockGetServerSession.mockResolvedValue({
       user: { id: "user-1", email: "test@example.com" },
     } as any);
-    // Unrecognised stamp → normalizeClaimType → null (no completeness snapshot).
-    mockInspectionFindFirst.mockResolvedValue({
-      id: "insp-1",
-      claimType: "NOT_A_REAL_CLAIM_STAMP",
-    });
+    // CONTENTS has no unambiguous JobType mapping → normalizeClaimType → null.
+    mockInspectionFindFirst.mockResolvedValue({ id: "insp-1", claimType: "CONTENTS" });
     mockSessionCreate.mockResolvedValue({ id: "sess-no-snapshot" });
 
     const { POST } = await import("../session/route");

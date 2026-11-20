@@ -1163,24 +1163,18 @@ function ManagerOpsSummary({ session }: { session: Session }) {
       inspectionNumber: string | null;
       blocking: string[];
     }>;
-    summary?: { byAge?: { stale?: number }; totalStalled?: number };
   }>(enabled ? "/api/operations/completeness-inbox" : null);
 
   if (!enabled) return null;
 
   const rows = data?.data ?? [];
-  const gapCount = data?.summary?.totalStalled ?? rows.length;
-  const staleCount = data?.summary?.byAge?.stale ?? 0;
+  const gapCount = rows.length;
 
   return (
     <DashboardPanel className="bg-gradient-to-br from-card via-card to-amber-500/[0.06]">
       <DashboardPanelHeader
         title="Team gaps"
-        description={
-          staleCount > 0
-            ? `${gapCount} jobs with gaps — ${staleCount} idle 7+ days.`
-            : "Jobs missing required intake — from your organisation's active work."
-        }
+        description="Jobs missing required intake — from your organisation's active work."
         action={
           <div className="flex flex-wrap items-center gap-3">
             <Link

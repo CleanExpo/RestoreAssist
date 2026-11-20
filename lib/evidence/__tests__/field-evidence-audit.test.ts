@@ -399,22 +399,10 @@ describe("buildFieldEvidenceChecklist — affected-area linkage", () => {
     ]);
   });
 
-  it("builds a checklist for asbestos jobs via the hazmat workflow mapping", () => {
-    const result = buildFieldEvidenceChecklist(
-      { id: "insp-asbestos", claimType: "ASBESTOS" },
-      [],
-      [],
-      [],
-      [],
-    );
-    expect(result.claimType).toBe("CLANDESTINE_HAZARDOUS");
-    expect(result.categories.required.length).toBeGreaterThan(0);
-  });
-
   it("throws for a claimType that doesn't map to a known workflow job type", () => {
     expect(() =>
       buildFieldEvidenceChecklist(
-        { id: "insp-unmapped", claimType: "UNKNOWN_TYPE" },
+        { id: "insp-unmapped", claimType: "ASBESTOS" },
         [],
         [],
         [],

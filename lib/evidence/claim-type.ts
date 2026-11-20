@@ -19,23 +19,16 @@
 import { JOB_TYPES, type JobType } from "./workflow-definitions";
 
 /**
- * Prisma `ClaimType` enum values (prisma/schema.prisma) → canonical JobType.
- * Full-functionality program W0-1: every enum value must map so completeness,
- * field-evidence audit, and send gates do not silently pass with zero requirements.
+ * Prisma `ClaimType` enum values (prisma/schema.prisma) that map
+ * unambiguously to a single JobType. The remaining ClaimType values
+ * (CONTENTS, BIOHAZARD, ODOUR, CARPET, HVAC, ASBESTOS) don't have one
+ * obvious JobType counterpart and are intentionally left unmapped.
  */
 const CLAIM_TYPE_ALIASES: Record<string, JobType> = {
   WATER: "WATER_DAMAGE",
   FIRE: "FIRE_SMOKE",
   MOULD: "MOULD",
   STORM: "STORM",
-  CONTENTS: "CONTENTS_ONLY",
-  BIOHAZARD: "CLANDESTINE_HAZARDOUS",
-  /** Odour jobs reuse fire/smoke odour workflow steps; inspection stamp stays ODOUR. */
-  ODOUR: "FIRE_SMOKE",
-  CARPET: "CARPET",
-  HVAC: "HVAC",
-  /** Asbestos-led jobs use hazmat workflow until a dedicated template is needed. */
-  ASBESTOS: "CLANDESTINE_HAZARDOUS",
 };
 
 /**

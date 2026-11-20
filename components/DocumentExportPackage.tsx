@@ -100,32 +100,6 @@ export default function DocumentExportPackage({
     ? !meta.exportReady && meta.status !== "no_content"
     : true;
 
-  const handleScopeCsvExport = async () => {
-    setExporting("scope-csv");
-    try {
-      const response = await fetch(
-        `/api/reports/${reportId}/export-scope-csv`,
-      );
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        toast.error(
-          typeof error.error === "string"
-            ? error.error
-            : "Failed to export scope CSV",
-        );
-        return;
-      }
-      const blob = await response.blob();
-      downloadBlob(blob, `Scope-Adjuster-${reportId}.csv`);
-      toast.success("Adjuster scope CSV downloaded");
-    } catch (error) {
-      console.error("Error exporting scope CSV:", error);
-      toast.error("Failed to export scope CSV");
-    } finally {
-      setExporting(null);
-    }
-  };
-
   const handleExport = async (format: ExportFormat) => {
     setExporting(format);
     try {
@@ -372,42 +346,6 @@ export default function DocumentExportPackage({
                 <>
                   <FileJson className="w-4 h-4" />
                   Export JSON
-                </>
-              )}
-            </button>
-          </div>
-
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-emerald-500/50 transition-colors">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 rounded-lg bg-emerald-500/20">
-                <FileText className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div>
-                <h4 className="font-semibold">Scope CSV (adjuster)</h4>
-                <p className="text-xs text-slate-400">
-                  Line items + IICRC refs + costs
-                </p>
-              </div>
-            </div>
-            <p className="text-sm text-slate-300 mb-3">
-              Spreadsheet-friendly export from the linked job scope — for
-              adjusters and carrier intake tools.
-            </p>
-            <button
-              type="button"
-              onClick={() => void handleScopeCsvExport()}
-              disabled={exporting !== null}
-              className="w-full min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {exporting === "scope-csv" ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Exporting...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4" />
-                  Export scope CSV
                 </>
               )}
             </button>
