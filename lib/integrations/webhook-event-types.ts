@@ -81,7 +81,7 @@ export const DRAIN_ACCEPTS: Readonly<
 const PENDING_UNTIL_PRUNED =
   "stored PENDING; no drain that production runs selects it, so prune-webhook-events deletes it unread";
 const QBO_MYOB_NOT_SCHEDULED =
-  "stored PENDING; the drain that selects it, sync-qbo-myob-payments, is excluded from production (production-schedule.ts)";
+  "stored PENDING; no scheduled drain selects it: sync-qbo-myob-payments reads only invoice.paid and payment.created (and is itself excluded from production, production-schedule.ts), and the generic queue route POST /api/webhooks/process has no schedule";
 const XERO_SKIPPED_UNREAD =
   "closed SKIPPED by the Xero drain without being read";
 const PAYMENT_STUB_REASON =
