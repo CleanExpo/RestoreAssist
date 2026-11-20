@@ -212,11 +212,11 @@ export default function CronRunsPage() {
                       <span className="font-medium text-neutral-900 dark:text-white text-sm">
                         {run.jobName}
                       </span>
-                      <span className="text-xs text-neutral-400 font-mono">
+                      <span className="text-xs text-brand-slate dark:text-neutral-400 font-mono">
                         {new Date(run.startedAt).toLocaleString()}
                       </span>
                       {run.durationMs !== null && (
-                        <span className="text-xs text-neutral-400 font-mono">
+                        <span className="text-xs text-brand-slate dark:text-neutral-400 font-mono">
                           {run.durationMs}ms
                         </span>
                       )}

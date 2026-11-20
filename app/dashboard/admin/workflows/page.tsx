@@ -145,7 +145,7 @@ const TASK_STATUS_CONFIG: Record<
   },
   DEAD_LETTER: {
     label: "Dead Letter",
-    className: "bg-red-900/20 text-red-700 dark:text-red-400",
+    className: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400",
   },
 };
 
@@ -254,7 +254,7 @@ function TaskRow({ task }: { task: AgentTask }) {
             </span>
           </div>
         ) : (
-          <span className="text-neutral-400">—</span>
+          <span className="text-brand-slate dark:text-neutral-400">—</span>
         )}
       </td>
     </tr>
@@ -325,7 +325,7 @@ function WorkflowRow({
             aria-label={expanded ? "Collapse" : "Expand"}
           >
             {loadingTasks ? (
-              <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-brand-slate dark:text-neutral-400" />
             ) : expanded ? (
               <ChevronDown className="h-4 w-4 text-neutral-500" />
             ) : (
@@ -347,7 +347,7 @@ function WorkflowRow({
             {workflow.name || "—"}
           </span>
           {workflow.reportId && (
-            <span className="text-xs text-neutral-400 font-mono">
+            <span className="text-xs text-brand-slate dark:text-neutral-400 font-mono">
               report:{workflow.reportId.slice(0, 6)}
             </span>
           )}
@@ -396,7 +396,7 @@ function WorkflowRow({
               {workflow.failedTasks}
             </span>
           ) : (
-            <span className="text-xs text-neutral-400">0</span>
+            <span className="text-xs text-brand-slate dark:text-neutral-400">0</span>
           )}
         </td>
 
@@ -440,7 +440,7 @@ function WorkflowRow({
         <>
           <tr className="bg-neutral-50/80 dark:bg-neutral-800/20">
             <td colSpan={9} className="px-4 pt-2 pb-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-brand-slate dark:text-neutral-500">
                 Tasks ({tasks.length})
               </span>
             </td>
@@ -454,7 +454,7 @@ function WorkflowRow({
         <tr className="bg-neutral-50/80 dark:bg-neutral-800/20">
           <td
             colSpan={9}
-            className="px-4 py-3 text-xs text-neutral-400 text-center"
+            className="px-4 py-3 text-xs text-brand-slate dark:text-neutral-400 text-center"
           >
             No tasks recorded for this workflow.
           </td>
@@ -608,7 +608,7 @@ export default function WorkflowMonitorPage() {
   if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Shield className="h-12 w-12 text-neutral-400" />
+        <Shield className="h-12 w-12 text-brand-slate dark:text-neutral-400" />
         <p className="text-neutral-600 dark:text-neutral-400">
           Admin access required
         </p>
@@ -739,7 +739,7 @@ export default function WorkflowMonitorPage() {
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white text-base">
             <Activity className="h-5 w-5 text-brand-harbour-500" />
             Workflows
-            <span className="text-sm font-normal text-neutral-400">
+            <span className="text-sm font-normal text-brand-slate dark:text-neutral-400">
               ({workflows.length})
             </span>
           </CardTitle>
@@ -752,7 +752,7 @@ export default function WorkflowMonitorPage() {
             </p>
           ) : workflows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <Activity className="h-10 w-10 text-neutral-300 dark:text-neutral-600" />
+              <Activity className="h-10 w-10 text-brand-slate dark:text-neutral-600" />
               <p className="text-neutral-500 dark:text-neutral-400 text-sm">
                 No workflows recorded yet.
               </p>
