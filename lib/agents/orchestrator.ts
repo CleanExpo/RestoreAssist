@@ -173,14 +173,21 @@ export async function getWorkflowContext(
 // ---------------------------------------------------------------------------
 
 /**
- * Cancel a running workflow. All non-completed tasks are set to CANCELLED.
+ * Cancel a workflow. Queued tasks and failed tasks are set to CANCELLED.
+ *
+ * RA-8429: FAILED and DEAD_LETTER are included so a cancelled workflow holds
+ * no retryable task; otherwise the dead-letter review kept reading them for
+ * the 90 days until cleanup deleted the workflow. A CANCELLED workflow cannot
+ * be resumed (the resume route accepts FAILED, PARTIALLY_FAILED and PAUSED
+ * only), so nothing that could still run is lost. RUNNING tasks are left to
+ * finish under their lease.
  */
 export async function cancelWorkflow(workflowId: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
     await tx.agentTask.updateMany({
       where: {
         workflowId,
-        status: { in: ["PENDING", "READY"] },
+        status: { in: ["PENDING", "READY", "FAILED", "DEAD_LETTER"] },
       },
       data: { status: "CANCELLED" },
     });
