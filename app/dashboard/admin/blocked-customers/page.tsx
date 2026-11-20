@@ -61,7 +61,7 @@ const statusBadgeConfig: Record<
 function StatusBadge({ status }: { status: BlockedStatus | null }) {
   if (!status) {
     return (
-      <Badge variant="outline" className="text-neutral-400">
+      <Badge variant="outline" className="text-brand-slate dark:text-neutral-400">
         Unknown
       </Badge>
     );
