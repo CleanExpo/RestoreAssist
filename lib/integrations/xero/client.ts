@@ -19,10 +19,10 @@ import { encrypt } from "@/lib/credential-vault";
 import { readXeroBinding, readReadyXeroBinding, updateXeroBinding, type XeroBindingExpectation, type XeroBinding, sameXeroGrant } from "@/lib/services/xero/binding";
 import { isOAuthIntegration } from "../identity";
 import { isXeroTimeoutError } from "./upstream-errors";
+import { XERO_REQUEST_TIMEOUT_MS } from "./request-timeout";
 
 /** Modest page size so each Xero call finishes inside the 15s AbortSignal budget. */
 const XERO_PAGE_SIZE = 100;
-const XERO_REQUEST_TIMEOUT_MS = 15_000;
 
 /**
  * High-volume Xero orgs reject `where` on Contacts/Invoices (Error 9191919).
