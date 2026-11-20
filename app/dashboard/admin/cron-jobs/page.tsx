@@ -149,7 +149,7 @@ export default function CronJobsPage() {
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Shield className="h-12 w-12 text-neutral-400" />
+        <Shield className="h-12 w-12 text-brand-slate dark:text-neutral-400" />
         <p className="text-neutral-600 dark:text-neutral-400">
           Admin access required
         </p>
@@ -245,7 +245,7 @@ export default function CronJobsPage() {
                       <span className="font-medium text-neutral-900 dark:text-white text-sm">
                         {job.name}
                       </span>
-                      <code className="text-xs text-neutral-400 font-mono hidden sm:inline">
+                      <code className="text-xs text-brand-slate dark:text-neutral-400 font-mono hidden sm:inline">
                         {job.path}
                       </code>
                     </div>

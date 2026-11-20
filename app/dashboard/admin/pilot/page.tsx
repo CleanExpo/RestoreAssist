@@ -309,7 +309,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
                   {typeof evaluation.metricValue === "number"
                     ? evaluation.metricValue.toFixed(2)
                     : evaluation.metricValue}{" "}
-                  <span className="text-neutral-400 font-normal">
+                  <span className="text-brand-slate dark:text-neutral-400 font-normal">
                     vs threshold {evaluation.threshold}
                   </span>
                 </span>
@@ -329,7 +329,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
         )}
 
         {!evaluation.sufficientData && evaluation.observationsNeeded > 0 && (
-          <p className="text-xs text-neutral-400 dark:text-slate-500">
+          <p className="text-xs text-brand-slate dark:text-slate-500">
             <span className="font-medium text-neutral-600 dark:text-slate-400">
               {evaluation.observationsNeeded} more observations needed
             </span>{" "}
@@ -425,7 +425,7 @@ export default function PilotReadinessDashboard() {
   if (status === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="animate-spin text-neutral-400" size={28} />
+        <Loader2 className="animate-spin text-brand-slate dark:text-neutral-400" size={28} />
       </div>
     );
   }
@@ -647,7 +647,7 @@ export default function PilotReadinessDashboard() {
         {meta.note.map((n, i) => (
           <p
             key={i}
-            className="text-xs text-neutral-400 dark:text-slate-500 leading-relaxed"
+            className="text-xs text-brand-slate dark:text-slate-500 leading-relaxed"
           >
             {n}
           </p>
@@ -702,7 +702,7 @@ function StatTile({
       >
         {value}
       </div>
-      <div className="text-xs text-neutral-400 dark:text-slate-500">{sub}</div>
+      <div className="text-xs text-brand-slate dark:text-slate-500">{sub}</div>
     </div>
   );
 }

@@ -4,7 +4,9 @@
  *   401         — no authenticated session.
  *   404         — no resolvable customer / no active subscription.
  *   happy path  — cancels the matched subscription with cancel_at_period_end=true
- *                 and syncs local status to CANCELED.
+ *                 and leaves the local status alone (RA-8430): the plan stays
+ *                 live until the period ends, so the webhook and the sync
+ *                 routes own the status.
  *   wrong-cust  — RA-6939 regression guard: with a stored stripeCustomerId +
  *                 subscriptionId the route acts on the user's OWN subscription
  *                 and never falls back to the shared-email customer lookup, so a
@@ -103,18 +105,28 @@ describe("POST /api/cancel-subscription", () => {
     expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
   });
 
-  it("cancels the matched subscription with cancel_at_period_end=true and syncs CANCELED", async () => {
+  it("cancels the matched subscription with cancel_at_period_end=true", async () => {
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
     expect(stripeMock.subscriptions.update).toHaveBeenCalledWith("sub_1", {
       cancel_at_period_end: true,
     });
-    expect(prisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "u1" },
-        data: expect.objectContaining({ subscriptionStatus: "CANCELED" }),
-      }),
-    );
+  });
+
+  it("keeps a still-paying user's status when the cancel is only scheduled (RA-8430)", async () => {
+    // Stripe keeps the plan live until the period ends. If the follow-up
+    // sync fails and the webhook is late, a CANCELED write here locks a
+    // paid-up owner out of paid features and the dashboard, and the
+    // reconcile cron never looks at CANCELED rows to repair it.
+    const res = await POST(makeRequest({ reason: "too_expensive" }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.subscriptions.update).toHaveBeenCalledTimes(1);
+    for (const [arg] of vi.mocked(prisma.user.update).mock.calls) {
+      expect(
+        (arg as { data?: { subscriptionStatus?: unknown } }).data
+          ?.subscriptionStatus,
+      ).toBeUndefined();
+    }
   });
 
   it("uses the stored customer + subscription id and never the shared-email lookup (RA-6939)", async () => {
