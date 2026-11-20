@@ -61,11 +61,7 @@ export const CLAIMS_INTEGRATION_SCHEMA_VERSION = "2.0";
 export const CLAIMS_INTEGRATION_ARTIFACT_PATH =
   "docs/contracts/claims-integration-v2.schema.json";
 
-const isoDateTime =
-  typeof (z as { iso?: { datetime?: () => z.ZodType<string> } }).iso?.datetime ===
-  "function"
-    ? (z as { iso: { datetime: () => z.ZodType<string> } }).iso.datetime()
-    : z.string().datetime({ offset: true });
+const isoDateTime = z.iso.datetime();
 
 const nirTechnicianSchema = z.strictObject({
   technicianId: z.string(),

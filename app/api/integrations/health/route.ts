@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
               : `${failed.length} of ${probeResults.length} probe(s) failed upstream`,
         details: probeResults,
       });
-      if (failed.length > 0 && overallStatus !== "unhealthy") {
+      if (failed.length > 0 && overallStatus === "healthy") {
         overallStatus = "degraded";
       }
     }

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     );
     if (!sinceParsed.ok) {
       return apiError(request, {
-        code: "VALIDATION_ERROR",
+        code: "VALIDATION",
         message: sinceParsed.reason,
         status: 400,
       });
