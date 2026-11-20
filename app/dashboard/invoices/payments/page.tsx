@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { paymentAmountToDollars } from "@/lib/invoices/payment-amount";
+import { toCsv } from "@/lib/csv/csv-cell";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ---------------------------------------------------------------------------
@@ -300,11 +301,7 @@ export default function PaymentRegisterPage() {
       p.externalProvider ?? "Manual",
     ]);
 
-    const csvContent = [headers, ...rows]
-      .map((row) =>
-        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
-      )
-      .join("\n");
+    const csvContent = toCsv([headers, ...rows]);
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);

@@ -4,6 +4,7 @@
 
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { toCsv } from "@/lib/csv/csv-cell";
 
 interface ExportIssue {
   category: string;
@@ -127,7 +128,7 @@ export function exportClaimsCSV(
     });
   }
   rows.push(["", "", "", "", "", "", "", "", "", ""]);
-  rows.push(["=== DETAILED RESULTS ===", "", "", "", "", "", "", "", "", ""]);
+  rows.push(["DETAILED RESULTS", "", "", "", "", "", "", "", "", ""]);
   rows.push(headers);
 
   // Data rows
@@ -138,7 +139,7 @@ export function exportClaimsCSV(
         issue.category.replace(/_/g, " "),
         issue.severity,
         issue.elementName,
-        (issue.description || "").replace(/"/g, '""'),
+        issue.description || "",
         issue.standardReference || "",
         issue.isBillable ? "Yes" : "No",
         issue.estimatedCost ? `$${issue.estimatedCost.toFixed(2)}` : "",
@@ -148,9 +149,7 @@ export function exportClaimsCSV(
     }
   }
 
-  const csvContent = rows
-    .map((row) => row.map((cell) => `"${cell}"`).join(","))
-    .join("\n");
+  const csvContent = toCsv(rows);
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
