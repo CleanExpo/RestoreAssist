@@ -10,6 +10,7 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { PRODUCTION_ENABLED } from "@/lib/cron/production-schedule";
 import {
@@ -25,16 +26,27 @@ const REPO_ROOT = join(__dirname, "..", "..", "..");
 const WEBHOOK_ROOT = join(REPO_ROOT, "app", "api", "webhooks");
 
 /**
- * Event-type literals ("noun.verb") on lines that assign or return an event
- * type. Covers `eventType = "x.y"`, `standardEventType = "x.y"` and the
- * ServiceM8 mapper's `return "x.y"`.
+ * Every event-type-shaped string literal ("noun.verb") in a route, read with
+ * the TypeScript parser rather than matched line by line. A line pattern only
+ * sees the syntax it was written for (`eventType = "x.y"`) and misses an object
+ * property (`eventType: "x.y"`), a single-quoted or template literal, or a
+ * value split across lines, while reading a comment as code. The parser sees
+ * every string literal in any position and no comment, so a route cannot name
+ * an event type the registry does not list.
  */
 function extractStoredEventTypes(source: string): Set<string> {
+  const file = ts.createSourceFile("route.ts", source, ts.ScriptTarget.Latest, true);
   const found = new Set<string>();
-  for (const line of source.split("\n")) {
-    if (!/(eventType\s*=(?!=)|EventType\s*=(?!=)|\breturn\s+(active\s*\?\s*)?")/.test(line)) continue;
-    for (const m of line.matchAll(/"([a-z]+\.[a-z_]+)"/g)) found.add(m[1]);
-  }
+  const visit = (node: ts.Node): void => {
+    if (
+      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
+      /^[a-z]+\.[a-z_]+$/.test(node.text)
+    ) {
+      found.add(node.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
   return found;
 }
 
@@ -154,6 +166,28 @@ describe("webhook event-type registry (RA-8427)", () => {
     const problems = compareWithRegistry(stored, WEBHOOK_EVENT_TYPES, PRODUCTION_CRONS);
     expect(problems).toContain('QUICKBOOKS route stores "payment.reversed" but webhook-event-types.ts does not list it');
     expect(problems).toContain('QUICKBOOKS "payment.deleted" is listed but no ingest route stores it');
+  });
+
+  // Each form a line pattern would miss: a create-data property, a single
+  // quote, a template literal, and a value on the line after its key.
+  it.each([
+    ["an object property", "eventType,", 'eventType: "planted.missed",'],
+    ["a single-quoted literal", 'eventType = "payment.deleted";', "eventType = 'planted.missed';"],
+    ["a template literal", 'eventType = "payment.deleted";', "eventType = `planted.missed`;"],
+    ["a value on the next line", 'eventType = "payment.deleted";', 'eventType =\n                "planted.missed";'],
+  ])("fails when a route names an unlisted type as %s", (_form, from, to) => {
+    const source = readFileSync(join(WEBHOOK_ROOT, "quickbooks", "route.ts"), "utf8");
+    expect(source).toContain(from);
+    const stored = storedByProvider();
+    stored.set("QUICKBOOKS", extractStoredEventTypes(source.replace(from, to)));
+    expect(compareWithRegistry(stored, WEBHOOK_EVENT_TYPES, PRODUCTION_CRONS)).toContain(
+      'QUICKBOOKS route stores "planted.missed" but webhook-event-types.ts does not list it',
+    );
+  });
+
+  it("does not read an event type inside a comment", () => {
+    const types = extractStoredEventTypes('// eventType = "comment.only";\n/* "block.only" */\nconst x = 1;');
+    expect([...types]).toEqual([]);
   });
 
   it("fails, naming the reversal and ServiceM8 types, when only drained types are registered (main before RA-8427)", () => {
