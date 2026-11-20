@@ -7,6 +7,7 @@ import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { toCsv } from "@/lib/csv/csv-cell";
 
 interface ExportRequest {
   format: "csv" | "excel" | "pdf";
@@ -158,21 +159,7 @@ function handleCSVExport(
   const headers = Object.keys(data[0]);
 
   // Build CSV
-  let csv = headers.join(",") + "\n";
-  csv += data
-    .map((row) =>
-      headers
-        .map((header) => {
-          const value = row[header];
-          // Escape quotes and wrap in quotes if contains comma
-          if (value.includes(",") || value.includes('"')) {
-            return `"${value.replace(/"/g, '""')}"`;
-          }
-          return value;
-        })
-        .join(","),
-    )
-    .join("\n");
+  const csv = toCsv([headers, ...data.map((row) => headers.map((h) => row[h]))]);
 
   return new NextResponse(csv, {
     headers: {
