@@ -499,7 +499,7 @@ export default function MoistureMappingCanvas({
                 ? points.length === 0
                 : equipmentPoints.length === 0
           }
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500 text-white rounded-lg text-sm hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-harbour-500 text-white rounded-lg text-sm hover:bg-brand-harbour-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <Download size={14} />
           Export PNG
@@ -821,8 +821,8 @@ export default function MoistureMappingCanvas({
           {sketchMode === "moisture" && (
             <>
               {selectedPoint && (
-                <div className="p-3 rounded-xl border-2 border-cyan-400 bg-cyan-50/50 dark:bg-cyan-900/10 space-y-2">
-                  <div className="text-xs font-semibold text-cyan-600 uppercase">
+                <div className="p-3 rounded-xl border-2 border-brand-harbour-400 bg-brand-harbour-50/50 dark:bg-brand-harbour-900/10 space-y-2">
+                  <div className="text-xs font-semibold text-brand-harbour-600 uppercase">
                     Selected Reading
                   </div>
                   <div className="text-sm font-medium">
@@ -894,8 +894,8 @@ export default function MoistureMappingCanvas({
                         className={cn(
                           "w-full text-left p-2.5 rounded-lg border text-sm transition-all",
                           placingReading?.id === reading.id
-                            ? "border-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 ring-2 ring-cyan-500/30"
-                            : "border-neutral-200 dark:border-slate-700 hover:border-cyan-300 dark:hover:border-cyan-800",
+                            ? "border-brand-harbour-400 bg-brand-harbour-50 dark:bg-brand-harbour-900/20 ring-2 ring-brand-harbour-500/30"
+                            : "border-neutral-200 dark:border-slate-700 hover:border-brand-harbour-300 dark:hover:border-brand-harbour-800",
                         )}
                       >
                         <div className="flex items-center justify-between">

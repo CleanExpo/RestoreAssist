@@ -26,7 +26,7 @@ type Props = {
 
 function dotClass(state: InspectionJourneyStep["state"]) {
   if (state === "done") return "bg-emerald-500";
-  if (state === "current") return "bg-cyan-500 ring-2 ring-cyan-500/40";
+  if (state === "current") return "bg-brand-harbour-500 ring-2 ring-brand-harbour-500/40";
   return "bg-neutral-300 dark:bg-slate-600";
 }
 
@@ -113,14 +113,14 @@ export function InspectionJourneyGuide(props: Props) {
                   Step {index + 1}
                 </span>
                 {step.state === "current" && (
-                  <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-cyan-700 dark:text-cyan-300">
+                  <span className="rounded bg-brand-harbour-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-brand-harbour-700 dark:text-brand-harbour-300">
                     Next
                   </span>
                 )}
               </div>
               <Link
                 href={step.href}
-                className="text-sm font-medium text-cyan-700 hover:underline dark:text-cyan-400"
+                className="text-sm font-medium text-brand-harbour-700 hover:underline dark:text-brand-harbour-400"
               >
                 {step.label}
               </Link>

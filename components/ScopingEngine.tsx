@@ -937,7 +937,7 @@ export default function ScopingEngine({
               equipmentParameters: { equipment: newEquip },
             }));
           }}
-          className="mt-4 bg-cyan-600 hover:bg-cyan-700"
+          className="mt-4 bg-brand-harbour-600 hover:bg-brand-harbour-700"
         >
           Add Equipment
         </Button>
@@ -1066,7 +1066,7 @@ export default function ScopingEngine({
               chemicalApplication: { chemicals: newChems },
             }));
           }}
-          className="mt-4 bg-cyan-600 hover:bg-cyan-700"
+          className="mt-4 bg-brand-harbour-600 hover:bg-brand-harbour-700"
         >
           Add Chemical
         </Button>
@@ -1141,7 +1141,7 @@ export default function ScopingEngine({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-cyan-400">
+                <p className="text-2xl font-bold text-brand-harbour-400">
                   {adjustedProductivity.toFixed(2)} sqm/hr
                 </p>
                 <p className="text-sm text-slate-400 mt-1">
@@ -1190,7 +1190,7 @@ export default function ScopingEngine({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xl font-bold text-cyan-400">
+                  <p className="text-xl font-bold text-brand-harbour-400">
                     {estimatedManHours.toFixed(1)} hrs
                   </p>
                 </CardContent>
@@ -1203,7 +1203,7 @@ export default function ScopingEngine({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xl font-bold text-cyan-400">
+                  <p className="text-xl font-bold text-brand-harbour-400">
                     {projectDuration} days
                   </p>
                 </CardContent>
@@ -1216,7 +1216,7 @@ export default function ScopingEngine({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xl font-bold text-cyan-400">
+                  <p className="text-xl font-bold text-brand-harbour-400">
                     {affectedArea} sqm
                   </p>
                 </CardContent>
@@ -1260,7 +1260,7 @@ export default function ScopingEngine({
               <CardTitle className="text-white">Labour Cost</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-cyan-400">
+              <p className="text-3xl font-bold text-brand-harbour-400">
                 ${scopeData.summary.labourCostTotal.toFixed(2)}
               </p>
             </CardContent>
@@ -1271,7 +1271,7 @@ export default function ScopingEngine({
               <CardTitle className="text-white">Equipment Cost</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-cyan-400">
+              <p className="text-3xl font-bold text-brand-harbour-400">
                 ${scopeData.summary.equipmentCostTotal.toFixed(2)}
               </p>
             </CardContent>
@@ -1284,7 +1284,7 @@ export default function ScopingEngine({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-cyan-400">
+              <p className="text-3xl font-bold text-brand-harbour-400">
                 ${scopeData.summary.chemicalCostTotal.toFixed(2)}
               </p>
             </CardContent>
@@ -1295,7 +1295,7 @@ export default function ScopingEngine({
               <CardTitle className="text-white">Total Duration</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-cyan-400">
+              <p className="text-3xl font-bold text-brand-harbour-400">
                 {scopeData.summary.totalDuration} days
               </p>
             </CardContent>
@@ -1308,7 +1308,7 @@ export default function ScopingEngine({
               <CardTitle className="text-white text-xl">Grand Total</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-4xl font-bold text-cyan-400">
+              <p className="text-4xl font-bold text-brand-harbour-400">
                 $
                 {(
                   scopeData.summary.labourCostTotal +
@@ -1416,7 +1416,7 @@ export default function ScopingEngine({
         </h3>
         <div className="bg-slate-800 rounded-lg p-6 space-y-4">
           <div>
-            <h4 className="text-cyan-400 font-semibold mb-2">
+            <h4 className="text-brand-harbour-400 font-semibold mb-2">
               1. Project Summary
             </h4>
             <div className="text-slate-300 text-sm space-y-1">
@@ -1436,7 +1436,7 @@ export default function ScopingEngine({
           </div>
 
           <div>
-            <h4 className="text-cyan-400 font-semibold mb-2">
+            <h4 className="text-brand-harbour-400 font-semibold mb-2">
               2. Site & Environmental Details
             </h4>
             <div className="text-slate-300 text-sm space-y-1">
@@ -1459,7 +1459,7 @@ export default function ScopingEngine({
           </div>
 
           <div>
-            <h4 className="text-cyan-400 font-semibold mb-2">
+            <h4 className="text-brand-harbour-400 font-semibold mb-2">
               3. Labour Scope
             </h4>
             <div className="text-slate-300 text-sm">
@@ -1478,7 +1478,7 @@ export default function ScopingEngine({
           </div>
 
           <div>
-            <h4 className="text-cyan-400 font-semibold mb-2">
+            <h4 className="text-brand-harbour-400 font-semibold mb-2">
               4. Equipment Scope
             </h4>
             <div className="text-slate-300 text-sm">
@@ -1490,7 +1490,7 @@ export default function ScopingEngine({
           </div>
 
           <div>
-            <h4 className="text-cyan-400 font-semibold mb-2">
+            <h4 className="text-brand-harbour-400 font-semibold mb-2">
               5. Chemicals / Consumables
             </h4>
             <div className="text-slate-300 text-sm">
@@ -1502,7 +1502,7 @@ export default function ScopingEngine({
           </div>
 
           <div>
-            <h4 className="text-cyan-400 font-semibold mb-2">
+            <h4 className="text-brand-harbour-400 font-semibold mb-2">
               6. Time & Duration Estimates
             </h4>
             <div className="text-slate-300 text-sm">
@@ -1514,7 +1514,7 @@ export default function ScopingEngine({
           </div>
 
           <div>
-            <h4 className="text-cyan-400 font-semibold mb-2">
+            <h4 className="text-brand-harbour-400 font-semibold mb-2">
               7. Notes / Assumptions / Compliance References
             </h4>
             <div className="text-slate-300 text-sm">
@@ -1523,7 +1523,7 @@ export default function ScopingEngine({
           </div>
 
           <div>
-            <h4 className="text-cyan-400 font-semibold mb-2">8. Cost Totals</h4>
+            <h4 className="text-brand-harbour-400 font-semibold mb-2">8. Cost Totals</h4>
             <div className="text-slate-300 text-sm space-y-1">
               <p>
                 <strong>Labour:</strong> $
@@ -1537,7 +1537,7 @@ export default function ScopingEngine({
                 <strong>Chemicals:</strong> $
                 {scopeData.summary.chemicalCostTotal.toFixed(2)}
               </p>
-              <p className="text-lg font-semibold text-cyan-400 mt-2">
+              <p className="text-lg font-semibold text-brand-harbour-400 mt-2">
                 <strong>Grand Total (Ex GST):</strong> $
                 {(
                   scopeData.summary.labourCostTotal +
@@ -1553,7 +1553,7 @@ export default function ScopingEngine({
       <div className="flex space-x-4">
         <Button
           onClick={() => window.print()}
-          className="bg-cyan-600 hover:bg-cyan-700"
+          className="bg-brand-harbour-600 hover:bg-brand-harbour-700"
         >
           <FileText className="mr-2" size={16} />
           Export PDF
@@ -1614,7 +1614,7 @@ export default function ScopingEngine({
                   <div
                     className={`flex items-center justify-center w-12 h-12 rounded-full border-2 ${
                       isActive
-                        ? "bg-cyan-600 border-cyan-500 text-white"
+                        ? "bg-brand-harbour-600 border-brand-harbour-500 text-white"
                         : isCompleted
                           ? "bg-green-600 border-green-500 text-white"
                           : "bg-slate-800 border-slate-700 text-slate-400"
@@ -1627,7 +1627,7 @@ export default function ScopingEngine({
                     )}
                   </div>
                   <span
-                    className={`text-xs mt-2 text-center ${isActive ? "text-cyan-400" : "text-slate-400"}`}
+                    className={`text-xs mt-2 text-center ${isActive ? "text-brand-harbour-400" : "text-slate-400"}`}
                   >
                     {step.number}
                   </span>
@@ -1676,7 +1676,7 @@ export default function ScopingEngine({
             {currentStep < 8 && (
               <Button
                 onClick={handleNext}
-                className="bg-cyan-600 hover:bg-cyan-700"
+                className="bg-brand-harbour-600 hover:bg-brand-harbour-700"
               >
                 Next
                 <ChevronRight className="ml-2" size={16} />

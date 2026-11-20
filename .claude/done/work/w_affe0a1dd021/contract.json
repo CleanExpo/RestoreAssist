@@ -1,15 +1,15 @@
 {
   "schema": "done/1",
-  "work_id": "w_9c6d6138925f",
+  "work_id": "w_affe0a1dd021",
   "version": 1,
   "supersedes": null,
-  "goal": "RA-8429: PR #2559 merged up to current main with conflicts resolved preserving main and RA-8429 intent; type-check, lint and relevant tests pass",
-  "created_at_utc": "2026-11-18T23:38:54Z",
-  "identity_key": "mesh/phills-mac-mini/ra-8429-516b7546@/Volumes/MacBook SSD EXT/agent-work/ra-rebase-2566-2559/repo-RestoreAssist/.git/worktrees/wt-2559",
+  "goal": "RA-8461: PR #2566 merged up to current main with conflicts resolved preserving RA-7509 and RA-8461 intent; type-check, lint and portal tests pass",
+  "created_at_utc": "2026-11-18T23:36:19Z",
+  "identity_key": "mesh/phills-mac-mini/ra-8461-43692b33@/Volumes/MacBook SSD EXT/agent-work/ra-rebase-2566-2559/repo-RestoreAssist/.git",
   "baseline_observed": {
-    "head": "511718680453e15a4f43537f1697920b31c78729",
-    "branch": "mesh/phills-mac-mini/ra-8429-516b7546",
-    "dirty_count": 1136
+    "head": "08bfd8f04e457d28554294dd286661a8df0670ac",
+    "branch": "mesh/phills-mac-mini/ra-8461-43692b33",
+    "dirty_count": 1137
   },
   "criteria": [
     {
@@ -30,9 +30,9 @@
       "timeout": 1800
     },
     {
-      "id": "relevant-tests",
-      "text": "vitest passes for lib/agents and lib/cron",
-      "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin npx vitest run --config config/vitest.config.js lib/agents lib/cron",
+      "id": "portal-tests",
+      "text": "vitest passes for lib/portal and app/api/portal",
+      "recipe": "env PATH=/Users/phillmcgurk/.nvm/versions/node/v22.22.3/bin:/usr/bin:/bin npx vitest run --config config/vitest.config.js lib/portal app/api/portal",
       "timeout": 900
     }
   ]

@@ -32,7 +32,7 @@ export default function IicrcInclusionPanel({
   return (
     <Card
       data-testid="iicrc-inclusion-panel"
-      className="border-[#8A6B4E]/40 print:hidden"
+      className="border-brand-bronze/40 print:hidden"
     >
       <CardHeader>
         <CardTitle className="text-sm">

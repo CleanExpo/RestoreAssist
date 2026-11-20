@@ -101,7 +101,7 @@ export function ClientPortalAuthorities({ token }: { token: string }) {
                   }
                   placeholder="Type your full name to sign"
                   aria-label={`Your full name to approve ${a.name}`}
-                  className="min-w-[180px] flex-1 rounded-lg border border-white/10 bg-slate-950/50 px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-400/50"
+                  className="min-w-[180px] flex-1 rounded-lg border border-white/10 bg-slate-950/50 px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-brand-harbour-400/50"
                 />
                 <button
                   type="button"

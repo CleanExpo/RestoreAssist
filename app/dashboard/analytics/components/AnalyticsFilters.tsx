@@ -170,7 +170,7 @@ export default function AnalyticsFilters({
   };
 
   const controlClass = cn(
-    "h-9 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 disabled:opacity-50",
+    "h-9 px-3 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/40 disabled:opacity-50",
     "bg-background border border-neutral-200 dark:border-slate-700/60 text-foreground",
   );
 
@@ -291,7 +291,7 @@ export default function AnalyticsFilters({
 
         {isLoading && (
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 size={14} className="animate-spin text-cyan-500" />
+            <Loader2 size={14} className="animate-spin text-brand-harbour-500" />
             <span className="text-xs">Updating…</span>
           </div>
         )}

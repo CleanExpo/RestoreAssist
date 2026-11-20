@@ -96,14 +96,14 @@ export function SketchRoomCoveragePanel({
                   <>
                     <Link
                       href={`/dashboard/inspections/${inspectionId}?tab=sketch&sketchRoomId=${encodeURIComponent(room.id)}&mapMoisture=1`}
-                      className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-400 hover:underline"
+                      className="inline-flex items-center gap-1 text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline"
                     >
                       <ChromeMapPin size={12} />
                       Pin on plan
                     </Link>
                     <Link
                       href={`/dashboard/inspections/${inspectionId}?tab=moisture&sketchRoomId=${encodeURIComponent(room.id)}&roomName=${encodeURIComponent(room.name)}`}
-                      className="inline-flex items-center gap-1 text-cyan-600/80 dark:text-cyan-500 hover:underline"
+                      className="inline-flex items-center gap-1 text-brand-harbour-600/80 dark:text-brand-harbour-500 hover:underline"
                     >
                       <ChromeDroplet size={12} />
                       Reading

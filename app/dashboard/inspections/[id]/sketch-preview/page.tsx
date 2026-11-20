@@ -79,7 +79,7 @@ export default function SketchPreviewPage() {
             <span className="text-xs px-2 py-1 rounded-full bg-info-subtle text-info-subtle-foreground font-medium">
               Homeowner view
             </span>
-            <span className="text-xs text-neutral-400 dark:text-slate-500">
+            <span className="text-xs text-brand-slate dark:text-slate-500">
               This is how the floor plan appears to your client
             </span>
           </div>

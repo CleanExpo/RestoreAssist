@@ -65,20 +65,20 @@ export default function FirstRunChecklist({
     <div
       className={cn(
         "mx-2 mb-3 rounded-xl border p-3 text-sm",
-        "bg-gradient-to-b from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30",
-        "border-cyan-200 dark:border-cyan-800/50",
+        "bg-gradient-to-b from-brand-harbour-50 to-blue-50 dark:from-brand-harbour-950/30 dark:to-blue-950/30",
+        "border-brand-harbour-200 dark:border-brand-harbour-800/50",
       )}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
-          <Sparkles size={14} className="text-cyan-500 flex-shrink-0" />
+          <Sparkles size={14} className="text-brand-harbour-500 flex-shrink-0" />
           <span className="font-semibold text-neutral-800 dark:text-slate-100 text-xs leading-tight">
             Get started
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-medium text-cyan-600 dark:text-cyan-400">
+          <span className="text-[10px] font-medium text-brand-harbour-600 dark:text-brand-harbour-400">
             {completedCount}/{totalCount}
           </span>
           {allComplete && (
@@ -86,7 +86,7 @@ export default function FirstRunChecklist({
               onClick={handleDismiss}
               disabled={dismissing}
               title="Dismiss checklist"
-              className="p-0.5 rounded hover:bg-cyan-200/50 dark:hover:bg-cyan-800/50 transition-colors text-neutral-400 hover:text-neutral-600 dark:text-slate-500 dark:hover:text-slate-300"
+              className="p-0.5 rounded hover:bg-brand-harbour-200/50 dark:hover:bg-brand-harbour-800/50 transition-colors text-neutral-400 hover:text-neutral-600 dark:text-slate-500 dark:hover:text-slate-300"
             >
               {dismissing ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -99,9 +99,9 @@ export default function FirstRunChecklist({
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-1 rounded-full bg-cyan-200/60 dark:bg-cyan-800/40 mb-3">
+      <div className="w-full h-1 rounded-full bg-brand-harbour-200/60 dark:bg-brand-harbour-800/40 mb-3">
         <div
-          className="h-1 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-500"
+          className="h-1 rounded-full bg-gradient-to-r from-blue-500 to-brand-harbour-500 transition-all duration-500"
           style={{ width: `${progressPct}%` }}
         />
       </div>
@@ -116,7 +116,7 @@ export default function FirstRunChecklist({
                 "flex items-start gap-2 rounded-lg px-2 py-1.5 transition-all duration-150",
                 step.completed
                   ? "opacity-60 cursor-default pointer-events-none"
-                  : "hover:bg-cyan-100/70 dark:hover:bg-cyan-900/30 cursor-pointer",
+                  : "hover:bg-brand-harbour-100/70 dark:hover:bg-brand-harbour-900/30 cursor-pointer",
               )}
             >
               <div className="flex-shrink-0 mt-px">
@@ -125,7 +125,7 @@ export default function FirstRunChecklist({
                 ) : (
                   <Circle
                     size={14}
-                    className="text-cyan-400 dark:text-cyan-600"
+                    className="text-brand-harbour-400 dark:text-brand-harbour-600"
                   />
                 )}
               </div>
@@ -149,7 +149,7 @@ export default function FirstRunChecklist({
               {!step.completed && (
                 <ChevronRight
                   size={12}
-                  className="flex-shrink-0 mt-1 text-cyan-400 dark:text-cyan-600"
+                  className="flex-shrink-0 mt-1 text-brand-harbour-400 dark:text-brand-harbour-600"
                 />
               )}
             </Link>
@@ -163,10 +163,10 @@ export default function FirstRunChecklist({
         className={cn(
           "w-full flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5",
           "text-[10px] font-medium transition-all duration-150",
-          "border border-cyan-300 dark:border-cyan-700",
-          "text-cyan-700 dark:text-cyan-300",
-          "hover:bg-cyan-100 dark:hover:bg-cyan-900/40",
-          "hover:border-cyan-400 dark:hover:border-cyan-600",
+          "border border-brand-harbour-300 dark:border-brand-harbour-700",
+          "text-brand-harbour-700 dark:text-brand-harbour-300",
+          "hover:bg-brand-harbour-100 dark:hover:bg-brand-harbour-900/40",
+          "hover:border-brand-harbour-400 dark:hover:border-brand-harbour-600",
         )}
       >
         <PlayCircle size={11} className="flex-shrink-0" />

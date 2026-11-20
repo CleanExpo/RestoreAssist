@@ -118,7 +118,7 @@ export default async function ContractorsHubPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Contractor workspace"
         description="Profile, licences, coverage, equipment, and service areas for this organisation."
-        icon={<ChromeBuilding className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<ChromeBuilding className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/contractors" })}
       />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -129,7 +129,7 @@ export default async function ContractorsHubPage() {
               <Card className="h-full border-border bg-card transition-colors hover:border-brand-bronze/50">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-base text-foreground">
-                    <Icon className="h-5 w-5 text-brand-gold" />
+                    <Icon className="h-5 w-5 text-brand-bronze dark:text-brand-gold" />
                     {section.title}
                   </CardTitle>
                 </CardHeader>
