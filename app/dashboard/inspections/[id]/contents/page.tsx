@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { toCsv } from "@/lib/csv/csv-cell";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -94,9 +95,7 @@ function exportToCsv(items: EditableItem[], inspectionId: string) {
     i.flagForReview ? "Yes" : "No",
     i.aiNote ?? "",
   ]);
-  const csv = [headers, ...rows]
-    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-    .join("\n");
+  const csv = toCsv([headers, ...rows]);
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

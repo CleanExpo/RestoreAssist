@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import { toCsv } from "@/lib/csv/csv-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -602,7 +603,9 @@ export default function ContentsManifestPage({
   // Export CSV
   const handleExportCsv = () => {
     if (!manifest) return;
-    // Build CSV inline (matching lib/ai/contents-manifest.ts format)
+    // Columns match manifestToCsv in lib/ai/contents-manifest.ts. That module
+    // imports the server-side model router, so this client page keeps its own
+    // columns but writes cells through the shared owner (RA-8401).
     const headers = [
       "Item #",
       "Description",
@@ -624,13 +627,13 @@ export default function ContentsManifestPage({
       return roomCmp !== 0 ? roomCmp : a.category.localeCompare(b.category);
     });
 
-    const rows = [headers.join(",")];
+    const rows: string[][] = [headers];
     sorted.forEach((item, idx) => {
       const cells = [
         String(idx + 1),
-        `"${item.description.replace(/"/g, '""')}"`,
+        item.description,
         CATEGORY_LABELS[item.category] ?? item.category,
-        `"${item.room.replace(/"/g, '""')}"`,
+        item.room,
         CONDITION_LABELS[item.condition] ?? item.condition,
         RESTORABILITY_ICONS[item.restorability]?.label ?? item.restorability,
         String(item.quantity),
@@ -638,13 +641,13 @@ export default function ContentsManifestPage({
         (item.estimatedValueAud * item.quantity).toFixed(2),
         `${Math.round(item.confidence * 100)}%`,
         item.verified ? "Yes" : "No",
-        `"${(item.technicianNotes ?? "").replace(/"/g, '""')}"`,
-        `"${(item.aiNotes ?? "").replace(/"/g, '""')}"`,
+        item.technicianNotes ?? "",
+        item.aiNotes ?? "",
       ];
-      rows.push(cells.join(","));
+      rows.push(cells);
     });
 
-    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const blob = new Blob([toCsv(rows)], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
