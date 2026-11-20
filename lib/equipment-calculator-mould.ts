@@ -153,7 +153,7 @@ function buildItem(
 // ─── Core calculator ──────────────────────────────────────────────────────────
 
 /**
- * Calculate IICRC S520-compliant equipment list for a mould remediation job.
+ * Calculate the equipment list, citing IICRC S520, for a mould remediation job.
  * Containment level is auto-selected from area + condition unless overridden.
  */
 export function calculateMouldEquipment(

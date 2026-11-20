@@ -1,5 +1,5 @@
 /**
- * IICRC S500:2021-Compliant Report PDF Generator (RA-428)
+ * IICRC S500:2021 Report PDF Generator (RA-428)
  * Produces a professional, insurer-grade PDF from RestoreAssist report data.
  *
  * Sections:
@@ -306,7 +306,7 @@ function drawPageHeader(
     font: w.bold,
     color: C_WHITE,
   });
-  p.drawText("IICRC S500:2021 Compliant Inspection Report", {
+  p.drawText("Inspection Report (cites ANSI/IICRC S500:2021)", {
     x: MARGIN + 105,
     y: A4_H - 22,
     size: 8,
@@ -329,7 +329,7 @@ function drawPageFooter(
   const p = w.page;
   p.drawRectangle({ x: 0, y: 0, width: A4_W, height: 28, color: accent });
   p.drawText(
-    "Compliant with IICRC S500:2021 | Australian Water Damage Restoration Standard",
+    "Cites ANSI/IICRC S500:2021 | Standard for Professional Water Damage Restoration",
     {
       x: MARGIN,
       y: 10,
@@ -367,7 +367,7 @@ export interface GenerateIICRCReportOptions {
 }
 
 /**
- * Generate an IICRC S500:2021-compliant PDF from RestoreAssist report data.
+ * Generate a PDF that cites IICRC S500:2021 from RestoreAssist report data.
  * Returns a Uint8Array ready to stream as application/pdf.
  */
 export async function generateIICRCReportPDF(

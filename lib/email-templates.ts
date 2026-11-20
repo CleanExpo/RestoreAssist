@@ -240,7 +240,7 @@ export function dryingGoalAchievedEmail(data: DryingGoalAchievedData): string {
     <table cellpadding="0" cellspacing="0" role="presentation" style="width:100%;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;margin:20px 0;">
       <tr>
         <td style="padding:14px 16px;font-size:14px;color:#15803d;font-weight:600;">
-          &#10003;&nbsp; Drying Goal: ACHIEVED — IICRC S500 §11.4 compliant
+          &#10003;&nbsp; Drying goal: achieved (target per IICRC S500:2021)
         </td>
       </tr>
     </table>

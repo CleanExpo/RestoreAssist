@@ -518,7 +518,7 @@ export default function RestorationInspectionReportViewer({
     // Hazards assessment
     if (data.hazards.biologicalMouldDetected) {
       summaryParts.push(
-        `Biological mould growth has been detected${data.hazards.biologicalMouldCategory ? `, categorised as ${data.hazards.biologicalMouldCategory}` : ""}, requiring compliance with IICRC S520 (Mould Remediation) standards and appropriate containment protocols.`,
+        `Biological mould growth has been detected${data.hazards.biologicalMouldCategory ? `, categorised as ${data.hazards.biologicalMouldCategory}` : ""}. IICRC S520 (Mould Remediation) is the reference standard for assessment, containment and remediation.`,
       );
     }
 
@@ -545,7 +545,7 @@ export default function RestorationInspectionReportViewer({
         0,
       );
       summaryParts.push(
-        `Remediation equipment has been deployed, including ${totalEquipment} unit${totalEquipment > 1 ? "s" : ""} of specialised drying equipment, in compliance with IICRC S500 equipment placement and operational guidelines.`,
+        `Remediation equipment has been deployed, including ${totalEquipment} unit${totalEquipment > 1 ? "s" : ""} of specialised drying equipment, placed with reference to IICRC S500.`,
       );
     }
 
@@ -1980,8 +1980,8 @@ export default function RestorationInspectionReportViewer({
                           </p>
                         )}
                         <p className="text-sm print:text-xs text-slate-600 mt-1">
-                          <strong>Compliance:</strong> IICRC S520 (Mould
-                          Remediation) standards apply. Appropriate containment
+                          <strong>Reference standard:</strong> IICRC S520 (Mould
+                          Remediation). Appropriate containment
                           and remediation protocols required.
                         </p>
                       </div>

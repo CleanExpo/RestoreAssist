@@ -111,7 +111,7 @@ export async function analyzeClaimPDF(
   // Convert PDF to base64 for Claude vision (Claude can read PDFs directly)
   const base64Data = pdfBuffer.toString("base64");
 
-  const systemPrompt = `You are an expert water damage restoration consultant and IICRC-certified professional analyzing completed claim reports. Your task is to comprehensively analyze the report to:
+  const systemPrompt = `You are an experienced water damage restoration consultant who cites IICRC standards by section number, analyzing completed claim reports. Your task is to comprehensively analyze the report to:
 
 1. **Understand Report Standards**: Evaluate the quality, completeness, and standardization level of the report
 2. **Identify Missing Elements**: Find all missing compliance elements, safety requirements, and billable items

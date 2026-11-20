@@ -718,7 +718,7 @@ export async function generateDisputePack(
   // ── Build the PDF ────────────────────────────────────────────────────────
   const pdfDoc = await PDFDocument.create();
   pdfDoc.setTitle(`Dispute Defence Pack - ${data.inspection.inspectionNumber}`);
-  pdfDoc.setSubject("IICRC S500:2021 Compliant Dispute Evidence Package");
+  pdfDoc.setSubject("Dispute Evidence Package (cites IICRC S500:2021)");
   pdfDoc.setCreator("RestoreAssist");
   pdfDoc.setProducer("RestoreAssist (pdf-lib)");
 

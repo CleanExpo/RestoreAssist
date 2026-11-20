@@ -438,5 +438,5 @@ const RESTORATION_SERVICES = [
   "Mould Remediation",
   "Storm Damage Restoration",
   "Fire and Smoke Restoration",
-  "IICRC S500 Compliant Drying",
+  "Structural Drying (IICRC S500 Referenced)",
 ];

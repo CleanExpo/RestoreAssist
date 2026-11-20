@@ -45,7 +45,7 @@ export interface ExtractStandardsSectionsArgs {
   query: RetrievalQuery;
 }
 
-const SYSTEM_PROMPT = `You are a senior IICRC-certified water damage restoration specialist and standards expert with 30+ years of experience. Your task is to extract the MOST CRITICAL and RELEVANT sections from a standards document for generating a professional forensic restoration report.
+const SYSTEM_PROMPT = `You are a senior water damage restoration specialist and standards expert with 30+ years of experience. Your task is to extract the MOST CRITICAL and RELEVANT sections from a standards document for generating a professional forensic restoration report.
 
 Your extraction must:
 1. Focus on PROCEDURAL REQUIREMENTS - step-by-step protocols that must be followed

@@ -70,7 +70,7 @@ export const PRICING_CONFIG = {
       "Quick Fill runs without a credit limit during the trial, then 30 credits (form auto-fill)",
       "Basic report type",
       "Basic reports without pasting an API key",
-      // NOT "IICRC S500 compliant". lib/iicrc-inclusion-check.ts states the
+      // NOT an S500 conformity claim. lib/iicrc-inclusion-check.ts states the
       // hard rule that this product never asserts "complies", "certifies",
       // "meets [the standard]" or "required by law", enforced by
       // lib/__tests__/iicrc-inclusion-check.test.ts, and full S500 clause
