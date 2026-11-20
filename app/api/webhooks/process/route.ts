@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
     });
 
     // Get updated stats
-    const stats = await getQueueStats();
+    // CRON_SECRET-gated operator view, so every tenant is counted.
+    const stats = await getQueueStats({ allTenants: true });
 
     return NextResponse.json({
       success: true,
@@ -56,7 +57,8 @@ export async function GET(request: NextRequest) {
     const authResult = verifyCronAuth(request);
     if (authResult) return authResult;
 
-    const stats = await getQueueStats();
+    // CRON_SECRET-gated operator view, so every tenant is counted.
+    const stats = await getQueueStats({ allTenants: true });
 
     return NextResponse.json({
       success: true,
