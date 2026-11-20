@@ -13,6 +13,7 @@
 import type { VisionInput, AllowedModel } from "./byok-client";
 import type { RouterConfig, RoutedAiResponse } from "./model-router";
 import { routeAiRequest } from "./model-router";
+import { toCsv } from "@/lib/csv/csv-cell";
 
 // ━━━ Types ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -499,18 +500,7 @@ export function manifestToCsv(manifest: ContentsManifest): string {
     `Generated: ${manifest.generatedAt} | Model: ${manifest.model} | Photos: ${manifest.photosAnalysed}`,
   ]);
 
-  return rows
-    .map((row) =>
-      row
-        .map((cell) => {
-          const escaped = cell.replace(/"/g, '""');
-          return cell.includes(",") || cell.includes('"') || cell.includes("\n")
-            ? `"${escaped}"`
-            : escaped;
-        })
-        .join(","),
-    )
-    .join("\n");
+  return toCsv(rows);
 }
 
 /**

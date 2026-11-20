@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toCsv } from "@/lib/csv/csv-cell";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ---- Types ----------------------------------------------------------------
@@ -431,7 +432,7 @@ export default function AiUsageDashboardPage() {
         ];
       }),
     ];
-    const csv = rows.map((r) => r.join(",")).join("\n");
+    const csv = toCsv(rows);
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
