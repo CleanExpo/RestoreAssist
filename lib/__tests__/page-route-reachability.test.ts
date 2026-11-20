@@ -47,6 +47,8 @@ const ALLOWLIST: Record<string, string> = {
   "/dashboard/form-templates/new": PRE_EXISTING,
   "/dashboard/forms/authority": PRE_EXISTING,
   "/dashboard/forms/submissions": PRE_EXISTING,
+  "/dashboard/integrations/health": PRE_EXISTING,
+  "/dashboard/integrations/sync-errors": PRE_EXISTING,
   "/dashboard/integrations/sync-history": PRE_EXISTING,
   "/dashboard/integrations/webhooks": PRE_EXISTING,
   "/dashboard/invoices/analytics": PRE_EXISTING,

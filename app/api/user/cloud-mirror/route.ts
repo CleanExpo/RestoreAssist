@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
   if (!catalogEntry?.enabled) {
     return apiError(request, {
       code: "VALIDATION",
-      message: `Provider "${provider}" is not available. Enable the provider in environment config or pick Google Drive.`,
+      message: `Provider "${provider}" is not yet available. Only Google Drive ships in v1.`,
       status: 400,
     });
   }

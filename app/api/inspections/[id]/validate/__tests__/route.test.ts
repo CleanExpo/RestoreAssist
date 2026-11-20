@@ -4,8 +4,6 @@ import { NextRequest } from "next/server";
 const getServerSession = vi.hoisted(() => vi.fn());
 const assertInspectionTenancy = vi.hoisted(() => vi.fn());
 const evidenceItemFindMany = vi.hoisted(() => vi.fn());
-const moistureReadingCount = vi.hoisted(() => vi.fn());
-const psychrometricReadingCount = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -17,10 +15,6 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     evidenceItem: { findMany: (...a: unknown[]) => evidenceItemFindMany(...a) },
-    moistureReading: { count: (...a: unknown[]) => moistureReadingCount(...a) },
-    psychrometricReading: {
-      count: (...a: unknown[]) => psychrometricReadingCount(...a),
-    },
   },
 }));
 
@@ -42,12 +36,8 @@ beforeEach(() => {
   getServerSession.mockReset();
   assertInspectionTenancy.mockReset();
   evidenceItemFindMany.mockReset();
-  moistureReadingCount.mockReset();
-  psychrometricReadingCount.mockReset();
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
   assertInspectionTenancy.mockResolvedValue({ ok: true, data: { id: "insp_1" } });
-  moistureReadingCount.mockResolvedValue(0);
-  psychrometricReadingCount.mockResolvedValue(0);
   evidenceItemFindMany.mockResolvedValue([]);
 });
 

@@ -29,7 +29,6 @@ import {
   assertInspectionReadable,
 } from "@/lib/auth/assert-tenancy";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
-import { parseFieldCaptureTime } from "@/lib/evidence/field-capture-time";
 
 // GET - List photos for inspection
 export async function GET(
@@ -292,7 +291,10 @@ export async function POST(
       cocoaSha256 = clientSha256;
 
       const capturedAtRaw = formData.get("capturedAtUtc");
-      cocoaCapturedAtUtc = parseFieldCaptureTime(capturedAtRaw);
+      cocoaCapturedAtUtc =
+        typeof capturedAtRaw === "string" && capturedAtRaw.length > 0
+          ? new Date(capturedAtRaw)
+          : null;
 
       // Authoritative — server computes from session, never trusts client
       const userHashInput = `${session.user.id}:${session.user.image ?? ""}`;
@@ -368,11 +370,6 @@ export async function POST(
           });
         }
 
-        const captureTimeRaw =
-          formData.get("capturedAtUtc") ?? formData.get("capturedAt");
-        const photoTimestamp =
-          parseFieldCaptureTime(captureTimeRaw) ?? cocoaCapturedAtUtc ?? new Date();
-
         // Create photo record — store CDN URL for dashboard viewing.
         // affectedMaterial / secondaryDamageIndicators are NOT NULL in Postgres
         // (and some DBs lost the ARRAY[] default) — always seed empty arrays.
@@ -385,7 +382,7 @@ export async function POST(
             location: location || null,
             fileSize: file.size,
             mimeType: file.type || null,
-            timestamp: photoTimestamp,
+            timestamp: new Date(),
             affectedMaterial: [],
             secondaryDamageIndicators: [],
             ...labelData,

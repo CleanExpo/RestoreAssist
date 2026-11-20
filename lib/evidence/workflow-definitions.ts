@@ -30,8 +30,6 @@ export const JOB_TYPES = [
   "COMMERCIAL",
   "STRATA",
   "RESIDENTIAL",
-  "CARPET",
-  "HVAC",
 ] as const;
 
 export type JobType = (typeof JOB_TYPES)[number];
@@ -51,8 +49,6 @@ export const JOB_TYPE_LABELS: Record<JobType, string> = {
   COMMERCIAL: "Commercial",
   STRATA: "Strata / Body Corporate",
   RESIDENTIAL: "Residential",
-  CARPET: "Carpet Restoration",
-  HVAC: "HVAC Cleaning & Sanitisation",
 };
 
 /** A single step definition within a workflow template */
@@ -820,44 +816,6 @@ const WORKFLOW_RESIDENTIAL: WorkflowTemplate = {
   ],
 };
 
-const WORKFLOW_CARPET: WorkflowTemplate = {
-  jobType: "CARPET",
-  label: "Carpet Restoration",
-  description:
-    "Carpet and soft-floor cleaning or restoration per IICRC S100 guidance.",
-  steps: [
-    STEP_SITE_ARRIVAL,
-    STEP_CLIENT_AUTHORITY,
-    STEP_INITIAL_DAMAGE_DOCUMENTATION,
-    STEP_FLOOR_PLAN_SKETCH,
-    STEP_SCOPE_OF_WORKS,
-    STEP_COMPLETION_VERIFICATION,
-  ],
-  riskEscalationTriggers: [
-    "Category 2/3 water under carpet — add moisture survey",
-    "Delamination or mould odour — escalate to mould protocol",
-  ],
-};
-
-const WORKFLOW_HVAC: WorkflowTemplate = {
-  jobType: "HVAC",
-  label: "HVAC",
-  description:
-    "HVAC system inspection, cleaning, and sanitisation after contamination or odour events.",
-  steps: [
-    STEP_SITE_ARRIVAL,
-    STEP_CLIENT_AUTHORITY,
-    STEP_INITIAL_DAMAGE_DOCUMENTATION,
-    STEP_CONTAMINATION_ASSESSMENT,
-    STEP_SCOPE_OF_WORKS,
-    STEP_COMPLETION_VERIFICATION,
-  ],
-  riskEscalationTriggers: [
-    "Legionella or biofilm risk — specialist cleaning protocol",
-    "Asbestos-era duct insulation — hazmat assessment before disturbance",
-  ],
-};
-
 // ============================================
 // EXPORTED LOOKUP & UTILITY FUNCTIONS
 // ============================================
@@ -877,8 +835,6 @@ export const WORKFLOW_TEMPLATES: Record<JobType, WorkflowTemplate> = {
   COMMERCIAL: WORKFLOW_COMMERCIAL,
   STRATA: WORKFLOW_STRATA,
   RESIDENTIAL: WORKFLOW_RESIDENTIAL,
-  CARPET: WORKFLOW_CARPET,
-  HVAC: WORKFLOW_HVAC,
 };
 
 /** Get the workflow template for a given job type */

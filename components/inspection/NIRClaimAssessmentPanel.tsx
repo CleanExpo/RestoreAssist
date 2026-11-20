@@ -1673,23 +1673,12 @@ const NIRClaimAssessmentPanel = forwardRef<
     if (!meta) return;
     setSaving(true);
     try {
-      const stampClaimType =
-        type === "ODOUR"
-          ? ("ODOUR" as const)
-          : type === "FIRE"
-            ? ("FIRE" as const)
-            : type === "ASBESTOS"
-              ? ("ASBESTOS" as const)
-              : undefined;
       const res = await fetch(
         `/api/inspections/${inspectionId}/${meta.route}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...formDataRef.current,
-            ...(stampClaimType ? { stampClaimType } : {}),
-          }),
+          body: JSON.stringify(formDataRef.current),
         },
       );
       if (res.ok) {

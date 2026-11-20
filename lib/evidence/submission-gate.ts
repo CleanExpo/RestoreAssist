@@ -18,10 +18,6 @@ import {
 } from "@/lib/types/evidence";
 import type { EvidenceClass } from "@prisma/client";
 import { countableEvidence } from "./countable-evidence";
-import {
-  evidenceClassCapturedTotal,
-  type SupplementaryMeasurementCounts,
-} from "./supplementary-evidence-counts";
 
 export interface ValidationGap {
   evidenceClass: RequiredEvidenceClass;
@@ -76,22 +72,12 @@ export async function validateSubmission(
 ): Promise<SubmissionValidation> {
   // 1. Get all evidence items for this inspection
   // RA-8388: only evidence that counts (a retired reading's record does not).
-  const [evidenceItems, moistureReadings, psychrometricReadings] =
-    await Promise.all([
-      prisma.evidenceItem.findMany({
-        where: countableEvidence({ inspectionId }),
-        orderBy: { capturedAt: "desc" },
-        take: 500,
-        select: { evidenceClass: true, status: true },
-      }),
-      prisma.moistureReading.count({ where: { inspectionId } }),
-      prisma.psychrometricReading.count({ where: { inspectionId } }),
-    ]);
-
-  const supplementary: SupplementaryMeasurementCounts = {
-    moistureReadings,
-    psychrometricReadings,
-  };
+  const evidenceItems = await prisma.evidenceItem.findMany({
+    where: countableEvidence({ inspectionId }),
+    orderBy: { capturedAt: "desc" },
+    take: 500,
+    select: { evidenceClass: true, status: true },
+  });
 
   // 2. Build submission gate requirements from workflow template
   type Requirement = {
@@ -137,12 +123,7 @@ export async function validateSubmission(
   let totalCaptured = 0;
 
   for (const req of requirements) {
-    const itemCount = capturedCounts.get(req.evidenceClass) || 0;
-    const captured = evidenceClassCapturedTotal(
-      req.evidenceClass,
-      itemCount,
-      supplementary,
-    );
+    const captured = capturedCounts.get(req.evidenceClass) || 0;
     totalRequired += req.minCount;
     totalCaptured += Math.min(captured, req.minCount);
 

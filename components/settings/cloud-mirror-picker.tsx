@@ -4,8 +4,8 @@
  * RA-1459 — Cloud Mirror Provider picker.
  *
  * Users pick where RestoreAssist copies their viewing-quality evidence
- * files after they're produced. Drive ships by default; OneDrive when
- * MICROSOFT_CLIENT_ID + MICROSOFT_CLIENT_SECRET are set (RA-8078 / Wave 3).
+ * files after they're produced. Drive ships by default; OneDrive and iCloud
+ * are disabled in PROVIDER_CATALOG until they mirror end to end (RA-8078).
  */
 
 import { useEffect, useState } from "react";

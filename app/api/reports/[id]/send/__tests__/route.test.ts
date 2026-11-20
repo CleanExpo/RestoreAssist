@@ -211,9 +211,7 @@ beforeEach(() => {
   currentReport = completedReport();
   idempotencyCache = new Map();
 
-  getServerSession.mockResolvedValue({
-    user: { id: OWNER_ID, role: "MANAGER" },
-  });
+  getServerSession.mockResolvedValue({ user: { id: OWNER_ID } });
   userFindUnique.mockImplementation(
     async ({ where }: { where: { id: string } }) => users[where.id] ?? null,
   );
@@ -275,17 +273,6 @@ beforeEach(() => {
 });
 
 describe("POST /api/reports/[id]/send — refusals send nothing and write nothing", () => {
-  it("refuses when the caller is a field technician (USER)", async () => {
-    getServerSession.mockResolvedValue({
-      user: { id: OWNER_ID, role: "USER" },
-    });
-    const res = await POST(makeRequest(), params());
-    expect(res.status).toBe(403);
-    const json = await res.json();
-    expect(json.error?.message).toMatch(/manager or admin/i);
-    expectNothingSentOrWritten();
-  });
-
   it("refuses when required field evidence is still missing on the linked job", async () => {
     auditInspectionById.mockResolvedValue({
       inspectionId: INSPECTION_ID,

@@ -287,11 +287,6 @@ vi.mock("@/lib/prisma", () => {
       createMany: vi.fn(async () => ({ count: 0 })),
     },
     costEstimate: { createMany: vi.fn(async () => ({ count: 0 })) },
-    inspectionWorkflow: {
-      findUnique: vi.fn(async () => null),
-      create: vi.fn(async () => ({ id: "wf-1" })),
-    },
-    workflowStep: { create: vi.fn(async () => ({})) },
   };
   client.$transaction = vi.fn(async (arg: unknown) =>
     typeof arg === "function"

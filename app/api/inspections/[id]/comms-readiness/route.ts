@@ -110,7 +110,8 @@ export async function GET(
         const validation = await validateSubmission(id, claimType);
         completenessBlockerCount = validation.gaps?.length ?? 0;
       } else {
-        // Claim types that still do not map are unchecked, not "no blockers".
+        // CONTENTS / ASBESTOS and other unmapped types have no workflow.
+        // That is unchecked, not "no blockers".
         completenessBlockerCount = null;
       }
     } catch (error) {

@@ -23,7 +23,6 @@ import {
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
-import { ensureInspectionWorkflowFromClaimType } from "@/lib/evidence/ensure-inspection-workflow";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -181,9 +180,8 @@ export async function POST(
         // gate, so the item is only created while the caller still holds the
         // inspection.
         { claimType: "CONTENTS" },
-        async (tx) => {
-          await ensureInspectionWorkflowFromClaimType(tx, id, "CONTENTS");
-          return tx.contentsPackOutItem.create({
+        (tx) =>
+          tx.contentsPackOutItem.create({
             data: {
               inspectionId: id,
               itemDescription: data.itemDescription,
@@ -201,8 +199,7 @@ export async function POST(
               afterPhotoUrl: data.afterPhotoUrl ?? null,
               claimType: data.claimType ?? null,
             },
-          });
-        },
+          }),
       );
 
       // Null means the caller's scope no longer claims this inspection.
