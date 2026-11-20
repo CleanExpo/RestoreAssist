@@ -6,6 +6,10 @@
  * file holds only what each template is for, what it never authorises, and the
  * fields it needs. No statutory figure or threshold is written here: those stay
  * provisional until a jurisdiction pack is signed off.
+ *
+ * Slice 1 drafts A01 to A11. A12 and A13 are defined but deferred: the job model
+ * does not yet carry the completion or document-sharing data they need, so each
+ * names what it waits for in `deferredUntil` and the planner never emits it.
  */
 
 export type TemplateCode =
@@ -31,6 +35,11 @@ export interface TemplateSpec {
   doesNotAuthorise: string;
   /** Field keys this template needs beyond the shared supplier/site fields. */
   requiredFields: string[];
+  /**
+   * Set when the planner does not yet emit this template, naming the job data it
+   * waits for. A deferred template is defined here but never drafted.
+   */
+  deferredUntil?: string;
 }
 
 export const SHARED_FIELDS = [
@@ -71,7 +80,13 @@ export const TEMPLATES: Record<TemplateCode, TemplateSpec> = {
     purpose: "Records the order issuer, its authority, caps and exclusions.",
     doesNotAuthorise:
       "anything on the insurer's behalf; the owner never signs for the insurer",
-    requiredFields: ["workOrderRef", "scopeLines", "amount"],
+    requiredFields: [
+      "workOrderRef",
+      "scopeLines",
+      "amount",
+      "fundingCap",
+      "exclusions",
+    ],
   },
   A05: {
     code: "A05",
@@ -101,7 +116,12 @@ export const TEMPLATES: Record<TemplateCode, TemplateSpec> = {
     name: "Contents pack-out, storage, return and access",
     purpose: "Custody of named items, destination, duration and return.",
     doesNotAuthorise: "disposal of any item",
-    requiredFields: ["scopeLines"],
+    requiredFields: [
+      "scopeLines",
+      "destination",
+      "storageDuration",
+      "returnArrangements",
+    ],
   },
   A09: {
     code: "A09",
@@ -135,6 +155,8 @@ export const TEMPLATES: Record<TemplateCode, TemplateSpec> = {
     doesNotAuthorise:
       "a waiver of any statutory right or deemed insurer acceptance",
     requiredFields: ["scopeLines"],
+    deferredUntil:
+      "the job records which scope lines are complete and which goods and keys were returned",
   },
   A13: {
     code: "A13",
@@ -142,5 +164,14 @@ export const TEMPLATES: Record<TemplateCode, TemplateSpec> = {
     purpose: "Named recipients, data and purpose, with expiry and withdrawal.",
     doesNotAuthorise: "negotiating, lodging or settling a claim",
     requiredFields: ["recipients", "purpose"],
+    deferredUntil:
+      "the job records a request to share claim documents, with recipients, purpose and expiry",
   },
 };
+
+/** Templates defined above that the slice 1 planner never drafts. */
+export const DEFERRED_TEMPLATES: readonly TemplateCode[] = (
+  Object.values(TEMPLATES) as TemplateSpec[]
+)
+  .filter((t) => Boolean(t.deferredUntil))
+  .map((t) => t.code);

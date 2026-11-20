@@ -12,7 +12,7 @@ import {
   qldCommercialSelfPay,
 } from "../fixtures";
 import type { JobFacts } from "../types";
-import { TEMPLATES } from "../catalogue";
+import { DEFERRED_TEMPLATES, TEMPLATES } from "../catalogue";
 import { formatDraft } from "../preview";
 
 function gate(
@@ -467,14 +467,15 @@ describe("hazards, evidence holds and jurisdiction", () => {
 
   it("a running total too large to add exactly holds the line", () => {
     const job = nswStrataWaterLoss();
-    const big = 2 ** 53;
-    job.caps[0].cap.minor = big;
-    job.caps[0].committed.minor = big;
+    // Every value passes entry validation; only the running total overflows.
+    job.caps[0].cap.minor = Number.MAX_SAFE_INTEGER;
+    job.caps[0].committed.minor = Number.MAX_SAFE_INTEGER;
     job.scope = [{ ...job.scope[0], amount: { minor: 1, currency: "AUD", gst: "EX" } }];
-    // Caught at entry: an unsafe limit stops the whole plan before the insurer gate.
     const plan = planAuthority(job);
-    expect(plan.scopes).toEqual([]);
-    expect(plan.holds.some((h) => h.includes("not usable"))).toBe(true);
+    expect(plan.scopes.map((s) => s.scopeLineId)).toEqual(["L1"]);
+    const r = gate(plan, "L1", "INSURER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toMatch(/running total is too large/);
   });
 
   it("an earlier insurer line on a different GST basis leaves later totals unknown, so they hold", () => {
@@ -499,7 +500,9 @@ describe("hazards, evidence holds and jurisdiction", () => {
       job.approvals.push({ id: `u-${kind}`, partyId: "dir", kind, scopeLineIds: ["C1"], evidence: "verified" });
     }
     const plan = planAuthority(job);
-    expect(plan.scopes.find((x) => x.scopeLineId === "C1")?.canStart ?? false).toBe(false);
+    // Rejected at entry: no scope, gate or form is produced for any line.
+    expect(plan.scopes).toEqual([]);
+    expect(plan.forms).toEqual([]);
     expect(plan.holds.some((h) => h.includes("C1"))).toBe(true);
   });
 
@@ -683,7 +686,7 @@ describe("review findings", () => {
     const job = documentedNz();
     job.scope[0].stopPoint = "Roof covered and water extracted; no removal";
     expect(field(planAuthority(job), "A02", "N1", "stopPoint")?.value).toBe(
-      "Roof covered and water extracted; no removal",
+      "N1 Temporary tarp and water extraction: Roof covered and water extracted; no removal",
     );
   });
 
@@ -776,5 +779,181 @@ describe("review findings", () => {
     const amount = a03.fields.find((f) => f.key === "amount")!;
     expect(text).toContain(`${amount.value}`);
     for (const b of a03.notSendableBecause) expect(text).toContain(b);
+  });
+});
+
+// CodeRabbit review findings, RA-8468 round 2 (thread topics in each title).
+describe("review findings, round 2", () => {
+  function draftFor(plan: AuthorityPlan, code: string, line: string) {
+    const f = forms(plan, code).find((d) => d.scopeLineIds.includes(line));
+    if (!f) throw new Error(`no ${code} draft for ${line}`);
+    return f;
+  }
+  function fieldOf(plan: AuthorityPlan, code: string, line: string, key: string) {
+    const f = draftFor(plan, code, line).fields.find((x) => x.key === key);
+    if (!f) throw new Error(`no ${key} on ${code}`);
+    return f;
+  }
+  const directPayAuthorised = (): JobFacts => {
+    const job = qldCommercialSelfPay();
+    for (const kind of ["WORK", "PAYMENT"] as const) {
+      job.approvals.push({ id: `ok-${kind}`, partyId: "dir", kind, scopeLineIds: ["C1"], evidence: "verified" });
+    }
+    return job;
+  };
+
+  it("the preview prints a blank field row separately from the blocker list", () => {
+    const job = qldCommercialSelfPay();
+    job.business = { ...job.business, businessNumber: null };
+    const text = formatDraft(forms(planAuthority(job), "A03")[0]).join("\n");
+    expect(text).toContain("supplierBusinessNumber: [blank] not on the business profile");
+    expect(text).toContain("- supplierBusinessNumber: not on the business profile");
+  });
+
+  it("A12 and A13 are recorded as deferred, never silently missing", () => {
+    for (const code of ["A12", "A13"] as const) {
+      expect(DEFERRED_TEMPLATES).toContain(code);
+      expect(TEMPLATES[code].deferredUntil).toBeTruthy();
+    }
+    for (const make of [nswStrataWaterLoss, qldCommercialSelfPay, nzRentalNaturalHazard]) {
+      const codes = planAuthority(make()).forms.map((f) => f.code);
+      for (const c of DEFERRED_TEMPLATES) expect(codes).not.toContain(c);
+    }
+    // Every template that is not deferred has no deferral note.
+    for (const t of Object.values(TEMPLATES)) {
+      expect(Boolean(t.deferredUntil)).toBe(DEFERRED_TEMPLATES.includes(t.code));
+    }
+  });
+
+  it("A04 shows the recipient's reviewed limit and exclusions, with the fictional marker", () => {
+    const plan = planAuthority(nswStrataWaterLoss());
+    const cap = fieldOf(plan, "A04", "L1", "fundingCap");
+    expect(cap.value).toContain("A$3,000.00 ex GST");
+    expect(cap.value).toContain("fictional schedule, clause 1");
+    expect(cap.value).toContain("[fictional teaching fixture]");
+    const ex = fieldOf(plan, "A04", "L1", "exclusions");
+    expect(ex.value).toMatch(/flooring removal/);
+    // The unaddressed A04 (assessor line) has no funder, so no terms are shown.
+    expect(fieldOf(plan, "A04", "L4", "fundingCap").value).toBeNull();
+    expect(fieldOf(plan, "A04", "L4", "exclusions").value).toBeNull();
+  });
+
+  it("A04 terms stay blank when the funder's rule is unreviewed or expired", () => {
+    for (const mutate of [
+      (j: JobFacts) => { j.caps[0].status = "UNREVIEWED"; },
+      (j: JobFacts) => { j.caps[0].expiresOn = "2026-01-01"; },
+    ]) {
+      const job = nswStrataWaterLoss();
+      mutate(job);
+      const plan = planAuthority(job);
+      const cap = fieldOf(plan, "A04", "L1", "fundingCap");
+      expect(cap.value).toBeNull();
+      expect(cap.blankReason).toMatch(/reviewed/);
+      expect(fieldOf(plan, "A04", "L1", "exclusions").value).toBeNull();
+    }
+  });
+
+  it("A08 has custody fields, blank with a reason when the job has no value", () => {
+    const plan = planAuthority(nzRentalNaturalHazard());
+    for (const key of ["destination", "storageDuration", "returnArrangements"]) {
+      const f = fieldOf(plan, "A08", "N3", key);
+      expect(f.value).toBeNull();
+      expect(f.blankReason).toMatch(/not recorded on the job/);
+    }
+    expect(TEMPLATES.A08.requiredFields).not.toContain("disposal");
+  });
+
+  it("an explicit no-spend-authority flag holds direct payment too", () => {
+    const job = directPayAuthorised();
+    expect(planAuthority(job).scopes[0].canStart).toBe(true);
+    job.parties.find((p) => p.id === "dir")!.canAuthoriseSpend = false;
+    const plan = planAuthority(job);
+    expect(gate(plan, "C1", "PAYER").state).toBe("HOLD");
+    expect(gate(plan, "C1", "PAYER").reason).toMatch(/no authority to commit spend/);
+    expect(plan.scopes[0].canStart).toBe(false);
+  });
+
+  it("an insurer work order with no named funder holds the insurer gate", () => {
+    const job = nswStrataWaterLoss();
+    job.scope[0].payment.payerPartyId = null;
+    const r = gate(planAuthority(job), "L1", "INSURER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toMatch(/no funder is named/);
+    // Non-insurer lines stay not applicable.
+    expect(gate(planAuthority(job), "L3", "INSURER").state).toBe("NOT_APPLICABLE");
+  });
+
+  it("a committed amount on another basis is named as the record to correct", () => {
+    const job = nswStrataWaterLoss();
+    job.caps[0].committed = { minor: 0, currency: "AUD", gst: "INC" };
+    const r = gate(planAuthority(job), "L1", "INSURER");
+    expect(r.state).toBe("HOLD");
+    expect(r.reason).toMatch(/amount already used is in AUD INC/);
+    expect(r.reason).not.toMatch(/amount is AUD EX; not compared/);
+    // A proposed-amount mismatch still names the proposed amount.
+    const job2 = nswStrataWaterLoss();
+    job2.scope[0].amount = { minor: 70_000, currency: "AUD", gst: "INC" };
+    expect(gate(planAuthority(job2), "L1", "INSURER").reason).toMatch(/proposed amount is AUD INC/);
+  });
+
+  it("A04 takes its order reference only from the recipient's own order for those lines", () => {
+    const plan = planAuthority(nswStrataWaterLoss());
+    const ref = fieldOf(plan, "A04", "L1", "workOrderRef");
+    expect(ref.value).toBe("WO-FICTIONAL-1");
+    expect(ref.source).toMatch(/^approval\.ap3/);
+    // The unaddressed A04 never borrows another payer's order.
+    expect(fieldOf(plan, "A04", "L4", "workOrderRef").value).toBeNull();
+    // A second insurer with spend authority and no order of its own gets a blank.
+    const job = nswStrataWaterLoss();
+    job.parties.push({ id: "ins2", name: "Second Insurer Example", capacity: "INSURER", canAuthoriseSpend: true });
+    job.scope[3].payment.payerPartyId = "ins2";
+    const p2 = planAuthority(job);
+    expect(fieldOf(p2, "A04", "L4", "workOrderRef").value).toBeNull();
+    expect(fieldOf(p2, "A04", "L1", "workOrderRef").value).toBe("WO-FICTIONAL-1");
+  });
+
+  it("each stop point on A02 is labelled with its scope line", () => {
+    const job = nzRentalNaturalHazard();
+    job.emergencyBasis = { documented: true, noticeAttemptsLogged: true, note: "Roof open" };
+    job.scope[0].stopPoint = "Tarp fixed";
+    job.scope.push({ ...job.scope[0], id: "N4", description: "Extract water from hall", makeSafe: "WATER_EXTRACTION", stopPoint: "Standing water removed" });
+    const v = fieldOf(planAuthority(job), "A02", "N4", "stopPoint").value;
+    expect(v).toBe(
+      "N1 Temporary tarp and water extraction: Tarp fixed; N4 Extract water from hall: Standing water removed",
+    );
+  });
+
+  it("A01 describes the inspection areas, not the work, as what it covers", () => {
+    const plan = planAuthority(nzRentalNaturalHazard());
+    const a01 = draftFor(plan, "A01", "N2");
+    expect(a01.customerPreview).toContain("Areas covered: Dwelling roof and ceiling");
+    expect(a01.customerPreview).not.toContain("plasterboard");
+    // Work drafts still list the work.
+    expect(draftFor(plan, "A06", "N2").customerPreview).toContain("Work covered: ");
+  });
+
+  it("an unsupported jurisdiction gets the hold and scope diagnostics but no draft forms", () => {
+    const job = directPayAuthorised();
+    job.jurisdiction = "AU-VIC";
+    const plan = planAuthority(job);
+    expect(plan.previewAllowed).toBe(false);
+    expect(plan.holds[0]).toMatch(/No jurisdiction pack/);
+    expect(plan.scopes.length).toBe(1);
+    expect(plan.forms).toEqual([]);
+  });
+
+  it("an active payment split includes the unassigned line in an unaddressed draft", () => {
+    const job = nswStrataWaterLoss();
+    // Two identified payers with spend authority, plus L3 with no payer.
+    job.parties.find((p) => p.id === "lot")!.canAuthoriseSpend = true;
+    job.scope[1].payment = { basis: "OWNER_DIRECT", payerPartyId: "lot" };
+    const a11 = forms(planAuthority(job), "A11");
+    const unaddressed = a11.find((f) => f.recipientPartyId === null);
+    expect(unaddressed?.scopeLineIds).toContain("L3");
+    expect(unaddressed?.fields.find((f) => f.key === "payer")?.value).toBeNull();
+    // One identified payer plus an unassigned line is still not a split.
+    const single = qldCommercialSelfPay();
+    single.scope.push({ ...single.scope[0], id: "C2", payment: { basis: "UNCONFIRMED", payerPartyId: null } });
+    expect(forms(planAuthority(single), "A11")).toEqual([]);
   });
 });

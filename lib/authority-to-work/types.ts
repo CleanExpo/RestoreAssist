@@ -209,6 +209,10 @@ export interface JobFacts {
   tenure: "OWNER_OCCUPIED" | "STRATA" | "RENTAL" | "COMMERCIAL";
   siteAddress: string | null;
   claimRef?: string | null;
+  /**
+   * Job-level reference only. It does not say which funder issued it, so drafts
+   * never copy it; A04 takes its reference from the funder's own verified order.
+   */
   workOrderRef?: string | null;
   business: BusinessProfile;
   parties: Party[];

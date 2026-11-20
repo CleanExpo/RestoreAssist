@@ -27,6 +27,7 @@ import type {
   Jurisdiction,
   Money,
   Party,
+  FundingCap,
   ScopeLine,
 } from "./types";
 
@@ -338,6 +339,14 @@ function payerGate(ctx: Ctx, line: ScopeLine): GateResult {
       reason: `${partyName(ctx, payerPartyId)} has no proven authority to commit spend`,
     };
   }
+  // A recorded "no" outranks any approval on file, whatever the payment type.
+  if (payer.canAuthoriseSpend === false) {
+    return {
+      gate: "PAYER",
+      state: "HOLD",
+      reason: `${partyName(ctx, payerPartyId)} is recorded as having no authority to commit spend`,
+    };
+  }
   const kinds: ApprovalKind[] =
     basis === "OWNER_DIRECT" ? ["PAYMENT"] : ["PAYMENT", "WORK"];
   const ok = kinds
@@ -378,9 +387,19 @@ function insurerGate(
     },
     overCap: false,
   };
-  if (line.payment.basis !== "INSURER_WORK_ORDER" || !line.payment.payerPartyId)
-    return na;
+  if (line.payment.basis !== "INSURER_WORK_ORDER") return na;
   const funder = line.payment.payerPartyId;
+  if (!funder) {
+    return {
+      result: {
+        gate: "INSURER",
+        state: "HOLD",
+        reason:
+          "insurer-funded, but no funder is named; no limit or permission is assumed",
+      },
+      overCap: false,
+    };
+  }
   const caps = ctx.job.caps.filter((c) => c.funderPartyId === funder);
   if (caps.length === 0) {
     return {
@@ -409,12 +428,16 @@ function insurerGate(
       hold = true;
       continue;
     }
-    if (
-      !sameBasis(cap.cap, line.amount) ||
-      !sameBasis(cap.cap, cap.committed)
-    ) {
+    const capBasis = `${cap.cap.currency} ${cap.cap.gst}`;
+    // Name the record that differs, so the operator knows which one to correct.
+    const mismatch = !sameBasis(cap.cap, cap.committed)
+      ? `the amount already used is in ${cap.committed.currency} ${cap.committed.gst}`
+      : !sameBasis(cap.cap, line.amount)
+        ? `the proposed amount is ${line.amount.currency} ${line.amount.gst}`
+        : null;
+    if (mismatch) {
       notes.push(
-        `rule ${cap.id} is in ${cap.cap.currency} ${cap.cap.gst} but the amount is ${line.amount.currency} ${line.amount.gst}; not compared${tag}`,
+        `rule ${cap.id} is in ${capBasis} but ${mismatch}; not compared${tag}`,
       );
       // This line cannot be added to the total, so every later total for this
       // cap is unknown rather than silently lower.
@@ -573,6 +596,49 @@ function eligibleMakeSafe(line: ScopeLine): boolean {
   return Boolean(line.emergency && line.makeSafe && !line.restricted);
 }
 
+/** A funder's reviewed, unexpired rules: the only terms a draft may show (same test as insurerGate). */
+function currentTerms(ctx: Ctx, funderId: string): FundingCap[] {
+  return ctx.job.caps.filter(
+    (c) =>
+      c.funderPartyId === funderId &&
+      c.status === "REVIEWED" &&
+      !(c.expiresOn && ctx.job.asOf > c.expiresOn),
+  );
+}
+
+/**
+ * The order reference for a funding draft: the evidence reference of the
+ * recipient's own verified order covering every line on the draft. A job-level
+ * reference is never attributed to a funder, because it does not say whose it is.
+ */
+function orderRefFor(
+  ctx: Ctx,
+  funderId: string,
+  lines: ScopeLine[],
+): { ref: string; source: string } | null {
+  const orders = ctx.job.approvals.filter(
+    (a) =>
+      a.partyId === funderId &&
+      (a.kind === "WORK" || a.kind === "PAYMENT") &&
+      a.evidence === "verified" &&
+      Boolean(a.evidenceRef),
+  );
+  const used: Approval[] = [];
+  for (const l of lines) {
+    const o = orders.find((a) => a.scopeLineIds?.includes(l.id));
+    if (!o) return null;
+    if (!used.includes(o)) used.push(o);
+  }
+  const refs = new Set(used.map((a) => a.evidenceRef));
+  if (used.length === 0 || refs.size !== 1) return null;
+  return {
+    ref: used[0].evidenceRef as string,
+    source: `approval.${used.map((a) => a.id).join(",")}.evidenceRef`,
+  };
+}
+
+const NOT_ON_JOB = "not recorded on the job; operator to enter";
+
 function buildDraft(
   ctx: Ctx,
   code: TemplateCode,
@@ -597,6 +663,17 @@ function buildDraft(
       ? (job.emergencyBasis.note ?? "documented")
       : null;
   const noStop = lines.filter((l) => !l.stopPoint).map((l) => l.id);
+  const areas = [
+    ...new Set(lines.map((l) => ctx.assets.get(l.assetId)?.label)),
+  ].join(", ");
+  // Terms shown on a draft are the recipient's own; with no recipient there are none.
+  const terms = recipientPartyId ? currentTerms(ctx, recipientPartyId) : [];
+  const termsBlank = recipientPartyId
+    ? "no reviewed, current terms from this funder on file"
+    : "funder not established, so no terms are shown";
+  const order = recipientPartyId
+    ? orderRefFor(ctx, recipientPartyId, lines)
+    : null;
 
   const fields: PrefillField[] = [
     field(
@@ -687,11 +764,54 @@ function buildDraft(
         fields.push(
           field(
             key,
-            job.workOrderRef,
-            "job.workOrderRef",
-            "work order reference not on file",
+            order?.ref,
+            order?.source ?? "job.approvals",
+            recipientPartyId
+              ? "no verified order from this funder covers these lines"
+              : "funder not established, so no order is attributed",
           ),
         );
+        break;
+      case "fundingCap":
+        fields.push(
+          field(
+            key,
+            terms
+              .map(
+                (c) =>
+                  `${formatMoney(c.cap)} limit (${c.sourceRef})${c.fictional ? FICTIONAL_TAG : ""}`,
+              )
+              .join("; "),
+            "job.caps",
+            termsBlank,
+          ),
+        );
+        break;
+      case "exclusions":
+        fields.push(
+          field(
+            key,
+            terms
+              .map(
+                (c) =>
+                  `${
+                    c.restrictedNeedsSeparateApproval.length
+                      ? `${c.restrictedNeedsSeparateApproval
+                          .map((a) => a.toLowerCase().replace(/_/g, " "))
+                          .join(", ")} need separate written approval`
+                      : "no actions listed as needing separate approval"
+                  } (${c.sourceRef})${c.fictional ? FICTIONAL_TAG : ""}`,
+              )
+              .join("; "),
+            "job.caps.restrictedNeedsSeparateApproval",
+            termsBlank,
+          ),
+        );
+        break;
+      case "destination":
+      case "storageDuration":
+      case "returnArrangements":
+        fields.push(field(key, null, "operator", NOT_ON_JOB));
         break;
       case "delegationRef":
         fields.push(
@@ -709,14 +829,7 @@ function buildDraft(
         break;
       case "areas":
         fields.push(
-          field(
-            key,
-            [
-              ...new Set(lines.map((l) => ctx.assets.get(l.assetId)?.label)),
-            ].join(", "),
-            "job.assets",
-            "no areas",
-          ),
+          field(key, areas, "job.assets", "no areas"),
         );
         break;
       case "accessBasis":
@@ -737,7 +850,9 @@ function buildDraft(
           field(
             key,
             noStop.length === 0
-              ? lines.map((l) => l.stopPoint).join("; ")
+              ? lines
+                  .map((l) => `${l.id} ${l.description}: ${l.stopPoint}`)
+                  .join("; ")
               : null,
             "job.scope.stopPoint",
             `no stop point recorded for ${noStop.join(", ") || "these lines"}`,
@@ -774,7 +889,12 @@ function buildDraft(
     recipientPartyId,
     scopeLineIds: lineIds,
     reason: [...new Set(reasons)].join("; "),
-    customerPreview: `${t.name}. ${t.purpose} Work covered: ${lines.map((l) => l.description).join("; ")}. This form does not authorise ${t.doesNotAuthorise}.`,
+    // A01 authorises no work, so what it covers is the areas to inspect, never the work.
+    customerPreview: `${t.name}. ${t.purpose} ${
+      code === "A01"
+        ? `Areas covered: ${areas}`
+        : `Work covered: ${lines.map((l) => l.description).join("; ")}`
+    }. This form does not authorise ${t.doesNotAuthorise}.`,
     fields,
     sendable: false,
     notSendableBecause: [
@@ -994,20 +1114,25 @@ export function planAuthority(job: JobFacts): AuthorityPlan {
       .filter((id): id is string => id !== null),
   );
   if (confirmedPayers.size > 1) {
+    // Every planned line is on the split, including one with no payer yet: it goes
+    // on the unaddressed draft so the pending assignment is visible.
     for (const l of planned) {
-      if (l.payment.payerPartyId) {
-        const to = fundingRecipient(ctx, l);
-        needs.push({
-          code: "A11",
-          recipientPartyId: to,
-          lineId: l.id,
-          reason: to
-            ? "more than one payer on this job"
-            : "more than one payer on this job; this line's funder is not established",
-        });
-      }
+      const to = fundingRecipient(ctx, l);
+      needs.push({
+        code: "A11",
+        recipientPartyId: to,
+        lineId: l.id,
+        reason: to
+          ? "more than one payer on this job"
+          : l.payment.payerPartyId
+            ? "more than one payer on this job; this line's funder is not established"
+            : "more than one payer on this job; this line has no payer assigned yet",
+      });
     }
   }
+
+  // With no jurisdiction pack, the hold and scope diagnostics stand but no draft is produced.
+  if (!previewAllowed) needs.length = 0;
 
   // One draft per template and recipient, covering all of that recipient's lines.
   const groups = new Map<string, FormNeed[]>();
