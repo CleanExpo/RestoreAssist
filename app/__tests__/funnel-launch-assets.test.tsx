@@ -201,7 +201,7 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
     it("home page uses the water-inspection hero photo, not HeyGen video", () => {
       const { container, unmount } = render(<Home />);
       expect(container.innerHTML).toContain(
-        "/landing/hero-flooded-home.jpg",
+        "/landing/hero-flooded-home.avif",
       );
       expect(container.innerHTML).not.toContain(DEAD_VIDEO_SRC);
       unmount();
@@ -339,9 +339,9 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
     });
 
     it.each([
-      ["Dawn Split archive", DawnSplitPage, "/landing/hero-flooded-home.jpg"],
-      ["Claim Spine alias", ClaimFolioPage, "/landing/hero-flooded-home.jpg"],
-      ["Dual Plane archive", OperatorAtlasPage, "/landing/hero-flooded-home.jpg"],
+      ["Dawn Split archive", DawnSplitPage, "/landing/hero-flooded-home.avif"],
+      ["Claim Spine alias", ClaimFolioPage, "/landing/hero-flooded-home.avif"],
+      ["Dual Plane archive", OperatorAtlasPage, "/landing/hero-flooded-home.avif"],
     ] as const)(
       "%s still renders shared hero content",
       (_name, Component, heroSrc) => {

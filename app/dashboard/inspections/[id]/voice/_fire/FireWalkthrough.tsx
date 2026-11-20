@@ -35,18 +35,18 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
   const inputDisabled = !acknowledged || !w.sessionReady || w.locked || w.picking !== null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-brand-canvas text-white">
-      <header className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+    <div className="flex min-h-screen flex-col bg-brand-cloud dark:bg-brand-canvas text-brand-navy dark:text-white">
+      <header className="flex items-center gap-3 border-b border-brand-mist dark:border-white/10 px-4 py-3">
         <button
           type="button"
           onClick={() => router.push(`/dashboard/inspections/${inspectionId}`)}
-          className="min-h-12 rounded-lg px-3 text-sm text-white/70"
+          className="min-h-12 rounded-lg px-3 text-sm text-brand-slate dark:text-white/70"
         >
           Back
         </button>
         <div className="flex-1">
           <p className="text-sm font-semibold">Fire and smoke make-safe</p>
-          <p className="text-xs text-white/50">
+          <p className="text-xs text-brand-slate dark:text-white/50">
             {done} of {FIRE_CHECKLIST.length} sections done
           </p>
         </div>
@@ -60,20 +60,20 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
           </p>
         )}
         {w.problem && (
-          <p role="alert" className="rounded-xl border border-red-500/40 bg-red-900/30 p-3 text-sm text-red-200">
+          <p role="alert" className="rounded-xl border border-red-500/40 bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-200">
             {w.problem}
           </p>
         )}
         {w.unsaved.length > 0 && (
-          <section aria-label="Words not saved" className="space-y-2 rounded-xl border border-red-500/40 bg-red-900/30 p-3 text-sm text-red-200">
+          <section aria-label="Words not saved" className="space-y-2 rounded-xl border border-red-500/40 bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-200">
             {w.unsaved.map((words) => (
               <div key={words} className="space-y-2">
                 <p>{FIRE_COPY.notSaved(words)}</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" disabled={w.locked} onClick={() => w.restoreUnsaved(words)} className="min-h-12 rounded-xl border border-white/20">
+                  <button type="button" disabled={w.locked} onClick={() => w.restoreUnsaved(words)} className="min-h-12 rounded-xl border border-brand-mist dark:border-white/20">
                     Move to the typing box
                   </button>
-                  <button type="button" disabled={w.locked} onClick={() => w.discardUnsaved(words)} className="min-h-12 rounded-xl border border-white/20">
+                  <button type="button" disabled={w.locked} onClick={() => w.discardUnsaved(words)} className="min-h-12 rounded-xl border border-brand-mist dark:border-white/20">
                     Discard
                   </button>
                 </div>
@@ -92,7 +92,7 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
           </button>
         )}
         {w.sessionFailed && (
-          <div role="alert" className="space-y-2 rounded-xl border border-red-500/40 bg-red-900/30 p-3 text-sm text-red-200">
+          <div role="alert" className="space-y-2 rounded-xl border border-red-500/40 bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-200">
             <p>Could not start the voice session. Check your signal.</p>
             <button type="button" onClick={() => void w.retrySession()} className="min-h-12 w-full rounded-lg border border-red-300/40">
               Try again
@@ -116,10 +116,10 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
             listening toggle sit outside it. Any new control goes inside. */}
         <fieldset disabled={w.locked} data-testid="fire-inputs" className="m-0 min-w-0 space-y-4 border-0 p-0">
           {!acknowledged && (
-            <section aria-label={FIRE_COPY.noticeTitle} className="space-y-3 rounded-xl border border-white/15 bg-white/5 p-4">
+            <section aria-label={FIRE_COPY.noticeTitle} className="space-y-3 rounded-xl border border-brand-mist dark:border-white/15 bg-brand-navy/5 dark:bg-white/5 p-4">
               <h1 className="text-lg font-semibold">{FIRE_COPY.noticeTitle}</h1>
-              <p className="text-sm text-white/80">{FIRE_COPY.notice}</p>
-              <button type="button" onClick={w.readNotice} className="min-h-12 w-full rounded-xl border border-white/20 text-sm">
+              <p className="text-sm text-brand-navy dark:text-white/80">{FIRE_COPY.notice}</p>
+              <button type="button" onClick={w.readNotice} className="min-h-12 w-full rounded-xl border border-brand-mist dark:border-white/20 text-sm">
                 Read it to me
               </button>
               <button
@@ -135,12 +135,12 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
 
           {w.ask && (
             <div role="group" aria-label="Margot's question" className="space-y-2">
-              <p className="text-sm text-white/90">{w.ask.say}</p>
+              <p className="text-sm text-brand-navy dark:text-white/90">{w.ask.say}</p>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" disabled={w.locked} onClick={() => w.answerAsk(true)} className="min-h-16 rounded-xl bg-green-800 text-base font-semibold">
                   Yes
                 </button>
-                <button type="button" disabled={w.locked} onClick={() => w.answerAsk(false)} className="min-h-16 rounded-xl bg-white/10 text-base font-semibold">
+                <button type="button" disabled={w.locked} onClick={() => w.answerAsk(false)} className="min-h-16 rounded-xl bg-brand-navy/5 dark:bg-white/10 text-base font-semibold">
                   No
                 </button>
               </div>
@@ -163,7 +163,7 @@ export function FireWalkthrough({ inspectionId, initial }: Props) {
               rows={3}
               aria-label={FIRE_COPY.typedPlaceholder}
               placeholder={w.naFor ? FIRE_COPY.naAskReason : FIRE_COPY.typedPlaceholder}
-              className="w-full rounded-xl border border-white/20 bg-white/5 p-3 text-base text-white disabled:opacity-50"
+              className="w-full rounded-xl border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 p-3 text-base text-brand-navy dark:text-white disabled:opacity-50"
             />
             <button
               type="submit"
@@ -218,7 +218,7 @@ function ListeningToggle({
 }) {
   if (!supported) {
     return (
-      <p className="rounded-xl border border-white/15 p-3 text-sm text-white/70">
+      <p className="rounded-xl border border-brand-mist dark:border-white/15 p-3 text-sm text-brand-slate dark:text-white/70">
         This browser cannot listen. Type your answers in the box below.
       </p>
     );
@@ -240,7 +240,7 @@ function ListeningToggle({
       >
         {wanted ? "ON" : "OFF"}
       </button>
-      <p className="text-sm text-white/70" data-testid="fire-listen-state">
+      <p className="text-sm text-brand-slate dark:text-white/70" data-testid="fire-listen-state">
         {listening ? FIRE_COPY.listening : FIRE_COPY.paused}
       </p>
     </div>

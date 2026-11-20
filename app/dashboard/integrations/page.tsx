@@ -823,7 +823,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Integrations"
         description="Connect accounting, CRM, field tools, and AI providers to Restore Assist."
-        icon={<Network className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<Network className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({
           omitHref: "/dashboard/integrations",
         })}
@@ -834,7 +834,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
                 variant="outline"
                 size="sm"
                 onClick={() => setShowImportModal(true)}
-                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+                className="border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-white/10"
               >
                 <Download />
                 Import Data
@@ -842,7 +842,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
             )}
             <Button
               size="sm"
-              className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white border-0 shadow-sm hover:from-blue-500 hover:to-cyan-500"
+              className="bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white border-0 shadow-sm hover:from-blue-500 hover:to-brand-harbour-500"
               onClick={() => setShowAddModal(true)}
               disabled={loading || aiLoadError || aiBusy}
             >
@@ -1240,7 +1240,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
                         <>
                           <Button
                             size="sm"
-                            className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
+                            className="flex-1 bg-gradient-to-r from-blue-600 to-brand-harbour-600 hover:from-blue-600 hover:to-brand-harbour-600 text-white border-0 shadow-sm"
                             onClick={() => handleSyncExternal(integration.slug)}
                             disabled={isSyncing}
                           >
@@ -1281,7 +1281,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
                       ) : (
                         <Button
                           size="sm"
-                          className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                          className="w-full bg-gradient-to-r from-blue-600 to-brand-harbour-600 hover:from-blue-600 hover:to-brand-harbour-600 text-white border-0"
                           disabled={connectingProvider !== null}
                           onClick={() => handleConnectExternal(integration.slug)}
                         >
@@ -1448,7 +1448,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
                         <>
                           <Button
                             size="sm"
-                            className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
+                            className="flex-1 bg-gradient-to-r from-blue-600 to-brand-harbour-600 hover:from-blue-600 hover:to-brand-harbour-600 text-white border-0 shadow-sm"
                             onClick={() => handleSyncExternal(integration.slug)}
                             disabled={isSyncing}
                           >
@@ -1489,7 +1489,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
                       ) : (
                         <Button
                           size="sm"
-                          className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                          className="w-full bg-gradient-to-r from-blue-600 to-brand-harbour-600 hover:from-blue-600 hover:to-brand-harbour-600 text-white border-0"
                           disabled={connectingProvider !== null && integration.slug !== "ascora"}
                           onClick={() =>
                             // Ascora needs an API key, so it opens a dialog
@@ -1608,7 +1608,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
                 <CardFooter className="pt-0 gap-2">
                   <Button
                     size="sm"
-                    className="flex-1 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0"
+                    className="flex-1 bg-gradient-to-r from-teal-500 to-brand-harbour-500 hover:from-teal-600 hover:to-brand-harbour-600 text-white border-0"
                     onClick={() => setShowDrNrpgModal(true)}
                   >
                     {drNrpg.connected ? (
@@ -1705,7 +1705,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
               Cancel
             </Button>
             <Button
-              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+              className="bg-gradient-to-r from-blue-600 to-brand-harbour-600 hover:from-blue-600 hover:to-brand-harbour-600 text-white border-0"
               onClick={handleConnectAscora}
               disabled={ascoraConnecting || !ascoraApiKey.trim()}
             >
@@ -1840,7 +1840,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
               Close
             </Button>
             <Button
-              className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0"
+              className="bg-gradient-to-r from-teal-500 to-brand-harbour-500 hover:from-teal-600 hover:to-brand-harbour-600 text-white border-0"
               onClick={handleConnectDrNrpg}
               disabled={drNrpgConnecting || !drNrpgApiKey.trim()}
             >
@@ -1911,7 +1911,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
             <Button
               onClick={handleSaveConnection}
               disabled={aiBusy || !apiKey.trim()}
-              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+              className="bg-gradient-to-r from-blue-600 to-brand-harbour-600 hover:from-blue-600 hover:to-brand-harbour-600 text-white border-0"
             >
               Save Connection
             </Button>
@@ -1926,7 +1926,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
             <DialogHeader>
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center shrink-0">
-                  <Crown className="text-white" size={18} />
+                  <Crown className="text-brand-navy dark:text-white" size={18} />
                 </div>
                 <DialogTitle>Upgrade Required</DialogTitle>
               </div>
@@ -2028,7 +2028,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
             <Button
               onClick={handleAddIntegration}
               disabled={aiBusy || !newApiKey.trim()}
-              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+              className="bg-gradient-to-r from-blue-600 to-brand-harbour-600 hover:from-blue-600 hover:to-brand-harbour-600 text-white border-0"
             >
               Add Integration
             </Button>

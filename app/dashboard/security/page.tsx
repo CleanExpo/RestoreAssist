@@ -141,7 +141,7 @@ export default function SecurityPage() {
 
   if (loadingProfile) {
     return (
-      <div className="flex items-center justify-center py-12 text-slate-400">
+      <div className="flex items-center justify-center py-12 text-brand-slate dark:text-slate-400">
         <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
       </div>
     );
@@ -151,15 +151,15 @@ export default function SecurityPage() {
     <div className="max-w-9xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold flex items-center gap-2">
-          <Shield className="h-6 w-6 text-cyan-400" aria-hidden />
+          <Shield className="h-6 w-6 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />
           Security
         </h1>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-brand-slate dark:text-slate-400 mt-1">
           Keep your account safe with two-factor authentication.
         </p>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 space-y-4">
+      <div className="rounded-xl border border-brand-mist dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -173,12 +173,12 @@ export default function SecurityPage() {
                 </>
               ) : (
                 <>
-                  <Shield className="h-5 w-5 text-slate-400" aria-hidden />
+                  <Shield className="h-5 w-5 text-brand-slate dark:text-slate-400" aria-hidden />
                   Two-factor authentication is off
                 </>
               )}
             </h2>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-brand-slate dark:text-slate-400">
               When enabled, signing in will require a 6-digit code from your
               authenticator app in addition to your password.
             </p>
@@ -189,7 +189,7 @@ export default function SecurityPage() {
           <Button
             onClick={handleStartSetup}
             disabled={startingSetup}
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700"
+            className="bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white hover:from-blue-700 hover:to-brand-harbour-700"
           >
             {startingSetup ? (
               <>
@@ -202,9 +202,9 @@ export default function SecurityPage() {
         )}
 
         {!twoFactorEnabled && setupData && (
-          <div className="space-y-4 rounded-lg bg-slate-800/50 p-4">
+          <div className="space-y-4 rounded-lg bg-white dark:bg-slate-800/50 p-4">
             <div className="space-y-2">
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-brand-slate dark:text-slate-300">
                 <strong>Step 1.</strong> Scan this QR with Google Authenticator,
                 1Password, Authy, or similar:
               </p>
@@ -217,15 +217,15 @@ export default function SecurityPage() {
                   unoptimized
                 />
               </div>
-              <div className="text-xs text-slate-400 space-y-1">
+              <div className="text-xs text-brand-slate dark:text-slate-400 space-y-1">
                 <p>Can't scan? Enter this key manually:</p>
                 <div className="flex items-center gap-2">
-                  <code className="bg-slate-900 px-2 py-1 rounded text-slate-200 font-mono text-xs">
+                  <code className="bg-white dark:bg-slate-900 px-2 py-1 rounded text-brand-navy dark:text-slate-200 font-mono text-xs">
                     {setupData.manualEntryKey}
                   </code>
                   <button
                     onClick={handleCopyKey}
-                    className="text-cyan-400 hover:text-cyan-300"
+                    className="text-brand-harbour-700 dark:text-brand-harbour-400 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-300"
                     aria-label="Copy key"
                   >
                     {copied ? (
@@ -262,7 +262,7 @@ export default function SecurityPage() {
                 <Button
                   type="submit"
                   disabled={verifying}
-                  className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
+                  className="bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white"
                 >
                   {verifying ? (
                     <>

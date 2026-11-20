@@ -106,7 +106,7 @@ export function ClientPortalShell({
           <>
             <p className="text-xs text-slate-500">
               Powered by{" "}
-              <span className="font-semibold text-cyan-400/90">RestoreAssist</span>
+              <span className="font-semibold text-brand-harbour-400/90">RestoreAssist</span>
             </p>
             <p className="mt-1 text-xs text-slate-500">
               For job questions, contact your restoration team.
@@ -138,9 +138,9 @@ export function ClientPortalPropertyCard({
     <div className={clientPortalHeroShell}>
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.06)_0%,transparent_42%,rgba(34,211,238,0.05)_100%)]" />
       <div className="relative flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-500/10">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-brand-harbour-400/20 bg-brand-harbour-500/10">
           <svg
-            className="h-4 w-4 text-cyan-300"
+            className="h-4 w-4 text-brand-harbour-300"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"

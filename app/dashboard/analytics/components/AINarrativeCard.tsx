@@ -81,7 +81,7 @@ export default function AINarrativeCard({
       >
         <CardContent className="p-6 space-y-3">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-5 h-5 text-brand-gold" />
+            <Sparkles className="w-5 h-5 text-brand-bronze dark:text-brand-gold" />
             <Skeleton className="h-5 w-48" />
           </div>
           <Skeleton className="h-4 w-full" />
@@ -102,7 +102,7 @@ export default function AINarrativeCard({
       >
         <CardContent className="p-6">
           <div className="flex items-start gap-3">
-            <Sparkles className="w-5 h-5 text-brand-gold mt-0.5" />
+            <Sparkles className="w-5 h-5 text-brand-bronze dark:text-brand-gold mt-0.5" />
             <p
               className={cn(
                 "text-sm",
@@ -184,7 +184,7 @@ export default function AINarrativeCard({
               "bg-gradient-to-br from-brand-navy to-brand-bronze",
             )}
           >
-            <Sparkles className="w-5 h-5 text-brand-gold" />
+            <Sparkles className="w-5 h-5 text-brand-bronze dark:text-brand-gold" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-4 mb-2">

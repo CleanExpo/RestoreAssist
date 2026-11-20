@@ -136,7 +136,7 @@ export function OrganizationProfileSetting() {
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           Legal name, region and branding printed on PDFs after setup. ABN and NZBN
           sit in{" "}
-          <a href="#organisation-locale-title" className="text-cyan-700 dark:text-cyan-400 hover:underline">
+          <a href="#organisation-locale-title" className="text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline">
             Organisation locale
           </a>
           .
@@ -266,7 +266,7 @@ export function OrganizationProfileSetting() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-700 pt-4">
             <p className="text-xs text-slate-500">
               Trial accounts use Basic reports only.{" "}
-              <Link href={PAID_BASE_PLAN_UPGRADE_HREF} className="text-cyan-700 dark:text-cyan-400 hover:underline">
+              <Link href={PAID_BASE_PLAN_UPGRADE_HREF} className="text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline">
                 Upgrade
               </Link>{" "}
               for Enhanced, Optimised and PDF import.

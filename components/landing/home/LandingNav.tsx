@@ -16,7 +16,7 @@ const NAV_LINKS = [
 ] as const;
 
 const FOCUS =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50 focus-visible:ring-offset-2";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50 focus-visible:ring-offset-2";
 
 export function LandingNav() {
   const [open, setOpen] = useState(false);
@@ -51,7 +51,7 @@ export function LandingNav() {
     <>
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[200] focus:rounded-xl focus:bg-white focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-[#0B1F3A] focus:shadow-lg"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[200] focus:rounded-xl focus:bg-white focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-brand-navy focus:shadow-lg"
       >
         Skip to main content
       </a>
@@ -80,7 +80,7 @@ export function LandingNav() {
               style={{ width: "auto", height: "auto" }}
             />
             <span
-              className={`${FONT_DISPLAY} text-[15px] font-bold tracking-tight text-[#0B1F3A] transition-colors hover:text-[#16345A]`}
+              className={`${FONT_DISPLAY} text-[15px] font-bold tracking-tight text-brand-navy transition-colors hover:text-brand-navy-hover`}
             >
               {BRAND.name}
             </span>
@@ -94,11 +94,11 @@ export function LandingNav() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`group relative rounded-lg px-3.5 py-2 text-[13.5px] font-medium text-slate-600 transition-colors duration-200 hover:text-[#0B1F3A] ${FOCUS}`}
+                className={`group relative rounded-lg px-3.5 py-2 text-[13.5px] font-medium text-slate-600 transition-colors duration-200 hover:text-brand-navy ${FOCUS}`}
               >
                 {link.label}
                 <span
-                  className="pointer-events-none absolute inset-x-3.5 -bottom-0.5 h-px origin-left scale-x-0 bg-[#3B6D8C]/70 transition-transform duration-300 ease-out group-hover:scale-x-100"
+                  className="pointer-events-none absolute inset-x-3.5 -bottom-0.5 h-px origin-left scale-x-0 bg-brand-harbour/70 transition-transform duration-300 ease-out group-hover:scale-x-100"
                   aria-hidden
                 />
               </Link>
@@ -109,19 +109,19 @@ export function LandingNav() {
             <Link
               href={CLIENT_PORTAL_PUBLIC_CTA.href}
               title="Homeowners invited by their restorer — sign in or open your emailed link"
-              className={`rounded-lg px-3.5 py-2 text-[13.5px] font-medium text-slate-600 transition-colors hover:text-[#0B1F3A] ${FOCUS}`}
+              className={`rounded-lg px-3.5 py-2 text-[13.5px] font-medium text-slate-600 transition-colors hover:text-brand-navy ${FOCUS}`}
             >
               {CLIENT_PORTAL_PUBLIC_CTA.label}
             </Link>
             <Link
               href="/login"
-              className={`rounded-lg px-3.5 py-2 text-[13.5px] font-medium text-slate-600 transition-colors hover:text-[#0B1F3A] ${FOCUS}`}
+              className={`rounded-lg px-3.5 py-2 text-[13.5px] font-medium text-slate-600 transition-colors hover:text-brand-navy ${FOCUS}`}
             >
               Log in
             </Link>
             <Link
               href={BRAND.cta.primary.href}
-              className={`inline-flex min-h-10 items-center justify-center rounded-xl bg-[#0B1F3A] px-4 py-2.5 text-[13.5px] font-semibold text-white transition-[background-color,transform] duration-200 hover:bg-[#16345A] active:scale-[0.985] ${FOCUS}`}
+              className={`inline-flex min-h-10 items-center justify-center rounded-xl bg-brand-navy px-4 py-2.5 text-[13.5px] font-semibold text-white transition-[background-color,transform] duration-200 hover:bg-brand-navy-hover active:scale-[0.985] ${FOCUS}`}
             >
               Start free
             </Link>
@@ -129,7 +129,7 @@ export function LandingNav() {
 
           <button
             type="button"
-            className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[#0B1F3A] transition-colors hover:bg-slate-100 lg:hidden ${FOCUS}`}
+            className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg text-brand-navy transition-colors hover:bg-slate-100 lg:hidden ${FOCUS}`}
             onClick={() => setOpen(true)}
             aria-label="Open menu"
             aria-expanded={open}
@@ -141,7 +141,7 @@ export function LandingNav() {
       </header>
 
       <div
-        className={`fixed inset-0 z-150 bg-[#0B1F3A]/20 backdrop-blur-[2px] transition-opacity duration-300 lg:hidden ${
+        className={`fixed inset-0 z-150 bg-brand-navy/20 backdrop-blur-[2px] transition-opacity duration-300 lg:hidden ${
           open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         onClick={close}
@@ -158,7 +158,7 @@ export function LandingNav() {
         aria-label="Navigation menu"
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <span className={`${FONT_DISPLAY} text-sm font-bold text-[#0B1F3A]`}>
+          <span className={`${FONT_DISPLAY} text-sm font-bold text-brand-navy`}>
             {BRAND.name}
           </span>
           <button
@@ -176,7 +176,7 @@ export function LandingNav() {
               key={link.href}
               href={link.href}
               onClick={close}
-              className="block rounded-xl px-4 py-3.5 text-base font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-[#0B1F3A]"
+              className="block rounded-xl px-4 py-3.5 text-base font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-brand-navy"
             >
               {link.label}
             </Link>
@@ -200,7 +200,7 @@ export function LandingNav() {
           <Link
             href={CLIENT_PORTAL_PUBLIC_CTA.href}
             onClick={close}
-            className="block w-full py-2 text-center text-[13.5px] font-medium text-slate-600 transition-colors hover:text-[#0B1F3A]"
+            className="block w-full py-2 text-center text-[13.5px] font-medium text-slate-600 transition-colors hover:text-brand-navy"
           >
             {CLIENT_PORTAL_PUBLIC_CTA.invitedLabel}{" "}
             {CLIENT_PORTAL_PUBLIC_CTA.label}

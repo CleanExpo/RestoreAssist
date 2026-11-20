@@ -243,7 +243,7 @@ export default function PortalReportDetail({
     return (
       <ClientPortalAccountLayout>
         <div className="py-16 text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-cyan-500/30 border-t-cyan-400" />
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-brand-harbour-500/30 border-t-brand-harbour-400" />
           <p className="text-slate-400">Loading report…</p>
         </div>
       </ClientPortalAccountLayout>
@@ -257,7 +257,7 @@ export default function PortalReportDetail({
           <p className="text-slate-400">Report not found</p>
           <Link
             href="/portal"
-            className="mt-4 inline-block text-cyan-400/90 hover:underline"
+            className="mt-4 inline-block text-brand-harbour-400/90 hover:underline"
           >
             Back to reports
           </Link>
@@ -278,7 +278,7 @@ export default function PortalReportDetail({
     <ClientPortalAccountLayout>
         <Link
           href="/portal"
-          className="mb-6 inline-flex min-h-11 items-center gap-2 text-cyan-400/90 hover:underline"
+          className="mb-6 inline-flex min-h-11 items-center gap-2 text-brand-harbour-400/90 hover:underline"
         >
           <ArrowLeft size={18} />
           Back to Reports
@@ -324,7 +324,7 @@ export default function PortalReportDetail({
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="flex items-start gap-3">
-                <MapPin className="mt-1 text-cyan-400/80" size={20} />
+                <MapPin className="mt-1 text-brand-harbour-400/80" size={20} />
                 <div>
                   <p className="text-sm font-medium text-slate-300">
                     Property Address
@@ -334,7 +334,7 @@ export default function PortalReportDetail({
               </div>
 
               <div className="flex items-start gap-3">
-                <FileText className="mt-1 text-cyan-400/80" size={20} />
+                <FileText className="mt-1 text-brand-harbour-400/80" size={20} />
                 <div>
                   <p className="text-sm font-medium text-slate-300">
                     Hazard Type
@@ -346,7 +346,7 @@ export default function PortalReportDetail({
 
             <div className="space-y-4">
               <div className="flex items-start gap-3">
-                <Calendar className="mt-1 text-cyan-400/80" size={20} />
+                <Calendar className="mt-1 text-brand-harbour-400/80" size={20} />
                 <div>
                   <p className="text-sm font-medium text-slate-300">
                     Report Created
@@ -363,7 +363,7 @@ export default function PortalReportDetail({
 
               {report.completionDate && (
                 <div className="flex items-start gap-3">
-                  <CheckCircle className="mt-1 text-cyan-400/80" size={20} />
+                  <CheckCircle className="mt-1 text-brand-harbour-400/80" size={20} />
                   <div>
                     <p className="text-sm font-medium text-slate-300">
                       Completion Date

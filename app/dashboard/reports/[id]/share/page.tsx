@@ -246,7 +246,7 @@ export default function ReportSharePage() {
         </p>
         <Link
           href="/dashboard/reports"
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
         >
           <ArrowLeft size={16} />
           Back to Reports
@@ -271,7 +271,7 @@ export default function ReportSharePage() {
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
-          <Share2 size={20} className="text-cyan-500" />
+          <Share2 size={20} className="text-brand-harbour-500" />
           <h1 className="text-2xl font-bold text-slate-800">Share Report</h1>
         </div>
         <p className="text-slate-500 text-sm">
@@ -289,7 +289,7 @@ export default function ReportSharePage() {
           </div>
 
           {invitationsLoading ? (
-            <div className="flex items-center gap-2 text-slate-400 py-4">
+            <div className="flex items-center gap-2 text-brand-slate dark:text-slate-400 py-4">
               <Loader2 size={16} className="animate-spin" />
               <span className="text-sm">Loading share link...</span>
             </div>
@@ -304,13 +304,13 @@ export default function ReportSharePage() {
                 />
                 <button
                   onClick={handleCopy}
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm font-medium shrink-0"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors text-sm font-medium shrink-0"
                 >
                   {copied ? <Check size={15} /> : <Copy size={15} />}
                   {copied ? "Copied!" : "Copy Link"}
                 </button>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-400">
+              <div className="flex items-center justify-between text-xs text-brand-slate dark:text-slate-400">
                 <span>
                   Expires{" "}
                   {new Date(invitation.expiresAt).toLocaleDateString("en-AU", {
@@ -348,7 +348,7 @@ export default function ReportSharePage() {
                 <button
                   onClick={handleGenerateLink}
                   disabled={generating}
-                  className="flex items-center gap-2 mx-auto px-5 py-2.5 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 mx-auto px-5 py-2.5 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {generating ? (
                     <>
@@ -397,7 +397,7 @@ export default function ReportSharePage() {
             <h2 className="font-semibold text-slate-800">Active report links</h2>
           </div>
           {grantsLoading ? (
-            <div className="flex items-center gap-2 text-slate-400 py-2 text-sm">
+            <div className="flex items-center gap-2 text-brand-slate dark:text-slate-400 py-2 text-sm">
               <Loader2 size={16} className="animate-spin" />
               Loading…
             </div>
@@ -417,7 +417,7 @@ export default function ReportSharePage() {
                     <span className="font-medium text-slate-800">
                       {grant.scope === "INSURER" ? "Insurer" : "Owner view"}
                     </span>
-                    <span className="ml-2 text-xs text-slate-400">
+                    <span className="ml-2 text-xs text-brand-slate dark:text-slate-400">
                       Expires{" "}
                       {new Date(grant.expiresAt).toLocaleDateString("en-AU")}
                     </span>
@@ -453,7 +453,7 @@ export default function ReportSharePage() {
               "Your contractor contact details",
             ].map((item) => (
               <li key={item} className="flex items-start gap-2">
-                <span className="text-cyan-500 mt-0.5">•</span>
+                <span className="text-brand-harbour-500 mt-0.5">•</span>
                 {item}
               </li>
             ))}

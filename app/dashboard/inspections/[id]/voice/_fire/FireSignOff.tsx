@@ -22,10 +22,10 @@ export function FireSignOff({ signoff, saving, onSign }: Props) {
 
   if (signoff.state === "signed") {
     return (
-      <section aria-label="Sign-off" className="rounded-xl border border-green-500/40 bg-green-900/20 p-4">
-        <p className="text-sm font-semibold text-green-200">{FIRE_COPY.signedOff}</p>
+      <section aria-label="Sign-off" className="rounded-xl border border-green-500/40 bg-green-50 dark:bg-green-900/20 p-4">
+        <p className="text-sm font-semibold text-green-700 dark:text-green-200">{FIRE_COPY.signedOff}</p>
         {signoff.typedName && (
-          <p className="mt-1 text-xs text-green-200/70">
+          <p className="mt-1 text-xs text-green-700 dark:text-green-200/70">
             Signed by {signoff.typedName}
             {signoff.signedAt ? ` on ${new Date(signoff.signedAt).toLocaleString("en-AU")}` : ""}
           </p>
@@ -37,10 +37,10 @@ export function FireSignOff({ signoff, saving, onSign }: Props) {
   const ready = name.trim().length >= 2 && accepted && !saving;
   return (
     <section aria-label="Sign-off" className="space-y-3 rounded-xl border border-brand-gold/40 bg-brand-gold/5 p-4">
-      <p className="text-sm text-white/90">
+      <p className="text-sm text-brand-navy dark:text-white/90">
         {signoff.state === "changed" ? FIRE_COPY.changedAfterSignoff : FIRE_COPY.allDone}
       </p>
-      <label className="flex items-start gap-3 text-sm text-white/90">
+      <label className="flex items-start gap-3 text-sm text-brand-navy dark:text-white/90">
         <input
           type="checkbox"
           checked={accepted}
@@ -56,7 +56,7 @@ export function FireSignOff({ signoff, saving, onSign }: Props) {
         placeholder={FIRE_COPY.signoffNamePlaceholder}
         aria-label={FIRE_COPY.signoffNamePlaceholder}
         autoComplete="name"
-        className="w-full min-h-12 rounded-xl border border-white/20 bg-white/5 px-3 text-base text-white"
+        className="w-full min-h-12 rounded-xl border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 px-3 text-base text-brand-navy dark:text-white"
       />
       <button
         type="button"

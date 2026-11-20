@@ -163,7 +163,7 @@ export default function CompletenessInboxPage() {
         eyebrow="Simple workspace"
         title="Completeness inbox"
         description="Active jobs with blocking intake gaps — fix each item on the job or jump straight to the right tab."
-        icon={<ChromeInbox className="h-7 w-7 text-cyan-500" aria-hidden />}
+        icon={<ChromeInbox className="h-7 w-7 text-brand-harbour-500" aria-hidden />}
         primaryAction={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Link
@@ -409,7 +409,7 @@ export default function CompletenessInboxPage() {
                         aria-valuemax={100}
                       >
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-amber-500 to-cyan-500 transition-all"
+                          className="h-full rounded-full bg-gradient-to-r from-amber-500 to-brand-harbour-500 transition-all"
                           style={{ width: `${row.completionPercent}%` }}
                         />
                       </div>
@@ -448,7 +448,7 @@ export default function CompletenessInboxPage() {
                       </span>
                       <Link
                         href={completenessBlockerHref(row.inspectionId, item)}
-                        className="inline-flex min-h-9 items-center rounded-lg border border-cyan-500/40 bg-cyan-500/5 px-3 text-xs font-semibold text-cyan-800 hover:bg-cyan-500/10 dark:text-cyan-300"
+                        className="inline-flex min-h-9 items-center rounded-lg border border-brand-harbour-500/40 bg-brand-harbour-500/5 px-3 text-xs font-semibold text-brand-harbour-800 hover:bg-brand-harbour-500/10 dark:text-brand-harbour-300"
                       >
                         {completenessBlockerAction(item)}
                       </Link>
@@ -477,7 +477,7 @@ function StatCard({
 }) {
   const accentClass = {
     amber: "from-amber-500/15 to-card border-amber-500/20",
-    cyan: "from-cyan-500/15 to-card border-cyan-500/20",
+    cyan: "from-brand-harbour-500/15 to-card border-brand-harbour-500/20",
     violet: "from-violet-500/15 to-card border-violet-500/20",
     neutral: "from-muted/40 to-card border-border",
   }[accent];

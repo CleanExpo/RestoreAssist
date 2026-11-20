@@ -47,13 +47,13 @@ export function FinalCTA() {
             <motion.h2
               id="cta-heading"
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-4 text-[1.9rem] font-semibold leading-[1.12] tracking-[-0.02em] text-[#0B1F3A] sm:text-[2.35rem] lg:text-[2.85rem] lg:leading-[1.08]`}
+              className={`${FONT_DISPLAY} mt-4 text-[1.9rem] font-semibold leading-[1.12] tracking-[-0.02em] text-brand-navy sm:text-[2.35rem] lg:text-[2.85rem] lg:leading-[1.08]`}
             >
               {cta.title}
             </motion.h2>
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mx-auto mt-4 max-w-xl text-[15px] font-semibold leading-snug tracking-[-0.01em] text-[#16345A] sm:text-base`}
+              className={`${FONT_DISPLAY} mx-auto mt-4 max-w-xl text-[15px] font-semibold leading-snug tracking-[-0.01em] text-brand-navy-hover sm:text-base`}
             >
               {cta.slogan}
             </motion.p>
@@ -85,7 +85,7 @@ export function FinalCTA() {
                   className="flex items-center gap-2.5 text-sm text-slate-500"
                 >
                   <span
-                    className="h-1 w-1 rounded-full bg-[#3B6D8C]"
+                    className="h-1 w-1 rounded-full bg-brand-harbour"
                     aria-hidden
                   />
                   {r}

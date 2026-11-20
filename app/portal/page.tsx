@@ -74,7 +74,7 @@ export default function PortalDashboard() {
       DRAFT: "bg-slate-800 text-slate-300 border-white/10",
       PENDING: "bg-amber-500/15 text-amber-200 border-amber-500/30",
       APPROVED: "bg-emerald-500/15 text-emerald-200 border-emerald-500/30",
-      COMPLETED: "bg-cyan-500/15 text-cyan-200 border-cyan-500/30",
+      COMPLETED: "bg-brand-harbour-500/15 text-brand-harbour-200 border-brand-harbour-500/30",
       ARCHIVED: "bg-slate-800 text-slate-500 border-white/10",
     };
     return styles[status] ?? styles.DRAFT;
@@ -98,7 +98,7 @@ export default function PortalDashboard() {
     return (
       <ClientPortalAccountLayout>
         <div className="py-16 text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-cyan-500/30 border-t-cyan-400" />
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-brand-harbour-500/30 border-t-brand-harbour-400" />
           <p className="text-slate-400">Loading your reports…</p>
         </div>
       </ClientPortalAccountLayout>
@@ -125,7 +125,7 @@ export default function PortalDashboard() {
             <Link
               key={report.id}
               href={`/portal/reports/${report.id}`}
-              className={`${clientPortalPanelPadding} block transition hover:border-cyan-400/30 hover:shadow-cyan-950/20`}
+              className={`${clientPortalPanelPadding} block transition hover:border-brand-harbour-400/30 hover:shadow-brand-harbour-950/20`}
             >
               <div className="mb-4 flex items-start justify-between">
                 <div

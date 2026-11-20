@@ -53,7 +53,7 @@ export default function LoginError({ error, retry }: LoginErrorProps) {
     <div className="min-h-[40vh] flex items-center justify-center p-6">
       <Card
         className="w-full max-w-md"
-        style={{ backgroundColor: "#1C2E47", borderColor: "#2d4566" }}
+        style={{ backgroundColor: "var(--color-brand-navy)", borderColor: "var(--color-brand-navy-hover)" }}
       >
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -83,7 +83,7 @@ export default function LoginError({ error, retry }: LoginErrorProps) {
             onClick={retry}
             variant="outline"
             size="sm"
-            className="border-slate-500 text-white hover:bg-slate-700 hover:text-white hover:border-slate-400"
+            className="border-slate-500 bg-transparent text-white hover:bg-slate-700 hover:text-white hover:border-slate-400"
           >
             <ChromeRefresh className="h-4 w-4" />
             Try again

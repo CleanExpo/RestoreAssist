@@ -8,10 +8,13 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from "recharts";
 import { Loader2, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  CHART_ACCENT,
+  CHART_TOOLTIP_STYLE,
+} from "@/lib/charts/palette";
 
 interface DayItem {
   day: string;
@@ -25,15 +28,6 @@ interface ActivityByDayProps {
   loading?: boolean;
 }
 
-const dayColors = [
-  "#6366f1",
-  "#8b5cf6",
-  "#a855f7",
-  "#d946ef",
-  "#ec4899",
-  "#f43f5e",
-  "#3b82f6",
-];
 
 export default function ActivityByDay({
   data,
@@ -49,7 +43,7 @@ export default function ActivityByDay({
         )}
       >
         <div className="h-[280px] flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+          <Loader2 className="w-8 h-8 text-brand-harbour-500 animate-spin" />
         </div>
       </div>
     );
@@ -65,7 +59,7 @@ export default function ActivityByDay({
         )}
       >
         <div className="flex items-center gap-3 mb-4">
-          <Calendar className="w-5 h-5 text-cyan-500" />
+          <Calendar className="w-5 h-5 text-brand-harbour-500" />
           <h3
             className={cn(
               "text-lg font-semibold",
@@ -93,12 +87,12 @@ export default function ActivityByDay({
         "p-6 rounded-2xl border",
         "border-neutral-200 dark:border-slate-700/60",
         "bg-white dark:bg-slate-900/50",
-        "hover:border-cyan-500/30",
+        "hover:border-brand-harbour-500/30",
       )}
     >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Calendar className="w-5 h-5 text-cyan-500" />
+          <Calendar className="w-5 h-5 text-brand-harbour-500" />
           <h3
             className={cn(
               "text-lg font-semibold",
@@ -130,12 +124,7 @@ export default function ActivityByDay({
             allowDecimals={false}
           />
           <Tooltip
-            contentStyle={{
-              backgroundColor: "rgb(255 255 255 / 0.95)",
-              border: "1px solid rgb(229 231 235)",
-              borderRadius: "8px",
-              color: "#111827",
-            }}
+            contentStyle={CHART_TOOLTIP_STYLE}
             formatter={
               ((value: number, _name: string, props: { payload?: DayItem }) => [
                 `${value} reports · $${(props?.payload?.revenue ?? 0).toLocaleString()}`,
@@ -147,16 +136,11 @@ export default function ActivityByDay({
           <Bar
             dataKey="reports"
             name="reports"
-            radius={[6, 6, 0, 0]}
+            radius={[4, 4, 0, 0]}
             minPointSize={4}
-          >
-            {data.map((_, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={dayColors[index % dayColors.length]}
-              />
-            ))}
-          </Bar>
+            // One series (reports per weekday): one colour; the axis names each day.
+            fill={CHART_ACCENT}
+          />
         </BarChart>
       </ResponsiveContainer>
       <div

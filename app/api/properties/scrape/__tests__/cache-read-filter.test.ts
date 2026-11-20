@@ -32,6 +32,9 @@ vi.mock("@/lib/idempotency", () => ({
   ),
 }));
 
+// RA-8459: these PropertyLookup mocks are deliberate. Nothing writes that table
+// any more, and the onboarding status API no longer counts it. The mocks stay
+// so the "never reads or writes" test below fails if a read or upsert comes back.
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     propertyLookup: {

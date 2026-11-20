@@ -167,7 +167,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
           <motion.div variants={fadeUp} className="max-w-2xl">
             <p className={SECTION_EYEBROW}>Cost disclosure</p>
             <h2
-              className={`${FONT_DISPLAY} mt-4 text-3xl font-semibold tracking-tight text-[#0B1F3A] sm:text-4xl`}
+              className={`${FONT_DISPLAY} mt-4 text-3xl font-semibold tracking-tight text-brand-navy sm:text-4xl`}
             >
               Everything you pay to run Restore Assist
             </h2>
@@ -195,12 +195,12 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
           {/* 1 — What Restore Assist bills. */}
           <motion.div variants={fadeUp} className={`${SURFACE} mt-10 p-7 sm:p-8`}>
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 text-[#3B6D8C]">
+              <span className="mt-0.5 text-brand-harbour">
                 <RAIcon name="invoice" size={20} decorative />
               </span>
               <div>
                 <h3
-                  className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-brand-navy`}
                 >
                   1. Billed by Restore Assist — plan and report packs
                 </h3>
@@ -223,25 +223,25 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                   <tr className="border-b border-slate-200">
                     <th
                       scope="col"
-                      className="py-3 pr-4 font-semibold text-[#0B1F3A]"
+                      className="py-3 pr-4 font-semibold text-brand-navy"
                     >
                       Charge
                     </th>
                     <th
                       scope="col"
-                      className="py-3 pr-4 font-semibold text-[#0B1F3A]"
+                      className="py-3 pr-4 font-semibold text-brand-navy"
                     >
                       Amount
                     </th>
                     <th
                       scope="col"
-                      className="py-3 pr-4 font-semibold text-[#0B1F3A]"
+                      className="py-3 pr-4 font-semibold text-brand-navy"
                     >
                       What it covers
                     </th>
                     <th
                       scope="col"
-                      className="py-3 text-right font-semibold text-[#0B1F3A]"
+                      className="py-3 text-right font-semibold text-brand-navy"
                     >
                       Plan and packs per report
                     </th>
@@ -255,12 +255,12 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                     >
                       <th
                         scope="row"
-                        className="py-4 pr-4 font-medium text-[#0B1F3A]"
+                        className="py-4 pr-4 font-medium text-brand-navy"
                       >
                         {row.label}
                       </th>
                       <td className="py-4 pr-4 text-slate-600">
-                        <span className="font-semibold text-[#0B1F3A]">
+                        <span className="font-semibold text-brand-navy">
                           {row.amount}
                         </span>
                         <span className="block text-xs text-slate-500">
@@ -270,7 +270,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                       <td className="py-4 pr-4 leading-relaxed text-slate-600">
                         {row.included}
                       </td>
-                      <td className="py-4 text-right font-semibold text-[#0B1F3A]">
+                      <td className="py-4 text-right font-semibold text-brand-navy">
                         {row.perReport}
                       </td>
                     </tr>
@@ -305,12 +305,12 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
               page cannot quietly omit a charge the buyer will be billed. */}
           <motion.div variants={fadeUp} className={`${SURFACE} mt-6 p-7 sm:p-8`}>
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 text-[#3B6D8C]">
+              <span className="mt-0.5 text-brand-harbour">
                 <RAIcon name="task" size={20} decorative />
               </span>
               <div>
                 <h3
-                  className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-brand-navy`}
                 >
                   2. Billed by Restore Assist — optional add-ons
                 </h3>
@@ -334,19 +334,19 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                   <tr className="border-b border-slate-200">
                     <th
                       scope="col"
-                      className="py-3 pr-4 font-semibold text-[#0B1F3A]"
+                      className="py-3 pr-4 font-semibold text-brand-navy"
                     >
                       Add-on
                     </th>
                     <th
                       scope="col"
-                      className="py-3 pr-4 font-semibold text-[#0B1F3A]"
+                      className="py-3 pr-4 font-semibold text-brand-navy"
                     >
                       What it covers
                     </th>
                     <th
                       scope="col"
-                      className="py-3 text-right font-semibold text-[#0B1F3A]"
+                      className="py-3 text-right font-semibold text-brand-navy"
                     >
                       Amount
                     </th>
@@ -360,7 +360,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                     >
                       <th
                         scope="row"
-                        className="py-4 pr-4 font-medium text-[#0B1F3A]"
+                        className="py-4 pr-4 font-medium text-brand-navy"
                       >
                         {addon.name}
                       </th>
@@ -368,7 +368,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                         {addon.description}
                       </td>
                       <td className="py-4 text-right text-slate-600">
-                        <span className="font-semibold text-[#0B1F3A]">
+                        <span className="font-semibold text-brand-navy">
                           {formatAud(addon.amount)}
                         </span>
                         <span className="block text-xs text-slate-500">
@@ -394,12 +394,12 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
           {/* 3 — What the AI provider bills. The honest gap. */}
           <motion.div variants={fadeUp} className={`${SURFACE} mt-6 p-7 sm:p-8`}>
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 text-[#3B6D8C]">
+              <span className="mt-0.5 text-brand-harbour">
                 <RAIcon name="ai" size={20} decorative />
               </span>
               <div>
                 <h3
-                  className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-brand-navy`}
                 >
                   3. Billed by your AI provider, not by us
                 </h3>
@@ -414,7 +414,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
 
             <dl className="mt-6 space-y-5 border-t border-slate-200/70 pt-6">
               <div className="sm:flex sm:gap-6">
-                <dt className="text-sm font-semibold text-[#0B1F3A] sm:w-44 sm:shrink-0">
+                <dt className="text-sm font-semibold text-brand-navy sm:w-44 sm:shrink-0">
                   Who charges you
                 </dt>
                 <dd className="mt-1 text-sm leading-relaxed text-slate-600 sm:mt-0">
@@ -424,7 +424,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
               </div>
 
               <div className="sm:flex sm:gap-6">
-                <dt className="text-sm font-semibold text-[#0B1F3A] sm:w-44 sm:shrink-0">
+                <dt className="text-sm font-semibold text-brand-navy sm:w-44 sm:shrink-0">
                   Our margin on it
                 </dt>
                 <dd className="mt-1 text-sm leading-relaxed text-slate-600 sm:mt-0">
@@ -434,7 +434,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
               </div>
 
               <div className="sm:flex sm:gap-6">
-                <dt className="text-sm font-semibold text-[#0B1F3A] sm:w-44 sm:shrink-0">
+                <dt className="text-sm font-semibold text-brand-navy sm:w-44 sm:shrink-0">
                   The amount
                 </dt>
                 <dd className="mt-1 text-sm leading-relaxed text-slate-600 sm:mt-0">
@@ -447,7 +447,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                     href="https://www.anthropic.com/pricing"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-medium text-[#3B6D8C] underline underline-offset-2 hover:text-[#0B1F3A]"
+                    className="font-medium text-brand-harbour underline underline-offset-2 hover:text-brand-navy"
                   >
                     anthropic.com/pricing
                   </a>{" "}
@@ -456,7 +456,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                     href="https://openai.com/api/pricing"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-medium text-[#3B6D8C] underline underline-offset-2 hover:text-[#0B1F3A]"
+                    className="font-medium text-brand-harbour underline underline-offset-2 hover:text-brand-navy"
                   >
                     openai.com/api/pricing
                   </a>
@@ -465,7 +465,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
               </div>
 
               <div className="sm:flex sm:gap-6">
-                <dt className="text-sm font-semibold text-[#0B1F3A] sm:w-44 sm:shrink-0">
+                <dt className="text-sm font-semibold text-brand-navy sm:w-44 sm:shrink-0">
                   What you control
                 </dt>
                 <dd className="mt-1 text-sm leading-relaxed text-slate-600 sm:mt-0">

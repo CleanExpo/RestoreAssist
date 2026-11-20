@@ -109,9 +109,9 @@ const DAMAGE_CATEGORY_LABELS: Record<DamageCategory, string> = {
   CAT_3: "Cat 3 – Black",
 };
 const DAMAGE_CATEGORY_COLORS: Record<DamageCategory, string> = {
-  CAT_1: "bg-blue-900 text-blue-200 border-blue-700",
-  CAT_2: "bg-yellow-900 text-yellow-200 border-yellow-700",
-  CAT_3: "bg-red-900 text-red-300 border-red-700",
+  CAT_1: "bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200 border-blue-700",
+  CAT_2: "bg-yellow-50 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-700",
+  CAT_3: "bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-700",
 };
 const PHOTO_STAGE_LABELS: Record<PhotoStage, string> = {
   PRE_WORK: "Pre-work",
@@ -135,7 +135,7 @@ const DAMAGE_CLASS_LABELS: Record<DamageClass, string> = {
 function AsbestosStopWorkBanner({ count }: { count: number }) {
   if (count === 0) return null;
   return (
-    <div className="mx-4 mb-4 rounded-lg border-2 border-red-500 bg-red-950 p-4">
+    <div className="mx-4 mb-4 rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950 p-4">
       <div className="flex items-start gap-3">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
         <div>
@@ -165,7 +165,7 @@ function LabelChip({
     <span
       className={cn(
         "inline-block rounded-full border px-2 py-0.5 text-xs font-medium",
-        "border-neutral-700 bg-neutral-800 text-neutral-300",
+        "border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-800 text-brand-slate dark:text-neutral-300",
         className,
       )}
     >
@@ -224,10 +224,10 @@ function FilterBar({
     <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
       <Filter className="h-4 w-4 text-neutral-500" />
       <Select value={damageCategory} onValueChange={setDamageCategory}>
-        <SelectTrigger className="h-8 w-36 border-neutral-700 bg-neutral-900 text-xs">
+        <SelectTrigger className="h-8 w-36 border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs">
           <SelectValue placeholder="Category" />
         </SelectTrigger>
-        <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+        <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
           <SelectItem value="all">All categories</SelectItem>
           <SelectItem value="CAT_1">Cat 1 – Clean</SelectItem>
           <SelectItem value="CAT_2">Cat 2 – Grey</SelectItem>
@@ -235,10 +235,10 @@ function FilterBar({
         </SelectContent>
       </Select>
       <Select value={roomType} onValueChange={setRoomType}>
-        <SelectTrigger className="h-8 w-32 border-neutral-700 bg-neutral-900 text-xs">
+        <SelectTrigger className="h-8 w-32 border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs">
           <SelectValue placeholder="Room" />
         </SelectTrigger>
-        <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+        <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
           <SelectItem value="all">All rooms</SelectItem>
           {(
             [
@@ -268,10 +268,10 @@ function FilterBar({
         </SelectContent>
       </Select>
       <Select value={photoStage} onValueChange={setPhotoStage}>
-        <SelectTrigger className="h-8 w-32 border-neutral-700 bg-neutral-900 text-xs">
+        <SelectTrigger className="h-8 w-32 border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs">
           <SelectValue placeholder="Stage" />
         </SelectTrigger>
-        <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+        <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
           <SelectItem value="all">All stages</SelectItem>
           {(Object.entries(PHOTO_STAGE_LABELS) as [PhotoStage, string][]).map(
             ([v, l]) => (
@@ -285,7 +285,7 @@ function FilterBar({
       {hasFilter && (
         <button
           onClick={onClear}
-          className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white"
+          className="flex items-center gap-1 text-xs text-brand-slate dark:text-neutral-400 hover:text-brand-navy dark:hover:text-white"
         >
           <X className="h-3 w-3" /> Clear
         </button>
@@ -304,7 +304,7 @@ function PhotoCard({ photo, onClick }: { photo: Photo; onClick: () => void }) {
       onClick={onClick}
       className={cn(
         "group relative aspect-square overflow-hidden rounded-lg border",
-        "border-neutral-800 bg-neutral-900 transition hover:border-neutral-600",
+        "border-brand-mist dark:border-neutral-800 bg-white dark:bg-neutral-900 transition hover:border-neutral-600",
         hasAsbestos && "ring-2 ring-red-500",
       )}
     >
@@ -334,7 +334,7 @@ function PhotoCard({ photo, onClick }: { photo: Photo; onClick: () => void }) {
           </span>
         )}
         {photo.photoStage && (
-          <span className="rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-300">
+          <span className="rounded bg-white dark:bg-neutral-800 px-1.5 py-0.5 text-[10px] text-brand-slate dark:text-neutral-300">
             {PHOTO_STAGE_LABELS[photo.photoStage]}
           </span>
         )}
@@ -506,20 +506,20 @@ function PhotoPanel({
       onClick={onClose}
     >
       <div
-        className="relative ml-auto flex h-full w-full max-w-lg flex-col overflow-y-auto bg-brand-ink shadow-2xl"
+        className="relative ml-auto flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white dark:bg-brand-ink shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-1.5 text-neutral-400 hover:text-white"
+          className="dark absolute right-3 top-3 z-10 rounded-full bg-black/60 p-1.5 text-neutral-400 hover:text-white"
         >
           <X className="h-4 w-4" />
         </button>
 
         {/* Asbestos stop-work warning */}
         {(hasAsbestos || asbestosWarning) && (
-          <div className="border-b border-red-800 bg-red-950 p-3">
+          <div className="border-b border-red-800 bg-red-50 dark:bg-red-950 p-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               STOP WORK — Possible ACM. Do not disturb material.
@@ -537,7 +537,7 @@ function PhotoPanel({
         />
 
         {!editing && (
-          <div className="border-b border-neutral-800 p-4 space-y-3">
+          <div className="border-b border-brand-mist dark:border-neutral-800 p-4 space-y-3">
             <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
               Photo AI suggestion
             </p>
@@ -554,18 +554,18 @@ function PhotoPanel({
                   )}
                 </div>
                 {review.reviewStatus === "accepted" && (
-                  <p className="text-xs text-amber-200">
+                  <p className="text-xs text-amber-700 dark:text-amber-200">
                     Accepted as AI suggested — produces no billable quantities
                     until you confirm.
                   </p>
                 )}
                 {review.reviewStatus === "confirmed" && (
-                  <p className="text-xs text-emerald-200">
+                  <p className="text-xs text-emerald-700 dark:text-emerald-200">
                     Confirmed by a technician — these fields are job data.
                   </p>
                 )}
                 {review.reviewStatus === "rejected" && (
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs text-brand-slate dark:text-neutral-400">
                     Suggestion rejected. It was not copied into job fields.
                   </p>
                 )}
@@ -596,7 +596,7 @@ function PhotoPanel({
                         variant="outline"
                         onClick={() => reviewClassification("reject")}
                         disabled={reviewing}
-                        className="border-neutral-700 bg-neutral-900 text-xs hover:bg-neutral-800"
+                        className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs hover:bg-brand-cream dark:hover:bg-neutral-800"
                       >
                         Reject
                       </Button>
@@ -620,7 +620,7 @@ function PhotoPanel({
                     variant="outline"
                     onClick={runPhotoAi}
                     disabled={classifying}
-                    className="border-neutral-700 bg-neutral-900 text-xs hover:bg-neutral-800"
+                    className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs hover:bg-brand-cream dark:hover:bg-neutral-800"
                   >
                     {classifying ? (
                       <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -635,7 +635,7 @@ function PhotoPanel({
                 variant="outline"
                 onClick={runPhotoAi}
                 disabled={classifying}
-                className="border-neutral-700 bg-neutral-900 text-xs hover:bg-neutral-800"
+                className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs hover:bg-brand-cream dark:hover:bg-neutral-800"
               >
                 {classifying ? (
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -644,7 +644,7 @@ function PhotoPanel({
               </Button>
             )}
             {aiError && (
-              <div className="rounded-md border border-red-800 bg-red-950 px-3 py-2 text-xs text-red-300">
+              <div className="rounded-md border border-red-800 bg-red-50 dark:bg-red-950 px-3 py-2 text-xs text-red-700 dark:text-red-300">
                 {aiError}
               </div>
             )}
@@ -652,10 +652,10 @@ function PhotoPanel({
         )}
 
         {/* Header */}
-        <div className="border-b border-neutral-800 p-4">
+        <div className="border-b border-brand-mist dark:border-neutral-800 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-white">
+              <p className="text-sm font-medium text-brand-navy dark:text-white">
                 {photo.location ?? "No location set"}
               </p>
               <p className="text-xs text-neutral-500">
@@ -667,7 +667,7 @@ function PhotoPanel({
                 size="sm"
                 variant="outline"
                 onClick={startEdit}
-                className="border-neutral-700 bg-neutral-900 text-xs hover:bg-neutral-800"
+                className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs hover:bg-brand-cream dark:hover:bg-neutral-800"
               >
                 Edit Labels
               </Button>
@@ -742,7 +742,7 @@ function PhotoPanel({
                       label={s.replace(/_/g, " ")}
                       className={
                         s === "ASBESTOS_SUSPECT"
-                          ? "border-red-700 bg-red-950 text-red-300"
+                          ? "border-red-700 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300"
                           : ""
                       }
                     />
@@ -753,11 +753,11 @@ function PhotoPanel({
             {photo.s500SectionRef && (
               <p className="text-xs text-neutral-500">
                 S500 ref:{" "}
-                <span className="text-neutral-300">{photo.s500SectionRef}</span>
+                <span className="text-brand-slate dark:text-neutral-300">{photo.s500SectionRef}</span>
               </p>
             )}
             {photo.technicianNotes && (
-              <div className="rounded-md border border-neutral-800 bg-neutral-900 p-3 text-xs text-neutral-300">
+              <div className="rounded-md border border-brand-mist dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-xs text-brand-slate dark:text-neutral-300">
                 {photo.technicianNotes}
               </div>
             )}
@@ -767,13 +767,13 @@ function PhotoPanel({
         {/* Edit Labels form */}
         {editing && (
           <div className="space-y-4 p-4 pb-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-slate dark:text-neutral-400">
               Edit Labels — S500:2021
             </p>
 
             {/* Damage Category */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">
+              <label className="mb-1 block text-xs text-brand-slate dark:text-neutral-400">
                 Damage Category *
               </label>
               <Select
@@ -785,10 +785,10 @@ function PhotoPanel({
                   }))
                 }
               >
-                <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
+                <SelectTrigger className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm text-brand-navy dark:text-white">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
-                <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+                <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
                   <SelectItem value="CAT_1">Cat 1 – Clean</SelectItem>
                   <SelectItem value="CAT_2">Cat 2 – Grey</SelectItem>
                   <SelectItem value="CAT_3">Cat 3 – Black</SelectItem>
@@ -798,7 +798,7 @@ function PhotoPanel({
 
             {/* Damage Class */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">
+              <label className="mb-1 block text-xs text-brand-slate dark:text-neutral-400">
                 Damage Class *
               </label>
               <Select
@@ -807,10 +807,10 @@ function PhotoPanel({
                   setPatch((p) => ({ ...p, damageClass: v as DamageClass }))
                 }
               >
-                <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
+                <SelectTrigger className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm text-brand-navy dark:text-white">
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
-                <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+                <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
                   <SelectItem value="CLASS_1">Class 1 – Slow</SelectItem>
                   <SelectItem value="CLASS_2">Class 2 – Significant</SelectItem>
                   <SelectItem value="CLASS_3">Class 3 – Fast</SelectItem>
@@ -821,7 +821,7 @@ function PhotoPanel({
 
             {/* Photo Stage */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">
+              <label className="mb-1 block text-xs text-brand-slate dark:text-neutral-400">
                 Photo Stage *
               </label>
               <Select
@@ -830,10 +830,10 @@ function PhotoPanel({
                   setPatch((p) => ({ ...p, photoStage: v as PhotoStage }))
                 }
               >
-                <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
+                <SelectTrigger className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm text-brand-navy dark:text-white">
                   <SelectValue placeholder="Select stage" />
                 </SelectTrigger>
-                <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+                <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
                   {(
                     Object.entries(PHOTO_STAGE_LABELS) as [PhotoStage, string][]
                   ).map(([v, l]) => (
@@ -847,7 +847,7 @@ function PhotoPanel({
 
             {/* Room Type */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">
+              <label className="mb-1 block text-xs text-brand-slate dark:text-neutral-400">
                 Room Type *
               </label>
               <Select
@@ -856,10 +856,10 @@ function PhotoPanel({
                   setPatch((p) => ({ ...p, roomType: v as RoomType }))
                 }
               >
-                <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
+                <SelectTrigger className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm text-brand-navy dark:text-white">
                   <SelectValue placeholder="Select room" />
                 </SelectTrigger>
-                <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+                <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
                   {(
                     [
                       "KITCHEN",
@@ -891,7 +891,7 @@ function PhotoPanel({
 
             {/* Moisture Source */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">
+              <label className="mb-1 block text-xs text-brand-slate dark:text-neutral-400">
                 Moisture Source *
               </label>
               <Select
@@ -903,10 +903,10 @@ function PhotoPanel({
                   }))
                 }
               >
-                <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
+                <SelectTrigger className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm text-brand-navy dark:text-white">
                   <SelectValue placeholder="Select source" />
                 </SelectTrigger>
-                <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+                <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
                   {(
                     [
                       "FLEXI_HOSE",
@@ -937,7 +937,7 @@ function PhotoPanel({
 
             {/* Surface Orientation */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">
+              <label className="mb-1 block text-xs text-brand-slate dark:text-neutral-400">
                 Surface Orientation *
               </label>
               <Select
@@ -949,10 +949,10 @@ function PhotoPanel({
                   }))
                 }
               >
-                <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
+                <SelectTrigger className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm text-brand-navy dark:text-white">
                   <SelectValue placeholder="Select orientation" />
                 </SelectTrigger>
-                <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+                <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
                   {(
                     [
                       "FLOOR",
@@ -976,7 +976,7 @@ function PhotoPanel({
 
             {/* Damage Extent */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">
+              <label className="mb-1 block text-xs text-brand-slate dark:text-neutral-400">
                 Damage Extent *
               </label>
               <Select
@@ -988,10 +988,10 @@ function PhotoPanel({
                   }))
                 }
               >
-                <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
+                <SelectTrigger className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm text-brand-navy dark:text-white">
                   <SelectValue placeholder="Select extent" />
                 </SelectTrigger>
-                <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+                <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
                   <SelectItem value="SPOT">Spot (&lt;10%)</SelectItem>
                   <SelectItem value="PARTIAL">Partial (10–50%)</SelectItem>
                   <SelectItem value="MAJORITY">Majority (50–80%)</SelectItem>
@@ -1003,7 +1003,7 @@ function PhotoPanel({
 
             {/* Capture Angle */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">
+              <label className="mb-1 block text-xs text-brand-slate dark:text-neutral-400">
                 Capture Angle *
               </label>
               <Select
@@ -1012,10 +1012,10 @@ function PhotoPanel({
                   setPatch((p) => ({ ...p, captureAngle: v as CaptureAngle }))
                 }
               >
-                <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
+                <SelectTrigger className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm text-brand-navy dark:text-white">
                   <SelectValue placeholder="Select angle" />
                 </SelectTrigger>
-                <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+                <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
                   {(
                     [
                       "STRAIGHT_ON",
@@ -1035,7 +1035,7 @@ function PhotoPanel({
 
             {/* Equipment Visible toggle */}
             <div className="flex items-center justify-between">
-              <label className="text-xs text-neutral-400">
+              <label className="text-xs text-brand-slate dark:text-neutral-400">
                 Equipment visible in frame
               </label>
               <button
@@ -1047,7 +1047,7 @@ function PhotoPanel({
                 }
                 className={cn(
                   "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                  patch.equipmentVisible ? "bg-blue-600" : "bg-neutral-700",
+                  patch.equipmentVisible ? "bg-blue-600" : "bg-brand-cream dark:bg-neutral-700",
                 )}
               >
                 <span
@@ -1061,7 +1061,7 @@ function PhotoPanel({
 
             {/* Affected Materials (multi-select chips) */}
             <div>
-              <label className="mb-2 block text-xs text-neutral-400">
+              <label className="mb-2 block text-xs text-brand-slate dark:text-neutral-400">
                 Affected Materials * (select all visible)
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -1096,8 +1096,8 @@ function PhotoPanel({
                       className={cn(
                         "rounded-full border px-2 py-0.5 text-xs transition",
                         selected
-                          ? "border-blue-500 bg-blue-900 text-blue-200"
-                          : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500",
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200"
+                          : "border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-slate dark:text-neutral-400 hover:border-neutral-500",
                       )}
                     >
                       {m.replace(/_/g, " ")}
@@ -1109,7 +1109,7 @@ function PhotoPanel({
 
             {/* Secondary Damage Indicators (multi-select chips) */}
             <div>
-              <label className="mb-2 block text-xs text-neutral-400">
+              <label className="mb-2 block text-xs text-brand-slate dark:text-neutral-400">
                 Secondary Indicators
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -1145,10 +1145,10 @@ function PhotoPanel({
                       className={cn(
                         "rounded-full border px-2 py-0.5 text-xs transition",
                         selected && isAcm
-                          ? "border-red-500 bg-red-900 text-red-200 font-semibold"
+                          ? "border-red-500 bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-200 font-semibold"
                           : selected
-                            ? "border-amber-500 bg-amber-900 text-amber-200"
-                            : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500",
+                            ? "border-amber-500 bg-amber-50 dark:bg-amber-900 text-amber-700 dark:text-amber-200"
+                            : "border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-slate dark:text-neutral-400 hover:border-neutral-500",
                       )}
                     >
                       {s.replace(/_/g, " ")}
@@ -1160,7 +1160,7 @@ function PhotoPanel({
 
             {/* S500 Section Ref */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">
+              <label className="mb-1 block text-xs text-brand-slate dark:text-neutral-400">
                 S500 Section Reference
               </label>
               <input
@@ -1170,13 +1170,13 @@ function PhotoPanel({
                 onChange={(e) =>
                   setPatch((p) => ({ ...p, s500SectionRef: e.target.value }))
                 }
-                className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-brand-navy dark:text-white placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
             {/* Technician Notes */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">
+              <label className="mb-1 block text-xs text-brand-slate dark:text-neutral-400">
                 Technician Notes
               </label>
               <textarea
@@ -1186,13 +1186,13 @@ function PhotoPanel({
                 onChange={(e) =>
                   setPatch((p) => ({ ...p, technicianNotes: e.target.value }))
                 }
-                className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-brand-navy dark:text-white placeholder:text-neutral-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
             {/* Labelled By */}
             <div>
-              <label className="mb-1 block text-xs text-neutral-400">
+              <label className="mb-1 block text-xs text-brand-slate dark:text-neutral-400">
                 Labelled By
               </label>
               <Select
@@ -1201,10 +1201,10 @@ function PhotoPanel({
                   setPatch((p) => ({ ...p, labelledBy: v as LabelledBy }))
                 }
               >
-                <SelectTrigger className="border-neutral-700 bg-neutral-900 text-sm text-white">
+                <SelectTrigger className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm text-brand-navy dark:text-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-neutral-700 bg-neutral-900 text-white">
+                <SelectContent className="border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 text-brand-navy dark:text-white">
                   <SelectItem value="HUMAN_TECH">
                     Field technician at capture
                   </SelectItem>
@@ -1220,7 +1220,7 @@ function PhotoPanel({
 
             {/* Error */}
             {saveError && (
-              <div className="rounded-md border border-red-800 bg-red-950 px-3 py-2 text-xs text-red-300">
+              <div className="rounded-md border border-red-800 bg-red-50 dark:bg-red-950 px-3 py-2 text-xs text-red-700 dark:text-red-300">
                 {saveError}
               </div>
             )}
@@ -1244,7 +1244,7 @@ function PhotoPanel({
                 onClick={() => setEditing(false)}
                 variant="outline"
                 size="sm"
-                className="flex-1 border-neutral-700 bg-neutral-900 hover:bg-neutral-800"
+                className="flex-1 border-brand-mist dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:bg-brand-cream dark:hover:bg-neutral-800"
               >
                 Cancel
               </Button>
@@ -1335,13 +1335,13 @@ export default function InspectionPhotosPage({ params }: PageProps) {
   ).length;
 
   return (
-    <div className="min-h-screen bg-brand-canvas pb-24 text-white">
+    <div className="min-h-screen bg-brand-cloud dark:bg-brand-canvas pb-24 text-brand-navy dark:text-white">
       {/* Header */}
-      <div className="sticky top-0 z-40 border-b border-neutral-800 bg-brand-canvas px-4 py-3">
+      <div className="sticky top-0 z-40 border-b border-brand-mist dark:border-neutral-800 bg-brand-cloud dark:bg-brand-canvas px-4 py-3">
         <div className="flex items-center gap-3">
           <Link
             href={`/dashboard/inspections/${id}`}
-            className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white"
+            className="rounded-full p-1.5 text-brand-slate dark:text-neutral-400 hover:bg-brand-cream dark:hover:bg-neutral-800 hover:text-brand-navy dark:hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>

@@ -116,7 +116,7 @@ const CLAIM_TYPES: {
     label: "Water",
     icon: Droplets,
     route: "water-damage-classification",
-    color: "cyan",
+    color: "brand-harbour",
   },
   {
     type: "FIRE",
@@ -183,8 +183,12 @@ const CLAIM_TYPES: {
   },
 ];
 
+// Tailwind compiles only class names it can read literally. The form header
+// builds text-, bg- and dark:bg- classes from the claim colour at runtime, so
+// the brand harbour versions are listed here for the compiler:
+// text-brand-harbour-500 bg-brand-harbour-50 dark:bg-brand-harbour-900/10
 const COLOR_MAP: Record<string, string> = {
-  cyan: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 ring-cyan-400",
+  "brand-harbour": "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-300 ring-brand-harbour-400",
   orange:
     "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 ring-orange-400",
   green:
@@ -244,7 +248,7 @@ function Select({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
     >
       <option value="">{placeholder}</option>
       {options.map((o) => (
@@ -282,7 +286,7 @@ function Input({
       min={min}
       max={max}
       step={step}
-      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
     />
   );
 }
@@ -300,7 +304,7 @@ function Toggle({
       onClick={() => onChange(!value)}
       className={cn(
         "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
-        value ? "bg-cyan-500" : "bg-neutral-300 dark:bg-slate-600",
+        value ? "bg-brand-harbour-500" : "bg-neutral-300 dark:bg-slate-600",
       )}
     >
       <span
@@ -923,7 +927,7 @@ function ContentsNewItemForm({
       <button
         type="button"
         onClick={handleAdd}
-        className="px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium transition-colors"
+        className="px-4 py-1.5 rounded-lg bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white text-sm font-medium transition-colors"
       >
         Add Item
       </button>
@@ -1359,7 +1363,7 @@ function AustralianComplianceForm({
         className="w-full flex items-center justify-between px-4 py-3 bg-neutral-50 dark:bg-slate-800/60 hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Shield size={15} className="text-cyan-500" />
+          <Shield size={15} className="text-brand-harbour-500" />
           <span className="text-sm font-semibold text-neutral-700 dark:text-slate-200">
             Australian Compliance
           </span>

@@ -24,7 +24,6 @@ const apiSteps: Record<string, OnboardingApiStep> = {
   pricing_config: step({ title: "Pricing Configuration", route: "/dashboard/pricing-config", required: true }),
   first_inspection: step({ title: "Create your first job", route: "/dashboard/inspections/new" }),
   first_report: step({ title: "Generate your first report", route: "/dashboard/reports/new" }),
-  property_data: step({ title: "Connect Property Data", route: "/dashboard/integrations" }),
 };
 
 describe("toOnboardingDisplaySteps", () => {
@@ -36,9 +35,8 @@ describe("toOnboardingDisplaySteps", () => {
       "first_inspection",
       "first_report",
       "pricing_config",
-      "property_data",
     ]);
-    expect(display).toHaveLength(6);
+    expect(display).toHaveLength(5);
     expect(display[2]).toMatchObject({
       id: "first_inspection",
       title: "Create your first job",
@@ -66,6 +64,22 @@ describe("toOnboardingDisplaySteps", () => {
       ONBOARDING_STEP_TIME.pricing_config,
     );
     expect(display.find((s) => s.id === "mystery_step")!.time).toBe("~5 min");
+  });
+
+  it("renders an unlisted id after the canonical steps instead of dropping it (RA-8459)", () => {
+    // property_data was removed from the order and time maps; an older server
+    // response that still sends it must render last, not break the list.
+    const display = toOnboardingDisplaySteps({
+      property_data: step(),
+      pricing_config: step(),
+      ai_provider: step(),
+    });
+    expect(display.map((s) => s.id)).toEqual([
+      "ai_provider",
+      "pricing_config",
+      "property_data",
+    ]);
+    expect(display[2].time).toBe("~5 min");
   });
 
   it("returns [] for null/undefined/empty input", () => {

@@ -311,7 +311,7 @@ export default function InterviewPage() {
       {interviewStatus === "loading" && (
         <div className="flex-1 flex items-center justify-center px-6 py-6">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-brand-harbour-500" />
             <p className="text-sm text-slate-600 dark:text-slate-400">
               Loading interview summary...
             </p>

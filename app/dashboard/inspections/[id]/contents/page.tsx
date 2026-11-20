@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { toCsv } from "@/lib/csv/csv-cell";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -94,9 +95,7 @@ function exportToCsv(items: EditableItem[], inspectionId: string) {
     i.flagForReview ? "Yes" : "No",
     i.aiNote ?? "",
   ]);
-  const csv = [headers, ...rows]
-    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-    .join("\n");
+  const csv = toCsv([headers, ...rows]);
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -604,7 +603,7 @@ export default function ContentsManifestPage() {
                           "w-3.5 h-3.5",
                           item.flagForReview
                             ? "text-amber-500 fill-amber-500/20"
-                            : "text-neutral-300",
+                            : "text-brand-slate dark:text-neutral-300",
                         )}
                         aria-label={
                           item.flagForReview

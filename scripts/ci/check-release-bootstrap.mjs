@@ -2,6 +2,7 @@
 
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
+import * as nodePath from "node:path";
 import { extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isAlias, parse as parseYaml, parseDocument, visit } from "yaml";
@@ -19,6 +20,22 @@ const APPROVED_EXTERNAL_ACTIONS = new Set([
   "r0adkll/upload-google-play",
   "treosh/lighthouse-ci-action",
 ]);
+
+// One owner for "is this path inside that directory". A string prefix such as
+// `${root}/` is POSIX-only: on Windows resolve() returns backslash paths, so the
+// prefix never matched and every local reference was refused (RA-8362).
+// relative() applies the platform's own separator, drive and case rules, so the
+// same check holds on both. Both arguments must already be resolved. Returns
+// true only for a strict descendant; the directory itself is not inside.
+export function isPathStrictlyInside(parent, child, pathApi = nodePath) {
+  const relativePath = pathApi.relative(parent, child);
+  return (
+    relativePath !== "" &&
+    relativePath !== ".." &&
+    !relativePath.startsWith(`..${pathApi.sep}`) &&
+    !pathApi.isAbsolute(relativePath)
+  );
+}
 
 function workflowFiles(root) {
   const directory = join(root, ".github", "workflows");
@@ -92,14 +109,14 @@ function workflowSemanticViolations(root, path) {
     }
     const absolutePath = resolve(repositoryRoot, target);
     if (
-      (absolutePath !== repositoryRoot && !absolutePath.startsWith(`${repositoryRoot}/`)) ||
+      (absolutePath !== repositoryRoot && !isPathStrictlyInside(repositoryRoot, absolutePath)) ||
       hasSymlinkComponent(absolutePath)
     ) {
       violations.push(`${sourceLocation}#${fieldPath} local reference escapes the repository, is missing, or traverses a symlink; observed ${target}`);
       return;
     }
 
-    if (absolutePath.startsWith(`${workflowRoot}/`) && /\.ya?ml$/i.test(absolutePath)) {
+    if (isPathStrictlyInside(workflowRoot, absolutePath) &&/\.ya?ml$/i.test(absolutePath)) {
       if (!lstatSync(absolutePath).isFile()) {
         violations.push(`${sourceLocation}#${fieldPath} local reusable workflow is not a regular file; observed ${target}`);
         return;
@@ -642,8 +659,8 @@ function providerMigrationViolations(root, packageJson) {
   const inspectLocalExecutable = (relativePath, location) => {
     const normalised = relativePath.replace(/^\.\//, "");
     const absolutePath = resolve(root, normalised);
-    const scriptsRoot = `${resolve(root, "scripts")}/`;
-    if (!absolutePath.startsWith(scriptsRoot) || !existsSync(absolutePath)) {
+    const scriptsRoot = resolve(root, "scripts");
+    if (!isPathStrictlyInside(scriptsRoot, absolutePath) || !existsSync(absolutePath)) {
       violations.push(`${location} invokes an unavailable or out-of-scope provider executable: ${normalised}`);
       return;
     }
@@ -755,8 +772,8 @@ function providerMigrationViolations(root, packageJson) {
       if (shellFile) {
         const relativePath = shellFile[1].replace(/^\.\//, "");
         const absolutePath = resolve(root, relativePath);
-        const scriptsRoot = `${resolve(root, "scripts")}/`;
-        if (!absolutePath.startsWith(scriptsRoot) || !existsSync(absolutePath)) {
+        const scriptsRoot = resolve(root, "scripts");
+        if (!isPathStrictlyInside(scriptsRoot, absolutePath) || !existsSync(absolutePath)) {
           violations.push(`${analysedLocation} invokes an unavailable or out-of-scope provider shell file: ${relativePath}`);
         } else if (!visitedScripts.has(`file:${relativePath}`)) {
           visitedScripts.add(`file:${relativePath}`);
@@ -770,8 +787,8 @@ function providerMigrationViolations(root, packageJson) {
       if (sourcedShellFile) {
         const relativePath = sourcedShellFile[1].replace(/^\.\//, "");
         const absolutePath = resolve(root, relativePath);
-        const scriptsRoot = `${resolve(root, "scripts")}/`;
-        if (!absolutePath.startsWith(scriptsRoot) || !existsSync(absolutePath)) {
+        const scriptsRoot = resolve(root, "scripts");
+        if (!isPathStrictlyInside(scriptsRoot, absolutePath) || !existsSync(absolutePath)) {
           violations.push(`${analysedLocation} sources an unavailable or out-of-scope provider shell file: ${relativePath}`);
         } else if (!visitedScripts.has(`file:${relativePath}`)) {
           visitedScripts.add(`file:${relativePath}`);

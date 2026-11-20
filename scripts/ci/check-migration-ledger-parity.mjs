@@ -18,12 +18,24 @@
  * credentials, sends no writes, and runs no migrations.
  *
  *   node scripts/ci/check-migration-ledger-parity.mjs https://restoreassist.app
+ *   node scripts/ci/check-migration-ledger-parity.mjs https://restoreassist-sandbox.vercel.app --allow-ahead
  *
- * Exit 0 = the deployed ledger matches this checkout exactly.
+ * Exit 0 = the deployed ledger matches this checkout exactly, or (only with
+ *          --allow-ahead) it is a clean ledger with MORE applied migrations
+ *          than this checkout, reported as a WARN line.
  * Exit 1 = reachable, but drifted: status not ok, or count or fingerprint differs.
- * Exit 2 = could not check (no target, network error, non-JSON). Never a pass.
+ * Exit 2 = could not check (no target, network error, non-JSON, bad arguments).
+ *          Never a pass, with or without --allow-ahead.
  *
- * Output is counts and PASS/FAIL only. Fingerprints are never printed.
+ * --allow-ahead (RA-8386) is for the sandbox, where branch migrations are
+ * applied by hand before they merge, so the sandbox can be ahead of main by
+ * design. Behind still fails: that is the 8 Oct fault above. The public route
+ * publishes only a count and a whole-ledger fingerprint, so "ahead" means a
+ * larger clean count; it cannot prove every migration in this checkout is
+ * among those applied, and the warning says so. Production never passes the
+ * flag: ahead or behind, it must match exactly.
+ *
+ * Output is counts and PASS/WARN/FAIL only. Fingerprints are never printed.
  */
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,11 +46,24 @@ const SHA256_HEX = /^[0-9a-f]{64}$/;
 
 export const EXIT = Object.freeze({ PASS: 0, DRIFT: 1, UNCHECKED: 2 });
 
+const VERDICT_BY_CODE = {
+  [EXIT.PASS]: "pass",
+  [EXIT.DRIFT]: "drift",
+  [EXIT.UNCHECKED]: "unchecked",
+};
+
 /**
  * Compare a parsed health response with the repo's expected ledger.
- * Returns { code, reason, repoCount, appliedCount }; never includes a fingerprint.
+ * Returns { code, verdict, reason, repoCount, appliedCount[, aheadBy] }; never
+ * includes a fingerprint. verdict is "pass", "ahead", "drift" or "unchecked".
+ * "ahead" (code PASS) is only possible when allowAhead is exactly true.
  */
-export function compareLedger(httpStatus, payload, expected) {
+export function compareLedger(httpStatus, payload, expected, { allowAhead = false } = {}) {
+  const result = compareLedgerCodes(httpStatus, payload, expected, allowAhead === true);
+  return { verdict: VERDICT_BY_CODE[result.code], ...result };
+}
+
+function compareLedgerCodes(httpStatus, payload, expected, allowAhead) {
   const repoCount = expected.count;
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return {
@@ -82,6 +107,21 @@ export function compareLedger(httpStatus, payload, expected) {
       appliedCount,
     };
   }
+  const fingerprint = payload.migrationLedgerFingerprint;
+  const validFingerprint = typeof fingerprint === "string" && SHA256_HEX.test(fingerprint);
+  if (allowAhead && validFingerprint && appliedCount > repoCount) {
+    const aheadBy = appliedCount - repoCount;
+    return {
+      code: EXIT.PASS,
+      verdict: "ahead",
+      aheadBy,
+      reason:
+        `applied ${appliedCount} migrations, repo has ${repoCount} (${aheadBy} ahead); ` +
+        "the public route cannot confirm every repo migration is among them",
+      repoCount,
+      appliedCount,
+    };
+  }
   if (appliedCount !== repoCount) {
     return {
       code: EXIT.DRIFT,
@@ -90,8 +130,7 @@ export function compareLedger(httpStatus, payload, expected) {
       appliedCount,
     };
   }
-  const fingerprint = payload.migrationLedgerFingerprint;
-  if (typeof fingerprint !== "string" || !SHA256_HEX.test(fingerprint)) {
+  if (!validFingerprint) {
     return {
       code: EXIT.DRIFT,
       reason: "health response carries no valid ledger fingerprint",
@@ -122,9 +161,18 @@ export function healthUrl(base) {
   return new URL("/api/health/migrations", origin.origin).toString();
 }
 
+function unchecked(reason, repoCount = null) {
+  return { code: EXIT.UNCHECKED, verdict: "unchecked", reason, repoCount, appliedCount: null };
+}
+
 export async function checkMigrationLedgerParity(
   base,
-  { fetchImpl = globalThis.fetch, root = process.cwd(), timeoutMs = 20_000 } = {},
+  {
+    fetchImpl = globalThis.fetch,
+    root = process.cwd(),
+    timeoutMs = 20_000,
+    allowAhead = false,
+  } = {},
 ) {
   let url;
   let expected;
@@ -132,7 +180,7 @@ export async function checkMigrationLedgerParity(
     url = healthUrl(base);
     expected = expectedMigrationLedger(root);
   } catch (error) {
-    return { code: EXIT.UNCHECKED, reason: error.message, repoCount: null, appliedCount: null };
+    return unchecked(error.message);
   }
 
   let response;
@@ -143,12 +191,7 @@ export async function checkMigrationLedgerParity(
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
-    return {
-      code: EXIT.UNCHECKED,
-      reason: `request failed: ${error?.name ?? "Error"}`,
-      repoCount: expected.count,
-      appliedCount: null,
-    };
+    return unchecked(`request failed: ${error?.name ?? "Error"}`, expected.count);
   }
 
   let payload = null;
@@ -157,13 +200,30 @@ export async function checkMigrationLedgerParity(
   } catch {
     payload = null;
   }
-  return compareLedger(response.status, payload, expected);
+  return compareLedger(response.status, payload, expected, { allowAhead });
+}
+
+const OPTIONS = new Set(["--allow-ahead"]);
+
+/** Exactly one target origin plus known options; anything else is refused. */
+export function parseArgs(args) {
+  const targets = args.filter((arg) => !arg.startsWith("--"));
+  const unknown = args.filter((arg) => arg.startsWith("--") && !OPTIONS.has(arg));
+  if (unknown.length > 0) return { error: `unknown option ${unknown[0]}` };
+  if (targets.length > 1) return { error: "exactly one target origin is allowed" };
+  return { base: targets[0], allowAhead: args.includes("--allow-ahead") };
 }
 
 async function main(argv) {
-  const base = argv[2];
-  const result = await checkMigrationLedgerParity(base);
-  const label = { 0: "PASS", 1: "FAIL (drift)", 2: "FAIL (could not check)" }[result.code];
+  const parsed = parseArgs(argv.slice(2));
+  const base = parsed.base ?? argv[2];
+  const result = parsed.error
+    ? unchecked(parsed.error)
+    : await checkMigrationLedgerParity(parsed.base, { allowAhead: parsed.allowAhead });
+  const label =
+    result.verdict === "ahead"
+      ? "WARN (ahead)"
+      : { 0: "PASS", 1: "FAIL (drift)", 2: "FAIL (could not check)" }[result.code];
   const target = (() => {
     try {
       return new URL(base).origin;
@@ -176,6 +236,10 @@ async function main(argv) {
     ` (repo ${result.repoCount ?? "?"}, applied ${result.appliedCount ?? "?"})`;
   if (result.code === EXIT.PASS) console.log(line);
   else console.error(line);
+  if (result.verdict === "ahead" && process.env.GITHUB_ACTIONS === "true") {
+    // A visible annotation on the run summary, without turning the job red.
+    console.log(`::warning title=Migration ledger ahead::${target}: ${result.reason}`);
+  }
   return result.code;
 }
 

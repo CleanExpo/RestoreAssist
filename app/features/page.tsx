@@ -383,11 +383,11 @@ export default function FeaturesPage() {
           >
             <motion.article
               variants={fadeUp}
-              className={`${SURFACE} border-[#3B6D8C]/25 p-7 sm:p-9`}
+              className={`${SURFACE} border-brand-harbour/25 p-7 sm:p-9`}
             >
               <p className={SECTION_EYEBROW}>Free trial</p>
               <h2
-                className={`${FONT_DISPLAY} mt-4 text-2xl font-semibold tracking-[-0.02em] text-[#0B1F3A] sm:text-[1.75rem]`}
+                className={`${FONT_DISPLAY} mt-4 text-2xl font-semibold tracking-[-0.02em] text-brand-navy sm:text-[1.75rem]`}
               >
                 $0 for {freeCfg.trialDays} days
                 </h2>
@@ -399,7 +399,7 @@ export default function FeaturesPage() {
                   >
                     <span
                       aria-hidden="true"
-                      className="mt-[0.6rem] h-px w-4 shrink-0 bg-[#3B6D8C]/60"
+                      className="mt-[0.6rem] h-px w-4 shrink-0 bg-brand-harbour/60"
                     />
                     <span>{line}</span>
                   </li>
@@ -412,11 +412,11 @@ export default function FeaturesPage() {
 
             <motion.article
               variants={fadeUp}
-              className={`${SURFACE} border-[#0B1F3A]/25 p-7 ring-1 ring-[#0B1F3A]/10 sm:p-9`}
+              className={`${SURFACE} border-brand-navy/25 p-7 ring-1 ring-brand-navy/10 sm:p-9`}
             >
               <p className={SECTION_EYEBROW}>Monthly plan</p>
               <h2
-                className={`${FONT_DISPLAY} mt-4 text-2xl font-semibold tracking-[-0.02em] text-[#0B1F3A] sm:text-[1.75rem]`}
+                className={`${FONT_DISPLAY} mt-4 text-2xl font-semibold tracking-[-0.02em] text-brand-navy sm:text-[1.75rem]`}
               >
                 ${monthlyCfg.amount} a month, and it adds
               </h2>
@@ -428,7 +428,7 @@ export default function FeaturesPage() {
                   >
                     <span
                       aria-hidden="true"
-                      className="mt-[0.6rem] h-px w-4 shrink-0 bg-[#0B1F3A]/50"
+                      className="mt-[0.6rem] h-px w-4 shrink-0 bg-brand-navy/50"
                     />
                     <span>{line}</span>
                   </li>
@@ -493,12 +493,12 @@ export default function FeaturesPage() {
               >
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,22rem)_1fr] lg:gap-16">
                   <div>
-                    <p className="text-[11px] font-semibold tabular-nums tracking-[0.16em] text-[#3B6D8C]/85">
+                    <p className="text-[11px] font-semibold tabular-nums tracking-[0.16em] text-brand-harbour/85">
                       {String(index + 1).padStart(2, "0")}
                     </p>
                     <h3
                       id={`group-${index}`}
-                      className={`${FONT_DISPLAY} mt-3 text-xl font-semibold tracking-[-0.02em] text-[#0B1F3A] sm:text-[1.45rem] sm:leading-[1.25]`}
+                      className={`${FONT_DISPLAY} mt-3 text-xl font-semibold tracking-[-0.02em] text-brand-navy sm:text-[1.45rem] sm:leading-[1.25]`}
                     >
                       {group.title}
                 </h3>
@@ -511,9 +511,9 @@ export default function FeaturesPage() {
                     {group.items.map((item) => (
                       <li
                         key={item.label}
-                        className="border-t border-[#0B1F3A]/10 py-5 first:border-t-0 sm:first:border-t sm:py-6"
+                        className="border-t border-brand-navy/10 py-5 first:border-t-0 sm:first:border-t sm:py-6"
                       >
-                        <p className="text-[15px] font-semibold leading-[1.5] tracking-[-0.01em] text-[#0B1F3A]">
+                        <p className="text-[15px] font-semibold leading-[1.5] tracking-[-0.01em] text-brand-navy">
                           {item.label}
                         </p>
                         <p className="mt-2 text-[14.5px] leading-[1.7] text-slate-600">
@@ -541,7 +541,7 @@ export default function FeaturesPage() {
           >
             <motion.h2
               variants={fadeUp}
-              className={`${FONT_DISPLAY} text-[1.9rem] font-semibold leading-[1.12] tracking-[-0.02em] text-[#0B1F3A] sm:text-[2.35rem]`}
+              className={`${FONT_DISPLAY} text-[1.9rem] font-semibold leading-[1.12] tracking-[-0.02em] text-brand-navy sm:text-[2.35rem]`}
             >
               Try it on a job you have already written up
             </motion.h2>
