@@ -131,7 +131,7 @@ describe("GET /api/inspections/[id]/comms-readiness", () => {
   it("reports an unmapped claim type as unchecked, not clear", async () => {
     p.inspection.findUnique.mockResolvedValue({
       reportId: null,
-      claimType: "CONTENTS",
+      claimType: "NOT_A_REAL_CLAIM_STAMP",
       clientId: null,
       client: null,
       report: null,

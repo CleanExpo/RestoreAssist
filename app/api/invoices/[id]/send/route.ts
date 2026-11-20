@@ -10,6 +10,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
 import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { getFromEmail, withEmailTimeout } from "@/lib/email";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 function isEmailConfigError(message: string): boolean {
   const m = message.toLowerCase();
@@ -35,6 +36,14 @@ export async function POST(
     });
   }
   const userId = session.user.id;
+
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 15,
+    windowMs: 60 * 1000,
+    prefix: "invoice-send",
+    key: userId,
+  });
+  if (rateLimited) return rateLimited;
 
   // RA-1266: Idempotency-Key prevents sending the same invoice email twice
   // when a client retries — customer annoyance + delivery-reputation hit.
