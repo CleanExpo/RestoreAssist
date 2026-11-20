@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import OnboardingClient from "../OnboardingClient";
 
-// The server's canonical 6-step response (subset of fields the client reads).
+// The server's canonical 5-step response (subset of fields the client reads).
 function statusResponse() {
   const s = (
     title: string,
@@ -22,7 +22,6 @@ function statusResponse() {
       first_report: s("Generate your first report", "/dashboard/reports/new"),
       business_profile: s("Settings & Profile", "/dashboard/settings", false, true),
       pricing_config: s("Pricing Configuration", "/dashboard/pricing-config", false, true),
-      property_data: s("Connect Property Data", "/dashboard/integrations"),
     },
   };
 }
@@ -79,8 +78,8 @@ describe("OnboardingClient", () => {
     expect(screen.queryByText("Configure pricing")).not.toBeInTheDocument();
     expect(screen.queryByText("Connect an integration")).not.toBeInTheDocument();
 
-    // Header reflects the server's step count (6), not 6 + fallback extras.
-    expect(screen.getByText(/1 of 6 steps done/i)).toBeInTheDocument();
+    // Header reflects the server's step count (5), not 5 + fallback extras.
+    expect(screen.getByText(/1 of 5 steps done/i)).toBeInTheDocument();
 
     // RA-7549 — post-signup CTA is on this surface and is not a BYOK wall.
     const cta = screen.getByRole("link", {

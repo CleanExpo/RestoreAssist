@@ -7,8 +7,8 @@
  * render THIS (derived from the API response) rather than its own hardcoded
  * list — otherwise the surfaces drift and show the user contradicting
  * checklists (which is exactly what happened: OnboardingClient re-injected a
- * stale `pricing`/`integration` fallback that duplicated the API's
- * `pricing_config`/`property_data`, and OnboardingGuide's completion map was
+ * stale `pricing`/`integration` fallback that duplicated the API's own
+ * steps, and OnboardingGuide's completion map was
  * dead code that never matched).
  */
 
@@ -58,7 +58,6 @@ export const ONBOARDING_STEP_ORDER = [
   "first_inspection",
   "first_report",
   "pricing_config",
-  "property_data",
 ] as const;
 
 /** Human time estimate per canonical step id. */
@@ -68,7 +67,6 @@ export const ONBOARDING_STEP_TIME: Record<string, string> = {
   pricing_config: "5 min",
   first_inspection: "5 min",
   first_report: "10 min",
-  property_data: "5 min",
 };
 
 const DEFAULT_STEP_TIME = "~5 min";
