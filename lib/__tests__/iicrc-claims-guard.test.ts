@@ -119,26 +119,9 @@ const BANNED: ReadonlyArray<{ id: string; re: RegExp }> = [
   },
 ];
 
-/**
- * Lines that match a pattern but are legitimate. Keep this small; every entry
- * needs a reason. Keyed by path, pattern id AND a fragment of the exact line,
- * so an exemption covers that one line and never the rest of the file. A test
- * below fails if an entry stops matching exactly one line (a stale exemption).
- */
-const ALLOW: ReadonlyArray<{
-  file: string;
-  id: string;
-  line: string;
-  reason: string;
-}> = [
-  {
-    file: "docs/marketing/pillar-c/icp-nz.md",
-    id: "iicrc-endorsement",
-    line: "an IICRC-approved facility with in-house instructors",
-    reason:
-      "Describes a third-party NZ training school's own IICRC approval as market research, not a RestoreAssist claim.",
-  },
-];
+// No allow-list, by design. Two review rounds found that every exemption shape
+// (whole file, then one line fragment) also exempted a real claim placed next
+// to it. Legitimate text is reworded so it does not match instead.
 
 interface Hit {
   file: string;
@@ -158,13 +141,6 @@ function scan(): Hit[] {
     lines.forEach((text, idx) => {
       for (const { id, re } of BANNED) {
         if (!re.test(text)) continue;
-        if (
-          ALLOW.some(
-            (a) => a.file === rel && a.id === id && text.includes(a.line),
-          )
-        ) {
-          continue;
-        }
         hits.push({
           file: rel,
           line: idx + 1,
@@ -182,14 +158,6 @@ describe("IICRC claims guard (RA-8297)", () => {
     const files: string[] = [];
     for (const root of SCAN_ROOTS) walk(join(REPO_ROOT, root), files);
     expect(files.length).toBeGreaterThan(500);
-  });
-
-  it("each allow-list entry exempts exactly one existing line", () => {
-    for (const a of ALLOW) {
-      const lines = readFileSync(join(REPO_ROOT, a.file), "utf8").split("\n");
-      const matching = lines.filter((t) => t.includes(a.line));
-      expect(matching, `${a.file}: ${a.line}`).toHaveLength(1);
-    }
   });
 
   it("each banned pattern matches its intended phrase", () => {
