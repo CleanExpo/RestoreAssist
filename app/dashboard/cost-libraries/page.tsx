@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import { Plus, Edit, Trash2, Download, Upload, X } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import {
+  costLibraryItemsToCsv,
+  parseCostLibraryCsv,
+} from "@/lib/csv/cost-library-csv";
 import { isConfirmedEmpty } from "@/lib/client/load-state";
 
 interface CostItem {
@@ -371,16 +375,7 @@ export default function CostLibrariesPage() {
       return;
     }
 
-    const headers = ["category", "description", "unit", "rate"];
-    const rows = lib.items.map((item) =>
-      [
-        `"${(item.category ?? "").replace(/"/g, '""')}"`,
-        `"${(item.description ?? "").replace(/"/g, '""')}"`,
-        item.unit ?? "",
-        item.rate ?? "",
-      ].join(","),
-    );
-    const csv = [headers.join(","), ...rows].join("\n");
+    const csv = costLibraryItemsToCsv(lib.items);
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -403,44 +398,13 @@ export default function CostLibrariesPage() {
     if (!file || !importingLibraryId) return;
 
     const text = await file.text();
-    const lines = text.trim().split("\n");
-    if (lines.length < 2) {
+    const items = parseCostLibraryCsv(text);
+    if (!items) {
       toast.error("CSV must have a header row and at least one data row");
       setImportingLibraryId(null);
       if (csvInputRef.current) csvInputRef.current.value = "";
       return;
     }
-
-    const headers = lines[0]
-      .split(",")
-      .map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ""));
-    const items = lines.slice(1).map((line) => {
-      // Simple CSV parse — handles quoted fields
-      const cols: string[] = [];
-      let inQuotes = false;
-      let cur = "";
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') {
-          inQuotes = !inQuotes;
-        } else if (ch === "," && !inQuotes) {
-          cols.push(cur.trim());
-          cur = "";
-        } else {
-          cur += ch;
-        }
-      }
-      cols.push(cur.trim());
-
-      const item: Record<string, string | number> = {};
-      headers.forEach((h, i) => {
-        item[h] = cols[i] ?? "";
-      });
-      if (item.rate !== undefined) {
-        item.rate = parseFloat(String(item.rate)) || 0;
-      }
-      return item;
-    });
 
     try {
       const res = await fetch(
