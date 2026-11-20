@@ -48,7 +48,9 @@ export function parseCostLibraryCsv(
   return rows.slice(1).map((cols) => {
     const item: Record<string, string | number> = {};
     headers.forEach((h, i) => {
-      item[h] = unguardCsvCell((cols[i] ?? "").trim());
+      // Text cells are kept exactly as written; only header names are
+      // trimmed, and parseFloat ignores spaces around the rate.
+      item[h] = unguardCsvCell(cols[i] ?? "");
     });
     if (item.rate !== undefined) {
       item.rate = parseFloat(String(item.rate)) || 0;

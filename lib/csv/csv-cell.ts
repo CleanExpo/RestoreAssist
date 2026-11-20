@@ -23,13 +23,18 @@ export type CsvCell = string | number | boolean | null | undefined;
 
 const FORMULA_START = /^[=+\-@\t\r]/;
 const PLAIN_NUMBER = /^[+-]?(\d+(\.\d*)?|\.\d+)$/;
-const GUARDED = /^'[=+\-@\t\r]/;
+const GUARDED = /^'+[=+\-@\t\r]/;
 
 /** Write one CSV cell: quoted, inner quotes doubled, formula start neutralised. */
 export function csvField(value: CsvCell): string {
   if (value === null || value === undefined) return "";
   let s = String(value);
-  if (FORMULA_START.test(s) && !PLAIN_NUMBER.test(s)) s = `'${s}`;
+  // A cell that already looks guarded (apostrophes, then a formula start) gets
+  // one more apostrophe, so unguardCsvCell always removes exactly one and the
+  // original text reads back unchanged.
+  if ((FORMULA_START.test(s) && !PLAIN_NUMBER.test(s)) || GUARDED.test(s)) {
+    s = `'${s}`;
+  }
   return `"${s.replace(/"/g, '""')}"`;
 }
 

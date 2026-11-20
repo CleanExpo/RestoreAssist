@@ -101,6 +101,22 @@ describe("cost library export then import", () => {
     expect(parsed).toEqual(items);
   });
 
+  it("keeps whitespace at the edges of a text cell", () => {
+    const items = [
+      { category: " Hoses ", description: " hose \t", unit: "each ", rate: 4 },
+      { category: "Lines", description: "two\nlines\n", unit: "m", rate: 1 },
+    ];
+    expect(parseCostLibraryCsv(costLibraryItemsToCsv(items))).toEqual(items);
+  });
+
+  it("keeps an apostrophe that was already at the start of a cell", () => {
+    const items = [
+      { category: "'=quoted", description: "''=twice", unit: "'-5", rate: 2 },
+      { category: "'plain", description: "=guarded", unit: "ea", rate: 3 },
+    ];
+    expect(parseCostLibraryCsv(costLibraryItemsToCsv(items))).toEqual(items);
+  });
+
   it("returns null when there is no data row", () => {
     expect(parseCostLibraryCsv("category,description,unit,rate\n")).toBeNull();
   });
