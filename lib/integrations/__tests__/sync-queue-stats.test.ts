@@ -40,7 +40,9 @@ describe("getSyncQueueStats scoped to one user", () => {
     expect(count).not.toHaveBeenCalled();
     expect(queryRaw).toHaveBeenCalledTimes(1);
     const call = queryRaw.mock.calls[0];
-    expect(sqlText(call)).toMatch(/JOIN\s+"Invoice"/);
+    expect(sqlText(call)).toMatch(
+      /JOIN\s+"Invoice"\s+i\s+ON\s+i\."id"\s*=\s*j\."invoiceId"/,
+    );
     expect(sqlText(call)).toMatch(/"userId"\s*=\s*\?/);
     expect((call[0] as { values: unknown[] }).values).toEqual(["user-a"]);
   });

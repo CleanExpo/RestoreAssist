@@ -126,8 +126,8 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Webhook metrics
-    const webhookStats = await getQueueStats();
+    // Webhook metrics, the caller's own integrations only (RA-8423)
+    const webhookStats = await getQueueStats({ userId: session.user.id });
 
     // Sync queue metrics, the caller's own invoices only (RA-8423)
     const syncQueueStats = await getSyncQueueStats(session.user.id);
