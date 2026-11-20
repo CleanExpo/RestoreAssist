@@ -29,7 +29,7 @@ This document is the **execution tracker** for making RestoreAssist a complete, 
 | W1-2 | Capture-time metadata (not sync time) on photos/readings | ✅ | `parseFieldCaptureTime` on photo/moisture/env POST |
 | W1-3 | Manager approval before client/insurer send | ✅ | `USER` → 403 on `POST /api/reports/[id]/send` |
 | W1-4 | Submit honest when AI pipeline fails (S4-6) | ✅ | `processingComplete` + audit warning |
-| W1-5 | Staging demo org + five-stage journey retest | ✅ | `scripts/w1-5-staging-journey.sh` (runbook in stacked PR) |
+| W1-5 | Staging demo org + five-stage journey retest | ✅ | `scripts/w1-5-staging-journey.sh` + `W1-5-staging-journey.md` |
 
 ---
 
@@ -48,9 +48,9 @@ This document is the **execution tracker** for making RestoreAssist a complete, 
 
 | ID | Deliverable | Status | Verification |
 |----|-------------|--------|----------------|
-| W3-1 | Xero golden path documented + one pilot customer | ✅ | Pilot runbook (stacked PR); receipt pending |
-| W3-2 | Ascora migration runbook (honest “import not live CRM”) | ✅ | Stacked PR runbook |
-| W3-3 | Enable **one** of ServiceM8 / QBO after pilot sync | ✅ | `NEXT_PUBLIC_*_ENABLED` + stacked PR flags doc |
+| W3-1 | Xero golden path documented + one pilot customer | ✅ | `W3-1-xero-golden-path.md` (pilot receipt pending) |
+| W3-2 | Ascora migration runbook (honest “import not live CRM”) | ✅ | `W3-2-ascora-migration-runbook.md` |
+| W3-3 | Enable **one** of ServiceM8 / QBO after pilot sync | ✅ | `W3-3-pilot-connector-flags.md` + `NEXT_PUBLIC_*_ENABLED` |
 | W3-4 | OneDrive mirror ship (RA-8078) | ✅ | Catalog on when `MICROSOFT_*` set + token refresh |
 | W3-5 | OAuth health live probe (optional ping) | ✅ | `oauth-live-probe.ts` → Integrations health |
 
@@ -62,8 +62,8 @@ This document is the **execution tracker** for making RestoreAssist a complete, 
 |----|-------------|--------|----------------|
 | W4-1 | Scope CSV / adjuster-friendly export | ✅ | `GET …/export-scope-csv` + report package tab |
 | W4-2 | Job margin view (labour + equip + invoice) | ✅ | `JobMarginPanel` + `GET …/job-margin` |
-| W4-3 | Xactimate / ESX — partner only | ✅ | Stacked PR partner note (no ESX ship) |
-| W4-4 | Zapier app (jobs, clients, inspection status) | ✅ | `/api/automation/v1/*` + stacked PR automation doc |
+| W4-3 | Xactimate / ESX — partner only | ✅ | `W4-3-xactimate-partner.md` (no ESX ship) |
+| W4-4 | Zapier app (jobs, clients, inspection status) | ✅ | `W4-4-zapier-automation.md` + `/api/automation/v1/*` |
 
 ---
 
@@ -75,7 +75,7 @@ This document is the **execution tracker** for making RestoreAssist a complete, 
 | W5-2 | Integration failure visibility in ops hub | ✅ | `program-status` + links to sync-errors/health |
 | W5-3 | Program status API for leadership | ✅ | `GET /api/operations/program-status` |
 | W5-4 | Operations smoke script | ✅ | `scripts/wave-5-operations-smoke.sh` |
-| W5-5 | Scale / SLO load harness | ✅ | `scripts/slo-load-harness.ts` + stacked PR harness doc |
+| W5-5 | Scale / SLO load harness | ✅ | `scripts/slo-load-harness.ts` + `W5-5-slo-harness.md` |
 
 ---
 
@@ -95,7 +95,7 @@ This document is the **execution tracker** for making RestoreAssist a complete, 
 
 1. **This file** — wave checkboxes.  
 2. **Linear** — epics tagged `wave-0` … `wave-6`.  
-3. **RA-8184 stall map** — `GET /api/operations/program-status` (stall metrics runbook in stacked PR).  
+3. **RA-8184 stall map** — `GET /api/operations/program-status` + `W5-1-ra8184-stall-metrics.md`.  
 4. **Completeness inbox** — ageing jobs by blocker type (`summary.byBlocker` / `byAge`).
 
 ---
