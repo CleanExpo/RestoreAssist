@@ -116,7 +116,7 @@ function StatTile({
       <div className="text-2xl font-bold tabular-nums text-neutral-900 dark:text-slate-100">
         {value}
       </div>
-      <div className="text-xs text-neutral-400 dark:text-slate-500">{sub}</div>
+      <div className="text-xs text-brand-slate dark:text-slate-500">{sub}</div>
     </div>
   );
 }
@@ -240,7 +240,7 @@ export default function LiveTeacherGateMetricsDashboard() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px] text-sm text-neutral-400">
+      <div className="flex items-center justify-center min-h-[400px] text-sm text-brand-slate dark:text-neutral-400">
         Loading gate metrics…
       </div>
     );
@@ -479,7 +479,7 @@ export default function LiveTeacherGateMetricsDashboard() {
         {meta.notes.map((n, i) => (
           <p
             key={i}
-            className="text-xs text-neutral-400 dark:text-slate-500 leading-relaxed"
+            className="text-xs text-brand-slate dark:text-slate-500 leading-relaxed"
           >
             {n}
           </p>
