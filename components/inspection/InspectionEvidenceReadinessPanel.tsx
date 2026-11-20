@@ -205,7 +205,7 @@ export default function InspectionEvidenceReadinessPanel({
     <section className="rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/60 p-5 space-y-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-harbour-700 dark:text-brand-harbour-300">
             Evidence readiness
           </p>
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
@@ -222,7 +222,7 @@ export default function InspectionEvidenceReadinessPanel({
           data-testid="evidence-readiness-meter"
         >
           <div className="flex items-baseline justify-between gap-4">
-            <span className="text-sm text-neutral-500 dark:text-slate-400">
+            <span className="text-sm text-neutral-600 dark:text-slate-400">
               Ready
             </span>
             <span className="text-2xl font-bold text-neutral-900 dark:text-white">
@@ -237,16 +237,16 @@ export default function InspectionEvidenceReadinessPanel({
             <div
               className={cn(
                 "h-full rounded-full transition-all",
-                percent === 100 ? "bg-success" : "bg-cyan-500",
+                percent === 100 ? "bg-success" : "bg-brand-harbour-500",
               )}
               style={{ width: `${percent ?? 0}%` }}
             />
           </div>
-          <p className="mt-2 text-xs text-neutral-500 dark:text-slate-400">
+          <p className="mt-2 text-xs text-neutral-600 dark:text-slate-400">
             {completeCount}/{actionableItems.length} job sections recorded
           </p>
           {requiredEvidence !== undefined && (
-            <p className="text-xs text-neutral-500 dark:text-slate-400">
+            <p className="text-xs text-neutral-600 dark:text-slate-400">
               {requiredEvidence === null
                 ? "Required field evidence not loaded"
                 : `${requiredEvidence.present}/${requiredEvidence.total} required field evidence captured`}
@@ -287,7 +287,7 @@ export default function InspectionEvidenceReadinessPanel({
           <button
             type="button"
             onClick={() => onSelectTab(nextItem.tab!)}
-            className="min-h-[44px] px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium"
+            className="min-h-[44px] px-4 py-2 rounded-lg bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white text-sm font-medium"
           >
             {nextItem.action}
           </button>

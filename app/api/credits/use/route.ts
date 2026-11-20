@@ -9,6 +9,7 @@ import {
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertFinancialWriter } from "@/lib/auth/assert-tenancy";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -21,6 +22,17 @@ export async function POST(request: NextRequest) {
     });
   }
   const userId = session.user.id;
+  // Spending decrements the ORGANISATION OWNER's balance, so it is a money
+  // action: only an owner or manager, with the role read from the database.
+  // Checked before the rate limiter, the subscription read and any decrement.
+  const moneyGate = await assertFinancialWriter(session);
+  if (!moneyGate.ok) {
+    return apiError(request, {
+      code: moneyGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: moneyGate.reason,
+      status: moneyGate.status,
+    });
+  }
 
   const rateLimited = await applyRateLimit(request, {
     maxRequests: 30,

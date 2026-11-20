@@ -32,7 +32,7 @@ export default function ProfessionalDocumentViewer({
     // Convert section headers (## SECTION) - with better styling for category headers
     html = html.replace(
       /^##\s+(.*$)/gim,
-      '<h2 class="text-xl font-bold text-slate-900 mt-8 mb-4 pb-3 border-b-2 border-cyan-300 bg-gradient-to-r from-cyan-50 to-transparent px-4 py-2 rounded-t-lg">$1</h2>',
+      '<h2 class="text-xl font-bold text-slate-900 mt-8 mb-4 pb-3 border-b-2 border-brand-harbour-300 bg-gradient-to-r from-brand-harbour-50 to-transparent px-4 py-2 rounded-t-lg">$1</h2>',
     );
 
     // Convert phase headers (### PHASE)
@@ -50,7 +50,7 @@ export default function ProfessionalDocumentViewer({
     // Convert bold - special styling for category totals
     html = html.replace(
       /\*\*Category Total: (.*?)\*\*/g,
-      '<div class="mt-4 pt-4 border-t-2 border-slate-300"><strong class="text-lg font-bold text-slate-900 bg-cyan-50 px-4 py-2 rounded inline-block">Category Total: $1</strong></div>',
+      '<div class="mt-4 pt-4 border-t-2 border-slate-300"><strong class="text-lg font-bold text-slate-900 bg-brand-harbour-50 px-4 py-2 rounded inline-block">Category Total: $1</strong></div>',
     );
     html = html.replace(
       /\*\*(.*?)\*\*/g,
@@ -101,7 +101,7 @@ export default function ProfessionalDocumentViewer({
           const isHeader = idx === 0;
           const isEvenRow = idx > 0 && idx % 2 === 0;
           const rowClass = isHeader
-            ? "bg-gradient-to-r from-cyan-50 to-blue-50 border-b-2 border-cyan-200"
+            ? "bg-gradient-to-r from-brand-harbour-50 to-blue-50 border-b-2 border-brand-harbour-200"
             : isEvenRow
               ? "bg-slate-50 hover:bg-slate-100 transition-colors"
               : "bg-white hover:bg-slate-50 transition-colors";
@@ -158,7 +158,7 @@ export default function ProfessionalDocumentViewer({
         const isHeader = idx === 0;
         const isEvenRow = idx > 0 && idx % 2 === 0;
         const rowClass = isHeader
-          ? "bg-gradient-to-r from-cyan-50 to-blue-50 border-b-2 border-cyan-200"
+          ? "bg-gradient-to-r from-brand-harbour-50 to-blue-50 border-b-2 border-brand-harbour-200"
           : isEvenRow
             ? "bg-slate-50 hover:bg-slate-100 transition-colors"
             : "bg-white hover:bg-slate-50 transition-colors";

@@ -27,7 +27,7 @@ description = "Composio API key"
 regex = '''\bck_[A-Za-z0-9_-]{8,}\b'''
 keywords = ["ck_"]
 
-[allowlist]
+[[allowlists]]
 description = "RA-4985 audit allowlist — 2026-05-18"
 
 # Paths NO LONGER in the working tree (verified via `git ls-files`).
@@ -68,9 +68,21 @@ paths = [
   '''(?i)/\.env(\.|$)''',
   '''(?i)^\.env$''',
 
-  # Claude Code agent scratch directories — `.claude/worktrees/agent-*/`
-  # are ephemeral per-agent workspaces, fully gitignored.
-  '''(?i)^\.claude/''',
+  # Gitignored, local-only parts of `.claude/` (agent worktrees, Done
+  # contracts, local progress notes). `.claude/skills/` and
+  # `.claude/verifier-reports/` are NOT here: 65 + 151 of their files are
+  # tracked, so CI must scan them.
+  #
+  # NOTE (2026-10-31): this used to be a blanket '''(?i)^\.claude/''', which
+  # also exempted the ~330 TRACKED files under `.claude/` (rules, hooks,
+  # agents, settings). A planted fake GitHub token in a tracked `.claude/`
+  # file scanned as "no leaks found" while the same token in `lib/` was
+  # caught. Only the gitignored subpaths are exempt now; tracked `.claude/`
+  # content is scanned like everything else.
+  '''(?i)^\.claude/worktrees/''',
+  '''(?i)^\.claude/done/''',
+  '''(?i)^\.claude/swarm/identity\.local\.md$''',
+  '''(?i)^\.claude/PROGRESS\.md$''',
 
   # Next.js build output — `.next/` is gitignored build artefact.
   '''(?i)^\.next/''',
@@ -85,10 +97,8 @@ paths = [
   '''(?i)^test-results/''',
   '''(?i)^playwright-report/''',
 
-  # Unit-test fixtures use synthetic credentials to exercise validation,
-  # encryption, and live/test-mode guards. These tests remain isolated from
-  # deployed credentials; production code is still scanned normally.
-  '''(?i)__tests__/.*\.test\.ts$''',
+  # Unit-test fixtures are NOT exempt here any more — see the targeted
+  # [[allowlists]] entry for `generic-api-key` at the end of this file.
 
 ]
 
@@ -127,3 +137,17 @@ regexes = [
 stopwords = [
   "process.env.NEXT_PUBLIC_FIREBASE_API_KEY",
 ]
+
+# Unit-test fixtures (2026-10-31). These files hold synthetic tokens,
+# idempotency keys and encryption keys to exercise validation, encryption and
+# live/test-mode guards. They used to be exempt from EVERY rule via a path
+# entry above, so a real provider credential pasted into any of ~1,280 test
+# files was invisible (measured: a planted fake `ghp_` token in a test file
+# scanned clean). Every finding those fixtures produced was the fuzzy,
+# entropy-based `generic-api-key` rule, so that is the only rule they are
+# exempt from. Provider-specific rules (github-pat, stripe-access-token,
+# aws-access-token, private-key, ...) still fire inside test files.
+[[allowlists]]
+description = "Unit-test fixtures: exempt from generic-api-key only"
+targetRules = ["generic-api-key"]
+paths = ['''(?i)__tests__/.*\.test\.ts$''']

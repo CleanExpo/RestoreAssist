@@ -1,9 +1,11 @@
+import { portalInspectionWhere } from "@/lib/portal/portal-inspection-scope";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { buildClientStatusFeed } from "@/lib/portal/client-status-feed";
 import { buildDryingTimeline } from "@/lib/portal/drying-timeline";
+import { plainStatusSentence } from "@/lib/portal/consumer-plain-language";
 import { apiError, fromException } from "@/lib/api-errors";
 
 /**
@@ -43,7 +45,7 @@ export async function GET(
     }
 
     const inspection = await prisma.inspection.findFirst({
-      where: { report: { clientId: account.clientId } },
+      where: portalInspectionWhere(account),
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -100,7 +102,13 @@ export async function GET(
       targetClass: dryingGoal?.targetClass,
     });
 
-    return NextResponse.json({ data: { ...feed, dryingTimeline } });
+    return NextResponse.json({
+      data: {
+        ...feed,
+        statusSummary: plainStatusSentence(inspection.status),
+        dryingTimeline,
+      },
+    });
   } catch (err) {
     return fromException(request, err, { stage: "portal/updates:get" });
   }

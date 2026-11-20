@@ -62,10 +62,11 @@ const FLAGS = {
   myob: "NEXT_PUBLIC_MYOB_ENABLED",
   quickbooks: "NEXT_PUBLIC_QUICKBOOKS_ENABLED",
   importData: "NEXT_PUBLIC_IMPORT_DATA_ENABLED",
+  zoho: "NEXT_PUBLIC_ZOHO_ENABLED",
 } as const;
 
 const HIDDEN_WHEN_OFF =
-  /NRPG|ServiceM8|MYOB|QuickBooks|Import Data|Referral Networks/i;
+  /NRPG|ServiceM8|MYOB|QuickBooks|Import Data|Referral Networks|Zoho/i;
 
 function setFlags(on: Partial<Record<keyof typeof FLAGS, boolean>>) {
   for (const [key, name] of Object.entries(FLAGS)) {
@@ -109,6 +110,9 @@ function mountFetch(options: {
       if (url === "/api/ascora/connect") {
         if (ascoraFails) return { ok: false, status: 503, json: async () => ({}) };
         return { ok: true, status: 200, json: async () => ({ integration: null }) };
+      }
+      if (url === "/api/integrations/oauth/zoho/connect") {
+        return { ok: true, status: 200, json: async () => ({ authUrl: "https://accounts.zoho.com.au/oauth/v2/auth" }) };
       }
       throw new Error(`Unexpected request: ${url}`);
     }),
@@ -196,6 +200,7 @@ describe("Integrations page with every listing switch off", () => {
     mountFetch({
       genericIntegrations: [
         { id: "qb_synthetic", name: "QuickBooks", provider: "QUICKBOOKS", status: "CONNECTED", realmId: "synthetic-qb-realm", hasOAuthCredentials: true, lastSyncAt: null },
+        { id: "zoho_synthetic", name: "Zoho CRM", provider: "ZOHO", status: "CONNECTED", tenantId: "https://www.zohoapis.com.au", hasOAuthCredentials: true, icon: "/integrations/zoho-logo.svg", lastSyncAt: "2026-11-01T00:00:00.000Z" },
       ],
       drNrpgIntegration: {
         isActive: true,
@@ -209,6 +214,11 @@ describe("Integrations page with every listing switch off", () => {
     await waitFor(() => {
       expect(
         within(providerCard("QuickBooks")).getByRole("button", {
+          name: /^Disconnect$/,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        within(providerCard("Zoho CRM")).getByRole("button", {
           name: /^Disconnect$/,
         }),
       ).toBeInTheDocument();
@@ -265,11 +275,12 @@ describe("RA-7714 — the Integrations page moves data across, it does not conne
 
 describe("each listing switch brings its own item back", () => {
   it.each([
-    ["servicem8", ["ServiceM8"], ["MYOB", "QuickBooks", "Import Data", "DR-NRPG"]],
-    ["myob", ["MYOB"], ["ServiceM8", "QuickBooks", "Import Data", "DR-NRPG"]],
-    ["quickbooks", ["QuickBooks"], ["ServiceM8", "MYOB", "Import Data", "DR-NRPG"]],
-    ["nrpg", ["DR-NRPG", "Referral Networks"], ["ServiceM8", "MYOB", "QuickBooks", "Import Data"]],
-    ["importData", ["Import Data"], ["ServiceM8", "MYOB", "QuickBooks", "DR-NRPG"]],
+    ["servicem8", ["ServiceM8"], ["MYOB", "QuickBooks", "Import Data", "DR-NRPG", "Zoho"]],
+    ["myob", ["MYOB"], ["ServiceM8", "QuickBooks", "Import Data", "DR-NRPG", "Zoho"]],
+    ["quickbooks", ["QuickBooks"], ["ServiceM8", "MYOB", "Import Data", "DR-NRPG", "Zoho"]],
+    ["nrpg", ["DR-NRPG", "Referral Networks"], ["ServiceM8", "MYOB", "QuickBooks", "Import Data", "Zoho"]],
+    ["importData", ["Import Data"], ["ServiceM8", "MYOB", "QuickBooks", "DR-NRPG", "Zoho"]],
+    ["zoho", ["Zoho"], ["ServiceM8", "MYOB", "QuickBooks", "Import Data", "DR-NRPG"]],
   ] as const)("%s on", async (flag, shown, hidden) => {
     setFlags({ [flag]: true });
     mountFetch({});
@@ -281,6 +292,29 @@ describe("each listing switch brings its own item back", () => {
     for (const h of hidden) expect(text).not.toContain(h);
   });
 
+  it("Zoho connect asks for a data centre before OAuth", async () => {
+    setFlags({ zoho: true });
+    mountFetch({});
+    render(<IntegrationsPage />);
+    await settled();
+
+    fireEvent.click(
+      within(providerCard("Zoho CRM")).getByRole("button", { name: /^Connect$/ }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent ?? "").toMatch(/Australia/);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Australia" }));
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/integrations/oauth/zoho/connect",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ region: "AU" }),
+        }),
+      );
+    });
+  });
+
   it("all switches on lists every provider, as before", async () => {
     setFlags({
       nrpg: true,
@@ -288,6 +322,7 @@ describe("each listing switch brings its own item back", () => {
       myob: true,
       quickbooks: true,
       importData: true,
+      zoho: true,
     });
     mountFetch({ genericFails: true, ascoraFails: true });
     render(<IntegrationsPage />);
@@ -295,7 +330,7 @@ describe("each listing switch brings its own item back", () => {
     const unavailable = await screen.findAllByRole("button", {
       name: "Status unavailable",
     });
-    expect(unavailable).toHaveLength(5);
+    expect(unavailable).toHaveLength(6);
     expect(
       screen.getByRole("button", { name: /Import Data/i }),
     ).toBeInTheDocument();

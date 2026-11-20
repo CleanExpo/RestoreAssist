@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { paymentAmountToDollars } from "@/lib/invoices/payment-amount";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -130,9 +131,7 @@ export default function PaymentRegisterPage() {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(
-          typeof body.error === "string"
-            ? body.error
-            : "Failed to load payments",
+          apiErrorMessage(body) ?? "Failed to load payments",
         );
       }
       const data = await res.json();
@@ -321,7 +320,7 @@ export default function PaymentRegisterPage() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

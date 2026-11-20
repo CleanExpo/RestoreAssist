@@ -1,4 +1,6 @@
 import { Metadata } from "next";
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
   title: "About Us - Transforming Restoration Reporting",
@@ -18,7 +20,7 @@ export const metadata: Metadata = {
       "Helping Australian restorers transform restoration reporting with AI-assisted technology and IICRC S500 alignment.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/about" },
@@ -29,5 +31,5 @@ export default function AboutLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <MarketingShell>{children}</MarketingShell>;
 }

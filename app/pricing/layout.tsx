@@ -4,8 +4,14 @@ import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvi
 import { isIosShellUserAgent } from "@/lib/capacitor";
 import { Metadata } from "next";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 const allowance = PRICING_CONFIG.pricing.monthly.reportLimit;
+// The plan price was typed here while the allowance beside it was interpolated
+// — the half-derived sentence blocker 4 was filed about.
+const planAmount = PRICING_CONFIG.pricing.monthly.amount;
+const planPrice =
+  planAmount % 1 === 0 ? `$${planAmount}` : `$${planAmount.toFixed(2)}`;
 
 export const metadata: Metadata = {
   title: "Pricing - Restoration CRM Plans Australia",
@@ -15,7 +21,7 @@ export const metadata: Metadata = {
   // from the SoftwareApplication schema in components/seo/JsonLd.tsx; nothing
   // in this repo backs it. Metadata is a claim surface like any other, and it
   // is the one that ends up in search results.
-  description: `RestoreAssist pricing for Australian restoration contractors. ${allowance} inspection reports a month on the $99 plan, per-report rates published, IICRC S500 alignment. Basic reports on the free trial work without pasting an API key; provider charges apply only if you add your own key.`,
+  description: `RestoreAssist pricing for Australian restoration contractors. ${allowance} inspection reports a month on the ${planPrice} plan, per-report rates published, IICRC S500 alignment. Basic reports on the free trial work without pasting an API key; provider charges apply only if you add your own key.`,
   keywords: [
     "restoration software pricing",
     "restoration report software cost",
@@ -29,7 +35,7 @@ export const metadata: Metadata = {
     description: `Pricing for Australian restoration professionals. ${allowance} inspection reports a month, per-report rates published, IICRC S500 alignment.`,
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/pricing" },

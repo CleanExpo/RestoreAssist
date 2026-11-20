@@ -37,6 +37,14 @@ interface Invitation {
   createdAt: string;
 }
 
+interface ShareGrant {
+  id: string;
+  scope: "OWNER_VIEW" | "INSURER";
+  expiresAt: string;
+  createdAt: string;
+  lastAccessedAt: string | null;
+}
+
 export default function ReportSharePage() {
   const params = useParams() ?? {};
   const router = useRouter();
@@ -50,6 +58,9 @@ export default function ReportSharePage() {
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [invitationsLoading, setInvitationsLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [shareGrants, setShareGrants] = useState<ShareGrant[]>([]);
+  const [grantsLoading, setGrantsLoading] = useState(true);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   // Copy state
   const [copied, setCopied] = useState(false);
@@ -76,6 +87,21 @@ export default function ReportSharePage() {
         if (!res.ok) throw new Error("Failed to fetch report");
         const data = await res.json();
         setReport(data);
+
+        setGrantsLoading(true);
+        try {
+          const grantsRes = await fetch(`/api/reports/${id}/share-access`);
+          if (grantsRes.ok) {
+            const grantsBody = (await grantsRes.json()) as {
+              grants: ShareGrant[];
+            };
+            setShareGrants(grantsBody.grants ?? []);
+          }
+        } catch {
+          // non-critical
+        } finally {
+          setGrantsLoading(false);
+        }
 
         // Load any existing invitations for this client
         if (data.clientId) {
@@ -125,6 +151,23 @@ export default function ReportSharePage() {
       setCopied(true);
       notifySuccess("Link copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleRevokeGrant = async (accessId: string) => {
+    setRevokingId(accessId);
+    try {
+      const res = await fetch(
+        `/api/reports/${id}/share-access/${accessId}/revoke`,
+        { method: "POST" },
+      );
+      if (!res.ok) throw new Error("Revoke failed");
+      setShareGrants((prev) => prev.filter((g) => g.id !== accessId));
+      notifySuccess("Share link revoked.");
+    } catch {
+      notifyError("Could not revoke link. Try again.");
+    } finally {
+      setRevokingId(null);
     }
   };
 
@@ -180,7 +223,7 @@ export default function ReportSharePage() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="max-w-9xl mx-auto px-4 py-8">
         <div className="h-8 bg-slate-200 rounded w-48 animate-pulse mb-6" />
         <div className="bg-white rounded-xl border border-slate-200 p-6 animate-pulse space-y-4">
           <div className="h-5 bg-slate-200 rounded w-1/3" />
@@ -203,7 +246,7 @@ export default function ReportSharePage() {
         </p>
         <Link
           href="/dashboard/reports"
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
         >
           <ArrowLeft size={16} />
           Back to Reports
@@ -215,7 +258,7 @@ export default function ReportSharePage() {
   const isExpired = invitation && new Date(invitation.expiresAt) <= new Date();
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-9xl mx-auto px-4 py-8">
       {/* Back link */}
       <Link
         href={`/dashboard/reports/${id}`}
@@ -228,7 +271,7 @@ export default function ReportSharePage() {
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
-          <Share2 size={20} className="text-cyan-500" />
+          <Share2 size={20} className="text-brand-harbour-500" />
           <h1 className="text-2xl font-bold text-slate-800">Share Report</h1>
         </div>
         <p className="text-slate-500 text-sm">
@@ -246,7 +289,7 @@ export default function ReportSharePage() {
           </div>
 
           {invitationsLoading ? (
-            <div className="flex items-center gap-2 text-slate-400 py-4">
+            <div className="flex items-center gap-2 text-brand-slate dark:text-slate-400 py-4">
               <Loader2 size={16} className="animate-spin" />
               <span className="text-sm">Loading share link...</span>
             </div>
@@ -261,13 +304,13 @@ export default function ReportSharePage() {
                 />
                 <button
                   onClick={handleCopy}
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm font-medium shrink-0"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors text-sm font-medium shrink-0"
                 >
                   {copied ? <Check size={15} /> : <Copy size={15} />}
                   {copied ? "Copied!" : "Copy Link"}
                 </button>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-400">
+              <div className="flex items-center justify-between text-xs text-brand-slate dark:text-slate-400">
                 <span>
                   Expires{" "}
                   {new Date(invitation.expiresAt).toLocaleDateString("en-AU", {
@@ -305,7 +348,7 @@ export default function ReportSharePage() {
                 <button
                   onClick={handleGenerateLink}
                   disabled={generating}
-                  className="flex items-center gap-2 mx-auto px-5 py-2.5 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 mx-auto px-5 py-2.5 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {generating ? (
                     <>
@@ -347,6 +390,52 @@ export default function ReportSharePage() {
           </div>
         )}
 
+        {/* Revocable report links (owner view + insurer) */}
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Lock size={16} className="text-slate-500" />
+            <h2 className="font-semibold text-slate-800">Active report links</h2>
+          </div>
+          {grantsLoading ? (
+            <div className="flex items-center gap-2 text-brand-slate dark:text-slate-400 py-2 text-sm">
+              <Loader2 size={16} className="animate-spin" />
+              Loading…
+            </div>
+          ) : shareGrants.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No active damage-report or insurer links. Generate links from the
+              report actions menu; they appear here for revocation.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {shareGrants.map((grant) => (
+                <li
+                  key={grant.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm"
+                >
+                  <div>
+                    <span className="font-medium text-slate-800">
+                      {grant.scope === "INSURER" ? "Insurer" : "Owner view"}
+                    </span>
+                    <span className="ml-2 text-xs text-brand-slate dark:text-slate-400">
+                      Expires{" "}
+                      {new Date(grant.expiresAt).toLocaleDateString("en-AU")}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={revokingId === grant.id}
+                    onClick={() => void handleRevokeGrant(grant.id)}
+                    className="text-xs font-semibold text-destructive hover:underline disabled:opacity-50"
+                  >
+                    {revokingId === grant.id ? "Revoking…" : "Revoke"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         {/* What the client sees */}
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <div className="flex items-center gap-2 mb-3">
@@ -364,7 +453,7 @@ export default function ReportSharePage() {
               "Your contractor contact details",
             ].map((item) => (
               <li key={item} className="flex items-start gap-2">
-                <span className="text-cyan-500 mt-0.5">•</span>
+                <span className="text-brand-harbour-500 mt-0.5">•</span>
                 {item}
               </li>
             ))}

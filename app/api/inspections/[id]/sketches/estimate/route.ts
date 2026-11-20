@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 import { extractSketchEstimate } from "@/lib/sketch-estimate-extractor";
 import { measuredSketchData } from "@/lib/sketch/measured-sketch-data";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -34,12 +35,9 @@ export async function GET(
 
     const { id } = await params;
 
-    // Verify inspection ownership
-    const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: { id: true },
-    });
-    if (!inspection) {
+    // D-028 / D-023: the assigned technician reads back the sketch they draw.
+    const tenancy = await assertInspectionReadable(session, id);
+    if (!tenancy.ok) {
       return apiError(_req, {
         code: "NOT_FOUND",
         message: "Inspection not found",

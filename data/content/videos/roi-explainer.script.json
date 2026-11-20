@@ -1,0 +1,14 @@
+{
+  "slug": "roi-explainer",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 63,
+  "segments": [
+    { "text": "The money you lose on a job is rarely the money you argued about. It is the detail nobody captured.", "startSec": 0.5, "durationSec": 8.0 },
+    { "text": "A reading not taken. A pre-existing crack not photographed. A room entered, but never scoped.", "startSec": 9.0, "durationSec": 8.0 },
+    { "text": "You cannot bill what you cannot evidence, and you cannot defend what you did not record.", "startSec": 17.5, "durationSec": 7.0 },
+    { "text": "RestoreAssist removes the guesswork at the point it costs you. On site, in the moment, while the damage is still in front of you.", "startSec": 25.0, "durationSec": 9.5 },
+    { "text": "It prompts for what this job type needs, flags what is missing before you leave, and builds the scope from what you actually recorded.", "startSec": 35.0, "durationSec": 10.0 },
+    { "text": "More complete capture means more defensible billing, and fewer variations you quietly write off.", "startSec": 45.5, "durationSec": 7.5 },
+    { "text": "It works in the other direction too. The record that supports an invoice is the same record that shows a hazard was identified and managed.", "startSec": 53.5, "durationSec": 9.5 }
+  ]
+}

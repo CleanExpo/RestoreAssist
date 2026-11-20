@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // --- Types ---
 
@@ -85,9 +86,9 @@ function ChangeDiff({ changes }: { changes: VersionChange[] }) {
         if (isScope) {
           return (
             <div key={change.field} className="flex items-center gap-2 text-sm">
-              <FileText size={14} className="text-slate-400 shrink-0" />
-              <span className="text-slate-400">{label}:</span>
-              <span className="text-cyan-400">Scope document updated</span>
+              <FileText size={14} className="text-brand-slate dark:text-slate-400 shrink-0" />
+              <span className="text-brand-slate dark:text-slate-400">{label}:</span>
+              <span className="text-brand-harbour-700 dark:text-brand-harbour-400">Scope document updated</span>
             </div>
           );
         }
@@ -112,7 +113,7 @@ function ChangeDiff({ changes }: { changes: VersionChange[] }) {
             key={change.field}
             className="flex items-center gap-2 text-sm flex-wrap"
           >
-            <span className="text-slate-400 shrink-0">{label}:</span>
+            <span className="text-brand-slate dark:text-slate-400 shrink-0">{label}:</span>
             <span className="text-destructive line-through">{fromVal}</span>
             <span className="text-slate-500">→</span>
             <span className="text-success">{toVal}</span>
@@ -145,8 +146,8 @@ function TimelineEntryCard({
         <div
           className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 z-10 ${
             isCurrent
-              ? "bg-cyan-500 border-cyan-400 text-white"
-              : "bg-slate-800 border-slate-600 text-slate-300"
+              ? "bg-brand-harbour-500 border-brand-harbour-400 text-white"
+              : "bg-white dark:bg-slate-800 border-slate-600 text-brand-slate dark:text-slate-300"
           }`}
         >
           v{entry.version}
@@ -155,15 +156,15 @@ function TimelineEntryCard({
 
       {/* Card */}
       <div className="flex-1 pb-6">
-        <Card className="bg-slate-800/60 border-slate-700">
+        <Card className="bg-white dark:bg-slate-800/60 border-brand-mist dark:border-slate-700">
           <CardHeader className="pb-2 pt-4 px-4">
             <div className="flex items-start justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-slate-100 text-sm">
+                <span className="font-medium text-brand-navy dark:text-slate-100 text-sm">
                   {entry.action}
                 </span>
                 {isCurrent && (
-                  <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-xs">
+                  <Badge className="bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-brand-harbour-400 border-brand-harbour-500/30 text-xs">
                     Current Version
                   </Badge>
                 )}
@@ -175,7 +176,7 @@ function TimelineEntryCard({
           </CardHeader>
 
           <CardContent className="px-4 pb-4 space-y-2">
-            <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap">
+            <div className="flex items-center gap-4 text-xs text-brand-slate dark:text-slate-400 flex-wrap">
               <span className="flex items-center gap-1">
                 <User size={12} />
                 {entry.changedBy}
@@ -186,7 +187,7 @@ function TimelineEntryCard({
               </span>
             </div>
 
-            <Separator className="bg-slate-700/50" />
+            <Separator className="bg-brand-cream dark:bg-slate-700/50" />
 
             {hasChanges && !hasOnlyNonDiffable ? (
               <ChangeDiff changes={entry.changes!} />
@@ -210,10 +211,10 @@ function LoadingSkeleton() {
       {[1, 2, 3, 4].map((i) => (
         <div key={i} className="flex gap-4 pb-6">
           <div className="flex flex-col items-center shrink-0">
-            <Skeleton className="w-8 h-8 rounded-full bg-slate-700" />
+            <Skeleton className="w-8 h-8 rounded-full bg-brand-cream dark:bg-slate-700" />
           </div>
           <div className="flex-1">
-            <Skeleton className="h-28 w-full rounded-lg bg-slate-800" />
+            <Skeleton className="h-28 w-full rounded-lg bg-white dark:bg-slate-800" />
           </div>
         </div>
       ))}
@@ -225,7 +226,7 @@ function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <History size={48} className="text-slate-600 mb-4" />
-      <h3 className="text-lg font-semibold text-slate-300 mb-2">
+      <h3 className="text-lg font-semibold text-brand-slate dark:text-slate-300 mb-2">
         No Version History
       </h3>
       <p className="text-slate-500 text-sm max-w-xs">
@@ -258,7 +259,7 @@ export default function ReportVersionHistoryPage({
         const histRes = await fetch(`/api/reports/${id}/version-history`);
         if (!histRes.ok) {
           const body = await histRes.json().catch(() => ({}));
-          throw new Error(body.error || "Failed to fetch version history");
+          throw new Error(apiErrorMessage(body) || "Failed to fetch version history");
         }
         const histData: VersionHistoryResponse = await histRes.json();
         // Sort descending so newest is first
@@ -291,11 +292,11 @@ export default function ReportVersionHistoryPage({
   const currentVersion = versions.length > 0 ? versions[0].version : null;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 py-6 px-4">
+    <div className="max-w-9xl mx-auto space-y-6 py-6 px-4">
       {/* Back link */}
       <Link
         href={`/dashboard/reports/${id}`}
-        className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-cyan-400 transition-colors"
+        className="inline-flex items-center gap-2 text-sm text-brand-slate dark:text-slate-400 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-400 transition-colors"
       >
         <ArrowLeft size={16} />
         Back to Report
@@ -304,23 +305,23 @@ export default function ReportVersionHistoryPage({
       {/* Title block */}
       <div>
         <div className="flex items-center gap-3 mb-1">
-          <History size={22} className="text-cyan-400" />
-          <h1 className="text-2xl font-semibold text-slate-100">
+          <History size={22} className="text-brand-harbour-700 dark:text-brand-harbour-400" />
+          <h1 className="text-2xl font-semibold text-brand-navy dark:text-slate-100">
             Version History
           </h1>
         </div>
         {reportTitle && (
-          <p className="text-slate-400 text-sm ml-10">{reportTitle}</p>
+          <p className="text-brand-slate dark:text-slate-400 text-sm ml-10">{reportTitle}</p>
         )}
       </div>
 
-      <Separator className="bg-slate-700" />
+      <Separator className="bg-brand-cream dark:bg-slate-700" />
 
       {/* Content */}
       {loading ? (
         <LoadingSkeleton />
       ) : error ? (
-        <div className="rounded-lg bg-red-900/20 border border-red-700/40 p-4 text-sm text-red-400">
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-700/40 p-4 text-sm text-red-700 dark:text-red-400">
           {error}
         </div>
       ) : versions.length === 0 ? (
@@ -330,7 +331,7 @@ export default function ReportVersionHistoryPage({
         <div className="relative">
           {/* Vertical line */}
           <div
-            className="absolute left-4 top-4 bottom-0 w-px bg-slate-700"
+            className="absolute left-4 top-4 bottom-0 w-px bg-brand-cream dark:bg-slate-700"
             aria-hidden="true"
           />
 

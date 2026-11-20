@@ -29,22 +29,22 @@ export const PRICING_HINT =
 /** The subset of `OrganizationPricingConfig` Margot reasons about. */
 export interface OrgPricingRates {
   // Labour, per hour (normal / business hours)
-  labourerNormalHours: number;
-  qualifiedTechnicianNormalHours: number;
-  masterQualifiedNormalHours: number;
+  labourerNormalHours: number | null;
+  qualifiedTechnicianNormalHours: number | null;
+  masterQualifiedNormalHours: number | null;
   // Equipment, per day
-  airMoverAxialDailyRate: number;
-  airMoverCentrifugalDailyRate: number;
-  dehumidifierLGRDailyRate: number;
-  dehumidifierDesiccantDailyRate: number;
-  afdUnitLargeDailyRate: number;
+  airMoverAxialDailyRate: number | null;
+  airMoverCentrifugalDailyRate: number | null;
+  dehumidifierLGRDailyRate: number | null;
+  dehumidifierDesiccantDailyRate: number | null;
+  afdUnitLargeDailyRate: number | null;
   negativeAirMachineDailyRate: number | null;
   hepaVacuumDailyRate: number | null;
   // Fees
-  administrationFee: number;
-  callOutFee: number;
+  administrationFee: number | null;
+  callOutFee: number | null;
   mobilisationFee: number | null;
-  thermalCameraUseCostPerAssessment: number;
+  thermalCameraUseCostPerAssessment: number | null;
   // Loading multipliers
   afterHoursMultiplier: number;
   saturdayMultiplier: number;
@@ -97,6 +97,14 @@ function money(n: number): string {
 }
 
 /**
+ * RA-8281: a rate the contractor has not set. Margot must not quote a figure
+ * for it, so it renders as "not set", never $0 or a national figure.
+ */
+function rate(n: number | null): string {
+  return n == null ? "not set (do not quote a figure for this)" : money(n);
+}
+
+/**
  * The prompt block. `null` → an imperative "not configured" instruction so
  * Margot sends the user to setup instead of fabricating a rate.
  */
@@ -111,11 +119,11 @@ export function formatOrgPricingBlock(rates: OrgPricingRates | null): string {
   }
 
   const equip: string[] = [
-    `air mover (axial) ${money(rates.airMoverAxialDailyRate)}`,
-    `air mover (centrifugal) ${money(rates.airMoverCentrifugalDailyRate)}`,
-    `dehumidifier LGR ${money(rates.dehumidifierLGRDailyRate)}`,
-    `dehumidifier desiccant ${money(rates.dehumidifierDesiccantDailyRate)}`,
-    `AFD/air scrubber ${money(rates.afdUnitLargeDailyRate)}`,
+    `air mover (axial) ${rate(rates.airMoverAxialDailyRate)}`,
+    `air mover (centrifugal) ${rate(rates.airMoverCentrifugalDailyRate)}`,
+    `dehumidifier LGR ${rate(rates.dehumidifierLGRDailyRate)}`,
+    `dehumidifier desiccant ${rate(rates.dehumidifierDesiccantDailyRate)}`,
+    `AFD/air scrubber ${rate(rates.afdUnitLargeDailyRate)}`,
   ];
   if (rates.negativeAirMachineDailyRate != null)
     equip.push(`negative-air machine ${money(rates.negativeAirMachineDailyRate)}`);
@@ -123,18 +131,18 @@ export function formatOrgPricingBlock(rates: OrgPricingRates | null): string {
     equip.push(`HEPA vacuum ${money(rates.hepaVacuumDailyRate)}`);
 
   const fees: string[] = [
-    `administration ${money(rates.administrationFee)}`,
-    `call-out ${money(rates.callOutFee)}`,
-    `thermal-camera assessment ${money(rates.thermalCameraUseCostPerAssessment)}`,
+    `administration ${rate(rates.administrationFee)}`,
+    `call-out ${rate(rates.callOutFee)}`,
+    `thermal-camera assessment ${rate(rates.thermalCameraUseCostPerAssessment)}`,
   ];
   if (rates.mobilisationFee != null)
     fees.push(`mobilisation ${money(rates.mobilisationFee)}`);
 
   return [
     "\n\n--- YOUR CONFIGURED CHARGE-OUT RATES (ex-GST AUD — use THESE, never a generic or national figure) ---\n",
-    `Labour, per hour (business hours): labourer ${money(rates.labourerNormalHours)}, `,
-    `qualified technician ${money(rates.qualifiedTechnicianNormalHours)}, `,
-    `master/senior technician ${money(rates.masterQualifiedNormalHours)}.\n`,
+    `Labour, per hour (business hours): labourer ${rate(rates.labourerNormalHours)}, `,
+    `qualified technician ${rate(rates.qualifiedTechnicianNormalHours)}, `,
+    `master/senior technician ${rate(rates.masterQualifiedNormalHours)}.\n`,
     `Equipment, per day: ${equip.join(", ")}.\n`,
     `Fees: ${fees.join(", ")}.\n`,
     `Loadings: after-hours ×${money(rates.afterHoursMultiplier)}, `,

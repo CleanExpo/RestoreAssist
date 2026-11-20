@@ -5,3 +5,62 @@
  * the pool without importing lib/prisma.ts, which many tests mock wholesale.
  */
 export const PG_POOL_CONNECTION_TIMEOUT_MS = 20_000;
+
+/** URL parameters besides sslmode that pg-connection-string turns into TLS settings. */
+export const PG_URL_TLS_PARAMS = [
+  "ssl",
+  "sslcert",
+  "sslkey",
+  "sslrootcert",
+  "sslnegotiation",
+  "uselibpqcompat",
+] as const;
+
+/**
+ * The connection string and TLS options for the `pg` pool.
+ *
+ * Supabase and `sslmode=require` URLs connect over TLS without verifying the
+ * server certificate. `pg` lets an `sslmode` in the URL override the `ssl`
+ * option and reads `require` as verify-full, so the option alone did nothing:
+ * the DigitalOcean console's `?sslmode=require` URL failed every query with
+ * "self-signed certificate in certificate chain" (prod outage, 04/10/2026).
+ * Every `sslmode` is therefore taken out of the URL when the option replaces
+ * a `require`.
+ *
+ * Only a plain require is rewritten. A URL that also sets another TLS
+ * parameter (`ssl`, a certificate file, `uselibpqcompat`, ...) has asked for
+ * something specific, so it is left exactly as pg reads it.
+ */
+export function pgPoolTls(connectionString: string): {
+  connectionString: string;
+  ssl: { rejectUnauthorized: false } | undefined;
+} {
+  const hashAt = connectionString.indexOf("#");
+  const beforeHash =
+    hashAt === -1 ? connectionString : connectionString.slice(0, hashAt);
+  const hash = hashAt === -1 ? "" : connectionString.slice(hashAt);
+  const queryAt = beforeHash.indexOf("?");
+  const base = queryAt === -1 ? beforeHash : beforeHash.slice(0, queryAt);
+  const params = new URLSearchParams(
+    queryAt === -1 ? "" : beforeHash.slice(queryAt + 1),
+  );
+
+  // pg honours the last sslmode when one is repeated.
+  const requireMode =
+    params.getAll("sslmode").at(-1)?.toLowerCase() === "require" &&
+    !PG_URL_TLS_PARAMS.some((key) => params.has(key));
+  if (!requireMode) {
+    return {
+      connectionString,
+      ssl: connectionString.includes("supabase")
+        ? { rejectUnauthorized: false }
+        : undefined,
+    };
+  }
+  params.delete("sslmode");
+  const query = params.toString();
+  return {
+    connectionString: `${base}${query ? `?${query}` : ""}${hash}`,
+    ssl: { rejectUnauthorized: false },
+  };
+}

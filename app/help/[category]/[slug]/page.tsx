@@ -41,20 +41,20 @@ export default async function PublicArticlePage({
   }
 
   return (
-    <main className="container mx-auto max-w-3xl p-6">
-      <nav className="mb-4 text-sm text-white/50">
-        <Link href="/help" className="hover:text-white">
+    <div className="container mx-auto max-w-3xl p-6">
+      <nav className="mb-4 text-sm text-slate-500">
+        <Link href="/help" className="text-brand-harbour hover:underline">
           Help
         </Link>
         <span className="mx-2">/</span>
-        <span className="text-white">{HELP_CATEGORY_LABELS[category]}</span>
+        <span className="text-slate-800">{HELP_CATEGORY_LABELS[category]}</span>
       </nav>
 
-      <h1 className="text-3xl md:text-4xl font-semibold text-white leading-tight">
+      <h1 className="text-3xl md:text-4xl font-semibold text-brand-navy leading-tight">
         {frontmatter.title}
       </h1>
 
-      <div className="mt-4 flex items-center gap-3 text-sm text-white/60">
+      <div className="mt-4 flex items-center gap-3 text-sm text-slate-600">
         <span>{frontmatter.readTimeMin} min read</span>
       </div>
 
@@ -67,11 +67,11 @@ export default async function PublicArticlePage({
         </div>
       )}
 
-      <article className="prose prose-invert mt-8 max-w-none">
+      <article className="prose prose-slate mt-8 max-w-none">
         <MDXRemote source={body} components={{ Screenshot, VideoExplainer }} />
       </article>
 
       <HelpRelatedArticles articles={related} basePath="/help" tone="public" />
-    </main>
+    </div>
   );
 }

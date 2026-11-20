@@ -314,7 +314,7 @@ describe("cron-production.yml contract", () => {
     const steps = workflow().jobs.trigger.steps ?? [];
     const setupNode = steps.find((s) => (s.uses ?? "").startsWith("actions/setup-node@"));
     expect(setupNode?.uses).toBe(
-      "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+      "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
     );
     expect(setupNode?.with?.["node-version-file"]).toBe(".nvmrc");
     expect(readFileSync(join(ROOT, ".nvmrc"), "utf8").trim()).toMatch(/^22\./);

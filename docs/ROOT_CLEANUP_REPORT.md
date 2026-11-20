@@ -107,3 +107,30 @@ Deleted workspace file. Kept `pnpm-lock.yaml`. Pilot package runs standalone und
 ## Pass 8 — remove `pnpm-lock.yaml` + package.json pnpm config
 
 Deleted root and `mobile/pnpm-lock.yaml`. Removed `pnpm.overrides` / `auditConfig` and `packageManager` from `package.json`. App `dependencies` / `devDependencies` kept.
+
+## Pass 9 — professional Next.js root (2026-10-15)
+
+| From | To |
+|------|-----|
+| `BACKLOG.md`, `CHANGELOG.md`, `ENHANCEMENT_REVIEW.md`, `RESTOREASSIST_FIRST_REVENUE_DIRECTIVE.md`, `REVIEW.md` | `docs/project/` |
+| `intent/` | `docs/intent/` |
+| `.planning/` | `docs/internal/planning/` |
+| `test/stubs/` | `tests/stubs/` |
+| `evals/` | `scripts/agent-evals/` |
+
+**Still at root (required):** `README.md`, `AGENTS.md`, `CLAUDE.md`, `spec.md` (CI spec-docs + encoding guards).
+
+**Updated:** review panel scripts, `agent-evals.yml`, Vitest `server-only` stub path, `intent-capture` skill, capacitor billing-gate test, README layout table.
+
+**Kept at root (product / tooling):** `data/content/` (runtime `@/content` alias), `tests/unit`, `proxy.ts`, Capacitor `ios/` / `android/`.
+
+## Pass 10 — leaner root (2026-10-15)
+
+| From | To |
+|------|-----|
+| `_bmad/` | `.claude/bmad/` (all `.claude/skills` paths updated) |
+| `supabase/migrations/*.sql` | `docs/ops/supabase-migrations-archive/` (root `supabase/` removed) |
+| `tests/browser/` | `e2e/browser/` |
+| `ops/fastlane/` | `mobile/fastlane/` (root `ops/` removed) |
+
+**Root listing target:** app, components, lib, config, scripts, docs, e2e, tests, data, mobile, packages, tools, prisma, public, hooks, types + standard Next.js config files and four instruction/spec markdown files only.

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { canCreateReport } from "@/lib/report-limits";
 import { hasReportGenerationCredential } from "@/lib/ai/platform-trial-credential";
-import { apiError } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,10 +33,6 @@ export async function GET(request: NextRequest) {
       payRoute: result.payRoute,
     });
   } catch (error) {
-    console.error("Error checking credits:", error);
-    return NextResponse.json(
-      { error: "Failed to check credits", canCreate: false, hasApiKey: false },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "check-credits" });
   }
 }

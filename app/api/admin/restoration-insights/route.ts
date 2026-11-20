@@ -9,7 +9,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { fromException } from "@/lib/api-errors";
 import {
   getRestorationInsights,
@@ -28,6 +31,10 @@ export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  // RA-8043c: cross-firm incident aggregates are RestoreAssist staff data until the owner decides firms may see a benchmark. Every firm owner is an ADMIN,
+  // so the ADMIN check alone let any firm reach it.
+  const operator = verifyPlatformSupportOperator(auth);
+  if (operator.response) return operator.response;
 
   try {
     const { searchParams } = new URL(request.url);

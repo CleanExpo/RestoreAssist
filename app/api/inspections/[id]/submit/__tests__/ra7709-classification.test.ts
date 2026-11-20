@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { sqmToSqft } from "@/lib/units";
 import { classifyIICRC } from "@/lib/nir-classification-engine";
@@ -19,6 +20,12 @@ import {
   resumedManualClassification,
 } from "@/lib/forms/classification-preview";
 
+// Fire walkthrough gate: not under test here (see lib/voice/fire-smoke/__tests__/gate.test.ts).
+vi.mock("@/lib/voice/fire-smoke/server", () => ({
+  checkFireSubmitGate: async () => ({ blocked: false }),
+  claimSubmitWithFireGate: (db: unknown, _inspection: unknown, claim: (tx: unknown) => unknown) =>
+    claim(db),
+}));
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
@@ -31,15 +38,28 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  // draft-snapshot still gates on resolveInspectionWrite; submit on the
-  // RA-7721 assigned-write helper.
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) => work(scopePrisma),
+  // draft-snapshot keeps the owner's write reach (D-028: it deletes rows).
   resolveInspectionWrite: vi.fn().mockResolvedValue({
     ok: true,
     data: { inspectionManyWhere: { id: "insp-1" } },
   }),
+  // Submit (RA-7721) and water-damage-classification (D-028) gate on the
+  // assigned-write helper.
   assertInspectionAssignedWrite: vi.fn().mockResolvedValue({
     ok: true,
-    data: { inspectionManyWhere: { id: "insp-1" }, viaAssignment: false },
+    data: {
+      inspectionWhere: { id: "insp-1" },
+      inspectionManyWhere: { id: "insp-1" },
+      childInspectionFilter: undefined,
+      viaAssignment: false,
+    },
   }),
 }));
 
@@ -100,6 +120,7 @@ vi.mock("@/lib/nir-building-codes", () => ({
 }));
 vi.mock("@/lib/nir-cost-estimation", () => ({
   estimateCosts: vi.fn().mockResolvedValue({ items: [], contingency: 0 }),
+  resolveInspectionRates: vi.fn().mockResolvedValue({ ok: true, rates: null }),
 }));
 
 // ── Stateful in-memory Classification table ─────────────────────────────────
@@ -203,9 +224,17 @@ vi.mock("@/lib/prisma", () => {
       findUnique: vi.fn(async () =>
         db.inspection ? structuredClone(db.inspection) : null,
       ),
+      // D-028: water-damage-classification now reads through findFirst
+      // (scoped by the assigned-write helper), so the row carries the
+      // fixture's status and photo count as well.
       findFirst: vi.fn(async () =>
         db.inspection
-          ? { id: db.inspection.id, claimType: "WATER", photos: [] }
+          ? {
+              ...structuredClone(db.inspection),
+              id: db.inspection.id,
+              claimType: "WATER",
+              photos: [],
+            }
           : null,
       ),
       // CAS always wins: models a re-run of the pipeline (retry / re-submit).

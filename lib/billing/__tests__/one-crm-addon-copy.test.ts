@@ -76,7 +76,7 @@ describe("recurring add-on copy with every listing switch off", () => {
       ]),
     );
     expect(prices).toEqual({
-      FLOORPLAN_UNDERLAY: "9.95 AUD/month floorplan_underlay_addon",
+      FLOORPLAN_UNDERLAY: "11 AUD/month floorplan_underlay_addon",
       BOOKKEEPING: "11 AUD/month bookkeeping_addon",
       SERVICE_CRM: "11 AUD/month service_crm_addon",
       PAYMENTS: "11 AUD/month payments_addon",

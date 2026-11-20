@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type ClaimType = "water_damage" | "fire_smoke" | "storm" | "mould" | "contents";
 
@@ -221,7 +222,7 @@ export default function AILabPage() {
         body: JSON.stringify({ batchSize: 50 }),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error ?? "Vectorisation failed");
+      if (!resp.ok) throw new Error(apiErrorMessage(data) ?? "Vectorisation failed");
       setVectoriseResult(data);
     } catch (err) {
       setVectoriseError(err instanceof Error ? err.message : "Unknown error");
@@ -240,7 +241,7 @@ export default function AILabPage() {
   if (status === "loading")
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="animate-spin text-cyan-500" size={28} />
+        <Loader2 className="animate-spin text-brand-harbour-500" size={28} />
       </div>
     );
   if (!session) {
@@ -266,7 +267,7 @@ export default function AILabPage() {
         body: JSON.stringify(body),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error ?? "Evaluation failed");
+      if (!resp.ok) throw new Error(apiErrorMessage(data) ?? "Evaluation failed");
       setEvalReport(data.report);
     } catch (err) {
       setEvalError(err instanceof Error ? err.message : "Unknown error");
@@ -290,7 +291,7 @@ export default function AILabPage() {
         }),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error ?? "Optimisation failed");
+      if (!resp.ok) throw new Error(apiErrorMessage(data) ?? "Optimisation failed");
       setOptResult(data.result);
     } catch (err) {
       setOptError(err instanceof Error ? err.message : "Unknown error");
@@ -300,7 +301,7 @@ export default function AILabPage() {
   };
 
   return (
-    <div className="space-y-8 p-6 max-w-4xl mx-auto">
+    <div className="space-y-8 p-6 max-w-9xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
@@ -311,7 +312,7 @@ export default function AILabPage() {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-            <Sparkles size={20} className="text-cyan-500" />
+            <Sparkles size={20} className="text-brand-harbour-500" />
             AI Lab
           </h1>
           <p className="text-sm text-neutral-500 dark:text-slate-400 mt-0.5">
@@ -411,7 +412,7 @@ export default function AILabPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <BarChart2 size={16} className="text-cyan-500" />
+            <BarChart2 size={16} className="text-brand-harbour-500" />
             Scope Quality Evaluation
           </CardTitle>
           <CardDescription>
@@ -430,7 +431,7 @@ export default function AILabPage() {
                 onChange={(e) =>
                   setEvalClaimType(e.target.value as ClaimType | "all")
                 }
-                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               >
                 <option value="all">All claim types</option>
                 {CLAIM_TYPES.map((ct) => (
@@ -450,14 +451,14 @@ export default function AILabPage() {
                 max={10}
                 value={evalSampleSize}
                 onChange={(e) => setEvalSampleSize(Number(e.target.value))}
-                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
             <div className="flex items-end">
               <Button
                 onClick={runEvaluation}
                 disabled={isEvaluating}
-                className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-white"
+                className="flex items-center gap-2 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
               >
                 {isEvaluating ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -583,7 +584,7 @@ export default function AILabPage() {
               <select
                 value={optClaimType}
                 onChange={(e) => setOptClaimType(e.target.value as ClaimType)}
-                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               >
                 {CLAIM_TYPES.map((ct) => (
                   <option key={ct.value} value={ct.value}>
@@ -602,7 +603,7 @@ export default function AILabPage() {
                 max={100}
                 value={optBudget}
                 onChange={(e) => setOptBudget(Number(e.target.value))}
-                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
             <div className="w-28">
@@ -615,7 +616,7 @@ export default function AILabPage() {
                 max={20}
                 value={optThreshold}
                 onChange={(e) => setOptThreshold(Number(e.target.value))}
-                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
             <div className="flex items-end">

@@ -10,9 +10,11 @@
  * Spec ref: docs/superpowers/specs/2026-05-14-signin-jobclose-audit-design.md §5.
  */
 import { prisma } from "@/lib/prisma";
-
-/** Subscription statuses that grant AI access. Per CLAUDE.md rule 8. */
-const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE"] as const;
+import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
+import {
+  getEffectiveSubscriptionForResource,
+  resourceBillsToCaller,
+} from "@/lib/organization-credits";
 
 export type LifecycleHookFailure = {
   ok: false;
@@ -45,6 +47,13 @@ export interface LifecycleHookSpec<TInput, TDraft> {
   fallback: (input: TInput) => TDraft;
   /** Inspection id to anchor the AuditLog row to. Required. */
   inspectionId: string;
+  /**
+   * RA-7893 — the inspection's creator and creation time. The plan, and the
+   * balance a trial charge lands on, are those of the business the
+   * inspection belongs to (getEffectiveSubscriptionForResource), not of
+   * whichever organisation the creator or the caller is in today.
+   */
+  resource: { creatorId: string; createdAt: Date };
 }
 
 /**
@@ -61,7 +70,7 @@ export async function runLifecycleHook<TInput, TDraft>(
   // 1. Subscription gate.
   const user = await prisma.user.findUnique({
     where: { id: spec.userId },
-    select: { subscriptionStatus: true, organizationId: true },
+    select: { organizationId: true },
   });
   if (!user) {
     return {
@@ -70,13 +79,25 @@ export async function runLifecycleHook<TInput, TDraft>(
       message: "User not found",
     };
   }
-  const status = user.subscriptionStatus;
-  if (
-    !status ||
-    !ALLOWED_SUBSCRIPTION_STATUSES.includes(
-      status as (typeof ALLOWED_SUBSCRIPTION_STATUSES)[number],
-    )
-  ) {
+  // RA-7893: an invited technician (subscriptionStatus null by design) uses
+  // the business owner's plan, and a trial charge lands on the owner's
+  // balance (`effective.id`), not on the technician's null credits. The
+  // business is the INSPECTION's: a technician who has since moved
+  // organisation never bills the new owner for an old job. The caller
+  // (spec.userId) may be a colleague, not the creator: the inspection's
+  // business must also be the caller's (resourceBillsToCaller), or nobody is
+  // charged.
+  const effective = (await resourceBillsToCaller(spec.userId, {
+    userId: spec.resource.creatorId,
+    createdAt: spec.resource.createdAt,
+  }))
+    ? await getEffectiveSubscriptionForResource(
+        spec.resource.creatorId,
+        spec.resource.createdAt,
+      )
+    : null;
+  const status = effective?.subscriptionStatus ?? null;
+  if (!effective || !isEffectivePlanCurrent(effective)) {
     return {
       ok: false,
       code: "SUBSCRIPTION_REQUIRED",
@@ -91,7 +112,7 @@ export async function runLifecycleHook<TInput, TDraft>(
   // 3. Atomic credit deduction (platform path only).
   if (!useByok && status === "TRIAL") {
     const result = await prisma.user.updateMany({
-      where: { id: spec.userId, creditsRemaining: { gte: 1 } },
+      where: { id: effective.id, creditsRemaining: { gte: 1 } },
       data: {
         creditsRemaining: { decrement: 1 },
         totalCreditsUsed: { increment: 1 },

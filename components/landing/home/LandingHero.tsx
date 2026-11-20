@@ -19,14 +19,14 @@ import { HOME } from "./homeContent";
 
 /**
  * Home 1 hero — full-bleed water damage inspection photography.
- * Soft left wash keeps headline/CTA readable over the kitchen scene.
+ * Soft left wash keeps headline/CTA readable over the drying scene.
  */
 export function LandingHero() {
   const reduce = useLandingReduceMotion();
 
   return (
     <section className="relative pt-[4.25rem]">
-      <div className="relative min-h-[min(92dvh,56rem)] overflow-hidden bg-[#0B1F3A]">
+      <div className="relative min-h-[min(92dvh,56rem)] overflow-hidden bg-brand-navy">
         <motion.div
           initial={reduce ? false : { opacity: 0, scale: 1.06 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -34,19 +34,19 @@ export function LandingHero() {
           className="absolute inset-0"
         >
           <Image
-            src="/landing/hero-flooded-home.jpg"
-            alt="RestoreAssist technician extracting floodwater from a water-filled home during active restoration"
+            src="/landing/hero-flooded-home.avif"
+            alt="Restoration technician photographing a moisture meter reading on a water-stained wall, with air movers and a dehumidifier drying an Australian home"
             fill
             priority
             sizes="100vw"
-            className="object-cover object-[42%_55%]"
+            className="object-cover object-[72%_55%]"
           />
           <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0B1F3A]/90 via-[#0B1F3A]/50 to-[#0B1F3A]/20 sm:via-[#0B1F3A]/42 sm:to-transparent"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-navy/90 via-brand-navy/50 to-brand-navy/20 sm:via-brand-navy/42 sm:to-transparent"
             aria-hidden
           />
           <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B1F3A]/65 via-transparent to-[#0B1F3A]/30"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-brand-navy/65 via-transparent to-brand-navy/30"
             aria-hidden
           />
         </motion.div>
@@ -62,62 +62,48 @@ export function LandingHero() {
           >
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-white sm:text-base`}
+              className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#A8C5D8]"
             >
-              {HOME.hero.brand}
+              {HOME.hero.eyebrow}
             </motion.p>
-
-            <motion.div
-              variants={fadeUp}
-              className="mt-5 flex items-center gap-3"
-            >
-              <span
-                className="h-px w-10 shrink-0 bg-[#7BA3BD]/90"
-                aria-hidden
-              />
-              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#A8C5D8]">
-                {HOME.hero.eyebrow}
-              </p>
-            </motion.div>
 
             <motion.h1
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-6 text-[clamp(2rem,5vw,3.35rem)] font-bold leading-[1.06] tracking-[-0.035em] text-white`}
+              className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,5vw,3.35rem)] font-bold leading-[1.08] tracking-[-0.035em] text-white`}
             >
               {HOME.hero.headline}
             </motion.h1>
 
             <motion.p
               variants={fadeUp}
-              className={`${FONT_DISPLAY} mt-6 text-[1.15rem] font-medium leading-snug tracking-[-0.02em] text-white/90 sm:text-[1.3rem]`}
+              className="mt-5 max-w-[30rem] text-[15px] leading-[1.7] text-white/85 sm:text-[16px]"
             >
-              {HOME.hero.valueLine}
-            </motion.p>
-
-            <motion.p
-              variants={fadeUp}
-              className="mt-5 max-w-[30rem] text-[15px] leading-[1.75] text-white/75 sm:text-[16px]"
-            >
-              {HOME.hero.support}
+              {HOME.hero.lead}
             </motion.p>
 
             <motion.div
               variants={fadeUp}
-              className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center"
+              className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
             >
               <Link
                 href={BRAND.cta.primary.href}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-7 py-3.5 text-[15px] font-semibold tracking-tight text-[#0B1F3A] shadow-[0_1px_2px_rgba(11,31,58,0.12),0_8px_24px_rgba(11,31,58,0.18)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-[#F0F3F6] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-7 py-3.5 text-[15px] font-semibold tracking-tight text-brand-navy shadow-[0_1px_2px_rgba(11,31,58,0.12),0_8px_24px_rgba(11,31,58,0.18)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-[#F0F3F6] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-navy"
               >
                 {HOME.hero.primaryCta}
               </Link>
               <Link
                 href={BRAND.cta.secondary.href}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/55 bg-[#0B1F3A]/55 px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white backdrop-blur-sm transition-[background-color,border-color,transform] duration-200 ease-out hover:border-white/80 hover:bg-[#0B1F3A]/75 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/55 bg-brand-navy/55 px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white backdrop-blur-sm transition-[background-color,border-color,transform] duration-200 ease-out hover:border-white/80 hover:bg-brand-navy/75 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-navy"
               >
                 {HOME.hero.secondaryCta}
               </Link>
             </motion.div>
+            <motion.p
+              variants={fadeUpSoft}
+              className="mt-4 text-[13px] text-white/70"
+            >
+              {HOME.hero.trialReassurance}
+            </motion.p>
           </motion.div>
         </div>
       </div>
@@ -138,7 +124,7 @@ export function LandingHero() {
               className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.02em] text-slate-500"
             >
               <span
-                className="h-1 w-1 shrink-0 rounded-full bg-[#3B6D8C]"
+                className="h-1 w-1 shrink-0 rounded-full bg-brand-harbour"
                 aria-hidden
               />
               {item}

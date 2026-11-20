@@ -87,8 +87,11 @@ describe("RA-7572 — saved 3×3 room reaches the estimate", () => {
     expect(estimate.totalRoomAreaM2).toBeCloseTo(FLOOR_M2, 5);
   });
 
-  it("metres-as-pixels points still bill 9 m² via data.areaM2 (not 0.0009)", () => {
-    // If points were treated as px @ 100 px/m, 3×3 px = 0.0009 m² < 0.1 skip.
+  it("metres-as-pixels points bill the drawing, not data.areaM2 (RA-8237 widen)", () => {
+    // Points are px @ 100 px/m, so 3×3 px = 0.0009 m² < 0.1 skip. RA-8237
+    // widen (founder decision, 09/11/2026): an untagged claim bills only when
+    // it agrees with the valid drawing, and a refused canvas room does not
+    // fall back to its saved row.
     const room = {
       type: "polygon",
       points: [
@@ -106,7 +109,22 @@ describe("RA-7572 — saved 3×3 room reaches the estimate", () => {
         widthM: THREE_M,
       },
     };
-    const lines = areaLines(extractSketchEstimate(floors([room])));
+    expect(areaLines(extractSketchEstimate(floors([room])))).toHaveLength(0);
+    expect(
+      areaLines(
+        extractSketchEstimate(
+          floors([room], {
+            savedRooms: [{ name: "Bedroom", areaM2: FLOOR_M2, perimeterM: 12 }],
+          }),
+        ),
+      ),
+    ).toHaveLength(0);
+    // Drawn at the calibrated scale, the same claim bills.
+    const drawn = {
+      ...room,
+      points: room.points.map((p) => ({ x: p.x * 100, y: p.y * 100 })),
+    };
+    const lines = areaLines(extractSketchEstimate(floors([drawn])));
     expect(lines).toHaveLength(1);
     expect(lines[0].areaM2).toBeCloseTo(FLOOR_M2, 5);
   });

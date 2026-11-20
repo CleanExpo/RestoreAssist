@@ -40,6 +40,47 @@ export function withPgMigrateSsl(connectionString) {
   return url.toString();
 }
 
+/** URL parameters besides sslmode that pg-connection-string turns into TLS settings. */
+const PG_URL_TLS_PARAMS = [
+  "ssl",
+  "sslcert",
+  "sslkey",
+  "sslrootcert",
+  "sslnegotiation",
+  "uselibpqcompat",
+];
+
+/**
+ * Narrower than withPgMigrateSsl, for non-migrate pools: rewrites the URL
+ * only when it asks for `sslmode=require` (which pg reads as verify-full and
+ * lets override the `ssl` option — the 04/10/2026 outage). An explicit
+ * verify-full / verify-ca keeps its certificate check, and a URL that also
+ * sets another TLS parameter (`ssl`, a certificate file, `uselibpqcompat`,
+ * ...) is left exactly as pg reads it. Mirrors pgPoolTls in
+ * lib/prisma-pool-config.ts.
+ * @param {string | undefined | null} connectionString
+ * @returns {string | undefined | null}
+ */
+export function withRequireAsNoVerify(connectionString) {
+  if (!connectionString) return connectionString;
+  let url;
+  try {
+    url = new URL(connectionString);
+  } catch {
+    return connectionString;
+  }
+  const modes = url.searchParams.getAll("sslmode").map((m) => m.toLowerCase());
+  // pg honours the last sslmode when one is repeated.
+  if (modes.at(-1) !== "require") return connectionString;
+  if (PG_URL_TLS_PARAMS.some((key) => url.searchParams.has(key))) {
+    return connectionString;
+  }
+  // Replace every sslmode, so no earlier one is left for pg to read.
+  url.searchParams.delete("sslmode");
+  url.searchParams.set("sslmode", "no-verify");
+  return url.toString();
+}
+
 /**
  * Mutate DATABASE_URL / DIRECT_URL on `env` for Prisma CLI + pg clients.
  * @param {NodeJS.ProcessEnv} [env]

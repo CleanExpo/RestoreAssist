@@ -69,7 +69,7 @@ describe("POST /api/inspections/[id]/vectorise-jobs — Rule 5 subscription gate
   it.each(["CANCELED", "PAST_DUE"])(
     "returns 402 with no embedding call for %s subscriptions",
     async (status) => {
-      userFindUnique.mockResolvedValueOnce({ subscriptionStatus: status });
+      userFindUnique.mockResolvedValue({ subscriptionStatus: status });
 
       const res = await POST(makeRequest(), ctx);
       const body = await res.json();

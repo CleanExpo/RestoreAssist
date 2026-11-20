@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useLandingReduceMotion } from "./useLandingReduceMotion";
+import { useRevealArmed } from "./useRevealArmed";
 import {
   fadeUp,
   staggerContainer,
@@ -27,16 +28,17 @@ export function MarketingPageHero({
   align = "left",
 }: Props) {
   const reduce = useLandingReduceMotion();
+  const armed = useRevealArmed();
   const centered = align === "center";
-
   return (
     <section className="border-b border-slate-200/90 bg-[#F3F5F7]">
       <div
         className={`${CONTAINER} py-16 sm:py-20 lg:py-24 ${centered ? "text-center" : ""}`}
       >
         <motion.div
+          key={armed ? "hero-armed" : "hero-static"}
           variants={staggerContainer}
-          initial={reduce ? false : "hidden"}
+          initial={armed && !reduce ? "hidden" : false}
           animate="visible"
           className={centered ? "mx-auto max-w-3xl" : "max-w-3xl"}
         >
@@ -47,7 +49,7 @@ export function MarketingPageHero({
           ) : null}
           <motion.h1
             variants={fadeUp}
-            className={`${FONT_DISPLAY} ${eyebrow ? "mt-4" : ""} text-[2.35rem] font-semibold leading-[1.1] tracking-[-0.03em] text-[#0B1F3A] sm:text-[3rem] lg:text-[3.35rem]`}
+            className={`${FONT_DISPLAY} ${eyebrow ? "mt-4" : ""} text-[2.35rem] font-semibold leading-[1.1] tracking-[-0.03em] text-brand-navy sm:text-[3rem] lg:text-[3.35rem]`}
           >
             {title}
           </motion.h1>

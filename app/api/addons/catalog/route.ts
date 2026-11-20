@@ -15,9 +15,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { RECURRING_ADDONS } from "@/lib/billing/addon-registry";
-import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { getEntitlementWorkspaceForUser } from "@/lib/entitlements";
 import { apiError, fromException } from "@/lib/api-errors";
 import { technicianSeatUsage } from "@/lib/billing/technician-seats";
+import { getOrganizationOwner } from "@/lib/organization-credits";
+import {
+  addonAccess,
+  addonFeatureLive,
+  holdingFor,
+  type AddonAccess,
+  type AddonHoldingRow,
+} from "@/lib/billing/addon-access";
 
 export async function GET(req: NextRequest) {
   try {
@@ -42,30 +50,63 @@ export async function GET(req: NextRequest) {
       perSeat: a.perSeat ?? false,
     }));
 
-    // Which of these the caller's workspace already has an ACTIVE entitlement for.
+    // Which of these the caller's business already has an ACTIVE entitlement
+    // for. RA-7893: an invited technician reads the owner's workspace.
     let owned: string[] = [];
-    const workspace = await getWorkspaceForUser(session.user.id);
+    const rows = new Map<string, AddonHoldingRow>();
+    const workspace = await getEntitlementWorkspaceForUser(session.user.id);
     if (workspace) {
       const skus = addons.map((a) => a.sku);
       const entitlements = await prisma.featureEntitlement.findMany({
         where: { workspaceId: workspace.id, active: true, sku: { in: skus } },
-        select: { sku: true },
+        select: { sku: true, stripePriceId: true, stripeSubscriptionId: true },
         take: 100,
       });
       owned = entitlements.map((e) => e.sku);
+      for (const e of entitlements) rows.set(e.sku, e);
     }
 
     // J-09: seats in use vs purchased, so the seat card can say how many are
     // left and offer another seat once the pack is active.
     const caller = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { organizationId: true },
+      select: {
+        organizationId: true,
+        role: true,
+        subscriptionStatus: true,
+        trialEndsAt: true,
+      },
     });
     const technicianSeats = caller?.organizationId
       ? await technicianSeatUsage(prisma, caller.organizationId)
       : null;
 
-    return NextResponse.json({ addons, owned, technicianSeats });
+    // RA-8466: the label and the one action each card may offer, decided by
+    // the same rules checkout applies (lib/billing/addon-access.ts).
+    const ownerId = await getOrganizationOwner(session.user.id);
+    const viewer = {
+      isBillingOwner: ownerId === null || ownerId === session.user.id,
+      role: caller?.role ?? null,
+      subscriptionStatus: caller?.subscriptionStatus ?? null,
+      trialEndsAt: caller?.trialEndsAt ?? null,
+    };
+    const access: Record<string, AddonAccess> = {};
+    for (const a of addons) {
+      access[a.sku] = addonAccess({
+        perSeat: a.perSeat,
+        holding: holdingFor(rows.get(a.sku)),
+        viewer,
+        featureLive: addonFeatureLive(a.sku),
+      });
+    }
+
+    return NextResponse.json({
+      addons,
+      owned,
+      technicianSeats,
+      access,
+      canManageBilling: viewer.isBillingOwner,
+    });
   } catch (error) {
     return fromException(req, error, { stage: "catalog" });
   }

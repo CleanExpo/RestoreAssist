@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  parseRateInput,
+  pricingSaveErrorText,
+  rateInputValue,
+} from "@/lib/pricing/rate-input";
 import { DollarSign, Save, RefreshCw, Plus, Trash2, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -13,29 +18,29 @@ interface PricingConfigurationProps {
 
 interface PricingConfig {
   id?: string;
-  masterQualifiedNormalHours: number;
-  masterQualifiedSaturday: number;
-  masterQualifiedSunday: number;
-  qualifiedTechnicianNormalHours: number;
-  qualifiedTechnicianSaturday: number;
-  qualifiedTechnicianSunday: number;
-  labourerNormalHours: number;
-  labourerSaturday: number;
-  labourerSunday: number;
-  airMoverAxialDailyRate: number;
-  airMoverCentrifugalDailyRate: number;
-  dehumidifierLGRDailyRate: number;
-  dehumidifierDesiccantDailyRate: number;
-  afdUnitLargeDailyRate: number;
-  extractionTruckMountedHourlyRate: number;
-  extractionElectricHourlyRate: number;
-  injectionDryingSystemDailyRate: number;
-  antimicrobialTreatmentRate: number;
-  mouldRemediationTreatmentRate: number;
-  biohazardTreatmentRate: number;
-  administrationFee: number;
-  callOutFee: number;
-  thermalCameraUseCostPerAssessment: number;
+  masterQualifiedNormalHours: number | null;
+  masterQualifiedSaturday: number | null;
+  masterQualifiedSunday: number | null;
+  qualifiedTechnicianNormalHours: number | null;
+  qualifiedTechnicianSaturday: number | null;
+  qualifiedTechnicianSunday: number | null;
+  labourerNormalHours: number | null;
+  labourerSaturday: number | null;
+  labourerSunday: number | null;
+  airMoverAxialDailyRate: number | null;
+  airMoverCentrifugalDailyRate: number | null;
+  dehumidifierLGRDailyRate: number | null;
+  dehumidifierDesiccantDailyRate: number | null;
+  afdUnitLargeDailyRate: number | null;
+  extractionTruckMountedHourlyRate: number | null;
+  extractionElectricHourlyRate: number | null;
+  injectionDryingSystemDailyRate: number | null;
+  antimicrobialTreatmentRate: number | null;
+  mouldRemediationTreatmentRate: number | null;
+  biohazardTreatmentRate: number | null;
+  administrationFee: number | null;
+  callOutFee: number | null;
+  thermalCameraUseCostPerAssessment: number | null;
 }
 
 interface CustomField {
@@ -89,7 +94,7 @@ export default function PricingConfiguration({
     extractionElectricHourlyRate: 80.0,
     injectionDryingSystemDailyRate: 150.0,
     antimicrobialTreatmentRate: 8.5,
-    // RA-7001: floor of the NRPG $65-145/m² range (founder-approved 2026-07-06).
+    // RA-7001: founder-approved starting figure (2026-07-06).
     mouldRemediationTreatmentRate: 65.0,
     biohazardTreatmentRate: 25.0,
     administrationFee: 250.0,
@@ -253,8 +258,8 @@ export default function PricingConfiguration({
           }
         }
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to save pricing configuration");
+        const body = await response.json().catch(() => null);
+        toast.error(pricingSaveErrorText(body));
       }
     } catch (error) {
       console.error("Error saving pricing config:", error);
@@ -292,8 +297,8 @@ export default function PricingConfiguration({
   };
 
   const handleInputChange = (field: keyof PricingConfig, value: string) => {
-    const numValue = parseFloat(value) || 0;
-    setFormData((prev) => ({ ...prev, [field]: numValue }));
+    // RA-8281: a cleared input is an unset rate (null), never 0.
+    setFormData((prev) => ({ ...prev, [field]: parseRateInput(value) }));
   };
 
   const renderCustomFields = (
@@ -338,7 +343,7 @@ export default function PricingConfiguration({
                       })
                     }
                     disabled={!canEdit}
-                    className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
+                    className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
                   />
                 </div>
                 <div className="w-32">
@@ -357,7 +362,7 @@ export default function PricingConfiguration({
                         })
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-3 py-2 bg-slate-100 dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-100 dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
                     />
                   </div>
                 </div>
@@ -380,7 +385,7 @@ export default function PricingConfiguration({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -425,7 +430,7 @@ export default function PricingConfiguration({
           <button
             onClick={handleSave}
             disabled={saving || !canEdit}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
             {saving ? "Saving..." : "Save Configuration"}
@@ -457,7 +462,7 @@ export default function PricingConfiguration({
 
           <div className="space-y-4">
             {/* Master Qualified Technician */}
-            <div className="border-l-4 border-cyan-500 pl-4">
+            <div className="border-l-4 border-brand-harbour-500 pl-4">
               <h4 className="font-medium mb-3 text-slate-800 dark:text-white">
                 Master Qualified Technician
               </h4>
@@ -473,7 +478,7 @@ export default function PricingConfiguration({
                     <input
                       type="number"
                       step="0.01"
-                      value={formData.masterQualifiedNormalHours}
+                      value={rateInputValue(formData.masterQualifiedNormalHours)}
                       onChange={(e) =>
                         handleInputChange(
                           "masterQualifiedNormalHours",
@@ -481,7 +486,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -496,7 +501,7 @@ export default function PricingConfiguration({
                     <input
                       type="number"
                       step="0.01"
-                      value={formData.masterQualifiedSaturday}
+                      value={rateInputValue(formData.masterQualifiedSaturday)}
                       onChange={(e) =>
                         handleInputChange(
                           "masterQualifiedSaturday",
@@ -504,7 +509,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -519,7 +524,7 @@ export default function PricingConfiguration({
                     <input
                       type="number"
                       step="0.01"
-                      value={formData.masterQualifiedSunday}
+                      value={rateInputValue(formData.masterQualifiedSunday)}
                       onChange={(e) =>
                         handleInputChange(
                           "masterQualifiedSunday",
@@ -527,7 +532,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -551,7 +556,7 @@ export default function PricingConfiguration({
                     <input
                       type="number"
                       step="0.01"
-                      value={formData.qualifiedTechnicianNormalHours}
+                      value={rateInputValue(formData.qualifiedTechnicianNormalHours)}
                       onChange={(e) =>
                         handleInputChange(
                           "qualifiedTechnicianNormalHours",
@@ -559,7 +564,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -574,7 +579,7 @@ export default function PricingConfiguration({
                     <input
                       type="number"
                       step="0.01"
-                      value={formData.qualifiedTechnicianSaturday}
+                      value={rateInputValue(formData.qualifiedTechnicianSaturday)}
                       onChange={(e) =>
                         handleInputChange(
                           "qualifiedTechnicianSaturday",
@@ -582,7 +587,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -597,7 +602,7 @@ export default function PricingConfiguration({
                     <input
                       type="number"
                       step="0.01"
-                      value={formData.qualifiedTechnicianSunday}
+                      value={rateInputValue(formData.qualifiedTechnicianSunday)}
                       onChange={(e) =>
                         handleInputChange(
                           "qualifiedTechnicianSunday",
@@ -605,7 +610,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -629,12 +634,12 @@ export default function PricingConfiguration({
                     <input
                       type="number"
                       step="0.01"
-                      value={formData.labourerNormalHours}
+                      value={rateInputValue(formData.labourerNormalHours)}
                       onChange={(e) =>
                         handleInputChange("labourerNormalHours", e.target.value)
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -649,12 +654,12 @@ export default function PricingConfiguration({
                     <input
                       type="number"
                       step="0.01"
-                      value={formData.labourerSaturday}
+                      value={rateInputValue(formData.labourerSaturday)}
                       onChange={(e) =>
                         handleInputChange("labourerSaturday", e.target.value)
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -669,12 +674,12 @@ export default function PricingConfiguration({
                     <input
                       type="number"
                       step="0.01"
-                      value={formData.labourerSunday}
+                      value={rateInputValue(formData.labourerSunday)}
                       onChange={(e) =>
                         handleInputChange("labourerSunday", e.target.value)
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -702,12 +707,12 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.airMoverAxialDailyRate}
+                  value={rateInputValue(formData.airMoverAxialDailyRate)}
                   onChange={(e) =>
                     handleInputChange("airMoverAxialDailyRate", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -722,7 +727,7 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.airMoverCentrifugalDailyRate}
+                  value={rateInputValue(formData.airMoverCentrifugalDailyRate)}
                   onChange={(e) =>
                     handleInputChange(
                       "airMoverCentrifugalDailyRate",
@@ -730,7 +735,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -745,7 +750,7 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.dehumidifierLGRDailyRate}
+                  value={rateInputValue(formData.dehumidifierLGRDailyRate)}
                   onChange={(e) =>
                     handleInputChange(
                       "dehumidifierLGRDailyRate",
@@ -753,7 +758,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -768,7 +773,7 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.dehumidifierDesiccantDailyRate}
+                  value={rateInputValue(formData.dehumidifierDesiccantDailyRate)}
                   onChange={(e) =>
                     handleInputChange(
                       "dehumidifierDesiccantDailyRate",
@@ -776,7 +781,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -791,12 +796,12 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.afdUnitLargeDailyRate}
+                  value={rateInputValue(formData.afdUnitLargeDailyRate)}
                   onChange={(e) =>
                     handleInputChange("afdUnitLargeDailyRate", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -811,7 +816,7 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.extractionTruckMountedHourlyRate}
+                  value={rateInputValue(formData.extractionTruckMountedHourlyRate)}
                   onChange={(e) =>
                     handleInputChange(
                       "extractionTruckMountedHourlyRate",
@@ -819,7 +824,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -834,7 +839,7 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.extractionElectricHourlyRate}
+                  value={rateInputValue(formData.extractionElectricHourlyRate)}
                   onChange={(e) =>
                     handleInputChange(
                       "extractionElectricHourlyRate",
@@ -842,7 +847,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -857,7 +862,7 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.injectionDryingSystemDailyRate}
+                  value={rateInputValue(formData.injectionDryingSystemDailyRate)}
                   onChange={(e) =>
                     handleInputChange(
                       "injectionDryingSystemDailyRate",
@@ -865,7 +870,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -891,7 +896,7 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.antimicrobialTreatmentRate}
+                  value={rateInputValue(formData.antimicrobialTreatmentRate)}
                   onChange={(e) =>
                     handleInputChange(
                       "antimicrobialTreatmentRate",
@@ -899,7 +904,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -914,7 +919,7 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.mouldRemediationTreatmentRate}
+                  value={rateInputValue(formData.mouldRemediationTreatmentRate)}
                   onChange={(e) =>
                     handleInputChange(
                       "mouldRemediationTreatmentRate",
@@ -922,7 +927,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -937,12 +942,12 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.biohazardTreatmentRate}
+                  value={rateInputValue(formData.biohazardTreatmentRate)}
                   onChange={(e) =>
                     handleInputChange("biohazardTreatmentRate", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -968,12 +973,12 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.administrationFee}
+                  value={rateInputValue(formData.administrationFee)}
                   onChange={(e) =>
                     handleInputChange("administrationFee", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -988,12 +993,12 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.callOutFee}
+                  value={rateInputValue(formData.callOutFee)}
                   onChange={(e) =>
                     handleInputChange("callOutFee", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -1008,7 +1013,7 @@ export default function PricingConfiguration({
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.thermalCameraUseCostPerAssessment}
+                  value={rateInputValue(formData.thermalCameraUseCostPerAssessment)}
                   onChange={(e) =>
                     handleInputChange(
                       "thermalCameraUseCostPerAssessment",
@@ -1016,7 +1021,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>

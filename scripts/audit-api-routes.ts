@@ -60,6 +60,8 @@ const PUBLIC_TOKEN_ROUTE_PREFIXES = [
 const PUBLIC_TOKEN_ROUTE_PATHS = new Set([
   "app/api/revenue/job-file-audit/checkout/route.ts",
   "app/api/revenue/job-file-audit/intake/route.ts",
+  // Signed-token opt-out (RFC 8058): a mail client posts this with no session.
+  "app/api/pulse/unsubscribe/route.ts",
 ]);
 
 function normalisePath(file: string): string {

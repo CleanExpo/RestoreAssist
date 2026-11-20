@@ -355,7 +355,7 @@ export default function InspectionReportViewer({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand-harbour-500" />
       </div>
     );
   }
@@ -451,7 +451,7 @@ export default function InspectionReportViewer({
             <>
               <button
                 onClick={handlePrint}
-                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+                className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg transition-colors print:hidden"
               >
                 <Printer className="w-4 h-4" />
                 Print Report
@@ -459,7 +459,7 @@ export default function InspectionReportViewer({
               {reportContent && (
                 <button
                   onClick={handleDownload}
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg transition-colors print:hidden"
                 >
                   <Download className="w-4 h-4" />
                   Download PDF
@@ -526,7 +526,7 @@ export default function InspectionReportViewer({
               <button
                 onClick={() => handleGenerateReport("enhanced")}
                 disabled={generating}
-                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                className="px-6 py-3 bg-gradient-to-r from-brand-harbour-500 to-blue-500 hover:from-brand-harbour-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
               >
                 {generating ? "Generating..." : "Generate Enhanced Report"}
               </button>
@@ -566,11 +566,11 @@ export default function InspectionReportViewer({
 
       {/* Generating Indicator */}
       {generating && (
-        <div className="p-6 rounded-lg border border-cyan-500/50 bg-cyan-500/10">
+        <div className="p-6 rounded-lg border border-brand-harbour-500/50 bg-brand-harbour-500/10">
           <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-brand-harbour-400" />
             <div>
-              <p className="text-cyan-400 font-medium">
+              <p className="text-brand-harbour-400 font-medium">
                 Processing report generation...
               </p>
               <p className="text-sm text-slate-400">
@@ -705,14 +705,14 @@ export default function InspectionReportViewer({
 
           <div
             id="inspection-report-print-content"
-            className="bg-white text-slate-900 print-content"
+            className="report-light-surface bg-white text-slate-900 print-content"
           >
             <div
               className={
                 "p-4 rounded-[10px] border print:hidden " +
                 (isBasicReport || isAiDraftPending(report)
-                  ? "border-warning/50 bg-warning/10"
-                  : "border-success/50 bg-success/10")
+                  ? "border-amber-300 bg-amber-50"
+                  : "border-emerald-300 bg-emerald-50")
               }
             >
               <div className="flex items-center gap-2">
@@ -720,16 +720,16 @@ export default function InspectionReportViewer({
                   className={
                     "w-5 h-5 " +
                     (isBasicReport || isAiDraftPending(report)
-                      ? "text-warning"
-                      : "text-success")
+                      ? "text-amber-700"
+                      : "text-emerald-700")
                   }
                 />
                 <p
                   className={
                     "font-medium " +
                     (isBasicReport || isAiDraftPending(report)
-                      ? "text-amber-900 dark:text-amber-100"
-                      : "text-success")
+                      ? "text-amber-950"
+                      : "text-emerald-900")
                   }
                 >
                   {isBasicReport
@@ -767,7 +767,7 @@ export default function InspectionReportViewer({
                     value={reportContent}
                     onChange={(e) => setReportContent(e.target.value)}
                     rows={30}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 font-mono text-sm text-slate-300"
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 font-mono text-sm text-slate-300"
                   />
                 </div>
               ) : (

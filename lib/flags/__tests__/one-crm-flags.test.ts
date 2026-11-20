@@ -1,5 +1,5 @@
 /**
- * RA-7660 (One CRM, Unit A1) — the five listing switches default OFF.
+ * RA-7660 (One CRM, Unit A1) — the listing switches default OFF.
  *
  * Each helper takes the raw env value as an argument (defaulting to its own
  * literal `process.env.NEXT_PUBLIC_*` read, which is what Next.js inlines into
@@ -14,6 +14,7 @@ const HELPERS = [
   ["isMyobEnabled", "NEXT_PUBLIC_MYOB_ENABLED"],
   ["isQuickBooksEnabled", "NEXT_PUBLIC_QUICKBOOKS_ENABLED"],
   ["isImportDataEnabled", "NEXT_PUBLIC_IMPORT_DATA_ENABLED"],
+  ["isZohoEnabled", "NEXT_PUBLIC_ZOHO_ENABLED"],
 ] as const;
 
 afterEach(() => {

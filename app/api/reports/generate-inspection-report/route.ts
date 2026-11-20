@@ -43,6 +43,13 @@ import {
   WORKSPACE_OWNER_SELECT,
   workspaceBusiness,
 } from "@/lib/reports/workspace-business";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { resolveReportPricing } from "@/lib/pricing/report-pricing";
+import {
+  hasStoredEquipment,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
+import { requirePaidBasePlan } from "@/lib/billing/paid-base-plan";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -99,10 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
-    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-    ) {
+    if (!(await hasActiveSubscription(session.user.id))) {
       return NextResponse.json(
         {
           error: "Active subscription required to generate reports",
@@ -112,7 +116,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { reportId, reportType = "enhanced" } = await request.json();
+    // L-2: trial keeps Basic. Default to basic so callers that omit
+    // reportType (older clients, RA-7601 platform-key tests) are not
+    // 402'd as Enhanced. UI that wants Enhanced / Optimised sends it.
+    const { reportId, reportType = "basic" } = await request.json();
+
+    if (reportType !== "basic") {
+      const paidGate = await requirePaidBasePlan(request, session.user.id);
+      if (paidGate) return paidGate;
+    }
 
     if (!reportId) {
       return apiError(request, {
@@ -220,9 +232,25 @@ export async function POST(request: NextRequest) {
       ? JSON.parse(report.psychrometricAssessment)
       : null;
     const scopeAreas = report.scopeAreas ? JSON.parse(report.scopeAreas) : null;
-    const equipmentSelection = report.equipmentSelection
-      ? JSON.parse(report.equipmentSelection)
-      : null;
+    // RA-8281 B1 round 13: the stored value is passed on as it is. Only
+    // stored-equipment-pricing.ts parses it or reads inside it.
+    const equipmentSelection: StoredEquipmentSelections =
+      report.equipmentSelection;
+    // RA-8281 B1 class fix: stored equipment is priced from the report
+    // business's CURRENT price list, never from the rate cached on each
+    // selection. A business that cannot be confirmed gets no price list, so
+    // every equipment rate reads "Rate not set" rather than a figure.
+    let equipmentPricingConfig: unknown = null;
+    if (hasStoredEquipment(equipmentSelection)) {
+      const reportPricing = await resolveReportPricing(
+        user.id,
+        user.pricingConfig,
+        report.createdAt,
+      );
+      equipmentPricingConfig = reportPricing.ok
+        ? reportPricing.pricingConfig
+        : null;
+    }
 
     // Positive NZ country wins over postcode: AU/NZ postcodes overlap, so a
     // New Zealand job must not resolve to an Australian state (RA-7361).
@@ -506,6 +534,7 @@ export async function POST(request: NextRequest) {
         psychrometricAssessment,
         scopeAreas,
         equipmentSelection,
+        pricingConfig: equipmentPricingConfig,
         inspectionData,
         floorPlans,
         signedAuthorityForms,
@@ -741,6 +770,7 @@ export async function POST(request: NextRequest) {
         psychrometricAssessment,
         scopeAreas,
         equipmentSelection,
+        pricingConfig: equipmentPricingConfig,
         businessInfo: workspaceBusiness(user),
       }) +
       safetyPlanContext +

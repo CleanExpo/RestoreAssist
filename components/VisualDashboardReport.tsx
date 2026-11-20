@@ -20,6 +20,10 @@ import {
   Clock,
   CheckCircle,
 } from "lucide-react";
+import {
+  RATE_NOT_SET_LABEL,
+  sumOrNull,
+} from "@/lib/reports/stored-equipment-pricing";
 
 interface VisualReportData {
   header: {
@@ -576,7 +580,12 @@ function DetailedReportPages({
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  // RA-8281 B1 class fix: a null amount is a line whose price-list rate is
+  // not set. Intl would print null as $0.00; it reads "Rate not set" instead.
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (typeof amount !== "number" || !Number.isFinite(amount)) {
+      return RATE_NOT_SET_LABEL;
+    }
     return new Intl.NumberFormat("en-AU", {
       style: "currency",
       currency: "AUD",
@@ -593,7 +602,7 @@ function DetailedReportPages({
       <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
         <div className="border-b-2 border-slate-300 pb-4 mb-6">
           <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-            <Building2 className="w-8 h-8 text-cyan-600" />
+            <Building2 className="w-8 h-8 text-brand-harbour-600" />
             Property & Incident Information
           </h2>
         </div>
@@ -733,7 +742,7 @@ function DetailedReportPages({
       <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
         <div className="border-b-2 border-slate-300 pb-4 mb-6">
           <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-            <Thermometer className="w-8 h-8 text-cyan-600" />
+            <Thermometer className="w-8 h-8 text-brand-harbour-600" />
             Environmental Conditions & Classification
           </h2>
         </div>
@@ -939,7 +948,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <MapPin className="w-8 h-8 text-cyan-600" />
+                <MapPin className="w-8 h-8 text-brand-harbour-600" />
                 Affected Areas
               </h2>
             </div>
@@ -1045,7 +1054,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <Droplet className="w-8 h-8 text-cyan-600" />
+                <Droplet className="w-8 h-8 text-brand-harbour-600" />
                 Moisture Readings
               </h2>
             </div>
@@ -1103,7 +1112,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="w-8 h-8 text-cyan-600" />
+                <FileText className="w-8 h-8 text-brand-harbour-600" />
                 Scope of Works
               </h2>
             </div>
@@ -1164,7 +1173,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <Wind className="w-8 h-8 text-cyan-600" />
+                <Wind className="w-8 h-8 text-brand-harbour-600" />
                 Equipment Deployment & Costs
               </h2>
             </div>
@@ -1225,10 +1234,8 @@ function DetailedReportPages({
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-2xl text-success">
                       {formatCurrency(
-                        fullData.equipment.reduce(
-                          (sum: number, item: any) =>
-                            sum + (item.totalCost || 0),
-                          0,
+                        sumOrNull(
+                          fullData.equipment.map((item: any) => item.totalCost),
                         ),
                       )}
                     </td>
@@ -1298,9 +1305,8 @@ function DetailedReportPages({
                       </td>
                       <td className="px-6 py-4 text-right font-bold text-2xl text-success">
                         {formatCurrency(
-                          fullData.costEstimates.reduce(
-                            (sum: number, item: any) => sum + (item.total || 0),
-                            0,
+                          sumOrNull(
+                            fullData.costEstimates.map((item: any) => item.total),
                           ),
                         )}
                       </td>
@@ -1317,7 +1323,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <ImageIcon className="w-8 h-8 text-cyan-600" />
+                <ImageIcon className="w-8 h-8 text-brand-harbour-600" />
                 Photographic Documentation
               </h2>
               <p className="text-slate-600 mt-2">All inspection photographs</p>
@@ -1364,7 +1370,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <Shield className="w-8 h-8 text-cyan-600" />
+                <Shield className="w-8 h-8 text-brand-harbour-600" />
                 Hazards & Compliance
               </h2>
             </div>
@@ -1459,7 +1465,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="w-8 h-8 text-cyan-600" />
+                <FileText className="w-8 h-8 text-brand-harbour-600" />
                 Technician Field Notes
               </h2>
             </div>

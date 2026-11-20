@@ -14,6 +14,11 @@ import { Trash2, X, AlertTriangle, Lock, Unlock } from "lucide-react";
 import { evaluateWhsGate } from "@/lib/anz/whs-gate";
 import { classifyCover, type DamageCause } from "@/lib/nz/nhcover";
 import { parseMetresInput } from "@/lib/sketch/room-defaults";
+import {
+  measuredAreaFromInput,
+  measurementAgreesWithDrawnArea,
+  type RoomMeasurementInput,
+} from "@/lib/sketch/ai-suggested-confirm";
 import { ROOM_COLORS } from "@/lib/sketch/room-colors";
 import { VoiceNoteButton } from "@/components/voice/voice-note-button";
 import { VoiceFieldSuggestionList } from "@/components/voice/voice-field-suggestions";
@@ -94,13 +99,20 @@ export interface SelectedObject {
    */
   provenance?: "operator_measured" | "underlay_reference" | "ai_suggested";
   /** RA-7091 — present when geometry came from RoomPlan LiDAR. */
-  captureAdapter?: "manual" | "roomplan" | "cloud_ai" | "underlay_import";
+  captureAdapter?:
+    | "manual"
+    | "roomplan"
+    | "cloud_ai"
+    | "underlay_import"
+    | "homeowner";
   /** Number of recorded RoomPlan corrections (label/confirm/geometry). */
   correctionCount?: number;
   /** Wall length or room length (metres) for typed dimension edit. */
   lengthM?: number;
   /** Room width or opening width (metres). */
   widthM?: number;
+  /** RA-8233 — drawn room area (m²) a technician measurement must match. */
+  areaM2?: number;
   /** magicplan-style dimension lock — typed dims survive later nudges. */
   dimLocked?: boolean;
   /** Door / window / missing when type === "opening". */
@@ -153,8 +165,15 @@ export interface SketchSelectionPanelProps {
     id: string,
     category: "cat1" | "cat2" | "cat3",
   ) => void;
-  /** Promote reference (AI/imported) geometry to operator_measured (RA-6760). */
-  onConfirmProvenance?: (id: string) => void;
+  /**
+   * Promote reference (AI/imported) geometry to operator_measured (RA-6760).
+   * RA-8233: for an AI-suggested room the technician's on-site measurement
+   * is passed; the Confirm button stays disabled until one is entered.
+   */
+  onConfirmProvenance?: (
+    id: string,
+    measurement?: Omit<RoomMeasurementInput, "fabricObjectId">,
+  ) => void;
   /** RA-7091 — exclude a RoomPlan room from measured quantities. */
   onExcludeRoomPlan?: (id: string) => void;
   /**
@@ -230,6 +249,10 @@ export function SketchSelectionPanel({
   const recognitionRef = useRef<RoomSpeechRecognition | null>(null);
   const roomAtStartRef = useRef<string | null>(null);
   const [detailsLostDismissed, setDetailsLostDismissed] = useState(false);
+  // RA-8233 — technician's on-site measurement for an AI-suggested room.
+  const [measuredLength, setMeasuredLength] = useState("");
+  const [measuredWidth, setMeasuredWidth] = useState("");
+  const [measuredArea, setMeasuredArea] = useState("");
 
   useEffect(() => {
     // The persisted latch lives on the room. Drop only the local raise so a
@@ -238,6 +261,16 @@ export function SketchSelectionPanel({
     setVoiceLatch(false);
     setDetailsLostDismissed(false);
   }, [selectedId]);
+
+  // RA-8233 — a measurement belongs to one Confirm of one room. Clear it when
+  // the room changes or its provenance changes (confirmed, or put back to
+  // AI-suggested by an edit), so an old entry is never re-sent.
+  const selectedProvenance = selected?.provenance;
+  useEffect(() => {
+    setMeasuredLength("");
+    setMeasuredWidth("");
+    setMeasuredArea("");
+  }, [selectedId, selectedProvenance]);
 
   useEffect(() => {
     setMicSupported(getRecognitionCtor() !== null);
@@ -257,6 +290,40 @@ export function SketchSelectionPanel({
   }, []);
 
   if (!selected) return null;
+
+  // RA-8233 — an AI-suggested room needs an on-site measurement before
+  // Confirm. The same helpers decide on the server, so the button and the
+  // API agree on what qualifies.
+  const isHomeownerCapture = selected.captureAdapter === "homeowner";
+  const needsMeasurement =
+    (selected.provenance === "ai_suggested" &&
+      selected.captureAdapter !== "roomplan") ||
+    (selected.provenance === "underlay_reference" && isHomeownerCapture);
+  const measurementEntry: Omit<RoomMeasurementInput, "fabricObjectId"> = {};
+  // Area is m², so the feet-and-inches parsing used for lengths does not apply.
+  const areaEntry =
+    measuredArea.trim() !== "" && Number.isFinite(Number(measuredArea.trim()))
+      ? Number(measuredArea.trim())
+      : null;
+  if (areaEntry !== null && areaEntry > 0) {
+    measurementEntry.measuredAreaM2 = areaEntry;
+  } else {
+    const lengthEntry = parseMetresInput(measuredLength);
+    const widthEntry = parseMetresInput(measuredWidth);
+    if (lengthEntry !== null) measurementEntry.lengthM = lengthEntry;
+    if (widthEntry !== null) measurementEntry.widthM = widthEntry;
+  }
+  const measuredM2 = measuredAreaFromInput({
+    fabricObjectId: selected.id,
+    ...measurementEntry,
+  });
+  const measurementMismatch =
+    measuredM2 !== null &&
+    typeof selected.areaM2 === "number" &&
+    !measurementAgreesWithDrawnArea(measuredM2, selected.areaM2);
+  const measurementReady =
+    measuredM2 !== null &&
+    (typeof selected.areaM2 !== "number" || !measurementMismatch);
 
   const showDetailsLost = selected.detailsLost === true && !detailsLostDismissed;
   const noteRoomDetailsEdited = () => {
@@ -476,9 +543,11 @@ export function SketchSelectionPanel({
             <span>
               {selected.captureAdapter === "roomplan"
                 ? "LiDAR scan — correct the room on the canvas if needed, then confirm before it counts toward measured quantities."
-                : selected.provenance === "ai_suggested"
-                  ? "AI-suggested geometry — excluded from measured quantities until confirmed."
-                  : "Reference geometry (imported) — excluded from measured quantities until confirmed."}
+                : isHomeownerCapture
+                  ? "Homeowner self-capture — excluded from measured quantities until you measure each room on site and confirm."
+                  : selected.provenance === "ai_suggested"
+                    ? "AI-suggested geometry — excluded from measured quantities until confirmed."
+                    : "Reference geometry (imported) — excluded from measured quantities until confirmed."}
             </span>
           </div>
           {(selected.captureAdapter === "roomplan" ||
@@ -489,17 +558,112 @@ export function SketchSelectionPanel({
                 {selected.correctionCount === 1 ? "" : "s"} recorded
               </p>
             )}
+          {needsMeasurement && (
+            <fieldset className="space-y-1.5 pl-5">
+              <legend className="text-[10px] text-amber-200/90">
+                {isHomeownerCapture
+                  ? "Measure this room on site. Homeowner-drawn sizes are not billed."
+                  : "Measure this room on site. AI dimensions are not billed."}
+              </legend>
+              <div className="flex gap-1.5">
+                <label
+                  className="flex-1 text-[10px] text-white/60"
+                  htmlFor={`${selected.id}-meas-l`}
+                >
+                  Measured length (m)
+                  <input
+                    id={`${selected.id}-meas-l`}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={measuredLength}
+                    onChange={(e) => setMeasuredLength(e.target.value)}
+                    className="mt-0.5 w-full min-h-11 rounded-md bg-white/5 border border-white/10 px-2 text-xs text-white"
+                  />
+                </label>
+                <label
+                  className="flex-1 text-[10px] text-white/60"
+                  htmlFor={`${selected.id}-meas-w`}
+                >
+                  Measured width (m)
+                  <input
+                    id={`${selected.id}-meas-w`}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={measuredWidth}
+                    onChange={(e) => setMeasuredWidth(e.target.value)}
+                    className="mt-0.5 w-full min-h-11 rounded-md bg-white/5 border border-white/10 px-2 text-xs text-white"
+                  />
+                </label>
+              </div>
+              <label
+                className="block text-[10px] text-white/60"
+                htmlFor={`${selected.id}-meas-a`}
+              >
+                Or measured floor area (m²), for irregular rooms
+                <input
+                  id={`${selected.id}-meas-a`}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={measuredArea}
+                  onChange={(e) => setMeasuredArea(e.target.value)}
+                  aria-describedby={
+                    measurementMismatch
+                      ? `${selected.id}-meas-mismatch`
+                      : undefined
+                  }
+                  className="mt-0.5 w-full min-h-11 rounded-md bg-white/5 border border-white/10 px-2 text-xs text-white"
+                />
+              </label>
+              {measurementMismatch && (
+                <p
+                  id={`${selected.id}-meas-mismatch`}
+                  role="alert"
+                  className="text-[10px] text-amber-200"
+                >
+                  The measured area does not match the drawn room
+                  {typeof selected.areaM2 === "number"
+                    ? ` (${selected.areaM2.toFixed(2)} m²)`
+                    : ""}
+                  . Correct the room on the canvas, then confirm.
+                </p>
+              )}
+              {measuredM2 !== null && measurementReady && (
+                <p className="text-[10px] text-emerald-200/90 pl-0.5">
+                  On-site area: {measuredM2.toFixed(2)} m²
+                  {typeof selected.areaM2 === "number"
+                    ? ` (drawn ${selected.areaM2.toFixed(2)} m²)`
+                    : ""}
+                </p>
+              )}
+            </fieldset>
+          )}
           <button
             type="button"
-            onClick={() => onConfirmProvenance?.(selected.id)}
-            className="w-full min-h-11 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors text-xs font-medium"
+            disabled={needsMeasurement && !measurementReady}
+            onClick={() =>
+              needsMeasurement
+                ? measurementReady &&
+                  onConfirmProvenance?.(selected.id, measurementEntry)
+                : onConfirmProvenance?.(selected.id)
+            }
+            className="w-full min-h-11 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {selected.captureAdapter === "roomplan"
               ? "Confirm LiDAR measurement"
-              : selected.provenance === "ai_suggested"
-                ? "Confirm AI-suggested measurement"
-                : "Confirm measurement"}
+              : isHomeownerCapture
+                ? "Confirm homeowner room measurement"
+                : selected.provenance === "ai_suggested"
+                  ? "Confirm AI-suggested measurement"
+                  : "Confirm measurement"}
           </button>
+          {needsMeasurement && !measurementReady && (
+            <p className="text-[10px] text-amber-200/80 pl-1">
+              Enter on-site dimensions above to enable Confirm.
+            </p>
+          )}
           {selected.captureAdapter === "roomplan" && onExcludeRoomPlan && (
             <button
               type="button"
@@ -543,11 +707,21 @@ export function SketchSelectionPanel({
           </div>
         )}
 
+      {selected.provenance === "operator_measured" &&
+        selected.captureAdapter === "homeowner" && (
+          <div
+            role="status"
+            className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[10px] text-emerald-100/90"
+          >
+            Homeowner room measurement confirmed on site
+          </div>
+        )}
+
       {isRoom && !guided && onMapRoomMoisture && (
         <button
           type="button"
           onClick={() => onMapRoomMoisture(selected.id)}
-          className="w-full min-h-11 py-1.5 rounded-lg bg-cyan-500/15 text-cyan-50 border border-cyan-400/35 hover:bg-cyan-500/25 transition-colors text-xs font-medium"
+          className="w-full min-h-11 py-1.5 rounded-lg bg-brand-harbour-500/15 text-brand-harbour-50 border border-brand-harbour-400/35 hover:bg-brand-harbour-500/25 transition-colors text-xs font-medium"
         >
           Map moisture in this room
         </button>
@@ -573,7 +747,7 @@ export function SketchSelectionPanel({
                 );
               }
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
             placeholder="Room name…"
           />
         </div>
@@ -630,7 +804,7 @@ export function SketchSelectionPanel({
                         (e.target as HTMLInputElement).value,
                       );
                   }}
-                  className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+                  className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400 disabled:opacity-50"
                   placeholder="3.86"
                 />
               </div>
@@ -651,7 +825,7 @@ export function SketchSelectionPanel({
                     if (e.key === "Enter")
                       commitDim("widthM", (e.target as HTMLInputElement).value);
                   }}
-                  className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+                  className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400 disabled:opacity-50"
                   placeholder="3.86"
                 />
               </div>
@@ -671,7 +845,7 @@ export function SketchSelectionPanel({
                 if (e.key === "Enter")
                   commitDim("lengthM", (e.target as HTMLInputElement).value);
               }}
-              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400 disabled:opacity-50"
               placeholder="Length in metres"
               aria-label="Wall length in metres"
             />
@@ -690,7 +864,7 @@ export function SketchSelectionPanel({
                 if (e.key === "Enter")
                   commitDim("widthM", (e.target as HTMLInputElement).value);
               }}
-              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400 disabled:opacity-50"
               placeholder="Width in metres"
               aria-label="Opening width in metres"
             />
@@ -737,7 +911,7 @@ export function SketchSelectionPanel({
                 onWallThicknessChange?.(selected.id, parsed);
               }
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
             aria-label="Wall thickness in metres"
           />
         </div>
@@ -779,7 +953,7 @@ export function SketchSelectionPanel({
                 onCeilingHeightChange?.(selected.id, parsed);
               }
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
             placeholder="e.g. 2.7"
             aria-label="Ceiling height in metres"
           />
@@ -832,7 +1006,7 @@ export function SketchSelectionPanel({
                 parseFloat((e.target as HTMLInputElement).value),
               )
             }
-            className="w-full accent-cyan-400"
+            className="w-full accent-brand-harbour-400"
           />
         </div>
       )}
@@ -914,7 +1088,7 @@ export function SketchSelectionPanel({
               noteRoomDetailsEdited();
               onMaterialChange?.(selected.id, e.target.value);
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
           >
             <option value="" className="text-black">
               Select material…
@@ -947,7 +1121,7 @@ export function SketchSelectionPanel({
                 e.target.value as "cat1" | "cat2" | "cat3",
               );
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
           >
             <option value="" className="text-black">
               Select category…
@@ -1014,7 +1188,7 @@ export function SketchSelectionPanel({
                 className={cn(
                   "inline-flex items-center justify-center min-w-11 min-h-11 px-2 rounded-md border text-xs",
                   country === c
-                    ? "bg-cyan-500/20 border-cyan-400 text-cyan-200"
+                    ? "bg-brand-harbour-500/20 border-brand-harbour-400 text-brand-harbour-200"
                     : "border-white/10 text-white/50 hover:text-white/80",
                 )}
               >
@@ -1033,7 +1207,7 @@ export function SketchSelectionPanel({
                 onChange={(e) =>
                   onCauseChange?.(selected.id, e.target.value as DamageCause)
                 }
-                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
               >
                 <option value="" className="text-black">
                   Select cause…

@@ -5,14 +5,21 @@
  * POST — generate from selected scope items via estimateCosts (replaces prior rows)
  */
 
+import { isBlockedResult } from "@/lib/pricing/blocked-line";
+import { blockedPricingResponse } from "@/lib/pricing/blocked-line-response";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { estimateCosts } from "@/lib/nir-cost-estimation";
+import {
+  blockedEstimatePricing,
+  estimateCosts,
+  resolveInspectionRates,
+} from "@/lib/nir-cost-estimation";
 import { buildEstimateLines } from "@/lib/estimate-lines";
 import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
+import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
 
 const postSchema = z.object({
   /** When true, regenerate even if estimates already exist (default true). */
@@ -78,6 +85,7 @@ export async function POST(
         id: true,
         status: true,
         propertyPostcode: true,
+        createdAt: true,
         scopeItems: {
           where: { isSelected: true },
           select: {
@@ -124,12 +132,30 @@ export async function POST(
         ? null // state not on Inspection; NRPG midpoints don't need it
         : null;
 
+    const pricing = await resolveInspectionRates(
+      session.user.id,
+      inspection.createdAt,
+    );
+    if (!pricing.ok) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "This inspection's business could not be confirmed.",
+        status: 403,
+      });
+    }
+
     const costEstimate = await estimateCosts(
       inspection.scopeItems,
       region,
+      pricing.rates,
       null,
-      session.user.id,
     );
+    // RA-8281 (B2): a line whose price-list rate is not set is shown as a
+    // blocked line, and the total is not available. Nothing is saved and the
+    // inspection's status does not move.
+    if (isBlockedResult(costEstimate)) {
+      return blockedPricingResponse(blockedEstimatePricing(costEstimate));
+    }
 
     // Unpriced item types now come back as $0 warning lines (RA-7708), so
     // count priced lines: an estimate with nothing priced is still rejected.
@@ -185,6 +211,8 @@ export async function POST(
         orderBy: { createdAt: "asc" },
       });
     });
+
+    void notifyClientStepChange({ inspectionId: id, fromStatus: inspection.status });
 
     return NextResponse.json(
       {

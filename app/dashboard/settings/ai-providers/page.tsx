@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { META_PROVIDER_DESCRIPTION } from "./meta-provider-copy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,7 +26,8 @@ type AiProvider =
   | "OPENAI"
   | "GOOGLE"
   | "GEMMA"
-  | "OPENROUTER";
+  | "OPENROUTER"
+  | "META";
 type ConnectionStatus = "ACTIVE" | "DISABLED" | "FAILED";
 
 interface ProviderConnectionSummary {
@@ -84,6 +86,14 @@ const PROVIDERS: {
     keyPlaceholder:
       "(no API key required — uses RESTOREASSIST_AI_ENDPOINT env var)",
     docsUrl: "",
+  },
+  {
+    id: "META",
+    name: "Meta (Llama)",
+    description:
+      META_PROVIDER_DESCRIPTION,
+    keyPlaceholder: "LLM_...",
+    docsUrl: "https://llama.developer.meta.com",
   },
   {
     id: "OPENROUTER",
@@ -281,8 +291,8 @@ export default function AiProvidersPage() {
   // ── No workspace ─────────────────────────────────────────────────────────
   if (!loading && !loadError && wsStatus?.status !== "READY") {
     return (
-      <div className="max-w-2xl mx-auto py-16 text-center space-y-4">
-        <Brain size={40} className="mx-auto text-neutral-300" />
+      <div className="max-w-9xl mx-auto py-16 text-center space-y-4">
+        <Brain size={40} className="mx-auto text-brand-slate dark:text-neutral-300" />
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
           Workspace required
         </h2>
@@ -295,7 +305,7 @@ export default function AiProvidersPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-9xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
@@ -306,7 +316,7 @@ export default function AiProvidersPage() {
           Keys are AES-256-GCM encrypted at rest and never returned in API
           responses.
         </p>
-        <p className="text-xs text-neutral-400 mt-2">
+        <p className="text-xs text-brand-slate dark:text-neutral-400 mt-2">
           <a
             href="/dashboard/settings/connections"
             className="underline underline-offset-2 hover:text-neutral-600"
@@ -333,7 +343,7 @@ export default function AiProvidersPage() {
       ) : null}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-neutral-400 py-12 justify-center">
+        <div className="flex items-center gap-2 text-brand-slate dark:text-neutral-400 py-12 justify-center">
           <Loader2 size={18} className="animate-spin" />
           <span className="text-sm">Loading providers…</span>
         </div>
@@ -364,7 +374,7 @@ export default function AiProvidersPage() {
                         {p.name}
                       </p>
                       {conn && (
-                        <p className="text-xs text-neutral-400 font-mono truncate max-w-xs mt-0.5">
+                        <p className="text-xs text-brand-slate dark:text-neutral-400 font-mono truncate max-w-xs mt-0.5">
                           {conn.maskedKey}
                         </p>
                       )}
@@ -379,9 +389,9 @@ export default function AiProvidersPage() {
                       </span>
                     )}
                     {isExpanded ? (
-                      <ChevronUp size={16} className="text-neutral-400" />
+                      <ChevronUp size={16} className="text-brand-slate dark:text-neutral-400" />
                     ) : (
-                      <ChevronDown size={16} className="text-neutral-400" />
+                      <ChevronDown size={16} className="text-brand-slate dark:text-neutral-400" />
                     )}
                   </div>
                 </button>
@@ -393,7 +403,7 @@ export default function AiProvidersPage() {
 
                     {/* Last validated */}
                     {conn?.lastValidatedAt && (
-                      <p className="text-xs text-neutral-400">
+                      <p className="text-xs text-brand-slate dark:text-neutral-400">
                         Last validated:{" "}
                         {new Date(conn.lastValidatedAt).toLocaleString("en-AU")}
                       </p>
@@ -432,7 +442,7 @@ export default function AiProvidersPage() {
                                   [p.id]: !prev[p.id],
                                 }))
                               }
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-brand-slate dark:text-neutral-400 hover:text-neutral-600"
                             >
                               {showKey[p.id] ? (
                                 <EyeOff size={15} />
@@ -477,7 +487,7 @@ export default function AiProvidersPage() {
                           className="text-xs font-medium text-neutral-600 dark:text-slate-300"
                         >
                           Model slug{" "}
-                          <span className="text-neutral-400">(optional)</span>
+                          <span className="text-brand-slate dark:text-neutral-400">(optional)</span>
                         </label>
                         <input
                           id="openrouter-model"
@@ -492,7 +502,7 @@ export default function AiProvidersPage() {
                           placeholder={OPENROUTER_DEFAULT_MODEL}
                           className="w-full text-sm px-3 py-2 border rounded-lg bg-white dark:bg-slate-800 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-navy font-mono"
                         />
-                        <p className="text-xs text-neutral-400">
+                        <p className="text-xs text-brand-slate dark:text-neutral-400">
                           e.g.{" "}
                           <code className="font-mono">
                             deepseek/deepseek-chat
@@ -572,7 +582,7 @@ export default function AiProvidersPage() {
       )}
 
       {/* Info footer */}
-      <div className="text-xs text-neutral-400 border-t pt-4 space-y-1 dark:border-slate-700">
+      <div className="text-xs text-brand-slate dark:text-neutral-400 border-t pt-4 space-y-1 dark:border-slate-700">
         <p>
           <Check size={11} className="inline mr-1 text-success" />
           Keys are encrypted with AES-256-GCM before storage — RestoreAssist

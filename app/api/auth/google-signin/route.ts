@@ -13,6 +13,7 @@ import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { apiError, fromException } from "@/lib/api-errors";
 import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
+import { reservedEmailSignUpMessage } from "@/lib/auth/reserved-email-user-message";
 import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
@@ -168,6 +169,11 @@ export async function POST(request: NextRequest) {
         return { kind: "EXISTING" as const, user };
       }
 
+      const reservedMsg = reservedEmailSignUpMessage(userEmail);
+      if (reservedMsg) {
+        return { kind: "RESERVED" as const, message: reservedMsg };
+      }
+
       const user = await tx.user.create({
         data: {
           email: userEmail,
@@ -193,6 +199,13 @@ export async function POST(request: NextRequest) {
         message:
           "A team invitation is waiting for this email. Use the secure invitation link instead.",
         status: 409,
+      });
+    }
+    if (accountResult.kind === "RESERVED") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: accountResult.message,
+        status: 400,
       });
     }
     const authenticatedUser = accountResult.user;

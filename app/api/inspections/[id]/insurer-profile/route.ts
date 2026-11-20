@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { countableEvidence } from "@/lib/evidence/countable-evidence";
 import { prisma } from "@/lib/prisma";
 import {
   isValidInsurerId,
@@ -18,6 +19,7 @@ import type { JobType } from "@/lib/evidence/workflow-definitions";
 import type { EvidenceClass } from "@/lib/types/evidence";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { sanitizeString } from "@/lib/sanitize";
 
 /**
  * [RA-406] Insurer Profile API
@@ -39,6 +41,9 @@ interface RouteContext {
 const inspectionSelect = {
   id: true,
   claimType: true,
+  claimNumber: true,
+  insurerTemplateId: true,
+  insurerProfileId: true,
   inspectionWorkflow: {
     select: { jobType: true },
   },
@@ -112,10 +117,16 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       });
     }
 
-    // Assignment is not persisted (no Inspection.insurerProfileId yet).
+    const assignedTemplate = inspection.insurerTemplateId;
+    const profile = assignedTemplate
+      ? getInsurerProfile(assignedTemplate as InsurerId)
+      : null;
+
     return NextResponse.json({
-      insurerProfile: null,
-      message: "No insurer profile assigned to this inspection.",
+      insurerProfile: profile,
+      claimNumber: inspection.claimNumber,
+      insurerTemplateId: inspection.insurerTemplateId,
+      insurerProfileId: inspection.insurerProfileId,
       availableProfiles: availableProfiles(),
       inspectionJobType: resolveJobType(inspection),
     });
@@ -200,7 +211,8 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       // InspectionEvidence model — querying it 500s every caller (RA-7508).
       const evidenceCounts = await prisma.evidenceItem.groupBy({
         by: ["evidenceClass"],
-        where: { inspectionId },
+        // RA-8388: a retired reading's evidence record is not "submitted".
+        where: countableEvidence({ inspectionId }),
         _count: { id: true },
       });
 
@@ -220,6 +232,24 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       const formattedClaimRef = body.claimRef
         ? formatClaimReference(insurerId, body.claimRef, new Date(), "REPORT")
         : undefined;
+
+      const dbProfile = await prisma.insurerProfile.findFirst({
+        where: { slug: insurerId, isActive: true },
+        select: { id: true },
+      });
+
+      await prisma.inspection.updateMany({
+        where: { id: inspectionId, userId },
+        data: {
+          insurerTemplateId: insurerId,
+          insurerProfileId: dbProfile?.id ?? null,
+          ...(body.claimRef
+            ? {
+                claimNumber: sanitizeString(body.claimRef.trim(), 120),
+              }
+            : {}),
+        },
+      });
 
       return NextResponse.json({
         success: true,

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
   title: "Restoration Job File Audit Australia | RestoreAssist",
@@ -19,7 +21,7 @@ export const metadata: Metadata = {
       "Find evidence, chronology and documentation gaps before they become expensive admin, dispute or payment problems.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "RestoreAssist" },
+      OG_SHARE_IMAGE,
     ],
   },
 };
@@ -29,5 +31,5 @@ export default function JobFileAuditLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <MarketingShell>{children}</MarketingShell>;
 }

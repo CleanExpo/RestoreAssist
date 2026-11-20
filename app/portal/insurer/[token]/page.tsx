@@ -1,6 +1,7 @@
-import { verifyInsurerToken } from "@/lib/portal-token";
+import { verifyReportReaderToken } from "@/lib/report-share/access";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { readEquipmentDeploymentLog } from "@/lib/reports/stored-equipment-pricing";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -14,8 +15,11 @@ interface PageProps {
 export default async function InsurerPortalPage({ params }: PageProps) {
   const { token } = await params;
 
-  const verified = verifyInsurerToken(token);
-  if (!verified) {
+  const verified = await verifyReportReaderToken(token);
+  if (
+    !verified ||
+    (verified.scope !== "INSURER" && verified.scope !== "LEGACY_HMAC")
+  ) {
     return <ExpiredPage />;
   }
 
@@ -45,13 +49,9 @@ export default async function InsurerPortalPage({ params }: PageProps) {
   const scopeAreas = report.scopeAreas
     ? JSON.parse(report.scopeAreas as string)
     : null;
-  const equipmentSelection = report.equipmentSelection
-    ? JSON.parse(report.equipmentSelection as string)
-    : null;
-
-  const eqArr = Array.isArray(equipmentSelection)
-    ? equipmentSelection
-    : (equipmentSelection?.equipment ?? equipmentSelection?.items ?? []);
+  // RA-8281 B1 round 13: read by the one reader of the stored value. No
+  // money is read here.
+  const eqArr = readEquipmentDeploymentLog(report.equipmentSelection);
 
   const moistureArr = Array.isArray(moistureReadings) ? moistureReadings : [];
 
@@ -73,7 +73,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
       <header className="bg-brand-navy text-white">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <span className="text-lg font-bold tracking-tight text-cyan-400">
+            <span className="text-lg font-bold tracking-tight text-brand-harbour-400">
               RestoreAssist
             </span>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -82,7 +82,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           </div>
           <a
             href={pdfUrl}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 rounded-lg text-sm font-semibold transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 hover:bg-brand-harbour-400 rounded-lg text-sm font-semibold transition-colors"
           >
             <svg
               className="w-4 h-4"
@@ -329,23 +329,22 @@ export default async function InsurerPortalPage({ params }: PageProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {eqArr.map((eq: any, i: number) => (
+                  {eqArr.map((eq, i: number) => (
                     <tr
                       key={i}
                       className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}
                     >
                       <td className="px-3 py-1.5 text-slate-700">
-                        {eq.type ?? eq.name ?? "—"}
+                        {eq.type ?? "—"}
                       </td>
                       <td className="px-3 py-1.5 text-slate-700">
-                        {`${eq.brand ?? eq.make ?? ""}${eq.model ? ` ${eq.model}` : ""}`.trim() ||
-                          "—"}
+                        {eq.brandModel ?? "—"}
                       </td>
                       <td className="px-3 py-1.5 text-slate-400 font-mono">
-                        {eq.serialNumber ?? eq.serial ?? "—"}
+                        {eq.serial ?? "—"}
                       </td>
                       <td className="px-3 py-1.5 text-slate-700">
-                        {eq.location ?? eq.room ?? "—"}
+                        {eq.location ?? "—"}
                       </td>
                     </tr>
                   ))}
@@ -380,7 +379,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           </div>
           <a
             href={pdfUrl}
-            className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 rounded-lg text-sm font-semibold text-white transition-colors"
+            className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-brand-harbour-500 hover:bg-brand-harbour-400 rounded-lg text-sm font-semibold text-white transition-colors"
           >
             Download PDF
           </a>
@@ -395,7 +394,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
         </p>
         <p className="text-xs text-slate-300 mt-1">
           Powered by{" "}
-          <span className="font-semibold text-cyan-600">RestoreAssist</span>
+          <span className="font-semibold text-brand-harbour-600">RestoreAssist</span>
         </p>
       </footer>
     </main>

@@ -76,6 +76,16 @@ export function isIosShellUserAgent(userAgent: string | null | undefined): boole
   return userAgent.includes(IOS_SHELL_UA_TOKEN);
 }
 
+/**
+ * Apple 3.1.1 — inline <head> script for the root layout. Runs before the
+ * body is parsed, so an iOS shell landing on "/" (its launch URL) or
+ * "/signup" is sent to /login before the marketing "Start free" links or the
+ * sign-up form can paint. proxy.ts already redirects shells that send
+ * IOS_SHELL_UA_TOKEN; this covers older shells the server cannot identify
+ * (Capacitor injects window.Capacitor at document start).
+ */
+export const IOS_SHELL_LAUNCH_GUARD = `(function(){try{var p=location.pathname;if(p!=="/"&&p!=="/signup")return;var c=window.Capacitor,u=navigator.userAgent||"";var ios=(c&&c.getPlatform&&c.getPlatform()==="ios")||u.indexOf("${IOS_SHELL_UA_TOKEN}")!==-1||/capacitor.*ios|ios.*capacitor/i.test(u);if(!ios)return;document.documentElement.style.visibility="hidden";location.replace("/login");}catch(e){}})();`;
+
 /** True when running inside the iOS Capacitor shell specifically. */
 export function isCapacitorIOS(): boolean {
   const cap = _getCapacitor();

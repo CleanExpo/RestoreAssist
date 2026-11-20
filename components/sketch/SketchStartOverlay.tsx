@@ -16,11 +16,16 @@ import {
   Loader2,
 } from "lucide-react";
 import { prepareUnderlayFile } from "@/lib/sketch/prepare-underlay-file";
-import { commitUnderlayImport } from "@/lib/sketch/commit-underlay-import";
+import {
+  commitUnderlayImport,
+  type UnderlayOriginalSource,
+} from "@/lib/sketch/commit-underlay-import";
+import type { UnderlayReferenceBinding } from "@/lib/sketch/reference-room-import";
 import {
   evaluateUnderlayAttestation,
   UNDERLAY_RIGHTS_STATEMENT,
 } from "@/lib/sketch/underlay-attestation";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export interface SketchStartOverlayProps {
   visible: boolean;
@@ -31,7 +36,11 @@ export interface SketchStartOverlayProps {
   /** Fallback: open the underlay panel file picker (used when studio apply is unavailable). */
   onImportUnderlay?: () => void;
   /** Full studio upload: persist + apply without leaving the chooser. */
-  onApplyUnderlay?: (imageUrl: string, opacity: number) => void;
+  onApplyUnderlay?: (
+    imageUrl: string,
+    opacity: number,
+    reference?: UnderlayReferenceBinding,
+  ) => void;
   inspectionId?: string;
   floorNumber?: number;
   onPlaceMoisture: () => void;
@@ -56,6 +65,12 @@ export function SketchStartOverlay({
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  // RA-8236: `preview` is the unmarked raster that is uploaded; this is the
+  // watermarked copy shown on screen.
+  const [markedPreview, setMarkedPreview] = useState<string | null>(null);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+  const [uploadOriginal, setUploadOriginal] =
+    useState<UnderlayOriginalSource | null>(null);
   const [opacity, setOpacity] = useState(0.35);
   const [holdsRights, setHoldsRights] = useState(false);
   const [compliesTerms, setCompliesTerms] = useState(false);
@@ -67,6 +82,9 @@ export function SketchStartOverlay({
 
   const resetReview = useCallback(() => {
     setPreview(null);
+    setMarkedPreview(null);
+    setUploadNotice(null);
+    setUploadOriginal(null);
     setHoldsRights(false);
     setCompliesTerms(false);
     setError(null);
@@ -80,10 +98,13 @@ export function SketchStartOverlay({
     const result = await prepareUnderlayFile(file);
     setPreparing(false);
     if (!result.ok) {
-      setError(result.error);
+      setError(apiErrorMessage(result));
       return;
     }
     setPreview(result.dataUrl);
+    setMarkedPreview(result.previewUrl);
+    setUploadNotice(result.notice ?? null);
+    setUploadOriginal(result.original);
     setHoldsRights(false);
     setCompliesTerms(false);
   }, []);
@@ -112,13 +133,14 @@ export function SketchStartOverlay({
       holdsRights,
       compliesWithSourceTerms: compliesTerms,
       source: "upload",
+      original: uploadOriginal ?? undefined,
     });
     setApplying(false);
     if (!result.ok) {
-      setError(result.error);
+      setError(apiErrorMessage(result));
       return;
     }
-    onApplyUnderlay(result.imageUrl, opacity);
+    onApplyUnderlay(result.imageUrl, opacity, result.reference);
     resetReview();
   }, [
     preview,
@@ -128,6 +150,7 @@ export function SketchStartOverlay({
     inspectionId,
     holdsRights,
     compliesTerms,
+    uploadOriginal,
     opacity,
     resetReview,
   ]);
@@ -147,7 +170,7 @@ export function SketchStartOverlay({
     >
       <div className="pointer-events-auto mx-4 w-full max-w-2xl rounded-2xl border border-white/12 bg-[#0E1518]/96 backdrop-blur-md shadow-2xl p-5 sm:p-6 space-y-5">
         <div className="space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#E55A2B]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-harbour-light">
             Floor plan
           </p>
           <h2 className="text-lg font-semibold text-white tracking-tight">
@@ -165,12 +188,15 @@ export function SketchStartOverlay({
             <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black/40">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={preview}
+                src={markedPreview ?? preview}
                 alt="Uploaded floor plan preview"
                 className="mx-auto max-h-56 w-full object-contain"
                 style={{ opacity }}
               />
             </div>
+            {uploadNotice && (
+              <p className="text-xs text-white/60">{uploadNotice}</p>
+            )}
 
             <div className="space-y-1">
               <div className="flex justify-between items-center">
@@ -192,7 +218,7 @@ export function SketchStartOverlay({
                 step={0.05}
                 value={opacity}
                 onChange={(e) => setOpacity(parseFloat(e.target.value))}
-                className="w-full accent-[#E55A2B]"
+                className="w-full accent-brand-harbour-light"
               />
             </div>
 
@@ -205,7 +231,7 @@ export function SketchStartOverlay({
                   type="checkbox"
                   checked={holdsRights}
                   onChange={(e) => setHoldsRights(e.target.checked)}
-                  className="mt-0.5 accent-[#E55A2B]"
+                  className="mt-0.5 accent-brand-harbour-light"
                 />
                 The client holds the rights to use this plan.
               </label>
@@ -214,7 +240,7 @@ export function SketchStartOverlay({
                   type="checkbox"
                   checked={compliesTerms}
                   onChange={(e) => setCompliesTerms(e.target.checked)}
-                  className="mt-0.5 accent-[#E55A2B]"
+                  className="mt-0.5 accent-brand-harbour-light"
                 />
                 Importing it complies with the source&rsquo;s terms of use.
               </label>
@@ -239,7 +265,7 @@ export function SketchStartOverlay({
                 onClick={() => void handleApply()}
                 disabled={!attestation.ok || applying}
                 title={!attestation.ok ? attestation.reason : undefined}
-                className="flex-1 min-h-11 rounded-xl bg-[#E55A2B] text-white text-sm font-semibold hover:bg-[#d14e22] disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 min-h-11 rounded-xl bg-brand-cta text-white text-sm font-semibold hover:bg-brand-cta-hover disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {applying ? "Placing plan…" : "Place on canvas"}
               </button>
@@ -258,12 +284,12 @@ export function SketchStartOverlay({
                 className={cn(
                   "rounded-xl border p-4 text-left transition-colors",
                   dragOver
-                    ? "border-[#E55A2B] bg-[#E55A2B]/15"
+                    ? "border-brand-harbour-light bg-brand-cta/15"
                     : "border-white/12 bg-white/4",
                 )}
               >
                 <div className="flex items-center gap-2 text-white">
-                  <ImageIcon size={18} className="shrink-0 text-[#E55A2B]" />
+                  <ImageIcon size={18} className="shrink-0 text-brand-harbour-light" />
                   <span className="text-sm font-semibold">Upload a plan</span>
                 </div>
                 <p className="mt-1.5 text-[12px] text-white/50 leading-relaxed">
@@ -331,7 +357,7 @@ export function SketchStartOverlay({
               <button
                 type="button"
                 onClick={onPlaceMoisture}
-                className="flex items-center gap-2 min-h-11 px-3 rounded-xl bg-cyan-500/10 border border-cyan-400/25 text-cyan-50 hover:bg-cyan-500/18 text-left text-sm"
+                className="flex items-center gap-2 min-h-11 px-3 rounded-xl bg-brand-harbour-500/10 border border-brand-harbour-400/25 text-brand-harbour-50 hover:bg-brand-harbour-500/18 text-left text-sm"
               >
                 <Droplets size={16} className="shrink-0" />
                 Drop moisture pins first

@@ -43,7 +43,7 @@ export function EditClientModal({
           </button>
         </div>
         <Form {...form}>
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -55,7 +55,7 @@ export function EditClientModal({
                       <input
                         type="text"
                         placeholder="Enter client name"
-                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                         {...field}
                       />
                     </FormControl>
@@ -73,7 +73,7 @@ export function EditClientModal({
                       <input
                         type="email"
                         placeholder="Enter email address"
-                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                         {...field}
                       />
                     </FormControl>
@@ -93,7 +93,7 @@ export function EditClientModal({
                       <input
                         type="tel"
                         placeholder="Enter phone number"
-                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                         {...field}
                       />
                     </FormControl>
@@ -109,7 +109,7 @@ export function EditClientModal({
                     <FormLabel>Status</FormLabel>
                     <FormControl>
                       <select
-                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                         {...field}
                       >
                         <option value="ACTIVE">Active</option>
@@ -133,7 +133,7 @@ export function EditClientModal({
                     <input
                       type="text"
                       placeholder="Enter company name"
-                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                       {...field}
                     />
                   </FormControl>
@@ -151,7 +151,7 @@ export function EditClientModal({
                     <input
                       type="text"
                       placeholder="Enter contact person name"
-                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                       {...field}
                     />
                   </FormControl>
@@ -170,7 +170,7 @@ export function EditClientModal({
                       type="text"
                       placeholder="Enter address"
                       className={cn(
-                        "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                        "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50",
                         "bg-white dark:bg-slate-700/50",
                         "border-neutral-300 dark:border-slate-600",
                         "text-neutral-900 dark:text-white",
@@ -193,7 +193,7 @@ export function EditClientModal({
                     <textarea
                       placeholder="Enter any additional notes"
                       rows={3}
-                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50"
                       {...field}
                     />
                   </FormControl>
@@ -217,7 +217,7 @@ export function EditClientModal({
               <button
                 type="submit"
                 disabled={form.formState.isSubmitting}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-50"
               >
                 <Edit className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
                 <span>Update Client</span>

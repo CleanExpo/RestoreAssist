@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Header from "@/components/landing/Header";
-import Footer from "@/components/landing/Footer";
 import BillingGate from "@/components/capacitor/BillingGate";
 
 const fieldMappings = [
@@ -145,7 +143,7 @@ const reportSections = [
 ];
 
 export default function CompliancePage() {
-  const [darkMode, setDarkMode] = useState(true);
+  const darkMode = false;
 
   const bg = darkMode ? "bg-brand-canvas" : "bg-brand-cloud";
   const text = darkMode ? "text-brand-cloud" : "text-brand-navy";
@@ -160,12 +158,10 @@ export default function CompliancePage() {
     ? "border-brand-slate/20 hover:bg-brand-navy/40"
     : "border-slate-200 hover:bg-slate-50";
   const badge =
-    "inline-block rounded px-2 py-0.5 text-xs font-medium bg-brand-bronze/20 text-brand-gold";
+    "inline-block rounded px-2 py-0.5 text-xs font-medium bg-brand-bronze/20 text-brand-bronze";
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${bg}`}>
-      <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-
       {/* Hero */}
       <section className="pt-48 pb-20 px-6 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
@@ -182,7 +178,7 @@ export default function CompliancePage() {
           >
             IICRC S500:2021
             <br />
-            <span className="text-brand-gold">Compliance in RestoreAssist</span>
+            <span className="text-brand-bronze">Compliance in RestoreAssist</span>
           </h1>
           <p className={`text-xl max-w-3xl leading-relaxed ${muted}`}>
             A field-by-field reference showing how RestoreAssist maps to the
@@ -347,7 +343,7 @@ export default function CompliancePage() {
                 href="/how-it-works"
                 className={`inline-block rounded-lg border px-8 py-3 font-semibold transition-colors ${
                   darkMode
-                    ? "border-brand-slate/50 text-brand-mist hover:border-brand-gold hover:text-brand-gold"
+                    ? "border-brand-slate/50 text-brand-mist hover:border-brand-gold hover:text-brand-bronze"
                     : "border-brand-slate/30 text-brand-slate hover:border-brand-navy hover:text-brand-navy"
                 }`}
               >
@@ -358,7 +354,6 @@ export default function CompliancePage() {
         </div>
       </section>
 
-      <Footer darkMode={darkMode} />
     </div>
   );
 }

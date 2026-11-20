@@ -1,0 +1,17 @@
+{
+  "slug": "portfolio-who-pays",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 57,
+  "whiteLabel": true,
+  "reviewRequired": "LEGAL SIGN-OFF REQUIRED before publish. Makes claims about policy holder rights, contractor choice and claim visibility. These vary by insurer, policy wording and by state/territory, and differ between Australia and New Zealand. Do not narrate or publish until reviewed.",
+  "segments": [
+    { "text": "There is a question people are embarrassed to ask first. Ask it first. Who pays?", "startSec": 0.5, "durationSec": 7.0 },
+    { "text": "There are two routes. You pay us directly, or your insurer pays on your behalf.", "startSec": 8.0, "durationSec": 7.0 },
+    { "text": "Either way, the money started as yours.", "startSec": 15.5, "durationSec": 4.0 },
+    { "text": "An insurance payout is not the insurer's goodwill. It is the cover you have already paid for, in every premium.", "startSec": 20.0, "durationSec": 9.0 },
+    { "text": "That makes you the policy holder, and our client. Not the insurer.", "startSec": 29.5, "durationSec": 6.0 },
+    { "text": "You are entitled to see the scope, the quote, and what is being claimed on your behalf.", "startSec": 36.0, "durationSec": 8.0 },
+    { "text": "We work for you. Your insurer is who the invoice goes to, not who we answer to.", "startSec": 44.5, "durationSec": 7.5 },
+    { "text": "Ask us for anything we send them. It is your claim.", "startSec": 52.5, "durationSec": 4.5 }
+  ]
+}

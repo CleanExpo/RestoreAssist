@@ -80,7 +80,7 @@ describe.skipIf(!process.env.DATABASE_URL)("technician seat enforcement (J-09)",
   });
 
   it("with no seat pack, 0 seats are included and a technician is refused", async () => {
-    expect(await technicianSeatUsage(prisma, orgId)).toEqual({ purchased: 0, used: 2 });
+    expect(await technicianSeatUsage(prisma, orgId)).toEqual({ purchased: 0, free: 0, used: 2 });
     await expect(assertTechnicianSeatAvailable(prisma, orgId)).rejects.toBeInstanceOf(
       TechnicianSeatLimitReached,
     );
@@ -99,7 +99,7 @@ describe.skipIf(!process.env.DATABASE_URL)("technician seat enforcement (J-09)",
       data: { active: true, seats: 2 },
     });
     // 2 used of 2: full.
-    expect(await technicianSeatUsage(prisma, orgId)).toEqual({ purchased: 2, used: 2 });
+    expect(await technicianSeatUsage(prisma, orgId)).toEqual({ purchased: 2, free: 0, used: 2 });
     await expect(assertTechnicianSeatAvailable(prisma, orgId)).rejects.toBeInstanceOf(
       TechnicianSeatLimitReached,
     );
@@ -117,7 +117,7 @@ describe.skipIf(!process.env.DATABASE_URL)("technician seat enforcement (J-09)",
 
   it("two technician writes racing for the last seat: exactly one commits", async () => {
     // 3 purchased, 2 used (from the test above): one seat left.
-    expect(await technicianSeatUsage(prisma, orgId)).toEqual({ purchased: 3, used: 2 });
+    expect(await technicianSeatUsage(prisma, orgId)).toEqual({ purchased: 3, free: 0, used: 2 });
     const takeSeat = (suffix: string) =>
       prisma.$transaction(async (tx) => {
         await assertTechnicianSeatAvailable(tx, orgId);
@@ -134,6 +134,6 @@ describe.skipIf(!process.env.DATABASE_URL)("technician seat enforcement (J-09)",
     const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
     expect(rejected).toHaveLength(1);
     expect(rejected[0].reason).toBeInstanceOf(TechnicianSeatLimitReached);
-    expect(await technicianSeatUsage(prisma, orgId)).toEqual({ purchased: 3, used: 3 });
+    expect(await technicianSeatUsage(prisma, orgId)).toEqual({ purchased: 3, free: 0, used: 3 });
   });
 });

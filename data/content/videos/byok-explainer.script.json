@@ -1,0 +1,14 @@
+{
+  "slug": "byok-explainer",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 54,
+  "segments": [
+    { "text": "Your job files are evidence. Photos, readings, scope notes, client conversations. The record you would take into a dispute.", "startSec": 0.5, "durationSec": 9.0 },
+    { "text": "Bring Your Own Key means that record stays under your account, on your keys, in your storage.", "startSec": 10.0, "durationSec": 7.0 },
+    { "text": "You connect your own AI provider key. The prompts run on your account, under your contract, at the rate your provider charges you.", "startSec": 17.5, "durationSec": 9.5 },
+    { "text": "RestoreAssist orchestrates the work. It does not sit between you and your data, and it does not resell you your own compute.", "startSec": 27.5, "durationSec": 9.5 },
+    { "text": "If you ever leave, you leave with everything. No export request, no waiting period.", "startSec": 37.5, "durationSec": 7.0 },
+    { "text": "For anyone holding client data under an obligation, that distinction is the entire point.", "startSec": 45.0, "durationSec": 6.5 },
+    { "text": "Add your key in Settings. Nothing else about your workflow changes.", "startSec": 52.0, "durationSec": 2.0 }
+  ]
+}

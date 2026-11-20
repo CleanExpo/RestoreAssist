@@ -97,6 +97,12 @@ export const D1_NOT_PURCHASE_INITIATING: Record<string, string> = {
     "intake form; the paid step is the sibling checkout route, which is guarded",
   "app/api/admin/founding-trial/route.ts":
     "support-staff complimentary grant; reads Stripe to refuse clashes, charges and sells nothing",
+  "app/api/billing/connect/onboard/route.ts":
+    "P1-MNY-01: sets up the firm's own Stripe account to RECEIVE its customers' payments; charges and sells nothing",
+  "app/api/billing/connect/return/route.ts":
+    "P1-MNY-01: re-reads the firm's connected account after Stripe onboarding; charges and sells nothing",
+  "app/api/webhooks/stripe-connect/route.ts":
+    "Stripe calls this for connected-account events, not a client; there is no iOS request to reject",
 };
 
 export interface D1Measurements {

@@ -22,6 +22,7 @@ import { getVariationAmountDisplay } from "@/lib/invoices/variation-amount";
 import { inheritGstRate } from "@/lib/invoices/inherit-gst-rate";
 import toast from "react-hot-toast";
 import { useAsyncAction } from "@/lib/client/use-async-action";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -92,7 +93,7 @@ function formatDate(iso: string): string {
 
 function PageSkeleton() {
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-9xl mx-auto p-6 space-y-6">
       <Skeleton className="h-5 w-36" />
       <Card>
         <CardHeader>
@@ -208,7 +209,7 @@ export default function InvoiceVariationsPage({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to create variation");
+        throw new Error(apiErrorMessage(err) ?? "Failed to create variation");
       }
 
       toast.success("Variation created");
@@ -247,7 +248,7 @@ export default function InvoiceVariationsPage({
   const statusCfg = getStatusConfig(invoice.status);
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-9xl mx-auto p-6 space-y-6">
       {/* Back link */}
       <Link
         href={`/dashboard/invoices/${id}`}
@@ -320,7 +321,7 @@ export default function InvoiceVariationsPage({
               </div>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form method="post" onSubmit={handleSubmit} className="space-y-4">
                 {/* Reason */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">

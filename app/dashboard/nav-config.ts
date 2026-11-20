@@ -6,6 +6,12 @@ import {
   Receipt,
   CreditCard,
   HelpCircle,
+  LayoutDashboard,
+  ClipboardCheck,
+  CalendarDays,
+  ScrollText,
+  Inbox,
+  Package,
 } from "lucide-react";
 
 /**
@@ -69,6 +75,8 @@ export function isAdvancedMode(
  * real, existing route under `app/dashboard/**`.
  */
 export const simpleNavItems: NavItem[] = [
+  { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
+  { icon: ClipboardCheck, label: "My Jobs", href: "/dashboard/inspections" },
   {
     icon: Plus,
     label: "Make a Report",
@@ -77,6 +85,11 @@ export const simpleNavItems: NavItem[] = [
   },
   { icon: FileText, label: "My Reports", href: "/dashboard/reports" },
   { icon: Users, label: "My Clients", href: "/dashboard/clients" },
+  {
+    icon: CalendarDays,
+    label: "Job schedule",
+    href: "/dashboard/inspections/schedule",
+  },
   // "Get a Bill Out" -> the canonical *standalone* billing entry point.
   // `/dashboard/invoices/new` is a self-contained create form: a user can
   // land there and bill any client immediately (manual or client-linked).
@@ -85,6 +98,7 @@ export const simpleNavItems: NavItem[] = [
   // param to seed from a report — without report context that page has nothing
   // to invoice, so it is not a valid "just bill someone" entry point.
   { icon: Receipt, label: "Get a Bill Out", href: "/dashboard/invoices/new" },
+  { icon: ScrollText, label: "Invoices", href: "/dashboard/invoices" },
   // "Account & Billing" merges the Subscription/Upgrade concept into one
   // plain-language entry pointing at the subscription management page.
   {
@@ -96,9 +110,84 @@ export const simpleNavItems: NavItem[] = [
 ];
 
 /**
- * Admin destinations shown whenever role === ADMIN — including Simple mode.
- * Without this, admins stuck in APPRENTICE never see Admin / Margot / etc.
- * Icons are filled in by DashboardShell (this module only owns href/label).
+ * RA-8271 — the side-panel tab for the optional packs. RestoreAssist is the
+ * CRM; the packs add field and admin features on top. Before this tab, the
+ * packs were only reachable in Advanced mode, and every new owner starts in
+ * Simple mode, so a new owner never saw them.
+ */
+export const FIELD_ADDONS_NAV_ITEM: NavItem = {
+  icon: Package,
+  label: "Field Add-Ons",
+  href: "/dashboard/addons",
+};
+
+/**
+ * Whether the Field Add-Ons tab shows: the business owner only (managers
+ * and technicians never buy packs), and never in the iOS app, which hides
+ * every purchase surface (Apple 3.1.1).
+ */
+export function fieldAddonsTabVisible(input: {
+  role: string | null | undefined;
+  hideBillingNav: boolean;
+}): boolean {
+  if (input.hideBillingNav) return false;
+  // The page is ADMIN-only (lib/auth/dashboard-page-access.ts); a tab that
+  // opened onto a refusal would be worse than no tab.
+  return input.role === "ADMIN";
+}
+
+/**
+ * Simple-mode sidebar — optional manager inbox appended by the shell.
+ *
+ * `showFieldAddons` is decided by the shell from the same rule as the
+ * Subscription link: the business owner only, and never in the iOS app
+ * (Apple 3.1.1). The page itself is owner-only (dashboard-page-access.ts).
+ */
+export function buildSimpleNavItems(options?: {
+  isManager?: boolean;
+  showFieldAddons?: boolean;
+}): NavItem[] {
+  const items: NavItem[] = [...simpleNavItems];
+  if (options?.showFieldAddons) {
+    // Straight after Invoices, above Account & Billing, so it reads as part of
+    // the product rather than a billing setting.
+    const at = items.findIndex((i) => i.href === "/dashboard/subscription");
+    items.splice(at === -1 ? items.length : at, 0, FIELD_ADDONS_NAV_ITEM);
+  }
+  if (options?.isManager) {
+    for (const extra of MANAGER_NAV_HREFS) {
+      if (!items.some((i) => i.href === extra.href)) {
+        items.push({
+          icon: extra.href.includes("inbox") ? Inbox : CalendarDays,
+          label: extra.label,
+          href: extra.href,
+        });
+      }
+    }
+    const inbox = MANAGER_NAV_HREFS[0];
+    const withoutOverview = items.filter((i) => i.href !== "/dashboard");
+    return [
+      {
+        icon: Inbox,
+        label: inbox.label,
+        href: inbox.href,
+      },
+      ...withoutOverview,
+      {
+        icon: LayoutDashboard,
+        label: "Workspace summary",
+        href: "/dashboard?stay=1",
+      },
+    ];
+  }
+  return items;
+}
+
+/**
+ * Platform (RestoreAssist staff) destinations — including Simple mode.
+ * Shown only via `platformNavHrefs`, never on role alone: every business owner
+ * is ADMIN. Icons are filled in by DashboardShell (this module only owns
+ * href/label).
  */
 export const ADMIN_NAV_HREFS = [
   { label: "Admin", href: "/dashboard/admin" },
@@ -107,6 +196,31 @@ export const ADMIN_NAV_HREFS = [
   { label: "Governance", href: "/dashboard/governance" },
   { label: "Restoration Insights", href: "/dashboard/admin/restoration-insights" },
   { label: "Margot", href: "/dashboard/margot/home" },
+] as const;
+
+/**
+ * The platform destinations a user may see in the sidebar. `role: "ADMIN"` is
+ * granted to every self-registered business owner, so it is not enough: the
+ * caller must also be a platform support operator, resolved on the server
+ * (`isAllowlistedPlatformSupportOperator`) and passed down as a boolean. The allowlist
+ * widens an ADMIN only; it never promotes a MANAGER or USER.
+ */
+export function platformNavHrefs(options: {
+  role: string | undefined;
+  isPlatformOperator: boolean | undefined;
+}): ReadonlyArray<(typeof ADMIN_NAV_HREFS)[number]> {
+  return options.role === "ADMIN" && options.isPlatformOperator === true
+    ? ADMIN_NAV_HREFS
+    : [];
+}
+
+/** Manager/owner ops — appended in the shell (server routes enforce access). */
+/** Appended in Advanced nav for managers — schedule is already in simpleNavItems. */
+export const MANAGER_NAV_HREFS = [
+  {
+    label: "Completeness inbox",
+    href: "/dashboard/operations/completeness-inbox",
+  },
 ] as const;
 
 /**
@@ -138,6 +252,8 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/reports/new": "Jobs",
     "/dashboard/reports": "Jobs",
     "/dashboard/inspections": "Jobs",
+    "/dashboard/inspections/schedule": "Jobs",
+    "/dashboard/operations/completeness-inbox": "Jobs",
     "/dashboard/clients": "Jobs",
     "/dashboard/field": "Jobs",
     // Documents & Billing — Invoices, Restoration Documents, Quote Generator,
@@ -158,6 +274,7 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/interviews": "Insights",
     // Setup — Team, Integrations, Pricing Configuration, Settings (+ Feedback,
     // Tutorials, Help)
+    "/dashboard/addons": "Setup",
     "/dashboard/team": "Setup",
     "/dashboard/contractors": "Setup",
     "/dashboard/integrations": "Setup",

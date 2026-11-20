@@ -28,7 +28,7 @@ export default function MargotSocialTrainingPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="max-w-2xl">
+        <div className="max-w-9xl">
           <h2 className="text-lg font-semibold text-foreground">
             Social comment training
           </h2>

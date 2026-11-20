@@ -14,7 +14,7 @@
 # Pin both the repository tag and its multi-platform index digest. The version
 # matches .nvmrc; the digest prevents an upstream tag move from changing the
 # bytes built for the same reviewed release.
-FROM node:22.22.3-bookworm-slim@sha256:e21fc383b50d5347dc7a9f1cae45b8f4e2f0d39f7ade28e4eef7d2934522b752 AS base
+FROM node:22.23.3-bookworm-slim@sha256:3ed98443660ff48413b5af19ecefce3b9d50845a901a43420d47cc63a9fddbe9 AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # ── deps ───────────────────────────────────────────────────────────────────
@@ -61,8 +61,20 @@ ENV NODE_OPTIONS=--max-old-space-size=8192
 # lookup. Defaults to "unknown" so a local build still succeeds.
 ARG GIT_SHA=unknown
 ARG NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID
+# Company trust details shown in the footer, legal pages and emails
+# (lib/brand.ts). Next.js inlines NEXT_PUBLIC_* at build time, so a value set
+# only on the DigitalOcean runtime never reaches the page: it has to be a
+# build arg. Empty is allowed; lib/brand.ts then hides the line or falls back.
+ARG NEXT_PUBLIC_COMPANY_ABN=""
+ARG NEXT_PUBLIC_COMPANY_ADDRESS=""
+ARG NEXT_PUBLIC_SUPPORT_EMAIL=""
+ARG NEXT_PUBLIC_SECURITY_EMAIL=""
 ENV GIT_SHA=${GIT_SHA} \
-    NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID}
+    NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID} \
+    NEXT_PUBLIC_COMPANY_ABN=${NEXT_PUBLIC_COMPANY_ABN} \
+    NEXT_PUBLIC_COMPANY_ADDRESS=${NEXT_PUBLIC_COMPANY_ADDRESS} \
+    NEXT_PUBLIC_SUPPORT_EMAIL=${NEXT_PUBLIC_SUPPORT_EMAIL} \
+    NEXT_PUBLIC_SECURITY_EMAIL=${NEXT_PUBLIC_SECURITY_EMAIL}
 
 # `npm run build`, NOT `sh scripts/build.sh` directly. package.json defines a
 # `prebuild` lifecycle script (tsx scripts/build-help-index.ts) that writes

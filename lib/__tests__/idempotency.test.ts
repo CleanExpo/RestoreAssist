@@ -159,8 +159,53 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// RA-8001 [AC6]: the workflow create route over the real withIdempotency and
+// this in-memory store. Only the route's collaborators are replaced; nothing
+// below is used by the withIdempotency suites above.
+const ac6 = vi.hoisted(() => ({
+  plan: "current" as "current" | "expired" | "throws",
+  creates: 0,
+}));
+vi.mock("next-auth", () => ({
+  getServerSession: async () => ({ user: { id: "ac6-user" } }),
+}));
+vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: async () => null }));
+vi.mock("@/lib/billing/subscription-gate", () => ({
+  hasActiveSubscription: async () => {
+    if (ac6.plan === "throws") throw new Error("connection reset");
+    return ac6.plan === "current";
+  },
+}));
+vi.mock("@/lib/organization-credits", () => ({
+  getEffectiveSubscription: async () => ({ subscriptionStatus: "EXPIRED" }),
+}));
+vi.mock("@/lib/ai/resolve-workspace-ai-key", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/ai/resolve-workspace-ai-key")>();
+  return {
+    ...actual,
+    resolveWorkspaceAiKey: async () => ({
+      workspaceId: "ws_1",
+      apiKey: "sk-ant-workspace-fixture",
+      source: "byok",
+    }),
+  };
+});
+vi.mock("@/lib/agents", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/agents")>();
+  return {
+    ...actual,
+    createWorkflow: async () => {
+      ac6.creates++;
+      return { workflowId: `wf-${ac6.creates}`, taskCount: 3 };
+    },
+  };
+});
+
 import {
   withIdempotency,
+  withIdempotencyFingerprint,
   completeIdempotentSuccessInTransaction,
   getIdempotencyKey,
   getClientMutationId,
@@ -377,6 +422,60 @@ describe("withIdempotency", () => {
     expect((await (await withIdempotency(make(), "owner-a", async () => NextResponse.json({ id: "unexpected" }))).json()).id)
       .toBe("replacement");
   });
+  it("holds a longer lease for a slow paid call, and keeps the 60 second default (RA-8236)", async () => {
+    const run = (key: string, handler: () => Promise<NextResponse>, pendingLeaseMs?: number) =>
+      withIdempotencyFingerprint({
+        scope: "lease-test",
+        key,
+        method: "POST",
+        path: "/lease",
+        fingerprint: key,
+        ...(pendingLeaseMs ? { pendingLeaseMs } : {}),
+        handler,
+      });
+    let finish!: () => void;
+    let started!: () => void;
+    const entered = new Promise<void>((resolve) => { started = resolve; });
+    const gate = new Promise<void>((resolve) => { finish = resolve; });
+    let paid = 0;
+    const slow = async () => {
+      paid++;
+      started();
+      await gate;
+      return NextResponse.json({ paid });
+    };
+
+    const first = run("long-lease", slow, 150_000);
+    await entered;
+    const realNow = Date.now();
+    vi.useFakeTimers({ toFake: ["Date"], now: realNow + 61_000 });
+    try {
+      const second = await run("long-lease", slow, 150_000);
+      expect(second.status).toBe(409);
+      expect(paid).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+    finish();
+    expect((await first).status).toBe(200);
+
+    let held!: () => void;
+    let began!: () => void;
+    const defaultEntered = new Promise<void>((resolve) => { began = resolve; });
+    const defaultGate = new Promise<void>((resolve) => { held = resolve; });
+    const byDefault = run("default-lease", async () => {
+      began();
+      await defaultGate;
+      return NextResponse.json({ ok: true });
+    });
+    await defaultEntered;
+    const record = [...idempotencyDb.records.values()].find((r) => r.key === "default-lease");
+    expect(record?.expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + 60_000);
+    expect(record?.expiresAt.getTime()).toBeGreaterThan(Date.now() + 50_000);
+    held();
+    await byDefault;
+  });
+
   it("does not let a late generic success overwrite a replacement reservation with a different fingerprint", async () => {
     const key = "reservation-success-race";
     const make = (body: string) => makeReq({ client: body }, { "idempotency-key": key });
@@ -614,5 +713,54 @@ describe("withIdempotency", () => {
     };
     await withIdempotency(makeReq({ hello: "world" }), "u", handler);
     expect(received).toBe(JSON.stringify({ hello: "world" }));
+  });
+});
+
+describe("RA-8001 [AC6] workflow create over the real withIdempotency", () => {
+  const body = { workflow: "quick-assessment" };
+  const create = async (key: string) => {
+    const { POST } = await import("@/app/api/agents/workflows/route");
+    const res = await POST(
+      makeReq(body, { "idempotency-key": key }, "/api/agents/workflows"),
+    );
+    return { status: res.status, body: await res.json() };
+  };
+
+  beforeEach(() => {
+    idempotencyDb.clientMutations.clear();
+    ac6.plan = "current";
+    ac6.creates = 0;
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    return __resetIdempotencyStore();
+  });
+
+  it("[AC6] a 402 is final for its key: fixing the plan and replaying returns the cached 402", async () => {
+    ac6.plan = "expired";
+    const first = await create("ac6-key-402");
+    expect(first.status).toBe(402);
+    expect(first.body.error.code).toBe("AI_SUBSCRIPTION_INACTIVE");
+
+    ac6.plan = "current";
+    const replay = await create("ac6-key-402");
+    expect(replay.status).toBe(402);
+    expect(replay.body.error.code).toBe("AI_SUBSCRIPTION_INACTIVE");
+    expect(ac6.creates).toBe(0);
+
+    const fresh = await create("ac6-key-new");
+    expect(fresh.status).toBe(201);
+    expect(ac6.creates).toBe(1);
+  });
+
+  it("[AC6] a 503 clears the key: a retry on the same key runs the handler again", async () => {
+    ac6.plan = "throws";
+    const first = await create("ac6-key-503");
+    expect(first.status).toBe(503);
+    expect(first.body.error.code).toBe("GOVERNOR_UNAVAILABLE");
+
+    ac6.plan = "current";
+    const retry = await create("ac6-key-503");
+    expect(retry.status).toBe(201);
+    expect(ac6.creates).toBe(1);
   });
 });

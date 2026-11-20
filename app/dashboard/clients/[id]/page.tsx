@@ -62,14 +62,17 @@ interface Client {
   status: string;
   createdAt: string;
   updatedAt: string;
+  // Dollars invoiced (not drafts or cancelled), across `invoicedCount` invoices.
   totalRevenue: number;
+  invoicedCount: number;
   lastJob: string;
   reportsCount: number;
   reports: Array<{
     id: string;
     title: string;
     status: string;
-    totalCost: number;
+    // Null when the report's money is outside the caller's reach.
+    totalCost: number | null;
     createdAt: string;
     reportNumber?: string;
     waterCategory?: string;
@@ -260,17 +263,17 @@ export default function ClientDetailPage() {
   const getInspectionStatusColor = (status: string) => {
     switch (status) {
       case "PENDING":
-        return "bg-amber-500/20 text-amber-400";
+        return "bg-amber-500/20 text-amber-700 dark:text-amber-400";
       case "SUBMITTED":
-        return "bg-blue-500/20 text-blue-400";
+        return "bg-blue-500/20 text-blue-700 dark:text-blue-400";
       case "PROCESSED":
-        return "bg-emerald-500/20 text-emerald-400";
+        return "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400";
       case "CANCELLED":
-        return "bg-red-500/20 text-red-400";
+        return "bg-red-500/20 text-red-700 dark:text-red-400";
       case "DRAFT":
-        return "bg-slate-500/20 text-slate-400";
+        return "bg-slate-500/20 text-brand-slate dark:text-slate-400";
       default:
-        return "bg-slate-500/20 text-slate-400";
+        return "bg-slate-500/20 text-brand-slate dark:text-slate-400";
     }
   };
 
@@ -280,16 +283,16 @@ export default function ClientDetailPage() {
   };
 
   const getDocTypeBadgeColor = (type: string) => {
-    if (type === "RESTORATION_INVOICE") return "bg-cyan-500/20 text-cyan-400";
+    if (type === "RESTORATION_INVOICE") return "bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-brand-harbour-400";
     if (type === "QUOTE" || type === "ESTIMATE")
-      return "bg-amber-500/20 text-amber-400";
-    return "bg-slate-500/20 text-slate-400";
+      return "bg-amber-500/20 text-amber-700 dark:text-amber-400";
+    return "bg-slate-500/20 text-brand-slate dark:text-slate-400";
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -297,16 +300,16 @@ export default function ClientDetailPage() {
   if (!client) {
     return (
       <div className="text-center py-12">
-        <AlertTriangle className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-        <h1 className="text-lg font-medium text-white mb-2">
+        <AlertTriangle className="mx-auto h-12 w-12 text-brand-slate dark:text-slate-400 mb-4" />
+        <h1 className="text-lg font-medium text-brand-navy dark:text-white mb-2">
           Client not found
         </h1>
-        <p className="text-slate-400 mb-4">
+        <p className="text-brand-slate dark:text-slate-400 mb-4">
           The client you're looking for doesn't exist or has been deleted.
         </p>
         <Link
           href="/dashboard/clients"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
         >
           <ArrowLeft size={16} />
           Back to Clients
@@ -322,19 +325,26 @@ export default function ClientDetailPage() {
         <div className="flex items-center gap-4">
           <Link
             href="/dashboard/clients"
-            className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
+            className="p-2 hover:bg-brand-cream dark:hover:bg-slate-700/50 rounded-lg transition-colors"
           >
             <ArrowLeft size={20} />
           </Link>
           <div>
             <h1 className="text-3xl font-semibold mb-2">{client.name}</h1>
-            <p className="text-slate-400">Client Details & History</p>
+            <p className="text-brand-slate dark:text-slate-400">Client Details & History</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* RA-8081: the client portal page had no link anywhere */}
+          <Link
+            href={`/dashboard/clients/${client.id}/portal`}
+            className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors"
+          >
+            Client portal
+          </Link>
           <Link
             href={`/dashboard/clients/${client.id}/edit`}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors"
           >
             <Edit size={16} />
             Edit Client
@@ -345,46 +355,46 @@ export default function ClientDetailPage() {
       {/* Client Info Cards */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Contact Information */}
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+        <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-xl p-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <User className="text-cyan-400" size={20} />
+            <User className="text-brand-harbour-700 dark:text-brand-harbour-400" size={20} />
             Contact Information
           </h2>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <Mail className="text-slate-400" size={16} />
-              <span className="text-slate-300">{client.email}</span>
+              <Mail className="text-brand-slate dark:text-slate-400" size={16} />
+              <span className="text-brand-slate dark:text-slate-300">{client.email}</span>
             </div>
             {client.phone && (
               <div className="flex items-center gap-3">
-                <Phone className="text-slate-400" size={16} />
-                <span className="text-slate-300">{client.phone}</span>
+                <Phone className="text-brand-slate dark:text-slate-400" size={16} />
+                <span className="text-brand-slate dark:text-slate-300">{client.phone}</span>
               </div>
             )}
             {client.address && (
               <div className="flex items-center gap-3">
-                <MapPin className="text-slate-400" size={16} />
-                <span className="text-slate-300">{client.address}</span>
+                <MapPin className="text-brand-slate dark:text-slate-400" size={16} />
+                <span className="text-brand-slate dark:text-slate-300">{client.address}</span>
               </div>
             )}
             {client.company && (
               <div className="flex items-center gap-3">
-                <Building className="text-slate-400" size={16} />
-                <span className="text-slate-300">{client.company}</span>
+                <Building className="text-brand-slate dark:text-slate-400" size={16} />
+                <span className="text-brand-slate dark:text-slate-300">{client.company}</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Business Information */}
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+        <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-xl p-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <Building className="text-blue-400" size={20} />
+            <Building className="text-blue-700 dark:text-blue-400" size={20} />
             Business Information
           </h2>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Status</span>
+              <span className="text-brand-slate dark:text-slate-400">Status</span>
               <StatusBadge
                 tone={CLIENT_STATUS_TONES[client.status] ?? "neutral"}
               >
@@ -393,19 +403,19 @@ export default function ClientDetailPage() {
             </div>
             {client.contactPerson && (
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Contact Person</span>
-                <span className="text-slate-300">{client.contactPerson}</span>
+                <span className="text-brand-slate dark:text-slate-400">Contact Person</span>
+                <span className="text-brand-slate dark:text-slate-300">{client.contactPerson}</span>
               </div>
             )}
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Client Since</span>
-              <span className="text-slate-300">
+              <span className="text-brand-slate dark:text-slate-400">Client Since</span>
+              <span className="text-brand-slate dark:text-slate-300">
                 {formatDate(client.createdAt)}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Last Updated</span>
-              <span className="text-slate-300">
+              <span className="text-brand-slate dark:text-slate-400">Last Updated</span>
+              <span className="text-brand-slate dark:text-slate-300">
                 {formatDate(client.updatedAt)}
               </span>
             </div>
@@ -413,35 +423,35 @@ export default function ClientDetailPage() {
         </div>
 
         {/* Statistics */}
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+        <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-xl p-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <DollarSign className="text-success" size={20} />
             Statistics
           </h2>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Total Reports</span>
-              <span className="text-2xl font-bold text-cyan-400">
+              <span className="text-brand-slate dark:text-slate-400">Total Reports</span>
+              <span className="text-2xl font-bold text-brand-harbour-700 dark:text-brand-harbour-400">
                 {client.reportsCount}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Total Revenue</span>
+              <span className="text-brand-slate dark:text-slate-400">Invoiced</span>
               <span className="text-2xl font-bold text-success">
                 ${client.totalRevenue.toLocaleString()}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Last Job</span>
-              <span className="text-slate-300">{client.lastJob}</span>
+              <span className="text-brand-slate dark:text-slate-400">Last Job</span>
+              <span className="text-brand-slate dark:text-slate-300">{client.lastJob}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Avg. Job Value</span>
-              <span className="text-slate-300">
+              <span className="text-brand-slate dark:text-slate-400">Avg. per invoice</span>
+              <span className="text-brand-slate dark:text-slate-300">
                 $
-                {client.reportsCount > 0
+                {client.invoicedCount > 0
                   ? Math.round(
-                      client.totalRevenue / client.reportsCount,
+                      client.totalRevenue / client.invoicedCount,
                     ).toLocaleString()
                   : "0"}
               </span>
@@ -452,12 +462,12 @@ export default function ClientDetailPage() {
 
       {/* Notes */}
       {client.notes && (
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+        <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-xl p-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <FileText className="text-amber-400" size={20} />
+            <FileText className="text-amber-700 dark:text-amber-400" size={20} />
             Notes
           </h2>
-          <p className="text-slate-300">{client.notes}</p>
+          <p className="text-brand-slate dark:text-slate-300">{client.notes}</p>
         </div>
       )}
 
@@ -469,12 +479,12 @@ export default function ClientDetailPage() {
       />
 
       {/* Inspections */}
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+      <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-xl p-6">
         <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-          <ClipboardList className="text-cyan-400" size={20} />
+          <ClipboardList className="text-brand-harbour-700 dark:text-brand-harbour-400" size={20} />
           Inspections
           {!loadingInspections && !inspectionsError && (
-            <span className="text-slate-400 text-sm font-normal">
+            <span className="text-brand-slate dark:text-slate-400 text-sm font-normal">
               ({inspections.length})
             </span>
           )}
@@ -484,12 +494,12 @@ export default function ClientDetailPage() {
             {[1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="h-14 bg-slate-700/30 rounded-lg animate-pulse"
+                className="h-14 bg-brand-cream dark:bg-slate-700/30 rounded-lg animate-pulse"
               />
             ))}
           </div>
         ) : inspectionsError ? (
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-700 dark:text-red-300">
             <span className="text-sm flex items-center gap-2">
               <AlertTriangle size={16} />
               {inspectionsError}
@@ -504,13 +514,13 @@ export default function ClientDetailPage() {
           </div>
         ) : inspections.length === 0 ? (
           <div className="text-center py-8">
-            <ClipboardList className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-            <p className="text-slate-400">
+            <ClipboardList className="mx-auto h-12 w-12 text-brand-slate dark:text-slate-400 mb-4" />
+            <p className="text-brand-slate dark:text-slate-400">
               No inspections for this client yet.
             </p>
             <Link
               href={`/dashboard/inspections/new?clientId=${encodeURIComponent(client.id)}`}
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
             >
               Create First Inspection
             </Link>
@@ -519,7 +529,7 @@ export default function ClientDetailPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-slate-400 border-b border-slate-700/50">
+                <tr className="text-left text-brand-slate dark:text-slate-400 border-b border-brand-mist dark:border-slate-700/50">
                   <th className="pb-3 pr-4 font-medium">#</th>
                   <th className="pb-3 pr-4 font-medium">Address</th>
                   <th className="pb-3 pr-4 font-medium">Status</th>
@@ -527,16 +537,16 @@ export default function ClientDetailPage() {
                   <th className="pb-3 font-medium"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/30">
+              <tbody className="divide-y divide-brand-mist dark:divide-slate-700/30">
                 {inspections.map((inspection) => (
                   <tr
                     key={inspection.id}
-                    className="hover:bg-slate-700/20 transition-colors"
+                    className="hover:bg-brand-cream dark:hover:bg-slate-700/20 transition-colors"
                   >
-                    <td className="py-3 pr-4 font-mono text-slate-300">
+                    <td className="py-3 pr-4 font-mono text-brand-slate dark:text-slate-300">
                       {inspection.inspectionNumber}
                     </td>
-                    <td className="py-3 pr-4 text-slate-300">
+                    <td className="py-3 pr-4 text-brand-slate dark:text-slate-300">
                       {inspection.propertyAddress}
                     </td>
                     <td className="py-3 pr-4">
@@ -546,7 +556,7 @@ export default function ClientDetailPage() {
                         {inspection.status}
                       </span>
                     </td>
-                    <td className="py-3 pr-4 text-slate-400">
+                    <td className="py-3 pr-4 text-brand-slate dark:text-slate-400">
                       {formatDate(
                         inspection.submittedAt ?? inspection.createdAt,
                       )}
@@ -554,7 +564,7 @@ export default function ClientDetailPage() {
                     <td className="py-3">
                       <Link
                         href={`/dashboard/inspections/${inspection.id}`}
-                        className="flex items-center gap-1 text-cyan-400 hover:underline"
+                        className="flex items-center gap-1 text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline"
                       >
                         <Eye size={14} />
                         View
@@ -569,18 +579,18 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Reports History */}
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+      <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-xl p-6">
         <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-          <FileText className="text-blue-400" size={20} />
+          <FileText className="text-blue-700 dark:text-blue-400" size={20} />
           Reports History ({client.reportsCount})
         </h2>
         {client.reports.length === 0 ? (
           <div className="text-center py-8">
-            <FileText className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-            <p className="text-slate-400">No reports found for this client.</p>
+            <FileText className="mx-auto h-12 w-12 text-brand-slate dark:text-slate-400 mb-4" />
+            <p className="text-brand-slate dark:text-slate-400">No reports found for this client.</p>
             <Link
               href="/dashboard/reports/new"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
             >
               Create First Report
             </Link>
@@ -590,11 +600,11 @@ export default function ClientDetailPage() {
             {client.reports.map((report) => (
               <div
                 key={report.id}
-                className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg"
+                className="flex items-center justify-between p-4 bg-brand-cream dark:bg-slate-700/30 rounded-lg"
               >
                 <div className="flex-1">
-                  <h3 className="font-medium text-white">{report.title}</h3>
-                  <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
+                  <h3 className="font-medium text-brand-navy dark:text-white">{report.title}</h3>
+                  <div className="flex items-center gap-4 mt-1 text-sm text-brand-slate dark:text-slate-400">
                     <span>{formatDate(report.createdAt)}</span>
                     {report.reportNumber && <span>#{report.reportNumber}</span>}
                     {report.waterCategory && (
@@ -608,9 +618,13 @@ export default function ClientDetailPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="text-lg font-bold text-cyan-400">
-                    ${(report.totalCost || 0).toLocaleString()}
-                  </span>
+                  {report.totalCost === null ? (
+                    <span className="text-sm text-brand-slate dark:text-slate-400">Unavailable</span>
+                  ) : (
+                    <span className="text-lg font-bold text-brand-harbour-700 dark:text-brand-harbour-400">
+                      ${report.totalCost.toLocaleString()}
+                    </span>
+                  )}
                   <StatusBadge
                     tone={
                       REPORT_STATUS_TONES[report.status.toLowerCase()] ??
@@ -621,7 +635,7 @@ export default function ClientDetailPage() {
                   </StatusBadge>
                   <Link
                     href={`/dashboard/reports/${report.id}`}
-                    className="flex items-center gap-1 text-cyan-400 hover:underline text-sm"
+                    className="flex items-center gap-1 text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline text-sm"
                   >
                     <Eye size={14} />
                     View
@@ -634,12 +648,12 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Restoration Invoices */}
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+      <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-xl p-6">
         <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
           <Receipt className="text-success" size={20} />
           Restoration Invoices
           {!invoicesLoading && !invoicesError && (
-            <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-600/60 text-slate-300">
+            <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-brand-cream dark:bg-slate-600/60 text-brand-slate dark:text-slate-300">
               {invoices.length}
             </span>
           )}
@@ -650,12 +664,12 @@ export default function ClientDetailPage() {
             {[1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="h-14 bg-slate-700/30 rounded-lg animate-pulse"
+                className="h-14 bg-brand-cream dark:bg-slate-700/30 rounded-lg animate-pulse"
               />
             ))}
           </div>
         ) : invoicesError ? (
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-700 dark:text-red-300">
             <span className="text-sm flex items-center gap-2">
               <AlertTriangle size={16} />
               {invoicesError}
@@ -670,11 +684,11 @@ export default function ClientDetailPage() {
           </div>
         ) : invoices.length === 0 ? (
           <div className="text-center py-8">
-            <Receipt className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-            <p className="text-slate-400">No invoices for this client.</p>
+            <Receipt className="mx-auto h-12 w-12 text-brand-slate dark:text-slate-400 mb-4" />
+            <p className="text-brand-slate dark:text-slate-400">No invoices for this client.</p>
             <Link
               href="/dashboard/restoration-documents/invoice/new"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
             >
               Create Invoice
             </Link>
@@ -684,7 +698,7 @@ export default function ClientDetailPage() {
             {invoices.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg"
+                className="flex items-center justify-between p-4 bg-brand-cream dark:bg-slate-700/30 rounded-lg"
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
@@ -693,16 +707,16 @@ export default function ClientDetailPage() {
                     >
                       {getDocTypeLabel(doc.documentType)}
                     </span>
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-brand-navy dark:text-white">
                       {doc.documentNumber}
                     </span>
                     {doc.title && (
-                      <span className="text-slate-400 text-sm truncate max-w-xs">
+                      <span className="text-brand-slate dark:text-slate-400 text-sm truncate max-w-xs">
                         {doc.title}
                       </span>
                     )}
                   </div>
-                  <div className="mt-1 text-sm text-slate-400">
+                  <div className="mt-1 text-sm text-brand-slate dark:text-slate-400">
                     {new Date(doc.createdAt).toLocaleDateString("en-AU", {
                       day: "numeric",
                       month: "short",
@@ -712,7 +726,7 @@ export default function ClientDetailPage() {
                 </div>
                 <Link
                   href={`/dashboard/restoration-documents/invoice/${doc.id}`}
-                  className="flex items-center gap-1 text-cyan-400 hover:underline text-sm ml-4"
+                  className="flex items-center gap-1 text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline text-sm ml-4"
                 >
                   <Eye size={14} />
                   View

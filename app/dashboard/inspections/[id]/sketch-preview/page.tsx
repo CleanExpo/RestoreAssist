@@ -64,7 +64,7 @@ export default function SketchPreviewPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-slate-950 py-8 px-4">
-      <div className="max-w-6xl mx-auto space-y-5">
+      <div className="max-w-9xl mx-auto space-y-5">
         {/* Back navigation */}
         <div className="flex items-center justify-between">
           <Link
@@ -79,7 +79,7 @@ export default function SketchPreviewPage() {
             <span className="text-xs px-2 py-1 rounded-full bg-info-subtle text-info-subtle-foreground font-medium">
               Homeowner view
             </span>
-            <span className="text-xs text-neutral-400 dark:text-slate-500">
+            <span className="text-xs text-brand-slate dark:text-slate-500">
               This is how the floor plan appears to your client
             </span>
           </div>

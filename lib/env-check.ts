@@ -24,9 +24,11 @@ const REQUIRED_VARS = [
   "GOOGLE_CLIENT_SECRET",
   "NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID",
   "STRIPE_WEBHOOK_SECRET", // RA-1801 — missing webhook secret silently drifts subscription state
+  "CLIENT_PORTAL_JWT_SECRET", // RA-7509 — must not fall back to NEXTAUTH_SECRET silently
 ] as const;
 
 const RECOMMENDED_VARS = [
+  "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY", // stable across DO instances — avoids failed-to-find-server-action after deploy
   "STRIPE_SECRET_KEY",
   "CLOUDINARY_URL",
   // TURNSTILE_SECRET_KEY removed — replaced by Vercel BotID (no env var needed).

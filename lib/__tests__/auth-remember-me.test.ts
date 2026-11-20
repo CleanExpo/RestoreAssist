@@ -172,4 +172,9 @@ describe("RA-2074 — session callback customExp enforcement", () => {
     const result = await invokeSession({ customExp: past });
     expect((result as any).user).toBeUndefined();
   });
+
+  it("strips user identity when the token has no customExp (pre-RA-2074 token)", async () => {
+    const result = await invokeSession({ role: "TECHNICIAN" });
+    expect((result as any).user).toBeUndefined();
+  });
 });

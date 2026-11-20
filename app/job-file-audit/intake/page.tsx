@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Header from "@/components/landing/Header";
-import Footer from "@/components/landing/Footer";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const EMPTY_FORM = {
   name: "",
@@ -15,7 +14,7 @@ const EMPTY_FORM = {
 };
 
 export default function JobFileAuditIntakePage() {
-  const [darkMode, setDarkMode] = useState(true);
+  const darkMode = false;
   const [sessionId, setSessionId] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
@@ -59,7 +58,7 @@ export default function JobFileAuditIntakePage() {
       if (!response.ok) {
         const firstIssue = data.issues?.[0]?.message;
         throw new Error(
-          firstIssue || data.message || data.error || "Unable to submit intake.",
+          firstIssue || data.message || apiErrorMessage(data) || "Unable to submit intake.",
         );
       }
 
@@ -79,11 +78,9 @@ export default function JobFileAuditIntakePage() {
 
   return (
     <div className={darkMode ? "min-h-screen bg-brand-navy" : "min-h-screen bg-brand-cloud"}>
-      <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-
       <main className="px-6 pb-20 pt-40">
         <div className="mx-auto max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-gold">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-bronze">
             Paid Job File Audit
           </p>
           <h1 className={`mt-4 text-4xl font-bold md:text-5xl ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}>
@@ -95,7 +92,7 @@ export default function JobFileAuditIntakePage() {
             and relevant supporting documents.
           </p>
 
-          <form onSubmit={submitIntake} className="mt-10 space-y-5 rounded-3xl border border-brand-slate/25 p-6 md:p-8">
+          <form method="post" onSubmit={submitIntake} className="mt-10 space-y-5 rounded-3xl border border-brand-slate/25 p-6 md:p-8">
             <div className="grid gap-5 md:grid-cols-2">
               <label className={darkMode ? "text-brand-cloud" : "text-brand-navy"}>
                 <span className="mb-2 block text-sm font-semibold">Your name</span>
@@ -213,7 +210,6 @@ export default function JobFileAuditIntakePage() {
         </div>
       </main>
 
-      <Footer darkMode={darkMode} />
     </div>
   );
 }

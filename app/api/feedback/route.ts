@@ -1,16 +1,19 @@
 /**
  * API Route: Feedback
  * POST - Submit feedback (authenticated)
- * GET  - List feedback: all for ADMIN, own for others; ?inbox=1 for admin inbox
+ * GET  - List feedback: own for everyone. ?inbox=1 widens it: an ADMIN sees their
+ *        own business's feedback; only allowlisted platform staff see every business.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -90,21 +93,34 @@ export async function GET(request: NextRequest) {
     );
     const skip = (page - 1) * limit;
 
-    // CLAUDE.md rule 3: re-validate role from DB for org-wide data access
-    let isAdmin = false;
+    // CLAUDE.md rule 3: re-validate role from DB for org-wide data access.
+    // Every self-signup is ADMIN, so ADMIN means "owner of this business" and
+    // never "RestoreAssist staff" (walkthrough finding 1, WP-01). Reach:
+    //   platform staff (ADMIN + PLATFORM_SUPPORT_USER_IDS) -> every business
+    //   ADMIN in an organisation                          -> that organisation
+    //   anyone else                                       -> their own rows
+    let inboxWhere: Prisma.FeedbackWhereInput | null = null;
     if (inbox) {
       const dbUser = await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { role: true },
+        select: { role: true, organizationId: true },
       });
-      isAdmin = dbUser?.role === "ADMIN";
+      if (dbUser?.role === "ADMIN") {
+        const orgId = dbUser.organizationId;
+        if (isPlatformSupportOperator(session.user.id)) {
+          inboxWhere = {};
+        } else if (typeof orgId === "string" && orgId.length > 0) {
+          // A non-empty string only: an undefined that reached Prisma would be
+          // dropped from the filter and match every business.
+          inboxWhere = { user: { organizationId: orgId } };
+        }
+      }
     }
-    const canViewInbox = isAdmin;
 
-    if (inbox && canViewInbox) {
+    if (inboxWhere) {
       const [items, total] = await Promise.all([
         prisma.feedback.findMany({
-          where: {},
+          where: inboxWhere,
           include: {
             user: {
               select: { id: true, name: true, email: true },
@@ -114,7 +130,7 @@ export async function GET(request: NextRequest) {
           skip,
           take: limit,
         }),
-        prisma.feedback.count(),
+        prisma.feedback.count({ where: inboxWhere }),
       ]);
       return NextResponse.json({
         feedback: items,

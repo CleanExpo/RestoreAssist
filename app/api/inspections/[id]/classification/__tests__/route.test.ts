@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
 const mockGetServerSession = vi.fn();
@@ -9,6 +10,35 @@ vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => mockGetServerSession(...a),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// D-028: the handler gates on the assigned-write helper; here it admits
+// whoever the inspection lookup mock returns a row for.
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) =>
+    // Run through the mocked $transaction so the test's tx object is used.
+    (
+      scopePrisma as unknown as {
+        $transaction: (fn: (tx: unknown) => unknown) => unknown;
+      }
+    ).$transaction(work),
+  assertInspectionAssignedWrite: async (_s: unknown, id: string) =>
+    (await mockFindFirst({ where: { id } }))
+      ? {
+          ok: true,
+          data: {
+            inspectionWhere: { id },
+            inspectionManyWhere: { id },
+            childInspectionFilter: undefined,
+            viaAssignment: false,
+          },
+        }
+      : { ok: false, status: 404, reason: "Inspection not found" },
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: (...a: unknown[]) => mockFindFirst(...a) },

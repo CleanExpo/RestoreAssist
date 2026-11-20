@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
-import { PG_POOL_CONNECTION_TIMEOUT_MS } from "./prisma-pool-config";
+import { PG_POOL_CONNECTION_TIMEOUT_MS, pgPoolTls } from "./prisma-pool-config";
 
 declare global {
   var prisma: PrismaClient | undefined;
@@ -19,14 +19,9 @@ function createPool(connectionString: string): Pool {
   // installed only by the vitest setup file, so this does nothing elsewhere.
   globalThis.__testDbGuard?.(connectionString);
   return new Pool({
-    connectionString,
+    ...pgPoolTls(connectionString),
     max: 5,
     connectionTimeoutMillis: PG_POOL_CONNECTION_TIMEOUT_MS,
-    ssl:
-      connectionString.includes("supabase") ||
-      connectionString.includes("sslmode=require")
-        ? { rejectUnauthorized: false }
-        : undefined,
   });
 }
 

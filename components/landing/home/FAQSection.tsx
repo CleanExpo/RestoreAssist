@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { TECHNICIAN_SEATS_ADDON } from "@/lib/billing/technician-seats-addon";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { useLandingReduceMotion } from "./useLandingReduceMotion";
 import {
@@ -26,7 +27,7 @@ const FAQS = [
   {
     cat: "Product",
     q: "What is RestoreAssist?",
-    a: "RestoreAssist is an Australian-designed full CRM — an Office and Field Management System for the Australian Restoration Industry. It connects field capture, IICRC-aligned reporting, GST invoicing, and client approvals in one system so teams remove double-handling between the driveway and the desk.",
+    a: "RestoreAssist is the Australian-designed CRM for restoration contractors — an Office and Field Management System for the Australian Restoration Industry. It connects field capture, IICRC-aligned reporting, GST invoicing, and client approvals in one system so teams remove double-handling between the driveway and the desk.",
   },
   {
     cat: "Trial",
@@ -36,12 +37,12 @@ const FAQS = [
   {
     cat: "Pricing",
     q: "How does pricing work?",
-    a: `Start free for ${trialDays} days with ${trialReports} report credits, then choose a plan that fits your team. See current options on the pricing page — clear packages, no need to rebuild your process just to evaluate the product.`,
+    a: `Start free for ${trialDays} days with ${trialReports} report credits, then $${PRICING_CONFIG.pricing.monthly.amount} a month. Field technician seats and optional add-ons are billed on top, and every charge is itemised on the pricing page.`,
   },
   {
     cat: "Team",
-    q: "Can my whole team use it?",
-    a: "Yes. Roles, handoffs, and shared jobs keep owners, office managers, and field technicians aligned on the same claim — from first visit to final invoice.",
+    q: "How do I add my team?",
+    a: `Each field technician needs a paid seat, $${TECHNICIAN_SEATS_ADDON.amount} a month per seat. The plan comes with no technician seats, so you buy one for each technician you add. Roles and shared jobs keep owners, office managers, and field technicians on the same claim — from first visit to final invoice.`,
   },
   {
     cat: "Reports",
@@ -143,7 +144,7 @@ export function FAQSection() {
                         }
                       }}
                       className={[
-                        "group flex w-full items-start gap-4 rounded-xl px-3 py-3 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D8C]/50 focus-visible:ring-offset-2",
+                        "group flex w-full items-start gap-4 rounded-xl px-3 py-3 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50 focus-visible:ring-offset-2",
                         selected
                           ? "bg-[#F3F5F7]"
                           : "hover:bg-[#F3F5F7]/70",
@@ -153,7 +154,7 @@ export function FAQSection() {
                         className={[
                           FONT_DISPLAY,
                           "mt-0.5 text-[11px] font-bold tabular-nums tracking-[0.14em] transition-colors",
-                          selected ? "text-[#3B6D8C]" : "text-slate-400",
+                          selected ? "text-brand-harbour" : "text-slate-400",
                         ].join(" ")}
                       >
                         {String(i + 1).padStart(2, "0")}
@@ -163,7 +164,7 @@ export function FAQSection() {
                           className={[
                             FONT_DISPLAY,
                             "block text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors",
-                            selected ? "text-[#3B6D8C]" : "text-slate-400",
+                            selected ? "text-brand-harbour" : "text-slate-400",
                           ].join(" ")}
                         >
                           {faq.cat}
@@ -173,8 +174,8 @@ export function FAQSection() {
                             FONT_DISPLAY,
                             "mt-1 block text-[15px] font-semibold leading-snug tracking-[-0.015em] transition-colors sm:text-base",
                             selected
-                              ? "text-[#0B1F3A]"
-                              : "text-slate-600 group-hover:text-[#16345A]",
+                              ? "text-brand-navy"
+                              : "text-slate-600 group-hover:text-brand-navy-hover",
                           ].join(" ")}
                         >
                           {faq.q}
@@ -183,7 +184,7 @@ export function FAQSection() {
                       <span
                         className={[
                           "mt-1 h-1.5 w-1.5 shrink-0 rounded-full transition-colors",
-                          selected ? "bg-[#3B6D8C]" : "bg-transparent",
+                          selected ? "bg-brand-harbour" : "bg-transparent",
                         ].join(" ")}
                         aria-hidden
                       />
@@ -203,7 +204,7 @@ export function FAQSection() {
                 aria-hidden
               >
                 <span
-                  className={`${FONT_DISPLAY} text-[11px] font-bold tabular-nums tracking-[0.16em] text-[#3B6D8C]`}
+                  className={`${FONT_DISPLAY} text-[11px] font-bold tabular-nums tracking-[0.16em] text-brand-harbour`}
                 >
                   {String(active + 1).padStart(2, "0")} /{" "}
                   {String(FAQS.length).padStart(2, "0")}
@@ -211,7 +212,7 @@ export function FAQSection() {
               </div>
 
               <div
-                className="absolute top-0 left-0 h-full w-1 bg-[#3B6D8C]"
+                className="absolute top-0 left-0 h-full w-1 bg-brand-harbour"
                 aria-hidden
               />
 
@@ -228,12 +229,12 @@ export function FAQSection() {
                     aria-live="polite"
                   >
                     <p
-                      className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.2em] text-[#3B6D8C]`}
+                      className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-harbour`}
                     >
                       {item.cat}
                     </p>
                     <h3
-                      className={`${FONT_DISPLAY} mt-4 max-w-lg text-[1.45rem] font-semibold leading-[1.15] tracking-[-0.025em] text-[#0B1F3A] sm:text-[1.75rem] sm:leading-[1.12]`}
+                      className={`${FONT_DISPLAY} mt-4 max-w-lg text-[1.45rem] font-semibold leading-[1.15] tracking-[-0.025em] text-brand-navy sm:text-[1.75rem] sm:leading-[1.12]`}
                     >
                       {item.q}
                     </h3>
@@ -244,13 +245,13 @@ export function FAQSection() {
                     <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-200/90 pt-5">
                       <Link
                         href="/pricing"
-                        className={`${FONT_DISPLAY} text-sm font-semibold text-[#3B6D8C] transition-colors hover:text-[#0B1F3A]`}
+                        className={`${FONT_DISPLAY} text-sm font-semibold text-brand-harbour transition-colors hover:text-brand-navy`}
                       >
                         View pricing →
                       </Link>
                       <Link
                         href="/how-it-works"
-                        className={`${FONT_DISPLAY} text-sm font-semibold text-[#3B6D8C] transition-colors hover:text-[#0B1F3A]`}
+                        className={`${FONT_DISPLAY} text-sm font-semibold text-brand-harbour transition-colors hover:text-brand-navy`}
                       >
                         See how it works →
                       </Link>

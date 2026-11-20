@@ -1,4 +1,6 @@
 import { Metadata } from "next";
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
   title: "Blog - Restoration Industry Insights & Tips",
@@ -17,7 +19,7 @@ export const metadata: Metadata = {
       "Restoration industry insights, compliance guides, and best practices for Australian professionals.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/blog" },
@@ -28,5 +30,5 @@ export default function BlogLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <MarketingShell>{children}</MarketingShell>;
 }

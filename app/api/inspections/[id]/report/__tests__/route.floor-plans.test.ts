@@ -43,6 +43,16 @@ vi.mock("@/lib/api-errors", () => ({
     Response.json({ error: "Internal server error" }, { status: 500 }),
 }));
 
+// D-028: read reach and money reach are covered by their own tests; here the
+// caller can read the job and see its money.
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  assertInspectionReadable: vi.fn().mockResolvedValue({ ok: true }),
+  resolveInspectionFinancialReach: vi
+    .fn()
+    .mockResolvedValue({ ok: true, data: {} }),
+}));
+
+import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 import { GET } from "../route";
 
 const request = () =>
@@ -98,8 +108,10 @@ beforeEach(() => {
 });
 
 describe("GET /api/inspections/[id]/report — floor-plan output", () => {
-  it.each(["ESTIMATED", "SUBMITTED"])(
-    "generates a report for review-ready %s work",
+  // RA-8421: invoiced, closed and archived jobs keep their report; the route
+  // only reads, and a dispute arrives after the invoice.
+  it.each(["ESTIMATED", "SUBMITTED", "IN_BILLING", "CLOSED", "ARCHIVED"])(
+    "generates a report for review-ready or later %s work",
     async (status) => {
       inspectionFindFirst.mockResolvedValue(inspection({ status }));
 
@@ -116,9 +128,6 @@ describe("GET /api/inspections/[id]/report — floor-plan output", () => {
     "CLASSIFIED",
     "SCOPED",
     "REJECTED",
-    "IN_BILLING",
-    "CLOSED",
-    "ARCHIVED",
   ])(
     "rejects report generation from %s",
     async (status) => {
@@ -151,8 +160,14 @@ describe("GET /api/inspections/[id]/report — floor-plan output", () => {
     const response = await GET(request(), context);
 
     expect(response.status).toBe(200);
+    // D-028: the read reach is checked for this caller before the query,
+    // which then reads the inspection by id.
+    expect(assertInspectionReadable).toHaveBeenCalledWith(
+      { user: { id: "user-1" } },
+      "insp-1",
+    );
     const query = inspectionFindFirst.mock.calls[0][0];
-    expect(query.where).toEqual({ id: "insp-1", userId: "user-1" });
+    expect(query.where).toEqual({ id: "insp-1" });
     expect(query.include.claimSketches).toMatchObject({
       orderBy: { floorNumber: "asc" },
       take: 50,

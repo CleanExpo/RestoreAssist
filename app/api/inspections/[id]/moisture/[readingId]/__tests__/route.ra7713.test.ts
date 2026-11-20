@@ -9,15 +9,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
-const resolveInspectionWrite = vi.fn();
+const assertInspectionAssignedWrite = vi.fn();
 const updateMany = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// D-028: create/update handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  resolveInspectionWrite: (...a: unknown[]) => resolveInspectionWrite(...a),
+  assertInspectionAssignedWrite: (...a: unknown[]) => assertInspectionAssignedWrite(...a),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -43,7 +44,7 @@ function patch(body: unknown) {
 
 beforeEach(() => {
   getServerSession.mockReset().mockResolvedValue({ user: { id: "u1" } });
-  resolveInspectionWrite.mockReset().mockResolvedValue({
+  assertInspectionAssignedWrite.mockReset().mockResolvedValue({
     ok: true,
     data: {
       inspectionWhere: { id: "insp_1", ...ownerFilter },
@@ -59,7 +60,13 @@ describe("PATCH moisture reading position (RA-7713 part 12)", () => {
     const res = await PATCH(patch({ mapX: 0.25, mapY: 0.5 }), { params });
     expect(res.status).toBe(200);
     expect(updateMany).toHaveBeenCalledWith({
-      where: { id: "r1", inspectionId: "insp_1", inspection: ownerFilter },
+      // An invalidated (soft-deleted) reading can no longer be moved.
+      where: {
+        id: "r1",
+        inspectionId: "insp_1",
+        invalidatedAt: null,
+        inspection: ownerFilter,
+      },
       data: { mapX: 0.25, mapY: 0.5 },
     });
     expect(await res.json()).toEqual({
@@ -95,7 +102,7 @@ describe("PATCH moisture reading position (RA-7713 part 12)", () => {
   });
 
   it("returns the tenancy status and writes nothing without write reach", async () => {
-    resolveInspectionWrite.mockResolvedValue({
+    assertInspectionAssignedWrite.mockResolvedValue({
       ok: false,
       status: 404,
       reason: "Inspection not found",
@@ -107,7 +114,7 @@ describe("PATCH moisture reading position (RA-7713 part 12)", () => {
 
   it("returns 401 without a session", async () => {
     getServerSession.mockResolvedValue(null);
-    resolveInspectionWrite.mockResolvedValue({
+    assertInspectionAssignedWrite.mockResolvedValue({
       ok: false,
       status: 401,
       reason: "Unauthorized",

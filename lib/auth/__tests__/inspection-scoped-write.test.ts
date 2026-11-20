@@ -8,7 +8,8 @@ const { updateMany, transaction } = h;
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    $transaction: (fn: (tx: unknown) => unknown) => h.transaction(fn),
+    $transaction: (fn: (tx: unknown) => unknown, opts?: unknown) =>
+      h.transaction(fn, opts),
     user: { findUnique: vi.fn() },
     report: { findUnique: vi.fn(), findFirst: vi.fn() },
     inspection: {
@@ -117,5 +118,14 @@ describe("writeWithinInspectionScope", () => {
     await writeWithinInspectionScope(SCOPE, { claimType: "HVAC" }, work);
 
     expect(order).toEqual(["gate", "child"]);
+  });
+
+  it("passes the caller's transaction timeout to the transaction", async () => {
+    updateMany.mockResolvedValue({ count: 1 });
+    const opts = { timeout: 20_000, maxWait: 10_000 };
+
+    await writeWithinInspectionScope(SCOPE, { claimType: "HVAC" }, vi.fn(), opts);
+
+    expect(transaction.mock.calls[0][1]).toEqual(opts);
   });
 });

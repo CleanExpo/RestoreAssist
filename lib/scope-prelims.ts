@@ -131,6 +131,7 @@ export function generatePrelims(params: {
     quantity: 1,
     unit: "job",
     unitCostAud: DEFAULT_MOBILISATION_AUD,
+    rateField: "mobilisationFee",
     isRequired: true,
   });
 
@@ -145,6 +146,7 @@ export function generatePrelims(params: {
       quantity: estimatedDays,
       unit: "visit",
       unitCostAud: DEFAULT_MONITORING_PER_VISIT_AUD,
+      rateField: "monitoringVisitDailyRate",
       isRequired: true,
     });
   }

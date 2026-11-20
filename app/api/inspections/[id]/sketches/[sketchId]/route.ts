@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionTenancy,
+} from "@/lib/auth/assert-tenancy";
 
 // PUT /api/inspections/[id]/sketches/[sketchId] — retired unsafe partial update
 export async function PUT(
@@ -22,7 +25,7 @@ export async function PUT(
 
     const { id, sketchId } = await params;
 
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",

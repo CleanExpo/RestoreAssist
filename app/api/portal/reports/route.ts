@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fromException } from "@/lib/api-errors";
 import { requireClientAuth } from "@/lib/portal/require-client-auth";
+import { toClientPortalReportListItem } from "@/lib/portal/client-safe-report";
 
 // GET /api/portal/reports - Get reports for logged-in client (bearer JWT)
 export async function GET(request: NextRequest) {
@@ -23,7 +24,6 @@ export async function GET(request: NextRequest) {
         status: true,
         propertyAddress: true,
         hazardType: true,
-        totalCost: true,
         createdAt: true,
         updatedAt: true,
         completionDate: true,
@@ -42,25 +42,9 @@ export async function GET(request: NextRequest) {
       take: 100,
     });
 
-    // Get approval statistics
-    const reportsWithApprovalStatus = reports.map((report) => {
-      const pendingApprovals = report.approvals.filter(
-        (a) => a.status === "PENDING",
-      ).length;
-      const approvedCount = report.approvals.filter(
-        (a) => a.status === "APPROVED",
-      ).length;
-      const rejectedCount = report.approvals.filter(
-        (a) => a.status === "REJECTED",
-      ).length;
-
-      return {
-        ...report,
-        pendingApprovals,
-        approvedCount,
-        rejectedCount,
-      };
-    });
+    const reportsWithApprovalStatus = reports.map((report) =>
+      toClientPortalReportListItem(report),
+    );
 
     return NextResponse.json({ reports: reportsWithApprovalStatus });
   } catch (error) {

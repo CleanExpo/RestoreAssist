@@ -17,16 +17,19 @@ export const metadata: Metadata = {
       "Take the free RestoreAssist Evidence Score and find the three biggest gaps in your job documentation.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "RestoreAssist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/evidence-score" },
 };
+
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export default function EvidenceScoreLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <MarketingShell>{children}</MarketingShell>;
 }

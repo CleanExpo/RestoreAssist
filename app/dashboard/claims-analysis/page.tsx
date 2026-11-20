@@ -58,6 +58,10 @@ import {
 import { useSession } from "next-auth/react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
+
+/** Most documents analyze-batch accepts in one batch (RA-8043e). */
+const MAX_DOCUMENTS_PER_BATCH = 100;
 
 interface MissingElementsSummary {
   iicrc: number;
@@ -173,6 +177,7 @@ export default function ClaimsAnalysisPage() {
     instructions?: string[];
   } | null>(null);
   const [maxDocuments, setMaxDocuments] = useState<string>("");
+  const documentCap = Math.min(files.length, MAX_DOCUMENTS_PER_BATCH);
   const [analysisResults, setAnalysisResults] = useState<GapAnalysisResult[]>(
     [],
   );
@@ -349,9 +354,12 @@ export default function ClaimsAnalysisPage() {
       return;
     }
 
-    const maxDocs = maxDocuments ? parseInt(maxDocuments) : files.length;
-    if (maxDocs <= 0 || maxDocs > files.length) {
-      toast.error(`Please enter a valid number between 1 and ${files.length}`);
+    const maxDocs = Math.min(
+      maxDocuments ? parseInt(maxDocuments) : documentCap,
+      documentCap,
+    );
+    if (!(maxDocs > 0)) {
+      toast.error(`Please enter a valid number between 1 and ${documentCap}`);
       return;
     }
 
@@ -377,7 +385,12 @@ export default function ClaimsAnalysisPage() {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to perform analysis");
+        // apiError responses carry { error: { code, message } }.
+        const apiMessage =
+          typeof errData.error === "string"
+            ? errData.error
+            : errData.error?.message;
+        throw new Error(apiMessage || "Failed to perform analysis");
       }
 
       const reader = response.body?.getReader();
@@ -385,6 +398,7 @@ export default function ClaimsAnalysisPage() {
 
       const decoder = new TextDecoder();
       let buffer = "";
+      let streamFailed = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -433,7 +447,7 @@ export default function ClaimsAnalysisPage() {
                   updated.fileStatuses[event.index] = {
                     name: event.file,
                     status: "failed",
-                    error: event.error,
+                    error: apiErrorMessage(event.error) ?? undefined,
                   };
                 }
                 return updated;
@@ -445,10 +459,20 @@ export default function ClaimsAnalysisPage() {
               toast.success(
                 `Analysis completed! Processed ${event.results?.length || 0} file(s)`,
               );
+            } else if (event.type === "error") {
+              toast.error(event.error || "Failed to perform analysis");
+              streamFailed = true;
+              break;
             }
           } catch {
             // skip malformed JSON lines
           }
+        }
+        // The error event is terminal: stop reading so a later transport
+        // failure cannot report a second error.
+        if (streamFailed) {
+          await reader.cancel().catch(() => undefined);
+          break;
         }
       }
     } catch (error: any) {
@@ -530,7 +554,7 @@ export default function ClaimsAnalysisPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-            <FileSearch className="h-6 w-6 text-cyan-500 shrink-0" aria-hidden />
+            <FileSearch className="h-6 w-6 text-brand-harbour-500 shrink-0" aria-hidden />
             Claims Analysis
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -737,14 +761,14 @@ export default function ClaimsAnalysisPage() {
                   id="maxDocuments"
                   type="number"
                   min="1"
-                  max={files.length}
-                  placeholder={`Max: ${files.length} (all files)`}
+                  max={documentCap}
+                  placeholder={`Max: ${documentCap}`}
                   value={maxDocuments}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (
                       val === "" ||
-                      (parseInt(val) > 0 && parseInt(val) <= files.length)
+                      (parseInt(val) > 0 && parseInt(val) <= documentCap)
                     ) {
                       setMaxDocuments(val);
                     }
@@ -752,8 +776,9 @@ export default function ClaimsAnalysisPage() {
                   disabled={processing}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Leave empty to process all {files.length} files, or enter a
-                  number (1-{files.length}) to limit processing
+                  Leave empty to process {documentCap} of {files.length} files
+                  (at most {MAX_DOCUMENTS_PER_BATCH} per batch), or enter a
+                  number (1-{documentCap}) to limit processing
                 </p>
               </div>
             )}
@@ -800,7 +825,7 @@ export default function ClaimsAnalysisPage() {
                     Start Analysis (
                     {maxDocuments
                       ? `${maxDocuments}/${files.length}`
-                      : files.length}{" "}
+                      : documentCap}{" "}
                     files)
                   </>
                 )}
@@ -907,7 +932,7 @@ export default function ClaimsAnalysisPage() {
         !summary && (
           <Card className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50!">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-3">
-              <Loader2 className="h-8 w-8 text-cyan-500 animate-spin" />
+              <Loader2 className="h-8 w-8 text-brand-harbour-500 animate-spin" />
               <p className="text-sm text-muted-foreground">
                 Loading your latest analysis…
               </p>
@@ -1092,7 +1117,7 @@ export default function ClaimsAnalysisPage() {
                     {
                       label: "IICRC",
                       value: summary.totalMissingElements.iicrc || 0,
-                      tone: "text-cyan-600 dark:text-cyan-400",
+                      tone: "text-brand-harbour-600 dark:text-brand-harbour-400",
                     },
                     {
                       label: "AU Standards",
@@ -1171,7 +1196,7 @@ export default function ClaimsAnalysisPage() {
                 {analysisResults.map((result, idx) => (
                   <Card
                     key={`${result.fileId}-${idx}`}
-                    className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50! cursor-pointer transition-colors hover:border-cyan-500/40"
+                    className="border-neutral-200 dark:border-slate-700/60 bg-white! dark:bg-slate-900/50! cursor-pointer transition-colors hover:border-brand-harbour-500/40"
                     onClick={() => {
                       setSelectedDocument(result);
                       setViewMode("detail");
@@ -2000,11 +2025,11 @@ export default function ClaimsAnalysisPage() {
       )}
 
       {processing && (
-        <Card className="bg-white! dark:bg-slate-900/50! border-cyan-500/40">
+        <Card className="bg-white! dark:bg-slate-900/50! border-brand-harbour-500/40">
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-cyan-500" />
+                <Loader2 className="h-5 w-5 animate-spin text-brand-harbour-500" />
                 <CardTitle className="text-lg">Analysing claims</CardTitle>
               </div>
               <div className="flex items-center gap-3">

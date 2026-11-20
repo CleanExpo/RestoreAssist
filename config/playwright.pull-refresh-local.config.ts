@@ -5,7 +5,7 @@ const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 
 // Synthetic local UI exercise. Browser API requests are intercepted by the spec.
 export default defineConfig({
-  testDir: "../tests/browser",
+  testDir: "../e2e/browser",
   testMatch: "mobile-pull-refresh.spec.ts",
   workers: 1,
   timeout: 90_000,

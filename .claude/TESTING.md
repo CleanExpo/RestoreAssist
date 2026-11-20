@@ -103,11 +103,11 @@ one part of this repo that no other suite covers.
 ```bash
 bash .claude/hooks/tests/test-guards.sh        # the two PreToolUse guards
 bash .claude/hooks/tests/test-ledger-append.sh # the Stop hook's metrics write
-bash evals/check.sh                            # skills, rules and CLAUDE.md
+bash scripts/agent-evals/check.sh                            # skills, rules and CLAUDE.md
 ```
 
 All three run in `.github/workflows/agent-evals.yml` on any change to
-`CLAUDE.md`, `AGENTS.md`, `REVIEW.md`, `.claude/**`, `evals/**`, or the workflow
+`CLAUDE.md`, `AGENTS.md`, `docs/project/REVIEW.md`, `.claude/**`, `scripts/agent-evals/**`, or the workflow
 itself, and nightly. None needs an API key or a network.
 
 ### The guard tests
@@ -129,14 +129,14 @@ something.** Add a deny case and a dead-check for any guard you add.
 
 ### The evals
 
-`evals/` covers the rest of the configuration: 62 skills, 33 rules, the always-on
+`scripts/agent-evals/` covers the rest of the configuration: 62 skills, 33 rules, the always-on
 rule files, and `CLAUDE.md`. Each case is a mistake that actually happened here,
 and ships with the defective answer recorded alongside the good one. The suite
 runs both, and reports a case `BROKEN` if its DEFECTIVE answer also passes —
 which is the same doctrine as above, applied to a check rather than a hook.
 
-`bash evals/check.sh --live` calls a real agent instead of reading the recorded
-answers, and costs whatever that agent costs. See `evals/README.md`.
+`bash scripts/agent-evals/check.sh --live` calls a real agent instead of reading the recorded
+answers, and costs whatever that agent costs. See `scripts/agent-evals/README.md`.
 
 ### The ledger write
 

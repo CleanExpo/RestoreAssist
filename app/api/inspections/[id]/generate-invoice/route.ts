@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
 import { getServerSession } from "next-auth";
 import { ClaimState, InspectionStatus, type Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
@@ -11,6 +12,9 @@ import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import Decimal from "decimal.js";
 import { dollarsToCents, lineSubtotalCents } from "@/lib/invoices/calc";
+import { parseFrozenEstimateLines } from "@/lib/estimate/approval-snapshot";
+import { mirrorClaimProgressLifecycleState } from "@/lib/claim-progress/mirror-lifecycle-state";
+import { resolveCanonicalClientForInspection } from "@/lib/canonical/resolve-job-client";
 
 const toCents = (amount: number | null) => dollarsToCents(amount ?? 0);
 
@@ -170,12 +174,10 @@ async function advanceInspectionToBilling(
     prismaTx: tx,
   });
 
-  await tx.claimProgress.updateMany({
-    where: { inspectionId: args.inspectionId },
-    data: {
-      previousState: ClaimState.CLOSEOUT,
-      currentState: ClaimState.INVOICE_ISSUED,
-    },
+  await mirrorClaimProgressLifecycleState(tx, {
+    inspectionId: args.inspectionId,
+    previousState: ClaimState.CLOSEOUT,
+    currentState: ClaimState.INVOICE_ISSUED,
   });
 
   return "transitioned";
@@ -336,12 +338,16 @@ export async function POST(
       }
 
       const report = inspection.report;
-      const client = report.client;
-      if (!report.clientId || !client || client.userId !== userId) {
+      const canonicalClient = await resolveCanonicalClientForInspection(
+        prisma,
+        { inspectionId: id, ownerUserId: userId },
+      );
+      const client = canonicalClient ?? report.client;
+      if (!client || client.userId !== userId) {
         return apiError(request, {
           code: "CONFLICT",
           message:
-            "A client linked to the report is required before generating an invoice.",
+            "A client linked to the job (Inspection.clientId or report) is required before generating an invoice.",
           status: 409,
         });
       }
@@ -404,6 +410,10 @@ export async function POST(
             advanceInspectionToBilling(tx, billingActor),
           );
           if (billingResult === "transitioned") {
+            void notifyClientStepChange({
+              inspectionId: inspection.id,
+              fromStatus: InspectionStatus.SUBMITTED,
+            });
             void onNextAction(inspection.id, InspectionStatus.IN_BILLING).catch(
               (error) =>
                 console.error("[next-action] IN_BILLING nudge failed:", error),
@@ -448,7 +458,42 @@ export async function POST(
         },
       });
 
-      if (!estimate || estimate.lineItems.length === 0) {
+      if (!estimate) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "An approved estimate with line items is required before generating an invoice.",
+          status: 409,
+        });
+      }
+
+      const frozenVersion = await prisma.estimateVersion.findUnique({
+        where: {
+          estimateId_version: {
+            estimateId: estimate.id,
+            version: estimate.version,
+          },
+        },
+        select: { snapshot: true },
+      });
+      const frozenLines = parseFrozenEstimateLines(frozenVersion?.snapshot);
+      const invoiceLines =
+        frozenLines ??
+        estimate.lineItems.map((item) => ({
+          description: item.description,
+          category: item.category,
+          qty: item.qty,
+          unit: item.unit,
+          rate: item.rate,
+          subtotal: item.subtotal,
+          taxType: item.taxType,
+          isPassThrough: item.isPassThrough,
+          xeroAccountCode: item.xeroAccountCode,
+          code: item.code,
+          id: item.id,
+        }));
+
+      if (invoiceLines.length === 0) {
         return apiError(request, {
           code: "CONFLICT",
           message:
@@ -466,11 +511,17 @@ export async function POST(
       let gstAmount = 0;
 
       const lineItemsData: Prisma.InvoiceLineItemCreateWithoutInvoiceInput[] =
-        estimate.lineItems.map((item, index) => {
+        invoiceLines.map((item, index) => {
           const { description, quantity, unit, unitPrice, subtotal } =
-            estimateInvoiceLine(item);
+            estimateInvoiceLine({
+              description: item.description,
+              qty: item.qty,
+              unit: item.unit,
+              rate: item.rate,
+              subtotal: item.subtotal ?? item.qty * item.rate,
+            });
           const gstRate = gstRateForTaxType(
-            item.taxType,
+            item.taxType ?? "OUTPUT",
             gstTreatment.ratePercent,
           );
           const itemGst = Math.round(subtotal * (gstRate / 100));
@@ -489,13 +540,13 @@ export async function POST(
             gstAmount: itemGst,
             total,
             sortOrder: index,
-            estimateLineItemId: item.id,
-            code: item.code,
+            estimateLineItemId: "id" in item && item.id ? item.id : null,
+            code: item.code ?? null,
             unit,
-            isPassThrough: item.isPassThrough,
+            isPassThrough: item.isPassThrough ?? false,
             taxType:
-              gstRate === 0 ? item.taxType : gstTreatment.xeroTaxType,
-            xeroAccountCode: item.xeroAccountCode,
+              gstRate === 0 ? (item.taxType ?? "OUTPUT") : gstTreatment.xeroTaxType,
+            xeroAccountCode: item.xeroAccountCode ?? null,
           };
         });
 
@@ -742,6 +793,10 @@ export async function POST(
       }
 
       if (result.billingResult === "transitioned") {
+        void notifyClientStepChange({
+          inspectionId: inspection.id,
+          fromStatus: InspectionStatus.SUBMITTED,
+        });
         void onNextAction(inspection.id, InspectionStatus.IN_BILLING).catch(
           (error) =>
             console.error("[next-action] IN_BILLING nudge failed:", error),

@@ -32,6 +32,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RAIcon } from "@/components/brand/RAIcon";
 import toast from "react-hot-toast";
 import { useAsyncAction } from "@/lib/client/use-async-action";
+import {
+  parseApiError,
+  type ParsedApiError,
+} from "@/lib/client/parse-api-error";
+import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
 
 type EditStage = "inspection" | "scoping" | "estimation";
 
@@ -47,7 +52,7 @@ export default function EditReportPage({
   const [scope, setScope] = useState<any>(null);
   const [estimate, setEstimate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [clients, setClients] = useState<any[]>([]);
 
   // Inspection data
@@ -70,7 +75,7 @@ export default function EditReportPage({
       setReportId(resolvedParams.id);
       await fetchReportData(resolvedParams.id);
     };
-    getParams();
+    void getParams();
   }, [params]);
 
   // Load clients
@@ -84,6 +89,7 @@ export default function EditReportPage({
   const fetchReportData = async (reportId: string) => {
     try {
       setLoading(true);
+      setLoadError(null);
 
       // Fetch report
       const reportResponse = await fetch(`/api/reports/${reportId}`);
@@ -138,10 +144,16 @@ export default function EditReportPage({
           console.error("Failed to fetch estimate:", err);
         }
       } else {
-        setError("Report not found");
+        setReport(null);
+        setLoadError(await parseApiError(reportResponse));
       }
     } catch (err) {
-      setError("Failed to load report");
+      setReport(null);
+      setLoadError({
+        code: "NETWORK",
+        message: "Could not reach the server. Check your connection and retry.",
+        status: 0,
+      });
       console.error("Error fetching report:", err);
     } finally {
       setLoading(false);
@@ -206,31 +218,21 @@ export default function EditReportPage({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-white dark:from-slate-950 via-brand-cloud dark:via-slate-900 to-brand-cloud dark:to-slate-950">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
 
-  if (error || !report) {
+  if (!loading && (loadError || !report)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-        <div className="text-center">
-          <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-          <h2 className="text-xl font-semibold mb-2 text-white">
-            Report Not Found
-          </h2>
-          <p className="text-slate-400 mb-4">
-            {error || "The requested report could not be found."}
-          </p>
-          <button
-            onClick={() => router.push("/dashboard/reports")}
-            className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
-          >
-            Back to Reports
-          </button>
-        </div>
-      </div>
+      <DetailLoadErrorPanel
+        resourceLabel="report"
+        error={loadError}
+        backHref="/dashboard/reports"
+        backLabel="Back to reports"
+        onRetry={() => reportId && void fetchReportData(reportId)}
+      />
     );
   }
 
@@ -265,24 +267,24 @@ export default function EditReportPage({
 
   // Main edit interface with tabs
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-white dark:from-slate-950 via-brand-cloud dark:via-slate-900 to-brand-cloud dark:to-slate-950 p-6">
+      <div className="max-w-9xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push(`/dashboard/reports/${reportId}`)}
-                className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                className="p-2 hover:bg-brand-cream dark:hover:bg-slate-800 rounded-lg transition-colors"
                 title="Back to Report"
               >
-                <ArrowLeft size={20} className="text-white" />
+                <ArrowLeft size={20} className="text-brand-navy dark:text-white" />
               </button>
               <div>
-                <h1 className="text-3xl font-bold text-white mb-2">
+                <h1 className="text-3xl font-bold text-brand-navy dark:text-white mb-2">
                   Edit Report
                 </h1>
-                <p className="text-slate-400">
+                <p className="text-brand-slate dark:text-slate-400">
                   {report.reportNumber || report.id}
                 </p>
               </div>
@@ -291,14 +293,14 @@ export default function EditReportPage({
               <span
                 className={`px-3 py-1 rounded-full text-sm font-medium ${
                   report.status === "DRAFT"
-                    ? "bg-slate-500/20 text-slate-400"
+                    ? "bg-slate-500/20 text-brand-slate dark:text-slate-400"
                     : report.status === "PENDING"
-                      ? "bg-amber-500/20 text-amber-400"
+                      ? "bg-amber-500/20 text-amber-700 dark:text-amber-400"
                       : report.status === "APPROVED"
-                        ? "bg-emerald-500/20 text-emerald-400"
+                        ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
                         : report.status === "COMPLETED"
-                          ? "bg-blue-500/20 text-blue-400"
-                          : "bg-blue-500/20 text-blue-400"
+                          ? "bg-blue-500/20 text-blue-700 dark:text-blue-400"
+                          : "bg-blue-500/20 text-blue-700 dark:text-blue-400"
                 }`}
               >
                 {report.status}
@@ -310,38 +312,38 @@ export default function EditReportPage({
           <div className="flex items-center justify-center space-x-4 mb-6">
             <div className="flex items-center space-x-2">
               <div
-                className={`flex items-center justify-center w-10 h-10 rounded-full ${stage === "inspection" ? "bg-cyan-600 text-white shadow-lg shadow-cyan-600/30" : scope ? "bg-green-600 text-white" : "bg-slate-700 text-slate-400"}`}
+                className={`flex items-center justify-center w-10 h-10 rounded-full ${stage === "inspection" ? "bg-brand-harbour-600 text-white shadow-lg shadow-brand-harbour-600/30" : scope ? "bg-green-600 text-white" : "bg-brand-cream dark:bg-slate-700 text-brand-slate dark:text-slate-400"}`}
               >
                 <FileText size={20} />
               </div>
               <span
-                className={`font-medium ${stage === "inspection" ? "text-white" : "text-slate-400"}`}
+                className={`font-medium ${stage === "inspection" ? "text-brand-navy dark:text-white" : "text-brand-slate dark:text-slate-400"}`}
               >
                 Inspection
               </span>
             </div>
-            <div className="w-16 h-1 bg-slate-700"></div>
+            <div className="w-16 h-1 bg-brand-cream dark:bg-slate-700"></div>
             <div className="flex items-center space-x-2">
               <div
-                className={`flex items-center justify-center w-10 h-10 rounded-full ${stage === "scoping" ? "bg-cyan-600 text-white shadow-lg shadow-cyan-600/30" : scope ? "bg-green-600 text-white" : "bg-slate-700 text-slate-400"}`}
+                className={`flex items-center justify-center w-10 h-10 rounded-full ${stage === "scoping" ? "bg-brand-harbour-600 text-white shadow-lg shadow-brand-harbour-600/30" : scope ? "bg-green-600 text-white" : "bg-brand-cream dark:bg-slate-700 text-brand-slate dark:text-slate-400"}`}
               >
                 <Calculator size={20} />
               </div>
               <span
-                className={`font-medium ${stage === "scoping" ? "text-white" : "text-slate-400"}`}
+                className={`font-medium ${stage === "scoping" ? "text-brand-navy dark:text-white" : "text-brand-slate dark:text-slate-400"}`}
               >
                 Scoping
               </span>
             </div>
-            <div className="w-16 h-1 bg-slate-700"></div>
+            <div className="w-16 h-1 bg-brand-cream dark:bg-slate-700"></div>
             <div className="flex items-center space-x-2">
               <div
-                className={`flex items-center justify-center w-10 h-10 rounded-full ${stage === "estimation" ? "bg-cyan-600 text-white shadow-lg shadow-cyan-600/30" : estimate ? "bg-green-600 text-white" : "bg-slate-700 text-slate-400"}`}
+                className={`flex items-center justify-center w-10 h-10 rounded-full ${stage === "estimation" ? "bg-brand-harbour-600 text-white shadow-lg shadow-brand-harbour-600/30" : estimate ? "bg-green-600 text-white" : "bg-brand-cream dark:bg-slate-700 text-brand-slate dark:text-slate-400"}`}
               >
                 <DollarSign size={20} />
               </div>
               <span
-                className={`font-medium ${stage === "estimation" ? "text-white" : "text-slate-400"}`}
+                className={`font-medium ${stage === "estimation" ? "text-brand-navy dark:text-white" : "text-brand-slate dark:text-slate-400"}`}
               >
                 Estimation
               </span>
@@ -356,17 +358,17 @@ export default function EditReportPage({
           onValueChange={(value) => setStage(value as EditStage)}
           className="w-full"
         >
-          <TabsList className="bg-slate-800 border border-slate-700 mb-6">
+          <TabsList className="bg-white dark:bg-slate-800 border border-brand-mist dark:border-slate-700 mb-6">
             <TabsTrigger
               value="inspection"
-              className="text-slate-300 data-[state=active]:text-black data-[state=active]:bg-white"
+              className="text-brand-slate dark:text-slate-300 data-[state=active]:text-black data-[state=active]:bg-white"
             >
               <FileText className="mr-2" size={16} />
               Inspection Report
             </TabsTrigger>
             <TabsTrigger
               value="scoping"
-              className="text-slate-300 data-[state=active]:text-black data-[state=active]:bg-white"
+              className="text-brand-slate dark:text-slate-300 data-[state=active]:text-black data-[state=active]:bg-white"
             >
               <Calculator className="mr-2" size={16} />
               Scoping{" "}
@@ -378,7 +380,7 @@ export default function EditReportPage({
             </TabsTrigger>
             <TabsTrigger
               value="estimation"
-              className="text-slate-300 data-[state=active]:text-black data-[state=active]:bg-white"
+              className="text-brand-slate dark:text-slate-300 data-[state=active]:text-black data-[state=active]:bg-white"
             >
               <DollarSign className="mr-2" size={16} />
               Estimation{" "}
@@ -391,12 +393,12 @@ export default function EditReportPage({
           </TabsList>
 
           <TabsContent value="inspection">
-            <Card className="bg-slate-900/50 border-slate-800 shadow-2xl backdrop-blur-sm">
-              <CardHeader className="pb-6 border-b border-slate-800">
-                <CardTitle className="text-2xl font-bold text-white">
+            <Card className="bg-white dark:bg-slate-900/50 border-brand-mist dark:border-slate-800 shadow-2xl backdrop-blur-sm">
+              <CardHeader className="pb-6 border-b border-brand-mist dark:border-slate-800">
+                <CardTitle className="text-2xl font-bold text-brand-navy dark:text-white">
                   Edit Inspection Information
                 </CardTitle>
-                <CardDescription className="text-slate-400 mt-2">
+                <CardDescription className="text-brand-slate dark:text-slate-400 mt-2">
                   Update the initial inspection details for this report
                 </CardDescription>
               </CardHeader>
@@ -404,7 +406,7 @@ export default function EditReportPage({
                 <div className="space-y-3">
                   <Label
                     htmlFor="title"
-                    className="text-white font-semibold text-sm"
+                    className="text-brand-navy dark:text-white font-semibold text-sm"
                   >
                     Report Number *
                   </Label>
@@ -417,7 +419,7 @@ export default function EditReportPage({
                         title: e.target.value,
                       }))
                     }
-                    className="bg-slate-800/50 border-slate-700 text-white h-11 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                    className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700 text-brand-navy dark:text-white h-11 focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500 transition-all"
                     placeholder="Auto-generated"
                   />
                 </div>
@@ -425,7 +427,7 @@ export default function EditReportPage({
                 <div className="space-y-3">
                   <Label
                     htmlFor="clientName"
-                    className="text-white font-semibold text-sm"
+                    className="text-brand-navy dark:text-white font-semibold text-sm"
                   >
                     Client Name *
                   </Label>
@@ -438,15 +440,15 @@ export default function EditReportPage({
                       }))
                     }
                   >
-                    <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white h-11 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
+                    <SelectTrigger className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700 text-brand-navy dark:text-white h-11 focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500">
                       <SelectValue placeholder="Select a client from your list" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700">
+                    <SelectContent className="bg-white dark:bg-slate-800 border-brand-mist dark:border-slate-700">
                       {clients.map((client) => (
                         <SelectItem
                           key={client.id}
                           value={client.name}
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           {client.name}
                         </SelectItem>
@@ -458,7 +460,7 @@ export default function EditReportPage({
                 <div className="space-y-3">
                   <Label
                     htmlFor="propertyAddress"
-                    className="text-white font-semibold text-sm"
+                    className="text-brand-navy dark:text-white font-semibold text-sm"
                   >
                     Property Address *
                   </Label>
@@ -471,7 +473,7 @@ export default function EditReportPage({
                         propertyAddress: e.target.value,
                       }))
                     }
-                    className="bg-slate-800/50 border-slate-700 text-white h-11 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                    className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700 text-brand-navy dark:text-white h-11 focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500 transition-all"
                     placeholder="Enter full property address"
                   />
                 </div>
@@ -480,7 +482,7 @@ export default function EditReportPage({
                   <div className="space-y-3">
                     <Label
                       htmlFor="hazardType"
-                      className="text-white font-semibold text-sm"
+                      className="text-brand-navy dark:text-white font-semibold text-sm"
                     >
                       Hazard Type
                     </Label>
@@ -493,31 +495,31 @@ export default function EditReportPage({
                         }))
                       }
                     >
-                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white h-11 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
+                      <SelectTrigger className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700 text-brand-navy dark:text-white h-11 focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700">
+                      <SelectContent className="bg-white dark:bg-slate-800 border-brand-mist dark:border-slate-700">
                         <SelectItem
                           value="Water"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Water
                         </SelectItem>
                         <SelectItem
                           value="Fire"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Fire
                         </SelectItem>
                         <SelectItem
                           value="Mould"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Mould
                         </SelectItem>
                         <SelectItem
                           value="Biohazard"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Biohazard
                         </SelectItem>
@@ -528,7 +530,7 @@ export default function EditReportPage({
                   <div className="space-y-3">
                     <Label
                       htmlFor="insuranceType"
-                      className="text-white font-semibold text-sm"
+                      className="text-brand-navy dark:text-white font-semibold text-sm"
                     >
                       Insurance Type
                     </Label>
@@ -541,37 +543,37 @@ export default function EditReportPage({
                         }))
                       }
                     >
-                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white h-11 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
+                      <SelectTrigger className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700 text-brand-navy dark:text-white h-11 focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500">
                         <SelectValue placeholder="Select insurance type" />
                       </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700">
+                      <SelectContent className="bg-white dark:bg-slate-800 border-brand-mist dark:border-slate-700">
                         <SelectItem
                           value="Building and Contents Insurance"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Building and Contents Insurance
                         </SelectItem>
                         <SelectItem
                           value="Standalone Building Insurance"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Standalone Building Insurance
                         </SelectItem>
                         <SelectItem
                           value="Standalone Contents Insurance"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Standalone Contents Insurance
                         </SelectItem>
                         <SelectItem
                           value="Landlord Insurance"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Landlord Insurance
                         </SelectItem>
                         <SelectItem
                           value="Portable Valuables Insurance"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Portable Valuables Insurance
                         </SelectItem>
@@ -584,7 +586,7 @@ export default function EditReportPage({
                   <div className="space-y-3">
                     <Label
                       htmlFor="waterCategory"
-                      className="text-white font-semibold text-sm"
+                      className="text-brand-navy dark:text-white font-semibold text-sm"
                     >
                       Water Category *
                     </Label>
@@ -597,25 +599,25 @@ export default function EditReportPage({
                         }))
                       }
                     >
-                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white h-11 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
+                      <SelectTrigger className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700 text-brand-navy dark:text-white h-11 focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500">
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700">
+                      <SelectContent className="bg-white dark:bg-slate-800 border-brand-mist dark:border-slate-700">
                         <SelectItem
                           value="Category 1"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Category 1 (Clean Water)
                         </SelectItem>
                         <SelectItem
                           value="Category 2"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Category 2 (Grey Water)
                         </SelectItem>
                         <SelectItem
                           value="Category 3"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Category 3 (Black Water)
                         </SelectItem>
@@ -626,7 +628,7 @@ export default function EditReportPage({
                   <div className="space-y-3">
                     <Label
                       htmlFor="waterClass"
-                      className="text-white font-semibold text-sm"
+                      className="text-brand-navy dark:text-white font-semibold text-sm"
                     >
                       Water Class *
                     </Label>
@@ -639,31 +641,31 @@ export default function EditReportPage({
                         }))
                       }
                     >
-                      <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white h-11 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
+                      <SelectTrigger className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700 text-brand-navy dark:text-white h-11 focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500">
                         <SelectValue placeholder="Select class" />
                       </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700">
+                      <SelectContent className="bg-white dark:bg-slate-800 border-brand-mist dark:border-slate-700">
                         <SelectItem
                           value="Class 1"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Class 1
                         </SelectItem>
                         <SelectItem
                           value="Class 2"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Class 2
                         </SelectItem>
                         <SelectItem
                           value="Class 3"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Class 3
                         </SelectItem>
                         <SelectItem
                           value="Class 4"
-                          className="text-white hover:bg-slate-700"
+                          className="text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700"
                         >
                           Class 4
                         </SelectItem>
@@ -676,7 +678,7 @@ export default function EditReportPage({
                   <div className="space-y-3">
                     <Label
                       htmlFor="sourceOfWater"
-                      className="text-white font-semibold text-sm"
+                      className="text-brand-navy dark:text-white font-semibold text-sm"
                     >
                       Source of Water
                     </Label>
@@ -689,7 +691,7 @@ export default function EditReportPage({
                           sourceOfWater: e.target.value,
                         }))
                       }
-                      className="bg-slate-800/50 border-slate-700 text-white h-11 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                      className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700 text-brand-navy dark:text-white h-11 focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500 transition-all"
                       placeholder="e.g., Burst pipe, Roof leak"
                     />
                   </div>
@@ -697,7 +699,7 @@ export default function EditReportPage({
                   <div className="space-y-3">
                     <Label
                       htmlFor="affectedArea"
-                      className="text-white font-semibold text-sm"
+                      className="text-brand-navy dark:text-white font-semibold text-sm"
                     >
                       Affected Area (sqm) *
                     </Label>
@@ -711,7 +713,7 @@ export default function EditReportPage({
                           affectedArea: parseFloat(e.target.value) || 0,
                         }))
                       }
-                      className="bg-slate-800/50 border-slate-700 text-white h-11 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                      className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700 text-brand-navy dark:text-white h-11 focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500 transition-all"
                       placeholder="0"
                       min="0"
                       step="0.01"
@@ -722,7 +724,7 @@ export default function EditReportPage({
                 <div className="space-y-3">
                   <Label
                     htmlFor="inspectionDate"
-                    className="text-white font-semibold text-sm"
+                    className="text-brand-navy dark:text-white font-semibold text-sm"
                   >
                     Inspection Date & Time
                   </Label>
@@ -736,17 +738,17 @@ export default function EditReportPage({
                         inspectionDate: e.target.value,
                       }))
                     }
-                    className="bg-slate-800/50 border-slate-700 text-white h-11 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                    className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700 text-brand-navy dark:text-white h-11 focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500 transition-all"
                   />
                 </div>
 
-                <div className="sticky bottom-0 z-10 bg-slate-900 border-t border-slate-800 pt-4 pb-4 flex flex-col sm:flex-row justify-end gap-4">
+                <div className="sticky bottom-0 z-10 bg-white dark:bg-slate-900 border-t border-brand-mist dark:border-slate-800 pt-4 pb-4 flex flex-col sm:flex-row justify-end gap-4">
                   <Button
                     onClick={() =>
                       router.push(`/dashboard/reports/${reportId}`)
                     }
                     variant="outline"
-                    className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white h-11 px-6 font-medium"
+                    className="border-brand-mist dark:border-slate-700 text-brand-slate dark:text-slate-300 hover:bg-brand-cream dark:hover:bg-slate-800 hover:text-brand-navy dark:hover:text-white h-11 px-6 font-medium"
                   >
                     Cancel
                   </Button>
@@ -759,7 +761,7 @@ export default function EditReportPage({
                       !inspectionData.waterCategory ||
                       !inspectionData.waterClass
                     }
-                    className="bg-cyan-600 hover:bg-cyan-700 text-white h-11 px-8 font-semibold shadow-lg shadow-cyan-600/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                    className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white h-11 px-8 font-semibold shadow-lg shadow-brand-harbour-600/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                   >
                     {saving ? "Saving..." : "Save Inspection"}
                   </Button>
@@ -777,19 +779,19 @@ export default function EditReportPage({
           </TabsContent>
 
           <TabsContent value="scoping">
-            <div className="text-center py-12 bg-slate-900/50 border border-slate-800 rounded-lg">
-              <Calculator className="mx-auto h-12 w-12 text-cyan-400 mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
+            <div className="text-center py-12 bg-white dark:bg-slate-900/50 border border-brand-mist dark:border-slate-800 rounded-lg">
+              <Calculator className="mx-auto h-12 w-12 text-brand-harbour-700 dark:text-brand-harbour-400 mb-4" />
+              <h3 className="text-xl font-semibold text-brand-navy dark:text-white mb-2">
                 {scope ? "Edit Scope of Work" : "Create Scope of Work"}
               </h3>
-              <p className="text-slate-400 mb-6">
+              <p className="text-brand-slate dark:text-slate-400 mb-6">
                 {scope
                   ? "Click below to edit the existing scope"
                   : "Create a scope based on the inspection report"}
               </p>
               <Button
                 onClick={() => setStage("scoping")}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white px-8 py-6 text-base font-semibold"
+                className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white px-8 py-6 text-base font-semibold"
               >
                 {scope ? "Edit Scope" : "Create Scope"}
               </Button>
@@ -797,12 +799,12 @@ export default function EditReportPage({
           </TabsContent>
 
           <TabsContent value="estimation">
-            <div className="text-center py-12 bg-slate-900/50 border border-slate-800 rounded-lg">
-              <DollarSign className="mx-auto h-12 w-12 text-cyan-400 mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
+            <div className="text-center py-12 bg-white dark:bg-slate-900/50 border border-brand-mist dark:border-slate-800 rounded-lg">
+              <DollarSign className="mx-auto h-12 w-12 text-brand-harbour-700 dark:text-brand-harbour-400 mb-4" />
+              <h3 className="text-xl font-semibold text-brand-navy dark:text-white mb-2">
                 {estimate ? "Edit Estimate" : "Create Estimate"}
               </h3>
-              <p className="text-slate-400 mb-6">
+              <p className="text-brand-slate dark:text-slate-400 mb-6">
                 {estimate
                   ? "Click below to edit the existing estimate"
                   : scope
@@ -819,7 +821,7 @@ export default function EditReportPage({
                   }
                 }}
                 disabled={!scope}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white px-8 py-6 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white px-8 py-6 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {estimate ? "Edit Estimate" : "Create Estimate"}
               </Button>

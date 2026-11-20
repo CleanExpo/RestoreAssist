@@ -40,6 +40,7 @@ import { Button } from "@/components/ui/button";
 import { PilotReadinessCommandCentre } from "@/components/admin/PilotReadinessCommandCentre";
 import { cn } from "@/lib/utils";
 import type { PilotCommandCentreSnapshot } from "@/lib/pilot-readiness-command-centre";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ── Types (mirrors nir-pilot-measurement.ts + readiness API response) ──────────
 
@@ -176,7 +177,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
                 "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
                 ready
                   ? "bg-success-subtle text-success-subtle-foreground"
-                  : "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-600 dark:text-cyan-400",
+                  : "bg-brand-harbour-50 dark:bg-brand-harbour-950/30 text-brand-harbour-600 dark:text-brand-harbour-400",
               )}
             >
               {CLAIM_ICONS[claim.id] ?? <BarChart2 size={16} />}
@@ -252,7 +253,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
               colour={
                 nirObservationCount >= criteria.minNirSampleSize
                   ? "bg-emerald-400"
-                  : "bg-cyan-400"
+                  : "bg-brand-harbour-400"
               }
             />
           </div>
@@ -340,7 +341,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
         {claim.id === "CLAIM-002" && (
           <a
             href="/dashboard/admin/pilot/claim-002"
-            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs text-brand-harbour-600 dark:text-brand-harbour-400 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-300 font-medium transition-colors"
           >
             Record cost observation <ArrowRight size={12} />
           </a>
@@ -348,7 +349,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
         {claim.id === "CLAIM-003" && (
           <a
             href="/dashboard/admin/pilot/claim-003"
-            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs text-brand-harbour-600 dark:text-brand-harbour-400 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-300 font-medium transition-colors"
           >
             Enter control group data <ArrowRight size={12} />
           </a>
@@ -356,7 +357,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
         {claim.id === "CLAIM-004" && (
           <a
             href="/dashboard/admin/pilot/claim-004"
-            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs text-brand-harbour-600 dark:text-brand-harbour-400 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-300 font-medium transition-colors"
           >
             Record adjuster sessions <ArrowRight size={12} />
           </a>
@@ -397,7 +398,7 @@ export default function PilotReadinessDashboard() {
       const res = await fetch("/api/pilot/readiness");
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body.error ?? `HTTP ${res.status}`);
+        setError(apiErrorMessage(body) ?? `HTTP ${res.status}`);
         return;
       }
       const json = (await res.json()) as ReadinessResponse;
@@ -431,7 +432,7 @@ export default function PilotReadinessDashboard() {
 
   if (error) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-12 text-center space-y-3">
+      <div className="max-w-9xl mx-auto px-4 py-12 text-center space-y-3">
         <AlertTriangle className="mx-auto text-amber-500" size={36} />
         <p className="text-sm font-medium text-neutral-800 dark:text-slate-200">
           Could not load readiness data
@@ -450,7 +451,7 @@ export default function PilotReadinessDashboard() {
   const allClaims = [...report.readyToPromote, ...report.inProgress];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <div className="max-w-9xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       <PilotReadinessCommandCentre
         snapshot={commandCentre}
         refreshing={refreshing}
@@ -462,7 +463,7 @@ export default function PilotReadinessDashboard() {
       <div className="border-t border-neutral-200 pt-8 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full bg-cyan-400" />
+            <div className="w-2 h-2 rounded-full bg-brand-harbour-400" />
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400">
               NIR Phase 2 Pilot
             </span>
@@ -504,7 +505,7 @@ export default function PilotReadinessDashboard() {
         </div>
       ) : (
         <div className="rounded-xl border border-neutral-200 dark:border-slate-800 bg-neutral-50 dark:bg-slate-900/50 px-5 py-4 flex items-center gap-3">
-          <TrendingUp className="text-cyan-500 flex-shrink-0" size={24} />
+          <TrendingUp className="text-brand-harbour-500 flex-shrink-0" size={24} />
           <div>
             <p className="text-sm font-semibold text-neutral-800 dark:text-slate-200">
               Pilot in progress —{" "}
@@ -577,7 +578,7 @@ export default function PilotReadinessDashboard() {
               >
                 <ChevronRight
                   size={14}
-                  className="flex-shrink-0 mt-0.5 text-cyan-500"
+                  className="flex-shrink-0 mt-0.5 text-brand-harbour-500"
                 />
                 <p className="text-xs text-neutral-600 dark:text-slate-400 leading-relaxed">
                   {item}
@@ -590,11 +591,11 @@ export default function PilotReadinessDashboard() {
 
       {/* ── Ready to promote callout ──────────────────────────────────────────── */}
       {report.readyToPromote.length > 0 && (
-        <div className="rounded-xl border border-cyan-200/60 dark:border-cyan-800/40 bg-cyan-50/40 dark:bg-cyan-950/20 px-5 py-4 space-y-3">
+        <div className="rounded-xl border border-brand-harbour-200/60 dark:border-brand-harbour-800/40 bg-brand-harbour-50/40 dark:bg-brand-harbour-950/20 px-5 py-4 space-y-3">
           <div className="flex items-center gap-2">
             <CheckCircle2
               size={16}
-              className="text-cyan-600 dark:text-cyan-400"
+              className="text-brand-harbour-600 dark:text-brand-harbour-400"
             />
             <p className="text-sm font-semibold text-neutral-800 dark:text-slate-200">
               Promotion checklist

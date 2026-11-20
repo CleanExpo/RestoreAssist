@@ -30,34 +30,28 @@
 
 import { prisma } from "@/lib/prisma";
 import { gstForInspection } from "@/lib/assessments/gst";
-import type { GstTreatment } from "@/lib/gst-rules";
+import { resolveInspectionPriceList } from "@/lib/assessments/inspection-price-list";
+import { estimateFromPriceList } from "../price-list-estimate";
 import { detectStateFromPostcode } from "@/lib/state-detection";
 import type {
-  AssessmentEstimate,
   AssessmentReport,
   DomainGenerateInput,
   DomainGenerateResult,
   DomainPlugin,
-  EstimateLine,
   ReportSection,
-  ScopeItem,
+  QuantifiedScopeItem,
   StandardCitation,
 } from "../types";
 
-// ─── Pricing ─────────────────────────────────────────────────────────────────
+// ─── Pricing (RA-8281) ───────────────────────────────────────────────────────
+// No hard-coded rates. None of these lines has a field in the contractor's
+// price list yet, so each reads "needs a price-list field" and the total is
+// blocked until that field exists. Adding fields is a founder decision.
 
-const ADMIN_HOUR_AUD = 95;
 // ─── Options narrowing ──────────────────────────────────────────────────────
 
 type AustralianState =
-  | "NSW"
-  | "VIC"
-  | "QLD"
-  | "WA"
-  | "SA"
-  | "TAS"
-  | "ACT"
-  | "NT";
+  "NSW" | "VIC" | "QLD" | "WA" | "SA" | "TAS" | "ACT" | "NT";
 
 const VALID_STATES: readonly AustralianState[] = [
   "NSW",
@@ -134,12 +128,8 @@ function resolveState(
 function buildScope(
   opts: ComplianceOptions,
   state: AustralianState,
-): {
-  items: ScopeItem[];
-  rateByDescription: Map<string, number>;
-} {
-  const items: ScopeItem[] = [];
-  const rates = new Map<string, number>();
+): QuantifiedScopeItem[] {
+  const items: QuantifiedScopeItem[] = [];
 
   function add(
     description: string,
@@ -155,7 +145,6 @@ function buildScope(
       iicrcRef,
       notes,
     });
-    rates.set(description, ADMIN_HOUR_AUD);
   }
 
   // Always: WHS, GICOP, Privacy, IICRC, AU Consumer Law
@@ -216,45 +205,7 @@ function buildScope(
     );
   }
 
-  return { items, rateByDescription: rates };
-}
-
-function buildEstimate(
-  scope: ScopeItem[],
-  rateByDescription: Map<string, number>,
-  gst: GstTreatment,
-): AssessmentEstimate {
-  const lines: EstimateLine[] = scope.map((item) => {
-    const rate = rateByDescription.get(item.description) ?? 0;
-    const lineTotalExGst = +(item.quantity * rate).toFixed(2);
-    const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
-    const lineTotalIncGst = +(lineTotalExGst + gstAmount).toFixed(2);
-    return {
-      description: item.description,
-      category: item.category,
-      quantity: item.quantity,
-      unit: item.unit,
-      rate,
-      lineTotalExGst,
-      gstAmount,
-      lineTotalIncGst,
-    };
-  });
-  const subtotalExGst = +lines
-    .reduce((s, l) => s + l.lineTotalExGst, 0)
-    .toFixed(2);
-  const gstTotal = +lines.reduce((s, l) => s + l.gstAmount, 0).toFixed(2);
-  const totalIncGst = +(subtotalExGst + gstTotal).toFixed(2);
-  return {
-    lines,
-    totals: {
-      subtotalExGst,
-      gstTotal,
-      totalIncGst,
-      gstRate: gst.rate,
-      currency: gst.currency,
-    },
-  };
+  return items;
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────
@@ -412,6 +363,8 @@ export const australianComplianceDomain: DomainPlugin = {
         where: { id: input.inspectionId },
         select: {
           id: true,
+          userId: true,
+          createdAt: true,
           propertyAddress: true,
           propertyPostcode: true,
         },
@@ -429,12 +382,13 @@ export const australianComplianceDomain: DomainPlugin = {
       const hasBiohazard = opts.hasBiohazard ?? false;
       const iicrcCertifications = opts.iicrcCertifications ?? [];
 
-      const { items: scope, rateByDescription } = buildScope(
+      const scope = buildScope(
         { hasLabourHire, hasBiohazard, iicrcCertifications, state },
         state,
       );
       const gst = await gstForInspection(input.inspectionId);
-      const estimate = buildEstimate(scope, rateByDescription, gst);
+      const priceList = await resolveInspectionPriceList(inspection);
+      const estimate = estimateFromPriceList(scope, priceList, gst);
       const { report, citations } = buildReport({
         propertyAddress: inspection.propertyAddress,
         state,

@@ -10,6 +10,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
+// Fire walkthrough gate: not under test here (see lib/voice/fire-smoke/__tests__/gate.test.ts).
+vi.mock("@/lib/voice/fire-smoke/server", () => ({
+  checkFireSubmitGate: async () => ({ blocked: false }),
+  claimSubmitWithFireGate: (db: unknown, _inspection: unknown, claim: (tx: unknown) => unknown) =>
+    claim(db),
+}));
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
@@ -95,6 +101,7 @@ vi.mock("@/lib/nir-scope-determination", () => ({
 }));
 vi.mock("@/lib/nir-cost-estimation", () => ({
   estimateCosts: vi.fn().mockResolvedValue({ items: [], contingency: 0 }),
+  resolveInspectionRates: vi.fn().mockResolvedValue({ ok: true, rates: null }),
 }));
 
 const mockValidateSubmission = vi.fn();

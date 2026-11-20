@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -301,9 +302,7 @@ export default function FormSubmissionsPage() {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(
-            typeof body.error === "string"
-              ? body.error
-              : "Failed to load submissions",
+            apiErrorMessage(body) ?? "Failed to load submissions",
           );
         }
         const data = await res.json();
@@ -430,7 +429,7 @@ export default function FormSubmissionsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col gap-6 p-6 max-w-9xl mx-auto w-full">
       {/* Breadcrumb + heading */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">

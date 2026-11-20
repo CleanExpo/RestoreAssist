@@ -114,7 +114,7 @@ function SignupForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create account");
+        throw new Error(apiErrorMessage(data) || "Failed to create account");
       }
 
       toast.success("Account created successfully!");
@@ -188,7 +188,7 @@ function SignupForm() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form method="post" onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="portal-signup-email" className="block text-sm font-medium text-brand-navy mb-1">
               Email

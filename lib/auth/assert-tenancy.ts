@@ -22,6 +22,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { getMembershipStart } from "@/lib/organization-credits";
 import type { Prisma } from "@prisma/client";
 
 export type TenancyResult<T> =
@@ -44,9 +45,32 @@ export interface SessionLike {
  *   platform  every tenant — RestoreAssist support only
  */
 export type TenantScope =
-  | { kind: "self" }
-  | { kind: "org"; organizationId: string }
+  | { kind: "self"; leftWindow?: MembershipWindow }
+  | {
+      kind: "org";
+      organizationId: string;
+      leftWindow?: MembershipWindow;
+      removedMembers: RemovedMember[];
+    }
   | { kind: "platform" };
+
+/**
+ * The interval a person belonged to an organisation: from the invite they
+ * accepted to the day they were removed. A record created inside it belongs to
+ * the business; one created before joining or after leaving belongs to the
+ * person. Same rule as `getResourceTenant` (lib/organization-credits).
+ */
+export interface MembershipWindow {
+  from: Date;
+  until: Date;
+}
+
+export interface RemovedMember extends MembershipWindow {
+  userId: string;
+}
+
+/** Bounds the removed-member clauses a single filter can carry. */
+const MAX_REMOVED_MEMBERS = 50;
 
 /**
  * Cross-tenant support access, allowlisted by stable `User.id` in server
@@ -64,11 +88,39 @@ export type TenantScope =
  * fails closed."
  */
 export function isPlatformSupportOperator(userId: string): boolean {
-  const allowlist = (process.env.PLATFORM_SUPPORT_USER_IDS ?? "")
+  const allowlist = platformSupportAllowlist();
+  if (allowlist.includes(userId)) return true;
+  // Local dev only: empty allowlist + explicit opt-in lets Margot/Mission Control
+  // work for DB-verified ADMIN without hand-editing ids on every machine.
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.PLATFORM_SUPPORT_DEV_OPEN === "true" &&
+    allowlist.length === 0
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function platformSupportAllowlist(): string[] {
+  return (process.env.PLATFORM_SUPPORT_USER_IDS ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  return allowlist.includes(userId);
+}
+
+/**
+ * Strict form of `isPlatformSupportOperator`: membership of
+ * PLATFORM_SUPPORT_USER_IDS only, with NO development fallback. An unset or
+ * empty allowlist refuses everyone in every environment, including
+ * NODE_ENV=development with PLATFORM_SUPPORT_DEV_OPEN=true.
+ *
+ * Used where the dev fallback would otherwise show staff pages and nav to any
+ * business owner on a reachable development deployment: the staff page gate
+ * (`requirePlatformSupportPage`) and the dashboard nav flag.
+ */
+export function isAllowlistedPlatformSupportOperator(userId: string): boolean {
+  return platformSupportAllowlist().includes(userId);
 }
 
 /**
@@ -97,26 +149,47 @@ export type ScopeIntent = "read" | "read-financial" | "write";
 async function resolveTenantScope(
   session: SessionLike | null | undefined,
   intent: ScopeIntent = "write",
+  { singleTenant = false }: { singleTenant?: boolean } = {},
 ): Promise<TenantScope> {
   const sessionUserId = session?.user?.id;
   if (!sessionUserId) return { kind: "self" };
 
   const user = await prisma.user.findUnique({
     where: { id: sessionUserId },
-    select: { role: true, organizationId: true },
+    select: {
+      role: true,
+      organizationId: true,
+      email: true,
+      organizationLeftAt: true,
+      organizationLeftId: true,
+    },
   });
   if (!user) return { kind: "self" };
+
+  // WP-04. A removed member keeps `{ userId }` reach over everything they
+  // made, which includes the business's work. Take back what was made while
+  // they belonged. An unproven window (no surviving invite) fails closed on
+  // both sides: the ex-employee loses everything made before they left, and
+  // the owner's side drops the same records, so nobody reaches them by guess.
+  const leftWindow = await ownLeftWindow(sessionUserId, user);
 
   // Cross-tenant support is an ADMIN-only allowlist, for reads and writes
   // alike. The allowlist widens an admin's scope; it is not a role of its own.
   if (user.role === "ADMIN" && isPlatformSupportOperator(sessionUserId)) {
-    return { kind: "platform" };
+    if (!singleTenant) return { kind: "platform" };
+    // Falls through as the ADMIN of their own organisation. With none, the
+    // check below leaves them `self`, never every tenant.
+    console.warn("[tenancy.totals_operator_own_tenant]", {
+      userId: sessionUserId,
+    });
   }
 
   // Writing beyond your own records remains an ADMIN privilege. Reading a JOB
   // does not: a MANAGER or USER is a colleague, and the invite flow never
   // assigns ADMIN (app/api/invites/[token]/route.ts:43).
-  if (intent === "write" && user.role !== "ADMIN") return { kind: "self" };
+  if (intent === "write" && user.role !== "ADMIN") {
+    return { kind: "self", leftWindow };
+  }
 
   // Money is not a job. `/api/invoices` returns the firm's whole receivables
   // ledger — line-item pricing, `xeroAccountCode`, and Stripe payment-intent
@@ -132,7 +205,7 @@ async function resolveTenantScope(
     user.role !== "MANAGER" &&
     user.role !== "ADMIN"
   ) {
-    return { kind: "self" };
+    return { kind: "self", leftWindow };
   }
 
   // A null organisation must never match another null organisation, or every
@@ -142,9 +215,78 @@ async function resolveTenantScope(
   // `{ user: {} }`, which matches every row on the platform.
   const organizationId = user.organizationId;
   if (typeof organizationId !== "string" || organizationId.length === 0) {
-    return { kind: "self" };
+    return { kind: "self", leftWindow };
   }
-  return { kind: "org", organizationId };
+  return {
+    kind: "org",
+    organizationId,
+    leftWindow,
+    removedMembers: await removedMembersOf(organizationId),
+  };
+}
+
+async function ownLeftWindow(
+  userId: string,
+  user: {
+    email: string;
+    organizationLeftAt: Date | null;
+    organizationLeftId: string | null;
+  },
+): Promise<MembershipWindow | undefined> {
+  if (!user.organizationLeftAt || !user.organizationLeftId) return undefined;
+  const from = await getMembershipStart(
+    userId,
+    user.email,
+    user.organizationLeftId,
+  );
+  // No provable start: treat the whole history before the leave as the
+  // organisation's, never as theirs (same stance as getResourceTenant).
+  return { from: from ?? new Date(0), until: user.organizationLeftAt };
+}
+
+const REMOVED_MEMBERS_TTL_MS = 30_000;
+const removedMembersCache = new Map<
+  string,
+  { at: number; value: Promise<RemovedMember[]> }
+>();
+
+/**
+ * People removed from the organisation, with the window their work belongs to
+ * it. Cached for a few seconds per organisation: every tenancy check resolves
+ * this, and each member costs invite lookups. A removal reaches the owner's
+ * view within the TTL; the removed member's own loss of access is not cached.
+ */
+function removedMembersOf(organizationId: string): Promise<RemovedMember[]> {
+  const hit = removedMembersCache.get(organizationId);
+  if (hit && Date.now() - hit.at < REMOVED_MEMBERS_TTL_MS) return hit.value;
+  const value = loadRemovedMembers(organizationId).catch((err) => {
+    removedMembersCache.delete(organizationId);
+    throw err;
+  });
+  removedMembersCache.set(organizationId, { at: Date.now(), value });
+  return value;
+}
+
+async function loadRemovedMembers(organizationId: string): Promise<RemovedMember[]> {
+  const left = await prisma.user.findMany({
+    where: { organizationLeftId: organizationId, organizationLeftAt: { not: null } },
+    select: { id: true, email: true, organizationLeftAt: true },
+    orderBy: { organizationLeftAt: "desc" },
+    take: MAX_REMOVED_MEMBERS,
+  });
+  if (left.length === MAX_REMOVED_MEMBERS) {
+    console.warn("[tenancy.removed_members_truncated]", { organizationId });
+  }
+  const windows = await Promise.all(
+    left.map(async (u) => {
+      const from = await getMembershipStart(u.id, u.email, organizationId);
+      // Unproven start: leave the work unreachable by the organisation too.
+      return from && u.organizationLeftAt && from < u.organizationLeftAt
+        ? { userId: u.id, from, until: u.organizationLeftAt }
+        : null;
+    }),
+  );
+  return windows.filter((w): w is RemovedMember => w !== null);
 }
 
 /**
@@ -156,7 +298,14 @@ function ownershipClauses(
   scope: TenantScope,
 ): NonNullable<Prisma.InspectionWhereInput["OR"]> {
   const clauses: NonNullable<Prisma.InspectionWhereInput["OR"]> = [
-    { userId },
+    scope.kind !== "platform" && scope.leftWindow
+      ? {
+          userId,
+          NOT: {
+            createdAt: { gte: scope.leftWindow.from, lt: scope.leftWindow.until },
+          },
+        }
+      : { userId },
     { workspace: { members: { some: { userId, status: "ACTIVE" } } } },
   ];
   if (scope.kind === "org") {
@@ -173,6 +322,14 @@ function ownershipClauses(
       );
     }
     clauses.push({ user: { organizationId: scope.organizationId } });
+    // WP-04: work a removed member made while they belonged stays with the
+    // organisation, even though their own organisationId is now null.
+    for (const m of scope.removedMembers) {
+      clauses.push({
+        userId: m.userId,
+        createdAt: { gte: m.from, lt: m.until },
+      });
+    }
   }
   return clauses;
 }
@@ -453,11 +610,12 @@ export async function resolveInspectionReach(
 async function resolveReach(
   session: SessionLike | null,
   intent: ScopeIntent,
+  options?: { singleTenant?: boolean },
 ): Promise<TenancyResult<object>> {
   if (!session?.user?.id) {
     return { ok: false, status: 401, reason: "Unauthorized" };
   }
-  const scope = await resolveTenantScope(session, intent);
+  const scope = await resolveTenantScope(session, intent, options);
   if (scope.kind === "platform") return { ok: true, data: {} };
   // Returned pre-wrapped in `AND`. A caller who later writes
   // `where.OR = [...]` for a search box then cannot erase the tenancy filter,
@@ -467,6 +625,21 @@ async function resolveReach(
     ok: true,
     data: { AND: [{ OR: ownershipClauses(session.user.id, scope) }] },
   };
+}
+
+/**
+ * Reach for a total on a dashboard: the same rules as `resolveReach`, except
+ * that a total never spans tenants. A platform operator is the ADMIN of their
+ * own organisation here, and `self` without one, so the unbounded `{}` cannot
+ * reach a figure. Pass `read` for jobs and reports, `read-financial` for money.
+ */
+export async function resolveTotalsReach<T extends object>(
+  session: SessionLike | null,
+  intent: "read" | "read-financial",
+): Promise<TenancyResult<T>> {
+  return resolveReach(session, intent, { singleTenant: true }) as Promise<
+    TenancyResult<T>
+  >;
 }
 
 /**
@@ -521,16 +694,65 @@ export async function resolveReportFinancialReach(
 }
 
 /**
+ * An inspection's money (cost estimates and their rates): the organisation
+ * widening stops at MANAGER, as for invoices. The job's owner always keeps it
+ * through the `{ userId }` clause.
+ */
+export async function resolveInspectionFinancialReach(
+  session: SessionLike | null,
+): Promise<TenancyResult<Prisma.InspectionWhereInput>> {
+  return resolveReach(session, "read-financial") as Promise<
+    TenancyResult<Prisma.InspectionWhereInput>
+  >;
+}
+
+/**
+ * Roles that may create money records (invoices, credit notes, recurring
+ * templates, variation invoices) and spend the business's credits.
+ *
+ * Tested as a capability the role HAS, never as `role !== "USER"`: the
+ * negative form silently hands money to whatever role is added next.
+ */
+const FINANCIAL_WRITER_ROLES: readonly string[] = ["ADMIN", "MANAGER"];
+
+/**
+ * Gate for a handler that creates money records or spends credits. The role is
+ * re-read from the DATABASE, never taken from the session claim: the JWT
+ * carries a role for up to 90 days and a demotion does not rewrite it.
+ * 401 without a session, 403 for any other role or a missing user row.
+ */
+export async function assertFinancialWriter(
+  session: SessionLike | null,
+): Promise<TenancyResult<{ id: string; role: string }>> {
+  if (!session?.user?.id) {
+    return { ok: false, status: 401, reason: "Unauthorized" };
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, role: true },
+  });
+  if (!user || !FINANCIAL_WRITER_ROLES.includes(String(user.role))) {
+    return {
+      ok: false,
+      status: 403,
+      reason: "Only an owner or manager can do this",
+    };
+  }
+  return { ok: true, data: { id: user.id, role: String(user.role) } };
+}
+
+/**
  * Whether the caller may link a client, report or estimate named by id in a
  * request body.
  *
  * A body id is chosen by the caller. Storing it unchecked let one business
  * attach another business's client to its own invoice and then read that
  * client's name and email back through the invoice (prelaunch audit D-021).
- * The reach required is the one the caller would need to read the record
- * directly, so linking can never expose more than a direct read would. An
- * estimate has no workspace relation of its own; it is reached through its
- * report.
+ * A client needs the reach the caller would need to read it directly. A
+ * report or estimate needs the FINANCIAL reach: linking it to an invoice puts
+ * its money behind that invoice, so the organisation widening stops at
+ * MANAGER (D-023 / RA-7771). An estimate has no workspace relation of its
+ * own; it is reached through its report.
  */
 export async function canLinkRecord(
   session: SessionLike | null,
@@ -547,7 +769,7 @@ export async function canLinkRecord(
     });
     return row !== null;
   }
-  const reach = await resolveReportReach(session);
+  const reach = await resolveReportFinancialReach(session);
   if (!reach.ok) return false;
   if (kind === "report") {
     const row = await prisma.report.findFirst({
@@ -740,6 +962,7 @@ export async function writeWithinInspectionScope<T>(
   scopeWhere: Prisma.InspectionWhereInput,
   parentData: Prisma.InspectionUpdateManyMutationInput,
   work: (tx: Prisma.TransactionClient) => Promise<T>,
+  options?: { maxWait?: number; timeout?: number },
 ): Promise<T | null> {
   return prisma.$transaction(async (tx) => {
     const claimed = await tx.inspection.updateMany({
@@ -748,7 +971,7 @@ export async function writeWithinInspectionScope<T>(
     });
     if (claimed.count === 0) return null;
     return work(tx);
-  });
+  }, options);
 }
 
 /**

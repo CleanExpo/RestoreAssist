@@ -442,9 +442,16 @@ async function runQuote(
   country: "AU" | "NZ",
 ): Promise<QuoteJson> {
   resolvePricing.mockResolvedValueOnce(rates);
-  userFindUnique
-    .mockResolvedValueOnce({ subscriptionStatus: "ACTIVE" })
-    .mockResolvedValueOnce({ organization: { country } });
+  // RA-7893: the plan gate resolves the business owner first (more than one
+  // user read), so answer by what each read selects rather than by call order.
+  userFindUnique.mockImplementation(
+    async ({ select }: { select?: Record<string, unknown> }) =>
+      select?.subscriptionStatus
+        ? { id: "user_abcd", subscriptionStatus: "ACTIVE" }
+        : select?.businessName
+          ? { organization: { country } }
+          : {},
+  );
   const res = await calculateQuote(
     new NextRequest("http://localhost/api/calculate", {
       method: "POST",

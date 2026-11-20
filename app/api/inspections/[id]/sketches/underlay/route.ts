@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionAssignedWrite,
+  assertInspectionTenancy,
+  writeWithinInspectionScope,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { prisma } from "@/lib/prisma";
 import {
@@ -9,17 +13,57 @@ import {
   evaluateUnderlayAttestation,
   type UnderlaySource,
 } from "@/lib/sketch/underlay-attestation";
+import { formDataFromBytes, readBoundedBody } from "@/lib/media/bounded-body";
+import { validateImageUploadDecoded } from "@/lib/media/decode-check";
 import {
   prepareUnderlayBytes,
   removeStoredUnderlay,
   storeUnderlay,
 } from "@/lib/sketch/server-underlay-import";
 
+import { ALLOWED_UNDERLAY_TYPES } from "@/lib/sketch/validate-underlay-upload";
+
+const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
+
+const UPLOAD_REJECTION_MESSAGES = {
+  empty: "The floor-plan file is empty.",
+  "too-large": "Floor-plan image must not exceed 10 MB.",
+  "unsupported-type": "A PNG, JPEG or WebP floor-plan file is required.",
+  "mime-mismatch": "The file content does not match its declared type.",
+  malformed: "The floor-plan image is damaged or incomplete.",
+  undecodable: "The floor-plan image could not be decoded.",
+  "pixel-bomb": "The floor-plan image dimensions are too large.",
+} as const;
+
 function floorNumberFrom(
   value: FormDataEntryValue | string | null,
 ): number | null {
   const floor = Number(value ?? "0");
   return Number.isInteger(floor) && floor >= 0 && floor <= 50 ? floor : null;
+}
+
+/**
+ * RA-8236: what the browser says the file was before it became a raster. The
+ * server only ever sees the raster, so this is recorded as browser-declared.
+ * A PDF is recorded only as page 1: no other page is ever imported.
+ */
+function originalSourceFrom(form: FormData) {
+  const mimeType = form.get("originalMimeType");
+  if (
+    typeof mimeType !== "string" ||
+    !ALLOWED_UNDERLAY_TYPES.includes(mimeType as never)
+  ) {
+    return null;
+  }
+  const isPdf = mimeType === "application/pdf";
+  if (isPdf && form.get("originalPage") !== "1") return null;
+  const count = Number(form.get("originalPageCount"));
+  return {
+    mimeType,
+    page: isPdf ? 1 : null,
+    pageCount: isPdf && Number.isInteger(count) && count > 0 ? count : null,
+    declaredBy: "browser",
+  };
 }
 
 /**
@@ -41,7 +85,7 @@ export async function POST(
       });
     }
     const { id } = await params;
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await assertInspectionAssignedWrite(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -50,20 +94,16 @@ export async function POST(
       });
     }
 
-    const declaredRequestBytes = Number(
-      request.headers.get("content-length") ?? "0",
-    );
-    if (
-      Number.isFinite(declaredRequestBytes) &&
-      declaredRequestBytes > 12 * 1024 * 1024
-    ) {
+    // Count the bytes that really arrive; Content-Length is only a hint.
+    const body = await readBoundedBody(request, MAX_REQUEST_BYTES);
+    if (!body) {
       return apiError(request, {
         code: "PAYLOAD_TOO_LARGE",
         message: "Floor-plan upload request must not exceed 12 MB.",
         status: 413,
       });
     }
-    const form = await request.formData();
+    const form = await formDataFromBytes(request, body);
     const floorNumber = floorNumberFrom(form.get("floorNumber"));
     if (floorNumber == null) {
       return apiError(request, {
@@ -116,8 +156,28 @@ export async function POST(
           status: 413,
         });
       }
-      declaredMime = file.type;
       sourceBytes = Buffer.from(await file.arrayBuffer());
+      // Strict policy on the actual bytes: nothing invalid reaches prepare,
+      // storage or the database.
+      const check = await validateImageUploadDecoded({
+        declaredType: file.type,
+        buffer: sourceBytes,
+        allowedTypes: ["image/png", "image/jpeg", "image/webp"],
+      });
+      if (!check.ok) {
+        return check.reason === "too-large"
+          ? apiError(request, {
+              code: "PAYLOAD_TOO_LARGE",
+              message: "Floor-plan image must not exceed 10 MB.",
+              status: 413,
+            })
+          : apiError(request, {
+              code: "VALIDATION",
+              message: UPLOAD_REJECTION_MESSAGES[check.reason],
+              status: 400,
+            });
+      }
+      declaredMime = check.mediaType;
     }
 
     const prepared = await prepareUnderlayBytes(sourceBytes, declaredMime);
@@ -125,89 +185,114 @@ export async function POST(
     const record = buildUnderlayAttestationRecord(attestationInput, source);
     const now = new Date();
 
-    let saved: { sketchId: string; referenceId: string };
+    let saved: { sketchId: string; referenceId: string } | null;
     try {
-      saved = await (prisma as any).$transaction(async (tx: any) => {
-        let sketch = await tx.claimSketch.findFirst({
-          where: { inspectionId: id, floorNumber },
-          select: { id: true },
-        });
-        if (sketch) {
-          sketch = await tx.claimSketch.update({
-            where: { id: sketch.id },
-            data: {
-              backgroundImageUrl: `storage://sketch-media/${stored.storagePath}`,
-              captureAdapter: "underlay_import",
-            },
+      // D-028: the scoped parent update claims the job first, so a
+      // reassignment between the check and the write changes 0 rows.
+      saved = await writeWithinInspectionScope(
+        tenancy.data.inspectionManyWhere,
+        { updatedAt: now },
+        async (tx: any) => {
+          let sketch = await tx.claimSketch.findFirst({
+            where: { inspectionId: id, floorNumber },
             select: { id: true },
           });
-        } else {
-          sketch = await tx.claimSketch.create({
-            data: {
+          if (sketch) {
+            sketch = await tx.claimSketch.update({
+              // D-028: re-check the caller's reach inside the write itself.
+              where: {
+                id: sketch.id,
+                ...(tenancy.data.childInspectionFilter && {
+                  inspection: tenancy.data.childInspectionFilter,
+                }),
+              },
+              data: {
+                backgroundImageUrl: `storage://sketch-media/${stored.storagePath}`,
+                captureAdapter: "underlay_import",
+              },
+              select: { id: true },
+            });
+          } else {
+            sketch = await tx.claimSketch.create({
+              data: {
+                inspectionId: id,
+                floorNumber,
+                floorLabel:
+                  floorNumber === 0
+                    ? "Ground Floor"
+                    : `Floor ${floorNumber + 1}`,
+                backgroundImageUrl: `storage://sketch-media/${stored.storagePath}`,
+                captureAdapter: "underlay_import",
+              },
+              select: { id: true },
+            });
+          }
+
+          await tx.sketchUnderlayReference.updateMany({
+            where: {
               inspectionId: id,
               floorNumber,
-              floorLabel:
-                floorNumber === 0 ? "Ground Floor" : `Floor ${floorNumber + 1}`,
-              backgroundImageUrl: `storage://sketch-media/${stored.storagePath}`,
-              captureAdapter: "underlay_import",
+              replacedAt: null,
+              removedAt: null,
+            },
+            data: { replacedAt: now },
+          });
+          const reference = await tx.sketchUnderlayReference.create({
+            data: {
+              inspectionId: id,
+              sketchId: sketch.id,
+              floorNumber,
+              storagePath: stored.storagePath,
+              sourceType: source,
+              sourcePageUrl,
+              sourceImageUrl,
+              contentSha256: prepared.contentSha256,
+              mimeType: prepared.mimeType,
+              sourceSizeBytes: prepared.sourceSizeBytes,
+              storedSizeBytes: prepared.bytes.length,
+              attestationVersion: record.version,
+              attestationStatement: record.statement,
+              holdsRights: true,
+              compliesWithSourceTerms: true,
+              attestedByUserId: session.user.id,
+              attestedAt: new Date(record.attestedAt),
             },
             select: { id: true },
           });
-        }
-
-        await tx.sketchUnderlayReference.updateMany({
-          where: {
-            inspectionId: id,
-            floorNumber,
-            replacedAt: null,
-            removedAt: null,
-          },
-          data: { replacedAt: now },
-        });
-        const reference = await tx.sketchUnderlayReference.create({
-          data: {
-            inspectionId: id,
-            sketchId: sketch.id,
-            floorNumber,
-            storagePath: stored.storagePath,
-            sourceType: source,
-            sourcePageUrl,
-            sourceImageUrl,
-            contentSha256: prepared.contentSha256,
-            mimeType: prepared.mimeType,
-            sourceSizeBytes: prepared.sourceSizeBytes,
-            storedSizeBytes: prepared.bytes.length,
-            attestationVersion: record.version,
-            attestationStatement: record.statement,
-            holdsRights: true,
-            compliesWithSourceTerms: true,
-            attestedByUserId: session.user.id,
-            attestedAt: new Date(record.attestedAt),
-          },
-          select: { id: true },
-        });
-        await tx.auditLog.create({
-          data: {
-            inspectionId: id,
-            action: "Reference floor plan imported",
-            entityType: "SketchUnderlayReference",
-            entityId: reference.id,
-            userId: session.user.id,
-            changes: JSON.stringify({
-              floorNumber,
-              source,
-              contentSha256: prepared.contentSha256,
-              exportPolicy: "reference_only_never_export",
-            }),
-          },
-        });
-        return { sketchId: sketch.id, referenceId: reference.id };
-      });
+          await tx.auditLog.create({
+            data: {
+              inspectionId: id,
+              action: "Reference floor plan imported",
+              entityType: "SketchUnderlayReference",
+              entityId: reference.id,
+              userId: session.user.id,
+              changes: JSON.stringify({
+                floorNumber,
+                source,
+                contentSha256: prepared.contentSha256,
+                originalSource: originalSourceFrom(form),
+                exportPolicy: "reference_only_never_export",
+              }),
+            },
+          });
+          return { sketchId: sketch.id, referenceId: reference.id };
+        },
+      );
     } catch (error) {
       if (stored.created) {
         await removeStoredUnderlay(stored.storagePath).catch(() => undefined);
       }
       throw error;
+    }
+    if (!saved) {
+      if (stored.created) {
+        await removeStoredUnderlay(stored.storagePath).catch(() => undefined);
+      }
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json(
@@ -217,6 +302,7 @@ export async function POST(
         sketchId: saved.sketchId,
         referenceId: saved.referenceId,
         contentSha256: prepared.contentSha256,
+        floorNumber,
       },
       { status: 201 },
     );

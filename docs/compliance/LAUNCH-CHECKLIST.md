@@ -26,11 +26,20 @@ engineering work for each is either shipped or scheduled in Linear
 
 ## Configuration / environment
 
-- [ ] **Company env vars** — set `NEXT_PUBLIC_COMPANY_ABN`,
+- [ ] **Company env vars** — `NEXT_PUBLIC_COMPANY_ABN`,
       `NEXT_PUBLIC_COMPANY_ADDRESS`, `NEXT_PUBLIC_SUPPORT_EMAIL`,
-      `NEXT_PUBLIC_SECURITY_EMAIL` in Vercel project settings. Footer
-      reads them at build time (RA-1582). Without these, the footer
-      falls back to defaults.
+      `NEXT_PUBLIC_SECURITY_EMAIL`. This previously said "in Vercel project
+      settings", which does not work: Vercel serves only the sandbox, and
+      production is the DigitalOcean app in `.do/app.yaml`. Nor is setting
+      them in DigitalOcean enough — the footer reads them at **build time**
+      (RA-1582), and the image is built in GitHub Actions before DigitalOcean
+      sees it. They must travel the same three-piece path as
+      `NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID`: an `ARG`/`ENV` pair in
+      `Dockerfile`, a `--build-arg` in `build-production-image.yml`, and an
+      `envs` entry in `.do/app.yaml`. None of the four has any of the three
+      yet, so this box needs a code change before it needs a value. Without
+      them the ABN and address render as nothing; support and security email
+      fall back to defaults in `lib/brand.ts`.
 - [ ] **Pricing config review** — walk `lib/pricing.ts` with the
       business owner and confirm every plan row matches the price on
       the public pricing page. RA-1585 tracks a CI guard to prevent

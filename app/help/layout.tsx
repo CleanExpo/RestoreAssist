@@ -1,4 +1,6 @@
 import { Metadata } from "next";
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
   title: "Help & Support - RestoreAssist",
@@ -16,7 +18,7 @@ export const metadata: Metadata = {
       "FAQs, guides, and support for RestoreAssist restoration software.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/help" },
@@ -27,5 +29,5 @@ export default function HelpLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <MarketingShell>{children}</MarketingShell>;
 }

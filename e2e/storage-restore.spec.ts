@@ -46,6 +46,15 @@ import { loginAs } from "./_helpers/auth";
 
 const RESTORE_API = "/api/storage/restore?scope=org";
 
+// A dedicated account, not the shared test-user@test.local. The owner gate is
+// part of what is under test, so the session must belong to the owner of its
+// own org. The shared USER account does not stay that way: seedV1ReferenceClaim
+// (syncTestColleagues) moves it into the ADMIN's organisation, and the specs
+// that call it run earlier against the same `next dev` and database (CI step
+// "remaining 4 of 4"), after which requireOwner() answers 403 and every test
+// here fails for a reason that has nothing to do with restore.
+const OWNER_EMAIL = "storage-restore-owner@test.local";
+
 test.describe("storage restore — owner surface", () => {
   test("rejects unauthenticated callers", async ({ request }) => {
     // Deliberately on `request`, which carries no session cookie.
@@ -54,7 +63,7 @@ test.describe("storage restore — owner surface", () => {
   });
 
   test("owner sees the restore section and its jobs table", async ({ page }) => {
-    await loginAs(page, "USER");
+    await loginAs(page, "USER", { email: OWNER_EMAIL });
     await page.goto("/dashboard/settings/storage");
 
     // `/api/test/sign-in-as` creates the user's org with `ownerId: user.id`,
@@ -69,7 +78,7 @@ test.describe("storage restore — owner surface", () => {
   });
 
   test("the API answers with the documented shape", async ({ page }) => {
-    await loginAs(page, "USER");
+    await loginAs(page, "USER", { email: OWNER_EMAIL });
     const res = await page.request.get(RESTORE_API);
     expect(res.ok()).toBe(true);
 
@@ -91,7 +100,7 @@ test.describe("storage restore — owner surface", () => {
   test("preview reports a restorable count without enqueuing anything", async ({
     page,
   }) => {
-    await loginAs(page, "USER");
+    await loginAs(page, "USER", { email: OWNER_EMAIL });
     await page.goto("/dashboard/settings/storage");
 
     const before = (await (await page.request.get(RESTORE_API)).json()) as {
@@ -113,7 +122,7 @@ test.describe("storage restore — owner surface", () => {
     // FORCE overwrites files that are already present. The default must be the
     // safe one, and a default that silently flipped would be discovered by a
     // customer rather than by a test.
-    await loginAs(page, "USER");
+    await loginAs(page, "USER", { email: OWNER_EMAIL });
     await page.goto("/dashboard/settings/storage");
 
     const missing = page.getByRole("radio", { name: /missing/i });

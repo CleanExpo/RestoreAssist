@@ -2,11 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withCurrentEquipment } from "@/lib/reports/report-equipment-response";
 import { resolveStateInfo } from "@/lib/state-detection";
 import { buildScopeOfWorksData } from "@/lib/restoration/scope-of-works-builder";
+import { blockedPricingResponse } from "@/lib/pricing/blocked-line-response";
+import {
+  scopeEquipmentRows,
+  type StoredEquipmentSelections,
+} from "@/lib/reports/stored-equipment-pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { resolveReportPricing } from "@/lib/pricing/report-pricing";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -42,6 +50,7 @@ export async function POST(request: NextRequest) {
               administrationFee: true,
               afdUnitLargeDailyRate: true,
               airMoverAxialDailyRate: true,
+              airMoverCentrifugalDailyRate: true,
               antimicrobialTreatmentRate: true,
               biohazardTreatmentRate: true,
               callOutFee: true,
@@ -68,10 +77,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
-      const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-      if (
-        !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-      ) {
+      if (!(await hasActiveSubscription(userId))) {
         return NextResponse.json(
           {
             error: "Active subscription required to generate reports",
@@ -153,7 +159,21 @@ export async function POST(request: NextRequest) {
         ? JSON.parse(report.tier3Responses)
         : null;
 
-      const pricingConfig = user.pricingConfig;
+      // RA-7893: an invited member's report is priced at the pricing of the
+      // business it belongs to, never at the member's own row.
+      const reportPricing = await resolveReportPricing(
+        user.id,
+        user.pricingConfig,
+        report.createdAt,
+      );
+      if (!reportPricing.ok) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "This report's business could not be confirmed.",
+          status: 403,
+        });
+      }
+      const pricingConfig = reportPricing.pricingConfig;
 
       if (!pricingConfig) {
         return apiError(request, {
@@ -176,10 +196,11 @@ export async function POST(request: NextRequest) {
       // leak. Re-add via resolveWorkspaceAiKey if AI narrative enhancement is
       // ever introduced here.
 
-      // Parse equipment selection data (from Equipment Tools Selection step)
-      const equipmentSelection = report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection)
-        : [];
+      // Equipment selection (from Equipment Tools Selection step). RA-8281 B1
+      // round 13: passed on as stored. Only stored-equipment-pricing.ts parses
+      // it or reads inside it.
+      const equipmentSelection: StoredEquipmentSelections =
+        report.equipmentSelection;
 
       // Parse psychrometric assessment and scope areas
       const psychrometricAssessment = report.psychrometricAssessment
@@ -199,6 +220,14 @@ export async function POST(request: NextRequest) {
         psychrometricAssessment,
         scopeAreas,
       });
+
+      // RA-8281 (B2): a line whose price-list rate is not set (or an
+      // equipment line that cannot be priced) is shown as a blocked line and
+      // the total is not available. A blocked document is never written to
+      // the report, so no reader of the saved document sees a missing amount.
+      if (scopeData.blockedPricing) {
+        return blockedPricingResponse(scopeData.blockedPricing);
+      }
 
       // RA-7003 store convergence: fold the inspection's captured scope items
       // into both the data payload and the client document.
@@ -233,7 +262,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         report: {
-          ...updatedReport,
+          ...(await withCurrentEquipment(updatedReport)),
           scopeOfWorksDocument: scopeDocument,
           scopeOfWorksData: scopeData,
         },
@@ -251,23 +280,6 @@ export async function POST(request: NextRequest) {
       });
     }
   });
-}
-
-function calculateRW3Subtotal(
-  rates: any,
-  airMovers: number,
-  dehumidifiers: number,
-  afd: number,
-  days: number,
-): number {
-  const labour =
-    4 * rates.masterQualifiedNormalHours +
-    6 * rates.qualifiedTechnicianNormalHours;
-  const equipment =
-    airMovers * days * rates.airMoverAxialDailyRate +
-    dehumidifiers * days * rates.dehumidifierLGRDailyRate +
-    afd * days * rates.afdUnitLargeDailyRate;
-  return labour + equipment;
 }
 
 // Build the complete scope of works document server-side with exact values
@@ -321,39 +333,10 @@ function buildScopeOfWorksDocument(scopeData: any): string {
       // Format equipment if present
       if (item.equipment) {
         output += `- **Equipment:**\n`;
-        if (item.equipment.airMovers) {
-          const qty = Number(item.equipment.airMovers.qty) || 0;
-          const days = Number(item.equipment.airMovers.days) || 0;
-          const rate = Number(item.equipment.airMovers.rate) || 0;
-          const subtotal = qty * days * rate;
-          output += `  - Air Movers: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`;
-        }
-        if (item.equipment.dehumidifiers) {
-          const qty = Number(item.equipment.dehumidifiers.qty) || 0;
-          const days = Number(item.equipment.dehumidifiers.days) || 0;
-          const rate = Number(item.equipment.dehumidifiers.rate) || 0;
-          const subtotal = qty * days * rate;
-          output += `  - Dehumidifiers: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`;
-        }
-        if (item.equipment.afd) {
-          const qty = Number(item.equipment.afd.qty) || 0;
-          const days = Number(item.equipment.afd.days) || 0;
-          const rate = Number(item.equipment.afd.rate) || 0;
-          const subtotal = qty * days * rate;
-          output += `  - AFD: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`;
-        }
-        if (item.equipment.thermalCamera) {
-          const qty = Number(item.equipment.thermalCamera.qty) || 0;
-          const rate = Number(item.equipment.thermalCamera.rate) || 0;
-          const subtotal = qty * rate;
-          output += `  - Thermal Camera: ${qty} assessments @ $${rate.toFixed(2)}/assessment = $${subtotal.toFixed(2)}\n`;
-        }
-        if (item.equipment.injectionSystem) {
-          const qty = Number(item.equipment.injectionSystem.qty) || 0;
-          const days = Number(item.equipment.injectionSystem.days) || 0;
-          const rate = Number(item.equipment.injectionSystem.rate) || 0;
-          const subtotal = qty * days * rate;
-          output += `  - Injection Drying System: ${qty} units × ${days} days @ $${rate.toFixed(2)}/unit/day = $${subtotal.toFixed(2)}\n`;
+        // Each row carries the amount already made for it; nothing is
+        // multiplied here (scopeEquipmentRows).
+        for (const row of scopeEquipmentRows(item.equipment)) {
+          output += `${row}\n`;
         }
       }
 

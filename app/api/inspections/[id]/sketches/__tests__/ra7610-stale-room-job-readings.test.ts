@@ -8,12 +8,29 @@
  * the route's _count select.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// D-028: create/update handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) => work(scopePrisma),
+  assertInspectionAssignedWrite: vi.fn(async () => ({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "insp-1" },
+      inspectionManyWhere: { id: "insp-1" },
+      childInspectionFilter: undefined,
+      viaAssignment: false,
+    },
+  })),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -119,7 +136,22 @@ describe("RA-7610 — stale room holding job moisture readings", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           floorNumber: 0,
-          sketchData: { scaleConfig: { pxPerMetre: 100 }, objects: [] },
+          // Another room stays on the canvas, so this is a genuine removal.
+          // A save carrying no room at all keeps the stored floor (RA-7656).
+          sketchData: {
+            scaleConfig: { pxPerMetre: 100 },
+            objects: [
+              {
+                type: "polygon",
+                points: [
+                  { x: 0, y: 0 },
+                  { x: 300, y: 0 },
+                  { x: 300, y: 300 },
+                ],
+                data: { type: "room", id: "room-lounge", label: "Lounge" },
+              },
+            ],
+          },
         }),
       }),
       { params: Promise.resolve({ id: "i1" }) },

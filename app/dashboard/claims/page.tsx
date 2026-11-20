@@ -2,15 +2,22 @@
  * Claims index — RA-1704.
  *
  * Lists ClaimProgress rows the current user has access to. Server-rendered.
- * Tenancy: scopes by Report.userId == session user (admins see all).
+ * Tenancy (RA-8043): an admin sees their workspace's reports through
+ * resolveReportReach (platform-wide only for the platform allowlist); anyone
+ * else sees their own.
  */
 
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { FolderKanban } from "lucide-react";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 export const metadata = {
   title: "Claims — RestoreAssist",
@@ -25,11 +32,18 @@ export default async function ClaimsIndexPage() {
   const role = (session.user as { role?: string }).role ?? "USER";
   const isAdmin = role === "ADMIN";
 
-  // Tenancy via Report.userId. Joined to ClaimProgress so the index
-  // shows only rows that have a progress record (the rest are read-only
-  // reports that haven't entered the lifecycle).
+  // RA-8043: an admin gets the tenancy helper's report reach (their workspace;
+  // platform-wide only for the platform allowlist); anyone else gets their own
+  // reports. If the reach cannot be resolved, an admin falls back to their own
+  // reports, never to every tenant.
+  const ownOnly = { userId: session.user.id };
+  const reach = isAdmin ? await resolveReportReach(session).catch(() => null) : null;
+  const reportScope = reach?.ok ? reach.data : ownOnly;
+
+  // Joined to ClaimProgress so the index shows only rows that have a progress
+  // record (the rest are read-only reports that haven't entered the lifecycle).
   const claims = await prisma.claimProgress.findMany({
-    where: isAdmin ? undefined : { report: { userId: session.user.id } },
+    where: { report: reportScope },
     select: {
       id: true,
       reportId: true,
@@ -56,32 +70,35 @@ export default async function ClaimsIndexPage() {
   const reviewCount = claims.filter((c) => c.managerReviewRequired).length;
 
   return (
-    <div className="max-w-9xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Claims</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isAdmin
-              ? "All claims across the workspace."
-              : "Claims you have progress access to."}
-          </p>
-        </div>
-        {claims.length > 0 ? (
-          <div className="flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full border px-2.5 py-1 text-muted-foreground">
-              {claims.length} total
-            </span>
-            <span className="rounded-full border px-2.5 py-1 text-muted-foreground">
-              {openCount} open
-            </span>
-            {reviewCount > 0 ? (
-              <span className="rounded-full border border-warning-subtle-foreground/30 bg-warning-subtle px-2.5 py-1 text-warning-subtle-foreground">
-                {reviewCount} need review
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Claims"
+        description={
+          isAdmin
+            ? "All claims across the workspace — intake through closeout."
+            : "Claims you have progress access to."
+        }
+        icon={<FolderKanban className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/claims" })}
+        primaryAction={
+          claims.length > 0 ? (
+            <div className="flex flex-wrap justify-end gap-2 text-xs">
+              <span className="rounded-full border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 px-2.5 py-1 text-brand-navy dark:text-white/80">
+                {claims.length} total
               </span>
-            ) : null}
-          </div>
-        ) : null}
-      </header>
+              <span className="rounded-full border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 px-2.5 py-1 text-brand-navy dark:text-white/80">
+                {openCount} open
+              </span>
+              {reviewCount > 0 ? (
+                <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-amber-700 dark:text-amber-100">
+                  {reviewCount} need review
+                </span>
+              ) : null}
+            </div>
+          ) : undefined
+        }
+      />
 
       {claims.length === 0 ? (
         <div className="rounded-lg border p-8 space-y-4 text-center">
@@ -233,7 +250,7 @@ export default async function ClaimsIndexPage() {
         </div>
         </div>
       )}
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }
 

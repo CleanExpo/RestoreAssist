@@ -7,12 +7,29 @@
  * confirmedAt even when the room is still ai_suggested.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// D-028: create/update handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) => work(scopePrisma),
+  assertInspectionAssignedWrite: vi.fn(async () => ({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "insp-1" },
+      inspectionManyWhere: { id: "insp-1" },
+      childInspectionFilter: undefined,
+      viaAssignment: false,
+    },
+  })),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -148,11 +165,29 @@ async function postRooms(
 }
 
 describe("RA-7617 — server does not trust the client provenance tag", () => {
-  it("confirms an existing ai_suggested room only when the client sends operator_measured, and stamps the session", async () => {
-    const before = Date.now();
+  it("RA-8233: a bare Confirm on an existing ai_suggested room no longer bills", async () => {
     const res = await postRooms([
       roomObject("ai-room-1", "operator_measured"),
     ]);
+    expect(res.status).toBe(201);
+    const data = p.sketchRoom.update.mock.calls[0][0].data;
+    expect(data.provenance).toBe("ai_suggested");
+    expect(data.confirmedAt).toBeNull();
+    expect(data.confirmedBy).toBeNull();
+  });
+
+  it("confirms an existing ai_suggested room with a recorded measurement, and stamps the session", async () => {
+    const before = Date.now();
+    const res = await postRooms(
+      [roomObject("ai-room-1", "operator_measured")],
+      existingSketch(),
+      [existingRoom()],
+      {
+        roomMeasurements: [
+          { fabricObjectId: "ai-room-1", lengthM: 3, widthM: 4 },
+        ],
+      },
+    );
     const after = Date.now();
 
     expect(res.status).toBe(201);
@@ -218,7 +253,7 @@ describe("RA-7617 — server does not trust the client provenance tag", () => {
     expect(data.confirmedBy).toBeNull();
   });
 
-  it("import then confirm before any save lands still bills the room", async () => {
+  it("import then confirm (with a measurement) before any save lands still bills the room", async () => {
     const before = Date.now();
     const res = await postRooms(
       [roomObject("ai-room-1", "operator_measured")],
@@ -229,7 +264,10 @@ describe("RA-7617 — server does not trust the client provenance tag", () => {
         },
       }),
       [],
-      { confirmedFabricObjectIds: ["ai-room-1"] },
+      {
+        confirmedFabricObjectIds: ["ai-room-1"],
+        roomMeasurements: [{ fabricObjectId: "ai-room-1", measuredAreaM2: 12 }],
+      },
     );
     const after = Date.now();
 

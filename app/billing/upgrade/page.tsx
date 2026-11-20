@@ -5,19 +5,33 @@ import { prisma } from "@/lib/prisma";
 import UpgradeHeader from "./UpgradeHeader";
 import TierGrid from "./TierGrid";
 import UpgradeFaq from "./UpgradeFaq";
+import UpgradeValueBento from "./UpgradeValueBento";
+import UpgradeTrustStrip from "./UpgradeTrustStrip";
 import CancelledCheckoutNotice from "./CancelledCheckoutNotice";
 import BillingGate from "@/components/capacitor/BillingGate";
+import OwnerOnlyBillingNotice from "./OwnerOnlyBillingNotice";
+import { getOrganizationOwner } from "@/lib/organization-credits";
+import { BillingUpgradeShell } from "@/app/dashboard/components/BillingUpgradeShell";
 
 export const dynamic = "force-dynamic";
 
-type ReasonParam = "trial-expired" | "credits" | "feature" | "voluntary" | null;
+type ReasonParam =
+  | "trial-expired"
+  | "credits"
+  | "feature"
+  | "voluntary"
+  | "canceled"
+  | "past-due"
+  | null;
 
 function parseReason(input: string | undefined): ReasonParam {
   if (
     input === "trial-expired" ||
     input === "credits" ||
     input === "feature" ||
-    input === "voluntary"
+    input === "voluntary" ||
+    input === "canceled" ||
+    input === "past-due"
   ) {
     return input;
   }
@@ -36,6 +50,13 @@ export default async function UpgradePage({
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login?callbackUrl=/billing/upgrade");
 
+  // WP-06: billing belongs to the business owner. Staff resolve to the owner's
+  // plan and the checkout routes refuse them, so show them a note, not a pay button.
+  const ownerId = await getOrganizationOwner(session.user.id);
+  if (ownerId !== null && ownerId !== session.user.id) {
+    return <OwnerOnlyBillingNotice />;
+  }
+
   const params = await searchParams;
   const reason = parseReason(params.reason);
   const feature = params.feature;
@@ -48,21 +69,41 @@ export default async function UpgradePage({
 
   const isCurrentPlan = user.subscriptionStatus === "ACTIVE";
 
+  const isHardPaywall =
+    reason === "trial-expired" ||
+    reason === "credits" ||
+    reason === "feature" ||
+    reason === "canceled" ||
+    reason === "past-due";
+
   return (
     <BillingGate>
-      <div className="relative min-h-screen bg-background">
-        {/* Subtle brand atmosphere — not flat, not decorative noise */}
-        <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(28,46,71,0.35)_0%,transparent_55%)] dark:bg-[radial-gradient(ellipse_at_top,rgba(212,165,116,0.08)_0%,transparent_50%)]"
-          aria-hidden
+      <BillingUpgradeShell className="space-y-8 pb-16">
+        {cancelled && <CancelledCheckoutNotice />}
+        <UpgradeHeader reason={reason} feature={feature} />
+        {user.subscriptionStatus === "TRIAL" && (
+          <p
+            role="note"
+            className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950"
+          >
+            Trial workspaces get Basic reports only. The paid plan unlocks
+            Enhanced and Optimised depth plus PDF import — those limits are
+            enforced when you subscribe.
+          </p>
+        )}
+        <UpgradeTrustStrip
+          backHref={isHardPaywall ? "/login" : "/dashboard"}
+          backLabel={isHardPaywall ? "Switch account" : "Back to dashboard"}
         />
-        <main className="relative mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-12">
-          {cancelled && <CancelledCheckoutNotice />}
-          <UpgradeHeader reason={reason} feature={feature} />
-          <TierGrid isCurrentPlan={isCurrentPlan} />
-          <UpgradeFaq />
-        </main>
-      </div>
+        <div className="grid items-start gap-8 lg:grid-cols-12 lg:gap-10">
+          <UpgradeValueBento className="lg:col-span-5 xl:col-span-4" />
+          <TierGrid
+            isCurrentPlan={isCurrentPlan}
+            className="lg:col-span-7 xl:col-span-8 lg:sticky lg:top-8"
+          />
+        </div>
+        <UpgradeFaq />
+      </BillingUpgradeShell>
     </BillingGate>
   );
 }

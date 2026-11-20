@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       clientId: clientUser.clientId,
       email: clientUser.email,
       name: clientUser.name,
+      passwordHash: clientUser.passwordHash,
     });
 
     return NextResponse.json({

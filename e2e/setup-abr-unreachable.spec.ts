@@ -4,7 +4,10 @@ test("ABR unreachable → Business Details card falls back to manual entry", asy
   page,
   context,
 }) => {
-  test.fixme(); // never reaches the ABN field: the break is upstream in the real /signup flow this spec drives, not in the ABR fallback it names
+  test.skip(
+    process.env.SETUP_WIZARD_ENABLED !== "true",
+    "Enable SETUP_WIZARD_ENABLED=true to exercise /setup ABR fallback",
+  );
 
   const email = `e2e-abr-down-${Date.now()}@test.com`;
   const password = "test-password-12345!";
@@ -28,7 +31,7 @@ test("ABR unreachable → Business Details card falls back to manual entry", asy
   }
 
   // Enter ABN — server will try ABR and fail
-  await page.getByPlaceholder(/e\.g\. 53 004 085 616/i).fill("53004085616");
+  await page.getByLabel(/^ABN \(11 digits\)$/).fill("53004085616");
   await page.getByRole("button", { name: /start setup/i }).click();
 
   // Wait for Business Details section to surface the manual fallback message

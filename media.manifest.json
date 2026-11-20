@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "src": "/landing/hero-flooded-home.avif",
+      "kind": "image",
+      "source": "generated",
+      "credit": "Higgsfield, Seedream 4.5 at 4K (generation 8360f025, 19/11/2026); shirt emblem and meter label retouched out; RA-8473",
+      "alt": "Restoration technician photographing a moisture meter reading on a water-stained wall, with air movers and a dehumidifier drying an Australian home",
+      "width": 3840,
+      "height": 2160
+    },
+    {
+      "src": "/landing/field-capture.avif",
+      "kind": "image",
+      "source": "generated",
+      "credit": "Higgsfield, Seedream 4.5 at 4K (generation d6174924, 19/11/2026); RA-8473",
+      "alt": "Restoration technician on a suburban driveway photographing a house front with a rugged tablet, air movers drying a wet runner beside him",
+      "width": 3840,
+      "height": 1646
+    },
+    {
+      "src": "/og/restoreassist-share.jpg",
+      "kind": "image",
+      "source": "generated",
+      "credit": "Hero photo above with the RestoreAssist badge (public/logo.png) composited in post; RA-8473",
+      "alt": "RestoreAssist: a restoration technician recording moisture readings on a water-damaged home",
+      "width": 1200,
+      "height": 630
+    }
+  ]
+}

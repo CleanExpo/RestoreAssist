@@ -33,6 +33,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
 
 interface AdminStats {
   totalUsers: number;
@@ -147,7 +150,7 @@ export default function AdminDashboardPage() {
   if (status === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-harbour-400/30 border-t-brand-harbour-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -164,28 +167,25 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">
-            Admin Dashboard
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400">
-            System overview and management
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="gap-2"
-        >
-          <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
-          Refresh
-        </Button>
-      </div>
+    <DashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Admin Dashboard"
+        description="System overview, health checks, and workspace administration."
+        icon={<Shield className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
+        primaryAction={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10"
+          >
+            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+            Refresh
+          </Button>
+        }
+      />
 
       {loadError && (
         <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
@@ -203,55 +203,55 @@ export default function AdminDashboardPage() {
       <div className="flex flex-wrap gap-3 text-sm">
         <a
           href="/dashboard/admin/pilot"
-          className="underline text-cyan-600 dark:text-cyan-400"
+          className="underline text-brand-harbour-600 dark:text-brand-harbour-400"
         >
           NIR Pilot
         </a>
         <a
           href="/dashboard/admin/content-gate"
-          className="underline text-cyan-600 dark:text-cyan-400"
+          className="underline text-brand-harbour-600 dark:text-brand-harbour-400"
         >
           Content Gate
         </a>
         <a
           href="/dashboard/governance"
-          className="underline text-cyan-600 dark:text-cyan-400"
+          className="underline text-brand-harbour-600 dark:text-brand-harbour-400"
         >
           Governance
         </a>
         <a
           href="/dashboard/admin/restoration-insights"
-          className="underline text-cyan-600 dark:text-cyan-400"
+          className="underline text-brand-harbour-600 dark:text-brand-harbour-400"
         >
           Restoration Insights
         </a>
         <a
           href="/dashboard/margot/home"
-          className="underline text-cyan-600 dark:text-cyan-400"
+          className="underline text-brand-harbour-600 dark:text-brand-harbour-400"
         >
           Margot
         </a>
         <a
           href="/dashboard/mission-control"
-          className="underline text-cyan-600 dark:text-cyan-400"
+          className="underline text-brand-harbour-600 dark:text-brand-harbour-400"
         >
           Mission Control
         </a>
         <a
           href="/dashboard/admin/rag"
-          className="underline text-cyan-600 dark:text-cyan-400"
+          className="underline text-brand-harbour-600 dark:text-brand-harbour-400"
         >
           RAG corpus
         </a>
         <a
           href="/dashboard/admin/portal-content"
-          className="underline text-cyan-600 dark:text-cyan-400"
+          className="underline text-brand-harbour-600 dark:text-brand-harbour-400"
         >
           Portal content
         </a>
         <a
           href="/dashboard/settings/email"
-          className="underline text-cyan-600 dark:text-cyan-400"
+          className="underline text-brand-harbour-600 dark:text-brand-harbour-400"
         >
           Email BYOK
         </a>
@@ -263,7 +263,7 @@ export default function AdminDashboardPage() {
           <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white">
-            <Activity className="h-5 w-5 text-cyan-500" />
+            <Activity className="h-5 w-5 text-brand-harbour-500" />
             System Health
           </CardTitle>
           <CardDescription>
@@ -305,8 +305,8 @@ export default function AdminDashboardPage() {
         <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-cyan-500/10">
-                <Users className="h-6 w-6 text-cyan-500" />
+              <div className="p-3 rounded-lg bg-brand-harbour-500/10">
+                <Users className="h-6 w-6 text-brand-harbour-500" />
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">
@@ -364,7 +364,7 @@ export default function AdminDashboardPage() {
                   {stats?.totalReports ?? "-"}
                 </p>
                 <p className="text-sm text-neutral-500">Total Reports</p>
-                <p className="text-xs text-cyan-500">
+                <p className="text-xs text-brand-harbour-500">
                   {stats?.reportsThisMonth ?? 0} this month
                 </p>
               </div>
@@ -379,7 +379,7 @@ export default function AdminDashboardPage() {
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white">
-            <Settings className="h-5 w-5 text-cyan-500" />
+            <Settings className="h-5 w-5 text-brand-harbour-500" />
             Quick Actions
           </CardTitle>
           <CardDescription>Common administrative tasks</CardDescription>
@@ -510,7 +510,7 @@ export default function AdminDashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="flex-col h-auto py-4 gap-2 border-cyan-200 dark:border-cyan-800/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/30"
+              className="flex-col h-auto py-4 gap-2 border-brand-harbour-200 dark:border-brand-harbour-800/60 text-brand-harbour-600 dark:text-brand-harbour-400 hover:bg-brand-harbour-50 dark:hover:bg-brand-harbour-950/30"
               onClick={() => router.push("/dashboard/admin/pilot")}
             >
               <BarChart2 className="h-5 w-5" />
@@ -542,6 +542,6 @@ export default function AdminDashboardPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </DashboardPageFrame>
   );
 }

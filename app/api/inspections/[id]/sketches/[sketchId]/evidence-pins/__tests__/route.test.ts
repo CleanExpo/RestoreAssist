@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
 const signStoredMediaUrl = vi.hoisted(() => vi.fn());
@@ -14,7 +15,24 @@ vi.mock("@/lib/storage/sign-stored-url", () => ({
   toStorageLocator,
 }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) => work(scopePrisma),
+  assertInspectionReadable: vi.fn(async () => ({ ok: true })),
+  // D-028: POST gates on the assigned-write helper; GET on the read reach.
+  assertInspectionAssignedWrite: vi.fn(async () => ({
+      ok: true,
+      data: {
+        inspectionWhere: { id: "insp-1" },
+        inspectionManyWhere: { id: "insp-1" },
+        childInspectionFilter: undefined,
+        viaAssignment: false,
+      },
+    })),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -279,8 +297,8 @@ describe("GET evidence pins", () => {
   });
 
   it("does not read another tenant or another inspection's sketch", async () => {
-    const { assertInspectionTenancy } = await import("@/lib/auth/assert-tenancy");
-    vi.mocked(assertInspectionTenancy).mockResolvedValueOnce({ ok: false, status: 403, reason: "Forbidden" } as never);
+    const { assertInspectionReadable } = await import("@/lib/auth/assert-tenancy");
+    vi.mocked(assertInspectionReadable).mockResolvedValueOnce({ ok: false, status: 403, reason: "Forbidden" } as never);
     const lookup = new NextRequest(
       "http://localhost/api/inspections/inspection-1/sketches/sketch-1/evidence-pins?inspectionPhotoId=photo-1&x=400&y=300",
     );

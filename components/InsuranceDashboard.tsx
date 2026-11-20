@@ -211,7 +211,7 @@ export default function InsuranceDashboard({
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+            className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
           >
             <option value="7days">Last 7 days</option>
             <option value="30days">Last 30 days</option>
@@ -230,11 +230,11 @@ export default function InsuranceDashboard({
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <Shield className="text-cyan-400" size={24} />
+            <Shield className="text-brand-harbour-400" size={24} />
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold text-cyan-400">
+            <p className="text-3xl font-bold text-brand-harbour-400">
               {insuranceStats.averageCoverage}%
             </p>
             <p className="text-slate-400 text-sm font-medium">
@@ -471,7 +471,7 @@ export default function InsuranceDashboard({
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-cyan-400">
+                  <p className="text-sm font-medium text-brand-harbour-400">
                     {coverageCount}/4 Coverage Types
                   </p>
                   <p className="text-xs text-slate-400">

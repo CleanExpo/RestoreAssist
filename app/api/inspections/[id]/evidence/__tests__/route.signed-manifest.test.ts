@@ -31,10 +31,26 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 
 // In-memory idempotencyRecord fake — same contract as the slice-1 suite.
 const idemStore = new Map<string, any>();
+// RA-8388: the evidence writers now persist the EvidenceItem and its
+// authoritative row in ONE transaction, so this mock needs a real
+// `$transaction`. The transaction client delegates to the SAME vi.fn
+// instances reached through `prisma.evidenceItem.create`, so the assertions
+// below keep testing the write that actually happened.
+const dbMocks = vi.hoisted(() => ({
+  evidenceItem: { create: vi.fn() },
+  inspectionPhoto: { create: vi.fn(async ({ data }: any) => data) },
+  moistureReading: { create: vi.fn(async ({ data }: any) => data) },
+  environmentalData: { create: vi.fn(async ({ data }: any) => data) },
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: vi.fn(async () => ({ organizationId: "org1" })) },
-    evidenceItem: { create: vi.fn() },
+    evidenceItem: dbMocks.evidenceItem,
+    inspectionPhoto: dbMocks.inspectionPhoto,
+    moistureReading: dbMocks.moistureReading,
+    environmentalData: dbMocks.environmentalData,
+    $transaction: vi.fn(async (fn: any) => fn(dbMocks)),
     deviceSigningKey: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -450,6 +466,9 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
       params,
     );
     expect(res.status).toBe(403);
+    // The unregistered-key refusal, not the revoked-key 403 beside it.
+    const body = await res.json();
+    expect(JSON.stringify(body)).toContain("not registered for this user");
     expect(uploadMock).not.toHaveBeenCalled();
     expect(mCreate).not.toHaveBeenCalled();
   });
@@ -480,6 +499,9 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
       params,
     );
     expect(res.status).toBe(403);
+    // Ownership, not revocation: this key row is not revoked.
+    const body = await res.json();
+    expect(JSON.stringify(body)).toContain("not registered for this user");
     expect(mCreate).not.toHaveBeenCalled();
   });
 
@@ -511,13 +533,19 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
   });
 
   it("rejects a signedManifest that is not valid JSON / not an object (400)", async () => {
-    for (const bad of ["not json {", JSON.stringify(["array"])]) {
+    for (const [bad, reason] of [
+      ["not json {", "must be valid JSON"],
+      [JSON.stringify(["array"]), "must be a JSON object"],
+    ]) {
       const form = signedForm(manifestFixture(), {
         manifestJson: bad,
         signature: signCanonical(bad),
       });
       const res = await POST(multipartRequest(form), params);
       expect(res.status).toBe(400);
+      // An array would also fail the required-field checks with a 400, so
+      // the parse reason is what shows which guard refused it.
+      expect(JSON.stringify(await res.json())).toContain(reason);
     }
     expect(mCreate).not.toHaveBeenCalled();
   });

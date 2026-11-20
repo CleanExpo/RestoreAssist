@@ -1,0 +1,25 @@
+-- RA-8419: mark the Senior Project Manager line on CostEstimate rows.
+--
+-- WHY
+--   Claims over $2,500 ex GST (AU) carry a system-written Senior Project
+--   Manager line. It was first identified by its description, but a work line
+--   can carry any description a user types, so a work line worded like the SPM
+--   line was mistaken for it and dropped from the estimate (Codex review round
+--   2, P1). The line is now identified by this column, which only the system
+--   writer (lib/billing/spm-estimate-rows.ts) sets.
+--
+-- WHAT IT CHANGES
+--   ADD one nullable TEXT column "lineKind" to "CostEstimate". Existing rows
+--   read NULL (an ordinary line). The writer sets 'SPM' on the SPM line only.
+--
+-- ADDITIVE
+--   No DROP, no data rewrite, no default, no constraint. ADD COLUMN without a
+--   default is metadata-only in Postgres (no table rewrite). RLS on the table is
+--   unchanged.
+--
+-- REVERSIBLE
+--   Rollback: ALTER TABLE "CostEstimate" DROP COLUMN "lineKind";
+--   (also stated in the PR body). Not applied anywhere; applying to production
+--   is the owner's step.
+
+ALTER TABLE "CostEstimate" ADD COLUMN "lineKind" TEXT;

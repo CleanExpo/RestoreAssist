@@ -34,6 +34,7 @@ function mkReq(pathname: string, search: string = "", method: string = "GET") {
   return {
     nextUrl: {
       pathname,
+      origin: "http://test",
       clone: () => new URL(`http://test${pathname}${search}`),
       search,
       searchParams: parsed.searchParams,
@@ -43,6 +44,62 @@ function mkReq(pathname: string, search: string = "", method: string = "GET") {
     headers: new Headers(),
   } as any;
 }
+
+describe("iOS shell launch (Apple 3.1.1)", () => {
+  const SHELL_UA =
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 RestoreAssistIOSShell";
+  const SAFARI_UA =
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1";
+  const withUa = (pathname: string, ua: string, search = "") => {
+    const req = mkReq(pathname, search);
+    req.headers = new Headers({ "user-agent": ua });
+    return req;
+  };
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    process.env.SETUP_WIZARD_ENABLED = "false";
+  });
+
+  it.each(["/", "/signup"])("sends the shell from %s to /login", async (path) => {
+    const res = await proxy(withUa(path, SHELL_UA));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("http://test/login");
+  });
+
+  it.each(["/", "/signup"])("leaves %s alone for a browser", async (path) => {
+    const res = await proxy(withUa(path, SAFARI_UA));
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("still sends the shell's invite link to the invite route", async () => {
+    const token = "a".repeat(48);
+    const res = await proxy(withUa("/signup", SHELL_UA, `?invite=${token}`));
+    expect(res.headers.get("location")).toBe(`http://test/invite/${token}`);
+  });
+
+  it.each(["/", "/signup"])(
+    "still refuses a wrong Host on %s before the shell redirect",
+    async (path) => {
+      const prev = process.env.ALLOWED_APP_HOSTS;
+      process.env.ALLOWED_APP_HOSTS = "allowed.example";
+      try {
+        const req = withUa(path, SHELL_UA);
+        req.headers.set("host", "evil.example");
+        const res = await proxy(req);
+        expect(res.status).toBe(421);
+      } finally {
+        if (prev === undefined) delete process.env.ALLOWED_APP_HOSTS;
+        else process.env.ALLOWED_APP_HOSTS = prev;
+      }
+    },
+  );
+
+  it('matches "/" so the launch page reaches this check', async () => {
+    const { config } = await import("../../proxy");
+    expect(config.matcher).toContain("/");
+  });
+});
 
 describe("legacy invitation signup compatibility", () => {
   beforeEach(() => {
@@ -97,6 +154,79 @@ describe("middleware setup gate", () => {
     const res = await proxy(mkReq("/dashboard"));
     expect((res as any).status).toBe(307);
     expect((res as any).headers.get("location")).toContain("/setup");
+  });
+
+  it.each(["USER", "MANAGER"])(
+    "%s staff skip the owner wizard",
+    async (role) => {
+      (getToken as any).mockResolvedValue({
+        sub: "u1",
+        role,
+        setupCompletedAt: null,
+      });
+      const res = await proxy(mkReq("/dashboard"));
+      expect((res as any).headers.get("location") ?? "").not.toContain(
+        "/setup",
+      );
+    },
+  );
+
+  it.each([undefined, "", "ADMIN"])(
+    "role %j is still gated, with the location pinned",
+    async (role) => {
+      (getToken as any).mockResolvedValue({
+        sub: "u1",
+        role,
+        setupCompletedAt: null,
+      });
+      const res = await proxy(mkReq("/dashboard"));
+      expect((res as any).status).toBe(307);
+      expect(new URL((res as any).headers.get("location")).pathname).toBe(
+        "/setup",
+      );
+    },
+  );
+
+  it("the terms POST passes the gate, so the page can save", async () => {
+    (getToken as any).mockResolvedValue({
+      sub: "u1",
+      role: "ADMIN",
+      needsOnboarding: true,
+      setupCompletedAt: null,
+    });
+    const res = await proxy(
+      mkReq("/api/onboarding/account-type", "", "POST"),
+    );
+    expect((res as any).headers.get("location") ?? "").not.toContain("/setup");
+  });
+
+  it("the terms route's GET stays gated: only the POST is allowed through", async () => {
+    (getToken as any).mockResolvedValue({
+      sub: "u1",
+      role: "ADMIN",
+      setupCompletedAt: null,
+    });
+    const res = await proxy(mkReq("/api/onboarding/account-type"));
+    expect((res as any).headers.get("location")).toContain("/setup");
+  });
+
+  it("no redirect cycle: every gate target is itself past the gate", async () => {
+    for (const role of ["ADMIN", "MANAGER", "USER", "", undefined]) {
+      for (const needsOnboarding of [true, false]) {
+        (getToken as any).mockResolvedValue({
+          sub: "u1",
+          role,
+          needsOnboarding,
+          setupCompletedAt: null,
+        });
+        for (const start of ["/setup", "/onboarding/account-type"]) {
+          const res = await proxy(mkReq(start));
+          expect((res as any).headers.get("location") ?? "").not.toContain(
+            "/setup",
+          );
+        }
+      }
+    }
   });
 
   it("ADMIN with null setupCompletedAt is redirected to /setup (C1 regression)", async () => {

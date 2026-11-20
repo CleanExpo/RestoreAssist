@@ -13,7 +13,9 @@ import {
   Send,
 } from "lucide-react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import { ContractorsBackLink } from "../ContractorsBackLink";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Review {
   id: string;
@@ -131,7 +133,7 @@ export default function ContractorReviewsPage() {
         const data = await res.json();
         setMessage({
           type: "error",
-          text: data.error || "Failed to submit response",
+          text: apiErrorMessage(data) || "Failed to submit response",
         });
       }
     } catch (error) {
@@ -177,7 +179,7 @@ export default function ContractorReviewsPage() {
         const data = await res.json();
         setMessage({
           type: "error",
-          text: data.error || "Failed to submit dispute",
+          text: apiErrorMessage(data) || "Failed to submit dispute",
         });
       }
     } catch (error) {
@@ -190,26 +192,26 @@ export default function ContractorReviewsPage() {
   const getDisputeStatusColor = (status: string) => {
     switch (status) {
       case "NONE":
-        return "text-slate-400";
+        return "text-brand-slate dark:text-slate-400";
       case "PENDING_REVIEW":
-        return "text-amber-400";
+        return "text-amber-700 dark:text-amber-400";
       case "UNDER_INVESTIGATION":
-        return "text-cyan-400";
+        return "text-brand-harbour-700 dark:text-brand-harbour-400";
       case "RESOLVED_KEPT":
         return "text-success";
       case "RESOLVED_AMENDED":
-        return "text-blue-400";
+        return "text-blue-700 dark:text-blue-400";
       case "RESOLVED_REMOVED":
         return "text-destructive";
       default:
-        return "text-slate-400";
+        return "text-brand-slate dark:text-slate-400";
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-slate-400">Loading reviews...</div>
+        <div className="text-brand-slate dark:text-slate-400">Loading reviews...</div>
       </div>
     );
   }
@@ -226,13 +228,13 @@ export default function ContractorReviewsPage() {
   ).length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <confirm.Mount />
       <ContractorsBackLink />
-      <h1 className="text-3xl font-bold text-white mb-8">Manage Reviews</h1>
+      <h1 className="text-3xl font-bold text-brand-navy dark:text-white mb-8">Manage Reviews</h1>
 
       {loadError && (
-        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-400">
           {loadError}
           <button
             type="button"
@@ -252,8 +254,8 @@ export default function ContractorReviewsPage() {
         <div
           className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
             message.type === "success"
-              ? "bg-green-500/10 border border-green-500/30 text-green-400"
-              : "bg-red-500/10 border border-red-500/30 text-red-400"
+              ? "bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400"
+              : "bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400"
           }`}
         >
           {message.type === "success" ? (
@@ -267,30 +269,30 @@ export default function ContractorReviewsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
-          <div className="text-slate-400 text-sm mb-2">Total Reviews</div>
-          <div className="text-3xl font-bold text-white">{totalReviews}</div>
+        <div className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-6">
+          <div className="text-brand-slate dark:text-slate-400 text-sm mb-2">Total Reviews</div>
+          <div className="text-3xl font-bold text-brand-navy dark:text-white">{totalReviews}</div>
         </div>
 
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
-          <div className="text-slate-400 text-sm mb-2">Average Rating</div>
+        <div className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-6">
+          <div className="text-brand-slate dark:text-slate-400 text-sm mb-2">Average Rating</div>
           <div className="flex items-center gap-2">
-            <Star className="h-6 w-6 text-amber-400 fill-amber-400" />
-            <div className="text-3xl font-bold text-white">
+            <Star className="h-6 w-6 text-amber-700 dark:text-amber-400 fill-amber-400" />
+            <div className="text-3xl font-bold text-brand-navy dark:text-white">
               {averageRating.toFixed(1)}
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
-          <div className="text-slate-400 text-sm mb-2">Pending Responses</div>
-          <div className="text-3xl font-bold text-amber-400">
+        <div className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-6">
+          <div className="text-brand-slate dark:text-slate-400 text-sm mb-2">Pending Responses</div>
+          <div className="text-3xl font-bold text-amber-700 dark:text-amber-400">
             {pendingResponses}
           </div>
         </div>
 
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
-          <div className="text-slate-400 text-sm mb-2">Disputed Reviews</div>
+        <div className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-6">
+          <div className="text-brand-slate dark:text-slate-400 text-sm mb-2">Disputed Reviews</div>
           <div className="text-3xl font-bold text-destructive">
             {disputedReviews}
           </div>
@@ -299,25 +301,29 @@ export default function ContractorReviewsPage() {
 
       {/* Reviews List */}
       {reviews.length === 0 ? (
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-12 text-center">
-          <p className="text-slate-400 text-lg">No reviews yet</p>
+        <div className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-12 text-center">
+          <p className="text-brand-slate dark:text-slate-400 text-lg">
+            {isConfirmedEmpty(loadError, reviews.length)
+              ? "No reviews yet"
+              : "Reviews could not be loaded"}
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
           {reviews.map((review) => (
             <div
               key={review.id}
-              className="bg-slate-800/30 border border-slate-700 rounded-lg p-6"
+              className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-6"
             >
               {/* Review Header */}
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-brand-navy dark:text-white">
                       {review.clientName}
                     </span>
                     {review.isVerifiedJob && (
-                      <span className="text-xs px-2 py-1 bg-green-500/10 border border-green-500/30 rounded text-green-400">
+                      <span className="text-xs px-2 py-1 bg-green-500/10 border border-green-500/30 rounded text-green-700 dark:text-green-400">
                         Verified Job
                       </span>
                     )}
@@ -337,38 +343,38 @@ export default function ContractorReviewsPage() {
                         key={i}
                         className={`h-5 w-5 ${
                           i < review.overallRating
-                            ? "text-amber-400 fill-amber-400"
+                            ? "text-amber-700 dark:text-amber-400 fill-amber-400"
                             : "text-slate-600"
                         }`}
                       />
                     ))}
                   </div>
                 </div>
-                <span className="text-sm text-slate-400">
+                <span className="text-sm text-brand-slate dark:text-slate-400">
                   {new Date(review.createdAt).toLocaleDateString()}
                 </span>
               </div>
 
               {/* Review Content */}
               {review.reviewTitle && (
-                <h4 className="font-semibold text-white mb-2">
+                <h4 className="font-semibold text-brand-navy dark:text-white mb-2">
                   {review.reviewTitle}
                 </h4>
               )}
-              <p className="text-slate-300 mb-4">{review.reviewText}</p>
+              <p className="text-brand-slate dark:text-slate-300 mb-4">{review.reviewText}</p>
 
               {/* Sub-ratings */}
               {(review.qualityRating ||
                 review.timelinessRating ||
                 review.communicationRating ||
                 review.valueRating) && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 p-4 bg-slate-700/20 rounded-lg">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 p-4 bg-brand-cream dark:bg-slate-700/20 rounded-lg">
                   {review.qualityRating && (
                     <div>
-                      <div className="text-xs text-slate-400 mb-1">Quality</div>
+                      <div className="text-xs text-brand-slate dark:text-slate-400 mb-1">Quality</div>
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                        <span className="text-white font-medium">
+                        <Star className="h-4 w-4 text-amber-700 dark:text-amber-400 fill-amber-400" />
+                        <span className="text-brand-navy dark:text-white font-medium">
                           {review.qualityRating}
                         </span>
                       </div>
@@ -376,12 +382,12 @@ export default function ContractorReviewsPage() {
                   )}
                   {review.timelinessRating && (
                     <div>
-                      <div className="text-xs text-slate-400 mb-1">
+                      <div className="text-xs text-brand-slate dark:text-slate-400 mb-1">
                         Timeliness
                       </div>
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                        <span className="text-white font-medium">
+                        <Star className="h-4 w-4 text-amber-700 dark:text-amber-400 fill-amber-400" />
+                        <span className="text-brand-navy dark:text-white font-medium">
                           {review.timelinessRating}
                         </span>
                       </div>
@@ -389,12 +395,12 @@ export default function ContractorReviewsPage() {
                   )}
                   {review.communicationRating && (
                     <div>
-                      <div className="text-xs text-slate-400 mb-1">
+                      <div className="text-xs text-brand-slate dark:text-slate-400 mb-1">
                         Communication
                       </div>
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                        <span className="text-white font-medium">
+                        <Star className="h-4 w-4 text-amber-700 dark:text-amber-400 fill-amber-400" />
+                        <span className="text-brand-navy dark:text-white font-medium">
                           {review.communicationRating}
                         </span>
                       </div>
@@ -402,10 +408,10 @@ export default function ContractorReviewsPage() {
                   )}
                   {review.valueRating && (
                     <div>
-                      <div className="text-xs text-slate-400 mb-1">Value</div>
+                      <div className="text-xs text-brand-slate dark:text-slate-400 mb-1">Value</div>
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                        <span className="text-white font-medium">
+                        <Star className="h-4 w-4 text-amber-700 dark:text-amber-400 fill-amber-400" />
+                        <span className="text-brand-navy dark:text-white font-medium">
                           {review.valueRating}
                         </span>
                       </div>
@@ -416,19 +422,19 @@ export default function ContractorReviewsPage() {
 
               {/* Existing Response */}
               {review.contractorResponse && (
-                <div className="mb-4 pl-4 border-l-2 border-cyan-500/30 bg-slate-700/20 p-4 rounded">
+                <div className="mb-4 pl-4 border-l-2 border-brand-harbour-500/30 bg-brand-cream dark:bg-slate-700/20 p-4 rounded">
                   <div className="flex items-center gap-2 mb-2">
-                    <MessageSquare className="h-4 w-4 text-cyan-400" />
-                    <span className="text-sm font-medium text-cyan-400">
+                    <MessageSquare className="h-4 w-4 text-brand-harbour-700 dark:text-brand-harbour-400" />
+                    <span className="text-sm font-medium text-brand-harbour-700 dark:text-brand-harbour-400">
                       Your Response
                     </span>
                     {review.respondedAt && (
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-brand-slate dark:text-slate-400">
                         {new Date(review.respondedAt).toLocaleDateString()}
                       </span>
                     )}
                   </div>
-                  <p className="text-slate-300 text-sm">
+                  <p className="text-brand-slate dark:text-slate-300 text-sm">
                     {review.contractorResponse}
                   </p>
                 </div>
@@ -442,13 +448,13 @@ export default function ContractorReviewsPage() {
                     onChange={(e) => setResponseText(e.target.value)}
                     placeholder="Write your response to this review..."
                     rows={4}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                   />
                   <div className="flex gap-2">
                     <button
                       onClick={() => submitResponse(review.id)}
                       disabled={submitting}
-                      className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors disabled:opacity-50"
                     >
                       <Send className="h-4 w-4" />
                       {submitting ? "Submitting..." : "Submit Response"}
@@ -475,7 +481,7 @@ export default function ContractorReviewsPage() {
                       onChange={(e) => setDisputeReason(e.target.value)}
                       placeholder="Explain why you're disputing this review..."
                       rows={4}
-                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                     <div className="flex gap-2">
                       <button
@@ -504,7 +510,7 @@ export default function ContractorReviewsPage() {
                 {!review.contractorResponse && selectedReview !== review.id && (
                   <button
                     onClick={() => setSelectedReview(review.id)}
-                    className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300"
+                    className="flex items-center gap-2 text-brand-harbour-700 dark:text-brand-harbour-400 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-300"
                   >
                     <MessageSquare className="h-4 w-4" />
                     Respond to Review
@@ -522,7 +528,7 @@ export default function ContractorReviewsPage() {
                     </button>
                   )}
 
-                <div className="ml-auto flex items-center gap-4 text-sm text-slate-400">
+                <div className="ml-auto flex items-center gap-4 text-sm text-brand-slate dark:text-slate-400">
                   <span className="flex items-center gap-1">
                     <ThumbsUp className="h-4 w-4" />
                     {review.helpfulCount}

@@ -915,3 +915,26 @@ describe("cron comment truthfulness (RA-7455)", () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * RA-8001 slice 1d-i, invariant I5: the executor has no subscription gate
+ * (G1 is route-local), so nothing may claim agent tasks on a schedule in
+ * production until 1d-iii adds one. These two crons claim or re-queue tasks.
+ */
+describe("RA-8001 [AC10] agent crons stay out of the production schedule", () => {
+  for (const path of ["advance-workflows", "dead-letter-review"]) {
+    it(`[AC10] ${path} is in PRODUCTION_EXCLUDED and not in PRODUCTION_ENABLED`, () => {
+      const excluded = PRODUCTION_EXCLUDED.find((c) => c.path === path);
+      expect(excluded).toBeDefined();
+      expect(excluded?.reason).toContain("no subscription gate");
+      expect(PRODUCTION_ENABLED.map((c) => c.path)).not.toContain(path);
+    });
+  }
+
+  it("[AC10] advance-workflows keeps the founder-enablement reason", () => {
+    const reason = PRODUCTION_EXCLUDED.find((c) => c.path === "advance-workflows")?.reason;
+    expect(reason).toBe(
+      "requires founder enablement: the executor has no subscription gate (G1 is route-local), so enable only after 1d-iii; run the dry-run count first; see durable-agents spec §5",
+    );
+  });
+});

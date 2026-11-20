@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import UpgradeHeader from "../UpgradeHeader";
+import UpgradeTrustStrip from "../UpgradeTrustStrip";
 
 vi.mock("next/image", () => ({
   default: (props: { alt: string; src: string }) => (
@@ -50,6 +51,14 @@ describe("UpgradeHeader", () => {
   it("renders brand chrome", () => {
     const { container } = render(<UpgradeHeader reason="trial-expired" />);
     expect(within(container).getByText("RestoreAssist")).toBeInTheDocument();
+  });
+
+  // The account links moved out of the header (31ac1fb58); on a hard paywall
+  // the page passes "Switch account" -> /login to UpgradeTrustStrip.
+  it("keeps the switch-account way out, now on the trust strip", () => {
+    const { container } = render(
+      <UpgradeTrustStrip backHref="/login" backLabel="Switch account" />,
+    );
     expect(
       within(container).getByRole("link", { name: /switch account/i }),
     ).toHaveAttribute("href", "/login");

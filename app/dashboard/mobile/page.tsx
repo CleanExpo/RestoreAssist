@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -322,7 +323,7 @@ function BetaSignupCard() {
       const data = await res.json();
       if (!res.ok) {
         throw new Error(
-          data.error || "Something went wrong. Please try again.",
+          apiErrorMessage(data) || "Something went wrong. Please try again.",
         );
       }
       setSubmitted(true);
@@ -344,7 +345,7 @@ function BetaSignupCard() {
     >
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Bell size={18} className="text-cyan-500" />
+          <Bell size={18} className="text-brand-harbour-500" />
           Join the Mobile Beta
         </CardTitle>
         <CardDescription>
@@ -370,7 +371,7 @@ function BetaSignupCard() {
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form method="post" onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="beta-name">Full name</Label>
@@ -412,8 +413,8 @@ function BetaSignupCard() {
                     className={cn(
                       "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 border",
                       deviceType === type
-                        ? "bg-cyan-500 text-white border-cyan-500 shadow-sm"
-                        : "bg-white dark:bg-slate-800 text-neutral-700 dark:text-slate-300 border-neutral-300 dark:border-slate-700 hover:border-cyan-400",
+                        ? "bg-brand-harbour-500 text-white border-brand-harbour-500 shadow-sm"
+                        : "bg-white dark:bg-slate-800 text-neutral-700 dark:text-slate-300 border-neutral-300 dark:border-slate-700 hover:border-brand-harbour-400",
                     )}
                   >
                     {type === "ios"
@@ -429,7 +430,7 @@ function BetaSignupCard() {
             <Button
               type="submit"
               disabled={submitting}
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white"
+              className="w-full bg-gradient-to-r from-blue-600 to-brand-harbour-600 hover:from-blue-600 hover:to-brand-harbour-600 text-white"
             >
               {submitting ? (
                 <>
@@ -460,12 +461,12 @@ export default function MobileDashboardPage() {
   const progressPct = Math.round((doneCount / totalCount) * 100);
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="space-y-8 max-w-9xl">
       {/* Page header */}
       <div>
         <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-            <Smartphone size={20} className="text-white" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-brand-harbour-500 flex items-center justify-center">
+            <Smartphone size={20} className="text-brand-navy dark:text-white" />
           </div>
           <div>
             <h1
@@ -525,7 +526,7 @@ export default function MobileDashboardPage() {
             </div>
             <div className="h-2 rounded-full bg-neutral-100 dark:bg-slate-800 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 transition-all duration-700"
+                className="h-full rounded-full bg-gradient-to-r from-blue-600 to-brand-harbour-600 transition-all duration-700"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -576,7 +577,7 @@ export default function MobileDashboardPage() {
         >
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Smartphone size={18} className="text-cyan-500" />
+              <Smartphone size={18} className="text-brand-harbour-500" />
               Field access today
             </CardTitle>
             <CardDescription>
@@ -589,8 +590,8 @@ export default function MobileDashboardPage() {
             <div
               className={cn(
                 "rounded-xl border px-4 py-4 space-y-2",
-                "border-cyan-200 dark:border-cyan-800/50",
-                "bg-cyan-50/80 dark:bg-cyan-950/30",
+                "border-brand-harbour-200 dark:border-brand-harbour-800/50",
+                "bg-brand-harbour-50/80 dark:bg-brand-harbour-950/30",
               )}
             >
               <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
@@ -785,7 +786,7 @@ export default function MobileDashboardPage() {
       >
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Wifi size={18} className="text-cyan-500" />
+            <Wifi size={18} className="text-brand-harbour-500" />
             Tech Stack
           </CardTitle>
         </CardHeader>
@@ -829,7 +830,7 @@ export default function MobileDashboardPage() {
           <Separator className="my-4 dark:border-slate-800" />
 
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <p className="text-xs text-neutral-400 dark:text-slate-500">
+            <p className="text-xs text-brand-slate dark:text-slate-500">
               Linear: RA-162 · EPIC: RA-241 · Directory:{" "}
               <span className="font-mono">D:\RestoreAssist\mobile\</span>
             </p>
@@ -837,7 +838,7 @@ export default function MobileDashboardPage() {
               href="https://docs.expo.dev/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs text-brand-harbour-600 dark:text-brand-harbour-400 hover:underline"
             >
               Expo Docs
               <ExternalLink size={11} />

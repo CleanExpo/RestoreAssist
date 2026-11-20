@@ -48,7 +48,7 @@ describe("SetupStepper — Skip setup for now (RA-7427)", () => {
       { key: "first_report", title: "First report", required: false, complete: false, content: <div>R</div> },
     ];
     render(<SetupStepper items={ready} initialIndex={2} onSkip={onSkip} onFinish={onFinish} />);
-    const finish = screen.getByRole("button", { name: /generate your first report/i });
+    const finish = screen.getByRole("button", { name: /finish setup/i });
     expect(finish).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: /skip setup for now/i }));
     await waitFor(() => expect(onSkip).toHaveBeenCalledTimes(1));
@@ -66,7 +66,7 @@ describe("SetupStepper — Skip setup for now (RA-7427)", () => {
       { key: "first_report", title: "First report", required: false, complete: false, content: <div>R</div> },
     ];
     render(<SetupStepper items={ready} initialIndex={1} onSkip={onSkip} onFinish={onFinish} />);
-    fireEvent.click(screen.getByRole("button", { name: /generate your first report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /finish setup/i }));
     await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
     const skip = screen.getByRole("button", { name: /skip setup for now/i });
     expect(skip).toBeDisabled();

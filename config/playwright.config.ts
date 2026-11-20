@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { LOCAL_ORIGIN, LOCAL_PORT } from "../e2e/helpers/local-origin";
 
 const configDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(configDir, "..");
@@ -20,7 +21,7 @@ export default defineConfig({
     ["list"],
   ],
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || LOCAL_ORIGIN,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -33,20 +34,20 @@ export default defineConfig({
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "chromium",
-      testIgnore: [/auth\.setup\.ts/, /walkthrough\//],
+      testIgnore: [/auth\.setup\.ts/, /walkthrough\//, /one-setup-path\//],
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
     },
     {
       name: "mobile-chrome",
-      testIgnore: [/auth\.setup\.ts/, /walkthrough\//],
+      testIgnore: [/auth\.setup\.ts/, /walkthrough\//, /one-setup-path\//],
       grep: /@smoke/,
       use: { ...devices["Pixel 5"] },
       dependencies: ["setup"],
     },
     {
       name: "tablet-chrome",
-      testIgnore: [/auth\.setup\.ts/, /walkthrough\//],
+      testIgnore: [/auth\.setup\.ts/, /walkthrough\//, /one-setup-path\//],
       grep: /@smoke/,
       use: {
         ...devices["Desktop Chrome"],
@@ -61,7 +62,9 @@ export default defineConfig({
     ? undefined
     : {
         command: "npm run dev",
-        url: "http://localhost:3000",
+        url: LOCAL_ORIGIN,
+        // `next dev` listens on PORT (UNI-3468: E2E_PORT, default 3000).
+        env: { PORT: LOCAL_PORT },
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,
         cwd: repoRoot,

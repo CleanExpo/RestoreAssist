@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/admin-auth";
-import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
+import { isAllowlistedPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 
 /**
  * RA-7721 — the Founding Trial grant is RestoreAssist support-staff work.
@@ -15,6 +15,6 @@ export default async function FoundingTrialLayout({
   children: React.ReactNode;
 }) {
   const user = await requireAdminPage();
-  if (!isPlatformSupportOperator(user.id)) notFound();
+  if (!isAllowlistedPlatformSupportOperator(user.id)) notFound();
   return children;
 }

@@ -3,16 +3,36 @@
  * image bytes/locators are never accepted as report evidence.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
 const storeVerifiedCleanRender = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// D-028: create/update handlers gate on assertInspectionAssignedWrite.
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
+  // D-028: scoped writes run their work against the mocked client here;
+  // the claim itself is proven against Postgres in the integration table.
+  writeWithinInspectionScope: async (
+    _scope: unknown,
+    _data: unknown,
+    work: (tx: unknown) => unknown,
+  ) => work(scopePrisma),
+  assertInspectionAssignedWrite: vi.fn(async () => ({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "insp-1" },
+      inspectionManyWhere: { id: "insp-1" },
+      childInspectionFilter: undefined,
+      viaAssignment: false,
+    },
+  })),
 }));
 vi.mock("@/lib/sketch/server-clean-render", () => ({ storeVerifiedCleanRender }));
+vi.mock("@/lib/supabase-server", () => ({
+  isSupabaseServerConfigured: vi.fn(() => true),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     claimSketch: { findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
@@ -29,6 +49,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { isSupabaseServerConfigured } from "@/lib/supabase-server";
 import { POST } from "../route";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
@@ -200,5 +221,27 @@ describe("sketch POST → renderedPngUrl persistence", () => {
 
     expect(response.status).toBe(201);
     expect(storeVerifiedCleanRender).toHaveBeenCalledWith("i1", 0, sketchData);
+  });
+
+  it("still saves geometry when sketch storage is not configured", async () => {
+    (isSupabaseServerConfigured as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+      false,
+    );
+    p.claimSketch.findFirst.mockResolvedValueOnce(null);
+    p.claimSketch.create.mockResolvedValueOnce({ id: "s_local" });
+
+    const response = await POST(
+      makePost({
+        floorNumber: 0,
+        sketchData: { objects: [{ type: "rect", data: { type: "room" } }] },
+        requestCanonicalRender: true,
+      }),
+      { params: Promise.resolve({ id: "i1" }) },
+    );
+
+    expect(response.status).toBe(201);
+    expect(storeVerifiedCleanRender).not.toHaveBeenCalled();
+    const json = await response.json();
+    expect(json._saveMeta?.canonicalRender?.status).toBe("skipped");
   });
 });

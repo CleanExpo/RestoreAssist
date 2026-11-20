@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { FileDown, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
+import { failedResponseMessage } from "@/lib/inspections/job-actions";
 import type { InspectionReportData } from "@/lib/pdf-export";
 
 interface ExportPdfButtonProps {
@@ -19,12 +21,13 @@ export default function ExportPdfButton({
     try {
       const res = await fetch(`/api/inspections/${inspectionId}/export-data`);
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to load report data" }));
-        throw new Error(
-          (err as { error?: string }).error ?? "Failed to load report data",
+        const message = await failedResponseMessage(
+          res,
+          "Failed to load report data",
         );
+        console.error("[ExportPdfButton] Export refused:", res.status, message);
+        toast.error(message);
+        return;
       }
       const data: InspectionReportData = await res.json();
 
@@ -32,8 +35,9 @@ export default function ExportPdfButton({
       const { exportInspectionPdf } = await import("@/lib/pdf-export");
       await exportInspectionPdf(data);
     } catch (err) {
+      // Detailed context is in the console; the toast stays plain.
       console.error("[ExportPdfButton] Export failed:", err);
-      // Surface error without blocking the user; detailed context is in the console.
+      toast.error("Could not export the PDF. Please try again.");
     } finally {
       setLoading(false);
     }

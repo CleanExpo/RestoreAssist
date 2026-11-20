@@ -247,7 +247,7 @@ export default function InterviewPage() {
       {interviewStatus === "in_progress" && (
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto px-6 py-6">
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-9xl mx-auto">
               <GuidedInterviewPanel
                 formTemplateId={formTemplateId}
                 jobType={jobType}
@@ -269,7 +269,7 @@ export default function InterviewPage() {
             </div>
           </div>
           <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-            <div className="max-w-6xl mx-auto flex justify-center">
+            <div className="max-w-9xl mx-auto flex justify-center">
               <button
                 type="button"
                 onClick={handleSkipInterview}
@@ -284,7 +284,7 @@ export default function InterviewPage() {
 
       {interviewStatus === "completed" && questionsAndAnswers && (
         <div className="flex-1 overflow-y-auto px-6 py-6">
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div className="max-w-9xl mx-auto space-y-6">
             <Alert className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
               <CheckCircle2 className="h-4 w-4 text-success" />
               <AlertDescription className="text-success">
@@ -311,7 +311,7 @@ export default function InterviewPage() {
       {interviewStatus === "loading" && (
         <div className="flex-1 flex items-center justify-center px-6 py-6">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-brand-harbour-500" />
             <p className="text-sm text-slate-600 dark:text-slate-400">
               Loading interview summary...
             </p>
@@ -321,7 +321,7 @@ export default function InterviewPage() {
 
       {interviewStatus === "error" && (
         <div className="flex-1 flex items-center justify-center px-6 py-6">
-          <div className="max-w-2xl w-full space-y-4">
+          <div className="max-w-9xl w-full space-y-4">
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
               Failed to load interview summary.
               {sessionId && !formTemplateId && (

@@ -29,7 +29,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 ROSTER="$SCRIPT_DIR/roster.json"
-REVIEW_MD="$REPO_ROOT/REVIEW.md"
+REVIEW_MD="$REPO_ROOT/docs/project/REVIEW.md"
 DIMENSIONS_MD="$REPO_ROOT/.claude/rules/review-dimensions.md"
 
 for required in "$ROSTER" "$REVIEW_MD" "$DIMENSIONS_MD"; do

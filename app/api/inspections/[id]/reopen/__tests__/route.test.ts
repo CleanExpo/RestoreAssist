@@ -20,6 +20,7 @@ const prismaTx = {
     updateMany: vi.fn(),
   },
   claimProgress: {
+    findFirst: vi.fn(),
     updateMany: vi.fn(),
   },
 };
@@ -90,6 +91,7 @@ beforeEach(() => {
   });
   p.$transaction.mockImplementation(async (fn) => fn(prismaTx));
   prismaTx.inspection.updateMany.mockResolvedValue({ count: 1 });
+  prismaTx.claimProgress.findFirst.mockResolvedValue({ id: "cp1", version: 4 });
   prismaTx.claimProgress.updateMany.mockResolvedValue({ count: 1 });
   mockWriteLifecycleTransition.mockResolvedValue({
     id: "transition_1",
@@ -254,11 +256,13 @@ describe("POST /api/inspections/[id]/reopen", () => {
         prismaTx,
       }),
     );
+    // Version compare-and-set on the row the mirror read.
     expect(prismaTx.claimProgress.updateMany).toHaveBeenCalledWith({
-      where: { inspectionId: "i1" },
+      where: { id: "cp1", version: 4 },
       data: {
         previousState: "CLOSED",
         currentState: "INVOICE_ISSUED",
+        version: { increment: 1 },
         closedAt: null,
       },
     });

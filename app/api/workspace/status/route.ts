@@ -7,15 +7,15 @@
  *   after Stripe checkout completes.
  *
  * Response codes:
- *   200 — workspace found (status may be PROVISIONING | READY | SUSPENDED)
+ *   200 — workspace found, or none (hasWorkspace: false for invited/legacy)
  *   401 — not authenticated
- *   404 — no workspace exists for this user
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getWorkspaceStatus } from "@/lib/workspace/payment-gate";
+import { ensureWorkspaceForUser } from "@/lib/workspace/provision";
 import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(_req: NextRequest) {
@@ -29,18 +29,29 @@ export async function GET(_req: NextRequest) {
       });
     }
 
-    const statusResult = await getWorkspaceStatus(session.user.id);
+    let statusResult = await getWorkspaceStatus(session.user.id);
+
+    // Signup / Google users historically got an Organization but no Workspace
+    // until Stripe webhook or provider-settings lazy provision. Repair on read
+    // so the dashboard and AI-key flows stop 404ing in production.
+    if (!statusResult) {
+      try {
+        await ensureWorkspaceForUser(session.user.id);
+        statusResult = await getWorkspaceStatus(session.user.id);
+      } catch (provisionErr) {
+        console.error("[workspace/status] ensureWorkspaceForUser failed", provisionErr);
+      }
+    }
 
     if (!statusResult) {
-      return NextResponse.json(
-        {
-          hasWorkspace: false,
-          status: null,
-          workspaceId: null,
-          message: "No workspace found — complete checkout to provision one",
-        },
-        { status: 404 },
-      );
+      return NextResponse.json({
+        hasWorkspace: false,
+        status: null,
+        workspaceId: null,
+        ready: false,
+        message:
+          "No workspace for this account yet — owners get one automatically after subscribe; invited staff use the org workspace through their role.",
+      });
     }
 
     return NextResponse.json({

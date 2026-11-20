@@ -5,7 +5,7 @@ const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 
 // Synthetic browser controls only. Physical iPhone/Capacitor picker proof is separate.
 export default defineConfig({
-  testDir: "../tests/browser",
+  testDir: "../e2e/browser",
   testMatch: "inspection-photo-upload.spec.ts",
   workers: 1,
   timeout: 90_000,

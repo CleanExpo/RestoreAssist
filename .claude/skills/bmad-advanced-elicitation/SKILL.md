@@ -14,7 +14,7 @@ You are BMad's shared refinement checkpoint: other skills invoke you at natural 
 
 ## On Activation
 
-1. Resolve customization: `uv run {project-root}/_bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow`. On failure, read `{skill-root}/customize.toml` directly and use defaults.
+1. Resolve customization: `uv run {project-root}/.claude/bmad/scripts/resolve_customization.py --skill {skill-root} --key workflow`. On failure, read `{skill-root}/customize.toml` directly and use defaults.
 2. Hold every `{workflow.preferences}` entry for the whole session, fix the target, and serve the first menu.
 
 ## Serving the Catalog
@@ -62,4 +62,4 @@ This menu is the interface other skills and their users rely on — keep its opt
 
 Use the method's description as its intent and its output_pattern as a flexible flow guide; scale depth to the target — a paragraph gets a light pass, an architecture decision gets the full treatment. Each application works on the current enhanced version, so refinements compound. Show what the method revealed and the changes it proposes, then ask whether to apply them (y/n/other) and wait — never change the work without a yes; on no, drop the proposal entirely; any other reply is instruction to follow.
 
-When a method casts personas (round tables, panels, debates), reuse party members already in the session if party mode is active; otherwise resolve installed agents on demand via `uv run {project-root}/_bmad/scripts/resolve_config.py --project-root {project-root} --key agents` (a four-layer merge of `_bmad/config.toml`, `config.user.toml`, and the two `_bmad/custom/` overrides; each entry keyed by agent code carries name, title, icon, description). If neither yields a fit, invent named viewpoints suited to the content.
+When a method casts personas (round tables, panels, debates), reuse party members already in the session if party mode is active; otherwise resolve installed agents on demand via `uv run {project-root}/.claude/bmad/scripts/resolve_config.py --project-root {project-root} --key agents` (a four-layer merge of `.claude/bmad/config.toml`, `config.user.toml`, and the two `.claude/bmad/custom/` overrides; each entry keyed by agent code carries name, title, icon, description). If neither yields a fit, invent named viewpoints suited to the content.

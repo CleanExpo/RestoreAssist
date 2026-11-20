@@ -3,7 +3,21 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { prisma } from "@/lib/prisma";
-import { createWorkflow, quickAssessmentWorkflow } from "@/lib/agents";
+import {
+  createWorkflow,
+  liveLeaseSql,
+  quickAssessmentWorkflow,
+  type WorkflowDefinition,
+} from "@/lib/agents";
+import {
+  agentKeyPreflight,
+  agentSubscriptionGate,
+  needsByokKey,
+} from "@/lib/agents/route-gates";
+import {
+  assertInspectionTenancy,
+  assertReportTenancy,
+} from "@/lib/auth/assert-tenancy";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -64,10 +78,63 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-8001: ids are checked before they are stored.
+      for (const [field, value] of [
+        ["inspectionId", inspectionId],
+        ["reportId", reportId],
+      ] as const) {
+        if (value !== undefined && value !== null && typeof value !== "string") {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `${field} must be a string`,
+            status: 400,
+          });
+        }
+      }
+
+      // RA-8001 order: G1 -> tenancy -> key preflight -> createWorkflow, all
+      // inside withIdempotency. Any refusal writes no row.
+      const gate = {
+        route: "agents-workflow-create",
+        userId,
+        ids: { inspectionId: inspectionId ?? undefined, reportId: reportId ?? undefined },
+      };
+      const inactive = await agentSubscriptionGate(request, gate);
+      if (inactive) return inactive;
+
+      // WRITE scope (the helpers' default): a technician may attach only
+      // their own records, never a colleague's (never assertInspectionReadable).
+      if (typeof inspectionId === "string") {
+        const tenancy = await assertInspectionTenancy(session, inspectionId);
+        if (!tenancy.ok) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Inspection not found",
+            status: 404,
+          });
+        }
+      }
+      if (typeof reportId === "string") {
+        const tenancy = await assertReportTenancy(session, reportId);
+        if (!tenancy.ok) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Report not found",
+            status: 404,
+          });
+        }
+      }
+
+      const steps = (template as WorkflowDefinition).steps.map((s) => s.agentSlug);
+      if (needsByokKey(steps)) {
+        const refused = await agentKeyPreflight(request, gate);
+        if (refused) return refused;
+      }
+
       const result = await createWorkflow(template, {
         userId,
-        reportId,
-        inspectionId,
+        reportId: reportId ?? undefined,
+        inspectionId: inspectionId ?? undefined,
         config,
       });
 
@@ -117,7 +184,21 @@ export async function GET(request: NextRequest) {
       take: limit,
     });
 
-    return NextResponse.json({ workflows, count: workflows.length });
+    // RA-7999: read-only count of the caller's RUNNING tasks whose lease has
+    // expired (the sweep's predicate, on the database clock).
+    const [{ expired }] = await prisma.$queryRaw<Array<{ expired: number }>>`
+      SELECT count(*)::int AS expired
+      FROM "AgentTask" t
+      JOIN "AgentWorkflow" w ON w.id = t."workflowId"
+      WHERE w."userId" = ${session.user.id}
+        AND t.status = 'RUNNING'
+        AND NOT COALESCE(${liveLeaseSql("t")}, false)`;
+
+    return NextResponse.json({
+      workflows,
+      count: workflows.length,
+      expiredLeaseTasks: expired,
+    });
   } catch (error) {
     return fromException(request, error, { stage: "agents-workflow-list" });
   }

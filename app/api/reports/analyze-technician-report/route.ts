@@ -13,6 +13,7 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 
 // POST - Analyze technician report using AI
 export async function POST(request: NextRequest) {
@@ -51,10 +52,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
-      const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-      if (
-        !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-      ) {
+      if (!(await hasActiveSubscription(userId))) {
         return apiError(request, {
           code: "FORBIDDEN",
           message: "Active subscription required",

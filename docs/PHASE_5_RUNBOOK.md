@@ -142,7 +142,7 @@ when redeploying after env changes.
 
 ```bash
 # Smoke against PROD.
-BASE_URL=https://app.restoreassist.com.au \
+BASE_URL=https://restoreassist.app \
   npx playwright test e2e/pilot-workflow.spec.ts --reporter=line
 ```
 

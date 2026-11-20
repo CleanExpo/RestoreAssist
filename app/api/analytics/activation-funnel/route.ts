@@ -9,7 +9,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { fromException } from "@/lib/api-errors";
 
 const FUNNEL_STEPS = [
@@ -25,6 +28,10 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // RA-8043c: platform-wide activation counts are RestoreAssist staff data. Every firm owner is an ADMIN,
+    // so the ADMIN check alone let any firm reach it.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 

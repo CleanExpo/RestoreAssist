@@ -67,7 +67,9 @@ import {
   evidenceIdempotencyKey,
   evidencePhotoFromFile,
   pickEvidencePhotoFile,
+  VIDEO_EVIDENCE_ACCEPT,
 } from "@/lib/evidence/ios-capture";
+import { isVideoEvidenceClass } from "@/lib/evidence/evidence-classes";
 import type { IOSCaptureResult } from "@/lib/evidence/ios-capture";
 import { verifyEvidenceReadback } from "@/lib/evidence/verified-readback";
 import {
@@ -75,14 +77,32 @@ import {
   ensureDeviceKeyRegistered,
   recoverFromRejectedKey,
 } from "@/lib/evidence/device-signing";
+import {
+  describeSavedEvidence,
+  submitMetadataEvidence,
+  withSavedEvidence,
+  type MetadataEvidenceDraft,
+  type SignedRequestBytes,
+} from "@/lib/evidence/submit-metadata-evidence";
+import { MetadataCaptureForm } from "@/components/evidence/metadata-capture-form";
+import { isMetadataOnlyEvidenceClass } from "@/lib/evidence/submission-path-classes";
+import { canCaptureAnother } from "@/lib/evidence/step-reachability";
 import type { SignedManifestPayload } from "@/lib/evidence/device-signing";
-import { submitSignedCapture } from "@/lib/evidence/capture-submit";
+import {
+  EVIDENCE_LIST_RELOAD_TIMEOUT_MS,
+  submitSignedCapture,
+  withTimeLimit,
+} from "@/lib/evidence/capture-submit";
 import { useSession } from "next-auth/react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
 import { getQueuedDraftCount } from "@/lib/offline/inspection-store";
 import { AdaptiveGuidancePanel } from "@/components/inspections/adaptive-guidance-panel";
 import { SubmissionGatePanel } from "@/components/inspections/submission-gate-panel";
+import {
+  describeSubmitRefusal,
+  type SubmitRefusal,
+} from "@/lib/evidence/submit-refusal";
 import { FieldEvidenceChecklistPanel } from "@/components/inspections/field-evidence-checklist-panel";
 import {
   EVIDENCE_CLASS_LABELS,
@@ -97,6 +117,7 @@ import type {
   WorkflowStepStatus,
   ExceptionReasonCode,
 } from "@/lib/types/evidence";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ============================================
 // TYPES
@@ -150,6 +171,17 @@ interface Workflow {
 // ============================================
 // HELPER: Evidence icon by class
 // ============================================
+/**
+ * Notes and readings: captured through the metadata form as JSON, with no
+ * camera. One owner, because the capture handler and the capture controls
+ * must agree on which classes the form serves.
+ */
+function isMetadataOnlyClass(evidenceClass: EvidenceClass): boolean {
+  // RA-8388: the list lives with the route's own check, so the screen and
+  // the server cannot disagree about which path a class takes.
+  return isMetadataOnlyEvidenceClass(evidenceClass);
+}
+
 function evidenceIcon(cls: EvidenceClass) {
   if (EVIDENCE_CATEGORIES.MEASUREMENTS.includes(cls))
     return <Thermometer className="h-4 w-4" />;
@@ -245,8 +277,38 @@ export default function CaptureWorkflowPage({
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [selectedEvidenceClass, setSelectedEvidenceClass] =
     useState<EvidenceClass | null>(null);
+  /**
+   * RA-8388: the open metadata form, or null.
+   *
+   * The page records WHICH class is being captured and nothing else. The
+   * draft, its capture time and its signed bytes belong to the form, so a
+   * retry replays one submission instead of minting a second.
+   */
+  const [metadataCapture, setMetadataCapture] = useState<{
+    stepId: string;
+    evidenceClass: EvidenceClass;
+  } | null>(null);
   const pickerAbortRef = useRef<AbortController | null>(null);
   const signedRequestCache = useRef(new Map<string, Pick<SignedManifestPayload, "manifestJson" | "signature">>());
+  /**
+   * RA-8388: counts every write to `evidenceItems`. A reload takes the next
+   * number when it is sent and is applied only if the number is unchanged
+   * when its answer arrives, so an answer that left the server before a
+   * newer reload, a save or a delete can never overwrite what came after it.
+   */
+  const evidenceListVersion = useRef(0);
+  /** True once the open form's save has put its record on the list. */
+  const formSavedRecord = useRef(false);
+  /** The `evidenceListVersion` number taken by the newest reload sent. */
+  const latestReloadVersion = useRef(0);
+  /**
+   * RA-8388: the steps whose reading form is held shut while the evidence
+   * list is reloaded after "Close and check". The ref is what the capture
+   * handler reads, so a tap landing before the re-render is still refused;
+   * the state is the same list, for the notice and the disabled controls.
+   */
+  const stepsBeingChecked = useRef(new Set<string>());
+  const [stepIdsBeingChecked, setStepIdsBeingChecked] = useState<string[]>([]);
   const [pickerPending, setPickerPending] = useState(false);
   const [pendingRawFile, setPendingRawFile] = useState<{
     stepId: string;
@@ -267,6 +329,11 @@ export default function CaptureWorkflowPage({
 
   // Submission gate state (RA-401)
   const [submitting, setSubmitting] = useState(false);
+  // RA-8388: a refused submit stays on screen with a link to each missing
+  // item. A toast showed the raw server code and then disappeared.
+  const [submitRefusal, setSubmitRefusal] = useState<SubmitRefusal | null>(
+    null,
+  );
 
   // Sidebar collapse on mobile
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -298,6 +365,7 @@ export default function CaptureWorkflowPage({
 
       if (wfData.workflow) {
         setWorkflow(wfData.workflow);
+        evidenceListVersion.current += 1;
         setEvidenceItems(wfData.workflow.evidenceItems || []);
         setSetupMode(false);
         // Deep-link from field evidence checklist: ?step=<stepKey>
@@ -334,6 +402,90 @@ export default function CaptureWorkflowPage({
     fetchWorkflow();
   }, [fetchWorkflow]);
 
+  /**
+   * RA-8388: reload the evidence list, and nothing else.
+   *
+   * When a save may already have been recorded, the form tells the
+   * technician to close it and check the step's evidence. The list was
+   * loaded once, at mount, so that check showed the list from BEFORE the
+   * save and the reading was entered twice.
+   *
+   * It reads the workflow route, the same source as the first load, because
+   * that list holds only evidence that counts. GET /evidence also returns
+   * retired readings, which would inflate the step counts. It does not call
+   * `fetchWorkflow`: that resets setup mode and the open step.
+   *
+   * A failed or unusable answer leaves the list as it is and says so. It
+   * never blanks the list. An answer that has been overtaken (see
+   * `evidenceListVersion`) is never applied.
+   *
+   * While it is out, the reading form for `stepId` is held shut (see
+   * `stepsBeingChecked`): the technician was told to check the step before
+   * entering the reading again, and until the answer is in there is nothing
+   * true to check against. The hold ends when the newest reload has
+   * answered or failed, never before:
+   *
+   * - overtaken by a newer reload: this one stops, and the newer one ends
+   *   the hold for every held step, because its list is the whole job's;
+   * - overtaken by a save or a delete: the answer is from before that write
+   *   and cannot be used, so the list is asked for again;
+   * - no answer inside the time limit: a failed reload. The request is
+   *   bounded, so the hold cannot last for ever.
+   */
+  const reloadEvidenceItems = useCallback(async (stepId: string) => {
+    stepsBeingChecked.current.add(stepId);
+    setStepIdsBeingChecked([...stepsBeingChecked.current]);
+
+    let items: unknown;
+    for (;;) {
+      const version = ++evidenceListVersion.current;
+      latestReloadVersion.current = version;
+      try {
+        items = await withTimeLimit(
+          "Evidence list reload",
+          EVIDENCE_LIST_RELOAD_TIMEOUT_MS,
+          async (signal) => {
+            const res = await fetch(
+              `/api/inspections/${inspectionId}/workflow`,
+              signal ? { signal } : undefined,
+            );
+            const data = res.ok ? await res.json() : null;
+            return data?.workflow?.evidenceItems as unknown;
+          },
+        );
+      } catch {
+        items = undefined;
+      }
+      if (version === evidenceListVersion.current) break;
+      // A newer reload is out; it owns the list and the hold from here.
+      if (latestReloadVersion.current !== version) return;
+      // A save or a delete overtook this answer: ask again.
+    }
+
+    stepsBeingChecked.current.clear();
+    setStepIdsBeingChecked([]);
+    if (!Array.isArray(items)) {
+      toast.error(
+        "Could not refresh this step's evidence. Reload the page to see what is saved before entering it again.",
+      );
+      return;
+    }
+    // A record already on the list keeps the picture links it holds. A
+    // photograph taken in this session holds the signed links the evidence
+    // listing gave it; the workflow route returns the stored links, which
+    // show nothing for a private file.
+    const reloaded = items as EvidenceItem[];
+    setEvidenceItems((prev) => {
+      const held = new Map(prev.map((item) => [item.id, item]));
+      return reloaded.map((item) => {
+        const shown = held.get(item.id);
+        return shown
+          ? { ...item, fileUrl: shown.fileUrl, thumbnailUrl: shown.thumbnailUrl }
+          : item;
+      });
+    });
+  }, [inspectionId]);
+
   // ============================================
   // ACTIONS
   // ============================================
@@ -350,7 +502,7 @@ export default function CaptureWorkflowPage({
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed to create workflow");
+        throw new Error(apiErrorMessage(err) || "Failed to create workflow");
       }
       toast.success("Workflow created — let's begin the inspection!");
       await fetchWorkflow();
@@ -499,7 +651,10 @@ export default function CaptureWorkflowPage({
       const body = lastResponse
         ? await (lastResponse as Response).json().catch(() => null)
         : null;
-      throw new Error(body?.error?.message || "Failed to record evidence");
+      // RA-8388: `apiErrorMessage` reads both error shapes the route can
+      // answer with (the envelope and the older plain string), so a refusal
+      // is never replaced by the generic line when the server said why.
+      throw new Error(apiErrorMessage(body) || "Failed to record evidence");
     }
     const data = await (lastResponse as Response).json();
     if (typeof data?.evidenceItem?.id !== "string") {
@@ -508,9 +663,35 @@ export default function CaptureWorkflowPage({
     const verified = await verifyEvidenceReadback(inspectionId, stepId, data.evidenceItem.id);
     setPendingFailureStatus(null);
     signedRequestCache.current.clear();
-    setEvidenceItems((prev) => [verified as unknown as EvidenceItem, ...prev]);
+    evidenceListVersion.current += 1;
+    setEvidenceItems((prev) =>
+      withSavedEvidence(prev, verified as unknown as EvidenceItem),
+    );
     setSelectedEvidenceClass(null);
-    toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} captured`);
+    showSavedEvidenceNotice(evidenceClass, data);
+  };
+
+  /**
+   * RA-8388: say what the server actually answered. A photograph that is
+   * saved but does not count toward the photographs the job needs, and a
+   * capture the job already held, are both 2xx and neither is plain
+   * "captured". The wording has one owner, `describeSavedEvidence`.
+   */
+  const showSavedEvidenceNotice = (
+    evidenceClass: EvidenceClass,
+    data: unknown,
+  ) => {
+    const notice = describeSavedEvidence(
+      EVIDENCE_CLASS_LABELS[evidenceClass],
+      data,
+    );
+    if (notice.tone === "success") {
+      toast.success(notice.message);
+    } else {
+      // Not green, and long enough to read: this is the only time the
+      // technician is told before submit that the photograph does not count.
+      toast(notice.message, { duration: 10000 });
+    }
   };
 
   const handleCaptureEvidence = async (
@@ -523,83 +704,41 @@ export default function CaptureWorkflowPage({
       setSelectedEvidenceClass(evidenceClass);
 
       // Metadata-first classes (notes / readings) — JSON path, no forced camera.
-      const metadataOnly =
-        evidenceClass === "TECHNICIAN_NOTE" ||
-        evidenceClass === "MOISTURE_READING" ||
-        evidenceClass === "AMBIENT_ENVIRONMENTAL" ||
-        evidenceClass === "EQUIPMENT_LOG";
-
-      if (metadataOnly) {
-        const title =
-          window.prompt(
-            evidenceClass === "TECHNICIAN_NOTE"
-              ? "Technician note title"
-              : `${EVIDENCE_CLASS_LABELS[evidenceClass]} label`,
-            EVIDENCE_CLASS_LABELS[evidenceClass],
-          ) ?? "";
-        if (!title.trim()) {
+      if (isMetadataOnlyClass(evidenceClass)) {
+        // RA-8388: the form stays shut on a step whose evidence is still
+        // being checked after "Close and check". Opening it now is how the
+        // same reading is entered twice.
+        if (stepsBeingChecked.current.has(stepId)) {
           setSelectedEvidenceClass(null);
           return;
         }
-        let notes: string | undefined;
-        let structuredData: Record<string, unknown> | undefined;
-        if (evidenceClass === "TECHNICIAN_NOTE") {
-          notes = window.prompt("Note text") ?? undefined;
-          if (!notes?.trim()) {
-            setSelectedEvidenceClass(null);
-            return;
-          }
-        } else if (
-          evidenceClass === "MOISTURE_READING" ||
-          evidenceClass === "AMBIENT_ENVIRONMENTAL"
-        ) {
-          const raw = window.prompt("Reading value (number)");
-          if (raw == null || raw.trim() === "") {
-            setSelectedEvidenceClass(null);
-            return;
-          }
-          const value = Number(raw);
-          if (!Number.isFinite(value)) {
-            toast.error("Enter a numeric reading");
-            setSelectedEvidenceClass(null);
-            return;
-          }
-          structuredData = {
-            measurementValue: value,
-            measurementUnit: evidenceClass === "MOISTURE_READING" ? "%" : "RH",
-          };
-          notes = `Reading: ${value}`;
+        // RA-8388 AMENDMENT 03 §M. This used to be a chain of
+        // `window.prompt` calls. A blank or cancelled prompt ran
+        // `setSelectedEvidenceClass(null); return;`, which is the client's
+        // "nothing happens after I click OK" and her lost entries - the chain
+        // had nowhere to keep what had been typed. It also could not collect
+        // `surfaceType` or `depth`, so a moisture reading could never produce
+        // a complete MoistureReading row.
+        //
+        // The form owns the fields AND the draft. The draft must be created
+        // once and reused across retries, because the idempotency key is
+        // derived from its content plus `capturedAt`; minting that here, per
+        // tap, is what wrote one measurement into insurance evidence twice.
+        // The page deliberately holds neither.
+        if (!session?.user?.id) {
+          throw new Error("You must be signed in to record evidence");
         }
-
-        const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": `meta-${stepId}-${evidenceClass}-${Date.now()}`,
-          },
-          body: JSON.stringify({
-            workflowStepId: stepId,
-            evidenceClass,
-            title: title.trim(),
-            notes,
-            structuredData,
-            deviceType: isNative ? "NATIVE_CAPACITOR" : "WEB_BROWSER",
-          }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          throw new Error(
-            data?.error?.message || data?.message || data?.error || "Failed to record evidence",
-          );
-        }
-        setEvidenceItems((prev) => [data.evidenceItem, ...prev]);
-        setSelectedEvidenceClass(null);
-        toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} captured`);
+        setMetadataCapture({ stepId, evidenceClass });
+        setUploadingEvidence(false);
         return;
       }
 
+      // Video evidence always goes through the file input: the native Camera
+      // plugin only takes stills, while a video-only input opens the camera
+      // in video mode on iOS, Android and the Capacitor WebView alike.
+      const wantsVideo = isVideoEvidenceClass(evidenceClass);
       let capture: IOSCaptureResult;
-      if (isNative) {
+      if (isNative && !wantsVideo) {
         capture = await captureEvidencePhoto();
       } else {
         const controller = new AbortController();
@@ -607,7 +746,10 @@ export default function CaptureWorkflowPage({
         setPickerPending(true);
         let selected: File;
         try {
-          selected = await pickEvidencePhotoFile({ signal: controller.signal });
+          selected = await pickEvidencePhotoFile({
+            signal: controller.signal,
+            ...(wantsVideo ? { accept: VIDEO_EVIDENCE_ACCEPT } : {}),
+          });
         } finally {
           pickerAbortRef.current = null;
           setPickerPending(false);
@@ -699,25 +841,38 @@ export default function CaptureWorkflowPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ evidenceId }),
       });
-      if (!res.ok) throw new Error("Failed to delete evidence");
+      if (!res.ok) {
+        // RA-8388: the route says WHY (for example, this evidence is the
+        // signed record behind a reading, and what to do instead). Show
+        // that, not a generic line the technician can only retry against.
+        const body = await res.json().catch(() => null);
+        throw new Error(apiErrorMessage(body) ?? "Failed to delete evidence");
+      }
+      evidenceListVersion.current += 1;
       setEvidenceItems((prev) => prev.filter((e) => e.id !== evidenceId));
       toast.success("Evidence removed");
     } catch (error) {
-      toast.error("Failed to delete evidence");
+      toast.error(
+        (error instanceof Error && error.message) ||
+          "Failed to delete evidence",
+      );
     }
   };
 
   // [RA-401] Submit inspection with evidence validation
   const handleSubmitInspection = async () => {
     setSubmitting(true);
+    setSubmitRefusal(null);
     try {
       const res = await fetch(`/api/inspections/${inspectionId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        toast.error(data.error || "Submission failed");
+        const refusal = describeSubmitRefusal(inspectionId, data);
+        setSubmitRefusal(refusal);
+        toast.error(refusal.message);
         return;
       }
       toast.success("Inspection submitted successfully");
@@ -748,11 +903,17 @@ export default function CaptureWorkflowPage({
       )
     : 0;
   const isApprentice = workflow?.experienceLevel === "APPRENTICE";
+  // RA-8388: the open step's readings are being checked after "Close and
+  // check"; its reading and note controls are held until that has answered.
+  const checkingSavedEvidence =
+    activeStep !== null && stepIdsBeingChecked.includes(activeStep.id);
 
   // ============================================
   // LOADING STATE
   // ============================================
-  if (loading) {
+  // Spinner only before the first workflow arrives. Refetching after a step
+  // completes must not unmount the page, or the scroll jumps to the top.
+  if (loading && !workflow) {
     return (
       <div
         role="status"
@@ -774,138 +935,175 @@ export default function CaptureWorkflowPage({
   // SETUP MODE — Choose job type + experience level
   // ============================================
   if (setupMode) {
-    return (
-      <div className="max-w-2xl mx-auto py-12 px-4">
-        <Link
-          href={`/dashboard/inspections/${inspectionId}`}
-          className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 mb-8"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back to inspection
-        </Link>
+    const workflowTemplate = getWorkflowTemplate(selectedJobType);
+    const mandatorySteps = workflowTemplate.steps.filter((s) => s.isMandatory);
 
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-              <Camera className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
-                Start Guided Capture
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {inspectionData?.inspectionNumber} —{" "}
-                {inspectionData?.propertyAddress}
-              </p>
+    return (
+      <div className="min-h-[calc(100vh-4rem)] w-full bg-slate-50 dark:bg-slate-950">
+        <header className="w-full border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex w-full flex-col gap-4 px-4 py-5 lg:px-8 lg:flex-row lg:items-center lg:justify-between">
+            <Link
+              href={`/dashboard/inspections/${inspectionId}`}
+              className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to inspection
+            </Link>
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-navy/10 dark:bg-brand-navy/30">
+                <Camera className="h-5 w-5 text-brand-navy dark:text-slate-100" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-semibold text-slate-900 dark:text-white">
+                  Start Guided Capture
+                </h1>
+                <p className="truncate text-sm text-slate-500 dark:text-slate-400">
+                  {inspectionData?.inspectionNumber} ·{" "}
+                  {inspectionData?.propertyAddress}
+                </p>
+              </div>
             </div>
           </div>
+        </header>
 
-          <div className="space-y-6">
-            {/* Job Type */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Job Type
-              </label>
-              <Select
-                value={selectedJobType}
-                onValueChange={(v) => setSelectedJobType(v as JobType)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select job type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {JOB_TYPES.map((jt) => (
-                    <SelectItem key={jt} value={jt}>
-                      {JOB_TYPE_LABELS[jt]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                This determines which evidence steps are required for IICRC
-                S500:2021 compliance.
-              </p>
-            </div>
-
-            {/* Experience Level */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Experience Level
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setExperienceLevel("APPRENTICE")}
-                  className={cn(
-                    "p-4 rounded-lg border-2 text-left transition-all",
-                    experienceLevel === "APPRENTICE"
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                      : "border-slate-200 dark:border-slate-700 hover:border-slate-300",
-                  )}
+        <div className="w-full px-4 py-8 lg:px-8 lg:py-10">
+          <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-8">
+            <section className="space-y-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:p-8 xl:col-span-7">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Job type
+                </label>
+                <Select
+                  value={selectedJobType}
+                  onValueChange={(v) => setSelectedJobType(v as JobType)}
                 >
-                  <div className="font-medium text-sm text-slate-900 dark:text-white">
-                    Apprentice
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Detailed guidance, sub-steps, confirming questions
-                  </div>
-                </button>
-                <button
-                  onClick={() => setExperienceLevel("EXPERIENCED")}
-                  className={cn(
-                    "p-4 rounded-lg border-2 text-left transition-all",
-                    experienceLevel === "EXPERIENCED"
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                      : "border-slate-200 dark:border-slate-700 hover:border-slate-300",
-                  )}
-                >
-                  <div className="font-medium text-sm text-slate-900 dark:text-white">
-                    Experienced
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Minimal text, consolidated steps, exception-only prompts
-                  </div>
-                </button>
+                  <SelectTrigger className="h-11 w-full">
+                    <SelectValue placeholder="Select job type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {JOB_TYPES.map((jt) => (
+                      <SelectItem key={jt} value={jt}>
+                        {JOB_TYPE_LABELS[jt]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  Defines required evidence steps for IICRC S500:2021 compliance.
+                </p>
               </div>
-            </div>
 
-            {/* Preview */}
-            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Workflow Preview
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                {getWorkflowTemplate(selectedJobType).description}
+              <div>
+                <label className="mb-3 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Experience level
+                </label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setExperienceLevel("APPRENTICE")}
+                    className={cn(
+                      "rounded-lg border-2 p-5 text-left transition-all",
+                      experienceLevel === "APPRENTICE"
+                        ? "border-brand-navy bg-brand-navy/5 dark:bg-brand-navy/20"
+                        : "border-slate-200 hover:border-slate-300 dark:border-slate-700",
+                    )}
+                  >
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Apprentice
+                    </div>
+                    <div className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                      Detailed guidance, sub-steps, and confirming questions at
+                      each stage.
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExperienceLevel("EXPERIENCED")}
+                    className={cn(
+                      "rounded-lg border-2 p-5 text-left transition-all",
+                      experienceLevel === "EXPERIENCED"
+                        ? "border-brand-navy bg-brand-navy/5 dark:bg-brand-navy/20"
+                        : "border-slate-200 hover:border-slate-300 dark:border-slate-700",
+                    )}
+                  >
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Experienced
+                    </div>
+                    <div className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                      Consolidated steps with minimal prompts; exceptions only
+                      when needed.
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <aside className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:p-8 xl:col-span-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Workflow preview
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                {workflowTemplate.description}
               </p>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                <span className="font-medium">
-                  {getWorkflowTemplate(selectedJobType).steps.length} steps
+              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  {workflowTemplate.steps.length} steps
                 </span>
-                {" · "}
-                <span>
-                  {
-                    getWorkflowTemplate(selectedJobType).steps.filter(
-                      (s) => s.isMandatory,
-                    ).length
-                  }{" "}
-                  mandatory
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  {mandatorySteps.length} mandatory
+                </span>
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  {experienceLevel === "APPRENTICE"
+                    ? "Guided mode"
+                    : "Experienced mode"}
                 </span>
               </div>
-            </div>
+              <ol className="mt-6 flex-1 space-y-2 overflow-y-auto text-sm text-slate-600 dark:text-slate-300">
+                {workflowTemplate.steps.slice(0, 8).map((step, index) => (
+                  <li
+                    key={step.stepKey}
+                    className="flex gap-3 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800"
+                  >
+                    <span className="font-mono text-xs text-brand-slate dark:text-slate-400">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="flex-1">{step.stepTitle}</span>
+                    {step.isMandatory && (
+                      <span className="text-[10px] font-medium uppercase text-amber-600 dark:text-amber-400">
+                        Required
+                      </span>
+                    )}
+                  </li>
+                ))}
+                {workflowTemplate.steps.length > 8 && (
+                  <li className="px-3 py-1 text-xs text-brand-slate dark:text-slate-400">
+                    +{workflowTemplate.steps.length - 8} more steps
+                  </li>
+                )}
+              </ol>
+            </aside>
+          </div>
 
+          <div className="mt-8 flex w-full flex-col gap-4 border-t border-slate-200 pt-6 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-9xl text-sm text-slate-500 dark:text-slate-400">
+              Chain-of-custody and evidence class requirements apply to every
+              capture step. You can change experience level later from the
+              workflow sidebar.
+            </p>
             <Button
               onClick={handleCreateWorkflow}
               disabled={creating}
-              className="w-full"
               size="lg"
+              className="h-12 w-full bg-brand-navy hover:bg-brand-navy/90 sm:w-auto sm:min-w-[260px]"
             >
               {creating ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Creating workflow...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating workflow…
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Begin Guided Capture
+                  <Play className="mr-2 h-4 w-4" />
+                  Begin guided capture
                 </>
               )}
             </Button>
@@ -1022,7 +1220,7 @@ export default function CaptureWorkflowPage({
                     ) : isActive ? (
                       <Play className="h-4 w-4 text-blue-500" />
                     ) : (
-                      <Circle className="h-4 w-4 text-slate-300 dark:text-slate-600" />
+                      <Circle className="h-4 w-4 text-brand-slate dark:text-slate-600" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1087,7 +1285,7 @@ export default function CaptureWorkflowPage({
       {/* ============================================ */}
       <main className="flex-1 overflow-y-auto p-4 lg:p-8">
         {pendingCapture && (
-          <div role="alert" className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div role="alert" className="mx-auto mb-4 flex w-full max-w-9xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <span className="flex-1">Photo captured but its job attachment is not verified. Keep this page open and retry, or save the original file.</span>
             <button type="button" onClick={() => void retryPendingCapture()} disabled={uploadingEvidence} className="rounded border px-2 py-1 disabled:opacity-50">Retry pending photo</button>
             <button type="button" onClick={savePendingCaptureCopy} className="rounded border px-2 py-1">Save original copy</button>
@@ -1095,7 +1293,7 @@ export default function CaptureWorkflowPage({
           </div>
         )}
         {pendingRawFile && !pendingCapture && !uploadingEvidence && (
-          <div role="alert" className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div role="alert" className="mx-auto mb-4 flex w-full max-w-9xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <span className="flex-1">The selected photo could not be prepared or attached. It remains on this page. Retry or save the original file.</span>
             <button type="button" onClick={() => void retryPendingRawFile()} className="rounded border px-2 py-1">Retry selected photo</button>
             <button type="button" onClick={savePendingCaptureCopy} className="rounded border px-2 py-1">Save original copy</button>
@@ -1103,13 +1301,13 @@ export default function CaptureWorkflowPage({
           </div>
         )}
         {pickerPending && (
-          <div role="status" className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div role="status" className="mx-auto mb-4 flex w-full max-w-9xl flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <span className="flex-1">Waiting for your camera or file picker. If you closed it without choosing a photo, end this selection.</span>
             <button type="button" onClick={() => pickerAbortRef.current?.abort()} className="rounded border px-2 py-1">I did not choose a photo</button>
           </div>
         )}
         {/* Step header */}
-        <div className="max-w-3xl mx-auto">
+        <div className="mx-auto w-full max-w-9xl">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div
@@ -1191,7 +1389,7 @@ export default function CaptureWorkflowPage({
           />
 
           {isNative && offlineCount > 0 && (
-            <div className="bg-amber-900/30 border border-amber-600/50 rounded-lg px-4 py-2 text-sm text-amber-300 mb-4">
+            <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-600/50 rounded-lg px-4 py-2 text-sm text-amber-700 dark:text-amber-300 mb-4">
               Working offline — {offlineCount} item{offlineCount > 1 ? "s" : ""} queued
             </div>
           )}
@@ -1206,6 +1404,25 @@ export default function CaptureWorkflowPage({
                 (min {activeStep.minimumEvidenceCount} items)
               </span>
             </h3>
+
+            {/* RA-8388: shown while the list is reloaded after "Close and
+                check". The reading and note controls below are held until
+                it has answered. */}
+            {checkingSavedEvidence && (
+              <div
+                role="status"
+                className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-slate-800 dark:text-slate-200"
+              >
+                <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                <span>
+                  Checking what was saved...
+                  <span className="block text-xs text-slate-600 dark:text-slate-400">
+                    You can add readings and notes to this step again when
+                    the check has finished.
+                  </span>
+                </span>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {requiredClasses.map((cls) => {
@@ -1248,33 +1465,50 @@ export default function CaptureWorkflowPage({
                           )}
                         </div>
                       </div>
-                      {hasCaptured ? (
-                        <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() =>
-                            handleCaptureEvidence(activeStep.id, cls)
-                          }
-                          disabled={uploadingEvidence}
-                        >
-                          {uploadingEvidence &&
-                          selectedEvidenceClass === cls ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <>
-                              {isNative ? (
-                                <Camera className="h-3 w-3 mr-1" />
-                              ) : (
-                                <Upload className="h-3 w-3 mr-1" />
-                              )}{" "}
-                              Capture
-                            </>
-                          )}
-                        </Button>
-                      )}
+                      {/* RA-8388 AMENDMENT 03 §N: the Capture control STAYS.
+                          This used to be `hasCaptured ? <tick/> : <Button/>`,
+                          so one item per class was the ceiling and
+                          moisture_survey - which asks for five - could never
+                          be satisfied. The tick now reports progress beside
+                          the button instead of replacing it. Whether the step
+                          has enough evidence is the completion gate's
+                          question, answered by counting what was captured. */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {hasCaptured && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-success">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            {captured.length}
+                          </span>
+                        )}
+                        {canCaptureAnother(cls, captured.length) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() =>
+                              handleCaptureEvidence(activeStep.id, cls)
+                            }
+                            disabled={
+                              uploadingEvidence ||
+                              (checkingSavedEvidence && isMetadataOnlyClass(cls))
+                            }
+                          >
+                            {uploadingEvidence &&
+                            selectedEvidenceClass === cls ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <>
+                                {isNative ? (
+                                  <Camera className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <Upload className="h-3 w-3 mr-1" />
+                                )}{" "}
+                                {hasCaptured ? "Add another" : "Capture"}
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Show captured evidence for this class */}
@@ -1286,7 +1520,12 @@ export default function CaptureWorkflowPage({
                             className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 rounded p-1.5"
                           >
                             <div className="flex items-center gap-1.5 min-w-0">
-                              {ev.thumbnailUrl || ev.fileUrl ? (
+                              {ev.fileMimeType?.startsWith("video/") ? (
+                                <Video
+                                  className="h-3 w-3 flex-shrink-0"
+                                  aria-label="Video"
+                                />
+                              ) : ev.thumbnailUrl || ev.fileUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                   src={ev.thumbnailUrl || ev.fileUrl || ""}
@@ -1332,18 +1571,28 @@ export default function CaptureWorkflowPage({
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {optionalClasses.map((cls) => {
-                    const hasCaptured = stepEvidence.some(
+                    // Same rule as the required section, from the same
+                    // module. These were two separate ternaries holding one
+                    // idea, which is how one of them gets fixed and the other
+                    // is left behind.
+                    const capturedCount = stepEvidence.filter(
                       (e) => e.evidenceClass === cls,
-                    );
+                    ).length;
+                    const hasCaptured = capturedCount > 0;
+                    const canAdd = canCaptureAnother(cls, capturedCount);
                     return (
                       <button
                         key={cls}
                         onClick={() => {
-                          if (!hasCaptured) {
+                          if (canAdd) {
                             handleCaptureEvidence(activeStep.id, cls);
                           }
                         }}
-                        disabled={hasCaptured || uploadingEvidence}
+                        disabled={
+                          !canAdd ||
+                          uploadingEvidence ||
+                          (checkingSavedEvidence && isMetadataOnlyClass(cls))
+                        }
                         className={cn(
                           "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all",
                           hasCaptured
@@ -1357,6 +1606,7 @@ export default function CaptureWorkflowPage({
                           evidenceIcon(cls)
                         )}
                         {EVIDENCE_CLASS_LABELS[cls]}
+                        {capturedCount > 1 && ` (${capturedCount})`}
                       </button>
                     );
                   })}
@@ -1443,11 +1693,50 @@ export default function CaptureWorkflowPage({
           {/* ============================================ */}
           {/* SUBMISSION GATE (RA-401) */}
           {/* ============================================ */}
+          {submitRefusal && (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-5 mb-6"
+            >
+              <p className="text-sm font-semibold text-destructive">
+                {submitRefusal.message}
+              </p>
+              {submitRefusal.items.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {submitRefusal.items.map((item) => (
+                    <li
+                      key={item.key}
+                      className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-800 dark:text-slate-200"
+                    >
+                      <span>{item.label}</span>
+                      {item.href && item.action && (
+                        <Link
+                          href={item.href}
+                          className="font-medium text-blue-700 dark:text-blue-300 underline underline-offset-2"
+                        >
+                          {item.action}
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           <SubmissionGatePanel
             inspectionId={inspectionId}
             isReadyToSubmit={workflow.isReadyToSubmit}
             onSubmit={handleSubmitInspection}
             submitting={submitting}
+            revalidateKey={evidenceItems.length}
+            onSelectStep={(stepKey) => {
+              const idx = workflow.steps.findIndex(
+                (s) => s.stepKey === stepKey,
+              );
+              if (idx < 0) return;
+              setActiveStepIndex(idx);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           />
 
           {/* ============================================ */}
@@ -1526,6 +1815,73 @@ export default function CaptureWorkflowPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* RA-8388: the metadata capture form. Keyed by class AND step so a
+          different entry never inherits the previous one's typed values -
+          `location` belongs to three of the four field contracts. */}
+      {metadataCapture && (
+        <MetadataCaptureForm
+          key={`${metadataCapture.stepId}:${metadataCapture.evidenceClass}`}
+          open
+          evidenceClass={metadataCapture.evidenceClass}
+          evidenceClassLabel={
+            EVIDENCE_CLASS_LABELS[metadataCapture.evidenceClass]
+          }
+          inspectionId={inspectionId}
+          workflowStepId={metadataCapture.stepId}
+          deviceType={isNative ? "NATIVE_CAPACITOR" : "WEB_BROWSER"}
+          submit={(
+            draft: MetadataEvidenceDraft,
+            signedCache: Map<string, SignedRequestBytes>,
+          ) =>
+            submitMetadataEvidence(draft, {
+              userId: session?.user?.id ?? "",
+              ensureKey: () =>
+                ensureDeviceKeyRegistered(isNative ? "capacitor" : "web"),
+              rotateKey: async () => {
+                await recoverFromRejectedKey(isNative ? "capacitor" : "web");
+              },
+              // The FORM's cache, passed through. The page's own
+              // `signedRequestCache` is cleared on unrelated events, which
+              // would force a re-sign between an attempt and its retry and
+              // turn a legitimate replay into a second submission.
+              signedCache,
+            })
+          }
+          onSaved={(result) => {
+            const created = (
+              result.data as { evidenceItem?: EvidenceItem } | null
+            )?.evidenceItem;
+            // A replayed idempotent response can arrive without the row
+            // echoed back. The submission still succeeded, so leave the list
+            // alone and let the next load reconcile it rather than prepending
+            // `undefined` and blanking the step's evidence.
+            // RA-8388: held once. The duplicate answer (`alreadyRecorded`)
+            // returns a record this list may already show.
+            if (created) {
+              evidenceListVersion.current += 1;
+              formSavedRecord.current = true;
+              setEvidenceItems((prev) => withSavedEvidence(prev, created));
+            }
+            showSavedEvidenceNotice(metadataCapture.evidenceClass, result.data);
+          }}
+          onClose={(reason) => {
+            const closedStepId = metadataCapture.stepId;
+            setMetadataCapture(null);
+            setSelectedEvidenceClass(null);
+            // RA-8388: "Close and check" must show what the job holds now.
+            // The form says why it closed. No attempt means nothing to
+            // check, so a plain Cancel does not reload (and cannot fail to).
+            // Any other close reloads, except the one straight after a save
+            // whose record `onSaved` has just put on the list. A close with
+            // no reason is treated as an attempt that was not confirmed
+            // saved: the safe side.
+            const alreadyListed = formSavedRecord.current;
+            formSavedRecord.current = false;
+            if (reason === "no-attempt" || alreadyListed) return;
+            void reloadEvidenceItems(closedStepId);
+          }}
+        />
+      )}
       <confirm.Mount />
     </div>
   );

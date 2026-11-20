@@ -12,6 +12,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { LOCAL_ORIGIN } from "./helpers/local-origin";
 import { generateValidAbn } from "./helpers/abn";
 
 test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
@@ -59,7 +60,7 @@ test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
         const state = url.searchParams.get("state") ?? "";
         const redirectUri =
           url.searchParams.get("redirect_uri") ??
-          "http://localhost:3000/api/oauth/google-drive/callback";
+          `${LOCAL_ORIGIN}/api/oauth/google-drive/callback`;
         const cbUrl = new URL(redirectUri);
         cbUrl.searchParams.set("code", "fake-auth-code");
         cbUrl.searchParams.set("state", state);
@@ -120,7 +121,7 @@ test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
     //    UNIQUE constraint doesn't reject the second-and-later smoke
     //    iterations (which otherwise crashed hydrate with P2002).
     const syntheticAbn = generateValidAbn();
-    await page.getByPlaceholder(/e\.g\. 53 004 085 616/i).fill(syntheticAbn);
+    await page.getByLabel(/^ABN \(11 digits\)$/).fill(syntheticAbn);
     await page.getByRole("button", { name: /start setup/i }).click();
 
     // 7. Click "Google Drive" on the StorageCard.

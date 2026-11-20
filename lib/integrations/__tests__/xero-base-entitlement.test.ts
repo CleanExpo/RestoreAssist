@@ -180,7 +180,7 @@ describe.each(routes)("Xero $name base entitlement", ({ handle, name }) => {
     h.session.mockResolvedValue({ user: { id: "synthetic-member", subscriptionStatus: "ACTIVE", lifetimeAccess: true } });
     h.user.mockImplementation(async ({ where, select }: { where: { id: string }; select: Record<string, boolean> }) => {
       const row = where.id === "synthetic-member"
-        ? { ...persistedUser(), id: "synthetic-member", role: "TECHNICIAN", organization: { ownerId: "synthetic-owner" },
+        ? { ...persistedUser(), id: "synthetic-member", role: "TECHNICIAN", organizationId: "synthetic-org", organization: { ownerId: "synthetic-owner" },
             subscriptionStatus: "CANCELED", trialEndsAt: null, lifetimeAccess: false }
         : user;
       if (!row || (where.id !== "synthetic-member" && where.id !== "synthetic-owner")) return null;
@@ -193,8 +193,23 @@ describe.each(routes)("Xero $name base entitlement", ({ handle, name }) => {
     expect(h.user).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "synthetic-owner" } }));
     expect(name === "connect" ? h.authorise : h.clients).toHaveBeenCalledOnce();
 
-    h.membership.mockResolvedValue(null); vi.clearAllMocks();
+    // RA-7893: invite acceptance never creates a WorkspaceMember row, so the
+    // grant no longer depends on one; it must still never outlive removal
+    // from the organisation (organization cleared on the member's row).
+    h.membership.mockResolvedValue(null);
+    expect((await handle(request(), context())).status).toBe(200);
+    vi.clearAllMocks();
+    h.user.mockImplementation(async ({ where, select }: { where: { id: string }; select: Record<string, boolean> }) => {
+      const row = where.id === "synthetic-member"
+        ? { ...persistedUser(), id: "synthetic-member", role: "TECHNICIAN", organizationId: null, organization: null,
+            subscriptionStatus: "CANCELED", trialEndsAt: null, lifetimeAccess: false }
+        : user;
+      if (!row || (where.id !== "synthetic-member" && where.id !== "synthetic-owner")) return null;
+      return Object.fromEntries(Object.entries(row).filter(([field]) => select[field]));
+    });
     expect((await handle(request(), context())).status).toBe(403);
+    // Refused on the member's own (CANCELED) row, not for want of a user row.
+    expect(h.user).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "synthetic-member" } }));
     expectNoWork();
   });
 

@@ -9,6 +9,7 @@ import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 import { dollarsToCents, lineAmountsCents } from "@/lib/invoices/calc";
 import { LineExIncPrices } from "@/components/invoices/LineExIncPrices";
 import { useOrganizationGst } from "@/hooks/use-organization-gst";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 const REASONS = [
   { value: "CUSTOMER_REFUND", label: "Customer Refund" },
@@ -151,7 +152,7 @@ export default function NewCreditNotePage() {
       });
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to create credit note");
+        throw new Error(apiErrorMessage(data) || "Failed to create credit note");
       }
       toast.success("Credit note created");
       router.push("/dashboard/invoices/credit-notes");
@@ -163,33 +164,33 @@ export default function NewCreditNotePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-brand-navy dark:text-white p-6">
+      <div className="max-w-9xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Link
             href="/dashboard/invoices/credit-notes"
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-brand-cream dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
-            <ArrowLeft size={20} className="text-slate-400" />
+            <ArrowLeft size={20} className="text-brand-slate dark:text-slate-400" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-white">Issue Credit Note</h1>
-            <p className="text-slate-400 text-sm mt-0.5">
+            <h1 className="text-2xl font-bold text-brand-navy dark:text-white">Issue Credit Note</h1>
+            <p className="text-brand-slate dark:text-slate-400 text-sm mt-0.5">
               Create a credit note against an existing invoice
             </p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form method="post" onSubmit={handleSubmit} className="space-y-6">
           {/* Invoice & Reason */}
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 space-y-5">
-            <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+          <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-2xl p-6 space-y-5">
+            <h2 className="text-sm font-semibold text-brand-slate dark:text-slate-300 uppercase tracking-wider">
               Credit Details
             </h2>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                 Invoice <span className="text-destructive">*</span>
               </label>
               <select
@@ -199,7 +200,7 @@ export default function NewCreditNotePage() {
                 }
                 required
                 disabled={loadingInvoices}
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:opacity-50"
+                className="w-full px-4 py-2.5 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-xl text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 disabled:opacity-50"
               >
                 <option value="">
                   {loadingInvoices ? "Loading invoices…" : "Select an invoice"}
@@ -213,7 +214,7 @@ export default function NewCreditNotePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                 Reason <span className="text-destructive">*</span>
               </label>
               <select
@@ -221,7 +222,7 @@ export default function NewCreditNotePage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, reason: e.target.value }))
                 }
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                className="w-full px-4 py-2.5 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-xl text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
               >
                 {REASONS.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -232,7 +233,7 @@ export default function NewCreditNotePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                 Notes
               </label>
               <textarea
@@ -242,13 +243,13 @@ export default function NewCreditNotePage() {
                 }
                 placeholder="Additional details about this credit note…"
                 rows={2}
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 resize-none"
+                className="w-full px-4 py-2.5 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-xl text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 resize-none"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                   Credit Date
                 </label>
                 <input
@@ -257,11 +258,11 @@ export default function NewCreditNotePage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, creditDate: e.target.value }))
                   }
-                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2.5 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-xl text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                   Refund Method
                 </label>
                 <select
@@ -269,7 +270,7 @@ export default function NewCreditNotePage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, refundMethod: e.target.value }))
                   }
-                  className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full px-4 py-2.5 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-xl text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50"
                 >
                   {REFUND_METHODS.map((m) => (
                     <option key={m.value} value={m.value}>
@@ -282,15 +283,15 @@ export default function NewCreditNotePage() {
           </div>
 
           {/* Line Items */}
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 space-y-4">
+          <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+              <h2 className="text-sm font-semibold text-brand-slate dark:text-slate-300 uppercase tracking-wider">
                 Line Items
               </h2>
               <button
                 type="button"
                 onClick={addLineItem}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-cream dark:bg-slate-700 hover:bg-slate-600 rounded-lg text-brand-slate dark:text-slate-300 transition-colors"
               >
                 <Plus size={14} />
                 Add Item
@@ -307,7 +308,7 @@ export default function NewCreditNotePage() {
                       updateLineItem(idx, "description", e.target.value)
                     }
                     placeholder="Description"
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-lg text-brand-navy dark:text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div className="col-span-2">
@@ -324,7 +325,7 @@ export default function NewCreditNotePage() {
                     min="0"
                     step="0.01"
                     placeholder="Qty"
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-lg text-brand-navy dark:text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div className="col-span-3">
@@ -341,11 +342,11 @@ export default function NewCreditNotePage() {
                     min="0"
                     step="0.01"
                     placeholder="Unit price"
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                    className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-lg text-brand-navy dark:text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-harbour-500/50"
                   />
                 </div>
                 <div className="col-span-1 flex items-center justify-center pt-2">
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-brand-slate dark:text-slate-400">
                     {gstKnown ? gstTreatment.percentLabel : "-"}
                   </span>
                 </div>
@@ -354,7 +355,7 @@ export default function NewCreditNotePage() {
                     <button
                       type="button"
                       onClick={() => removeLineItem(idx)}
-                      className="p-1.5 hover:bg-red-500/20 rounded text-slate-500 hover:text-red-400 transition-colors"
+                      className="p-1.5 hover:bg-red-500/20 rounded text-slate-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -371,19 +372,19 @@ export default function NewCreditNotePage() {
                           ? "Unavailable"
                           : "Calculating..."
                     }
-                    className="w-48 text-slate-300"
+                    className="w-48 text-brand-slate dark:text-slate-300"
                   />
                 </div>
               </div>
             ))}
 
             {/* Totals */}
-            <div className="border-t border-slate-700/50 pt-4 space-y-1.5 text-sm">
-              <div className="flex justify-between text-slate-400">
+            <div className="border-t border-brand-mist dark:border-slate-700/50 pt-4 space-y-1.5 text-sm">
+              <div className="flex justify-between text-brand-slate dark:text-slate-400">
                 <span>Subtotal (ex GST)</span>
                 <span>${subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-slate-400">
+              <div className="flex justify-between text-brand-slate dark:text-slate-400">
                 <span>GST</span>
                 <span>
                   {gstKnown
@@ -393,7 +394,7 @@ export default function NewCreditNotePage() {
                       : "Calculating GST..."}
                 </span>
               </div>
-              <div className="flex justify-between text-white font-semibold text-base pt-1">
+              <div className="flex justify-between text-brand-navy dark:text-white font-semibold text-base pt-1">
                 <span>Total Credit</span>
                 <span>
                   {gstKnown
@@ -409,7 +410,7 @@ export default function NewCreditNotePage() {
           {gstFailed && (
             <div
               role="alert"
-              className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+              className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-200"
             >
               We couldn&apos;t load your GST settings, so tax can&apos;t be
               calculated. Reload the page to try again.
@@ -420,14 +421,14 @@ export default function NewCreditNotePage() {
           <div className="flex gap-3">
             <Link
               href="/dashboard/invoices/credit-notes"
-              className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600/50 rounded-xl text-slate-300 font-medium text-center transition-colors"
+              className="flex-1 py-3 bg-white dark:bg-slate-800 hover:bg-brand-cream dark:hover:bg-slate-700 border border-slate-600/50 rounded-xl text-brand-slate dark:text-slate-300 font-medium text-center transition-colors"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={isSubmitting || !form.invoiceId || !gstKnown}
-              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <Loader2 size={18} className="animate-spin" />

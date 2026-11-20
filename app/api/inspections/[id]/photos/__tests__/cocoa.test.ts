@@ -83,7 +83,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: (...a: unknown[]) => inspectionFindFirst(...a) },
     inspectionPhoto: { create: (...a: unknown[]) => photoCreate(...a) },
-    user: { findUnique: (...a: unknown[]) => userFindUnique(...a) },
+    user: { findUnique: (...a: unknown[]) => userFindUnique(...a), findMany: async () => [] },
     auditLog: { create: (...a: unknown[]) => auditLogCreate(...a) },
     idempotencyRecord: {
       create: (...a: unknown[]) => idempotencyRecordCreate(...a),

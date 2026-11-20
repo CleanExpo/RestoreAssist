@@ -16,6 +16,7 @@ describe("ai-key-type mapping (Wave 4 BYOK)", () => {
     expect(aiProviderToCallProvider("OPENAI")).toBe("openai");
     expect(aiProviderToCallProvider("GOOGLE")).toBe("gemini");
     expect(aiProviderToCallProvider("OPENROUTER")).toBe("openrouter");
+    expect(aiProviderToCallProvider("META")).toBe("meta");
     expect(aiProviderToCallProvider("ELEVENLABS")).toBeNull();
   });
 });

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import {
   Shield,
   RefreshCw,
@@ -548,11 +549,20 @@ export default function WorkflowMonitorPage() {
 
   // Summary counts (always computed from ALL workflows, ignoring filter)
   const [allWorkflows, setAllWorkflows] = useState<AgentWorkflow[]>([]);
+  // null = not loaded or the read failed; never shown as 0
+  const [expiredLeaseTasks, setExpiredLeaseTasks] = useState<number | null>(
+    null,
+  );
   useEffect(() => {
     if (!isAdmin) return;
     fetch("/api/agents/workflows?limit=50")
       .then((r) => r.json())
-      .then((d) => setAllWorkflows(d.workflows ?? []))
+      .then((d) => {
+        setAllWorkflows(d.workflows ?? []);
+        setExpiredLeaseTasks(
+          typeof d.expiredLeaseTasks === "number" ? d.expiredLeaseTasks : null,
+        );
+      })
       .catch(() => {});
   }, [isAdmin]);
 
@@ -694,6 +704,17 @@ export default function WorkflowMonitorPage() {
         </Card>
       </div>
 
+      {/* RA-7999: read-only count; the sweep reclaims these on the next poll or cron run */}
+      <p
+        className="text-sm text-neutral-500"
+        data-testid="expired-lease-count"
+      >
+        RUNNING tasks with an expired lease:{" "}
+        <span className="font-semibold text-neutral-900 dark:text-white">
+          {expiredLeaseTasks ?? "unavailable"}
+        </span>
+      </p>
+
       {/* Filter tabs */}
       <div className="flex gap-1 border-b border-neutral-200 dark:border-neutral-800">
         {FILTER_TABS.map((tab) => (
@@ -716,7 +737,7 @@ export default function WorkflowMonitorPage() {
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white text-base">
-            <Activity className="h-5 w-5 text-cyan-500" />
+            <Activity className="h-5 w-5 text-brand-harbour-500" />
             Workflows
             <span className="text-sm font-normal text-neutral-400">
               ({workflows.length})
@@ -724,7 +745,12 @@ export default function WorkflowMonitorPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {workflows.length === 0 ? (
+          {workflows.length === 0 && !isConfirmedEmpty(loadError, 0) ? (
+            // RA-8084: a failed load is unknown, not empty. The banner above carries Retry.
+            <p className="py-12 text-center text-sm text-neutral-500 dark:text-neutral-400">
+              Workflows could not be loaded.
+            </p>
+          ) : workflows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Activity className="h-10 w-10 text-neutral-300 dark:text-neutral-600" />
               <p className="text-neutral-500 dark:text-neutral-400 text-sm">

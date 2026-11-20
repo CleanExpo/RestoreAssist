@@ -1,9 +1,11 @@
+import { TRIAL_SEAT_ENDED_MESSAGE } from "@/lib/billing/trial-seat-copy";
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { applyRateLimitEdge } from "@/lib/rate-limiter-edge";
+import { isIosShellUserAgent } from "@/lib/capacitor";
 import {
   TRIAL_EXPIRED_PAY_PATH,
-  TRIAL_EXPIRED_PAY_ROUTE,
+  hardPaywallUpgradeRoute,
   shouldLockDashboardForSubscription,
 } from "@/lib/billing/trial-expired-pay-route";
 
@@ -102,6 +104,11 @@ const SETUP_GATE_BYPASS = [
   "/signup",
   "/portal/login",
   "/portal/signup",
+  // An invitee joins someone else's workspace: they never complete /setup of
+  // their own, so the invite page and its token-scoped APIs must stay
+  // reachable for a signed-in (e.g. Google) invitee without setupCompletedAt.
+  "/invite/",
+  "/api/invites/",
   "/onboarding/",
   "/_next/",
   "/favicon",
@@ -152,6 +159,9 @@ const SETUP_WIZARD_API_DESTINATIONS: Readonly<Record<string, ReadonlySet<string>
   "/api/ascora/connect": new Set(["GET", "POST"]),
   "/api/dr-nrpg/connect": new Set(["GET", "POST"]),
   "/api/onboarding/status": new Set(["GET"]),
+  // The terms page sits behind /setup for a Google or Apple owner; a redirect
+  // here would strand them on it.
+  "/api/onboarding/account-type": new Set(["POST"]),
   "/api/pricing-config": new Set(["GET"]),
   "/api/workspace/status": new Set(["GET"]),
   "/api/workspace/provider-connections": new Set(["GET", "POST", "DELETE"]),
@@ -187,6 +197,11 @@ function isSetupOAuthRoute(pathname: string, method: string): boolean {
 function shouldBypassSetupGate(pathname: string, method: string): boolean {
   // Exact match for /setup (without trailing slash)
   if (pathname === "/setup") return true;
+  // Exact paths: a client unsubscribing has no account here, and a mail
+  // client's one-click POST carries no session. Neither can go to /setup.
+  if (pathname === "/pulse/unsubscribe" || pathname === "/api/pulse/unsubscribe") {
+    return true;
+  }
   return (
     SETUP_GATE_BYPASS.some((prefix) => pathname.startsWith(prefix)) ||
     isWizardDestination(pathname) ||
@@ -212,7 +227,8 @@ function isHardPaywallWhitelisted(pathname: string): boolean {
   return (
     HARD_PAYWALL_WHITELIST.some((p) => pathname.startsWith(p)) ||
     pathname === "/dashboard/subscription" ||
-    pathname === "/dashboard/success"
+    pathname === "/dashboard/success" ||
+    pathname === "/dashboard/pricing"
   );
 }
 
@@ -268,6 +284,19 @@ export async function proxy(req: NextRequest) {
     }
   }
 
+  // Apple 3.1.1: the iOS shell (request user-agent token, see BillingGate)
+  // launches at "/", and must not land on the marketing home with its
+  // "Start free" links or on the web sign-up. Invite links above still pass.
+  if (
+    (pathname === "/" || pathname === "/signup") &&
+    isIosShellUserAgent(req.headers.get("user-agent"))
+  ) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "";
+    return NextResponse.redirect(url, 307);
+  }
+
   // ── Setup wizard gate — FIRST check, flag-guarded (Phase 6, Task 18) ────────
   // Safety lever: read env at request time so the flag can be toggled without
   // redeploying. If the flag is off, this entire block is completely inert.
@@ -277,11 +306,11 @@ export async function proxy(req: NextRequest) {
     !shouldBypassSetupGate(pathname, req.method.toUpperCase())
   ) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    // C1+C3 fix: gate on setupCompletedAt only — role-agnostic.
-    // The old OWNER/ADMIN/TECHNICIAN branches used role strings that don't
-    // exist in the schema (Role enum: USER | ADMIN | MANAGER), making the
-    // OWNER branch dead code and the TECHNICIAN branch a 404 trap.
-    if (token && !(token as any).setupCompletedAt) {
+    // The wizard belongs to the owner: staff join a business someone else set
+    // up, so they skip it. A missing or empty role is still gated.
+    const role = (token as { role?: string } | null)?.role;
+    const isStaff = role === "USER" || role === "MANAGER";
+    if (token && !isStaff && !(token as any).setupCompletedAt) {
       const url = req.nextUrl.clone();
       url.pathname = "/setup";
       url.search = "";
@@ -312,6 +341,28 @@ export async function proxy(req: NextRequest) {
     const { guardOfflineReplay } = await import("@/lib/offline/server-boundary");
     const refused = await guardOfflineReplay(req);
     if (refused) return refused;
+  }
+
+  // A technician on a free trial seat stops at day 15 until the owner pays. Their
+  // work stays. The paused header makes offline queues hold, not discard, writes.
+  const apiMutation =
+    pathname.startsWith("/api/") &&
+    API_MUTATION_METHODS.has(req.method.toUpperCase()) &&
+    !pathname.startsWith("/api/auth/");
+  if (apiMutation || pathname.startsWith("/dashboard")) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if ((token as { seatLocked?: boolean } | null)?.seatLocked) {
+      if (apiMutation) {
+        return NextResponse.json(
+          { error: { code: "PAYMENT_REQUIRED", message: TRIAL_SEAT_ENDED_MESSAGE } },
+          { status: 402, headers: { "x-restoreassist-offline-paused": "1" } },
+        );
+      }
+      const url = req.nextUrl.clone();
+      url.pathname = "/seat-required";
+      url.search = "";
+      return NextResponse.redirect(url, 307);
+    }
   }
 
   // ── Unauth → /login redirect for protected surfaces (P1 #16) ────────────────
@@ -364,9 +415,11 @@ export async function proxy(req: NextRequest) {
   ) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     if (token && shouldHardPaywall(token as any)) {
+      const target = hardPaywallUpgradeRoute(token as { subscriptionStatus?: string | null });
       const url = req.nextUrl.clone();
-      url.pathname = TRIAL_EXPIRED_PAY_PATH;
-      url.search = new URL(TRIAL_EXPIRED_PAY_ROUTE, "http://local").search;
+      const parsed = new URL(target, req.nextUrl.origin);
+      url.pathname = parsed.pathname;
+      url.search = parsed.search;
       return NextResponse.redirect(url, 307);
     }
   }
@@ -376,6 +429,8 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
+    // Apple 3.1.1: the iOS shell launches at "/" and is sent to /login.
+    "/",
     // Authenticated surfaces — match BOTH the bare path AND `:path*` so the
     // middleware fires on /dashboard as well as /dashboard/foo. Next.js's
     // path-to-regexp does NOT treat `:path*` as zero-or-more for the

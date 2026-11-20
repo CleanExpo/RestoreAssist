@@ -1,8 +1,10 @@
 import { headers } from "next/headers";
 
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
+import { MarketingShell } from "@/components/landing/home/MarketingShell";
 import { isIosShellUserAgent } from "@/lib/capacitor";
 import { Metadata } from "next";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
   title: "IICRC S500:2021 Compliant Restoration Reports | RestoreAssist",
@@ -22,7 +24,7 @@ export const metadata: Metadata = {
       "Field-by-field mapping of IICRC S500:2021 requirements to RestoreAssist features. For Australian restoration contractors.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/compliance" },
@@ -40,7 +42,7 @@ export default async function ComplianceLayout({
   const isIosShell = isIosShellUserAgent((await headers()).get("user-agent"));
   return (
     <ShellPlatformProvider isIosShell={isIosShell}>
-      {children}
+      <MarketingShell>{children}</MarketingShell>
     </ShellPlatformProvider>
   );
 }

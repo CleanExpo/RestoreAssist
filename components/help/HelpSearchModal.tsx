@@ -20,6 +20,12 @@ export default function HelpSearchModal() {
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState<IndexEntry[]>([]);
 
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener("open-help-search", onOpen);
+    return () => window.removeEventListener("open-help-search", onOpen);
+  }, []);
+
   // Open on Cmd-K / Ctrl-K
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Metrics {
   generatedAt: string;
@@ -40,6 +41,7 @@ interface Metrics {
     trialsStarted: number;
     activated: number;
     paid: number;
+    firstWinRate30d: number | null;
   };
 }
 
@@ -74,7 +76,7 @@ export default function BusinessMetricsPage() {
       setHidden(false);
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || `HTTP ${res.status}`);
+        throw new Error(apiErrorMessage(body) || `HTTP ${res.status}`);
       }
       const json = (await res.json()) as Metrics;
       setData(json);
@@ -102,7 +104,7 @@ export default function BusinessMetricsPage() {
 
   if (hidden) {
     return (
-      <div className="mx-auto max-w-2xl p-6">
+      <div className="mx-auto max-w-9xl p-6">
         <Card>
           <CardHeader>
             <CardTitle>Business metrics are for RestoreAssist staff</CardTitle>
@@ -145,7 +147,7 @@ export default function BusinessMetricsPage() {
       : null;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
+    <div className="mx-auto max-w-9xl space-y-6 p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Business metrics</h1>
@@ -200,6 +202,14 @@ export default function BusinessMetricsPage() {
               submitted as an inspection or imported from a connected job
               system. Sample reports, demo data, copies and unsubmitted
               inspections are not counted.
+              {data.last30Days.firstWinRate30d !== null ? (
+                <p
+                  className="mt-2 font-medium text-foreground"
+                  data-metric="first-win-rate"
+                >
+                  First-win rate: {data.last30Days.firstWinRate30d}%
+                </p>
+              ) : null}
             </CardContent>
           </Card>
 

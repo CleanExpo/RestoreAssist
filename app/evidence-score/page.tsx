@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Header from "@/components/landing/Header";
-import Footer from "@/components/landing/Footer";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type Answer = 0 | 0.5 | 1;
 
@@ -115,7 +114,7 @@ function scoreBand(score: number) {
 }
 
 export default function EvidenceScorePage() {
-  const [darkMode, setDarkMode] = useState(true);
+  const darkMode = false;
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [showResult, setShowResult] = useState(false);
   const [lead, setLead] = useState({ name: "", email: "", website: "" });
@@ -196,7 +195,7 @@ export default function EvidenceScorePage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data?.error || "Unable to submit your audit request.");
+        throw new Error(apiErrorMessage(data) || "Unable to submit your audit request.");
       }
 
       setLeadStatus("success");
@@ -220,10 +219,8 @@ export default function EvidenceScorePage() {
     <div
       className={`min-h-screen ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"}`}
     >
-      <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-
       <main>
-        <section className="px-6 pb-16 pt-40">
+        <section className="px-6 pb-16 pt-12">
           <div className="mx-auto max-w-5xl text-center">
             <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-brand-bronze">
               Free restoration documentation check
@@ -381,7 +378,7 @@ export default function EvidenceScorePage() {
                     gaps, chronology, clarity and next actions.
                   </p>
 
-                  <form
+                  <form method="post"
                     className="mt-6 grid gap-3 md:grid-cols-2"
                     onSubmit={requestAudit}
                   >
@@ -482,7 +479,6 @@ export default function EvidenceScorePage() {
         )}
       </main>
 
-      <Footer darkMode={darkMode} />
     </div>
   );
 }

@@ -168,8 +168,9 @@ export async function GET(request: NextRequest) {
       first_inspection: {
         completed: inspectionCount > 0,
         required: false, // Self-serve first value, not a hard gate
-        title: "Create your first inspection",
-        description: "Capture field data for a water damage job to get started",
+        title: "Create your first job",
+        description:
+          "Add the property, capture photos and moisture, and draw or import a floor plan — everything stays on one inspection.",
         route: "/dashboard/inspections/new",
       },
       first_report: {
@@ -177,33 +178,36 @@ export async function GET(request: NextRequest) {
         required: false, // Informational — produced from an inspection
         title: "Generate your first report",
         description:
-          "Turn an inspection into an IICRC S500:2021 compliance report",
+          "Produce an IICRC S500:2021 draft from the evidence you captured; you review and approve before it goes to the client.",
         route: "/dashboard/reports/new",
       },
       business_profile: {
         completed: businessProfileCompleted, // Uses Admin's profile for team members
         required: !isTrial, // Only required for paid users
         title: isTrial
-          ? "Add business details (when you're ready)"
-          : "Settings & Profile",
-        description: "Setup Business Details",
+          ? "Business details (optional for trial)"
+          : "Business profile",
+        description: isTrial
+          ? "Legal name, address and contacts for letterhead — required before paid invoicing."
+          : "Legal name, ABN, address and contacts on every report and invoice.",
         route: "/dashboard/settings",
       },
       pricing_config: {
         completed: pricingConfigured, // org-first; team members use Admin's config
         required: !isTrial, // Only required for paid users (locked for free users)
         title: isTrial
-          ? "Configure pricing (when you're ready)"
-          : "Pricing Configuration",
-        description: "Set up your company pricing rates",
+          ? "Rate card (optional for trial)"
+          : "Pricing & rate card",
+        description:
+          "Set labour and line-item rates once — estimates and invoices pull from here with GST applied.",
         route: "/dashboard/pricing-config",
       },
       property_data: {
         completed: propertyLookupCount > 0,
         required: false, // Optional — skippable
-        title: "Connect Property Data",
+        title: "Property lookup (optional)",
         description:
-          "Auto-fill inspections with property details and floor plans via Claude in Chrome",
+          "Prefill address and floor-plan hints from public property data when starting a job.",
         route: "/dashboard/integrations",
       },
     };

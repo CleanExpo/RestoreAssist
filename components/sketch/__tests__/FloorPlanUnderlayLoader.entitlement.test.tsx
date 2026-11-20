@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { FloorPlanUnderlayLoader } from "../FloorPlanUnderlayLoader";
+import { FLOORPLAN_UNDERLAY_ADDON } from "@/lib/billing/floorplan-underlay-addon";
 
 beforeEach(() => vi.restoreAllMocks());
 
 /**
  * RA-6922 — when the scrape returns 402 (no active Floor Plan Underlay add-on)
- * the loader now offers the recurring $9.95/mo add-on upgrade CTA. This supersedes
+ * the loader now offers the recurring $11/mo add-on upgrade CTA. This supersedes
  * the earlier F2 (RA-6929/6930/6931) "neutral note, no upgrade link" behaviour,
  * which held only while there was no add-on to sell.
  */
@@ -29,7 +30,7 @@ describe("FloorPlanUnderlayLoader — 402 handling (RA-6922 add-on)", () => {
 
   afterEach(() => vi.unstubAllEnvs());
 
-  it("offers the recurring $9.95/mo add-on upgrade CTA on 402", async () => {
+  it("offers the recurring $11/mo add-on upgrade CTA on 402", async () => {
     render(
       <FloorPlanUnderlayLoader
         defaultAddress="12 Smith St"
@@ -46,7 +47,61 @@ describe("FloorPlanUnderlayLoader — 402 handling (RA-6922 add-on)", () => {
         name: /add floor plan underlay/i,
       }),
     ).toBeInTheDocument();
-    // And it is priced as the recurring add-on.
-    expect(screen.getByText(/\$9\.95\/month/i)).toBeInTheDocument();
+    // And it is priced as the recurring add-on — asserted against the add-on's
+    // own SSOT, not a typed figure. This assertion pinned $9.95 and had to be
+    // edited when the amount moved to $11; derived, it tracks the price instead
+    // of having to be chased.
+    const amount = FLOORPLAN_UNDERLAY_ADDON.amount;
+    const price = amount % 1 === 0 ? `$${amount}` : `$${amount.toFixed(2)}`;
+    expect(
+      screen.getByText(
+        new RegExp(
+          `${price.replace(/[$.]/g, (c) => `\\${c}`)}/${FLOORPLAN_UNDERLAY_ADDON.interval}`,
+          "i",
+        ),
+      ),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("FloorPlanUnderlayLoader room suggestions (RA-8236)", () => {
+  const base = { onApply: vi.fn(), onClear: vi.fn(), hasBackground: true };
+
+  it("offers suggestions only when a bound reference is available", () => {
+    const { rerender } = render(<FloorPlanUnderlayLoader {...base} />);
+    expect(
+      screen.queryByRole("button", { name: /suggest rooms/i }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <FloorPlanUnderlayLoader {...base} onSuggestRooms={async () => {}} />,
+    );
+    expect(
+      screen.getByRole("button", { name: /suggest rooms/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("states that only page 1 is read and rooms stay unmeasured", () => {
+    render(
+      <FloorPlanUnderlayLoader {...base} onSuggestRooms={async () => {}} />,
+    );
+    expect(screen.getByText(/page 1 only/i)).toBeInTheDocument();
+    expect(screen.getByText(/measure and confirm/i)).toBeInTheDocument();
+  });
+
+  it("blocks a second click while a read is running", async () => {
+    let finish: () => void = () => undefined;
+    const onSuggestRooms = vi.fn(
+      () => new Promise<void>((resolve) => (finish = resolve)),
+    );
+    render(
+      <FloorPlanUnderlayLoader {...base} onSuggestRooms={onSuggestRooms} />,
+    );
+    const button = screen.getByRole("button", { name: /suggest rooms/i });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(onSuggestRooms).toHaveBeenCalledTimes(1);
+    await act(async () => finish());
+    expect(button).not.toBeDisabled();
   });
 });

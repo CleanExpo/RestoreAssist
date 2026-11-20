@@ -6,6 +6,22 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// RA-8281: estimates price from the contractor's own price list. These
+// tests cover report and scope content, so give a complete price list.
+vi.mock("@/lib/assessments/inspection-price-list", async () => {
+  const { NRPG_RATE_RANGES } = await import("@/lib/nrpg-rate-ranges");
+  return {
+    resolveInspectionPriceList: vi.fn(async () =>
+      Object.fromEntries(
+        Object.entries(NRPG_RATE_RANGES).map(([k, r]) => [
+          k,
+          (r.min + r.max) / 2,
+        ]),
+      ),
+    ),
+  };
+});
+
 import { prisma } from "@/lib/prisma";
 import { waterDomain } from "../domains/water";
 
@@ -32,8 +48,8 @@ describe("waterDomain — happy path", () => {
       propertyAddress: "12 Smith St, Brisbane QLD 4000",
       classifications: [{ category: "2", class: "2" }],
       affectedAreas: [
-        { affectedSquareFootage: 18 },
-        { affectedSquareFootage: 7.5 },
+        { affectedAreaSqm: 18 },
+        { affectedAreaSqm: 7.5 },
       ],
       moistureReadings: [
         // timber dryThreshold 19, wetThreshold 25
@@ -71,14 +87,13 @@ describe("waterDomain — happy path", () => {
       expect(item.quantity).toBeGreaterThan(0);
     }
 
-    // Estimate totals are internally consistent.
-    const subtotal = r.data.estimate.lines.reduce(
-      (s, l) => s + l.lineTotalExGst,
-      0,
-    );
-    expect(
-      Math.abs(subtotal - r.data.estimate.totals.subtotalExGst),
-    ).toBeLessThan(0.05);
+    // RA-8281: no hard-coded rates. Lines with no price-list field read
+    // "needs a price-list field" and the total is blocked, never $0.
+    expect(r.data.estimate.totals.status).toBe("blocked");
+    expect(r.data.estimate.totals.totalIncGst).toBeNull();
+    for (const l of r.data.estimate.lines) {
+      expect(l.lineTotalExGst).not.toBe(0);
+    }
     expect(r.data.estimate.totals.gstRate).toBe(0.1);
     expect(r.data.estimate.totals.currency).toBe("AUD");
     expect(
@@ -103,7 +118,7 @@ describe("waterDomain — happy path", () => {
       id: "i_1",
       propertyAddress: "1 Test St",
       classifications: [{ category: "Cat 3", class: "Class 4" }],
-      affectedAreas: [{ affectedSquareFootage: 200 }],
+      affectedAreas: [{ affectedAreaSqm: 200 }],
       moistureReadings: [],
     });
 
@@ -132,7 +147,7 @@ describe("waterDomain — error paths", () => {
       id: "i_1",
       propertyAddress: "x",
       classifications: [],
-      affectedAreas: [{ affectedSquareFootage: 10 }],
+      affectedAreas: [{ affectedAreaSqm: 10 }],
       moistureReadings: [],
     });
     const r = await waterDomain.generate(baseInput);
@@ -146,7 +161,7 @@ describe("waterDomain — error paths", () => {
       id: "i_1",
       propertyAddress: "x",
       classifications: [{ category: "weird", class: "1" }],
-      affectedAreas: [{ affectedSquareFootage: 10 }],
+      affectedAreas: [{ affectedAreaSqm: 10 }],
       moistureReadings: [],
     });
     const r = await waterDomain.generate(baseInput);
@@ -172,7 +187,7 @@ describe("waterDomain — moisture summary", () => {
       id: "i_1",
       propertyAddress: "x",
       classifications: [{ category: "1", class: "1" }],
-      affectedAreas: [{ affectedSquareFootage: 5 }],
+      affectedAreas: [{ affectedAreaSqm: 5 }],
       moistureReadings: [],
     });
 
@@ -190,7 +205,7 @@ describe("waterDomain — moisture summary", () => {
       id: "i_1",
       propertyAddress: "x",
       classifications: [{ category: "2", class: "2" }],
-      affectedAreas: [{ affectedSquareFootage: 10 }],
+      affectedAreas: [{ affectedAreaSqm: 10 }],
       moistureReadings: [
         // timber: dryThreshold 19, wetThreshold 25
         { surfaceType: "timber", moistureLevel: 30 }, // WET (> 25)

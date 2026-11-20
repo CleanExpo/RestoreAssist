@@ -12,6 +12,17 @@ vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// RA-8043d: the route now requires platform support staff before any work.
+vi.mock("@/lib/admin-auth", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/admin-auth")>("@/lib/admin-auth");
+  return {
+    verifyAdminFromDb: async () => ({
+      user: { id: "user-1", role: "ADMIN", organizationId: null },
+    }),
+    verifyPlatformSupportOperator: actual.verifyPlatformSupportOperator,
+  };
+});
 vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: (...args: unknown[]) => applyRateLimit(...args),
 }));
@@ -49,6 +60,7 @@ function makeRequest(body: Record<string, unknown>) {
 }
 
 beforeEach(() => {
+  process.env.PLATFORM_SUPPORT_USER_IDS = "user-1";
   getServerSession.mockReset();
   applyRateLimit.mockReset();
   userFindUnique.mockReset();
@@ -68,7 +80,7 @@ describe("POST /api/claims/analyze-batch — Rule 5 subscription gate", () => {
   it.each(["CANCELED", "PAST_DUE"])(
     "returns 402 and makes no AI call for %s subscriptions",
     async (status) => {
-      userFindUnique.mockResolvedValueOnce({ subscriptionStatus: status });
+      userFindUnique.mockResolvedValue({ subscriptionStatus: status });
 
       const res = await POST(makeRequest({ folderId: "folder-1" }));
       const body = await res.json();
@@ -82,10 +94,20 @@ describe("POST /api/claims/analyze-batch — Rule 5 subscription gate", () => {
     },
   );
 
-  it.each(["TRIAL", "ACTIVE", "LIFETIME"])(
-    "allows %s subscriptions past the gate",
-    async (status) => {
-      userFindUnique.mockResolvedValueOnce({ subscriptionStatus: status });
+  // RA-7893: "LIFETIME" is not a SubscriptionStatus enum member; a real
+  // lifetime buyer carries lifetimeAccess=true with a CANCELED/null status.
+  it.each([
+    ["TRIAL", false],
+    ["ACTIVE", false],
+    ["CANCELED", true],
+  ] as const)(
+    "allows %s (lifetimeAccess=%s) subscriptions past the gate",
+    async (status, lifetimeAccess) => {
+      userFindUnique.mockResolvedValue({
+        subscriptionStatus: status,
+        lifetimeAccess,
+        trialEndsAt: new Date("2099-01-01"),
+      });
 
       // No PDFs → the route returns 400 AFTER passing the gate, proving the
       // subscription check let this status through.

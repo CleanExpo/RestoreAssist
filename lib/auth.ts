@@ -1,3 +1,4 @@
+import { isTrialSeatLocked } from "@/lib/billing/technician-seats";
 import { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { encryptAccountTokens } from "@/lib/auth/account-tokens";
@@ -19,6 +20,12 @@ import {
 import { logSecurityEvent, getAccountLockoutStatus } from "./security-audit";
 import { TRIAL_DAYS } from "@/lib/billing/constants";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { cookies } from "next/headers";
+import { track } from "@/lib/analytics/track";
+import {
+  FIRST_TOUCH_COOKIE,
+  parseFirstTouch,
+} from "@/lib/analytics/attribution";
 import { canonicalEmail, lockEmailIdentity } from "@/lib/email-identity";
 
 const SESSION_REVOCATION_RECHECK_SECONDS = 24 * 60 * 60;
@@ -453,6 +460,22 @@ export const authOptions: NextAuthOptions = {
             totalQuickFillUsed: 0,
           } as any,
         });
+        // RA-1246 parity with /api/auth/register: OAuth signups previously
+        // emitted no signup_completed, so the activation funnel and campaign
+        // attribution missed every Google sign-up.
+        let attribution = null;
+        try {
+          attribution = parseFirstTouch(
+            (await cookies()).get(FIRST_TOUCH_COOKIE)?.value,
+          );
+        } catch {
+          // cookies() throws outside a request context; attribution is optional.
+        }
+        await track(user.id, "signup_completed", {
+          hasOrganization: false,
+          method: "oauth",
+          attribution,
+        });
       } catch (err) {
         console.error(
           "[auth.createUser] failed to flag OAuth signup:",
@@ -535,7 +558,11 @@ export const authOptions: NextAuthOptions = {
             (token as any).mintedAt = Math.floor(Date.now() / 1000);
           }
         } catch {
-          (token as any).needsOnboarding = false;
+          // Keep what the cookie said: a database blip must not skip the terms
+          // step. Only a brand-new claim defaults.
+          if ((token as any).needsOnboarding === undefined) {
+            (token as any).needsOnboarding = false;
+          }
         }
       }
 
@@ -584,15 +611,37 @@ export const authOptions: NextAuthOptions = {
         try {
           const userWithOrg = await prisma.user.findUnique({
             where: { id: token.sub as string },
-            select: { organizationId: true, organization: { select: { setupCompletedAt: true } } },
+            select: {
+              organizationId: true,
+              organization: { select: { setupCompletedAt: true, ownerId: true } },
+            },
           });
           token.organizationId = userWithOrg?.organizationId ?? null;
           token.organizationScopeVerified = !!userWithOrg;
-          const setupCompletedAt = (userWithOrg as any)?.organization
-            ?.setupCompletedAt;
+          const scopedOrg = (userWithOrg as any)?.organization;
+          const setupCompletedAt = scopedOrg?.setupCompletedAt;
+          // Someone else's wizard can never be finished from this account, and
+          // /setup sends them to /dashboard, so the gate must not send them back.
+          const notTheirWizard = scopedOrg && scopedOrg.ownerId !== token.sub;
           (token as any).setupCompletedAt = setupCompletedAt
             ? (setupCompletedAt as Date).toISOString()
-            : null;
+            : notTheirWizard
+              ? new Date(0).toISOString()
+              : null;
+          // Read on every refresh, so paying unlocks without a new sign-in. A
+          // database blip keeps the last answer rather than locking or freeing.
+          if (token.role === "USER" && userWithOrg?.organizationId) {
+            try {
+              (token as any).seatLocked = await isTrialSeatLocked(
+                prisma,
+                userWithOrg.organizationId,
+              );
+            } catch {
+              (token as any).seatLocked = (token as any).seatLocked ?? false;
+            }
+          } else {
+            (token as any).seatLocked = false;
+          }
         } catch {
           // Preserve sign-in during a transient DB error, but do not render
           // cached workspace resources under an unverified organisation.
@@ -684,9 +733,12 @@ export const authOptions: NextAuthOptions = {
       // (90d). The actual session length per user comes from customExp
       // which is 7d for default logins and 90d when rememberMe ticked.
       // Past customExp we strip user identity so middleware redirects.
+      // A token with no customExp (minted before RA-2074) is refused too:
+      // NextAuth renews its cookie on every read, so it would never expire
+      // and could outlive the 90-day ACCOUNT_DELETED tombstone.
       const customExp = (token as any).customExp;
       if (
-        typeof customExp === "number" &&
+        typeof customExp !== "number" ||
         Math.floor(Date.now() / 1000) > customExp
       ) {
         return { ...session, user: undefined } as any;

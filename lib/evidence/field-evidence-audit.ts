@@ -43,6 +43,7 @@ import {
 } from "./workflow-definitions";
 import { normalizeClaimType } from "./claim-type";
 import { scoreEvidenceItem, type EvidenceItemForQA } from "./qa-scorer";
+import { countableEvidence } from "./countable-evidence";
 import type {
   AffectedAreaEvidenceGap,
   ChecklistItem,
@@ -318,14 +319,15 @@ export async function auditInspectionById(
 
   const [evidenceItems, moistureReadings, psychrometricReadings, affectedAreas] =
     await Promise.all([
+      // RA-8388: a retired reading and its evidence record do not count.
       prisma.evidenceItem.findMany({
-        where: { inspectionId },
+        where: countableEvidence({ inspectionId }),
         select: EVIDENCE_ITEM_SELECT,
         orderBy: { capturedAt: "desc" },
         take: 500,
       }),
       prisma.moistureReading.findMany({
-        where: { inspectionId },
+        where: { inspectionId, invalidatedAt: null },
         select: { affectedArea: true },
         orderBy: { recordedAt: "desc" },
         take: 500,

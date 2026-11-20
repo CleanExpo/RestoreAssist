@@ -42,10 +42,15 @@ export type PricingResolverClient = Pick<
  * The contractor's effective pricing: org config (authoritative) → legacy
  * user config → null. Returning null is a signal, not a failure — the caller
  * applies its existing CostDatabase/NRPG fallback.
+ *
+ * RA-7893: `legacyUserId` names whose legacy CompanyPricingConfig is the
+ * fallback — the paying business owner when an invited member quotes on the
+ * owner's plan. Defaults to `userId`.
  */
 export async function resolveEffectivePricing(
   prisma: PricingResolverClient,
   userId: string,
+  options: { legacyUserId?: string } = {},
 ): Promise<EffectivePricing | null> {
   if (!userId) return null;
 
@@ -61,7 +66,9 @@ export async function resolveEffectivePricing(
     if (orgConfig) return orgConfig;
   }
 
-  return prisma.companyPricingConfig.findUnique({ where: { userId } });
+  return prisma.companyPricingConfig.findUnique({
+    where: { userId: options.legacyUserId ?? userId },
+  });
 }
 
 /**

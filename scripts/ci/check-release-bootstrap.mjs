@@ -2,6 +2,7 @@
 
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
+import * as nodePath from "node:path";
 import { extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isAlias, parse as parseYaml, parseDocument, visit } from "yaml";
@@ -19,6 +20,22 @@ const APPROVED_EXTERNAL_ACTIONS = new Set([
   "r0adkll/upload-google-play",
   "treosh/lighthouse-ci-action",
 ]);
+
+// One owner for "is this path inside that directory". A string prefix such as
+// `${root}/` is POSIX-only: on Windows resolve() returns backslash paths, so the
+// prefix never matched and every local reference was refused (RA-8362).
+// relative() applies the platform's own separator, drive and case rules, so the
+// same check holds on both. Both arguments must already be resolved. Returns
+// true only for a strict descendant; the directory itself is not inside.
+export function isPathStrictlyInside(parent, child, pathApi = nodePath) {
+  const relativePath = pathApi.relative(parent, child);
+  return (
+    relativePath !== "" &&
+    relativePath !== ".." &&
+    !relativePath.startsWith(`..${pathApi.sep}`) &&
+    !pathApi.isAbsolute(relativePath)
+  );
+}
 
 function workflowFiles(root) {
   const directory = join(root, ".github", "workflows");
@@ -92,14 +109,14 @@ function workflowSemanticViolations(root, path) {
     }
     const absolutePath = resolve(repositoryRoot, target);
     if (
-      (absolutePath !== repositoryRoot && !absolutePath.startsWith(`${repositoryRoot}/`)) ||
+      (absolutePath !== repositoryRoot && !isPathStrictlyInside(repositoryRoot, absolutePath)) ||
       hasSymlinkComponent(absolutePath)
     ) {
       violations.push(`${sourceLocation}#${fieldPath} local reference escapes the repository, is missing, or traverses a symlink; observed ${target}`);
       return;
     }
 
-    if (absolutePath.startsWith(`${workflowRoot}/`) && /\.ya?ml$/i.test(absolutePath)) {
+    if (isPathStrictlyInside(workflowRoot, absolutePath) &&/\.ya?ml$/i.test(absolutePath)) {
       if (!lstatSync(absolutePath).isFile()) {
         violations.push(`${sourceLocation}#${fieldPath} local reusable workflow is not a regular file; observed ${target}`);
         return;
@@ -360,8 +377,12 @@ const APPROVED_PROVIDER_EXECUTABLES = new Map([
   // Re-pinned when the image HEALTHCHECK moved off /api/health/migrations, a
   // migration-drift watchdog, onto the /api/health readiness probe. Any
   // runtime honouring Docker HEALTHCHECK was otherwise still treating drift
-  // as container failure outside App Platform.
-  ["Dockerfile", "631fcdd8869333f6a06d41c9edf49757c31717f01580339087e045d1355d74e5"],
+  // as container failure outside App Platform. Re-pinned again when the base
+  // image moved to node:22.23.3-bookworm-slim for the 22.23.x security
+  // releases; only the FROM line changed. Re-pinned 2026-10-31 for four
+  // NEXT_PUBLIC_COMPANY_* / support / security ARG+ENV pairs so the footer
+  // and legal pages carry the company details (lib/brand.ts); no RUN change.
+  ["Dockerfile", "10dd79e32d9a5649e094920ee72e412fa185dc1146c08239c340739a6178ddba"],
   ["docker/entrypoint.sh", "5582a15a3407ac31a28c7056b87b02c9c5563acf78d36a4acd141d3f0167c1b4"],
   ["scripts/build-help-index.ts", "ec8849f2c4f0d26e1467886040f3e01b16eefec0d14ce2d2daba0a1a382c2553"],
   ["scripts/build.sh", "25583db2753872420f27e050050ee8e0bc8df7059f08c91cbbcf6865ed7adc4a"],
@@ -638,8 +659,8 @@ function providerMigrationViolations(root, packageJson) {
   const inspectLocalExecutable = (relativePath, location) => {
     const normalised = relativePath.replace(/^\.\//, "");
     const absolutePath = resolve(root, normalised);
-    const scriptsRoot = `${resolve(root, "scripts")}/`;
-    if (!absolutePath.startsWith(scriptsRoot) || !existsSync(absolutePath)) {
+    const scriptsRoot = resolve(root, "scripts");
+    if (!isPathStrictlyInside(scriptsRoot, absolutePath) || !existsSync(absolutePath)) {
       violations.push(`${location} invokes an unavailable or out-of-scope provider executable: ${normalised}`);
       return;
     }
@@ -751,8 +772,8 @@ function providerMigrationViolations(root, packageJson) {
       if (shellFile) {
         const relativePath = shellFile[1].replace(/^\.\//, "");
         const absolutePath = resolve(root, relativePath);
-        const scriptsRoot = `${resolve(root, "scripts")}/`;
-        if (!absolutePath.startsWith(scriptsRoot) || !existsSync(absolutePath)) {
+        const scriptsRoot = resolve(root, "scripts");
+        if (!isPathStrictlyInside(scriptsRoot, absolutePath) || !existsSync(absolutePath)) {
           violations.push(`${analysedLocation} invokes an unavailable or out-of-scope provider shell file: ${relativePath}`);
         } else if (!visitedScripts.has(`file:${relativePath}`)) {
           visitedScripts.add(`file:${relativePath}`);
@@ -766,8 +787,8 @@ function providerMigrationViolations(root, packageJson) {
       if (sourcedShellFile) {
         const relativePath = sourcedShellFile[1].replace(/^\.\//, "");
         const absolutePath = resolve(root, relativePath);
-        const scriptsRoot = `${resolve(root, "scripts")}/`;
-        if (!absolutePath.startsWith(scriptsRoot) || !existsSync(absolutePath)) {
+        const scriptsRoot = resolve(root, "scripts");
+        if (!isPathStrictlyInside(scriptsRoot, absolutePath) || !existsSync(absolutePath)) {
           violations.push(`${analysedLocation} sources an unavailable or out-of-scope provider shell file: ${relativePath}`);
         } else if (!visitedScripts.has(`file:${relativePath}`)) {
           visitedScripts.add(`file:${relativePath}`);

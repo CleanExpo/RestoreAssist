@@ -46,6 +46,7 @@
  *   SEED_MYOB_TOKEN=...        SEED_MYOB_TENANT_ID=...
  *   SEED_SERVICEM8_TOKEN=...   SEED_SERVICEM8_COMPANY_ID=...
  *   SEED_ASCORA_TOKEN=...      SEED_ASCORA_COMPANY_ID=...
+ *   SEED_ZOHO_TOKEN=...        SEED_ZOHO_API_DOMAIN=... SEED_ZOHO_REGION=AU
  *
  * Stripe is deliberately absent. It is not an Integration row — IntegrationProvider
  * has no STRIPE member. The platform key is the STRIPE_SECRET_KEY environment
@@ -67,6 +68,7 @@ import { PrismaClient, AddonSku } from "@prisma/client";
 import type { IntegrationProvider } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { pgPoolTls } from "../lib/prisma-pool-config";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import { encrypt } from "../lib/credential-vault";
@@ -106,7 +108,7 @@ if (!looksLocal(connectionString) && process.env.ALLOW_NON_LOCAL_DB !== "1") {
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaPg(new Pool({ connectionString, max: 2 })),
+  adapter: new PrismaPg(new Pool({ ...pgPoolTls(connectionString), max: 2 })),
 });
 
 const EMAIL = process.env.FULL_ACCESS_EMAIL ?? "qa-full-access@restoreassist.app";
@@ -310,6 +312,10 @@ async function main() {
   });
   await connect("ASCORA", "Ascora", process.env.SEED_ASCORA_TOKEN, {
     companyId: process.env.SEED_ASCORA_COMPANY_ID,
+  });
+  await connect("ZOHO", "Zoho CRM", process.env.SEED_ZOHO_TOKEN, {
+    tenantId: process.env.SEED_ZOHO_API_DOMAIN,
+    companyId: process.env.SEED_ZOHO_REGION,
   });
 
   // ── Report ────────────────────────────────────────────────────────────────

@@ -7,9 +7,19 @@
  * nothing.
  */
 import "@testing-library/jest-dom/vitest";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import NIRClaimAssessmentPanel from "../NIRClaimAssessmentPanel";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import { createRef, type RefObject } from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import NIRClaimAssessmentPanel, {
+  type NIRClaimAssessmentPanelHandle,
+} from "../NIRClaimAssessmentPanel";
 
 vi.mock("react-hot-toast", () => ({
   default: { success: vi.fn(), error: vi.fn() },
@@ -44,50 +54,56 @@ function selectFor(optionText: string): HTMLSelectElement {
 
 async function renderPanel() {
   const onWaterClassificationSaved = vi.fn();
+  const ref = createRef<NIRClaimAssessmentPanelHandle>();
   render(
     <NIRClaimAssessmentPanel
+      ref={ref}
       inspectionId="insp_1"
       lockedClaimType="WATER"
       onWaterClassificationSaved={onWaterClassificationSaved}
     />,
   );
   await screen.findByText("Cat 2 — Grey Water");
-  return onWaterClassificationSaved;
+  return { onWaterClassificationSaved, ref };
 }
 
-async function save() {
-  fireEvent.click(screen.getByText("Save Assessment"));
-  await waitFor(() =>
-    expect(screen.getByText("Save Assessment")).toBeInTheDocument(),
-  );
+async function persistAssessment(
+  ref: RefObject<NIRClaimAssessmentPanelHandle | null>,
+) {
+  await act(async () => {
+    await ref.current?.persistAssessment();
+  });
 }
 
 describe("RA-7709 panel Category / Class choice reaches the form", () => {
   it("saving Cat 2 / Class 3 reports { category: '2', class: '3' }", async () => {
-    const onSaved = await renderPanel();
+    const { onWaterClassificationSaved, ref } = await renderPanel();
     fireEvent.change(selectFor("Cat 2 — Grey Water"), {
       target: { value: "CAT_2" },
     });
     fireEvent.change(selectFor("Class 3 — Fastest Evaporation"), {
       target: { value: "CLASS_3" },
     });
-    await save();
+    await persistAssessment(ref);
 
     await waitFor(() =>
-      expect(onSaved).toHaveBeenLastCalledWith({ category: "2", class: "3" }),
+      expect(onWaterClassificationSaved).toHaveBeenLastCalledWith({
+        category: "2",
+        class: "3",
+      }),
     );
   });
 
   it("clearing a saved pick reports null", async () => {
-    const onSaved = await renderPanel();
+    const { onWaterClassificationSaved, ref } = await renderPanel();
     fireEvent.change(selectFor("Cat 2 — Grey Water"), {
       target: { value: "CAT_2" },
     });
     fireEvent.change(selectFor("Class 3 — Fastest Evaporation"), {
       target: { value: "CLASS_3" },
     });
-    await save();
-    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    await persistAssessment(ref);
+    await waitFor(() => expect(onWaterClassificationSaved).toHaveBeenCalledTimes(1));
 
     fireEvent.change(selectFor("Cat 2 — Grey Water"), {
       target: { value: "" },
@@ -95,19 +111,19 @@ describe("RA-7709 panel Category / Class choice reaches the form", () => {
     fireEvent.change(selectFor("Class 3 — Fastest Evaporation"), {
       target: { value: "" },
     });
-    await save();
+    await persistAssessment(ref);
 
-    await waitFor(() => expect(onSaved).toHaveBeenLastCalledWith(null));
+    await waitFor(() => expect(onWaterClassificationSaved).toHaveBeenLastCalledWith(null));
   });
 
   it("a save that never set Category / Class reports nothing", async () => {
-    const onSaved = await renderPanel();
+    const { onWaterClassificationSaved, ref } = await renderPanel();
     fireEvent.change(selectFor("Plumbing"), {
       target: { value: "PLUMBING" },
     });
-    await save();
+    await persistAssessment(ref);
 
     await waitFor(() => expect(saved).not.toBeNull());
-    expect(onSaved).not.toHaveBeenCalled();
+    expect(onWaterClassificationSaved).not.toHaveBeenCalled();
   });
 });

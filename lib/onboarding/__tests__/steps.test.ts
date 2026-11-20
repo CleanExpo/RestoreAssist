@@ -22,6 +22,7 @@ const apiSteps: Record<string, OnboardingApiStep> = {
   ai_provider: step({ title: "Add your key", route: "/dashboard/settings/ai-providers", completed: true }),
   business_profile: step({ title: "Settings & Profile", route: "/dashboard/settings", required: true }),
   pricing_config: step({ title: "Pricing Configuration", route: "/dashboard/pricing-config", required: true }),
+  first_inspection: step({ title: "Create your first job", route: "/dashboard/inspections/new" }),
   first_report: step({ title: "Generate your first report", route: "/dashboard/reports/new" }),
   property_data: step({ title: "Connect Property Data", route: "/dashboard/integrations" }),
 };
@@ -32,18 +33,16 @@ describe("toOnboardingDisplaySteps", () => {
     expect(display.map((s) => s.id)).toEqual([
       "ai_provider",
       "business_profile",
-      "pricing_config",
+      "first_inspection",
       "first_report",
+      "pricing_config",
       "property_data",
     ]);
-    // route → href, and the count is exactly the server's — no client injection.
-    expect(display).toHaveLength(5);
+    expect(display).toHaveLength(6);
     expect(display[2]).toMatchObject({
-      id: "pricing_config",
-      title: "Pricing Configuration",
-      href: "/dashboard/pricing-config",
-      required: true,
-      completed: false,
+      id: "first_inspection",
+      title: "Create your first job",
+      href: "/dashboard/inspections/new",
     });
   });
 

@@ -42,6 +42,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -168,7 +169,7 @@ export default function Claim002CostEntryPage() {
           succeeded++;
         } else {
           const body = await res.json().catch(() => ({}));
-          failed.push(`Row ${i + 1}: ${body.error ?? `HTTP ${res.status}`}`);
+          failed.push(`Row ${i + 1}: ${apiErrorMessage(body) ?? `HTTP ${res.status}`}`);
         }
       } catch {
         failed.push(`Row ${i + 1}: Network error`);
@@ -239,7 +240,7 @@ export default function Claim002CostEntryPage() {
         if (res.ok) succeeded++;
         else {
           const body = await res.json().catch(() => ({}));
-          failed.push(`Item ${i}: ${body.error ?? `HTTP ${res.status}`}`);
+          failed.push(`Item ${i}: ${apiErrorMessage(body) ?? `HTTP ${res.status}`}`);
         }
       } catch {
         failed.push(`Item ${i}: Network error`);
@@ -258,7 +259,7 @@ export default function Claim002CostEntryPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="max-w-9xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       {/* Header */}
       <div>
         <button
@@ -269,7 +270,7 @@ export default function Claim002CostEntryPage() {
           Back to pilot dashboard
         </button>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-cyan-50 dark:bg-cyan-950/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+          <div className="w-9 h-9 rounded-lg bg-brand-harbour-50 dark:bg-brand-harbour-950/30 flex items-center justify-center text-brand-harbour-600 dark:text-brand-harbour-400">
             <BarChart2 size={18} />
           </div>
           <div>
@@ -293,9 +294,9 @@ export default function Claim002CostEntryPage() {
       </div>
 
       {/* Context card */}
-      <div className="rounded-lg border border-cyan-200/60 dark:border-cyan-800/40 bg-cyan-50/40 dark:bg-cyan-950/20 px-4 py-3 space-y-1.5">
+      <div className="rounded-lg border border-brand-harbour-200/60 dark:border-brand-harbour-800/40 bg-brand-harbour-50/40 dark:bg-brand-harbour-950/20 px-4 py-3 space-y-1.5">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-700 dark:text-slate-300">
-          <Info size={12} className="text-cyan-600 dark:text-cyan-400" />
+          <Info size={12} className="text-brand-harbour-600 dark:text-brand-harbour-400" />
           What to enter
         </div>
         <p className="text-xs text-neutral-600 dark:text-slate-400 leading-relaxed">
@@ -396,13 +397,13 @@ export default function Claim002CostEntryPage() {
                     updateEntry(idx, "totalCostAUD", e.target.value)
                   }
                   placeholder="e.g. 18500.00"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Group */}
                 <select
                   value={entry.group}
                   onChange={(e) => updateEntry(idx, "group", e.target.value)}
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 >
                   <option value="nir">NIR</option>
                   <option value="control">Control</option>
@@ -413,7 +414,7 @@ export default function Claim002CostEntryPage() {
                   value={entry.notes}
                   onChange={(e) => updateEntry(idx, "notes", e.target.value)}
                   placeholder="e.g. GW-2026-009144"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Remove */}
                 <button
@@ -429,7 +430,7 @@ export default function Claim002CostEntryPage() {
             {/* Add row */}
             <button
               onClick={addEntry}
-              className="flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 transition-colors font-medium"
+              className="flex items-center gap-1.5 text-xs text-brand-harbour-600 dark:text-brand-harbour-400 hover:text-brand-harbour-700 transition-colors font-medium"
             >
               <Plus size={13} />
               Add row
@@ -455,7 +456,7 @@ export default function Claim002CostEntryPage() {
                 onClick={handleSubmit}
                 disabled={submitting}
                 size="sm"
-                className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
               >
                 {submitting ? (
                   <>
@@ -509,7 +510,7 @@ export default function Claim002CostEntryPage() {
               onChange={(e) => setBatchJson(e.target.value)}
               placeholder="Paste JSON array here..."
               rows={10}
-              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 resize-y"
+              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40 resize-y"
             />
 
             {/* Batch errors */}
@@ -532,7 +533,7 @@ export default function Claim002CostEntryPage() {
                 onClick={handleBatchSubmit}
                 disabled={submitting || !batchJson.trim()}
                 size="sm"
-                className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
               >
                 {submitting ? (
                   <>
@@ -557,7 +558,7 @@ export default function Claim002CostEntryPage() {
         </p>
         <div className="grid grid-cols-2 gap-3 text-xs">
           {[
-            { label: "NIR group", target: 50, colour: "bg-cyan-400" },
+            { label: "NIR group", target: 50, colour: "bg-brand-harbour-400" },
             { label: "Control group", target: 50, colour: "bg-violet-400" },
           ].map(({ label, target, colour }) => (
             <div key={label} className="space-y-1">
@@ -572,7 +573,7 @@ export default function Claim002CostEntryPage() {
                 Check the{" "}
                 <a
                   href="/dashboard/admin/pilot"
-                  className="text-cyan-500 hover:underline"
+                  className="text-brand-harbour-500 hover:underline"
                 >
                   readiness dashboard
                 </a>{" "}

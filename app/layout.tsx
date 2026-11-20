@@ -2,10 +2,10 @@ import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { geistSans, geistMono } from "@/app/fonts/site";
 import { BRAND } from "@/lib/brand";
-import { OG_SHARE_PATH, ogAlt, ogSize } from "@/lib/og/constants";
+import { OG_SHARE_IMAGE, OG_SHARE_PATH } from "@/lib/og/constants";
 import SessionProvider from "@/components/providers/SessionProvider";
 import { CapacitorProvider } from "@/components/providers/CapacitorProvider";
-import { ThemeProvider } from "@/components/theme-provider";
+import { AppThemeProvider } from "@/components/app-theme-provider";
 import { SafeToaster } from "@/components/providers/SafeToaster";
 import {
   OrganizationSchema,
@@ -20,6 +20,8 @@ import { AnnouncerProvider } from "@/components/LiveRegion";
 import { ConvaiWidget } from "@/components/support/ConvaiWidget";
 import { PublicAssistantOrb } from "@/components/avatar";
 import { BotIdClient } from "botid/client";
+import { IOS_SHELL_LAUNCH_GUARD } from "@/lib/capacitor";
+import { FIRST_TOUCH_SCRIPT } from "@/lib/analytics/attribution";
 import "@/lib/env-check";
 import "./globals.css";
 
@@ -83,15 +85,10 @@ export const metadata: Metadata = {
     // For now, defaults to en_AU.
     locale: "en_AU",
     siteName: BRAND.name,
-    // Versioned /og path — hard cache-bust for LinkedIn/Slack still holding
-    // the old navy card at /opengraph-image. Resolved absolute via metadataBase.
+    // RA-8473: static photo share card, versioned for crawler cache-busting.
+    // Resolved absolute via metadataBase.
     images: [
-      {
-        url: OG_SHARE_PATH,
-        width: ogSize.width,
-        height: ogSize.height,
-        alt: ogAlt,
-      },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/" },
@@ -121,7 +118,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#1C2E47",
+  themeColor: "#17181c",
 };
 
 // NOTE: the iOS-shell platform verdict is deliberately NOT resolved here.
@@ -138,14 +135,12 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`dark ${geistSans.variable} ${geistMono.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `document.documentElement.classList.add("dark");`,
-          }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: IOS_SHELL_LAUNCH_GUARD }} />
+        {/* First-touch campaign attribution for signups (lib/analytics/attribution.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: FIRST_TOUCH_SCRIPT }} />
         <BotIdClient protect={BOTID_PROTECTED_ROUTES} />
         {/* Dev-only: unregister leftover NIR SWs early. Do not force-reload —
             that races the Next router. SW v2.1 also self-destructs on localhost. */}
@@ -160,13 +155,10 @@ export default function RootLayout({
       <body className={geistSans.className}>
         <OrganizationSchema />
         <SoftwareApplicationSchema />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          forcedTheme="dark"
-          enableSystem={false}
-          disableTransitionOnChange
-        >
+        {/* RA-8305: the dashboard honours the Appearance setting (default
+            dark); public pages stay dark. next-themes applies the stored
+            choice before paint — never add the dark class here directly. */}
+        <AppThemeProvider>
           <AnnouncerProvider>
             <SessionProvider>
               <NirOfflineProvider>
@@ -183,7 +175,7 @@ export default function RootLayout({
           {/* Coerces API error objects so toast.error({code,message,eventId})
               cannot crash the React tree. */}
           <SafeToaster />
-        </ThemeProvider>
+        </AppThemeProvider>
       </body>
     </html>
   );

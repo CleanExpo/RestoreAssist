@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { isConfirmedEmpty } from "@/lib/client/load-state";
 import { FileText, Plus, Loader2, Receipt, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -16,6 +17,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { DashboardPageFrame } from "@/app/dashboard/components/DashboardPageFrame";
+import { ADVANCED_WORKSPACE_EYEBROW } from "@/lib/dashboard/simple-dashboard-theme";
+import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 
 interface DocSummary {
   id: string;
@@ -116,24 +121,21 @@ export default function RestorationDocumentsPage() {
     `/dashboard/restoration-documents/invoice/${doc.id}`;
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-slate-950">
-      <div className="mx-auto px-4 py-8 sm:px-6">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
-              Restoration Documents
-            </h1>
-            <p className="mt-1 text-sm text-neutral-600 dark:text-slate-400">
-              IICRC-worded tax invoices and estimates (JSON documents). Separate
-              from Accounts Receivable invoices under Billing → Invoices.
-            </p>
-          </div>
+    <DashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow={ADVANCED_WORKSPACE_EYEBROW}
+        title="Restoration Documents"
+        description="IICRC-worded tax invoices and estimates. Separate from AR invoices under Billing → Invoices."
+        icon={<FileText className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
+        secondaryLinks={workspaceHubLinks({
+          omitHref: "/dashboard/restoration-documents",
+        })}
+        primaryAction={
           <div className="flex flex-wrap gap-2">
             <Link
               href="/dashboard/quote"
               className={cn(
-                "inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-800 hover:bg-neutral-50",
-                "dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800",
+                "inline-flex min-h-11 items-center gap-2 rounded-lg border border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 px-4 text-sm font-semibold text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-white/10",
               )}
             >
               <Plus className="h-4 w-4" />
@@ -150,7 +152,8 @@ export default function RestorationDocumentsPage() {
               New Restoration Invoice
             </Link>
           </div>
-        </div>
+        }
+      />
 
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
           <p className="font-medium">
@@ -260,9 +263,14 @@ export default function RestorationDocumentsPage() {
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-teal-600 dark:text-teal-400" />
             </div>
+          ) : filteredDocuments.length === 0 && !isConfirmedEmpty(loadError, 0) ? (
+            // RA-8084: a failed load is unknown, not empty. The banner above carries Retry.
+            <p className="py-12 text-center text-sm text-neutral-600 dark:text-slate-400">
+              Restoration documents could not be loaded.
+            </p>
           ) : filteredDocuments.length === 0 ? (
             <div className="py-16 text-center">
-              <Receipt className="mx-auto h-12 w-12 text-neutral-300 dark:text-slate-600" />
+              <Receipt className="mx-auto h-12 w-12 text-brand-slate dark:text-slate-600" />
               <p className="mt-4 text-neutral-600 dark:text-slate-400">
                 {activeFilter === "ALL"
                   ? "No restoration documents yet"
@@ -325,7 +333,7 @@ export default function RestorationDocumentsPage() {
                           aria-label={`Delete ${doc.title || doc.documentNumber}`}
                           disabled={deletingId === doc.id}
                           className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors",
+                            "flex h-8 w-8 items-center justify-center rounded-md text-brand-slate dark:text-neutral-400 transition-colors",
                             "hover:bg-destructive-subtle hover:text-destructive-subtle-foreground dark:hover:bg-red-900/20 dark:hover:text-red-400",
                             "focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1",
                             "disabled:cursor-not-allowed disabled:opacity-50",
@@ -364,7 +372,6 @@ export default function RestorationDocumentsPage() {
             </ul>
           )}
         </div>
-      </div>
-    </div>
+    </DashboardPageFrame>
   );
 }

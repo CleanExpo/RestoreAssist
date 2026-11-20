@@ -1,12 +1,36 @@
 "use client";
 
-import { useState, useEffect, use, useRef, useMemo } from "react";
+import { useState, useEffect, use, useRef, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  readBlockedPricing,
+  type BlockedPricing,
+} from "@/lib/pricing/blocked-line";
+import { BlockedPricingNotice } from "@/components/pricing/BlockedPricingNotice";
+import {
+  parseApiError,
+  type ParsedApiError,
+} from "@/lib/client/parse-api-error";
+import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
 import { AssignTechnician } from "@/components/inspection/AssignTechnician";
 import { EngagementLicenceModal } from "@/components/attestation/EngagementLicenceModal";
 import { cn } from "@/lib/utils";
+import {
+  canGenerateDisputePack,
+  canUseOwnerJobActions,
+  failedResponseMessage,
+} from "@/lib/inspections/job-actions";
+import {
+  inspectionStatusAllowsDisputePack,
+  inspectionStatusAllowsNirReport,
+} from "@/lib/inspections/active-status";
+import {
+  ATTENDANCE_NOT_RECORDED_LABEL,
+  formatAttendanceDateEnAu,
+} from "@/lib/inspections/format-attendance-date";
 import { resolveAreaSqm } from "@/lib/units";
 import { parseReadingInput } from "@/lib/forms/parse-reading-input";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
@@ -21,6 +45,19 @@ import InspectionEvidenceReadinessPanel, {
 } from "@/components/inspection/InspectionEvidenceReadinessPanel";
 import HandoverPackagePanel from "@/components/inspection/HandoverPackagePanel";
 import { MakeSafeChecklist } from "@/components/inspection/MakeSafeChecklist";
+import { ClaimContextBanner } from "@/components/inspection/ClaimContextBanner";
+import { JobAppointmentsPanel } from "@/components/inspection/JobAppointmentsPanel";
+import { FieldAssistPanel } from "@/components/inspection/FieldAssistPanel";
+import { InspectionWorkflowStrip } from "@/components/inspection/InspectionWorkflowStrip";
+import { InspectionWorkspaceLinks } from "@/components/inspection/InspectionWorkspaceLinks";
+import { InspectionJourneyGuide } from "@/components/inspection/InspectionJourneyGuide";
+import { SketchRoomCoveragePanel } from "@/components/inspection/SketchRoomCoveragePanel";
+import { SketchMeasurementChecklistLoader } from "@/components/inspection/SketchMeasurementChecklistLoader";
+import {
+  PULSE_JOB_TOGGLE_HINT,
+  PULSE_JOB_TOGGLE_LABEL,
+} from "@/lib/pulse/pulse-inspection-ui-copy";
+import { FloorPlanFieldGuide } from "@/components/inspection/FloorPlanFieldGuide";
 import EnvironmentalSummary from "@/components/inspection/EnvironmentalSummary";
 import {
   latestEnvironmentalReading,
@@ -177,6 +214,15 @@ type Tab =
   | "insurer"
   | "live-teacher";
 
+const ADVANCED_INSPECTION_TABS: Tab[] = [
+  "environmental",
+  "moisture-map",
+  "areas",
+  "costs",
+  "activity",
+  "live-teacher",
+];
+
 interface Inspection {
   id: string;
   inspectionNumber: string;
@@ -184,7 +230,10 @@ interface Inspection {
   propertyPostcode: string;
   technicianName: string | null;
   technicianId: string | null;
+  // The job owner (Inspection.userId). Absent on the demo inspection.
+  userId?: string | null;
   status: string;
+  inspectionDate: string | null;
   createdAt: string;
   submittedAt: string | null;
   processedAt: string | null;
@@ -200,6 +249,8 @@ interface Inspection {
   handoverPackageStorageKey: string | null;
   // RA-6949 — per-job Restoration Pulse notification toggle.
   pulseEnabled: boolean;
+  reportId?: string | null;
+  clientId?: string | null;
   // RA-7713: the API returns an array (time series since RA-1383); the demo
   // inspection returns a single object. Read it via latestEnvironmentalReading.
   environmentalData: EnvironmentalReading | EnvironmentalReading[] | null;
@@ -282,6 +333,27 @@ const STATUS_STEPS = [
   "COMPLETED",
 ];
 
+/** Shared surface for hub sections — one visual language across the page. */
+const INSPECTION_HUB_CARD =
+  "rounded-xl border border-neutral-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-900/40 shadow-sm";
+
+function formatWorkflowStatusLabel(step: string): string {
+  return step
+    .split("_")
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function decodeDisplayText(value: string): string {
+  return value
+    .replace(/&#x27;/gi, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
   const currentIndex = STATUS_STEPS.indexOf(currentStatus);
   const isRejected = currentStatus === "REJECTED";
@@ -300,13 +372,13 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                   "bg-success-subtle text-success-subtle-foreground",
                 isActive &&
                   !isRejected &&
-                  "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 ring-2 ring-cyan-500/30",
+                  "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-400 ring-2 ring-brand-harbour-500/30",
                 isActive &&
                   isRejected &&
                   "bg-destructive-subtle text-destructive-subtle-foreground ring-2 ring-red-500/30",
                 !isComplete &&
                   !isActive &&
-                  "bg-neutral-100 dark:bg-slate-800 text-neutral-400 dark:text-slate-500",
+                  "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-500",
               )}
             >
               {isComplete ? (
@@ -314,7 +386,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
               ) : isActive ? (
                 <Clock size={12} />
               ) : null}
-              {step.charAt(0) + step.slice(1).toLowerCase()}
+              {formatWorkflowStatusLabel(step)}
             </div>
             {i < STATUS_STEPS.length - 1 && (
               <div
@@ -343,7 +415,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 
 function moistureColor(level: number): string {
   if (level < 15) return "text-success";
-  if (level < 25) return "text-amber-600 dark:text-amber-400";
+  if (level < 25) return "text-amber-700 dark:text-amber-400";
   return "text-destructive";
 }
 
@@ -366,15 +438,23 @@ export default function InspectionDetailPage({
   const [licenceModalOpen, setLicenceModalOpen] = useState(false);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [moreSectionsOpen, setMoreSectionsOpen] = useState(false);
+  const [sketchFocusRoomId, setSketchFocusRoomId] = useState<string | null>(
+    null,
+  );
+  const [sketchMapMoisture, setSketchMapMoisture] = useState(false);
+  const [scopeRoomHint, setScopeRoomHint] = useState<string | null>(null);
+  const [sketchReloadToken, setSketchReloadToken] = useState(0);
 
   // Deep-link from field evidence checklist: ?tab=areas (etc.).
   // Re-read on job change so a previous inspection's Sketch tab does not
   // stick onto the next job (RA-7542 post-nav chrome).
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const tabParam = new URLSearchParams(window.location.search).get("tab");
+    const searchParams = new URLSearchParams(window.location.search);
+    const tabParam = searchParams.get("tab");
     const allowed: Tab[] = [
       "overview",
       "environmental",
@@ -392,8 +472,26 @@ export default function InspectionDetailPage({
     ];
     if (tabParam && allowed.includes(tabParam as Tab)) {
       setActiveTab(tabParam as Tab);
+      if (ADVANCED_INSPECTION_TABS.includes(tabParam as Tab)) {
+        setMoreSectionsOpen(true);
+      }
+      const sketchRoomId = searchParams.get("sketchRoomId");
+      const roomName = searchParams.get("roomName");
+      setSketchFocusRoomId(sketchRoomId);
+      setSketchMapMoisture(searchParams.get("mapMoisture") === "1");
+      setScopeRoomHint(searchParams.get("roomZone"));
+      if (tabParam === "moisture" && sketchRoomId) {
+        setMoistureForm((f) => ({
+          ...f,
+          sketchRoomId,
+          location: roomName?.trim() || f.location,
+        }));
+      }
       return;
     }
+    setSketchFocusRoomId(null);
+    setSketchMapMoisture(false);
+    setScopeRoomHint(null);
     setActiveTab("overview");
   }, [id]);
 
@@ -473,6 +571,20 @@ export default function InspectionDetailPage({
     Inspection["affectedAreas"]
   >([]);
   const [showAddAreaForm, setShowAddAreaForm] = useState(false);
+  // RA-8388: a refused submit with no affected area links here with
+  // ?tab=areas&addArea=1 (lib/evidence/submit-refusal.ts). Open the form so
+  // the technician lands on the thing they were sent to do, not on a tab
+  // with a button to find.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const searchParams = new URLSearchParams(window.location.search);
+    if (
+      searchParams.get("tab") === "areas" &&
+      searchParams.get("addArea") === "1"
+    ) {
+      setShowAddAreaForm(true);
+    }
+  }, []);
   const [areaForm, setAreaForm] = useState({
     roomZoneId: "",
     affectedAreaSqm: "",
@@ -496,6 +608,7 @@ export default function InspectionDetailPage({
   });
   const [savingClass, setSavingClass] = useState(false);
   const [generatingCosts, setGeneratingCosts] = useState(false);
+  const [blockedCosts, setBlockedCosts] = useState<BlockedPricing | null>(null);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [photoCaptionDraft, setPhotoCaptionDraft] = useState("");
   const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
@@ -517,32 +630,31 @@ export default function InspectionDetailPage({
     fetchInspection();
   }, [id]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/inspections/${id}/sketches`);
-        if (!res.ok) return;
-        const json = (await res.json()) as {
-          sketches?: Array<{
-            rooms?: Array<{ id: string; name: string }>;
-          }>;
-        };
-        const rooms = (json.sketches ?? []).flatMap((sketch) =>
-          (sketch.rooms ?? []).map((room) => ({
-            id: room.id,
-            name: room.name,
-          })),
-        );
-        if (!cancelled) setSketchRooms(rooms);
-      } catch {
-        if (!cancelled) setSketchRooms([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const refetchSketchRooms = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/inspections/${id}/sketches`);
+      if (!res.ok) return;
+      const json = (await res.json()) as {
+        sketches?: Array<{
+          rooms?: Array<{ id: string; name: string }>;
+        }>;
+      };
+      const rooms = (json.sketches ?? []).flatMap((sketch) =>
+        (sketch.rooms ?? []).map((room) => ({
+          id: room.id,
+          name: room.name,
+        })),
+      );
+      setSketchRooms(rooms);
+    } catch {
+      setSketchRooms([]);
+    }
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab !== "overview" && activeTab !== "sketch") return;
+    void refetchSketchRooms();
+  }, [id, activeTab, refetchSketchRooms]);
 
   useEffect(() => {
     let cancelled = false;
@@ -584,6 +696,7 @@ export default function InspectionDetailPage({
   const fetchInspection = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await fetch(`/api/inspections/${id}`);
       if (response.ok) {
         const data = await response.json();
@@ -613,13 +726,17 @@ export default function InspectionDetailPage({
           });
         }
       } else {
-        toast.error("Inspection not found");
-        router.push("/dashboard/inspections");
+        setInspection(null);
+        setLoadError(await parseApiError(response));
       }
     } catch (error) {
       console.error("Error:", error);
-      toast.error("Failed to load inspection");
-      setLoadError(true);
+      setInspection(null);
+      setLoadError({
+        code: "NETWORK",
+        message: "Could not reach the server. Check your connection and retry.",
+        status: 0,
+      });
     } finally {
       setLoading(false);
     }
@@ -716,7 +833,7 @@ export default function InspectionDetailPage({
     const data = await res.json();
     if (!res.ok) {
       throw new Error(
-        data.error?.message ?? data.error ?? "Failed to save classification",
+        data.error?.message ?? apiErrorMessage(data) ?? "Failed to save classification",
       );
     }
     setInspection((prev) =>
@@ -762,10 +879,13 @@ export default function InspectionDetailPage({
         body: JSON.stringify({ replace: true }),
       });
       const data = await res.json();
+      // RA-8281 (B2): a rate that is not set is shown line by line. Nothing
+      // was saved, so the saved estimate and the status stay as they are.
+      const blocked = readBlockedPricing(data);
+      setBlockedCosts(blocked);
+      if (blocked) return;
       if (!res.ok) {
-        throw new Error(
-          data.error?.message ?? data.error ?? "Failed to generate costs",
-        );
+        throw new Error(apiErrorMessage(data) ?? "Failed to generate costs");
       }
       setInspection((prev) =>
         prev
@@ -819,7 +939,7 @@ export default function InspectionDetailPage({
       const data = await res.json();
       if (!res.ok) {
         throw new Error(
-          data.error?.message ?? data.error ?? "Failed to update area",
+          data.error?.message ?? apiErrorMessage(data) ?? "Failed to update area",
         );
       }
       setAffectedAreas((prev) =>
@@ -912,7 +1032,7 @@ export default function InspectionDetailPage({
         body: JSON.stringify({ checklistId: selectedChecklistId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to apply checklist");
+      if (!res.ok) throw new Error(apiErrorMessage(data) || "Failed to apply checklist");
       toast.success(
         `Added ${data.added} scope item${data.added !== 1 ? "s" : ""}${data.skipped > 0 ? ` (${data.skipped} already existed)` : ""}`,
       );
@@ -951,7 +1071,7 @@ export default function InspectionDetailPage({
         },
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(apiErrorMessage(data) ?? "Failed to save environmental data");
       setEnvData(data.environmentalData);
       setShowEnvForm(false);
       toast.success("Environmental data saved");
@@ -980,7 +1100,7 @@ export default function InspectionDetailPage({
         body: JSON.stringify({ ...moistureForm, sketchRoomId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(apiErrorMessage(data) ?? "Failed to save moisture reading");
       setMoistureReadings((prev) => [...prev, data.moistureReading]);
       setMoistureForm({
         location: "",
@@ -1023,9 +1143,8 @@ export default function InspectionDetailPage({
         `/api/inspections/${inspection!.id}/report?format=pdf`,
       );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
         throw new Error(
-          (err as { error?: string }).error ?? "Report generation failed",
+          await failedResponseMessage(res, "Report generation failed"),
         );
       }
       const contentType = res.headers.get("content-type") ?? "";
@@ -1084,9 +1203,8 @@ export default function InspectionDetailPage({
         { method: "POST" },
       );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
         throw new Error(
-          (err as { error?: string }).error ?? "Dispute pack generation failed",
+          await failedResponseMessage(res, "Dispute pack generation failed"),
         );
       }
       const blob = await res.blob();
@@ -1143,10 +1261,7 @@ export default function InspectionDetailPage({
         },
       );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(
-          (err as { error?: string }).error ?? "Failed to add area",
-        );
+        throw new Error(await failedResponseMessage(res, "Failed to add area"));
       }
       const data = await res.json();
       setAffectedAreas((prev) => [...prev, data.affectedArea]);
@@ -1181,42 +1296,26 @@ export default function InspectionDetailPage({
     }
   }
 
-  if (loading) {
+  // Spinner only for the first load (or a different job). A refetch after a
+  // save keeps the page mounted; swapping it for a spinner collapsed the
+  // layout and threw the technician back to the top of the page.
+  if (loading && (!inspection || inspection.id !== id)) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin text-cyan-500" size={32} />
+        <Loader2 className="animate-spin text-brand-harbour-500" size={32} />
       </div>
     );
   }
 
-  if (!inspection) {
+  if (loadError || !inspection) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-        <XCircle className="text-destructive" size={40} />
-        <p className="text-slate-400 text-sm">
-          {loadError
-            ? "Could not load inspection. Check your connection and try again."
-            : "Inspection not found."}
-        </p>
-        {loadError && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setLoadError(false);
-              fetchInspection();
-            }}
-          >
-            Retry
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push("/dashboard/inspections")}
-        >
-          Back to inspections
-        </Button>
-      </div>
+      <DetailLoadErrorPanel
+        resourceLabel="inspection"
+        error={loadError}
+        backHref="/dashboard/inspections"
+        backLabel="Back to inspections"
+        onRetry={() => void fetchInspection()}
+      />
     );
   }
 
@@ -1226,6 +1325,19 @@ export default function InspectionDetailPage({
     0,
   );
   const isAdmin = session?.user?.role === "ADMIN";
+  // D-028: the assigned technician records field data; deleting readings and
+  // the client progress-update toggle stay with the job owner and managers,
+  // and the dispute pack with the owner only. The routes enforce this; the
+  // page stops offering them.
+  const ownerActions = canUseOwnerJobActions({
+    role: session?.user?.role,
+    callerId: session?.user?.id,
+    ownerId: inspection.userId,
+  });
+  const disputePackAction = canGenerateDisputePack({
+    callerId: session?.user?.id,
+    ownerId: inspection.userId,
+  });
   const showMoistureTabs = moistureReadingsRequired(
     inspection.claimType as IicrcClaimType | null | undefined,
   );
@@ -1235,9 +1347,7 @@ export default function InspectionDetailPage({
   const canGenerateInvoice =
     (inspection.status === "SUBMITTED" && Boolean(inspection.signedAt)) ||
     inspection.status === "IN_BILLING";
-  const canGenerateReport = ["ESTIMATED", "SUBMITTED", "COMPLETED"].includes(
-    inspection.status,
-  );
+  const canGenerateReport = inspectionStatusAllowsNirReport(inspection.status);
 
   const TABS: {
     key: Tab;
@@ -1303,114 +1413,197 @@ export default function InspectionDetailPage({
       : []),
   ];
 
+  const PRIMARY_SECTION_TABS = new Set<Tab>([
+    "overview",
+    "sketch",
+    "photos",
+    "classification",
+    "scope",
+    "insurer",
+    ...(showMoistureTabs ? (["moisture"] as Tab[]) : []),
+  ]);
+  const ADVANCED_SECTION_TABS = new Set<Tab>([
+    "environmental",
+    "moisture-map",
+    "areas",
+    "costs",
+    "activity",
+    ...(isLiveTeacherEnabled() ? (["live-teacher"] as Tab[]) : []),
+  ]);
+
+  const visibleTabs = TABS.filter(
+    (tab) =>
+      PRIMARY_SECTION_TABS.has(tab.key) ||
+      moreSectionsOpen ||
+      tab.key === activeTab,
+  );
+
+  const isManagerOps =
+    session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER";
+
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-9xl space-y-5 pb-10">
       <confirm.Mount />
       {/* Header */}
-      <div className="flex items-start gap-4">
-        <button
-          onClick={() => router.push("/dashboard/inspections")}
-          aria-label="Back to inspections"
-          className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors mt-0.5 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
-        >
-          <ArrowLeft size={20} aria-hidden="true" />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
-              {inspection.inspectionNumber}
-            </h1>
-            {classification && (
-              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-warning-subtle text-warning-subtle-foreground">
-                Category {classification.category} / Class{" "}
-                {classification.class}
+      <header className={cn(INSPECTION_HUB_CARD, "p-4 sm:p-5 space-y-4")}>
+        <div className="flex items-start gap-3 sm:gap-4">
+          <button
+            onClick={() => router.push("/dashboard/inspections")}
+            aria-label="Back to inspections"
+            className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors shrink-0 focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none"
+          >
+            <ArrowLeft size={20} aria-hidden="true" />
+          </button>
+          <div className="flex-1 min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                {inspection.inspectionNumber}
+              </h1>
+              {classification && (
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-warning-subtle text-warning-subtle-foreground">
+                  Category {classification.category} / Class{" "}
+                  {classification.class}
+                </span>
+              )}
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-300">
+                {formatWorkflowStatusLabel(inspection.status)}
               </span>
-            )}
-            {canGenerateReport && (
-              <button
-                onClick={handleGenerateReport}
-                disabled={generatingReport}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-600 hover:bg-cyan-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors"
-              >
-                {generatingReport ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <FileDown className="h-4 w-4" />
-                    Generate NIR Report
-                  </>
-                )}
-              </button>
-            )}
-            <ExportPdfButton inspectionId={inspection.id} />
-            {(inspection.status === "SUBMITTED" ||
-              inspection.status === "COMPLETED") && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGenerateDisputePack}
-                disabled={generatingDisputePack}
-                className="text-xs gap-1.5 border-amber-500 text-warning-subtle-foreground hover:bg-warning-subtle dark:hover:bg-amber-900/10"
-              >
-                {generatingDisputePack ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Shield className="h-3.5 w-3.5" />
-                )}
-                {generatingDisputePack
-                  ? "Generating..."
-                  : "Dispute Defence Pack"}
-              </Button>
-            )}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-neutral-600 dark:text-slate-400">
+              <span className="flex items-center gap-1.5 min-w-0">
+                <MapPin size={14} className="shrink-0" aria-hidden="true" />
+                <span className="truncate">
+                  {inspection.propertyAddress} ({inspection.propertyPostcode})
+                </span>
+              </span>
+              {inspection.technicianName && (
+                <span className="flex items-center gap-1.5">
+                  <User size={14} aria-hidden="true" />
+                  {decodeDisplayText(inspection.technicianName)}
+                </span>
+              )}
+              {(session?.user?.role === "ADMIN" ||
+                session?.user?.role === "MANAGER") && (
+                <AssignTechnician
+                  inspectionId={inspection.id}
+                  technicianId={inspection.technicianId ?? null}
+                  onAssigned={(technicianId) =>
+                    setInspection((prev) =>
+                      prev ? { ...prev, technicianId } : prev,
+                    )
+                  }
+                />
+              )}
+              <span className="flex items-center gap-1.5">
+                <Calendar size={14} aria-hidden="true" />
+                {formatAttendanceDateEnAu(inspection.inspectionDate) ??
+                  ATTENDANCE_NOT_RECORDED_LABEL}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-neutral-200/80 dark:border-slate-700/60">
+          {canGenerateReport && (
+            <Button
+              size="sm"
+              onClick={handleGenerateReport}
+              disabled={generatingReport}
+              className="gap-1.5 bg-brand-harbour-600 hover:bg-brand-harbour-700"
+            >
+              {generatingReport ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <FileDown className="h-4 w-4" />
+                  Generate NIR Report
+                </>
+              )}
+            </Button>
+          )}
+          <ExportPdfButton inspectionId={inspection.id} />
+          {disputePackAction &&
+            inspectionStatusAllowsDisputePack(inspection.status) && (
             <Button
               variant="outline"
               size="sm"
-              onClick={handleShareWithClient}
-              disabled={shareLoading}
-              className="text-xs gap-1.5"
+              onClick={handleGenerateDisputePack}
+              disabled={generatingDisputePack}
+              className="gap-1.5 border-amber-500/60 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
             >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                />
-              </svg>
-              Send to Client
+              {generatingDisputePack ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Shield className="h-4 w-4" />
+              )}
+              {generatingDisputePack ? "Generating…" : "Dispute Defence Pack"}
             </Button>
-            <Link
-              href={`/dashboard/inspections/${inspection.id}/voice`}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-navy text-brand-navy dark:border-brand-gold dark:text-brand-gold hover:bg-brand-navy/10 text-xs font-semibold transition-colors"
-            >
-              <Mic size={14} />
+          )}
+          <span
+            className="hidden sm:block w-px h-6 bg-neutral-200 dark:bg-slate-700 mx-0.5"
+            aria-hidden="true"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleShareWithClient}
+            disabled={shareLoading}
+            className="gap-1.5"
+          >
+            Send to Client
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/voice`}>
+              <Mic className="h-4 w-4" />
               Voice Copilot
             </Link>
-            <Link
-              href={`/dashboard/inspections/${inspection.id}/contents`}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 text-xs font-semibold transition-colors"
-            >
-              <Package size={14} />
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/contents`}>
+              <Package className="h-4 w-4" />
               Contents
             </Link>
-            {canGenerateInvoice && (
-              <Link
-                href={`/dashboard/inspections/${inspection.id}/invoice`}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
-              >
-                <Receipt size={14} />
+          </Button>
+          {/* RA-8081: per-job pages that had no link anywhere */}
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/print`}>
+              Print
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/monitoring`}>
+              Monitoring
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/inspections/${inspection.id}/audit`}>
+              Audit trail
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link
+              href={`/dashboard/inspections/${inspection.id}/sketch-preview`}
+            >
+              Homeowner sketch view
+            </Link>
+          </Button>
+          {canGenerateInvoice && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 sm:ml-auto border-brand-harbour-500/50 text-brand-harbour-700 dark:text-brand-harbour-300"
+              asChild
+            >
+              <Link href={`/dashboard/inspections/${inspection.id}/invoice`}>
+                <Receipt className="h-4 w-4" />
                 Generate Invoice
               </Link>
-            )}
-          </div>
+            </Button>
+          )}
+        </div>
 
           {/* Share Dialog */}
           <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
@@ -1426,7 +1619,7 @@ export default function InspectionDetailPage({
                     className="flex items-center justify-center py-4"
                   >
                     <Loader2
-                      className="animate-spin text-cyan-500"
+                      className="animate-spin text-brand-harbour-500"
                       size={24}
                       aria-hidden="true"
                     />
@@ -1458,64 +1651,62 @@ export default function InspectionDetailPage({
               </div>
               {/* RA-6949 — per-job Restoration Pulse kill switch. Default OFF;
                   the firm opts a job in before any automated update is sent. */}
-              <div className="mt-2 pt-3 border-t border-neutral-200 dark:border-slate-700">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={inspection.pulseEnabled}
-                    disabled={pulseSaving}
-                    onChange={(e) => handleTogglePulse(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-cyan-600 focus-visible:ring-2 focus-visible:ring-cyan-500"
-                    aria-label="Send automatic progress updates to the client for this job"
-                  />
-                  <span className="text-sm">
-                    <span className="font-medium text-neutral-800 dark:text-slate-200">
-                      Automatic progress updates
+              {ownerActions && (
+                <div className="mt-2 pt-3 border-t border-neutral-200 dark:border-slate-700">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={inspection.pulseEnabled}
+                      disabled={pulseSaving}
+                      onChange={(e) => handleTogglePulse(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-brand-harbour-600 focus-visible:ring-2 focus-visible:ring-brand-harbour-500"
+                      aria-label={PULSE_JOB_TOGGLE_LABEL}
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium text-neutral-800 dark:text-slate-200">
+                        {PULSE_JOB_TOGGLE_LABEL}
+                      </span>
+                      <span className="block text-xs text-neutral-600 dark:text-slate-400">
+                        {PULSE_JOB_TOGGLE_HINT}
+                      </span>
                     </span>
-                    <span className="block text-xs text-neutral-500 dark:text-slate-400">
-                      Email the client when this job reaches a new stage or the
-                      drying status changes. Turn off to pause updates (for
-                      example, during a dispute).
-                    </span>
-                  </span>
-                </label>
-              </div>
+                  </label>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
-          <div className="flex items-center gap-4 mt-1 text-sm text-neutral-500 dark:text-slate-400">
-            <span className="flex items-center gap-1">
-              <MapPin size={14} />
-              {inspection.propertyAddress} ({inspection.propertyPostcode})
-            </span>
-            {inspection.technicianName && (
-              <span className="flex items-center gap-1">
-                <User size={14} />
-                {inspection.technicianName}
-              </span>
-            )}
-            {(session?.user?.role === "ADMIN" || session?.user?.role === "MANAGER") && (
-              <AssignTechnician
-                inspectionId={inspection.id}
-                technicianId={inspection.technicianId ?? null}
-                onAssigned={(technicianId) =>
-                  setInspection((prev) => (prev ? { ...prev, technicianId } : prev))
-                }
-              />
-            )}
-            <span className="flex items-center gap-1">
-              <Calendar size={14} />
-              {new Date(inspection.createdAt).toLocaleDateString("en-AU", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })}
-            </span>
-          </div>
-        </div>
-      </div>
+      </header>
 
-      {/* Status Timeline */}
-      <StatusTimeline currentStatus={inspection.status} />
+      <section className={cn(INSPECTION_HUB_CARD, "p-3 sm:p-4 space-y-3")}>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-slate-400 px-0.5">
+          Quick navigation
+        </p>
+        <InspectionWorkflowStrip
+          inspectionId={inspection.id}
+          status={inspection.status}
+          reportId={inspection.reportId}
+          clientId={inspection.clientId}
+        />
+        <InspectionWorkspaceLinks
+          inspectionId={inspection.id}
+          clientId={inspection.clientId}
+          reportId={inspection.reportId}
+          showCompletenessInbox={isManagerOps}
+        />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-3 items-stretch">
+        <ClaimContextBanner inspectionId={inspection.id} />
+        <JobAppointmentsPanel inspectionId={inspection.id} />
+        <FieldAssistPanel inspectionId={inspection.id} />
+      </section>
+
+      <section className={cn(INSPECTION_HUB_CARD, "p-4 sm:p-5 space-y-3")}>
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-slate-400">
+          Job progress
+        </h2>
+        <StatusTimeline currentStatus={inspection.status} />
+      </section>
 
       <InspectionEvidenceReadinessPanel
         claimType={inspection.claimType}
@@ -1531,23 +1722,29 @@ export default function InspectionDetailPage({
         requiredEvidence={requiredEvidence}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Link
-          href={`/dashboard/inspections/${inspection.id}/capture`}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
-        >
-          <Camera size={16} />
-          Open Guided Capture
-        </Link>
-        <button
+      <section
+        className={cn(
+          INSPECTION_HUB_CARD,
+          "p-4 flex flex-wrap items-center gap-2 sm:gap-3",
+        )}
+      >
+        <Button size="sm" className="gap-2 bg-brand-harbour-600 hover:bg-brand-harbour-700" asChild>
+          <Link href={`/dashboard/inspections/${inspection.id}/capture`}>
+            <Camera className="h-4 w-4" />
+            Open Guided Capture
+          </Link>
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
+          className="gap-2"
           onClick={() => setActiveTab("photos")}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 text-sm font-medium hover:bg-neutral-50 dark:hover:bg-slate-800 transition-colors"
         >
-          <Upload size={16} />
+          <Upload className="h-4 w-4" />
           Upload photos
-        </button>
-      </div>
+        </Button>
+      </section>
 
       {/* Field evidence checklist is always available; sign-off only when ready. */}
       <div className="space-y-3" aria-label="Inspection completion">
@@ -1606,24 +1803,30 @@ export default function InspectionDetailPage({
       />
 
       {/* Tabs */}
+      <section className={cn(INSPECTION_HUB_CARD, "overflow-hidden")}>
       <div
         role="tablist"
         aria-label="Inspection sections"
-        className="flex gap-1 overflow-x-auto pb-1 border-b border-neutral-200 dark:border-slate-700"
+        className="flex gap-0.5 overflow-x-auto px-2 pt-2 pb-0 border-b border-neutral-200/80 dark:border-slate-700/60 bg-neutral-50/80 dark:bg-slate-950/40"
       >
-        {TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.key}
             role="tab"
             aria-selected={activeTab === tab.key}
             aria-controls={`tabpanel-${tab.key}`}
             id={`tab-${tab.key}`}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => {
+              setActiveTab(tab.key);
+              if (ADVANCED_SECTION_TABS.has(tab.key)) {
+                setMoreSectionsOpen(true);
+              }
+            }}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none",
+              "flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-t-md whitespace-nowrap transition-all border-b-2 -mb-px focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none",
               activeTab === tab.key
-                ? "border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-cyan-50/50 dark:bg-cyan-900/10"
-                : "border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50",
+                ? "border-brand-harbour-500 text-brand-harbour-700 dark:text-brand-harbour-300 bg-white dark:bg-slate-900/60"
+                : "border-transparent text-neutral-600 dark:text-slate-400 hover:text-neutral-800 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-900/30",
             )}
           >
             <tab.icon size={16} aria-hidden="true" />
@@ -1634,8 +1837,8 @@ export default function InspectionDetailPage({
                 className={cn(
                   "px-1.5 py-0.5 rounded-full text-xs",
                   activeTab === tab.key
-                    ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600"
-                    : "bg-neutral-100 dark:bg-slate-800 text-neutral-500",
+                    ? "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-600"
+                    : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-neutral-500",
                 )}
               >
                 {tab.count}
@@ -1643,11 +1846,24 @@ export default function InspectionDetailPage({
             )}
           </button>
         ))}
+        {TABS.some((t) => ADVANCED_SECTION_TABS.has(t.key)) && (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={false}
+            aria-expanded={moreSectionsOpen}
+            onClick={() => setMoreSectionsOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-600 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none"
+          >
+            <ListChecks size={16} aria-hidden="true" />
+            {moreSectionsOpen ? "Fewer sections" : "More sections"}
+          </button>
+        )}
         <Link
           href={`/dashboard/inspections/${inspection.id}/contents`}
           role="tab"
           aria-selected={false}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 border-transparent text-neutral-600 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none"
         >
           <Package size={16} aria-hidden="true" />
           Contents
@@ -1660,16 +1876,16 @@ export default function InspectionDetailPage({
         id={`tabpanel-${activeTab}`}
         aria-labelledby={`tab-${activeTab}`}
         tabIndex={0}
-        className="min-h-[400px]"
+        className="min-h-[400px] p-4 sm:p-5"
       >
         {/* Overview */}
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-              <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+            <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
+              <div className="text-xs font-medium text-neutral-600 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Moisture Readings
               </div>
-              <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
+              <div className="text-2xl font-bold text-brand-harbour-700 dark:text-brand-harbour-400">
                 {inspection.moistureReadings.length}
               </div>
               {inspection.moistureReadings.length > 0 && (
@@ -1685,11 +1901,11 @@ export default function InspectionDetailPage({
                 </div>
               )}
             </div>
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-              <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+            <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
+              <div className="text-xs font-medium text-neutral-600 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Affected Areas
               </div>
-              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+              <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
                 {inspection.affectedAreas.length}
               </div>
               {inspection.affectedAreas.length > 0 && (
@@ -1702,8 +1918,8 @@ export default function InspectionDetailPage({
                 </div>
               )}
             </div>
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-              <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+            <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
+              <div className="text-xs font-medium text-neutral-600 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Scope Items
               </div>
               <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
@@ -1714,8 +1930,8 @@ export default function InspectionDetailPage({
                 auto-determined
               </div>
             </div>
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-              <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+            <div className={cn(INSPECTION_HUB_CARD, "p-4")}>
+              <div className="text-xs font-medium text-neutral-600 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Estimated Cost
               </div>
               <div className="text-2xl font-bold text-success">
@@ -1729,24 +1945,36 @@ export default function InspectionDetailPage({
               </div>
             </div>
 
+            <InspectionJourneyGuide
+              inspectionId={inspection.id}
+              status={inspection.status}
+              clientId={inspection.clientId}
+              reportId={inspection.reportId}
+              sketchRoomCount={sketchRooms.length}
+              photoCount={inspection.photos.length}
+              moistureCount={inspection.moistureReadings.length}
+              hasClassification={inspection.classifications.length > 0}
+              showCompletenessInbox={isManagerOps}
+            />
+
             {/* Classification Card */}
             {classification ? (
               <div className="md:col-span-2 p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                  <div className="text-xs font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wider">
                     IICRC S500 Classification
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveTab("classification")}
-                    className="text-xs text-cyan-600 hover:underline"
+                    className="text-xs text-brand-harbour-700 dark:text-brand-harbour-600 hover:underline"
                   >
                     Edit
                   </button>
                 </div>
                 <div className="flex items-center gap-4 mb-2">
                   <div>
-                    <span className="text-sm text-neutral-500 dark:text-slate-400">
+                    <span className="text-sm text-neutral-600 dark:text-slate-400">
                       Category
                     </span>
                     <div className="text-xl font-bold text-neutral-900 dark:text-white">
@@ -1755,7 +1983,7 @@ export default function InspectionDetailPage({
                   </div>
                   <div className="w-px h-10 bg-amber-200 dark:bg-amber-800" />
                   <div>
-                    <span className="text-sm text-neutral-500 dark:text-slate-400">
+                    <span className="text-sm text-neutral-600 dark:text-slate-400">
                       Class
                     </span>
                     <div className="text-xl font-bold text-neutral-900 dark:text-white">
@@ -1766,7 +1994,7 @@ export default function InspectionDetailPage({
                     <>
                       <div className="w-px h-10 bg-amber-200 dark:bg-amber-800" />
                       <div>
-                        <span className="text-sm text-neutral-500 dark:text-slate-400">
+                        <span className="text-sm text-neutral-600 dark:text-slate-400">
                           Confidence
                         </span>
                         <div className="text-xl font-bold text-neutral-900 dark:text-white">
@@ -1779,7 +2007,7 @@ export default function InspectionDetailPage({
                 <p className="text-sm text-neutral-600 dark:text-slate-300">
                   {classification.justification}
                 </p>
-                <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">
+                <p className="text-xs text-neutral-600 dark:text-slate-500 mt-1">
                   Ref: {classification.standardReference}
                 </p>
               </div>
@@ -1792,7 +2020,7 @@ export default function InspectionDetailPage({
                 <button
                   type="button"
                   onClick={() => setActiveTab("classification")}
-                  className="text-sm font-medium text-cyan-600 hover:underline"
+                  className="text-sm font-medium text-brand-harbour-600 hover:underline"
                 >
                   Classify now →
                 </button>
@@ -1806,14 +2034,14 @@ export default function InspectionDetailPage({
 
             {/* Make-safe is a hard submit blocker — keep it editable on the hub */}
             <div className="lg:col-span-4 md:col-span-2">
-              <MakeSafeChecklist inspectionId={inspection.id} />
+              <MakeSafeChecklist inspectionId={inspection.id} autoSave />
             </div>
 
             {/* Portal Invite */}
             <div className="lg:col-span-4 md:col-span-2">
               <PortalInvitePanel
                 inspectionId={inspection.id}
-                preselectedClientId={null}
+                preselectedClientId={inspection.clientId ?? null}
               />
             </div>
           </div>
@@ -1821,24 +2049,24 @@ export default function InspectionDetailPage({
 
         {/* Environmental Tab */}
         {activeTab === "environmental" && (
-          <div className="max-w-2xl space-y-4">
+          <div className="max-w-9xl space-y-4">
             {envData && !showEnvForm ? (
               <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Thermometer className="text-cyan-500" size={20} />
+                    <Thermometer className="text-brand-harbour-500" size={20} />
                     Environmental Data
                   </h3>
                   <button
                     onClick={() => setShowEnvForm(true)}
-                    className="text-sm text-cyan-600 hover:underline"
+                    className="text-sm text-brand-harbour-600 hover:underline"
                   >
                     Edit
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Ambient Temperature
                     </label>
                     <p className="text-2xl font-bold mt-1">
@@ -1846,7 +2074,7 @@ export default function InspectionDetailPage({
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Humidity Level
                     </label>
                     <p className="text-2xl font-bold mt-1">
@@ -1854,7 +2082,7 @@ export default function InspectionDetailPage({
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Dew Point
                     </label>
                     <p className="text-2xl font-bold mt-1">
@@ -1862,7 +2090,7 @@ export default function InspectionDetailPage({
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Air Circulation
                     </label>
                     <p className="text-2xl font-bold mt-1">
@@ -1872,7 +2100,7 @@ export default function InspectionDetailPage({
                 </div>
                 {envData.weatherConditions && (
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Weather Conditions
                     </label>
                     <p className="mt-1 text-neutral-700 dark:text-slate-300">
@@ -1882,7 +2110,7 @@ export default function InspectionDetailPage({
                 )}
                 {envData.notes && (
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                       Notes
                     </label>
                     <p className="mt-1 text-neutral-700 dark:text-slate-300">
@@ -1894,14 +2122,14 @@ export default function InspectionDetailPage({
             ) : (
               <div className="p-6 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-4">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Thermometer className="text-cyan-500" size={20} />
+                  <Thermometer className="text-brand-harbour-500" size={20} />
                   {envData
                     ? "Edit Environmental Data"
                     : "Add Environmental Data"}
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Temperature (°C)
                     </label>
                     <input
@@ -1918,7 +2146,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Humidity (%)
                     </label>
                     <input
@@ -1935,7 +2163,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                 </div>
-                <div className="p-3 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 text-sm text-cyan-700 dark:text-cyan-300">
+                <div className="p-3 rounded-lg bg-brand-harbour-50 dark:bg-brand-harbour-900/20 text-sm text-brand-harbour-700 dark:text-brand-harbour-300">
                   Auto dew point:{" "}
                   <strong>
                     {envForm.ambientTemperature == null ||
@@ -1965,7 +2193,7 @@ export default function InspectionDetailPage({
                   </label>
                 </div>
                 <div>
-                  <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                  <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                     Weather Conditions
                   </label>
                   <input
@@ -1982,7 +2210,7 @@ export default function InspectionDetailPage({
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                  <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                     Notes
                   </label>
                   <textarea
@@ -1998,7 +2226,7 @@ export default function InspectionDetailPage({
                   <button
                     onClick={handleEnvSave}
                     disabled={savingEnv}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
                   >
                     {savingEnv ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -2019,7 +2247,7 @@ export default function InspectionDetailPage({
             {!envData && !showEnvForm && (
               <button
                 onClick={() => setShowEnvForm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <Plus size={16} /> Add Environmental Data
               </button>
@@ -2043,7 +2271,7 @@ export default function InspectionDetailPage({
               </h3>
               <button
                 onClick={() => setShowAddMoisture((v) => !v)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <Plus size={14} /> Add Reading
               </button>
@@ -2065,10 +2293,10 @@ export default function InspectionDetailPage({
               onApplied={() => fetchInspection()}
             />
             {showAddMoisture && (
-              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
+              <div className="p-4 rounded-xl border border-brand-harbour-200 dark:border-brand-harbour-800/50 bg-brand-harbour-50/30 dark:bg-brand-harbour-900/10 space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Location
                     </label>
                     {sketchRooms.length > 0 ? (
@@ -2146,7 +2374,7 @@ export default function InspectionDetailPage({
                     )}
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Surface Type
                     </label>
                     <input
@@ -2163,7 +2391,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Moisture Level (%)
                     </label>
                     <input
@@ -2180,7 +2408,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Depth
                     </label>
                     <select
@@ -2199,7 +2427,7 @@ export default function InspectionDetailPage({
                     </select>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Notes
                     </label>
                     <input
@@ -2219,7 +2447,7 @@ export default function InspectionDetailPage({
                   <button
                     onClick={handleAddMoisture}
                     disabled={addingMoisture || !moistureForm.location}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
                   >
                     {addingMoisture ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -2284,17 +2512,19 @@ export default function InspectionDetailPage({
                         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-slate-300">
                           {reading.depth}
                         </td>
-                        <td className="px-4 py-3 text-sm text-neutral-400 max-w-[200px] truncate">
+                        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 max-w-[200px] truncate">
                           {reading.notes || "—"}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => handleDeleteMoisture(reading.id)}
-                            aria-label={`Delete moisture reading for ${reading.location}`}
-                            className="text-destructive hover:text-destructive transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
-                          >
-                            <Trash2 size={14} aria-hidden="true" />
-                          </button>
+                          {ownerActions && (
+                            <button
+                              onClick={() => handleDeleteMoisture(reading.id)}
+                              aria-label={`Delete moisture reading for ${reading.location}`}
+                              className="text-destructive hover:text-destructive transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
+                            >
+                              <Trash2 size={14} aria-hidden="true" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -2302,7 +2532,7 @@ export default function InspectionDetailPage({
                 </table>
               </div>
             ) : (
-              <div className="text-center py-12 text-neutral-400">
+              <div className="text-center py-12 text-neutral-600 dark:text-neutral-400">
                 No moisture readings recorded
               </div>
             )}
@@ -2330,7 +2560,7 @@ export default function InspectionDetailPage({
                 }}
               />
             ) : (
-              <div className="text-center py-12 text-neutral-400">
+              <div className="text-center py-12 text-neutral-600 dark:text-neutral-400">
                 No moisture readings to map — add readings first
               </div>
             )}
@@ -2342,22 +2572,74 @@ export default function InspectionDetailPage({
             SketchEditor owns viewport height; panels below scroll naturally. */}
         <div
           className={cn(
-            "flex flex-col min-h-0",
+            "flex flex-col min-h-0 gap-4",
             activeTab !== "sketch" && "hidden",
           )}
           hidden={activeTab !== "sketch"}
         >
-          <SketchEditor
-            key={inspection.id}
-            inspectionId={inspection.id}
-            propertyAddress={inspection.propertyAddress ?? undefined}
-            propertyPostcode={inspection.propertyPostcode ?? undefined}
-            autoFetchFloorPlan={autoFetchFloorPlan}
-          />
-          <div className="mt-3 space-y-3 flex-shrink-0">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px] items-start">
+            <SketchEditor
+              key={inspection.id}
+              embedMode="hub"
+              inspectionId={inspection.id}
+              propertyAddress={inspection.propertyAddress ?? undefined}
+              propertyPostcode={inspection.propertyPostcode ?? undefined}
+              autoFetchFloorPlan={autoFetchFloorPlan}
+              onSketchPersisted={() => void refetchSketchRooms()}
+              sketchReloadToken={sketchReloadToken}
+              focusSketchRoomId={sketchFocusRoomId}
+              mapMoistureForRoom={sketchMapMoisture}
+              className="w-full"
+            />
+            <aside className="hidden xl:flex flex-col gap-3 sticky top-4">
+              <FloorPlanFieldGuide />
+              <SketchRoomCoveragePanel
+                inspectionId={inspection.id}
+                rooms={sketchRooms}
+                moistureReadings={moistureReadings}
+                scopeItems={scopeItems.map((s) => ({
+                  isSelected: s.isSelected,
+                  roomZoneId: (s as { roomZoneId?: string }).roomZoneId,
+                  sketchRoomId: (s as { sketchRoomId?: string | null })
+                    .sketchRoomId,
+                }))}
+              />
+            </aside>
+          </div>
+          <details className="xl:hidden rounded-xl border border-neutral-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-900/40 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-semibold text-neutral-600 dark:text-slate-300">
+              Field checklist & room coverage
+            </summary>
+            <div className="mt-3 space-y-3 pb-1">
+              <FloorPlanFieldGuide />
+              <SketchRoomCoveragePanel
+                inspectionId={inspection.id}
+                rooms={sketchRooms}
+                moistureReadings={moistureReadings}
+                scopeItems={scopeItems.map((s) => ({
+                  isSelected: s.isSelected,
+                  roomZoneId: (s as { roomZoneId?: string }).roomZoneId,
+                  sketchRoomId: (s as { sketchRoomId?: string | null })
+                    .sketchRoomId,
+                }))}
+              />
+            </div>
+          </details>
+          <div className="space-y-3 flex-shrink-0">
             <ClientPortalLinkButton inspectionId={inspection.id} />
             <ClientEvidenceReviewPanel inspectionId={inspection.id} />
-            <HomeownerCapturePanel inspectionId={inspection.id} />
+            <SketchMeasurementChecklistLoader
+              inspectionId={inspection.id}
+              refreshToken={sketchReloadToken}
+            />
+            <HomeownerCapturePanel
+              inspectionId={inspection.id}
+              refreshToken={sketchReloadToken}
+              onPromoted={() => {
+                void refetchSketchRooms();
+                setSketchReloadToken((token) => token + 1);
+              }}
+            />
           </div>
         </div>
 
@@ -2370,16 +2652,16 @@ export default function InspectionDetailPage({
               </h3>
               <button
                 onClick={() => setShowAddAreaForm((v) => !v)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 <Plus size={14} /> Add Area
               </button>
             </div>
             {showAddAreaForm && (
-              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
+              <div className="p-4 rounded-xl border border-brand-harbour-200 dark:border-brand-harbour-800/50 bg-brand-harbour-50/30 dark:bg-brand-harbour-900/10 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Room / Zone ID *
                     </label>
                     <input
@@ -2396,7 +2678,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Affected Area (m²) *
                     </label>
                     <input
@@ -2413,7 +2695,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Water Source *
                     </label>
                     <input
@@ -2430,7 +2712,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Time Since Loss (hours)
                     </label>
                     <input
@@ -2446,7 +2728,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="text-xs text-neutral-400 uppercase tracking-wider block mb-1">
+                    <label className="text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider block mb-1">
                       Description
                     </label>
                     <input
@@ -2466,7 +2748,7 @@ export default function InspectionDetailPage({
                   <button
                     onClick={handleAddArea}
                     disabled={areaSubmitting}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
                   >
                     {areaSubmitting ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -2554,7 +2836,7 @@ export default function InspectionDetailPage({
                           <button
                             onClick={() => handleUpdateArea(area.id)}
                             disabled={areaSubmitting}
-                            className="px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-sm"
+                            className="px-3 py-1.5 bg-brand-harbour-600 text-white rounded-lg text-sm"
                           >
                             Save
                           </button>
@@ -2600,7 +2882,7 @@ export default function InspectionDetailPage({
                                 });
                               }}
                               aria-label={`Edit area ${area.roomZoneId}`}
-                              className="p-1 text-neutral-400 hover:text-cyan-600 transition-colors rounded"
+                              className="p-1 text-neutral-600 dark:text-neutral-400 hover:text-brand-harbour-600 transition-colors rounded"
                             >
                               <Pencil size={14} aria-hidden="true" />
                             </button>
@@ -2615,7 +2897,7 @@ export default function InspectionDetailPage({
                         </div>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
-                            <span className="text-neutral-400 text-xs">
+                            <span className="text-neutral-600 dark:text-neutral-400 text-xs">
                               Area
                             </span>
                             <p className="font-medium">
@@ -2623,7 +2905,7 @@ export default function InspectionDetailPage({
                             </p>
                           </div>
                           <div>
-                            <span className="text-neutral-400 text-xs">
+                            <span className="text-neutral-600 dark:text-neutral-400 text-xs">
                               Water Source
                             </span>
                             <p className="font-medium capitalize">
@@ -2632,7 +2914,7 @@ export default function InspectionDetailPage({
                           </div>
                           {area.timeSinceLoss && (
                             <div>
-                              <span className="text-neutral-400 text-xs">
+                              <span className="text-neutral-600 dark:text-neutral-400 text-xs">
                                 Time Since Loss
                               </span>
                               <p className="font-medium">
@@ -2642,7 +2924,7 @@ export default function InspectionDetailPage({
                           )}
                         </div>
                         {area.description && (
-                          <p className="text-sm text-neutral-500 dark:text-slate-400 mt-3">
+                          <p className="text-sm text-neutral-600 dark:text-slate-400 mt-3">
                             {area.description}
                           </p>
                         )}
@@ -2651,12 +2933,12 @@ export default function InspectionDetailPage({
                   </div>
                 ))
               ) : (
-                <div className="col-span-2 text-center py-12 space-y-3 text-neutral-400">
+                <div className="col-span-2 text-center py-12 space-y-3 text-neutral-600 dark:text-neutral-400">
                   <p>No affected areas recorded</p>
                   <button
                     type="button"
                     onClick={() => setShowAddAreaForm(true)}
-                    className="text-sm font-medium text-cyan-600 hover:underline"
+                    className="text-sm font-medium text-brand-harbour-600 hover:underline"
                   >
                     Add the first affected room →
                   </button>
@@ -2668,7 +2950,7 @@ export default function InspectionDetailPage({
 
         {/* Classification Tab */}
         {activeTab === "classification" && (
-          <div className="space-y-4 max-w-3xl">
+          <div className="space-y-4 max-w-9xl">
             <div className="p-5 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 space-y-4">
               <div>
                 <h3 className="font-semibold text-neutral-900 dark:text-white">
@@ -2735,7 +3017,7 @@ export default function InspectionDetailPage({
                 type="button"
                 onClick={handleSaveClassification}
                 disabled={savingClass}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
               >
                 {savingClass ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -2773,7 +3055,7 @@ export default function InspectionDetailPage({
                 >
                   <div className="flex items-center gap-6 mb-4">
                     <div className="text-center">
-                      <div className="text-xs text-amber-600 dark:text-amber-400 uppercase font-semibold mb-1">
+                      <div className="text-xs text-amber-700 dark:text-amber-400 uppercase font-semibold mb-1">
                         Category
                       </div>
                       <div className="w-16 h-16 rounded-full bg-warning-subtle flex items-center justify-center text-2xl font-bold text-warning-subtle-foreground">
@@ -2790,10 +3072,10 @@ export default function InspectionDetailPage({
                     </div>
                     {cls.confidence && (
                       <div className="text-center">
-                        <div className="text-xs text-cyan-600 dark:text-cyan-400 uppercase font-semibold mb-1">
+                        <div className="text-xs text-brand-harbour-700 dark:text-brand-harbour-400 uppercase font-semibold mb-1">
                           Confidence
                         </div>
-                        <div className="w-16 h-16 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center text-2xl font-bold text-cyan-700 dark:text-cyan-300">
+                        <div className="w-16 h-16 rounded-full bg-brand-harbour-100 dark:bg-brand-harbour-900/30 flex items-center justify-center text-2xl font-bold text-brand-harbour-700 dark:text-brand-harbour-300">
                           {cls.confidence}%
                         </div>
                       </div>
@@ -2801,7 +3083,7 @@ export default function InspectionDetailPage({
                   </div>
                   <div className="space-y-2">
                     <div>
-                      <span className="text-xs text-neutral-400 uppercase font-semibold">
+                      <span className="text-xs text-neutral-600 dark:text-neutral-400 uppercase font-semibold">
                         Justification
                       </span>
                       <p className="text-sm text-neutral-700 dark:text-slate-300 mt-0.5">
@@ -2809,7 +3091,7 @@ export default function InspectionDetailPage({
                       </p>
                     </div>
                     <div>
-                      <span className="text-xs text-neutral-400 uppercase font-semibold">
+                      <span className="text-xs text-neutral-600 dark:text-neutral-400 uppercase font-semibold">
                         Standard Reference
                       </span>
                       <p className="text-sm text-neutral-700 dark:text-slate-300 mt-0.5">
@@ -2820,7 +3102,7 @@ export default function InspectionDetailPage({
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-neutral-400 text-sm">
+              <div className="text-center py-8 text-neutral-600 dark:text-neutral-400 text-sm">
                 No saved classification yet — use the form above or Auto-classify.
               </div>
             )}
@@ -2830,6 +3112,13 @@ export default function InspectionDetailPage({
         {/* Scope Items Tab */}
         {activeTab === "scope" && (
           <div className="space-y-3">
+            {scopeRoomHint && (
+              <p className="text-sm rounded-lg border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-950/30 px-3 py-2 text-indigo-900 dark:text-indigo-100">
+                Scope for room:{" "}
+                <span className="font-semibold">{scopeRoomHint}</span> — match
+                the line item zone to this name on the floor plan.
+              </p>
+            )}
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setChecklistDialogOpen(true)}
@@ -2848,7 +3137,7 @@ export default function InspectionDetailPage({
                     unit: "",
                   });
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white transition-colors"
               >
                 <Plus size={15} />
                 Add Scope Item
@@ -2857,7 +3146,7 @@ export default function InspectionDetailPage({
                   navigation entry anywhere in the app. */}
               <Link
                 href={`/dashboard/inspections/${inspection.id}/scope-items`}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-cyan-500 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-brand-harbour-500 text-brand-harbour-600 hover:bg-brand-harbour-50 dark:hover:bg-brand-harbour-900/20 transition-colors"
               >
                 Open Scope Editor
               </Link>
@@ -2877,7 +3166,7 @@ export default function InspectionDetailPage({
                 </DialogHeader>
                 <div className="space-y-4 py-2">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+                    <label className="text-xs font-semibold text-neutral-600 dark:text-slate-400 uppercase tracking-wider">
                       Select Template
                     </label>
                     <Select
@@ -2918,8 +3207,8 @@ export default function InspectionDetailPage({
             </Dialog>
 
             {showAddScope && (
-              <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
-                <h4 className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">
+              <div className="p-4 rounded-xl border border-brand-harbour-200 dark:border-brand-harbour-800/50 bg-brand-harbour-50/30 dark:bg-brand-harbour-900/10 space-y-3">
+                <h4 className="text-sm font-semibold text-brand-harbour-700 dark:text-brand-harbour-300">
                   New Scope Item
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2937,7 +3226,7 @@ export default function InspectionDetailPage({
                         }))
                       }
                       placeholder="e.g. Remove wet carpet and pad"
-                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                     />
                   </div>
                   <div>
@@ -2954,7 +3243,7 @@ export default function InspectionDetailPage({
                         }))
                       }
                       placeholder="e.g. remove_carpet"
-                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                     />
                   </div>
                   <div>
@@ -2971,7 +3260,7 @@ export default function InspectionDetailPage({
                         }))
                       }
                       placeholder="e.g. 25"
-                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                     />
                   </div>
                   <div>
@@ -2985,7 +3274,7 @@ export default function InspectionDetailPage({
                         setAddScopeForm((f) => ({ ...f, unit: e.target.value }))
                       }
                       placeholder="e.g. m²"
-                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                     />
                   </div>
                 </div>
@@ -3034,7 +3323,7 @@ export default function InspectionDetailPage({
                         toast.error("Failed to add scope item");
                       }
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white transition-colors"
                   >
                     <Save size={14} /> Add Item
                   </button>
@@ -3067,7 +3356,7 @@ export default function InspectionDetailPage({
                               description: e.target.value,
                             }))
                           }
-                          className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                          className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
@@ -3084,7 +3373,7 @@ export default function InspectionDetailPage({
                                 quantity: e.target.value,
                               }))
                             }
-                            className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                            className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                           />
                         </div>
                         <div>
@@ -3100,7 +3389,7 @@ export default function InspectionDetailPage({
                                 unit: e.target.value,
                               }))
                             }
-                            className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                            className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                           />
                         </div>
                       </div>
@@ -3146,7 +3435,7 @@ export default function InspectionDetailPage({
                               toast.error("Failed to update scope item");
                             }
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white transition-colors"
                         >
                           <Save size={14} /> Save
                         </button>
@@ -3220,7 +3509,7 @@ export default function InspectionDetailPage({
                             {item.description}
                           </span>
                           {item.autoDetermined && (
-                            <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
+                            <span className="px-1.5 py-0.5 rounded text-xs bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-400">
                               Auto
                             </span>
                           )}
@@ -3231,7 +3520,7 @@ export default function InspectionDetailPage({
                           )}
                         </div>
                         {item.justification && (
-                          <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">
+                          <p className="text-xs text-neutral-600 dark:text-slate-500 mt-1">
                             {item.justification}
                           </p>
                         )}
@@ -3255,7 +3544,7 @@ export default function InspectionDetailPage({
                             });
                           }}
                           aria-label={`Edit scope item: ${item.description}`}
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none"
+                          className="p-1.5 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-brand-harbour-600 hover:bg-brand-harbour-50 dark:hover:bg-brand-harbour-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none"
                         >
                           <Pencil size={14} aria-hidden="true" />
                         </button>
@@ -3283,7 +3572,7 @@ export default function InspectionDetailPage({
                             }
                           }}
                           aria-label={`Delete scope item: ${item.description}`}
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                          className="p-1.5 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
                         >
                           <Trash2 size={14} aria-hidden="true" />
                         </button>
@@ -3293,7 +3582,7 @@ export default function InspectionDetailPage({
                 </div>
               ))
             ) : (
-              <div className="text-center py-12 text-neutral-400">
+              <div className="text-center py-12 text-neutral-600 dark:text-neutral-400">
                 No scope items — submit the inspection to auto-determine scope,
                 or add one above
               </div>
@@ -3321,7 +3610,7 @@ export default function InspectionDetailPage({
                   generatingCosts ||
                   scopeItems.filter((s) => s.isSelected).length === 0
                 }
-                className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
               >
                 {generatingCosts ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -3333,6 +3622,14 @@ export default function InspectionDetailPage({
                   : "Generate from scope"}
               </button>
             </div>
+            {blockedCosts && (
+              <div className="mb-4">
+                <BlockedPricingNotice
+                  blocked={blockedCosts}
+                  title="Cost estimate"
+                />
+              </div>
+            )}
             {inspection.costEstimates.length > 0 ? (
               <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-slate-700/50">
                 <table className="w-full">
@@ -3400,7 +3697,7 @@ export default function InspectionDetailPage({
                 </table>
               </div>
             ) : (
-              <div className="text-center py-12 space-y-3 text-neutral-400">
+              <div className="text-center py-12 space-y-3 text-neutral-600 dark:text-neutral-400">
                 <p>
                   No cost estimates yet. Select scope items, then generate from
                   the pricing engine.
@@ -3409,7 +3706,7 @@ export default function InspectionDetailPage({
                   <button
                     type="button"
                     onClick={() => setActiveTab("scope")}
-                    className="text-sm font-medium text-cyan-600 hover:underline"
+                    className="text-sm font-medium text-brand-harbour-600 hover:underline"
                   >
                     Add / select scope items →
                   </button>
@@ -3462,7 +3759,7 @@ export default function InspectionDetailPage({
                 {/* RA-448: Link to full evidence screen with label display/editing */}
                 <Link
                   href={`/dashboard/inspections/${inspection.id}/photos`}
-                  className="flex items-center gap-1.5 px-3 py-2 border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-sm font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium transition-colors"
                 >
                   <Camera size={14} />
                   Evidence Screen
@@ -3484,7 +3781,7 @@ export default function InspectionDetailPage({
                 {inspection.photos.map((photo) => (
                   <div
                     key={photo.id}
-                    className="group relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-slate-700/50 hover:border-cyan-400 transition-all bg-neutral-100 dark:bg-slate-800"
+                    className="group relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-slate-700/50 hover:border-brand-harbour-400 transition-all bg-neutral-100 dark:bg-slate-800"
                   >
                     <a
                       href={photo.url}
@@ -3533,7 +3830,7 @@ export default function InspectionDetailPage({
                           <button
                             type="button"
                             onClick={() => handleSavePhotoCaption(photo.id)}
-                            className="flex-1 text-[11px] py-1 rounded bg-cyan-600 text-white"
+                            className="flex-1 text-[11px] py-1 rounded bg-brand-harbour-600 text-white"
                           >
                             Save
                           </button>
@@ -3559,13 +3856,13 @@ export default function InspectionDetailPage({
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 space-y-3 text-neutral-400">
+              <div className="text-center py-12 space-y-3 text-neutral-600 dark:text-neutral-400">
                 <p>No photos uploaded</p>
                 <div className="flex flex-wrap justify-center gap-3">
                   <span className="text-sm">Use Upload Photo above to choose a file.</span>
                   <Link
                     href={`/dashboard/inspections/${inspection.id}/capture`}
-                    className="text-sm font-medium text-cyan-600 hover:underline"
+                    className="text-sm font-medium text-brand-harbour-600 hover:underline"
                   >
                     Open Guided Capture →
                   </Link>
@@ -3575,6 +3872,7 @@ export default function InspectionDetailPage({
           </div>
         )}
       </div>
+      </section>
 
       {/* Pilot ease-of-use survey — shown once per technician after COMPLETED */}
       <NirPilotSurvey

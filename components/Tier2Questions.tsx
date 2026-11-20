@@ -594,7 +594,7 @@ export default function Tier2Questions({
           }
           rows={6}
           placeholder="Enter moisture readings here..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
@@ -620,7 +620,7 @@ export default function Tier2Questions({
           }
           rows={6}
           placeholder="Describe water migration pattern..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
@@ -644,7 +644,7 @@ export default function Tier2Questions({
           }
           rows={6}
           placeholder="Describe equipment deployed..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
@@ -670,7 +670,7 @@ export default function Tier2Questions({
           }
           rows={6}
           placeholder="Describe affected contents..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
@@ -705,7 +705,7 @@ export default function Tier2Questions({
                 onChange={() =>
                   handleMultiSelect("T2_Q5_structuralConcerns", option)
                 }
-                className="w-4 h-4 text-cyan-500 rounded"
+                className="w-4 h-4 text-brand-harbour-500 rounded"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -761,7 +761,7 @@ export default function Tier2Questions({
                 onChange={() =>
                   handleMultiSelect("T2_Q6_buildingServicesAffected", option)
                 }
-                className="w-4 h-4 text-cyan-500 rounded"
+                className="w-4 h-4 text-brand-harbour-500 rounded"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -792,7 +792,7 @@ export default function Tier2Questions({
           }
           rows={6}
           placeholder="Enter insurance considerations..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
@@ -853,10 +853,10 @@ export default function Tier2Questions({
               {onContinueToTier3 && (
                 <button
                   onClick={onContinueToTier3}
-                  className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-cyan-500 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all group"
+                  className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-brand-harbour-500 bg-gradient-to-br from-brand-harbour-500/20 to-blue-500/20 hover:from-brand-harbour-500/30 hover:to-blue-500/30 transition-all group"
                 >
-                  <div className="w-12 h-12 rounded-full bg-cyan-500/30 flex items-center justify-center group-hover:bg-cyan-500/40 transition-colors">
-                    <ArrowRight className="w-6 h-6 text-cyan-600 dark:text-cyan-300" />
+                  <div className="w-12 h-12 rounded-full bg-brand-harbour-500/30 flex items-center justify-center group-hover:bg-brand-harbour-500/40 transition-colors">
+                    <ArrowRight className="w-6 h-6 text-brand-harbour-600 dark:text-brand-harbour-300" />
                   </div>
                   <div className="text-center">
                     <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">

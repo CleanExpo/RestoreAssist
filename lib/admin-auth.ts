@@ -12,9 +12,12 @@
 
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { isPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
+import {
+  isAllowlistedPlatformSupportOperator,
+  isPlatformSupportOperator,
+} from "@/lib/auth/assert-tenancy";
 import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import type { Session } from "next-auth";
 
@@ -106,6 +109,28 @@ export async function requireAdminPage(): Promise<{
 }
 
 /**
+ * Server-page gate for RestoreAssist staff surfaces (/dashboard/admin/**,
+ * /dashboard/margot/**). Every self-registered business owner is ADMIN, so
+ * after requireAdminPage() the caller must also be on the
+ * PLATFORM_SUPPORT_USER_IDS allowlist; anyone else gets not-found. Strict
+ * membership: unlike `isPlatformSupportOperator`, there is no development
+ * fallback, so an unset allowlist refuses everyone in every environment.
+ *
+ * Call it from the segment layout AND from every server page in the segment:
+ * layouts and pages render in parallel, so a layout check alone does not stop
+ * a server page from rendering into the RSC payload.
+ */
+export async function requirePlatformSupportPage(): Promise<{
+  id: string;
+  role: string;
+  organizationId: string | null;
+}> {
+  const user = await requireAdminPage();
+  if (!isAllowlistedPlatformSupportOperator(user.id)) notFound();
+  return user;
+}
+
+/**
  * Platform-owned admin data (revenue, platform totals, impersonation) is
  * RestoreAssist staff work. `role: "ADMIN"` is granted to every firm that
  * self-registers, so it is not sufficient. Operators must be on
@@ -128,6 +153,36 @@ export function verifyPlatformSupportOperator(
     return {
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     };
+  }
+
+  return auth;
+}
+
+/**
+ * Business-owner work on the caller's own organisation (pricing, setup).
+ * `verifyAdminFromDb` alone means "owner of ANY business" (RA-7647); this also
+ * proves the DB-verified ADMIN owns the organisation they belong to. Invites
+ * only grant MANAGER/USER, so in a working tenant the ADMIN is the owner; an
+ * ADMIN in an organisation someone else owns, or whose organisation row is
+ * missing, is refused. An org-less ADMIN is their own tenant.
+ */
+export async function verifyTenantAdmin(
+  session: Session | null,
+): Promise<AdminAuthResult> {
+  const auth = await verifyAdminFromDb(session);
+  if (!auth.user) return auth;
+
+  const { id, organizationId } = auth.user;
+  if (typeof organizationId === "string" && organizationId.length > 0) {
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { ownerId: true },
+    });
+    if (organization?.ownerId !== id) {
+      return {
+        response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      };
+    }
   }
 
   return auth;

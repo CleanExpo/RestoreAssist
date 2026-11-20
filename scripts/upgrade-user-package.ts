@@ -36,6 +36,7 @@ import { config as loadEnv } from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { pgPoolTls } from "../lib/prisma-pool-config";
 import { ADDON_SKUS } from "../lib/entitlements/types";
 import {
   MONTHLY_PLAN_NAME,
@@ -73,13 +74,8 @@ function createPrisma(): PrismaClient {
   return new PrismaClient({
     adapter: new PrismaPg(
       new Pool({
-        connectionString,
+        ...pgPoolTls(connectionString),
         max: 2,
-        ssl:
-          connectionString.includes("supabase") ||
-          connectionString.includes("sslmode=require")
-            ? { rejectUnauthorized: false }
-            : undefined,
       }),
     ),
   });

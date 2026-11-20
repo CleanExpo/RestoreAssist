@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { BRAND } from "@/lib/brand";
+import { ChromeCheck } from "@/components/brand/chrome-icons";
 import { HOME, getHomeFaqs } from "@/components/landing/home/homeContent";
 import { LandingOverviewVideo } from "@/components/landing/home/LandingOverviewVideo";
 import {
@@ -16,6 +17,7 @@ import {
   VIEWPORT,
 } from "@/components/landing/home/motion";
 import { useLandingReduceMotion } from "@/components/landing/home/useLandingReduceMotion";
+import { useRevealArmed } from "@/components/landing/home/useRevealArmed";
 
 /**
  * Folio index. `label` is the visual numeral; `title` is the accessible name —
@@ -42,6 +44,8 @@ const SECTIONS = [
  */
 export function ClaimFolioLanding() {
   const reduce = useLandingReduceMotion();
+  const armed = useRevealArmed();
+  const motionHidden = armed && !reduce;
   const faqs = getHomeFaqs();
   const [faqOpen, setFaqOpen] = useState(0);
   const [active, setActive] = useState("overview");
@@ -68,15 +72,15 @@ export function ClaimFolioLanding() {
   }, []);
 
   return (
-    <div className="relative bg-[#F0F3F6] text-[#0B1F3A]">
+    <div className="relative bg-[#F0F3F6] text-brand-navy">
       {/* Continuous claim spine */}
       <div
         className="pointer-events-none fixed top-[4.25rem] bottom-0 left-[max(0.75rem,calc((100vw-80%)/2-0.5rem))] z-40 hidden w-px lg:block"
         aria-hidden
       >
-        <div className="absolute inset-0 bg-[#0B1F3A]/10" />
+        <div className="absolute inset-0 bg-brand-navy/10" />
         <motion.div
-          className="absolute top-0 left-0 w-px origin-top bg-[#3B6D8C]"
+          className="absolute top-0 left-0 w-px origin-top bg-brand-harbour"
           style={{ height: reduce ? "100%" : spineHeight }}
         />
       </div>
@@ -94,8 +98,8 @@ export function ClaimFolioLanding() {
             aria-current={active === s.id ? "true" : undefined}
             className={`font-[family-name:var(--font-landing-display)] rounded px-2 py-1.5 text-[10px] font-bold tracking-[0.14em] transition-colors ${
               active === s.id
-                ? "text-[#3B6D8C]"
-                : "text-slate-400 hover:text-[#0B1F3A]"
+                ? "text-brand-harbour"
+                : "text-slate-400 hover:text-brand-navy"
             }`}
           >
             {s.label}
@@ -106,117 +110,119 @@ export function ClaimFolioLanding() {
       {/* ── HERO: full-bleed water inspection photography ── */}
       <section className="relative min-h-[100dvh] overflow-hidden pt-[4.25rem]">
         <motion.div
-          initial={reduce ? false : { scale: 1.08, opacity: 0.55 }}
+          initial={motionHidden ? { scale: 1.08, opacity: 0.55 } : false}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 1.5, ease: EASE_OUT }}
           className="absolute inset-0"
         >
           <Image
-            src="/landing/hero-flooded-home.jpg"
-            alt="RestoreAssist technician extracting floodwater from a water-filled home during active restoration"
+            src="/landing/hero-flooded-home.avif"
+            alt="Restoration technician photographing a moisture meter reading on a water-stained wall, with air movers and a dehumidifier drying an Australian home"
             fill
             priority
             sizes="100vw"
-            className="object-cover object-[42%_55%]"
+            className="object-cover object-[72%_55%]"
           />
         </motion.div>
 
-        {/* Full-frame readability wash — photo stays edge-to-edge */}
+        {/* Asymmetric readability — photo unchanged; light sculpts left column + base */}
         <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0B1F3A]/90 via-[#0B1F3A]/50 to-[#0B1F3A]/20 sm:via-[#0B1F3A]/42 sm:to-transparent"
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(108deg,rgba(244,247,250,0.96)_0%,rgba(244,247,250,0.9)_38%,rgba(244,247,250,0.5)_58%,rgba(244,247,250,0.1)_72%,transparent_88%)] dark:bg-[linear-gradient(108deg,rgba(11,31,58,0.94)_0%,rgba(11,31,58,0.88)_38%,rgba(11,31,58,0.45)_58%,rgba(11,31,58,0.08)_72%,transparent_88%)]"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B1F3A]/70 via-transparent to-[#0B1F3A]/35"
+          className="pointer-events-none absolute inset-0 bg-brand-cloud/70 lg:bg-transparent lg:bg-gradient-to-t lg:from-brand-cloud/80 lg:via-transparent lg:to-transparent dark:bg-transparent dark:bg-gradient-to-t dark:from-brand-navy/85 dark:via-transparent dark:to-brand-navy/30"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-y-0 left-0 w-full max-w-[min(100%,52rem)] bg-gradient-to-r from-brand-cloud/30 to-transparent lg:max-w-[46rem] dark:from-brand-navy/25"
           aria-hidden
         />
 
         <div
-          className={`${CONTAINER} relative flex min-h-[calc(100dvh-4.25rem)] items-center py-16 pb-28 sm:pb-16`}
+          className={`${CONTAINER} relative grid min-h-[calc(100dvh-4.25rem)] grid-cols-1 items-end pb-[5.5rem] pt-10 sm:pb-[5.25rem] sm:pt-12 lg:grid-cols-12 lg:items-end lg:pb-24 lg:pt-16`}
         >
-          <div className="max-w-[min(100%,36rem)] lg:max-w-[34rem]">
-            <motion.p
-              initial={reduce ? false : { opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.08 }}
-              className={`${FONT_DISPLAY} text-[15px] font-semibold tracking-[-0.01em] text-white sm:text-base`}
-            >
-              {HOME.hero.brand}
-            </motion.p>
+          <motion.div
+            initial={motionHidden ? { opacity: 0, y: 20 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.08 }}
+            className="relative z-10 lg:col-span-7 xl:col-span-6"
+          >
+            <div className="relative pl-5 sm:pl-6 lg:pl-10 lg:before:absolute lg:before:bottom-0 lg:before:left-0 lg:before:top-0 lg:before:w-px lg:before:bg-brand-navy/15 lg:before:content-[''] dark:lg:before:bg-white/20">
+              <div className="flex items-baseline gap-4 lg:gap-5">
+                <span
+                  className={`${FONT_DISPLAY} hidden text-[11px] font-bold tabular-nums tracking-tight text-brand-steel sm:inline dark:text-[#7BA3BD]`}
+                  aria-hidden
+                >
+                  00
+                </span>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-brand-cta dark:text-[#A8C5D8]">
+                  {HOME.hero.eyebrow}
+                </p>
+              </div>
 
-            <motion.div
-              initial={reduce ? false : { opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.16 }}
-              className="mt-5 flex items-center gap-3"
-            >
-              <span className="h-px w-12 bg-[#7BA3BD]" aria-hidden />
-              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#A8C5D8]">
-                {HOME.hero.eyebrow}
+              <h1
+                className={`${FONT_DISPLAY} mt-5 max-w-[19ch] text-balance text-[clamp(2.05rem,6.2vw,3.65rem)] font-bold leading-[1.04] tracking-[-0.045em] text-brand-navy dark:text-white sm:mt-6 sm:max-w-[22ch] lg:mt-7 lg:max-w-[16ch] lg:text-[clamp(2.5rem,3.6vw,3.75rem)] lg:leading-[1.03]`}
+              >
+                {HOME.hero.headline}
+              </h1>
+
+              <p className="mt-5 max-w-[34rem] text-[15px] leading-[1.68] text-brand-slate dark:text-white/86 sm:mt-6 sm:text-[16px] sm:leading-[1.72] lg:max-w-[28rem] lg:text-[17px]">
+                {HOME.hero.lead}
               </p>
-            </motion.div>
 
-            <motion.h1
-              initial={reduce ? false : { opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.26 }}
-              className={`${FONT_DISPLAY} mt-6 text-[clamp(2rem,5.2vw,3.4rem)] font-bold leading-[1.06] tracking-[-0.035em] text-white`}
-            >
-              {HOME.hero.headline}
-            </motion.h1>
+              <div className="mt-8 flex flex-col gap-4 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-3">
+                <Link
+                  href={BRAND.cta.primary.href}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-brand-cta px-8 py-3.5 text-[15px] font-semibold tracking-tight text-white shadow-[0_12px_40px_rgba(11,31,58,0.2)] transition-[transform,box-shadow,background-color] duration-200 ease-out hover:bg-brand-cta-hover hover:shadow-[0_16px_48px_rgba(11,31,58,0.28)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour focus-visible:ring-offset-2 focus-visible:ring-offset-brand-cloud sm:w-auto dark:bg-white dark:text-brand-navy dark:hover:bg-white dark:focus-visible:ring-white/80 dark:focus-visible:ring-offset-brand-navy"
+                >
+                  {HOME.hero.primaryCta}
+                </Link>
+                <Link
+                  href={BRAND.cta.secondary.href}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-2 py-3.5 text-[15px] font-semibold tracking-tight text-brand-navy underline decoration-brand-navy/35 underline-offset-[6px] transition-[color,decoration-color] duration-200 hover:decoration-brand-navy/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour focus-visible:ring-offset-2 focus-visible:ring-offset-brand-cloud dark:text-white/95 dark:decoration-white/35 dark:hover:decoration-white/70 dark:focus-visible:ring-white/70 dark:focus-visible:ring-offset-brand-navy sm:w-auto sm:justify-start sm:px-0"
+                >
+                  {HOME.hero.secondaryCta}
+                  <span aria-hidden className="text-brand-slate dark:text-white/50">
+                    →
+                  </span>
+                </Link>
+              </div>
 
-            <motion.p
-              initial={reduce ? false : { opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.38 }}
-              className={`${FONT_DISPLAY} mt-5 text-[1.1rem] font-medium text-white/90 sm:text-[1.25rem]`}
-            >
-              {HOME.hero.valueLine}
-            </motion.p>
+              <p className="mt-6 border-t border-brand-navy/15 pt-4 text-[12px] leading-relaxed tracking-wide text-brand-slate dark:border-white/15 dark:text-white/58 sm:text-[13px] lg:max-w-[26rem]">
+                {HOME.hero.trialReassurance}
+              </p>
+            </div>
+          </motion.div>
 
-            <motion.p
-              initial={reduce ? false : { opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.46 }}
-              className="mt-5 max-w-[28rem] text-[14.5px] leading-[1.75] text-white/75 sm:text-[15.5px]"
-            >
-              {HOME.hero.support}
-            </motion.p>
-
-            <motion.div
-              initial={reduce ? false : { opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.54 }}
-              className="mt-9 flex flex-col gap-3 sm:flex-row"
-            >
-              <Link
-                href={BRAND.cta.primary.href}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-7 py-3.5 text-[15px] font-semibold tracking-tight text-[#0B1F3A] shadow-[0_1px_2px_rgba(11,31,58,0.12),0_8px_24px_rgba(11,31,58,0.18)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-[#F0F3F6] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]"
-              >
-                {HOME.hero.primaryCta}
-              </Link>
-              <Link
-                href="#overview"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/55 bg-[#0B1F3A]/55 px-7 py-3.5 text-[15px] font-semibold tracking-tight text-white backdrop-blur-sm transition-[background-color,border-color,transform] duration-200 ease-out hover:border-white/80 hover:bg-[#0B1F3A]/75 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1F3A]"
-              >
-                {HOME.hero.secondaryCta}
-              </Link>
-            </motion.div>
-          </div>
+          <div
+            className="pointer-events-none hidden lg:col-span-5 lg:block xl:col-span-6"
+            aria-hidden
+          />
         </div>
 
-        {/* Trust over the full photo */}
-        <div className="absolute right-0 bottom-0 left-0">
+        {/* Trust — spec strip, low visual weight */}
+        <div className="absolute inset-x-0 bottom-0 border-t border-brand-navy/10 bg-white/85 backdrop-blur-[2px] dark:border-white/10 dark:bg-brand-navy/35">
           <ul
-            className={`${CONTAINER} flex flex-wrap gap-x-6 gap-y-2 py-5 sm:justify-start lg:justify-end`}
+            className={`${CONTAINER} flex flex-wrap items-center gap-x-3 gap-y-2 py-3.5 sm:gap-x-4 sm:py-4 lg:justify-end`}
             aria-label="Compliance standards and coverage"
           >
-            {HOME.trust.map((item) => (
+            {HOME.trust.map((item, i) => (
               <li
                 key={item}
-                className={`${FONT_DISPLAY} text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80`}
+                className="flex items-center gap-3 sm:gap-4"
               >
-                {item}
+                {i > 0 ? (
+                  <span
+                    className="hidden h-1 w-1 rounded-full bg-brand-steel/50 sm:inline dark:bg-white/35"
+                    aria-hidden
+                  />
+                ) : null}
+                <span
+                  className={`${FONT_DISPLAY} text-[9px] font-semibold uppercase tracking-[0.14em] text-brand-slate sm:text-[10px] dark:text-white/70`}
+                >
+                  {item}
+                </span>
               </li>
             ))}
           </ul>
@@ -226,15 +232,15 @@ export function ClaimFolioLanding() {
       {/* ── OVERVIEW: founder walkthrough ── */}
       <section
         id="overview"
-        className="scroll-mt-24 border-b border-[#0B1F3A]/10 bg-white py-20 sm:py-28"
+        className="scroll-mt-24 border-b border-brand-navy/10 bg-white py-20 sm:py-28"
       >
         <div className={CONTAINER}>
           <div className="mx-auto max-w-[40rem] text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brand-harbour">
               {HOME.overview.eyebrow}
             </p>
             <h2
-              className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-[#0B1F3A]`}
+              className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-brand-navy`}
             >
               {HOME.overview.title}
             </h2>
@@ -248,20 +254,48 @@ export function ClaimFolioLanding() {
         </div>
       </section>
 
+      {/* ── PROOF: honest live-product signal (no vanity logos) ── */}
+      <section
+        id="proof"
+        className="scroll-mt-24 border-b border-brand-navy/10 bg-[#F3F5F7] py-16 sm:py-20"
+      >
+        <div className={`${CONTAINER} max-w-3xl`}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brand-harbour">
+            {HOME.proof.eyebrow}
+          </p>
+          <h2
+            className={`${FONT_DISPLAY} mt-4 text-[clamp(1.65rem,3.5vw,2.25rem)] font-semibold leading-[1.12] tracking-[-0.03em] text-brand-navy`}
+          >
+            {HOME.proof.title}
+          </h2>
+          <p className="mt-4 text-[15px] leading-[1.75] text-slate-600">
+            {HOME.proof.body}
+          </p>
+          <ul className="mt-6 space-y-2 text-[15px] text-slate-700">
+            {HOME.proof.bullets.map((item) => (
+              <li key={item} className="flex gap-2">
+                <ChromeCheck size={16} className="mt-1 shrink-0 text-brand-harbour" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
       {/* ── STANCE: the three commitments, ruled strip ── */}
       <section
         id="stance"
-        className="scroll-mt-24 border-b border-[#0B1F3A]/10 bg-white py-20 sm:py-24"
+        className="scroll-mt-24 border-b border-brand-navy/10 bg-white py-20 sm:py-24"
       >
         <div className={CONTAINER}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brand-harbour">
             {HOME.stance.eyebrow}
           </p>
           <ul className="mt-10 grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
             {HOME.stance.pillars.map((pillar, i) => (
               <motion.li
                 key={pillar.title}
-                initial={reduce ? false : { opacity: 0, y: 24 }}
+                initial={motionHidden ? { opacity: 0, y: 24 } : false}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={VIEWPORT}
                 transition={{
@@ -269,16 +303,16 @@ export function ClaimFolioLanding() {
                   ease: EASE_OUT,
                   delay: reduce ? 0 : i * 0.08,
                 }}
-                className="border-t border-[#0B1F3A]/12 pt-6"
+                className="border-t border-brand-navy/12 pt-6"
               >
                 <span
-                  className={`${FONT_DISPLAY} text-[13px] font-bold text-[#3B6D8C]`}
+                  className={`${FONT_DISPLAY} text-[13px] font-bold text-brand-harbour`}
                   aria-hidden
                 >
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <h3
-                  className={`${FONT_DISPLAY} mt-3 text-[1.2rem] font-semibold leading-snug tracking-[-0.025em] text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} mt-3 text-[1.2rem] font-semibold leading-snug tracking-[-0.025em] text-brand-navy`}
                 >
                   {pillar.title}
                 </h3>
@@ -294,11 +328,11 @@ export function ClaimFolioLanding() {
       {/* ── WORKFLOW: monumental numbers ── */}
       <section id="workflow" className="scroll-mt-24 py-28 sm:py-36">
         <div className={CONTAINER}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brand-harbour">
             {HOME.workflow.eyebrow}
           </p>
           <h2
-            className={`${FONT_DISPLAY} mt-5 max-w-[20ch] text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-[#0B1F3A]`}
+            className={`${FONT_DISPLAY} mt-5 max-w-[20ch] text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-brand-navy`}
           >
             {HOME.workflow.title}
           </h2>
@@ -310,7 +344,7 @@ export function ClaimFolioLanding() {
             {HOME.workflow.steps.map((s, i) => (
               <motion.li
                 key={s.step}
-                initial={reduce ? false : { opacity: 0, y: 40 }}
+                initial={motionHidden ? { opacity: 0, y: 40 } : false}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={VIEWPORT}
                 transition={{
@@ -318,17 +352,17 @@ export function ClaimFolioLanding() {
                   ease: EASE_OUT,
                   delay: reduce ? 0 : i * 0.08,
                 }}
-                className="relative grid items-start gap-6 border-t border-[#0B1F3A]/12 py-14 sm:grid-cols-[minmax(0,0.35fr)_minmax(0,0.65fr)] sm:gap-10 lg:py-20"
+                className="relative grid items-start gap-6 border-t border-brand-navy/12 py-14 sm:grid-cols-[minmax(0,0.35fr)_minmax(0,0.65fr)] sm:gap-10 lg:py-20"
               >
                 <span
-                  className={`${FONT_DISPLAY} select-none text-[clamp(4.5rem,14vw,9rem)] font-bold leading-[0.8] tracking-[-0.06em] text-[#3B6D8C]/20`}
+                  className={`${FONT_DISPLAY} select-none text-[clamp(4.5rem,14vw,9rem)] font-bold leading-[0.8] tracking-[-0.06em] text-brand-harbour/20`}
                   aria-hidden
                 >
                   {s.step}
                 </span>
                 <div className="sm:pt-4">
                   <h3
-                    className={`${FONT_DISPLAY} text-[1.65rem] font-semibold tracking-[-0.03em] text-[#0B1F3A] sm:text-[2rem]`}
+                    className={`${FONT_DISPLAY} text-[1.65rem] font-semibold tracking-[-0.03em] text-brand-navy sm:text-[2rem]`}
                   >
                     {s.title}
                   </h3>
@@ -345,7 +379,7 @@ export function ClaimFolioLanding() {
       {/* ── GAPS: split arena ── */}
       <section
         id="gaps"
-        className="scroll-mt-24 overflow-hidden bg-[#0B1F3A] text-white"
+        className="scroll-mt-24 overflow-hidden bg-brand-navy text-white"
       >
         <div className={`${CONTAINER} py-28 sm:py-36`}>
           <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#7BA3BD]">
@@ -386,7 +420,7 @@ export function ClaimFolioLanding() {
               aria-hidden
             >
               <span
-                className={`${FONT_DISPLAY} absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-90 whitespace-nowrap bg-[#0B1F3A] px-4 text-[10px] font-bold tracking-[0.28em] text-[#7BA3BD]`}
+                className={`${FONT_DISPLAY} absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-90 whitespace-nowrap bg-brand-navy px-4 text-[10px] font-bold tracking-[0.28em] text-[#7BA3BD]`}
               >
                 ONE RECORD
               </span>
@@ -403,7 +437,7 @@ export function ClaimFolioLanding() {
                 {HOME.beforeAfter.after.map((line) => (
                   <li
                     key={line}
-                    className={`${FONT_DISPLAY} border-l-2 border-[#3B6D8C] pl-5 text-[16px] font-semibold text-white`}
+                    className={`${FONT_DISPLAY} border-l-2 border-brand-harbour pl-5 text-[16px] font-semibold text-white`}
                   >
                     {line}
                   </li>
@@ -419,11 +453,11 @@ export function ClaimFolioLanding() {
         <div className={CONTAINER}>
           <div className="grid gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-20">
             <div className="lg:sticky lg:top-32 lg:self-start">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brand-harbour">
                 {HOME.platform.eyebrow}
               </p>
               <h2
-                className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4vw,3rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-[#0B1F3A]`}
+                className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4vw,3rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-brand-navy`}
               >
                 {HOME.platform.title}
               </h2>
@@ -431,19 +465,19 @@ export function ClaimFolioLanding() {
                 {HOME.platform.body}
               </p>
               <p
-                className={`${FONT_DISPLAY} mt-5 text-[15px] font-medium text-[#16345A]`}
+                className={`${FONT_DISPLAY} mt-5 text-[15px] font-medium text-brand-navy-hover`}
               >
                 {HOME.platform.byok}
               </p>
               <div className="mt-10 flex items-center gap-4">
                 <span
-                  className={`${FONT_DISPLAY} text-sm font-semibold text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} text-sm font-semibold text-brand-navy`}
                 >
                   {HOME.platform.continuumLeft}
                 </span>
-                <span className="h-px flex-1 bg-[#3B6D8C]/40" aria-hidden />
+                <span className="h-px flex-1 bg-brand-harbour/40" aria-hidden />
                 <span
-                  className={`${FONT_DISPLAY} text-sm font-semibold text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} text-sm font-semibold text-brand-navy`}
                 >
                   {HOME.platform.continuumRight}
                 </span>
@@ -457,15 +491,15 @@ export function ClaimFolioLanding() {
               {HOME.platform.features.map((f, i) => (
                 <motion.li
                   key={f.title}
-                  initial={reduce ? false : { opacity: 0, x: 24 }}
+                  initial={motionHidden ? { opacity: 0, x: 24 } : false}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={VIEWPORT}
                   transition={{ duration: 0.55, ease: EASE_OUT }}
-                  className="border-t border-[#0B1F3A]/10 py-10 first:border-t-0 first:pt-0"
+                  className="border-t border-brand-navy/10 py-10 first:border-t-0 first:pt-0"
                 >
                   <div className="flex items-baseline gap-4">
                     <span
-                      className={`${FONT_DISPLAY} text-[13px] font-bold text-[#3B6D8C]`}
+                      className={`${FONT_DISPLAY} text-[13px] font-bold text-brand-harbour`}
                     >
                       {String(i + 1).padStart(2, "0")}
                     </span>
@@ -474,7 +508,7 @@ export function ClaimFolioLanding() {
                     </span>
                   </div>
                   <h3
-                    className={`${FONT_DISPLAY} mt-3 text-[1.35rem] font-semibold tracking-[-0.025em] text-[#0B1F3A]`}
+                    className={`${FONT_DISPLAY} mt-3 text-[1.35rem] font-semibold tracking-[-0.025em] text-brand-navy`}
                   >
                     {f.title}
                   </h3>
@@ -491,14 +525,14 @@ export function ClaimFolioLanding() {
       {/* ── DAMAGE ── */}
       <section
         id="damage"
-        className="scroll-mt-24 border-y border-[#0B1F3A]/10 bg-white py-28 sm:py-36"
+        className="scroll-mt-24 border-y border-brand-navy/10 bg-white py-28 sm:py-36"
       >
         <div className={CONTAINER}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brand-harbour">
             {HOME.damage.eyebrow}
           </p>
           <h2
-            className={`${FONT_DISPLAY} mt-5 max-w-[20ch] text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-[#0B1F3A]`}
+            className={`${FONT_DISPLAY} mt-5 max-w-[20ch] text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-brand-navy`}
           >
             {HOME.damage.title}
           </h2>
@@ -510,15 +544,15 @@ export function ClaimFolioLanding() {
             {HOME.damage.types.map((t, i) => (
               <li
                 key={t.title}
-                className="group grid gap-4 border-t border-[#0B1F3A]/10 py-10 transition-colors hover:bg-[#F0F3F6]/80 sm:grid-cols-[4rem_minmax(0,1fr)_minmax(0,1.4fr)] sm:gap-10 sm:px-4"
+                className="group grid gap-4 border-t border-brand-navy/10 py-10 transition-colors hover:bg-[#F0F3F6]/80 sm:grid-cols-[4rem_minmax(0,1fr)_minmax(0,1.4fr)] sm:gap-10 sm:px-4"
               >
                 <span
-                  className={`${FONT_DISPLAY} text-2xl font-bold text-[#3B6D8C]/35 transition-colors group-hover:text-[#3B6D8C]`}
+                  className={`${FONT_DISPLAY} text-2xl font-bold text-brand-harbour/35 transition-colors group-hover:text-brand-harbour`}
                 >
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <h3
-                  className={`${FONT_DISPLAY} text-xl font-semibold tracking-[-0.02em] text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} text-xl font-semibold tracking-[-0.02em] text-brand-navy`}
                 >
                   {t.title}
                 </h3>
@@ -534,11 +568,11 @@ export function ClaimFolioLanding() {
       {/* ── COVERAGE: code constellation ── */}
       <section id="coverage" className="scroll-mt-24 py-28 sm:py-36">
         <div className={CONTAINER}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brand-harbour">
             {HOME.coverage.eyebrow}
           </p>
           <h2
-            className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-[#0B1F3A]`}
+            className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-brand-navy`}
           >
             {HOME.coverage.title}
             <span className="mt-4 block text-[1.25rem] font-medium leading-snug text-slate-500 sm:text-[1.5rem]">
@@ -552,11 +586,11 @@ export function ClaimFolioLanding() {
           <div className="mt-10 flex flex-wrap gap-8">
             {HOME.coverage.builtIn.map((b) => (
               <div key={b.label}>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#3B6D8C]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-harbour">
                   {b.label}
                 </p>
                 <p
-                  className={`${FONT_DISPLAY} mt-1 text-lg font-semibold text-[#0B1F3A]`}
+                  className={`${FONT_DISPLAY} mt-1 text-lg font-semibold text-brand-navy`}
                 >
                   {b.value}
                 </p>
@@ -568,11 +602,11 @@ export function ClaimFolioLanding() {
             {HOME.coverage.regions.map((r) => (
               <li key={r.code} className="relative pl-4">
                 <span
-                  className="absolute top-2 left-0 h-8 w-px bg-[#3B6D8C]/50"
+                  className="absolute top-2 left-0 h-8 w-px bg-brand-harbour/50"
                   aria-hidden
                 />
                 <p
-                  className={`${FONT_DISPLAY} text-[2rem] font-bold tracking-tight text-[#0B1F3A] sm:text-[2.35rem]`}
+                  className={`${FONT_DISPLAY} text-[2rem] font-bold tracking-tight text-brand-navy sm:text-[2.35rem]`}
                 >
                   {r.code}
                 </p>
@@ -592,10 +626,10 @@ export function ClaimFolioLanding() {
       {/* ── POSITIONING: who we answer to ── */}
       <section
         id="positioning"
-        className="scroll-mt-24 relative overflow-hidden bg-[#0B1F3A] py-28 text-white sm:py-36"
+        className="scroll-mt-24 relative overflow-hidden bg-brand-navy py-28 text-white sm:py-36"
       >
         <div
-          className="pointer-events-none absolute -top-24 -left-24 h-[26rem] w-[26rem] rounded-full bg-[#3B6D8C]/20 blur-3xl"
+          className="pointer-events-none absolute -top-24 -left-24 h-[26rem] w-[26rem] rounded-full bg-brand-harbour/20 blur-3xl"
           aria-hidden
         />
         <div className={`${CONTAINER} relative max-w-3xl`}>
@@ -618,7 +652,7 @@ export function ClaimFolioLanding() {
             ))}
           </div>
           <p
-            className={`${FONT_DISPLAY} mt-10 border-l-2 border-[#3B6D8C] pl-6 text-[17px] font-medium leading-[1.7] text-white sm:text-[18px]`}
+            className={`${FONT_DISPLAY} mt-10 border-l-2 border-brand-harbour pl-6 text-[17px] font-medium leading-[1.7] text-white sm:text-[18px]`}
           >
             {HOME.positioning.close}
           </p>
@@ -628,14 +662,14 @@ export function ClaimFolioLanding() {
       {/* ── FAQ ── */}
       <section
         id="faq"
-        className="scroll-mt-24 border-t border-[#0B1F3A]/10 bg-white py-28 sm:py-36"
+        className="scroll-mt-24 border-t border-brand-navy/10 bg-white py-28 sm:py-36"
       >
         <div className={`${CONTAINER} max-w-3xl`}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brand-harbour">
             {HOME.faq.eyebrow}
           </p>
           <h2
-            className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4vw,3rem)] font-semibold tracking-[-0.035em] text-[#0B1F3A]`}
+            className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4vw,3rem)] font-semibold tracking-[-0.035em] text-brand-navy`}
           >
             {HOME.faq.title}
           </h2>
@@ -647,7 +681,7 @@ export function ClaimFolioLanding() {
             {faqs.map((item, i) => {
               const open = faqOpen === i;
               return (
-                <li key={item.q} className="border-t border-[#0B1F3A]/10">
+                <li key={item.q} className="border-t border-brand-navy/10">
                   <button
                     type="button"
                     className="flex w-full items-baseline justify-between gap-6 py-6 text-left"
@@ -659,13 +693,13 @@ export function ClaimFolioLanding() {
                         {item.cat}
                       </span>
                       <span
-                        className={`${FONT_DISPLAY} mt-1.5 block text-[1.05rem] font-semibold tracking-[-0.02em] text-[#0B1F3A] sm:text-[1.15rem]`}
+                        className={`${FONT_DISPLAY} mt-1.5 block text-[1.05rem] font-semibold tracking-[-0.02em] text-brand-navy sm:text-[1.15rem]`}
                       >
                         {item.q}
                       </span>
                     </span>
                     <span
-                      className={`${FONT_DISPLAY} shrink-0 text-2xl leading-none text-[#3B6D8C]`}
+                      className={`${FONT_DISPLAY} shrink-0 text-2xl leading-none text-brand-harbour`}
                       aria-hidden
                     >
                       {open ? "–" : "+"}
@@ -699,20 +733,20 @@ export function ClaimFolioLanding() {
         className="scroll-mt-24 relative overflow-hidden bg-[#F0F3F6] py-32 sm:py-40"
       >
         <div
-          className="pointer-events-none absolute -right-20 -bottom-20 h-[28rem] w-[28rem] rounded-full bg-[#3B6D8C]/10 blur-3xl"
+          className="pointer-events-none absolute -right-20 -bottom-20 h-[28rem] w-[28rem] rounded-full bg-brand-harbour/10 blur-3xl"
           aria-hidden
         />
         <div className={`${CONTAINER} relative max-w-2xl`}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#3B6D8C]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brand-harbour">
             {HOME.cta.eyebrow}
           </p>
           <h2
-            className={`${FONT_DISPLAY} mt-5 text-[clamp(2.25rem,5vw,3.75rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-[#0B1F3A]`}
+            className={`${FONT_DISPLAY} mt-5 text-[clamp(2.25rem,5vw,3.75rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-brand-navy`}
           >
             {HOME.cta.title}
           </h2>
           <p
-            className={`${FONT_DISPLAY} mt-6 text-lg font-semibold text-[#16345A]`}
+            className={`${FONT_DISPLAY} mt-6 text-lg font-semibold text-brand-navy-hover`}
           >
             {HOME.cta.slogan}
           </p>

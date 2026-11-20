@@ -219,7 +219,12 @@ describe("session callback requires JWT sub", () => {
         user: { name: "Pat", email: "pat@example.com" },
         expires: "2099-01-01T00:00:00.000Z",
       },
-      token: { sub: "user_1", role: "ADMIN", needsOnboarding: false },
+      token: {
+        sub: "user_1",
+        role: "ADMIN",
+        needsOnboarding: false,
+        customExp: Math.floor(Date.now() / 1000) + 3600,
+      },
     });
 
     expect(result.user.id).toBe("user_1");

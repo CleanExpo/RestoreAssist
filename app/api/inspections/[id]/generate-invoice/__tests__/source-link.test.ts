@@ -51,6 +51,7 @@ const {
   canTransition,
   invoiceFindUnique,
   txInvoiceUpdate,
+  resolveCanonicalClient,
 } = vi.hoisted(() => ({
   inspectionFindFirst: vi.fn(),
   estimateFindFirst: vi.fn(),
@@ -70,9 +71,16 @@ const {
   canTransition: vi.fn(),
   invoiceFindUnique: vi.fn(),
   txInvoiceUpdate: vi.fn(),
+  resolveCanonicalClient: vi.fn(),
 }));
 
 vi.mock("@/lib/audit-log", () => ({ recordMutationAudit: vi.fn() }));
+// The canonical resolver has its own lookups; null means "use the report's
+// client", which is what most of these cases exercise.
+vi.mock("@/lib/canonical/resolve-job-client", () => ({
+  resolveCanonicalClientForInspection: (...args: unknown[]) =>
+    resolveCanonicalClient(...args),
+}));
 
 vi.mock("@/lib/lifecycle/inspection-state-machine", () => ({
   canTransition: (...args: unknown[]) => canTransition(...args),
@@ -89,6 +97,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: inspectionFindFirst },
     estimate: { findFirst: estimateFindFirst },
+    // No frozen approval snapshot: the route falls back to the live lines.
+    estimateVersion: { findUnique: vi.fn().mockResolvedValue(null) },
     invoice: { findFirst: invoiceFindFirst, findUnique: invoiceFindUnique },
     client: { findFirst: clientFindFirst },
     invoiceSequence: { upsert: vi.fn() },
@@ -109,6 +119,7 @@ beforeEach(() => {
     user: { id: "u_1", email: "tech@test.com" },
   });
   invoiceFindFirst.mockResolvedValue(null);
+  resolveCanonicalClient.mockResolvedValue(null);
   txInvoiceFindFirst.mockResolvedValue(null);
   txEstimateUpdateMany.mockResolvedValue({ count: 1 });
   txSequenceUpsert.mockResolvedValue({ prefix: "RA", lastNumber: 1 });
@@ -125,7 +136,8 @@ beforeEach(() => {
   $transaction.mockImplementation(async (cb: any) =>
     cb({
       invoiceSequence: { upsert: txSequenceUpsert },
-      $queryRaw: vi.fn().mockResolvedValue([]),
+      // RA-8273: the row lock returns the locked status row.
+      $queryRaw: vi.fn().mockResolvedValue([{ status: "DRAFT" }]),
       invoiceLineItem: { deleteMany: vi.fn() },
       invoice: {
         findFirst: txInvoiceFindFirst,
@@ -136,7 +148,10 @@ beforeEach(() => {
       inspection: { updateMany: txInspectionUpdateMany },
       invoiceAuditLog: { create: txAuditCreate },
       auditLog: { create: txInspectionAuditCreate },
-      claimProgress: { updateMany: txClaimProgressUpdateMany },
+      claimProgress: {
+        findFirst: vi.fn().mockResolvedValue({ id: "cp_1", version: 1 }),
+        updateMany: txClaimProgressUpdateMany,
+      },
     }),
   );
 });

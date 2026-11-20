@@ -9,6 +9,13 @@ export default {
   test: {
     globals: true,
     environment: "node",
+    environmentMatchGlobs: [
+      ["app/**/__tests__/**/*.test.tsx", "jsdom"],
+      ["app/billing/**/__tests__/**/*.test.tsx", "jsdom"],
+      ["app/capture/**/__tests__/**/*.test.tsx", "jsdom"],
+      ["app/__tests__/**/*.test.tsx", "jsdom"],
+      ["components/**/__tests__/**/*.test.tsx", "jsdom"],
+    ],
     // Refuses a non-local Postgres and checks every connection (slice 2a).
     setupFiles: [resolve(repoRoot, "config/vitest.db-guard.ts")],
     // Serialize test files — prevents concurrent DB mutations (e.g. backfill
@@ -27,9 +34,12 @@ export default {
       "app/billing/**/__tests__/**/*.test.tsx",
       "app/capture/**/__tests__/**/*.test.tsx",
       "app/dashboard/**/__tests__/**/*.test.tsx",
+      "app/invite/**/__tests__/**/*.test.ts",
       "app/portal/**/__tests__/**/*.test.ts",
       "app/portal/**/__tests__/**/*.test.tsx",
       "app/__tests__/**/*.test.tsx",
+      "app/setup/**/__tests__/**/*.test.tsx",
+      "app/onboarding/**/__tests__/**/*.test.tsx",
       "data/content/videos/__tests__/**/*.test.ts",
       "tests/unit/**/*.test.ts",
     ],
@@ -46,7 +56,7 @@ export default {
       // Next.js replaces this marker during its build. Vitest runs outside the
       // Next resolver, so map it to a no-op test module instead of making every
       // server-only caller fail during collection.
-      "server-only": resolve(repoRoot, "test/stubs/server-only.ts"),
+      "server-only": resolve(repoRoot, "tests/stubs/server-only.ts"),
       "@/content": resolve(repoRoot, "data/content"),
       "@": repoRoot,
     },

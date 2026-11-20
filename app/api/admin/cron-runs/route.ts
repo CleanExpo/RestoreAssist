@@ -21,7 +21,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { fromException } from "@/lib/api-errors";
 
 // Matches the status values runCronJob() actually persists
@@ -46,6 +49,10 @@ export async function GET(request: NextRequest) {
     // Re-validates role from DB to prevent stale JWT role from granting admin access
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // RA-8043c: platform cron history and error text are RestoreAssist staff data. Every firm owner is an ADMIN,
+    // so the ADMIN check alone let any firm reach it.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
 
     const { searchParams } = new URL(request.url);
 

@@ -4,7 +4,12 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useFetch } from "@/lib/hooks/useFetch";
 import { useMobilePullRefreshHandler } from "@/components/mobile/MobilePullToRefresh";
-import { useRouter } from "next/navigation";
+import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListErrorBanner";
+import type { ParsedApiError } from "@/lib/client/parse-api-error";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import { useRouter, useSearchParams } from "next/navigation";
+import { isActiveInspectionStatus } from "@/lib/inspections/active-status";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import {
   Plus,
@@ -25,11 +30,17 @@ import {
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import { EmptyState } from "@/components/EmptyState";
+import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
+import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import {
   formatEnvironmentalValue,
   latestEnvironmentalReading,
   type EnvironmentalReading,
 } from "@/lib/inspections/latest-environmental-reading";
+import {
+  ATTENDANCE_NOT_RECORDED_LABEL,
+  formatAttendanceDateEnAu,
+} from "@/lib/inspections/format-attendance-date";
 
 interface Inspection {
   id: string;
@@ -37,7 +48,10 @@ interface Inspection {
   propertyAddress: string;
   propertyPostcode: string;
   technicianName: string | null;
+  // The assigned technician (Inspection.technicianId); null when unassigned.
+  technicianId: string | null;
   status: string;
+  inspectionDate: string | null;
   createdAt: string;
   submittedAt: string | null;
   processedAt: string | null;
@@ -65,7 +79,7 @@ const STATUS_CONFIG: Record<
   },
   PROCESSING: {
     label: "Processing",
-    color: "text-amber-600 dark:text-amber-400",
+    color: "text-amber-700 dark:text-amber-400",
     bg: "bg-amber-50 dark:bg-amber-900/30",
   },
   CLASSIFIED: {
@@ -93,25 +107,83 @@ const STATUS_CONFIG: Record<
     color: "text-destructive",
     bg: "bg-red-50 dark:bg-red-900/30",
   },
+  IN_BILLING: {
+    label: "In billing",
+    color: "text-brand-harbour-700 dark:text-brand-harbour-400",
+    bg: "bg-brand-harbour-50 dark:bg-brand-harbour-900/30",
+  },
+  CLOSED: {
+    label: "Closed",
+    color: "text-success",
+    bg: "bg-emerald-50 dark:bg-emerald-900/30",
+  },
+  ARCHIVED: {
+    label: "Archived",
+    color: "text-neutral-600 dark:text-slate-400",
+    bg: "bg-neutral-100 dark:bg-slate-800",
+  },
 };
+
+/** A status this page has no badge for reads as itself, never as Draft. */
+function statusBadge(status: string) {
+  return (
+    STATUS_CONFIG[status] ?? {
+      label: status,
+      color: "text-neutral-600 dark:text-slate-400",
+      bg: "bg-neutral-100 dark:bg-slate-800",
+    }
+  );
+}
 
 export default function InspectionsPage() {
   const router = useRouter();
+  const { data: session, status: sessionStatus } = useSession();
+  const currentUserId = session?.user?.id;
+  // RA-8022: the dashboard's Active Inspections card links here with
+  // ?status=active. Asked of the server, because the list is paged and a
+  // filter over one page would undercount.
+  const searchParams = useSearchParams();
+  // The URL owns this filter, and nothing else holds it, so Back, a refresh and
+  // a shared link all agree with what is on screen. Anything but `active` or a
+  // known status is ignored.
+  const statusParam = searchParams.get("status") ?? "";
+  const activeOnly = statusParam === "active";
+  const statusFilter =
+    activeOnly || Object.hasOwn(STATUS_CONFIG, statusParam) ? statusParam : "";
+  const setStatusFilter = (next: string) => {
+    router.replace(
+      next
+        ? `/dashboard/inspections?status=${encodeURIComponent(next)}`
+        : "/dashboard/inspections",
+    );
+  };
+  // D-028: a technician (role USER) works their own jobs, so ask for those
+  // (assigned to them, plus unassigned). Wait for the session: fetching the
+  // unscoped list first would flash every job in the workspace.
+  const inspectionsUrl =
+    sessionStatus === "loading"
+      ? null
+      : session?.user?.role === "USER"
+        ? `/api/inspections?assignee=me${activeOnly ? "&status=active" : ""}`
+        : `/api/inspections${activeOnly ? "?status=active" : ""}`;
   const {
     data: inspectionsData,
-    loading,
+    loading: fetchLoading,
     error: fetchError,
     refetch: refetchInspections,
     refresh: refreshInspections,
-  } = useFetch<{ inspections: Inspection[] }>("/api/inspections");
+  } = useFetch<{ inspections: Inspection[] }>(inspectionsUrl);
+  const loading = fetchLoading || sessionStatus === "loading";
   useMobilePullRefreshHandler(async () =>
-    await refreshInspections()
+    (await refreshInspections())
       ? { kind: "updated", message: "Inspections updated" }
       : { kind: "error", message: "Could not refresh inspections. Try again." },
   );
+  const listError: ParsedApiError | null = fetchError
+    ? { code: "UNKNOWN", message: fetchError, status: 0 }
+    : null;
   const inspections = inspectionsData?.inspections ?? [];
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -139,13 +211,27 @@ export default function InspectionsPage() {
           ?.toLowerCase()
           .includes(searchTerm.toLowerCase()) ??
           false);
-      const matchesStatus = !statusFilter || insp.status === statusFilter;
-      const inspDate = new Date(insp.createdAt);
-      const matchesFrom = !fromDate || inspDate >= fromDate;
-      const matchesTo = !toDate || inspDate <= toDate;
+      const matchesStatus =
+        !statusFilter ||
+        (activeOnly
+          ? isActiveInspectionStatus(insp.status)
+          : insp.status === statusFilter);
+      const inspDate = insp.inspectionDate
+        ? new Date(insp.inspectionDate)
+        : null;
+      const matchesFrom =
+        !fromDate || (inspDate !== null && inspDate >= fromDate);
+      const matchesTo = !toDate || (inspDate !== null && inspDate <= toDate);
       return matchesSearch && matchesStatus && matchesFrom && matchesTo;
     });
-  }, [inspections, searchTerm, statusFilter, dateFrom, dateTo]);
+  }, [inspections, searchTerm, statusFilter, activeOnly, dateFrom, dateTo]);
+
+  // Bulk actions reach only what is on screen: a selection a filter has since
+  // hidden must not be deleted unseen.
+  const visibleSelectedIds = useMemo(
+    () => filtered.filter((i) => selectedIds.has(i.id)).map((i) => i.id),
+    [filtered, selectedIds],
+  );
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -165,7 +251,7 @@ export default function InspectionsPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filtered.length) {
+    if (visibleSelectedIds.length === filtered.length) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(filtered.map((i) => i.id)));
@@ -179,7 +265,7 @@ export default function InspectionsPage() {
   };
 
   const handleDeleteSelected = () => {
-    if (selectedIds.size === 0) return;
+    if (visibleSelectedIds.length === 0) return;
     setDeleteTarget({ type: "bulk" });
     setDeleteDialogOpen(true);
   };
@@ -203,23 +289,23 @@ export default function InspectionsPage() {
           refetchInspections();
         } else {
           const data = await res.json().catch(() => ({}));
-          toast.error(data.error || "Failed to delete inspection");
+          toast.error(apiErrorMessage(data) || "Failed to delete inspection");
         }
       } else if (deleteTarget.type === "bulk") {
         const res = await fetch("/api/inspections/bulk-delete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids: Array.from(selectedIds) }),
+          body: JSON.stringify({ ids: visibleSelectedIds }),
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
           setSelectedIds(new Set());
           toast.success(
-            `${data.deletedCount ?? selectedIds.size} inspection(s) deleted`,
+            `${data.deletedCount ?? visibleSelectedIds.length} inspection(s) deleted`,
           );
           refetchInspections();
         } else {
-          toast.error(data.error || "Failed to delete inspections");
+          toast.error(apiErrorMessage(data) || "Failed to delete inspections");
         }
       }
     } catch {
@@ -260,27 +346,29 @@ export default function InspectionsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-            <ClipboardCheck className="text-cyan-500" size={28} />
-            Inspections
-          </h1>
-          <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1">
-            National Inspection Reports (NIR) — Field data capture and IICRC
-            classification
-          </p>
-        </div>
-        <button
-          onClick={() => router.push("/dashboard/inspections/new")}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <Plus size={18} />
-          New Inspection
-        </button>
-      </div>
+    <SimpleDashboardPageFrame className="space-y-6 pb-10 pt-2">
+      <DashboardListPageHeader
+        eyebrow="Simple workspace"
+        title="Inspections"
+        description="Capture the site, classify damage, and link each job to reports and billing."
+        icon={<ClipboardCheck className="text-brand-harbour-500" size={28} aria-hidden />}
+        primaryAction={
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/inspections/new")}
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-brand-harbour-600 px-4 py-2.5 font-medium text-white transition-all duration-200 hover:scale-[1.02] hover:from-blue-600 hover:to-brand-harbour-600 hover:shadow-lg hover:shadow-blue-500/30 active:scale-[0.98] sm:w-auto"
+          >
+            <Plus size={18} aria-hidden />
+            New inspection
+          </button>
+        }
+        secondaryLinks={[
+          { href: "/dashboard", label: "Overview" },
+          { href: "/dashboard/inspections/schedule", label: "Schedule" },
+          { href: "/dashboard/field", label: "Field capture" },
+          { href: "/dashboard/reports", label: "Reports" },
+        ]}
+      />
 
       {/* Status Filter Pills */}
       <div className="flex flex-wrap gap-2">
@@ -289,12 +377,21 @@ export default function InspectionsPage() {
           className={cn(
             "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
             !statusFilter
-              ? "bg-cyan-500 text-white"
+              ? "bg-brand-harbour-500 text-white"
               : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700",
           )}
         >
-          All ({inspections.length})
+          All{activeOnly ? "" : ` (${inspections.length})`}
         </button>
+        {activeOnly && (
+          <button
+            type="button"
+            onClick={() => setStatusFilter("")}
+            className="px-3 py-1.5 rounded-full text-xs font-medium transition-all bg-brand-harbour-500 text-white"
+          >
+            Active
+          </button>
+        )}
         {Object.entries(STATUS_CONFIG).map(([key, cfg]) =>
           statusCounts[key] ? (
             <button
@@ -303,7 +400,7 @@ export default function InspectionsPage() {
               className={cn(
                 "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
                 statusFilter === key
-                  ? "bg-cyan-500 text-white"
+                  ? "bg-brand-harbour-500 text-white"
                   : cn(cfg.bg, cfg.color, "hover:opacity-80"),
               )}
             >
@@ -318,7 +415,7 @@ export default function InspectionsPage() {
         <div className="relative">
           <Search
             size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400"
           />
           <input
             type="text"
@@ -326,12 +423,12 @@ export default function InspectionsPage() {
             placeholder="Search by inspection number, address, or technician..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-600 dark:placeholder:text-neutral-400 focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label htmlFor="inspections-date-from" className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
+            <label htmlFor="inspections-date-from" className="text-xs font-medium text-neutral-600 dark:text-slate-400 whitespace-nowrap">
               From
             </label>
             <input
@@ -339,11 +436,11 @@ export default function InspectionsPage() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+              className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
             />
           </div>
           <div className="flex items-center gap-2">
-            <label htmlFor="inspections-date-to" className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
+            <label htmlFor="inspections-date-to" className="text-xs font-medium text-neutral-600 dark:text-slate-400 whitespace-nowrap">
               To
             </label>
             <input
@@ -351,7 +448,7 @@ export default function InspectionsPage() {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+              className="px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
             />
           </div>
           {(dateFrom || dateTo) && (
@@ -361,7 +458,7 @@ export default function InspectionsPage() {
                 setDateFrom("");
                 setDateTo("");
               }}
-              className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-slate-300 transition-colors"
+              className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-slate-300 transition-colors"
             >
               Clear dates
             </button>
@@ -391,14 +488,15 @@ export default function InspectionsPage() {
             <input
               type="checkbox"
               checked={
-                selectedIds.size === filtered.length && filtered.length > 0
+                visibleSelectedIds.length === filtered.length &&
+                filtered.length > 0
               }
               onChange={toggleSelectAll}
-              className="rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
+              className="rounded border-neutral-300 dark:border-slate-600 text-brand-harbour-500 focus:ring-brand-harbour-500"
             />
             Select all ({filtered.length})
           </label>
-          {selectedIds.size > 0 && (
+          {visibleSelectedIds.length > 0 && (
             <button
               type="button"
               onClick={handleDeleteSelected}
@@ -410,30 +508,25 @@ export default function InspectionsPage() {
               ) : (
                 <Trash2 size={14} />
               )}
-              Delete selected ({selectedIds.size})
+              Delete selected ({visibleSelectedIds.length})
             </button>
           )}
         </div>
       )}
 
       {/* Fetch error */}
-      {fetchError && !loading && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
-          <span className="text-sm">Failed to load inspections — {fetchError}</span>
-          <button
-            type="button"
-            onClick={refetchInspections}
-            className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
+      {listError && !loading && (
+        <DashboardListErrorBanner
+          resourceLabel="inspections"
+          error={listError}
+          onRetry={refetchInspections}
+        />
       )}
 
       {/* Results */}
-      {loading ? (
+      {listError && !loading ? null : loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="animate-spin text-cyan-500" size={32} />
+          <Loader2 className="animate-spin text-brand-harbour-500" size={32} />
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -460,7 +553,7 @@ export default function InspectionsPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((insp) => {
-            const status = STATUS_CONFIG[insp.status] || STATUS_CONFIG.DRAFT;
+            const status = statusBadge(insp.status);
             const classification = insp.classifications?.[0];
             return (
               <div
@@ -469,8 +562,8 @@ export default function InspectionsPage() {
                 className={cn(
                   "w-full text-left p-4 rounded-xl border cursor-pointer transition-all duration-200 group flex items-start gap-3",
                   selectedIds.has(insp.id)
-                    ? "border-cyan-400 dark:border-cyan-600 bg-cyan-50/50 dark:bg-cyan-900/20"
-                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md",
+                    ? "border-brand-harbour-400 dark:border-brand-harbour-600 bg-brand-harbour-50/50 dark:bg-brand-harbour-900/20"
+                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-brand-harbour-300 dark:hover:border-brand-harbour-800 hover:shadow-md",
                 )}
               >
                 <input
@@ -478,14 +571,14 @@ export default function InspectionsPage() {
                   checked={selectedIds.has(insp.id)}
                   onChange={() => toggleSelect(insp.id)}
                   onClick={(e) => e.stopPropagation()}
-                  className="mt-1 rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
+                  className="mt-1 rounded border-neutral-300 dark:border-slate-600 text-brand-harbour-500 focus:ring-brand-harbour-500"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
                     <Link
                       href={`/dashboard/inspections/${insp.id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="font-mono text-sm font-semibold text-cyan-600 dark:text-cyan-400 rounded focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none hover:underline"
+                      className="font-mono text-sm font-semibold text-brand-harbour-700 dark:text-brand-harbour-400 rounded focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:outline-none hover:underline"
                     >
                       {insp.inspectionNumber}
                     </Link>
@@ -508,22 +601,24 @@ export default function InspectionsPage() {
                   <div className="flex items-center gap-1.5 text-neutral-900 dark:text-white font-medium">
                     <MapPin
                       size={14}
-                      className="text-neutral-400 flex-shrink-0"
+                      className="text-neutral-600 dark:text-neutral-400 flex-shrink-0"
                     />
                     <span className="truncate">{insp.propertyAddress}</span>
-                    <span className="text-neutral-400 dark:text-slate-500 text-sm">
+                    <span className="text-neutral-600 dark:text-slate-500 text-sm">
                       ({insp.propertyPostcode})
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500 dark:text-slate-400">
+                  <div className="flex items-center gap-4 mt-2 text-xs text-neutral-600 dark:text-slate-400">
                     <span className="flex items-center gap-1">
                       <Calendar size={12} />
-                      {new Date(insp.createdAt).toLocaleDateString("en-AU", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {formatAttendanceDateEnAu(insp.inspectionDate) ??
+                        ATTENDANCE_NOT_RECORDED_LABEL}
                     </span>
+                    {insp.technicianId === null ? (
+                      <span>Unassigned</span>
+                    ) : currentUserId && insp.technicianId === currentUserId ? (
+                      <span>Assigned to you</span>
+                    ) : null}
                     {insp.technicianName && (
                       <span>Tech: {insp.technicianName}</span>
                     )}
@@ -572,7 +667,7 @@ export default function InspectionsPage() {
                           `/dashboard/reports/new?inspectionId=${insp.id}`,
                         );
                       }}
-                      className="flex whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors"
+                      className="flex whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-harbour-50 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-300 hover:bg-brand-harbour-100 dark:hover:bg-brand-harbour-900/50 transition-colors"
                       title={`Generate report from ${insp.inspectionNumber}`}
                     >
                       <FileText size={14} />
@@ -585,7 +680,7 @@ export default function InspectionsPage() {
                     </span>
                   )}
                   {insp.status === "SUBMITTED" && (
-                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
                       Awaiting classification
                     </span>
                   )}
@@ -593,14 +688,14 @@ export default function InspectionsPage() {
                     type="button"
                     onClick={(e) => handleDeleteOne(e, insp.id)}
                     disabled={deleting}
-                    className="p-2 rounded-lg text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                    className="p-2 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                     title="Delete inspection"
                   >
                     <Trash2 size={18} />
                   </button>
                   <ChevronRight
                     size={20}
-                    className="text-neutral-300 dark:text-slate-600 group-hover:text-cyan-500 transition-colors mt-1"
+                    className="text-neutral-700 dark:text-slate-600 group-hover:text-brand-harbour-500 transition-colors mt-1"
                   />
                 </div>
               </div>
@@ -624,9 +719,11 @@ export default function InspectionsPage() {
             ? "Are you sure you want to delete the selected inspections? This will permanently remove all selected inspections and their associated data."
             : "Are you sure you want to delete this inspection? This will permanently remove the inspection and all its associated data."
         }
-        itemCount={deleteTarget?.type === "bulk" ? selectedIds.size : undefined}
+        itemCount={
+          deleteTarget?.type === "bulk" ? visibleSelectedIds.length : undefined
+        }
         isLoading={deleting}
       />
-    </div>
+    </SimpleDashboardPageFrame>
   );
 }

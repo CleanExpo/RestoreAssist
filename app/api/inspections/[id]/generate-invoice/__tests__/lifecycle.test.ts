@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   canTransition: vi.fn(),
   writeLifecycleTransition: vi.fn(),
   onNextAction: vi.fn(),
+  resolveCanonicalClient: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
@@ -61,11 +62,19 @@ vi.mock("@/lib/audit/lifecycle-event", () => ({
 vi.mock("@/lib/lifecycle/subscribers/next-action", () => ({
   onNextAction: (...args: unknown[]) => mocks.onNextAction(...args),
 }));
+// The canonical resolver has its own suite; null falls back to the report's
+// client.
+vi.mock("@/lib/canonical/resolve-job-client", () => ({
+  resolveCanonicalClientForInspection: (...args: unknown[]) =>
+    mocks.resolveCanonicalClient(...args),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: mocks.inspectionFindFirst },
     invoice: { findFirst: mocks.invoiceFindFirst },
     estimate: { findFirst: mocks.estimateFindFirst },
+    // No frozen approval snapshot: the route falls back to the live lines.
+    estimateVersion: { findUnique: vi.fn().mockResolvedValue(null) },
     invoiceSequence: { upsert: vi.fn() },
     $transaction: mocks.transaction,
   },
@@ -84,6 +93,7 @@ describe("inspection invoice lifecycle", () => {
     } as never);
     mocks.canTransition.mockReturnValue({ ok: true, softGaps: [] });
     mocks.invoiceFindFirst.mockResolvedValue(null);
+    mocks.resolveCanonicalClient.mockResolvedValue(null);
     mocks.txInvoiceFindFirst.mockResolvedValue(null);
     mocks.txEstimateUpdateMany.mockResolvedValue({ count: 1 });
     mocks.txInspectionUpdateMany.mockResolvedValue({ count: 1 });
@@ -111,7 +121,10 @@ describe("inspection invoice lifecycle", () => {
           invoiceSequence: { upsert: mocks.txSequenceUpsert },
           invoiceAuditLog: { create: mocks.txInvoiceAuditCreate },
           auditLog: { create: mocks.txAuditCreate },
-          claimProgress: { updateMany: mocks.txClaimProgressUpdateMany },
+          claimProgress: {
+            findFirst: vi.fn().mockResolvedValue({ id: "cp1", version: 1 }),
+            updateMany: mocks.txClaimProgressUpdateMany,
+          },
         }),
     );
     mocks.inspectionFindFirst.mockResolvedValue({

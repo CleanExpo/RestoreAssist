@@ -41,7 +41,13 @@ export interface AnthropicGatewayRequest {
    *  getAnthropicApiKey(userId) — used by admin/cron flows that
    *  billing-wise are platform-owned, not user-owned. */
   apiKey?: string;
+  /** Optional base URL for a vendor that serves the Anthropic Messages API
+   *  shape (RA-8232: the abliteration.ai backup sketch reader). Omit for
+   *  Anthropic itself. Pair it with an explicit `apiKey` for that vendor. */
+  baseURL?: string;
   request: MessageCreateParams;
+  /** SDK per-call limits. Omit to keep the SDK defaults. */
+  requestOptions?: { timeout?: number; maxRetries?: number };
 }
 
 export async function callAnthropic(
@@ -67,10 +73,14 @@ export async function callAnthropic(
     });
   }
 
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic(
+    args.baseURL ? { apiKey, baseURL: args.baseURL } : { apiKey },
+  );
 
   try {
-    const message = await client.messages.create(args.request);
+    const message = args.requestOptions
+      ? await client.messages.create(args.request, args.requestOptions)
+      : await client.messages.create(args.request);
     return ok(message as Anthropic.Message);
   } catch (err) {
     if (err instanceof Anthropic.AuthenticationError) {

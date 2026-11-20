@@ -6,8 +6,8 @@ description: Turn a described problem into a committed intent/*.md. Use when som
 # Capture an intent
 
 You are helping someone put a problem into RestoreAssist's development chain in
-their own words. The output is one file in `intent/`, written from
-`intent/TEMPLATE.md`. Read `intent/README.md` for what the directory is.
+their own words. The output is one file in `docs/intent/`, written from
+`docs/intent/TEMPLATE.md`. Read `docs/intent/README.md` for what the directory is.
 
 The person you are talking to may not be an engineer, may not use Git, and does
 not need to. Do not ask them to phrase things technically.
@@ -48,8 +48,8 @@ than incomplete, and the person may not know they matter:
 
 ## Writing the file
 
-- Path: `intent/YYYY-MM-DD-short-slug.md`. Status starts at `draft`.
-- Follow `intent/TEMPLATE.md` section for section.
+- Path: `docs/intent/YYYY-MM-DD-short-slug.md`. Status starts at `draft`.
+- Follow `docs/intent/TEMPLATE.md` section for section.
 - Use their words. You are recording what they meant, not improving it. Resist
   turning "the moisture history disappears when a room gets renamed" into
   "SketchRoom identity is not stable across rename operations" — the second is a

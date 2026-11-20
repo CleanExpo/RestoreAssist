@@ -26,6 +26,7 @@ import {
   isMoistureReading,
 } from "@/hooks/use-bluetooth-meter";
 import { queueWrite } from "@/lib/nir-sync-queue";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 type MoistureReadingSuccess = {
   id: string;
@@ -75,6 +76,8 @@ export function MoistureReadingEntryForm({
   const [error, setError] = useState<string | null>(null);
   // RA-1611: BLE meter integration — "ble" when value was pre-filled from a paired meter
   const [source, setSource] = useState<"manual" | "ble">("manual");
+  const [isBaseline, setIsBaseline] = useState(false);
+  const [isMonitoringPoint, setIsMonitoringPoint] = useState(false);
   const ble = useBluetoothMeter("testo-605");
 
   const std = getDryStandard(material);
@@ -119,6 +122,8 @@ export function MoistureReadingEntryForm({
       depth,
       notes: notes.trim() || null,
       source,
+      isBaseline,
+      isMonitoringPoint,
     };
     const endpoint = `/api/inspections/${inspectionId}/moisture`;
     const mutationId =
@@ -132,6 +137,8 @@ export function MoistureReadingEntryForm({
       setMoistureLevel("");
       setNotes("");
       setSource("manual");
+      setIsBaseline(false);
+      setIsMonitoringPoint(false);
     };
 
     const localReading = (id: string) => ({
@@ -195,7 +202,7 @@ export function MoistureReadingEntryForm({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(
-          (data as { error?: string }).error || "Failed to save reading",
+          apiErrorMessage(data) ?? "Failed to save reading",
         );
       }
 
@@ -221,11 +228,11 @@ export function MoistureReadingEntryForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={cn("space-y-4", className)}>
+    <form method="post" onSubmit={handleSubmit} className={cn("space-y-4", className)}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Droplets size={18} className="text-cyan-500" />
+          <Droplets size={18} className="text-brand-harbour-500" />
           <h3 className="font-semibold text-slate-900 dark:text-white text-sm">
             Add Moisture Reading
           </h3>
@@ -234,7 +241,7 @@ export function MoistureReadingEntryForm({
           <button
             type="button"
             onClick={onCancel}
-            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-400"
+            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400"
           >
             <X size={16} />
           </button>
@@ -264,7 +271,7 @@ export function MoistureReadingEntryForm({
                   setLocation(room?.name ?? "");
                 }
               }}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/30"
             >
               <option value="">Select a room</option>
               {sketchRooms.map((room) => (
@@ -282,7 +289,7 @@ export function MoistureReadingEntryForm({
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="Describe the location"
                 aria-label="Room not on the plan"
-                className="mt-2 w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+                className="mt-2 w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-600 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/30"
               />
             )}
           </>
@@ -293,7 +300,7 @@ export function MoistureReadingEntryForm({
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="e.g. Living Room North Wall"
-            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-600 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/30"
           />
         )}
       </div>
@@ -311,7 +318,7 @@ export function MoistureReadingEntryForm({
             id="moisture-material"
             value={material}
             onChange={(e) => setMaterial(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-brand-harbour-500"
           >
             {IICRC_DRY_STANDARDS.map((s) => (
               <option key={s.material} value={s.material}>
@@ -331,7 +338,7 @@ export function MoistureReadingEntryForm({
             id="moisture-depth"
             value={depth}
             onChange={(e) => setDepth(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-brand-harbour-500"
           >
             {DEPTH_OPTIONS.map((d) => (
               <option key={d} value={d}>
@@ -340,6 +347,33 @@ export function MoistureReadingEntryForm({
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Baseline / monitoring (P2 claim integrity) */}
+      <div className="flex flex-col gap-2 rounded-lg border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/80 dark:bg-slate-900/40">
+        <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+          Reading role
+        </p>
+        <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isBaseline}
+            onChange={(e) => setIsBaseline(e.target.checked)}
+            className="mt-0.5 rounded border-slate-300"
+          />
+          <span>
+            Baseline (unaffected reference area — excluded from drying-goal pass/fail)
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isMonitoringPoint}
+            onChange={(e) => setIsMonitoringPoint(e.target.checked)}
+            className="mt-0.5 rounded border-slate-300"
+          />
+          <span>Fixed monitoring point (track this location across visits)</span>
+        </label>
       </div>
 
       {/* Meter type */}
@@ -354,7 +388,7 @@ export function MoistureReadingEntryForm({
           id="moisture-meter-type"
           value={meterType}
           onChange={(e) => setMeterType(e.target.value)}
-          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-brand-harbour-500"
         >
           {METER_TYPES.map((m) => (
             <option key={m.value} value={m.value}>
@@ -405,7 +439,7 @@ export function MoistureReadingEntryForm({
               className={cn(
                 "inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors",
                 ble.paired
-                  ? "bg-cyan-50 text-cyan-700 border border-cyan-300 hover:bg-cyan-100 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-700"
+                  ? "bg-brand-harbour-50 text-brand-harbour-700 border border-brand-harbour-300 hover:bg-brand-harbour-100 dark:bg-brand-harbour-900/30 dark:text-brand-harbour-300 dark:border-brand-harbour-700"
                   : "bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600",
               )}
             >
@@ -428,7 +462,7 @@ export function MoistureReadingEntryForm({
         </div>
         {/* BLE source indicator */}
         {source === "ble" && (
-          <div className="flex items-center gap-1 mb-1 text-xs text-cyan-600 dark:text-cyan-400">
+          <div className="flex items-center gap-1 mb-1 text-xs text-brand-harbour-700 dark:text-brand-harbour-400">
             <Bluetooth size={11} />
             <span>Value from paired meter — confirm before saving</span>
           </div>
@@ -449,8 +483,8 @@ export function MoistureReadingEntryForm({
             className={cn(
               "flex-1 px-3 py-2 text-sm rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1",
               source === "ble"
-                ? "border-cyan-400 focus:border-cyan-500 focus:ring-cyan-500/30"
-                : "border-slate-300 dark:border-slate-600 focus:border-cyan-500 focus:ring-cyan-500/30",
+                ? "border-brand-harbour-400 focus:border-brand-harbour-500 focus:ring-brand-harbour-500/30"
+                : "border-slate-300 dark:border-slate-600 focus:border-brand-harbour-500 focus:ring-brand-harbour-500/30",
             )}
           />
           {/* Live status badge */}
@@ -509,7 +543,7 @@ export function MoistureReadingEntryForm({
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Additional observations…"
           rows={2}
-          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 resize-none"
+          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-600 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-harbour-500 resize-none"
         />
       </div>
 
@@ -547,7 +581,7 @@ export function MoistureReadingEntryForm({
         <button
           type="submit"
           disabled={submitting}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/30 transition-all disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-brand-harbour-500 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-brand-harbour-500/30 transition-all disabled:opacity-50"
         >
           {submitting ? (
             <Loader2 size={14} className="animate-spin" />

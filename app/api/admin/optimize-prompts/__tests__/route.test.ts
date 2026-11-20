@@ -9,9 +9,14 @@ vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminFromDb: (...args: unknown[]) => verifyAdminFromDb(...args),
-}));
+vi.mock("@/lib/admin-auth", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/admin-auth")>("@/lib/admin-auth");
+  return {
+    verifyAdminFromDb: (...args: unknown[]) => verifyAdminFromDb(...args),
+    verifyPlatformSupportOperator: actual.verifyPlatformSupportOperator,
+  };
+});
 vi.mock("@/lib/ai/prompt-optimizer", () => ({
   optimizePrompt: (...args: unknown[]) => optimizePrompt(...args),
 }));
@@ -26,6 +31,8 @@ vi.mock("@/lib/idempotency", () => ({
 import { POST } from "../route";
 
 beforeEach(() => {
+  // RA-8043c: the route now also requires the platform support allowlist.
+  process.env.PLATFORM_SUPPORT_USER_IDS = "admin_user";
   getServerSession.mockReset();
   verifyAdminFromDb.mockReset();
   optimizePrompt.mockReset();

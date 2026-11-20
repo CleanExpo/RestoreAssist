@@ -14,6 +14,9 @@
 export const MAKE_SAFE_SEED_NOTE =
   "Seeded at intake — mark applicable items complete before relying on this for compliance.";
 
+export const MAKE_SAFE_NOT_ASSESSED_REASON =
+  "The Stabilisation checklist has not been filled in. Mark each item as applicable or not applicable, complete the applicable ones, then submit again.";
+
 export type MakeSafeCompliance = "PASS" | "FAIL" | "NOT_ASSESSED";
 
 export interface MakeSafeComplianceItem {

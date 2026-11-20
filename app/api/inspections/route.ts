@@ -4,6 +4,7 @@ import { InspectionStatus, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { getApiSession } from "@/lib/auth/get-api-session";
 import { prisma } from "@/lib/prisma";
+import { INACTIVE_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 import { sanitizeString } from "@/lib/sanitize";
 import { randomBytes } from "crypto";
 import {
@@ -23,6 +24,7 @@ import {
   enumEqualityOrIn,
   parseEnumList,
 } from "@/lib/validation/parse-enum-list";
+import { scheduleZohoInspectionPush } from "@/lib/integrations/zoho/queue";
 
 class ReportClientChangedError extends Error {}
 class IdempotencyReservationLostError extends Error {}
@@ -120,7 +122,7 @@ export async function GET(request: NextRequest) {
 
       const where: Prisma.InspectionWhereInput = {
         userId: session.user.id,
-        reportId: { in: reportIds },
+        OR: [{ clientId }, { reportId: { in: reportIds } }],
       };
 
       const [total, inspections] = await Promise.all([
@@ -268,13 +270,13 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // Status filter — support "active" alias (not COMPLETED/REJECTED).
+    // Status filter — support "active" alias (not finished).
     // RA-7567: Field Mode sends several statuses in one query value
     // (`DRAFT,SUBMITTED,…`). Split and validate so Prisma never sees the
     // joined string as a single InspectionStatus (that was a 500).
     if (status) {
       if (status === "active") {
-        where.status = { notIn: ["COMPLETED", "REJECTED"] };
+        where.status = { notIn: [...INACTIVE_INSPECTION_STATUSES] };
       } else {
         const parsed = parseEnumList(status, Object.values(InspectionStatus));
         if (!parsed.ok) {
@@ -619,20 +621,9 @@ export async function POST(request: NextRequest) {
             status: 409,
           });
         }
-        if (
-          report.propertyAddress.trim().toLowerCase() !==
-            body.propertyAddress.trim().toLowerCase() ||
-          (report.propertyPostcode &&
-            report.propertyPostcode.trim() !== body.propertyPostcode.trim())
-        ) {
-          return apiError(request, {
-            code: "CONFLICT",
-            message: "Inspection property does not match the report",
-            status: 409,
-          });
-        }
-        // Report-to-inspection is unique. An ordinary retry must return the
-        // existing draft, not create a second job or change its evidence.
+        // Report-to-inspection is unique. Return the existing draft before any
+        // property comparison — photo upload and Save Draft retry the same POST
+        // with form values that may differ slightly from the report row.
         const existing = await prisma.inspection.findUnique({
           where: { reportId: report.id },
           include: {
@@ -665,6 +656,18 @@ export async function POST(request: NextRequest) {
           }
           return NextResponse.json({ inspection: existing });
         }
+        if (
+          report.propertyAddress.trim().toLowerCase() !==
+            body.propertyAddress.trim().toLowerCase() ||
+          (report.propertyPostcode &&
+            report.propertyPostcode.trim() !== body.propertyPostcode.trim())
+        ) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: "Inspection property does not match the report",
+            status: 409,
+          });
+        }
       }
 
       // Optional client linkage — create a shell Report so inspections appear
@@ -690,6 +693,18 @@ export async function POST(request: NextRequest) {
       const month = String(now.getMonth() + 1).padStart(2, "0");
       const sequence = randomBytes(3).toString("hex").toUpperCase(); // 6 hex chars
       const inspectionNumber = `NIR-${year}-${month}-${sequence}`;
+
+      let resolvedClientId: string | null =
+        typeof body.clientId === "string" && body.clientId.trim()
+          ? body.clientId.trim()
+          : null;
+      if (!resolvedClientId && reportId) {
+        const linkedReport = await prisma.report.findUnique({
+          where: { id: reportId },
+          select: { clientId: true },
+        });
+        resolvedClientId = linkedReport?.clientId ?? null;
+      }
 
       // Create inspection
       // Keep a new client report and its one linked job in the same commit.
@@ -741,6 +756,7 @@ export async function POST(request: NextRequest) {
               : null,
             ...(pickedClaimType ? { claimType: pickedClaimType } : {}),
             reportId,
+            clientId: resolvedClientId,
             // A job linked to a report belongs to the report's owner, also when
             // an ADMIN creates it; the ADMIN is recorded in the audit row.
             userId: reportOwnerId,
@@ -791,10 +807,12 @@ export async function POST(request: NextRequest) {
         const { ensureMakeSafeSeeded } = await import(
           "@/lib/compliance/seed-make-safe"
         );
-        await ensureMakeSafeSeeded(inspection.id);
+        await ensureMakeSafeSeeded(inspection.id, inspection.claimType ?? null);
       } catch (seedErr) {
         console.error("Error seeding make-safe rows (non-critical):", seedErr);
       }
+
+      scheduleZohoInspectionPush(inspection.id);
 
       return NextResponse.json({ inspection }, {
         status: 201,

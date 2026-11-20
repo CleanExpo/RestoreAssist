@@ -190,7 +190,7 @@ function SectionCard({
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-6">
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-cyan-500">{icon}</span>
+        <span className="text-brand-harbour-500">{icon}</span>
         <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
       </div>
       {children}
@@ -248,7 +248,7 @@ export default function ReportPreviewPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-4">
+      <div className="max-w-9xl mx-auto px-4 py-8 space-y-4">
         <div className="h-8 bg-slate-200 rounded w-48 animate-pulse mb-6" />
         <SkeletonCard />
         <SkeletonCard />
@@ -269,7 +269,7 @@ export default function ReportPreviewPage() {
         </p>
         <Link
           href="/dashboard/reports"
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
         >
           <ArrowLeft size={16} />
           Back to Reports
@@ -290,7 +290,7 @@ export default function ReportPreviewPage() {
       : "—";
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 print:px-0 print:py-4">
+    <div className="max-w-9xl mx-auto px-4 py-8 print:px-0 print:py-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 print:hidden">
         <Link
@@ -310,7 +310,7 @@ export default function ReportPreviewPage() {
           </button>
           <Link
             href={`/api/reports/${id}/download`}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors text-sm"
           >
             <Download size={15} />
             Download PDF
@@ -330,17 +330,17 @@ export default function ReportPreviewPage() {
 
       <div className="space-y-6">
         {/* Report title banner */}
-        <div className="bg-gradient-to-r from-cyan-600 to-cyan-500 rounded-xl p-6 text-white">
+        <div className="dark bg-gradient-to-r from-brand-harbour-600 to-brand-harbour-500 rounded-xl p-6 text-white">
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-2xl font-bold mb-1">{report.title}</h1>
               {report.reportNumber && (
-                <p className="text-cyan-100 text-sm">
+                <p className="text-brand-harbour-700 dark:text-brand-harbour-100 text-sm">
                   Report #{report.reportNumber}
                 </p>
               )}
             </div>
-            <span className="bg-white/20 text-white text-xs font-medium px-3 py-1 rounded-full">
+            <span className="bg-brand-navy/5 dark:bg-white/20 text-brand-navy dark:text-white text-xs font-medium px-3 py-1 rounded-full">
               {report.status}
             </span>
           </div>
@@ -507,19 +507,19 @@ export default function ReportPreviewPage() {
                 >
                   <ChevronRight
                     size={16}
-                    className="text-cyan-500 mt-0.5 shrink-0"
+                    className="text-brand-harbour-500 mt-0.5 shrink-0"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-slate-800 text-sm font-medium">
                       {item.description}
                     </p>
                     {item.justification && (
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      <p className="text-xs text-brand-slate dark:text-slate-400 mt-0.5">
                         [{item.justification}]
                       </p>
                     )}
                     {item.category && (
-                      <span className="inline-block text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded mt-1">
+                      <span className="inline-block text-xs bg-brand-harbour-100 text-brand-harbour-700 px-2 py-0.5 rounded mt-1">
                         {item.category}
                       </span>
                     )}
@@ -597,7 +597,7 @@ export default function ReportPreviewPage() {
               {(costData.totalIncGST ?? report.totalCost) != null && (
                 <div className="flex justify-between text-base font-bold text-slate-800 pt-1 border-t border-slate-200">
                   <span>Total (inc GST)</span>
-                  <span className="text-cyan-600">
+                  <span className="text-brand-harbour-600">
                     {formatCurrency(costData.totalIncGST ?? report.totalCost)}
                   </span>
                 </div>
@@ -616,7 +616,7 @@ export default function ReportPreviewPage() {
         )}
 
         {/* Footer */}
-        <div className="text-center text-xs text-slate-400 py-4 print:block hidden">
+        <div className="text-center text-xs text-brand-slate dark:text-slate-400 py-4 print:block hidden">
           Generated by RestoreAssist &bull;{" "}
           {new Date(report.createdAt).toLocaleDateString("en-AU")}
         </div>

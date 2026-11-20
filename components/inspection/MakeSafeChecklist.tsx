@@ -3,40 +3,35 @@
 // RA-1136a: Make-Safe first-48h compliance checklist component
 // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
 //
-// Brand: navy #1C2E47 header · warm #8A6B4E accents · shadcn/ui primitives only
+// Brand: navy header (brand-navy) · harbour accents (brand-cta) · shadcn/ui primitives only
 
-import { useState, useEffect } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useMemo,
+  useState,
+} from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import toast from "react-hot-toast";
 import { Badge } from "@/components/ui/badge";
 import {
   MAKE_SAFE_COMPLIANCE_LABEL,
+  MAKE_SAFE_NOT_ASSESSED_REASON,
   makeSafeCompliance,
 } from "@/lib/compliance/make-safe-compliance";
-
-// ── Constants ──────────────────────────────────────────────────────────────
-
-const MAKE_SAFE_ACTIONS = [
-  "power_isolated",
-  "gas_isolated",
-  "mould_containment",
-  "water_stopped",
-  "occupant_briefing",
-] as const;
-
-type MakeSafeActionName = (typeof MAKE_SAFE_ACTIONS)[number];
-
-const ACTION_LABELS: Record<MakeSafeActionName, string> = {
-  power_isolated: "Power isolated (electrical hazard)",
-  gas_isolated: "Gas supply isolated (gas leak hazard)",
-  mould_containment: "Mould containment barriers erected",
-  water_stopped: "Water source stopped/diverted",
-  occupant_briefing: "Occupant safety briefing documented",
-};
+import {
+  MAKE_SAFE_ACTIONS,
+  MAKE_SAFE_ACTION_LABELS as ACTION_LABELS,
+  isIntakeSeed,
+  type MakeSafeActionName,
+  type MakeSafeActionState,
+  type MakeSafeChecklistState,
+  persistMakeSafeChecklist,
+} from "@/lib/compliance/make-safe-actions";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -47,27 +42,42 @@ interface MakeSafeRow {
   notes: string | null;
 }
 
-interface ActionState {
-  applicable: boolean;
-  completed: boolean;
-  notes: string;
+type ActionList = readonly MakeSafeActionName[];
+
+const EMPTY_ROW: MakeSafeActionState = {
+  applicable: true,
+  completed: false,
+  notes: "",
+};
+
+/**
+ * RA-8327: the server names the job's list (fire or standard). A response
+ * without one, or naming an action this build has no label for, falls back
+ * to the standard list.
+ */
+function listFrom(names: unknown): ActionList {
+  if (
+    Array.isArray(names) &&
+    names.length > 0 &&
+    names.every(
+      (n) =>
+        typeof n === "string" &&
+        Object.prototype.hasOwnProperty.call(ACTION_LABELS, n),
+    )
+  ) {
+    return names as MakeSafeActionName[];
+  }
+  return MAKE_SAFE_ACTIONS;
 }
 
-type ChecklistState = Record<MakeSafeActionName, ActionState>;
-
-function defaultState(): ChecklistState {
-  return Object.fromEntries(
-    MAKE_SAFE_ACTIONS.map((a) => [
-      a,
-      { applicable: true, completed: false, notes: "" },
-    ]),
-  ) as ChecklistState;
+function defaultState(list: ActionList): MakeSafeChecklistState {
+  return Object.fromEntries(list.map((a) => [a, { ...EMPTY_ROW }]));
 }
 
-function rowsToState(rows: MakeSafeRow[]): ChecklistState {
-  const state = defaultState();
+function rowsToState(list: ActionList, rows: MakeSafeRow[]): MakeSafeChecklistState {
+  const state = defaultState(list);
   for (const row of rows) {
-    if (MAKE_SAFE_ACTIONS.includes(row.action as MakeSafeActionName)) {
+    if (list.includes(row.action as MakeSafeActionName)) {
       state[row.action as MakeSafeActionName] = {
         applicable: row.applicable,
         completed: row.completed,
@@ -78,84 +88,192 @@ function rowsToState(rows: MakeSafeRow[]): ChecklistState {
   return state;
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
+
+/** Rows from the job's other list, named by the server as read-only history. */
+function historyFrom(rows: unknown): MakeSafeRow[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.filter(
+    (r): r is MakeSafeRow =>
+      r != null &&
+      typeof r === "object" &&
+      typeof (r as MakeSafeRow).action === "string",
+  );
+}
+
+/** A quick-fill seed applies only when it is for this job's list. */
+function seedFits(list: ActionList, seed: MakeSafeChecklistState): boolean {
+  const keys = Object.keys(seed);
+  return keys.length === list.length && list.every((a) => seed[a] != null);
+}
+
+function rowOf(state: MakeSafeChecklistState, action: MakeSafeActionName) {
+  return state[action] ?? EMPTY_ROW;
+}
+
+export type MakeSafeChecklistHandle = {
+  /** Persist current checklist selections to the inspection (no toast). */
+  persist: () => Promise<void>;
+  /** RA-8330: true once the saved checklist has loaded. Before that the panel
+   *  holds the default state, so persist() refuses rather than overwrite. */
+  isReady: () => boolean;
+  readiness: () => { ok: true } | { ok: false; message: string };
+  applySeed: (seed: MakeSafeChecklistState) => void;
+};
 
 interface MakeSafeChecklistProps {
   inspectionId: string;
+  /** Debounced silent save after edits (e.g. inspection hub without Review & Submit). */
+  autoSave?: boolean;
+  /** Quick Fill or similar — applied when the API still has the all-N/A intake seed. */
+  seed?: MakeSafeChecklistState | null;
 }
 
-export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
+/**
+ * RA-8330 (PR review round 7): one panel instance per inspection. A new
+ * inspectionId remounts the panel, so its state and readiness can never
+ * carry over from the previous inspection's checklist.
+ */
+export const MakeSafeChecklist = forwardRef<
+  MakeSafeChecklistHandle,
+  MakeSafeChecklistProps
+>(function MakeSafeChecklist(props, ref) {
+  return (
+    <MakeSafeChecklistForInspection key={props.inspectionId} {...props} ref={ref} />
+  );
+});
+
+const MakeSafeChecklistForInspection = forwardRef<
+  MakeSafeChecklistHandle,
+  MakeSafeChecklistProps
+>(function MakeSafeChecklistForInspection(
+  { inspectionId, autoSave = false, seed = null },
+  ref,
+) {
   const endpoint = `/api/inspections/${inspectionId}/make-safe`;
 
-  const { data, loading, error } = useFetch<{ data: MakeSafeRow[] }>(endpoint);
+  const { data, loading, error } = useFetch<{
+    data: MakeSafeRow[];
+    actions?: string[];
+    history?: MakeSafeRow[];
+  }>(endpoint);
 
-  const [state, setState] = useState<ChecklistState>(defaultState);
-  const [saving, setSaving] = useState(false);
+  const list = useMemo(() => listFrom(data?.actions), [data]);
+  const history = useMemo(() => historyFrom(data?.history), [data]);
+  const listRef = useRef(list);
+  listRef.current = list;
 
-  // Hydrate from API on load
+  const [state, setState] = useState<MakeSafeChecklistState>(() =>
+    defaultState(MAKE_SAFE_ACTIONS),
+  );
+  const skipAutoSave = useRef(true);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const hydratedRef = useRef(false);
+
+  const usableSeed = seed && seedFits(list, seed) ? seed : null;
+
+  /**
+   * RA-8327: the one place a preset (Quick Fill) is written to the checklist.
+   * The seed prop and the imperative applySeed both come here. A preset for
+   * the other list is ignored, and a preset applies only while the job's list
+   * in the current state (the last loaded rows plus local edits) is still the
+   * untouched intake seed, so it never replaces anything a person recorded,
+   * including a note on an N/A row or a preset chosen earlier.
+   */
+  function applyQuickFill(next: MakeSafeChecklistState) {
+    const onList = listRef.current;
+    if (!seedFits(onList, next)) return;
+    setState((prev) => {
+      // A missing row reads as an open applicable item, so it is never the seed.
+      const current = onList.map((action) => ({ action, ...rowOf(prev, action) }));
+      if (!isIntakeSeed(current)) return prev;
+      skipAutoSave.current = true;
+      return next;
+    });
+  }
+
+  // Hydrate from the stored rows on load.
   useEffect(() => {
     if (data?.data) {
-      setState(rowsToState(data.data));
+      const fromApi = rowsToState(list, data.data);
+      setState(fromApi);
+      skipAutoSave.current = true;
+      hydratedRef.current = true;
     }
-  }, [data]);
+  }, [data, list]);
+
+  // A seed prop (Quick Fill) is offered once the stored rows are loaded.
+  useEffect(() => {
+    if (data?.data && usableSeed) applyQuickFill(usableSeed);
+    // applyQuickFill reads refs and the state updater only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, usableSeed]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      isReady: () => hydratedRef.current,
+      persist: async () => {
+        if (!hydratedRef.current) {
+          throw new Error("Make-safe checklist is still loading");
+        }
+        await persistMakeSafeChecklist(inspectionId, stateRef.current);
+      },
+      readiness: () => {
+        const compliance = makeSafeCompliance(
+          listRef.current.map((action) => rowOf(stateRef.current, action)),
+        );
+        if (compliance === "NOT_ASSESSED") {
+          return { ok: false, message: MAKE_SAFE_NOT_ASSESSED_REASON };
+        }
+        if (compliance === "FAIL") {
+          return {
+            ok: false,
+            message:
+              "Complete all applicable stabilisation items before submitting.",
+          };
+        }
+        return { ok: true };
+      },
+      applySeed: (next) => applyQuickFill(next),
+    }),
+    [inspectionId],
+  );
+
+  useEffect(() => {
+    if (!autoSave || skipAutoSave.current) {
+      skipAutoSave.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void persistMakeSafeChecklist(inspectionId, stateRef.current).catch(
+        () => {
+          /* Hub autosave is best-effort; explicit persist on submit surfaces errors. */
+        },
+      );
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [autoSave, inspectionId, state]);
 
   // ── Compliance pill ──────────────────────────────────────────────────────
 
   // RA-7713: all-N/A (the intake seed) is "Not assessed", never PASS.
   const compliance = makeSafeCompliance(
-    MAKE_SAFE_ACTIONS.map((a) => state[a]),
+    list.map((a) => rowOf(state, a)),
   );
   const complianceStatus = MAKE_SAFE_COMPLIANCE_LABEL[compliance];
 
   // ── Field handlers ───────────────────────────────────────────────────────
 
-  function setField<K extends keyof ActionState>(
+  function setField<K extends keyof MakeSafeActionState>(
     action: MakeSafeActionName,
     field: K,
-    value: ActionState[K],
+    value: MakeSafeActionState[K],
   ) {
     setState((prev) => ({
       ...prev,
-      [action]: { ...prev[action], [field]: value },
+      [action]: { ...rowOf(prev, action), [field]: value },
     }));
-  }
-
-  // ── Save handler ─────────────────────────────────────────────────────────
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      const payload = {
-        actions: MAKE_SAFE_ACTIONS.map((action) => ({
-          action,
-          applicable: state[action].applicable,
-          completed: state[action].completed,
-          notes: state[action].notes || undefined,
-        })),
-      };
-
-      const res = await fetch(endpoint, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          (body as { error?: string }).error ?? `HTTP ${res.status}`,
-        );
-      }
-
-      toast.success(
-        `Stabilisation checklist saved — compliance status: ${complianceStatus}`,
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Save failed";
-      toast.error(`Save failed: ${message}`);
-    } finally {
-      setSaving(false);
-    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -164,7 +282,7 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
     return (
       <div className="rounded-lg border p-4 animate-pulse">
         <div className="h-6 bg-muted rounded w-48 mb-4" />
-        {MAKE_SAFE_ACTIONS.map((a) => (
+        {list.map((a) => (
           <div key={a} className="h-10 bg-muted rounded mb-2" />
         ))}
       </div>
@@ -187,7 +305,7 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-3"
-        style={{ backgroundColor: "#1C2E47" }}
+        style={{ backgroundColor: "var(--color-brand-navy)" }}
       >
         <div>
           <h2 className="text-base font-semibold text-white">
@@ -213,8 +331,8 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
 
       {/* Rows */}
       <div className="divide-y">
-        {MAKE_SAFE_ACTIONS.map((action) => {
-          const row = state[action];
+        {list.map((action) => {
+          const row = rowOf(state, action);
           const checkboxId = `make-safe-${action}`;
           const naId = `make-safe-na-${action}`;
           const notesId = `make-safe-notes-${action}`;
@@ -233,7 +351,7 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
                   aria-label={`Mark "${ACTION_LABELS[action]}" as completed`}
                   style={
                     row.completed && row.applicable
-                      ? { accentColor: "#8A6B4E" }
+                      ? { accentColor: "var(--color-brand-cta)" }
                       : undefined
                   }
                 />
@@ -289,18 +407,42 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
         })}
       </div>
 
-      {/* Footer */}
-      <div className="px-4 py-3 border-t flex justify-end">
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          style={{ backgroundColor: "#8A6B4E" }}
-          className="text-white hover:opacity-90"
-          aria-label="Save Stabilisation checklist"
+      {history.length > 0 && (
+        <section
+          aria-label="Recorded on the earlier list"
+          className="border-t bg-muted/40 p-4 space-y-2"
         >
-          {saving ? "Saving…" : "Save Checklist"}
-        </Button>
-      </div>
+          <h3 className="text-sm font-medium">Recorded on the earlier list</h3>
+          <p className="text-xs text-muted-foreground">
+            Kept as a record after the job type changed. Read-only; these items
+            do not count toward submit.
+          </p>
+          <ul className="space-y-1 text-sm">
+            {history.map((row) => (
+              <li key={row.action}>
+                <span>
+                  {Object.prototype.hasOwnProperty.call(ACTION_LABELS, row.action)
+                    ? ACTION_LABELS[row.action as MakeSafeActionName]
+                    : row.action}
+                </span>
+                {" — "}
+                <span className="text-muted-foreground">
+                  {!row.applicable
+                    ? "N/A"
+                    : row.completed
+                      ? "Completed"
+                      : "Not completed"}
+                </span>
+                {row.notes ? (
+                  <span className="block text-xs text-muted-foreground">
+                    {row.notes}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </section>
   );
-}
+});

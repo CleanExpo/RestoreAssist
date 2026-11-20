@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { CLIENT_NOTES_MAX_LENGTH } from "@/lib/clients/notes";
+import { PULSE_OPT_OUT_STAFF_NOTE } from "@/lib/pulse/pulse-inspection-ui-copy";
 
 interface ClientFormData {
   name: string;
@@ -16,6 +17,7 @@ interface ClientFormData {
   contactPerson: string;
   address: string;
   notes: string;
+  pulseOptOut: boolean;
   status: string;
 }
 
@@ -31,6 +33,7 @@ export default function ClientEditPage() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
+  const [savedOptOut, setSavedOptOut] = useState(false);
 
   const [form, setForm] = useState<ClientFormData>({
     name: "",
@@ -40,6 +43,7 @@ export default function ClientEditPage() {
     contactPerson: "",
     address: "",
     notes: "",
+    pulseOptOut: false,
     status: "ACTIVE",
   });
 
@@ -58,6 +62,7 @@ export default function ClientEditPage() {
         return;
       }
       const data = await response.json();
+      setSavedOptOut(data.pulseOptOut === true);
       setClientName(data.name ?? "");
       setForm({
         name: data.name ?? "",
@@ -67,6 +72,7 @@ export default function ClientEditPage() {
         contactPerson: data.contactPerson ?? "",
         address: data.address ?? "",
         notes: data.notes ?? "",
+        pulseOptOut: data.pulseOptOut === true,
         status: data.status ?? "ACTIVE",
       });
     } catch (err) {
@@ -130,7 +136,7 @@ export default function ClientEditPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -138,14 +144,14 @@ export default function ClientEditPage() {
   if (error) {
     return (
       <div className="text-center py-12">
-        <AlertTriangle className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-        <h3 className="text-lg font-medium text-white mb-2">
+        <AlertTriangle className="mx-auto h-12 w-12 text-brand-slate dark:text-slate-400 mb-4" />
+        <h3 className="text-lg font-medium text-brand-navy dark:text-white mb-2">
           Error loading client
         </h3>
-        <p className="text-slate-400 mb-4">{error}</p>
+        <p className="text-brand-slate dark:text-slate-400 mb-4">{error}</p>
         <Link
           href={`/dashboard/clients/${id}`}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
         >
           <ArrowLeft size={16} />
           Back to Client
@@ -155,30 +161,30 @@ export default function ClientEditPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-9xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link
           href={`/dashboard/clients/${id}`}
-          className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
+          className="p-2 hover:bg-brand-cream dark:hover:bg-slate-700/50 rounded-lg transition-colors"
           aria-label="Back to client"
         >
           <ArrowLeft size={20} />
         </Link>
         <div>
           <h1 className="text-3xl font-semibold">Edit Client</h1>
-          <p className="text-slate-400">{clientName}</p>
+          <p className="text-brand-slate dark:text-slate-400">{clientName}</p>
         </div>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit}>
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 space-y-5">
+      <form method="post" onSubmit={handleSubmit}>
+        <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-xl p-6 space-y-5">
           {/* Name */}
           <div className="space-y-1.5">
             <label
               htmlFor="name"
-              className="block text-sm font-medium text-slate-300"
+              className="block text-sm font-medium text-brand-slate dark:text-slate-300"
             >
               Name <span className="text-destructive">*</span>
             </label>
@@ -190,7 +196,7 @@ export default function ClientEditPage() {
               onChange={handleChange}
               required
               placeholder="Client full name"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -198,7 +204,7 @@ export default function ClientEditPage() {
           <div className="space-y-1.5">
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-slate-300"
+              className="block text-sm font-medium text-brand-slate dark:text-slate-300"
             >
               Email <span className="text-destructive">*</span>
             </label>
@@ -210,7 +216,7 @@ export default function ClientEditPage() {
               onChange={handleChange}
               required
               placeholder="client@example.com"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -218,7 +224,7 @@ export default function ClientEditPage() {
           <div className="space-y-1.5">
             <label
               htmlFor="phone"
-              className="block text-sm font-medium text-slate-300"
+              className="block text-sm font-medium text-brand-slate dark:text-slate-300"
             >
               Phone
             </label>
@@ -229,7 +235,7 @@ export default function ClientEditPage() {
               value={form.phone}
               onChange={handleChange}
               placeholder="+61 400 000 000"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -237,7 +243,7 @@ export default function ClientEditPage() {
           <div className="space-y-1.5">
             <label
               htmlFor="company"
-              className="block text-sm font-medium text-slate-300"
+              className="block text-sm font-medium text-brand-slate dark:text-slate-300"
             >
               Company
             </label>
@@ -248,7 +254,7 @@ export default function ClientEditPage() {
               value={form.company}
               onChange={handleChange}
               placeholder="Company name"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -256,7 +262,7 @@ export default function ClientEditPage() {
           <div className="space-y-1.5">
             <label
               htmlFor="contactPerson"
-              className="block text-sm font-medium text-slate-300"
+              className="block text-sm font-medium text-brand-slate dark:text-slate-300"
             >
               Contact Person
             </label>
@@ -267,7 +273,7 @@ export default function ClientEditPage() {
               value={form.contactPerson}
               onChange={handleChange}
               placeholder="Primary contact name"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -275,7 +281,7 @@ export default function ClientEditPage() {
           <div className="space-y-1.5">
             <label
               htmlFor="address"
-              className="block text-sm font-medium text-slate-300"
+              className="block text-sm font-medium text-brand-slate dark:text-slate-300"
             >
               Address
             </label>
@@ -286,7 +292,7 @@ export default function ClientEditPage() {
               value={form.address}
               onChange={handleChange}
               placeholder="123 Main St, Sydney NSW 2000"
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             />
           </div>
 
@@ -294,7 +300,7 @@ export default function ClientEditPage() {
           <div className="space-y-1.5">
             <label
               htmlFor="status"
-              className="block text-sm font-medium text-slate-300"
+              className="block text-sm font-medium text-brand-slate dark:text-slate-300"
             >
               Status
             </label>
@@ -303,7 +309,7 @@ export default function ClientEditPage() {
               name="status"
               value={form.status}
               onChange={handleChange}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+              className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors"
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>
@@ -317,7 +323,7 @@ export default function ClientEditPage() {
           <div className="space-y-1.5">
             <label
               htmlFor="notes"
-              className="block text-sm font-medium text-slate-300"
+              className="block text-sm font-medium text-brand-slate dark:text-slate-300"
             >
               Notes
             </label>
@@ -328,16 +334,43 @@ export default function ClientEditPage() {
               onChange={handleChange}
               rows={4}
               placeholder="Any additional notes about this client..."
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors resize-none"
+              className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500 focus:border-transparent transition-colors resize-none"
             />
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-brand-slate dark:text-slate-400">
               {form.notes.length.toLocaleString("en-AU")} / {CLIENT_NOTES_MAX_LENGTH.toLocaleString("en-AU")} characters
             </p>
           </div>
 
+          {/* Automated email opt-out */}
+          <div className="flex items-start gap-3">
+            <input
+              id="pulseOptOut"
+              type="checkbox"
+              checked={form.pulseOptOut}
+              disabled={savedOptOut}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, pulseOptOut: e.target.checked }))
+              }
+              className="mt-0.5 h-4 w-4 accent-brand-harbour-500"
+            />
+            <div>
+              <label
+                htmlFor="pulseOptOut"
+                className="block text-sm font-medium text-brand-slate dark:text-slate-300"
+              >
+                Client asked to stop automated job updates
+              </label>
+              <p className="text-xs text-brand-slate dark:text-slate-400">
+                {savedOptOut
+                  ? PULSE_OPT_OUT_STAFF_NOTE
+                  : "Once saved, this cannot be undone from this screen."}
+              </p>
+            </div>
+          </div>
+
           {/* Save error */}
           {saveError && (
-            <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+            <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-700 dark:text-red-400 text-sm">
               <AlertTriangle size={16} className="flex-shrink-0" />
               {saveError}
             </div>
@@ -347,14 +380,14 @@ export default function ClientEditPage() {
           <div className="flex items-center justify-end gap-3 pt-2">
             <Link
               href={`/dashboard/clients/${id}`}
-              className="px-4 py-2 border border-slate-600 rounded-lg text-slate-300 hover:bg-slate-700/50 transition-colors text-sm font-medium"
+              className="px-4 py-2 border border-slate-600 rounded-lg text-brand-slate dark:text-slate-300 hover:bg-brand-cream dark:hover:bg-slate-700/50 transition-colors text-sm font-medium"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               {saving ? (
                 <>

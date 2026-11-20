@@ -14,7 +14,6 @@ _Read this first. Lists every concept + subfolder here so an agent loads only wh
 ## Concepts
 - [[RA-2948-floorplan-datasource-spec]] — RA-2948 — Pre-loaded Property Floor Plan: Data-Source Decision Spec
 - [[au-ip-opinion-brief]] — Brief for AU IP counsel — RestoreAssist Mapping "existing-plan import" feature
-- [[client-portal-single-button-plan]] — Client claim portal — "single button" (implementation plan)
 - [[existing-plan-import-implementation-plan]] — Existing-plan import — implementation plan (pre-build, legally gated)
 - [[homeowner-capture-implementation-plan]] — Homeowner self-capture — implementation plan (pre-build, gated)
 - [[homeowner-capture-security-design]] — Homeowner self-capture — security design & threat model (for sign-off)

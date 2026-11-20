@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   FileText,
@@ -31,6 +32,12 @@ import {
 } from "@/lib/invoice-status";
 import { getVariationAmountDisplay } from "@/lib/invoices/variation-amount";
 import { formatDate } from "@/lib/formatters";
+import {
+  parseApiError,
+  type ParsedApiError,
+} from "@/lib/client/parse-api-error";
+import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface LineItem {
   id: string;
@@ -114,6 +121,10 @@ interface Invoice {
   payments: Payment[];
   auditLogs: AuditLog[];
 
+  // P1-MNY-01: computed by GET /api/invoices/[id] (flag, workspace, PAYMENTS
+  // add-on, connected Stripe account with charges enabled).
+  onlinePayment?: { available: boolean; reason?: string };
+
   contact?: {
     id: string;
     fullName: string;
@@ -136,6 +147,7 @@ export default function InvoiceDetailPage({
   const router = useRouter();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const [showRecordPayment, setShowRecordPayment] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -144,6 +156,7 @@ export default function InvoiceDetailPage({
   const [paymentNotes, setPaymentNotes] = useState("");
   const [recordingPayment, setRecordingPayment] = useState(false);
   const [creatingCheckout, setCreatingCheckout] = useState(false);
+  const [connectingStripe, setConnectingStripe] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [showSyncMenu, setShowSyncMenu] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
@@ -162,7 +175,8 @@ export default function InvoiceDetailPage({
 
   useEffect(() => {
     if (!invoiceId) return;
-    fetchInvoice();
+    void fetchInvoice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when id changes only
   }, [invoiceId]);
 
   useEffect(() => {
@@ -189,17 +203,23 @@ export default function InvoiceDetailPage({
 
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await fetch(`/api/invoices/${invoiceId}`);
       if (response.ok) {
         const data = await response.json();
         setInvoice(data.invoice);
       } else {
-        toast.error("Invoice not found");
-        router.push("/dashboard/invoices");
+        setInvoice(null);
+        setLoadError(await parseApiError(response));
       }
     } catch (error) {
+      setInvoice(null);
+      setLoadError({
+        code: "NETWORK",
+        message: "Could not reach the server. Check your connection and retry.",
+        status: 0,
+      });
       console.error("Failed to fetch invoice:", error);
-      toast.error("Failed to load invoice");
     } finally {
       setLoading(false);
     }
@@ -245,8 +265,12 @@ export default function InvoiceDetailPage({
         // Redirect to Stripe Checkout
         window.location.href = data.url;
       } else {
-        const error = await response.json();
-        toast.error(error.message || "Failed to create checkout session");
+        const error = await response.json().catch(() => ({}));
+        toast.error(
+          error.error?.message ||
+            error.message ||
+            "Failed to create checkout session",
+        );
         setCreatingCheckout(false);
       }
     } catch (error) {
@@ -254,6 +278,30 @@ export default function InvoiceDetailPage({
       toast.error("An error occurred while creating the checkout session");
       setCreatingCheckout(false);
     }
+  };
+
+  // P1-MNY-01: Stripe-hosted onboarding for the firm's own Stripe account.
+  const handleConnectStripe = async () => {
+    try {
+      setConnectingStripe(true);
+      const response = await fetch("/api/billing/connect/onboard", {
+        method: "POST",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      toast.error(
+        data.error?.message ||
+          (typeof data.error === "string" ? data.error : null) ||
+          "Could not start Stripe setup",
+      );
+    } catch (error) {
+      console.error("Failed to start Stripe Connect onboarding:", error);
+      toast.error("An error occurred while starting Stripe setup");
+    }
+    setConnectingStripe(false);
   };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
@@ -365,7 +413,7 @@ export default function InvoiceDetailPage({
       const res = await fetch(`/api/invoices/${invoiceId}/pdf`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Failed to generate PDF (${res.status})`);
+        throw new Error(apiErrorMessage(err) || `Failed to generate PDF (${res.status})`);
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -397,28 +445,20 @@ export default function InvoiceDetailPage({
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
 
   if (!invoice) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
-          <h1 className="text-xl font-semibold mb-2">Invoice Not Found</h1>
-          <p className="text-slate-400 mb-4">
-            The requested invoice could not be found.
-          </p>
-          <button
-            onClick={() => router.push("/dashboard/invoices")}
-            className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
-          >
-            Back to Invoices
-          </button>
-        </div>
-      </div>
+      <DetailLoadErrorPanel
+        resourceLabel="invoice"
+        error={loadError}
+        backHref="/dashboard/invoices"
+        backLabel="Back to invoices"
+        onRetry={() => void fetchInvoice()}
+      />
     );
   }
 
@@ -469,7 +509,7 @@ export default function InvoiceDetailPage({
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push("/dashboard/invoices")}
-            className="p-2 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-brand-cream dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -494,14 +534,35 @@ export default function InvoiceDetailPage({
           )}
           {canRecordPayment && (
             <>
-              <button
-                onClick={handlePayOnline}
-                disabled={creatingCheckout}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                <CreditCard className="h-4 w-4" />
-                <span>{creatingCheckout ? "Loading..." : "Pay Online"}</span>
-              </button>
+              {/* P1-MNY-01: shown only when the server says card payment goes to
+                  this firm's own connected Stripe account. */}
+              {invoice.onlinePayment?.available === true && (
+                <button
+                  onClick={handlePayOnline}
+                  disabled={creatingCheckout}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  <span>{creatingCheckout ? "Loading..." : "Pay Online"}</span>
+                </button>
+              )}
+              {(invoice.onlinePayment?.reason === "NOT_CONNECTED" ||
+                invoice.onlinePayment?.reason === "CHARGES_DISABLED") && (
+                <button
+                  onClick={handleConnectStripe}
+                  disabled={connectingStripe}
+                  className="flex items-center gap-2 px-4 py-2 border border-purple-500 text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  <span>
+                    {connectingStripe
+                      ? "Loading..."
+                      : invoice.onlinePayment.reason === "NOT_CONNECTED"
+                        ? "Set up card payments"
+                        : "Finish Stripe setup"}
+                  </span>
+                </button>
+              )}
               <button
                 onClick={() => setShowRecordPayment(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors"
@@ -516,7 +577,7 @@ export default function InvoiceDetailPage({
               <button
                 onClick={() => setShowSyncMenu(!showSyncMenu)}
                 disabled={syncing}
-                className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 <RefreshCw
                   className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`}
@@ -552,21 +613,32 @@ export default function InvoiceDetailPage({
           <button
             onClick={downloadPDF}
             disabled={generatingPdf}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-brand-cream dark:hover:bg-slate-700 text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {generatingPdf ? (
-              <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="inline-block h-4 w-4 border-2 border-brand-mist dark:border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <Download className="h-4 w-4" />
             )}
             <span>{generatingPdf ? "Generating PDF..." : "Download PDF"}</span>
           </button>
+          {/* RA-8081: the credit-note form lists only SENT and PAID invoices
+              and does not read a preselected invoice, so this is a plain link
+              shown only where the invoice will appear in that list. */}
+          {(invoice.status === "SENT" || invoice.status === "PAID") && (
+            <Link
+              href="/dashboard/invoices/credit-notes/new"
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            >
+              Issue credit note
+            </Link>
+          )}
           {canEdit && (
             <button
               onClick={() =>
                 router.push(`/dashboard/invoices/${invoice.id}/edit`)
               }
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white rounded-lg transition-colors"
             >
               <Edit className="h-4 w-4" />
               <span>Edit</span>
@@ -602,7 +674,7 @@ export default function InvoiceDetailPage({
         {/* External Sync Status */}
         {invoice.externalSyncStatus === "SYNCED" &&
           invoice.externalSyncProvider && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-harbour-500/10 text-brand-harbour-600 dark:text-brand-harbour-400">
               <CheckCircle className="h-4 w-4" />
               <span className="text-sm font-medium">
                 Synced to{" "}
@@ -666,7 +738,7 @@ export default function InvoiceDetailPage({
                 <Mail className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                 <a
                   href={`mailto:${invoice.customerEmail}`}
-                  className="text-cyan-500 hover:text-cyan-600 transition-colors"
+                  className="text-brand-harbour-500 hover:text-brand-harbour-600 transition-colors"
                 >
                   {invoice.customerEmail}
                 </a>
@@ -875,6 +947,12 @@ export default function InvoiceDetailPage({
                   {variations.length}
                 </span>
               )}
+              <Link
+                href={`/dashboard/invoices/${invoice.id}/variations`}
+                className="ml-auto text-sm font-medium text-brand-harbour-500 hover:text-brand-harbour-600 transition-colors"
+              >
+                Manage variations
+              </Link>
             </div>
             {loadingVariations ? (
               <div className="space-y-3">
@@ -908,7 +986,7 @@ export default function InvoiceDetailPage({
                         <div>
                           <a
                             href={`/dashboard/invoices/${v.id}`}
-                            className="text-sm font-medium text-cyan-500 hover:text-cyan-600 transition-colors"
+                            className="text-sm font-medium text-brand-harbour-500 hover:text-brand-harbour-600 transition-colors"
                           >
                             {v.invoiceNumber}
                           </a>
@@ -1004,7 +1082,7 @@ export default function InvoiceDetailPage({
                   onClick={() =>
                     router.push(`/dashboard/reports/${invoice.report?.id}`)
                   }
-                  className="text-sm text-cyan-500 hover:text-cyan-600 transition-colors"
+                  className="text-sm text-brand-harbour-500 hover:text-brand-harbour-600 transition-colors"
                 >
                   {invoice.report.title}
                 </button>
@@ -1043,7 +1121,7 @@ export default function InvoiceDetailPage({
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">
               Record Payment
             </h2>
-            <form onSubmit={handleRecordPayment} className="space-y-4">
+            <form method="post" onSubmit={handleRecordPayment} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Amount Due: ${(invoice.amountDue / 100).toFixed(2)}
@@ -1060,7 +1138,7 @@ export default function InvoiceDetailPage({
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   required
                   max={(invoice.amountDue / 100).toFixed(2)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div>
@@ -1070,7 +1148,7 @@ export default function InvoiceDetailPage({
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 >
                   <option value="BANK_TRANSFER">Bank Transfer</option>
                   <option value="CREDIT_CARD">Credit Card</option>
@@ -1089,7 +1167,7 @@ export default function InvoiceDetailPage({
                   value={paymentReference}
                   onChange={(e) => setPaymentReference(e.target.value)}
                   placeholder="Transaction ID, Cheque #, etc."
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div>
@@ -1100,7 +1178,7 @@ export default function InvoiceDetailPage({
                   value={paymentNotes}
                   onChange={(e) => setPaymentNotes(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div className="flex gap-3 pt-4">
@@ -1177,7 +1255,7 @@ export default function InvoiceDetailPage({
                 className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {deleting ? (
-                  <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="inline-block h-4 w-4 border-2 border-brand-mist dark:border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <Trash2 className="h-4 w-4" />
                 )}
