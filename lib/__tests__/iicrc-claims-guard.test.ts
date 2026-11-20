@@ -98,6 +98,14 @@ const BANNED: ReadonlyArray<{ id: string; re: RegExp }> = [
   { id: "standard-compliant", re: /\bS[1-7]\d0(:\d{4})?[\s-]+compliant/i },
   { id: "compliant-with-iicrc", re: /compliant with (ANSI\/)?(AS-)?IICRC/i },
   {
+    // Declarative conformity verbs (founder pass rule, 20/11/2026): "complies
+    // with", "in compliance with", "conforms to", "in conformity with", "meets",
+    // "adheres to" followed by an IICRC standard. Question forms such as "does
+    // the output meet IICRC requirements?" are model rubrics and do not match.
+    id: "conformity-verb",
+    re: /\b(complies with|in (full )?compliance with|conforms? (to|with)|in conformity with|meets|adheres to)\s+(the\s+)?(ANSI\/)?(AS-)?(IICRC|S[1-7]\d0)\b/i,
+  },
+  {
     id: "compliance-watertight",
     re: /(IICRC|S500)[^\n]{0,40}compliance (is )?watertight/i,
   },
@@ -165,6 +173,8 @@ describe("IICRC claims guard (RA-8297)", () => {
       "iicrc-compliant": "IICRC S500:2021 Compliant Inspection Report",
       "standard-compliant": "Log S500:2021-compliant moisture data",
       "compliant-with-iicrc": "Compliant with IICRC S500:2021",
+      "conformity-verb":
+        "RestoreAssist produces reports in compliance with IICRC S500:2021.",
       "compliance-watertight":
         "keeps your IICRC S500:2021 compliance watertight",
       "section-compliant": "Drying Goal: ACHIEVED — IICRC S500 §11.4 compliant",

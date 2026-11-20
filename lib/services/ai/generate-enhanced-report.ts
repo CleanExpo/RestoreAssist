@@ -580,7 +580,7 @@ function openingSentence(jurisdiction: EnhancedReportJurisdiction): string {
     return "You are a professional water damage restoration report writer operating in New Zealand. A technician has provided basic inspection notes. Your task is to transform these simple notes into a comprehensive, professional inspection report that strictly adheres to the New Zealand instruments named below, IICRC standards, and AS/NZS standards that apply in New Zealand.";
   }
   if (jurisdiction === "unknown") {
-    return "You are a professional water damage restoration report writer. A technician has provided basic inspection notes. Your task is to transform these simple notes into a comprehensive, professional inspection report that strictly adheres to IICRC standards and AS/NZS standards that apply to the property. Do not invent a safety Act, building code, or Australian instrument.";
+    return "You are a professional water damage restoration report writer. A technician has provided basic inspection notes. Your task is to transform these simple notes into a comprehensive, professional inspection report that strictly follows IICRC standards and AS/NZS standards that apply to the property. Do not invent a safety Act, building code, or Australian instrument.";
   }
   return "You are a professional water damage restoration report writer operating in Australia. A technician has provided basic inspection notes. Your task is to transform these simple notes into a comprehensive, professional inspection report that strictly adheres to ALL relevant Australian standards, laws, regulations, and best practices.";
 }
