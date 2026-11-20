@@ -353,8 +353,11 @@ function captureButtonFor(label: string): HTMLElement {
 
 /** The remove control on the evidence row captured by `name`. */
 function removeButtonFor(name: string): HTMLElement {
-  const row = screen.getByText(name).parentElement?.parentElement;
-  const button = row?.querySelector("button");
+  // Walk up from the name to the nearest element holding a button: the row.
+  // RA-8488 nested the details line one level deeper.
+  let node: HTMLElement | null = screen.getByText(name).parentElement;
+  while (node && !node.querySelector("button")) node = node.parentElement;
+  const button = node?.querySelector("button");
   if (!button) throw new Error(`no remove control found beside ${name}`);
   return button as HTMLElement;
 }
@@ -604,6 +607,31 @@ describe("RA-8488: the evidence list and the capture notices", () => {
 
     expect(screen.getByText("Hall wall (Plasterboard)")).toBeInTheDocument();
     expect(screen.getByText("Kitchen floor (Timber)")).toBeInTheDocument();
+  });
+
+  // The first browser run of this fix showed the title cut to "Syntheti..."
+  // on a 390 px phone: it sat in the details line, which truncates. It must
+  // be its own line that wraps, and never truncated.
+  it("puts the title on its own wrapping line, not in the truncated details line", async () => {
+    await renderPage({
+      evidenceItems: [
+        {
+          ...evidenceRow("ev_a", "MOISTURE_READING"),
+          title: "Synthetic hall wall 1 (Plasterboard)",
+          fileUrl: null,
+          fileMimeType: null,
+        },
+      ],
+    });
+
+    const title = screen.getByText("Synthetic hall wall 1 (Plasterboard)");
+    expect(title).toHaveAttribute("data-testid", "evidence-record-title");
+    expect(title.className).not.toMatch(/\btruncate\b/);
+    expect(title.className).toMatch(/\bbreak-words\b/);
+    // Not a sibling of the capturer's name in the details line.
+    expect(title.parentElement).not.toBe(
+      screen.getByText("Captured by ev_a").parentElement,
+    );
   });
 
   it("does not repeat the class name as a title when the record has no title of its own", async () => {

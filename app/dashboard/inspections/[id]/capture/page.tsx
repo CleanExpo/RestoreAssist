@@ -1539,9 +1539,9 @@ export default function CaptureWorkflowPage({
                         {captured.map((ev) => (
                           <div
                             key={ev.id}
-                            className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 rounded p-1.5"
+                            className="flex items-start justify-between gap-1.5 text-[10px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 rounded p-1.5"
                           >
-                            <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="flex items-start gap-1.5 min-w-0 flex-1">
                               {ev.fileMimeType?.startsWith("video/") ? (
                                 <Video
                                   className="h-3 w-3 flex-shrink-0"
@@ -1555,28 +1555,36 @@ export default function CaptureWorkflowPage({
                                   className="h-7 w-7 rounded object-cover flex-shrink-0 border border-slate-200 dark:border-slate-700"
                                 />
                               ) : (
-                                <MapPin className="h-3 w-3 flex-shrink-0" />
+                                <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" />
                               )}
-                              {recordTitle(ev) && (
-                                <>
-                                  <span className="truncate font-medium text-slate-800 dark:text-slate-200">
+                              <div className="min-w-0 flex-1">
+                                {/* RA-8488: on its own line and allowed to
+                                    wrap. In the details line it was cut to
+                                    "Syntheti..." on a phone, so two readings
+                                    still looked the same. */}
+                                {recordTitle(ev) && (
+                                  <p
+                                    data-testid="evidence-record-title"
+                                    className="text-xs font-medium leading-snug text-slate-800 dark:text-slate-200 break-words whitespace-normal"
+                                  >
                                     {recordTitle(ev)}
+                                  </p>
+                                )}
+                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                  <span className="truncate">{ev.capturedByName}</span>
+                                  <span>·</span>
+                                  <Clock className="h-3 w-3" />
+                                  <span>
+                                    {new Date(ev.capturedAt).toLocaleTimeString()}
                                   </span>
-                                  <span>·</span>
-                                </>
-                              )}
-                              <span className="truncate">{ev.capturedByName}</span>
-                              <span>·</span>
-                              <Clock className="h-3 w-3" />
-                              <span>
-                                {new Date(ev.capturedAt).toLocaleTimeString()}
-                              </span>
-                              {ev.deviceType && (
-                                <>
-                                  <span>·</span>
-                                  <span>{ev.deviceType}</span>
-                                </>
-                              )}
+                                  {ev.deviceType && (
+                                    <>
+                                      <span>·</span>
+                                      <span>{ev.deviceType}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                             <button
                               onClick={() => handleDeleteEvidence(ev.id)}
