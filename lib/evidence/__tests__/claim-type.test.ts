@@ -31,13 +31,13 @@ describe("normalizeClaimType", () => {
     expect(normalizeClaimType("STORM")).toBe("STORM");
   });
 
-  it("returns null for unmapped Prisma ClaimType values", () => {
-    expect(normalizeClaimType("CONTENTS")).toBeNull();
-    expect(normalizeClaimType("BIOHAZARD")).toBeNull();
-    expect(normalizeClaimType("ODOUR")).toBeNull();
-    expect(normalizeClaimType("CARPET")).toBeNull();
-    expect(normalizeClaimType("HVAC")).toBeNull();
-    expect(normalizeClaimType("ASBESTOS")).toBeNull();
+  it("maps every Prisma ClaimType enum value to a JobType", () => {
+    expect(normalizeClaimType("CONTENTS")).toBe("CONTENTS_ONLY");
+    expect(normalizeClaimType("BIOHAZARD")).toBe("CLANDESTINE_HAZARDOUS");
+    expect(normalizeClaimType("ODOUR")).toBe("FIRE_SMOKE");
+    expect(normalizeClaimType("CARPET")).toBe("CARPET");
+    expect(normalizeClaimType("HVAC")).toBe("HVAC");
+    expect(normalizeClaimType("ASBESTOS")).toBe("CLANDESTINE_HAZARDOUS");
   });
 
   it("returns null for unknown strings", () => {

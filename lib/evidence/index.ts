@@ -9,3 +9,4 @@ export * from "./adaptive-guidance";
 export * from "./submission-validator";
 export * from "./qa-scorer";
 export * from "./claim-type";
+export * from "./ensure-inspection-workflow";

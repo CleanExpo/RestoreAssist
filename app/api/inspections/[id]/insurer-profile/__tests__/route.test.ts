@@ -268,7 +268,7 @@ describe("RA-7570 — job type from InspectionWorkflow, not Inspection.jobType",
       assertRealInspectionSelect(args);
       return {
         id: INSPECTION_ID,
-        claimType: "CONTENTS",
+        claimType: "NOT_A_REAL_CLAIM_STAMP",
         inspectionWorkflow: { jobType: "not-a-real-job-type" },
       };
     });

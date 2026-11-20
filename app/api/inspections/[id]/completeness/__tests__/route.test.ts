@@ -4,6 +4,8 @@ import { NextRequest } from "next/server";
 const getServerSession = vi.fn();
 const inspectionFindFirst = vi.fn();
 const evidenceItemFindMany = vi.fn();
+const moistureReadingCount = vi.fn();
+const psychrometricReadingCount = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -13,6 +15,10 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: (...a: unknown[]) => inspectionFindFirst(...a) },
     evidenceItem: { findMany: (...a: unknown[]) => evidenceItemFindMany(...a) },
+    moistureReading: { count: (...a: unknown[]) => moistureReadingCount(...a) },
+    psychrometricReading: {
+      count: (...a: unknown[]) => psychrometricReadingCount(...a),
+    },
   },
 }));
 
@@ -32,9 +38,13 @@ beforeEach(() => {
   getServerSession.mockReset();
   inspectionFindFirst.mockReset();
   evidenceItemFindMany.mockReset();
+  moistureReadingCount.mockReset();
+  psychrometricReadingCount.mockReset();
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
   inspectionFindFirst.mockResolvedValue({ id: "insp_1", userId: "user_1" });
   evidenceItemFindMany.mockResolvedValue([]);
+  moistureReadingCount.mockResolvedValue(0);
+  psychrometricReadingCount.mockResolvedValue(0);
 });
 
 describe("GET /api/inspections/[id]/completeness", () => {
