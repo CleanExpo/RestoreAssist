@@ -13,14 +13,20 @@
 -- is the backstop that does not depend on every writer calling it.
 --
 -- A form is "signed" once any of its AuthorityFormSignature rows has signedAt.
+-- The unit of immutability is the FORM, not the row: the executed document
+-- shows every slot, signed or pending, so once one person has signed, every
+-- slot on that form is part of the record.
 --
---   1. A signed signature row cannot be deleted. Postgres fires row triggers
---      for ON DELETE CASCADE actions too, so deleting the parent form, its
---      Report, or the Report's User fails as a whole and rolls back.
---   2. A signed signature row is frozen except for an allow-list of link
+--   1. No slot of a signed form can be deleted, signed or pending. Postgres
+--      fires row triggers for ON DELETE CASCADE actions too, so deleting the
+--      form, its Report, or the Report's User fails as a whole and rolls back.
+--   2. Every slot of a signed form is frozen except for an allow-list of link
 --      bookkeeping columns (signatureRequestToken, signatureRequestSent,
 --      signatureRequestSentAt, updatedAt). Every other column, including any
 --      column added later, is frozen by default.
+--      The one other permitted write is a pending slot being signed: in the
+--      same UPDATE that sets signedAt, the signing columns (signatureData,
+--      signatureUrl, signatoryName, ipAddress, userAgent) may be filled.
 --   3. No new signature row can be added to a signed form (a new slot would
 --      appear on the executed document, which is rendered from live rows).
 --   4. A signed form row is frozen except for status, pdfUrl, draftPdfUrl,
@@ -59,8 +65,10 @@ $$;
 CREATE OR REPLACE FUNCTION ra_guard_signed_authority_signature() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
-  -- The only columns of a signed signature row that may change.
+  -- The only columns of any slot on a signed form that may change.
   mutable text[] := ARRAY['signatureRequestToken', 'signatureRequestSent', 'signatureRequestSentAt', 'updatedAt'];
+  -- Also writable, but only in the UPDATE that signs a pending slot.
+  signing text[] := ARRAY['signatureData', 'signatureUrl', 'signatoryName', 'signedAt', 'ipAddress', 'userAgent'];
 BEGIN
   IF ra_signed_form_erasure_allowed() THEN
     IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
@@ -76,20 +84,31 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF OLD."signedAt" IS NULL THEN
+  -- The rule belongs to the form: a slot on a form nobody has signed is free.
+  IF OLD."signedAt" IS NULL AND NOT ra_authority_form_is_signed(OLD."instanceId") THEN
     IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
     RETURN NEW;
   END IF;
 
   IF TG_OP = 'DELETE' THEN
-    RAISE EXCEPTION 'RA-8526: signature % on authority form % is signed and cannot be deleted',
-      OLD."id", OLD."instanceId"
+    RAISE EXCEPTION 'RA-8526: authority form % has been signed; signature slot % cannot be deleted',
+      OLD."instanceId", OLD."id"
       USING ERRCODE = 'restrict_violation';
   END IF;
 
+  -- A pending slot on a signed form may be signed, once.
+  IF OLD."signedAt" IS NULL AND NEW."signedAt" IS NOT NULL THEN
+    IF (to_jsonb(NEW) - mutable - signing) IS DISTINCT FROM (to_jsonb(OLD) - mutable - signing) THEN
+      RAISE EXCEPTION 'RA-8526: authority form % has been signed; signing slot % may only fill its signature',
+        OLD."instanceId", OLD."id"
+        USING ERRCODE = 'restrict_violation';
+    END IF;
+    RETURN NEW;
+  END IF;
+
   IF (to_jsonb(NEW) - mutable) IS DISTINCT FROM (to_jsonb(OLD) - mutable) THEN
-    RAISE EXCEPTION 'RA-8526: signature % on authority form % is signed and cannot be changed',
-      OLD."id", OLD."instanceId"
+    RAISE EXCEPTION 'RA-8526: authority form % has been signed; signature slot % cannot be changed',
+      OLD."instanceId", OLD."id"
       USING ERRCODE = 'restrict_violation';
   END IF;
   RETURN NEW;

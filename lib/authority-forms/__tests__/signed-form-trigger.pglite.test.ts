@@ -117,8 +117,41 @@ beforeEach(async () => {
 describe("proposed signed-form triggers (RA-8526)", () => {
   it("refuses deleting a signed signature", async () => {
     expect(await refused(`DELETE FROM "AuthorityFormSignature" WHERE "id" = 's-signed'`)).toMatch(
-      /signed and cannot be deleted/,
+      /has been signed; signature slot s-signed cannot be deleted/,
     );
+  });
+
+  // Round 2 review: the executed PDF shows pending slots too, so once anyone
+  // has signed, a pending slot on that form is part of the record.
+  it("refuses deleting or rewriting a pending slot on a signed form", async () => {
+    expect(await refused(`DELETE FROM "AuthorityFormSignature" WHERE "id" = 's-pending'`)).toMatch(
+      /signature slot s-pending cannot be deleted/,
+    );
+    for (const set of [
+      `"signatoryName" = 'Someone Else'`,
+      `"signatoryRole" = 'PROPERTY_OWNER'`,
+      `"signatoryEmail" = 'other@example.test'`,
+      `"createdAt" = now() + interval '1 day'`,
+    ]) {
+      expect(
+        await refused(`UPDATE "AuthorityFormSignature" SET ${set} WHERE "id" = 's-pending'`),
+      ).toMatch(/signature slot s-pending cannot be changed/);
+    }
+  });
+
+  it("lets a pending slot on a signed form be signed once, filling only its signature", async () => {
+    expect(
+      await refused(
+        `UPDATE "AuthorityFormSignature" SET "signedAt" = now(), "signatoryRole" = 'PROPERTY_OWNER' WHERE "id" = 's-pending'`,
+      ),
+    ).toMatch(/may only fill its signature/);
+    await db.exec(`UPDATE "AuthorityFormSignature" SET "signatureRequestToken" = NULL WHERE "id" = 's-pending'`);
+    await db.exec(
+      `UPDATE "AuthorityFormSignature" SET "signedAt" = now(), "signatureData" = 'data:image/png;base64,BBBB', "signatoryName" = 'Owner B Typed', "ipAddress" = '203.0.113.9', "userAgent" = 'Synthetic' WHERE "id" = 's-pending'`,
+    );
+    expect(
+      await refused(`UPDATE "AuthorityFormSignature" SET "signatureData" = 'x' WHERE "id" = 's-pending'`),
+    ).toMatch(/cannot be changed/);
   });
 
   it("refuses the cascades from the form, the report and the user", async () => {
@@ -176,7 +209,8 @@ describe("proposed signed-form triggers (RA-8526)", () => {
   it("leaves unsigned forms and slots fully editable and deletable", async () => {
     await db.exec(`UPDATE "AuthorityFormInstance" SET "authorityDescription" = 'Edited' WHERE "id" = 'f-open'`);
     await db.exec(`INSERT INTO "AuthorityFormSignature" ("id", "instanceId", "signatoryName") VALUES ('s-extra', 'f-open', 'Extra')`);
-    await db.exec(`UPDATE "AuthorityFormSignature" SET "signedAt" = now() WHERE "id" = 's-pending'`);
+    await db.exec(`UPDATE "AuthorityFormSignature" SET "signatoryName" = 'Client C2' WHERE "id" = 's-open'`);
+    await db.exec(`DELETE FROM "AuthorityFormSignature" WHERE "id" = 's-extra'`);
     await db.exec(`DELETE FROM "Report" WHERE "id" = 'r-open'`);
   });
 
