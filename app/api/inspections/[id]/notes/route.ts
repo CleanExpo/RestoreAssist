@@ -200,13 +200,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     } catch (error) {
       // The same draft saved twice (the first response was lost): hand back
-      // the note already written rather than a second copy.
+      // the note already written rather than a second copy. Only when it IS
+      // the same draft: same author, kind and text. A different note sent
+      // under a used id is refused, never answered with the old note as if
+      // the new text had been saved.
       if (prismaCode(error) === "P2002" && parsed.clientRequestId) {
         const existing = await prisma.jobNote.findFirst({
           where: { inspectionId, clientRequestId: parsed.clientRequestId },
-          select: NOTE_SELECT,
+          select: { ...NOTE_SELECT, authorUserId: true },
         });
-        if (existing) return NextResponse.json({ data: noteJson(existing) });
+        if (existing) {
+          const { authorUserId, ...note } = existing;
+          if (
+            authorUserId === userId &&
+            note.kind === parsed.kind &&
+            note.body === parsed.body
+          ) {
+            return NextResponse.json({ data: noteJson(note) });
+          }
+          return apiError(request, {
+            code: "CONFLICT",
+            message:
+              "A different note was already saved under this draft. Your text was not saved; add it again.",
+            status: 409,
+          });
+        }
       }
       throw error;
     }

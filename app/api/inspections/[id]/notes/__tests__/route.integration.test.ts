@@ -169,6 +169,36 @@ describe.skipIf(!process.env.DATABASE_URL)(
       ).toBe(before + 1);
     });
 
+    it("a different note sent under a used request id is refused with 409 and nothing is written", async () => {
+      as(ids.tech);
+      const body = {
+        kind: "CALL",
+        body: "Rang the insured",
+        clientRequestId: `${S}-draft-2`,
+      };
+      expect((await POST(post(body), ctx())).status).toBe(201);
+      const before = await prisma.jobNote.count({
+        where: { inspectionId: ids.inspectionId },
+      });
+      await expectRefused(
+        await POST(post({ ...body, body: "Rang the insured, no answer" }), ctx()),
+        409,
+        /already saved under this draft/,
+      );
+      // Same draft id, same text, another person: not their note either.
+      as(ids.owner);
+      await expectRefused(
+        await POST(post(body), ctx()),
+        409,
+        /already saved under this draft/,
+      );
+      expect(
+        await prisma.jobNote.count({
+          where: { inspectionId: ids.inspectionId },
+        }),
+      ).toBe(before);
+    });
+
     // The app connects as the table owner, which row level security does not
     // bind; only the trigger stands between it and an edit. Each refusal is
     // asserted by the trigger's own words, so a refusal for any other reason

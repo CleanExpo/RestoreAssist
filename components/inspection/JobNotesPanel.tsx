@@ -61,7 +61,16 @@ export function JobNotesPanel({ inspectionId }: { inspectionId: string }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [truncated, setTruncated] = useState(false);
-  const draftId = useRef<string>(newRequestId());
+  // The request id belongs to one exact draft (kind and text) that was sent.
+  // Sending the same draft again reuses it, so a save whose answer was lost
+  // returns the note already written; any edit makes a new draft and a new
+  // id, so an edited note is never mistaken for the one already sent.
+  const sentDraft = useRef<{ id: string; kind: string; body: string } | null>(
+    null,
+  );
+  // Notes this panel saved, so a list load that started before a save cannot
+  // drop them when its (older) answer arrives.
+  const savedHere = useRef<Map<string, JobNoteRow>>(new Map());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,7 +88,16 @@ export function JobNotesPanel({ inspectionId }: { inspectionId: string }) {
         );
       }
       const json = await res.json();
-      setNotes(Array.isArray(json.data) ? json.data : []);
+      const fetched: JobNoteRow[] = Array.isArray(json.data) ? json.data : [];
+      const listed = new Set(fetched.map((n) => n.id));
+      const missing = [...savedHere.current.values()].filter(
+        (n) => !listed.has(n.id),
+      );
+      setNotes(
+        [...missing, ...fetched].sort((a, b) =>
+          a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
+        ),
+      );
       setTruncated(json?.meta?.truncated === true);
     } catch (e) {
       setLoadError(
@@ -101,7 +119,16 @@ export function JobNotesPanel({ inspectionId }: { inspectionId: string }) {
     setSaveError(null);
     // If the answer never arrives, the note may still have been saved. Then
     // the list is reloaded so it shows, and the draft keeps its id, so
-    // pressing Add note again returns that note rather than a second copy.
+    // pressing Add note again with the same text returns that note rather
+    // than a second copy.
+    const same =
+      sentDraft.current &&
+      sentDraft.current.kind === kind &&
+      sentDraft.current.body === body;
+    const draft = same
+      ? sentDraft.current!
+      : { id: newRequestId(), kind, body };
+    sentDraft.current = draft;
     let unsure = false;
     try {
       let res: Response;
@@ -110,9 +137,9 @@ export function JobNotesPanel({ inspectionId }: { inspectionId: string }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            kind,
-            body,
-            clientRequestId: draftId.current,
+            kind: draft.kind,
+            body: draft.body,
+            clientRequestId: draft.id,
           }),
         });
       } catch {
@@ -123,6 +150,8 @@ export function JobNotesPanel({ inspectionId }: { inspectionId: string }) {
       }
       if (!res.ok) {
         unsure = res.status >= 500;
+        // The id is already taken by another note: the next try is a new draft.
+        if (res.status === 409) sentDraft.current = null;
         throw new Error(
           (await errorBody(res)).message ?? "Could not save the note.",
         );
@@ -130,10 +159,12 @@ export function JobNotesPanel({ inspectionId }: { inspectionId: string }) {
       const json = await res.json();
       const saved = json.data as JobNoteRow;
       // The server's copy, with the server's stamp, goes on top (once).
+      savedHere.current.set(saved.id, saved);
       setNotes((prev) => [saved, ...prev.filter((n) => n.id !== saved.id)]);
+      // The fields are locked while saving, so this clears only what was sent.
       setBody("");
       setKind("GENERAL");
-      draftId.current = newRequestId();
+      sentDraft.current = null;
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Could not save the note.");
       if (unsure) void load();
@@ -168,7 +199,10 @@ export function JobNotesPanel({ inspectionId }: { inspectionId: string }) {
           <select
             id={`job-note-kind-${inspectionId}`}
             value={kind}
-            onChange={(e) => setKind(e.target.value as JobNoteKindValue)}
+            disabled={saving}
+            onChange={(e) => {
+              if (!saving) setKind(e.target.value as JobNoteKindValue);
+            }}
             className="min-h-9 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 text-xs"
           >
             {JOB_NOTE_KINDS.map((k) => (
@@ -184,7 +218,11 @@ export function JobNotesPanel({ inspectionId }: { inspectionId: string }) {
         <textarea
           id={`job-note-body-${inspectionId}`}
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          readOnly={saving}
+          aria-busy={saving}
+          onChange={(e) => {
+            if (!saving) setBody(e.target.value);
+          }}
           maxLength={JOB_NOTE_MAX_LENGTH}
           rows={3}
           placeholder="For example: rang the insured, booked the technician for Tuesday 9 am"

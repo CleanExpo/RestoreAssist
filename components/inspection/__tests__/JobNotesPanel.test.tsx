@@ -5,6 +5,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -206,6 +207,122 @@ describe("RA-8496 JobNotesPanel", () => {
       "Choose what the note is for",
     );
     expect(screen.getByLabelText("Note")).toHaveValue("Keep me");
+  });
+
+  it("the draft cannot be changed while a save is pending, so a successful save never clears unsent text", async () => {
+    respond(200, { data: [] });
+    render(<JobNotesPanel inspectionId="insp_1" />);
+    await screen.findByText("No notes yet.");
+    const field = screen.getByLabelText("Note");
+    fireEvent.change(field, { target: { value: "Rang insured" } });
+    let answer!: (v: unknown) => void;
+    fetchMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await waitFor(() => expect(field).toHaveAttribute("readonly"));
+    fireEvent.change(field, {
+      target: { value: "Rang insured, then booked Tuesday" },
+    });
+    fireEvent.change(screen.getByLabelText("Note type"), {
+      target: { value: "BOOKING" },
+    });
+    expect(field).toHaveValue("Rang insured");
+    expect(screen.getByLabelText("Note type")).toHaveValue("GENERAL");
+    answer({
+      ok: true,
+      status: 201,
+      json: async () => ({
+        data: { ...newer, id: "n5", kind: "GENERAL", body: "Rang insured" },
+      }),
+    });
+    await screen.findByText("Rang insured", { selector: "p" });
+    expect(field).toHaveValue("");
+    expect(field).not.toHaveAttribute("readonly");
+  });
+
+  it("an edited draft after an uncertain failure is a new draft with a new request id", async () => {
+    respond(200, { data: [] });
+    render(<JobNotesPanel inspectionId="insp_1" />);
+    await screen.findByText("No notes yet.");
+    fireEvent.change(screen.getByLabelText("Note"), {
+      target: { value: "Rang insured" },
+    });
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    respond(200, { data: [] }); // the reload after the failure
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await screen.findByRole("alert");
+    fireEvent.change(screen.getByLabelText("Note"), {
+      target: { value: "Rang insured, no answer" },
+    });
+    respond(201, {
+      data: { ...newer, id: "n6", body: "Rang insured, no answer" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await screen.findByText("Rang insured, no answer", { selector: "p" });
+    const posts = fetchMock.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(([, init]) => JSON.parse(init.body));
+    expect(posts).toHaveLength(2);
+    expect(posts[1].body).toBe("Rang insured, no answer");
+    expect(posts[1].clientRequestId).not.toBe(posts[0].clientRequestId);
+  });
+
+  it("a 409 (the id already holds another note) keeps the text, says so, and the next try is a new draft", async () => {
+    respond(200, { data: [] });
+    render(<JobNotesPanel inspectionId="insp_1" />);
+    await screen.findByText("No notes yet.");
+    fireEvent.change(screen.getByLabelText("Note"), {
+      target: { value: "Keep me" },
+    });
+    respond(409, {
+      error: {
+        code: "CONFLICT",
+        message:
+          "A different note was already saved under this draft. Your text was not saved; add it again.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Your text was not saved",
+    );
+    expect(screen.getByLabelText("Note")).toHaveValue("Keep me");
+    respond(201, { data: { ...newer, id: "n7", body: "Keep me" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await screen.findByText("Keep me", { selector: "p" });
+    const ids = fetchMock.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(([, init]) => JSON.parse(init.body).clientRequestId);
+    expect(ids).toHaveLength(2);
+    expect(ids[1]).not.toBe(ids[0]);
+  });
+
+  it("a list load that answers after a save does not drop the saved note", async () => {
+    let listAnswer!: (v: unknown) => void;
+    fetchMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        listAnswer = resolve;
+      }),
+    );
+    render(<JobNotesPanel inspectionId="insp_1" />);
+    fireEvent.change(screen.getByLabelText("Note"), {
+      target: { value: "Saved while loading" },
+    });
+    respond(201, {
+      data: { ...newer, id: "n8", body: "Saved while loading" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Note")).toHaveValue(""),
+    );
+    listAnswer({ ok: true, status: 200, json: async () => ({ data: [older] }) });
+    await screen.findByText("Booked Tom for Tuesday");
+    const items = within(screen.getByRole("list")).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("Saved while loading");
+    expect(items[1]).toHaveTextContent("Booked Tom for Tuesday");
   });
 
   it("offers no edit or delete control", async () => {

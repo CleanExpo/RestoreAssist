@@ -261,6 +261,7 @@ describe("RA-8496 job notes: a retried save never makes a second note", () => {
       body: "Rang insured",
       authorName: "Mia Office",
       authorRole: "MANAGER",
+      authorUserId: "office",
       createdAt: new Date("2026-11-21T01:00:00.000Z"),
     });
     const res = await POST(
@@ -268,7 +269,9 @@ describe("RA-8496 job notes: a retried save never makes a second note", () => {
       ctx(),
     );
     expect(res.status).toBe(200);
-    expect((await res.json()).data.id).toBe("note_first");
+    const json = await res.json();
+    expect(json.data.id).toBe("note_first");
+    expect(json.data).not.toHaveProperty("authorUserId");
     const args = h.jobNoteFindFirst.mock.calls[0][0] as {
       where: Record<string, unknown>;
     };
@@ -278,13 +281,50 @@ describe("RA-8496 job notes: a retried save never makes a second note", () => {
     });
   });
 
+  // A used request id with different content is not a retry. Answering with
+  // the old note would tell the panel the new text was saved, and it would
+  // clear a draft that was never stored.
+  it.each([
+    ["different text", { body: "Rang insured again" }, {}],
+    ["different kind", { body: "Rang insured", kind: "BOOKING" }, {}],
+    ["different author", { body: "Rang insured" }, { authorUserId: "owner" }],
+  ])(
+    "a used request id with %s is refused with 409, not answered with the old note",
+    async (_label, sent, stored) => {
+      as("office");
+      h.jobNoteCreate.mockRejectedValueOnce(
+        Object.assign(new Error("Unique constraint failed"), {
+          code: "P2002",
+        }),
+      );
+      h.jobNoteFindFirst.mockResolvedValueOnce({
+        id: "note_first",
+        kind: "GENERAL",
+        body: "Rang insured",
+        authorName: "Mia Office",
+        authorRole: "MANAGER",
+        authorUserId: "office",
+        createdAt: new Date("2026-11-21T01:00:00.000Z"),
+        ...stored,
+      });
+      const res = await POST(
+        post({ ...sent, clientRequestId: "draft-1" }),
+        ctx(),
+      );
+      const body = await expectRefused(res, 409, /already saved under this draft/);
+      expect(JSON.stringify(body)).not.toContain("note_first");
+    },
+  );
+
   it.each([[123], ["x".repeat(101)], [""]])(
     "400 for an unusable request id %j",
     async (clientRequestId) => {
       as("office");
-      expect(
-        (await POST(post({ body: "ok", clientRequestId }), ctx())).status,
-      ).toBe(400);
+      await expectRefused(
+        await POST(post({ body: "ok", clientRequestId }), ctx()),
+        400,
+        /VALIDATION/,
+      );
       expect(h.jobNoteCreate).not.toHaveBeenCalled();
     },
   );
