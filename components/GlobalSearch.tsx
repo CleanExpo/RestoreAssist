@@ -201,8 +201,15 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
               className="max-h-96 overflow-y-auto divide-y divide-slate-200"
             >
               {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin" />
+                <div
+                  role="status"
+                  className="flex items-center justify-center py-12"
+                >
+                  <div
+                    aria-hidden="true"
+                    className="w-6 h-6 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin"
+                  />
+                  <span className="sr-only">Searching</span>
                 </div>
               ) : results.length > 0 ? (
                 results.map((result, index) => (
