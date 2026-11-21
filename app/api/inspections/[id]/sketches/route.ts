@@ -439,63 +439,6 @@ export async function POST(
             (Array.isArray(existing?.sketchData?.objects) &&
               existing.sketchData.objects.some(isDataLessRoomPolygon)))));
 
-    // Every canonical claim image is rendered from allowlisted geometry on the
-    // server. Underlay pixels are never an input. An active underlay must also
-    // pass explicit technician verification before a canonical render exists.
-    let cleanRenderReceipt:
-      | { storagePath: string; renderSha256: string }
-      | undefined;
-    type CanonicalRenderMeta =
-      | { status: "stored" }
-      | { status: "skipped"; reason: string }
-      | { status: "failed"; reason: string };
-    let canonicalRenderMeta: CanonicalRenderMeta | undefined;
-    if (activeUnderlay) {
-      renderLocator = null;
-    }
-    if (requestCanonicalRender === true && skipEmptyOverwrite) {
-      // RA-7656: the stored drawing was kept, so its render stays too. A render
-      // of the empty blob would replace the report's floor image with a blank.
-      canonicalRenderMeta = {
-        status: "skipped",
-        reason: "The save carried no drawing; the stored floor-plan render was kept.",
-      };
-    } else if (
-      requestCanonicalRender === true &&
-      (!activeUnderlay || underlayVerification?.ok)
-    ) {
-      if (!isSupabaseServerConfigured()) {
-        canonicalRenderMeta = {
-          status: "skipped",
-          reason:
-            "Sketch storage is not configured on this environment; geometry was saved without a server PNG.",
-        };
-        renderLocator = existing?.renderedPngUrl ?? null;
-      } else {
-        try {
-          const { storeVerifiedCleanRender } = await import(
-            "@/lib/sketch/server-clean-render"
-          );
-          const clean = await storeVerifiedCleanRender(
-            id,
-            floorNumber,
-            securedSketchData,
-          );
-          renderLocator = clean.storageLocator;
-          cleanRenderReceipt = clean;
-          canonicalRenderMeta = { status: "stored" };
-        } catch (renderErr) {
-          const reason =
-            renderErr instanceof Error
-              ? renderErr.message
-              : "Canonical render failed";
-          console.error("[sketches] canonical render failed (non-fatal):", renderErr);
-          canonicalRenderMeta = { status: "failed", reason };
-          renderLocator = existing?.renderedPngUrl ?? null;
-        }
-      }
-    }
-
     const { resolveSketchCaptureAdapter } =
       await import("@/lib/sketch/ingest-roomplan");
     const captureAdapter = resolveSketchCaptureAdapter({
@@ -601,6 +544,65 @@ export async function POST(
       // Always written, so a client-posted evidence list never persists.
       nextData = withRoomMeasurementEvidence(nextData, measurement.evidence);
       authoritativeSketchData = nextData;
+    }
+
+    // Every canonical claim image is rendered from allowlisted geometry on the
+    // server. Underlay pixels are never an input. RA-8239: it is rendered from
+    // the server-trusted drawing (provenance resolved above), not from the
+    // tags the client posted, so an unconfirmed AI room never reaches it. An active underlay must also
+    // pass explicit technician verification before a canonical render exists.
+    let cleanRenderReceipt:
+      | { storagePath: string; renderSha256: string }
+      | undefined;
+    type CanonicalRenderMeta =
+      | { status: "stored" }
+      | { status: "skipped"; reason: string }
+      | { status: "failed"; reason: string };
+    let canonicalRenderMeta: CanonicalRenderMeta | undefined;
+    if (activeUnderlay) {
+      renderLocator = null;
+    }
+    if (requestCanonicalRender === true && skipEmptyOverwrite) {
+      // RA-7656: the stored drawing was kept, so its render stays too. A render
+      // of the empty blob would replace the report's floor image with a blank.
+      canonicalRenderMeta = {
+        status: "skipped",
+        reason: "The save carried no drawing; the stored floor-plan render was kept.",
+      };
+    } else if (
+      requestCanonicalRender === true &&
+      (!activeUnderlay || underlayVerification?.ok)
+    ) {
+      if (!isSupabaseServerConfigured()) {
+        canonicalRenderMeta = {
+          status: "skipped",
+          reason:
+            "Sketch storage is not configured on this environment; geometry was saved without a server PNG.",
+        };
+        renderLocator = existing?.renderedPngUrl ?? null;
+      } else {
+        try {
+          const { storeVerifiedCleanRender } = await import(
+            "@/lib/sketch/server-clean-render"
+          );
+          const clean = await storeVerifiedCleanRender(
+            id,
+            floorNumber,
+            authoritativeSketchData,
+          );
+          renderLocator = clean.storageLocator;
+          cleanRenderReceipt = clean;
+          canonicalRenderMeta = { status: "stored" };
+        } catch (renderErr) {
+          const reason =
+            renderErr instanceof Error
+              ? renderErr.message
+              : "Canonical render failed";
+          console.error("[sketches] canonical render failed (non-fatal):", renderErr);
+          canonicalRenderMeta = { status: "failed", reason };
+          renderLocator = existing?.renderedPngUrl ?? null;
+        }
+      }
     }
 
     const sketchDataToPersist = skipEmptyOverwrite
