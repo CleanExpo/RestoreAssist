@@ -193,6 +193,8 @@ export async function POST(_req: NextRequest) {
             // are unreachable in the UI even though the readings exist in the DB.
             claimType: "WATER",
             reportId: report.id,
+            // RA-8220: linked to the client so the client timeline shows the job.
+            clientId: client.id,
             userId,
             technicianId: userId,
             technicianName: "James Whitfield",
@@ -330,9 +332,31 @@ export async function POST(_req: NextRequest) {
           });
         }
 
+        // ── 7. Client update emails (RA-8220 timeline) ────────────────────────
+        // Recorded as already sent: nothing is emailed. They give the client
+        // timeline its "drying update" and "job progress" entries on stage.
+        const sentEmails = [
+          { eventType: "STEP_TRANSITION", templateKey: "step-transition", createdAt: day1 },
+          { eventType: "DRYING_GOAL_CHANGE", templateKey: "drying-update", createdAt: day3 },
+        ];
+        for (const e of sentEmails) {
+          await tx.clientCommsLog.create({
+            data: {
+              inspectionId: inspection.id,
+              channel: "EMAIL",
+              eventType: e.eventType,
+              recipient: client.email ?? "sarah.thompson@example.com",
+              status: "SENT",
+              templateKey: e.templateKey,
+              idempotencyKey: `seed-demo:${inspectionNumber}:${e.eventType}`,
+              createdAt: e.createdAt,
+            },
+          });
+        }
+
         return { inspection, report };
       },
-      // 29 statements; the 5s interactive-transaction default is tight on a cold
+      // 31 statements; the 5s interactive-transaction default is tight on a cold
       // connection, and a timeout here would roll the whole demo back.
       { timeout: 20_000 },
     );
