@@ -22,12 +22,14 @@ import { NextRequest } from "next/server";
 import { createHmac } from "crypto";
 
 const integrationFindFirst = vi.fn();
+const integrationFindMany = vi.fn();
 const webhookEventCreate = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     integration: {
       findFirst: (...args: unknown[]) => integrationFindFirst(...args),
+      findMany: (...args: unknown[]) => integrationFindMany(...args),
     },
     webhookEvent: {
       create: (...args: unknown[]) => webhookEventCreate(...args),
@@ -36,6 +38,20 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { POST } from "../route";
+import { fakeFindFirst, fakeFindMany, type FakeIntegrationRow } from "@/tests/helpers/fake-integration-table";
+
+/** A connection the readiness owner calls ready (RA-8446). */
+function connection(overrides: Partial<FakeIntegrationRow> = {}): FakeIntegrationRow {
+  return { id: "integration_1", userId: "owner_1", workspaceId: "workspace_1", provider: "MYOB",
+    name: "MYOB", icon: null, config: null, status: "CONNECTED", tenantId: "cf_1", realmId: null,
+    companyId: null, tokenExpiresAt: null, accessToken: "ciphertext", ...overrides };
+}
+
+/** Serve findMany/findFirst from these rows, honouring the route's where. */
+function useConnections(rows: FakeIntegrationRow[]) {
+  integrationFindMany.mockImplementation(fakeFindMany(rows));
+  integrationFindFirst.mockImplementation(fakeFindFirst(rows));
+}
 
 const SECRET = "test-myob-secret";
 
@@ -54,7 +70,8 @@ beforeEach(() => {
   webhookEventCreate.mockReset();
   process.env.MYOB_WEBHOOK_SECRET = SECRET;
 
-  integrationFindFirst.mockResolvedValue({ id: "integration_1" });
+  integrationFindMany.mockReset();
+  useConnections([connection()]);
   webhookEventCreate.mockResolvedValue({ id: "event_1" });
 });
 
@@ -225,5 +242,46 @@ describe("POST /api/webhooks/myob — unresolvable payment stub", () => {
     expect(body.processed).toBe(1);
     const createArgs = webhookEventCreate.mock.calls[0][0];
     expect(createArgs.data.status).toBe("PENDING");
+  });
+});
+
+describe("POST /api/webhooks/myob — readiness owner (RA-8446)", () => {
+  const invoiceCreated = [{
+    CompanyFileId: "cf_1", EventDateTime: new Date().toISOString(),
+    EventType: "Created", ResourceType: "Sale.Invoice", ResourceUID: "invoice_ready_1",
+  }];
+
+  it("binds to the connection that holds the company file in tenantId, where MYOB stores it", async () => {
+    const response = await POST(requestWithEvents(invoiceCreated));
+    expect((await response.json()).processed).toBe(1);
+    expect(webhookEventCreate.mock.calls[0][0].data.integrationId).toBe("integration_1");
+  });
+
+  it.each(["SYNCING", "ERROR"])("queues for a %s connection the owner calls ready", async (status) => {
+    useConnections([connection({ status })]);
+    const response = await POST(requestWithEvents(invoiceCreated));
+    expect((await response.json()).processed).toBe(1);
+  });
+
+  it("does not store an event for a CONNECTED connection with no tenantId (legacy companyId only)", async () => {
+    useConnections([connection({ tenantId: null, companyId: "cf_1" })]);
+    const response = await POST(requestWithEvents(invoiceCreated));
+    expect(response.status).toBe(200);
+    expect((await response.json()).processed).toBe(0);
+    expect(webhookEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("never binds through companyId to a connection that names another company file", async () => {
+    useConnections([connection({ tenantId: "cf_other", companyId: "cf_1" })]);
+    const response = await POST(requestWithEvents(invoiceCreated));
+    expect((await response.json()).processed).toBe(0);
+    expect(webhookEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not store an event for a CONNECTED connection with no stored credentials", async () => {
+    useConnections([connection({ accessToken: null })]);
+    const response = await POST(requestWithEvents(invoiceCreated));
+    expect((await response.json()).processed).toBe(0);
+    expect(webhookEventCreate).not.toHaveBeenCalled();
   });
 });

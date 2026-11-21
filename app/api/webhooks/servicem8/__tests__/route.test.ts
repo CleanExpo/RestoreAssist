@@ -25,6 +25,18 @@ vi.mock("@/lib/webhook-audit", () => ({
 }));
 
 import { POST } from "../route";
+import { fakeFindMany, type FakeIntegrationRow } from "@/tests/helpers/fake-integration-table";
+
+/** A ServiceM8 connection the readiness owner calls ready (RA-8446). */
+function connection(id: string, overrides: Partial<FakeIntegrationRow> = {}): FakeIntegrationRow {
+  return { id, userId: `owner_${id}`, workspaceId: null, provider: "SERVICEM8", name: "ServiceM8",
+    icon: null, config: null, status: "CONNECTED", tenantId: null, realmId: null,
+    companyId: `company_${id}`, tokenExpiresAt: null, accessToken: "ciphertext", ...overrides };
+}
+
+function useConnections(rows: FakeIntegrationRow[]) {
+  integrationFindMany.mockImplementation(fakeFindMany(rows));
+}
 
 const SECRET = "test-secret";
 
@@ -46,6 +58,7 @@ beforeEach(() => {
   process.env.SERVICEM8_WEBHOOK_SECRET = SECRET;
 
   webhookEventCreate.mockResolvedValue({ id: "event_1" });
+  useConnections([connection("integration_A"), connection("integration_B")]);
 });
 
 describe("POST /api/webhooks/servicem8 — tenant attribution", () => {
@@ -77,17 +90,15 @@ describe("POST /api/webhooks/servicem8 — tenant attribution", () => {
         data: expect.objectContaining({ integrationId: "integration_B" }),
       }),
     );
-    // Never had to fall back to "first connected" — the DB wasn't even
-    // queried for the full CONNECTED list.
-    expect(integrationFindMany).not.toHaveBeenCalled();
+    // Never had to fall back to "first connected": the only integration read
+    // is the readiness check of the matched connection (RA-8446).
+    expect(integrationFindMany).toHaveBeenCalledTimes(1);
+    expect(integrationFindMany.mock.calls[0][0].where.id).toEqual({ in: ["integration_B"] });
   });
 
   it("rejects (does not misattribute) when the company_uuid doesn't match and multiple integrations are CONNECTED", async () => {
     externalClientFindMany.mockResolvedValue([]); // no match
-    integrationFindMany.mockResolvedValue([
-      { id: "integration_A" },
-      { id: "integration_B" },
-    ]);
+    useConnections([connection("integration_A"), connection("integration_B")]);
 
     const response = await POST(
       signedRequest({
@@ -102,7 +113,7 @@ describe("POST /api/webhooks/servicem8 — tenant attribution", () => {
 
   it("falls back to the sole CONNECTED integration when there's no match and only one integration exists (no regression for single-tenant)", async () => {
     externalClientFindMany.mockResolvedValue([]);
-    integrationFindMany.mockResolvedValue([{ id: "integration_only" }]);
+    useConnections([connection("integration_only")]);
 
     const response = await POST(
       signedRequest({
@@ -123,7 +134,7 @@ describe("POST /api/webhooks/servicem8 — tenant attribution", () => {
 
   it("rejects when there is no CONNECTED SERVICEM8 integration at all", async () => {
     externalClientFindMany.mockResolvedValue([]);
-    integrationFindMany.mockResolvedValue([]);
+    useConnections([]);
 
     const response = await POST(
       signedRequest({
@@ -158,5 +169,52 @@ describe("POST /api/webhooks/servicem8 — tenant attribution", () => {
         }),
       }),
     );
+  });
+});
+
+
+describe("POST /api/webhooks/servicem8 — readiness owner (RA-8446)", () => {
+  const job = { service: "Job", entry: [{ uuid: "job-1", active: 1, company_uuid: "new-company" }] };
+
+  it.each(["SYNCING", "ERROR"])("falls back to the sole %s connection the owner calls ready", async (status) => {
+    externalClientFindMany.mockResolvedValue([]);
+    useConnections([connection("integration_only", { status })]);
+    const response = await POST(signedRequest(job));
+    expect(response.status).toBe(200);
+    expect(webhookEventCreate.mock.calls[0][0].data.integrationId).toBe("integration_only");
+  });
+
+  it("does not fall back to a CONNECTED connection with no stored credentials", async () => {
+    externalClientFindMany.mockResolvedValue([]);
+    useConnections([connection("integration_only", { accessToken: null })]);
+    const response = await POST(signedRequest(job));
+    expect(response.status).toBe(400);
+    expect(webhookEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("counts a ready ERROR connection when deciding the fallback is unique", async () => {
+    externalClientFindMany.mockResolvedValue([]);
+    useConnections([connection("integration_A"), connection("integration_B", { status: "ERROR" })]);
+    const response = await POST(signedRequest(job));
+    expect(response.status).toBe(400);
+    expect(webhookEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not store a matched event when the owner calls the matched connection not ready", async () => {
+    externalClientFindMany.mockResolvedValue([{ integrationId: "integration_B" }]);
+    useConnections([connection("integration_A"), connection("integration_B", { name: "OpenAI GPT", icon: "[ra:ai]" })]);
+    const response = await POST(signedRequest({ service: "Job", entry: [{ uuid: "job-1", active: 1, company_uuid: "b-customer" }] }));
+    expect(response.status).toBe(400);
+    expect(webhookEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("scopes the ExternalClient match to the owner's statuses and stored credentials", async () => {
+    externalClientFindMany.mockResolvedValue([{ integrationId: "integration_B" }]);
+    await POST(signedRequest({ service: "Job", entry: [{ uuid: "job-1", active: 1, company_uuid: "b-customer" }] }));
+    expect(externalClientFindMany.mock.calls[0][0].where.integration).toEqual({
+      provider: "SERVICEM8",
+      status: { in: ["CONNECTED", "SYNCING", "ERROR"] },
+      accessToken: { not: null, notIn: [""] },
+    });
   });
 });

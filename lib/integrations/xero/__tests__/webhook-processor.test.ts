@@ -525,3 +525,22 @@ describe("Xero webhook legacy identity compatibility", () => {
     } }));
   });
 });
+
+describe("Xero webhook dispatch takes readiness from the owner (RA-8446)", () => {
+  it.each(["SYNCING", "ERROR"])("dispatches for a %s connection the owner calls ready", async (status) => {
+    mockFindManyEvents.mockResolvedValue([pendingEvent("invoice.updated")]);
+    mockFindUniqueIntegration.mockResolvedValue({ ...binding, status });
+    mockFindFirstInvoice.mockResolvedValue({ id: "local-invoice" });
+    expect(await processXeroWebhookBatch()).toEqual({ processed: 1, failed: 0, skipped: 0 });
+    expect(mockQueueInvoiceSync).toHaveBeenCalledWith("local-invoice", "XERO", "NORMAL");
+  });
+
+  it("re-reads the binding only if credentials are still stored, without selecting them", async () => {
+    mockFindManyEvents.mockResolvedValue([pendingEvent("invoice.updated")]);
+    mockFindFirstInvoice.mockResolvedValue(null);
+    await processXeroWebhookBatch();
+    const [{ where, select }] = mockFindUniqueIntegration.mock.calls[0];
+    expect(where).toEqual({ id: "integ-1", accessToken: { not: null, notIn: [""] } });
+    expect(Object.keys(select)).not.toContain("accessToken");
+  });
+});

@@ -13,6 +13,8 @@ import {
 import { recordWebhookFailure } from "@/lib/webhook-audit";
 import { apiError } from "@/lib/api-errors";
 import { isWebhookEventFresh } from "@/lib/integrations/webhook-freshness";
+import { OAUTH_READY_STATUSES } from "@/lib/integrations/identity";
+import { credentialPresentIds } from "@/lib/services/integrations/select-oauth";
 
 /**
  * POST /api/webhooks/xero - Receive webhook events from Xero
@@ -119,15 +121,20 @@ export async function POST(request: NextRequest) {
     for (const event of events) {
       // Xero may send events for several organisations in one signed request.
       // Bind each event independently; unknown tenants remain acknowledged.
-      const binding = await resolveXeroWebhookBinding(event.tenantId, tenantId =>
-        prisma.integration.findMany({
-          where: { provider: "XERO", tenantId, status: "CONNECTED" },
-          select: XERO_WEBHOOK_INTEGRATION_SELECT,
-          take: MAX_XERO_WEBHOOK_TENANT_CANDIDATES + 1,
-        }),
+      // RA-8446: bind to the connection the readiness owner calls ready.
+      const binding = await resolveXeroWebhookBinding(
+        event.tenantId,
+        tenantId =>
+          prisma.integration.findMany({
+            where: { provider: "XERO", tenantId, status: { in: [...OAUTH_READY_STATUSES] } },
+            select: XERO_WEBHOOK_INTEGRATION_SELECT,
+            take: MAX_XERO_WEBHOOK_TENANT_CANDIDATES + 1,
+          }),
+        ids => credentialPresentIds(prisma, ids),
       );
       if (!binding.ok) {
-        console.warn(`[Xero Webhook] Event not queued: ${binding.reason}`);
+        // Not stored: see lib/integrations/webhook-binding.ts (RA-8446 decision).
+        console.warn(`[Xero Webhook] Event not queued: ${binding.reason}${binding.reason === "NOT_READY" ? ` (${binding.detail})` : ""}`);
         continue;
       }
       const integration = binding.data;
