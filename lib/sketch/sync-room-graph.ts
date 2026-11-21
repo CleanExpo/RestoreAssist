@@ -86,6 +86,7 @@ export interface StaleRoom {
     moistureReadings: number;
     hazards: number;
     jobMoistureReadings?: number;
+    contentsPackOutItems?: number;
   };
 }
 
@@ -120,7 +121,9 @@ export function partitionStaleRooms(stale: StaleRoom[]): {
       (room._count?.evidencePins ?? 0) +
       (room._count?.moistureReadings ?? 0) +
       (room._count?.hazards ?? 0) +
-      (room._count?.jobMoistureReadings ?? 0);
+      (room._count?.jobMoistureReadings ?? 0) +
+      // RA-8501: a contents item's room link is SetNull as well.
+      (room._count?.contentsPackOutItems ?? 0);
     if (dependents > 0) {
       detachableIds.push(room.id);
     } else {

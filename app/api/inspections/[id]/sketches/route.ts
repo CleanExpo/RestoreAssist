@@ -375,6 +375,7 @@ export async function POST(
                 moistureReadings: true,
                 hazards: true,
                 jobMoistureReadings: true,
+                contentsPackOutItems: true,
               },
             },
           },
