@@ -169,7 +169,7 @@ export default function FoundingTrialPage() {
             60 days. Preview first; nothing changes until you apply.
           </p>
         </div>
-        <Badge className="gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+        <Badge className="gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400">
           Support staff only
         </Badge>
       </div>

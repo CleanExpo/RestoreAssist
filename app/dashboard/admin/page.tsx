@@ -127,10 +127,10 @@ export default function AdminDashboardPage() {
     status: "healthy" | "degraded" | "down" | "unknown",
   ) => {
     const variants = {
-      healthy: "bg-green-500/10 text-green-600 dark:text-green-400",
-      degraded: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-      down: "bg-red-500/10 text-red-600 dark:text-red-400",
-      unknown: "bg-neutral-500/10 text-neutral-600 dark:text-neutral-400",
+      healthy: "bg-green-500/10 text-green-700 dark:text-green-400",
+      degraded: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+      down: "bg-red-500/10 text-red-700 dark:text-red-400",
+      unknown: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400",
     };
     const icons = {
       healthy: CheckCircle,
@@ -364,7 +364,7 @@ export default function AdminDashboardPage() {
                   {stats?.totalReports ?? "-"}
                 </p>
                 <p className="text-sm text-neutral-500">Total Reports</p>
-                <p className="text-xs text-brand-harbour-500">
+                <p className="text-xs text-brand-harbour-600 dark:text-brand-harbour-400">
                   {stats?.reportsThisMonth ?? 0} this month
                 </p>
               </div>

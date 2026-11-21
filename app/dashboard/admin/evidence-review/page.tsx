@@ -115,12 +115,12 @@ function riskBadge(tier: number): { label: string; className: string } {
   if (tier === 3)
     return {
       label: "Critical",
-      className: "bg-red-500/10 text-red-600 dark:text-red-400",
+      className: "bg-red-500/10 text-red-700 dark:text-red-400",
     };
   if (tier === 2)
     return {
       label: "Elevated",
-      className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
     };
   return {
     label: "Standard",
@@ -309,7 +309,7 @@ export default function AdminEvidenceReviewPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+            <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">
               {summary?.totalIncomplete ?? "—"}
             </p>
             <p className="text-xs text-brand-slate dark:text-neutral-400 mt-1">
@@ -510,17 +510,17 @@ export default function AdminEvidenceReviewPage() {
                         {jobLabel}
                       </Badge>
                       {insp.isStale && (
-                        <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 text-xs">
+                        <Badge className="bg-red-500/10 text-red-700 dark:text-red-400 text-xs">
                           Stale
                         </Badge>
                       )}
                       {insp.isIncomplete && !insp.isStale && (
-                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs">
+                        <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs">
                           Incomplete
                         </Badge>
                       )}
                       {wf?.isReadyToSubmit && (
-                        <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 text-xs">
+                        <Badge className="bg-green-500/10 text-green-700 dark:text-green-400 text-xs">
                           Ready
                         </Badge>
                       )}

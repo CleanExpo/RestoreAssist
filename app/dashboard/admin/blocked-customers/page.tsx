@@ -44,17 +44,17 @@ const statusBadgeConfig: Record<
   PAST_DUE: {
     label: "Past due",
     className:
-      "bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800",
+      "bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
   },
   EXPIRED: {
     label: "Expired",
     className:
-      "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800",
+      "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800",
   },
   CANCELED: {
     label: "Canceled",
     className:
-      "bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700",
+      "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700",
   },
 };
 
@@ -185,7 +185,7 @@ export default function AdminBlockedCustomersPage() {
             <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
               Blocked customers
               {!loading && (
-                <Badge className="ml-1 bg-red-500/10 text-red-600 dark:text-red-400">
+                <Badge className="ml-1 bg-red-500/10 text-red-700 dark:text-red-400">
                   {total}
                 </Badge>
               )}
@@ -196,7 +196,7 @@ export default function AdminBlockedCustomersPage() {
             </p>
           </div>
         </div>
-        <Badge className="gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+        <Badge className="gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400">
           Admin Only
         </Badge>
       </div>
