@@ -601,6 +601,12 @@ export function SketchEditorV2({
   const sketchReloadTokenSeen = useRef<number | undefined>(undefined);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // RA-8197: the session a pending debounced save was scheduled under, and a
+  // handle on performSave for the load effect (declared above performSave).
+  const pendingSaveSessionRef = useRef<string | null>(null);
+  const performSaveRef = useRef<
+    ((renderImage?: boolean, sessionId?: string) => Promise<void>) | null
+  >(null);
   // RA-8056: the revision of each floor (by clientKey) this editor loaded or
   // last saved. Sent with every save so the route refuses one based on an
   // older floor (another tab or device saved since) instead of letting its
@@ -619,6 +625,11 @@ export function SketchEditorV2({
   const [revisionConflictLabels, setRevisionConflictLabels] = useState<
     string[]
   >([]);
+  // RA-8197: the same floors as revisionConflictRef, as state, so a paused
+  // floor renders read-only. An edit on it could be neither saved nor queued.
+  const [revisionConflictKeys, setRevisionConflictKeys] = useState<string[]>(
+    [],
+  );
   // False when a refused edit could not be stored on the device; the notice
   // then says it exists only on this screen.
   const [revisionConflictKept, setRevisionConflictKept] = useState(true);
@@ -651,13 +662,42 @@ export function SketchEditorV2({
     setSketchLoadError(false);
     revisionConflictRef.current = new Set();
     setRevisionConflictLabels([]);
+    setRevisionConflictKeys([]);
     setRevisionConflictKept(true);
+    // RA-8197: an edit made just before this load scheduled a save that has
+    // not fired. Run it now, under the session it was made in, so it can
+    // never carry this canvas under the new session and be dropped as
+    // superseded by the reloaded canvas's first save. The load waits for it,
+    // so the save reads this canvas before the stored plan replaces it.
+    let pendingFlush: Promise<void> | undefined;
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      const pendingSession =
+        pendingSaveSessionRef.current ?? editorSessionIdRef.current;
+      pendingSaveSessionRef.current = null;
+      // Read every canvas now: this load unmounts them before the save runs,
+      // and the save then falls back to each floor's snapshot.
+      for (const fd of floorsDataRef.current) {
+        try {
+          const json = fd.canvasRef.current?.toJSON() as
+            | Record<string, unknown>
+            | undefined;
+          if (json && !isEmptySketchData(json)) fd.sketchSnapshot = json;
+        } catch {
+          // A disposed canvas keeps its last snapshot.
+        }
+      }
+      pendingFlush = performSaveRef.current?.(false, pendingSession);
+    }
     // RA-8056: each load is a new editor session. The canvas is replaced by
     // the stored plan, so saves queued before it are not part of what this
     // editor saves next and must not be dropped as superseded by it.
     editorSessionIdRef.current = newEditorSessionId();
     (async () => {
       try {
+        await pendingFlush?.catch(() => undefined);
+        if (cancelled) return;
         const res = await fetch(`/api/inspections/${inspectionId}/sketches`);
         if (!res.ok) throw new Error(`Floor plan read failed (${res.status})`);
         const { sketches } = (await res.json()) as {
@@ -917,6 +957,10 @@ export function SketchEditorV2({
   }, [captureMode]);
 
   const activeFloor = floorsData[activeIdx];
+  // RA-8197: the active floor's saving is paused by a revision conflict.
+  const activeFloorPaused = Boolean(
+    activeFloor && revisionConflictKeys.includes(activeFloor.clientKey),
+  );
   // Always-current floors for debounced saves (avoids stale fieldComplete / pins).
   const floorsDataRef = useRef(floorsData);
   floorsDataRef.current = floorsData;
@@ -1211,7 +1255,7 @@ export function SketchEditorV2({
   }, []);
 
   const performSaveNow = useCallback(
-    async (renderImage = false) => {
+    async (renderImage = false, sessionId?: string) => {
       setSaving(true);
       let queuedThisTick = 0;
       let succeededOnline = 0;
@@ -1254,7 +1298,9 @@ export function SketchEditorV2({
           : floorRevisionRef.current.has(fd.clientKey)
             ? (floorRevisionRef.current.get(fd.clientKey) ?? undefined)
             : NEW_FLOOR_REVISION;
-        const editorSessionId = editorSessionIdRef.current;
+        // RA-8197: the session the save was requested under, not the one
+        // current when it runs: a reload in between renews the session.
+        const editorSessionId = sessionId ?? editorSessionIdRef.current;
         const removalMark = userRemovedRoomsRef.current.get(fd.clientKey) ?? 0;
         const { resolveSketchCaptureAdapter } =
           await import("@/lib/sketch/ingest-roomplan");
@@ -1536,6 +1582,9 @@ export function SketchEditorV2({
             // throws it away.
             if (isFloorRevisionConflict(payload) && inspectionId) {
               revisionConflictRef.current.add(fd.clientKey);
+              setRevisionConflictKeys((prev) =>
+                prev.includes(fd.clientKey) ? prev : [...prev, fd.clientKey],
+              );
               setRevisionConflictLabels((prev) =>
                 prev.includes(fd.floor.floorLabel)
                   ? prev
@@ -1637,13 +1686,16 @@ export function SketchEditorV2({
   // second would be refused as a conflict with this editor's own save.
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   const performSave = useCallback(
-    (renderImage = false) => {
-      const run = saveChainRef.current.then(() => performSaveNow(renderImage));
+    (renderImage = false, sessionId: string = editorSessionIdRef.current) => {
+      const run = saveChainRef.current.then(() =>
+        performSaveNow(renderImage, sessionId),
+      );
       saveChainRef.current = run.catch(() => undefined);
       return run;
     },
     [performSaveNow],
   );
+  performSaveRef.current = performSave;
 
   // RA-8056: a save this editor queued offline and the queue replayed moved
   // the floor to a new revision. Adopt it, but only when this editor is still
@@ -1688,8 +1740,13 @@ export function SketchEditorV2({
     if (!inspectionId && !captureToken) return;
     freshnessRef.current.markEdited();
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    // RA-8197: bind the save to the session the edit was made in.
+    const sessionId = editorSessionIdRef.current;
+    pendingSaveSessionRef.current = sessionId;
     saveTimerRef.current = setTimeout(() => {
-      void performSave();
+      saveTimerRef.current = null;
+      pendingSaveSessionRef.current = null;
+      void performSave(false, sessionId);
     }, 1500);
   }, [readonly, inspectionId, captureToken, performSave]);
 
@@ -1700,6 +1757,7 @@ export function SketchEditorV2({
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
+      pendingSaveSessionRef.current = null;
     }
     if (readonly) return;
     if (!inspectionId && !captureToken) return;
@@ -3658,7 +3716,7 @@ export function SketchEditorV2({
                 // RA-7656: the canvas reports every room a user action takes
                 // off it (delete, clear, undo, redo); loads never report.
                 onRoomsRemoved={() => markUserRemovedRooms(fd.clientKey)}
-                readonly={readonly}
+                readonly={readonly || revisionConflictKeys.includes(fd.clientKey)}
                 onReady={(canvas) => handleCanvasReady(fd.floor.id, canvas)}
                 onModified={() => {
                   setStartOverlayDismissed(true);
@@ -3752,7 +3810,10 @@ export function SketchEditorV2({
                   onChange={handleDamageMarkersChange}
                   overlayViewport={overlayVpt}
                   active={
-                    toolMode === "marker" && idx === activeIdx && !readonly
+                    toolMode === "marker" &&
+                    idx === activeIdx &&
+                    !readonly &&
+                    !revisionConflictKeys.includes(fd.clientKey)
                   }
                   selectedType={markerType}
                   selectedSeverity={markerSeverity}
@@ -3767,7 +3828,10 @@ export function SketchEditorV2({
                 <SketchEvidenceLayer
                   pins={fd.evidencePins}
                   active={
-                    toolMode === "photo" && idx === activeIdx && !readonly
+                    toolMode === "photo" &&
+                    idx === activeIdx &&
+                    !readonly &&
+                    !revisionConflictKeys.includes(fd.clientKey)
                   }
                   overlayViewport={overlayVpt}
                   width={viewport.width}
@@ -3787,6 +3851,17 @@ export function SketchEditorV2({
                   crop={roomMoistureSession?.crop ?? null}
                   roomLabel={roomMoistureSession?.label}
                   onExit={handleExitRoomMoisture}
+                />
+              )}
+
+              {/* RA-8197: saving is paused on this floor, so an edit here
+                  would be neither saved nor queued. Block input until the
+                  plan is reloaded. */}
+              {revisionConflictKeys.includes(fd.clientKey) && (
+                <div
+                  data-testid="floor-paused-shield"
+                  title="Saving is paused for this floor. Reload the floor plan to keep editing."
+                  className="absolute inset-0 z-30 cursor-not-allowed"
                 />
               )}
             </div>
@@ -4609,7 +4684,7 @@ export function SketchEditorV2({
             ? handleScanRoom
             : undefined
         }
-        readonly={readonly}
+        readonly={readonly || activeFloorPaused}
         density={hubEmbed ? "compact" : "comfortable"}
         className="shrink-0 border-t border-white/10 bg-brand-deep/95"
       />
