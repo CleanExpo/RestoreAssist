@@ -91,10 +91,11 @@ export async function POST(
       });
     }
 
-    const body = (await request.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
+    const parsed: unknown = await request.json().catch(() => ({}));
+    // A JSON array, string or null is not a booking; `in` would throw on it.
+    const body = (
+      parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {}
+    ) as Record<string, unknown>;
     // RA-8497: re-read the caller's organisation from the database; it scopes
     // both the timezone typed times are read in and who may be assigned.
     const caller = await prisma.user.findUnique({

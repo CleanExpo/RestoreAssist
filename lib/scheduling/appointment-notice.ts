@@ -230,7 +230,9 @@ export async function notifyTechnicianOfBooking(input: {
               {
                 filename: "site-visit.ics",
                 content: Buffer.from(email.ics, "utf8").toString("base64"),
-                contentType: "text/calendar; charset=utf-8; method=PUBLISH",
+                // A plain media type: the file itself says METHOD:PUBLISH, and
+                // RFC 5545 text defaults to UTF-8.
+                contentType: "text/calendar",
               },
             ],
             organizationId: assignee.organizationId,

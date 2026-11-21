@@ -212,6 +212,21 @@ describe("POST /api/inspections/[id]/appointments (RA-8497)", () => {
     expect(data.title).toBe("Site visit");
   });
 
+  it("refuses a JSON body that is not an object as a bad request, not a crash", async () => {
+    for (const raw of ['"2026-01-15"', "[1,2]", "null"]) {
+      const res = await POST(
+        new NextRequest("http://localhost/api/inspections/insp-1/appointments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: raw,
+        }),
+        params,
+      );
+      await expectRefused(res, 400, /startsAt and endsAt required/);
+    }
+    expect(mockAppointmentCreate).not.toHaveBeenCalled();
+  });
+
   it("refuses a technician role", async () => {
     mockGetServerSession.mockResolvedValue({
       user: { id: "tech-1", role: "USER" },

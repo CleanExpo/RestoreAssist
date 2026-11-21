@@ -140,7 +140,7 @@ function attachedIcs(email: ReturnType<typeof sentEmail>): string {
   expect(email.attachments).toHaveLength(1);
   const [file] = email.attachments;
   expect(file.filename).toMatch(/\.ics$/);
-  expect(file.contentType).toBe("text/calendar; charset=utf-8; method=PUBLISH");
+  expect(file.contentType).toBe("text/calendar");
   return Buffer.from(file.content, "base64").toString("utf8");
 }
 
