@@ -14,7 +14,7 @@ type ProfileForm = {
   logoUrl: string | null;
   primaryColor: string;
   accentColor: string;
-  officeNotificationEmail: string;
+  email: string;
 };
 
 const ACCEPTED_LOGO_TYPES = [
@@ -32,7 +32,7 @@ export function OrganizationProfileSetting() {
     logoUrl: null,
     primaryColor: "#1C2E47",
     accentColor: "#8A6B4E",
-    officeNotificationEmail: "",
+    email: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -54,7 +54,7 @@ export function OrganizationProfileSetting() {
           logoUrl: data?.logoUrl ?? null,
           primaryColor: data?.primaryColor ?? "#1C2E47",
           accentColor: data?.accentColor ?? "#8A6B4E",
-          officeNotificationEmail: data?.officeNotificationEmail ?? "",
+          email: data?.email ?? "",
         });
       })
       .catch((error) =>
@@ -85,7 +85,7 @@ export function OrganizationProfileSetting() {
       setForm((prev) => ({
         ...prev,
         ...body.data,
-        officeNotificationEmail: body.data?.officeNotificationEmail ?? "",
+        email: body.data?.email ?? "",
       }));
     } catch (error) {
       toast.error(
@@ -198,7 +198,7 @@ export function OrganizationProfileSetting() {
 
           <div className="space-y-1.5 border-t border-slate-200 dark:border-slate-700 pt-4">
             <label htmlFor="org-office-email" className="text-sm text-slate-800 dark:text-slate-200">
-              Office email for completed jobs
+              Office email
             </label>
             <Input
               id="org-office-email"
@@ -207,15 +207,15 @@ export function OrganizationProfileSetting() {
               autoComplete="email"
               placeholder="office@yourbusiness.com.au"
               aria-describedby="org-office-email-hint"
-              value={form.officeNotificationEmail}
+              value={form.email}
               onChange={(e) =>
-                setForm((f) => ({ ...f, officeNotificationEmail: e.target.value }))
+                setForm((f) => ({ ...f, email: e.target.value }))
               }
               className="border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
             />
             <p id="org-office-email-hint" className="text-xs text-slate-500">
-              When a technician submits a job, this inbox is told the report is ready to
-              send. Leave blank to use the owner&apos;s email.
+              Your business email. When a technician submits a job, this inbox is told
+              the report is ready to send. Leave blank to use the owner&apos;s email.
             </p>
           </div>
 

@@ -2,30 +2,42 @@
  * RA-8503 (DRC S10): tell the office when a technician submits a job visit.
  *
  * On a successful submit the organisation's ADMIN and MANAGER users (and the
- * owner) get one in-app notification, and one email goes to the office
- * address set in organisation settings, or to the owner's email when none is
- * set.
+ * owner) get one in-app notification, and one email goes to the
+ * organisation's office (business) email from organisation settings, or to
+ * the owner's email when that is blank or not a valid address.
+ *
+ * Who is told follows the job's tenant, resolved by getResourceTenant (the
+ * same membership-window rule the submit gate uses), never the creator's
+ * current organisation: a removed member's old job tells the business that
+ * owns it, and never the person removed or a firm they joined later.
  *
  * What the office is told is deliberately narrow: the job number, the
- * property address, the technician's name and a link to the job. The
- * inspection is read through a fixed select, so the insured's contact
- * details (on the linked Client) and any money (estimates, rates, invoices)
- * are never loaded and cannot leak into the notice.
+ * technician's name and a link to the job. The property address, the
+ * insured's contact details and any money are never put in the notice; the
+ * inspection is read through a fixed select so they cannot leak.
  *
- * Exactly once per submit: the submit route calls this only after its CAS
- * wins the DRAFT to SUBMITTED transition, and the email is claimed in the
- * outbound delivery ledger under a key bound to the inspection and that
- * submit's time, so a retry of the same submit cannot send a second email.
+ * At most once per submit: the submit route calls this only after its CAS
+ * wins the DRAFT to SUBMITTED transition, so a retry or a lost race tells
+ * nobody, and the email is claimed in the outbound delivery ledger under a
+ * key bound to that submit's time. A notice lost to a provider failure or a
+ * restart is not resent automatically; the ledger row and the
+ * "[office-notice]" outcome log line are the record, and the in-app
+ * notification is the durable channel.
  *
  * Never throws: a failed notice must not fail a submit that already landed.
  */
 
 import { prisma } from "@/lib/prisma";
 import { createNotificationForUsers } from "@/lib/notifications";
-import { deliverEmailOnce } from "@/lib/email-delivery-ledger";
-import { assertEmailSuccess, escapeHtml, withEmailTimeout } from "@/lib/email";
+import {
+  deliverEmailOnce,
+  EmailDeliveryPending,
+} from "@/lib/email-delivery-ledger";
+import { escapeHtml, withEmailTimeout } from "@/lib/email";
 import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { getAppUrl } from "@/lib/app-url";
+import { getResourceTenant } from "@/lib/organization-credits";
+import { reportError } from "@/lib/observability";
 
 export const SUBMIT_NOTICE_EMAIL_KIND = "INSPECTION_SUBMITTED_OFFICE";
 
@@ -39,9 +51,34 @@ export interface SubmitNoticeInput {
 
 export interface SubmitNoticeContent {
   jobNumber: string;
-  propertyAddress: string;
   technicianName: string;
   jobUrl: string;
+}
+
+export type SubmitNoticeOutcome =
+  | "sent"
+  | "replayed"
+  | "inspection_missing"
+  | "no_tenant"
+  | "no_recipient"
+  | "failed";
+
+// Values saved before RA-8503 were never validated, so check at send time.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function usableEmail(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length <= 254 && EMAIL_PATTERN.test(trimmed)
+    ? trimmed
+    : null;
+}
+
+function logOutcome(
+  inspectionId: string,
+  outcome: SubmitNoticeOutcome,
+  detail: Record<string, unknown> = {},
+): void {
+  console.info("[office-notice]", { inspectionId, outcome, ...detail });
 }
 
 export function submitNoticeEmailKey(
@@ -51,14 +88,13 @@ export function submitNoticeEmailKey(
   return `inspection-submitted-office:${inspectionId}:${submittedAt.toISOString()}`;
 }
 
-/** Subject, HTML and text for the office email. Only these four facts. */
+/** Subject, HTML and text for the office email. Only these three facts. */
 export function buildSubmitNoticeEmail(content: SubmitNoticeContent): {
   subject: string;
   html: string;
   text: string;
 } {
   const job = escapeHtml(content.jobNumber);
-  const address = escapeHtml(content.propertyAddress);
   const tech = escapeHtml(content.technicianName);
   const subject = `Job ${content.jobNumber} complete: report ready to send`;
   const html = `<!DOCTYPE html>
@@ -68,7 +104,6 @@ export function buildSubmitNoticeEmail(content: SubmitNoticeContent): {
     <h1 style="font-size: 22px; margin: 0 0 16px;">Job ${job} is complete</h1>
     <p>${tech} has submitted the site visit. The report is ready to send.</p>
     <p style="margin: 0;"><strong>Job number:</strong> ${job}</p>
-    <p style="margin: 0;"><strong>Property:</strong> ${address}</p>
     <p style="margin: 0 0 24px;"><strong>Technician:</strong> ${tech}</p>
     <p><a href="${escapeHtml(content.jobUrl)}" style="color: #3b6d8c;">Open the job</a></p>
     <p style="color: #64748b; font-size: 13px;">You receive this because your organisation's office address is set to this inbox in RestoreAssist settings.</p>
@@ -79,53 +114,73 @@ export function buildSubmitNoticeEmail(content: SubmitNoticeContent): {
 ${content.technicianName} has submitted the site visit. The report is ready to send.
 
 Job number: ${content.jobNumber}
-Property: ${content.propertyAddress}
 Technician: ${content.technicianName}
 
 Open the job: ${content.jobUrl}`;
   return { subject, html, text };
 }
 
-async function resolveOrganization(ownerUserId: string) {
-  const select = {
-    id: true,
-    ownerId: true,
-    officeNotificationEmail: true,
-    owner: { select: { email: true } },
-  } as const;
-  const owner = await prisma.user.findUnique({
-    where: { id: ownerUserId },
-    select: { organizationId: true, email: true },
+const ORG_SELECT = {
+  id: true,
+  ownerId: true,
+  email: true,
+  owner: { select: { email: true } },
+} as const;
+
+/**
+ * The organisation that owns the job, or null for a sole trader. One owner
+ * may own several organisations; when the tenant names none and the owner
+ * owns more than one, no organisation is guessed.
+ */
+async function resolveTenantOrganization(tenant: {
+  ownerId: string;
+  organizationId: string | null;
+}) {
+  if (tenant.organizationId) {
+    const org = await prisma.organization.findUnique({
+      where: { id: tenant.organizationId },
+      select: ORG_SELECT,
+    });
+    return org && org.ownerId === tenant.ownerId ? org : null;
+  }
+  const owned = await prisma.organization.findMany({
+    where: { ownerId: tenant.ownerId },
+    select: ORG_SELECT,
+    take: 2,
   });
-  const org = owner?.organizationId
-    ? await prisma.organization.findUnique({
-        where: { id: owner.organizationId },
-        select,
-      })
-    : await prisma.organization.findFirst({
-        where: { ownerId: ownerUserId },
-        select,
-      });
-  return { owner, org };
+  return owned.length === 1 ? owned[0] : null;
 }
 
 export async function notifyOfficeOfSubmittedVisit(
   input: SubmitNoticeInput,
 ): Promise<void> {
+  let ledgerKey: string | null = null;
   try {
     const inspection = await prisma.inspection.findUnique({
       where: { id: input.inspectionId },
       select: {
         id: true,
         userId: true,
+        createdAt: true,
         inspectionNumber: true,
-        propertyAddress: true,
         technicianName: true,
       },
     });
-    if (!inspection) return;
+    if (!inspection) {
+      logOutcome(input.inspectionId, "inspection_missing");
+      return;
+    }
 
-    const { owner, org } = await resolveOrganization(inspection.userId);
+    const tenant = await getResourceTenant(
+      inspection.userId,
+      inspection.createdAt,
+    );
+    if (!tenant) {
+      // Fail closed, as the tenancy helper does: no proven tenant, no notice.
+      logOutcome(inspection.id, "no_tenant");
+      return;
+    }
+    const org = await resolveTenantOrganization(tenant);
 
     const technicianName =
       inspection.technicianName?.trim() ||
@@ -133,69 +188,81 @@ export async function notifyOfficeOfSubmittedVisit(
       "A technician";
     const content: SubmitNoticeContent = {
       jobNumber: inspection.inspectionNumber,
-      propertyAddress: inspection.propertyAddress,
       technicianName,
       jobUrl: `${getAppUrl()}/dashboard/inspections/${inspection.id}`,
     };
 
-    // In-app: ADMIN and MANAGER users of the organisation, plus the owner.
-    // A solo business without an organisation row notifies its owner.
-    const recipientIds = new Set<string>();
+    // In-app: the tenant's owner, plus the organisation's ADMIN and MANAGER
+    // users when the job belongs to an organisation.
+    const recipientIds = new Set<string>([tenant.ownerId]);
     if (org) {
-      recipientIds.add(org.ownerId);
       const staff = await prisma.user.findMany({
         where: { organizationId: org.id, role: { in: ["ADMIN", "MANAGER"] } },
         select: { id: true },
       });
       for (const user of staff) recipientIds.add(user.id);
-    } else {
-      recipientIds.add(inspection.userId);
     }
     await createNotificationForUsers([...recipientIds], {
       title: "Job complete: report ready to send",
-      message: `${technicianName} submitted job ${content.jobNumber} at ${content.propertyAddress}.`,
+      message: `${technicianName} submitted job ${content.jobNumber}.`,
       type: "SUCCESS",
       link: `/dashboard/inspections/${inspection.id}`,
     });
 
-    const recipient =
-      org?.officeNotificationEmail?.trim() ||
-      org?.owner?.email?.trim() ||
-      owner?.email?.trim() ||
-      null;
+    const ownerEmail = org
+      ? org.owner?.email
+      : (
+          await prisma.user.findUnique({
+            where: { id: tenant.ownerId },
+            select: { email: true },
+          })
+        )?.email;
+    const recipient = usableEmail(org?.email) ?? usableEmail(ownerEmail);
     if (!recipient) {
-      console.warn("[office-notice] no office or owner email", {
-        inspectionId: inspection.id,
+      logOutcome(inspection.id, "no_recipient", {
+        inAppRecipients: recipientIds.size,
       });
       return;
     }
 
     const email = buildSubmitNoticeEmail(content);
     const key = submitNoticeEmailKey(inspection.id, input.submittedAt);
-    await deliverEmailOnce({
+    ledgerKey = key;
+    const delivery = await deliverEmailOnce({
       idempotencyKey: key,
       kind: SUBMIT_NOTICE_EMAIL_KIND,
       recipient,
       payloadIdentity: key,
-      send: async () =>
-        assertEmailSuccess(
-          await withEmailTimeout(
-            sendTransactionalEmail({
-              to: recipient,
-              subject: email.subject,
-              html: email.html,
-              text: email.text,
-              organizationId: org?.id ?? null,
-              idempotencyKey: key,
-            }),
-          ),
-          "email-inspection-submitted-office",
+      // The ledger records SENT only on a provider receipt. Anything else
+      // (not configured, rejected, timed out) is left unsent and is never
+      // resent automatically, which is the safe side for a once-only notice.
+      send: () =>
+        withEmailTimeout(
+          sendTransactionalEmail({
+            to: recipient,
+            subject: email.subject,
+            html: email.html,
+            text: email.text,
+            organizationId: org?.id ?? null,
+            idempotencyKey: key,
+          }),
         ),
     });
+    logOutcome(inspection.id, delivery.replayed ? "replayed" : "sent", {
+      ledgerKey: key,
+      inAppRecipients: recipientIds.size,
+    });
   } catch (error) {
-    console.error("[office-notice] submit notice failed (non-blocking):", {
+    const ledgerState =
+      error instanceof EmailDeliveryPending ? error.state : undefined;
+    logOutcome(input.inspectionId, "failed", { ledgerKey, ledgerState });
+    // This line never adds the recipient address; the ledger row holds it.
+    reportError(error, {
+      route: "/api/inspections/[id]/submit",
+      stage: "office-notice",
       inspectionId: input.inspectionId,
-      error: error instanceof Error ? error.message : String(error),
+      ledgerKey,
+      ledgerState,
     });
   }
 }

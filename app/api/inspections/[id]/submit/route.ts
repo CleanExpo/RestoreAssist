@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -394,15 +394,21 @@ export async function POST(
         );
         scheduleZohoInspectionPush(id);
         // RA-8503: tell the office the visit is complete. Only the winning
-        // CAS reaches here, so a retry or a lost race sends nothing; the
-        // email is also claimed once in the delivery ledger. Never blocks.
-        void notifyOfficeOfSubmittedVisit({
+        // CAS reaches here, so a retry or a lost race tells nobody; the email
+        // is also claimed once in the delivery ledger. At most once, never
+        // blocks the response, and after() keeps the work alive past it.
+        const officeNotice = notifyOfficeOfSubmittedVisit({
           inspectionId: id,
           submittedAt,
           submitterName: session.user.name ?? null,
         }).catch((err) =>
           console.error("[office-notice] submit notice failed:", err),
         );
+        try {
+          after(() => officeNotice);
+        } catch {
+          // Outside a request scope there is nothing to extend.
+        }
       }
       if (submitGuard.count === 0) {
         return apiError(request, {

@@ -66,31 +66,31 @@ describe("PATCH /api/organization/profile", () => {
   // RA-8503: the office inbox told when a technician submits a job visit.
   it("saves a trimmed office email", async () => {
     p.organization.findFirst.mockResolvedValue({ id: "org-1" });
-    p.organization.update.mockResolvedValue({ officeNotificationEmail: "office@example.com" });
+    p.organization.update.mockResolvedValue({ email: "office@example.com" });
     const res = await PATCH(
       new NextRequest("http://localhost/api/organization/profile", {
         method: "PATCH",
-        body: JSON.stringify({ officeNotificationEmail: "  office@example.com " }),
+        body: JSON.stringify({ email: "  office@example.com " }),
       }),
     );
     expect(res.status).toBe(200);
     expect(p.organization.update.mock.calls[0][0].data).toEqual({
-      officeNotificationEmail: "office@example.com",
+      email: "office@example.com",
     });
   });
 
   it("clears the office email so the owner's email is used", async () => {
     p.organization.findFirst.mockResolvedValue({ id: "org-1" });
-    p.organization.update.mockResolvedValue({ officeNotificationEmail: null });
+    p.organization.update.mockResolvedValue({ email: null });
     const res = await PATCH(
       new NextRequest("http://localhost/api/organization/profile", {
         method: "PATCH",
-        body: JSON.stringify({ officeNotificationEmail: "" }),
+        body: JSON.stringify({ email: "" }),
       }),
     );
     expect(res.status).toBe(200);
     expect(p.organization.update.mock.calls[0][0].data).toEqual({
-      officeNotificationEmail: null,
+      email: null,
     });
   });
 
@@ -99,7 +99,7 @@ describe("PATCH /api/organization/profile", () => {
     const res = await PATCH(
       new NextRequest("http://localhost/api/organization/profile", {
         method: "PATCH",
-        body: JSON.stringify({ officeNotificationEmail: "not an email" }),
+        body: JSON.stringify({ email: "not an email" }),
       }),
     );
     expect(res.status).toBe(400);

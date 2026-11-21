@@ -174,7 +174,8 @@ describe("submit route — RA-8503 office notice", () => {
     expect(arg.submitterName).toBe("Sam Field");
     const casData = mockInspectionUpdateMany.mock.calls[0][0].data as { submittedAt: Date };
     expect(arg.submittedAt).toBeInstanceOf(Date);
-    expect(arg.submittedAt.getTime()).toBe(casData.submittedAt.getTime());
+    // The same Date object the CAS wrote, not an equal time taken a moment later.
+    expect(arg.submittedAt).toBe(casData.submittedAt);
   });
 
   it("a retried submit that loses the CAS tells nobody again", async () => {

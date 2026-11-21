@@ -12,7 +12,6 @@ const profileSelect = {
   address: true,
   phone: true,
   email: true,
-  officeNotificationEmail: true,
   website: true,
   logoUrl: true,
   primaryColor: true,
@@ -23,7 +22,8 @@ const profileSelect = {
   nzbn: true,
 } as const;
 
-// RA-8503: the inbox told when a technician submits a job visit.
+// RA-8503: the business email is also the inbox told when a technician
+// submits a job visit, so it must be a real address.
 const OFFICE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function isHexColor(value: string): boolean {
@@ -101,6 +101,16 @@ export async function PATCH(request: NextRequest) {
           status: 400,
         });
       }
+      if (
+        field === "email" &&
+        (trimmed.length > 254 || !OFFICE_EMAIL_PATTERN.test(trimmed))
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Office email must be a valid email address",
+          status: 400,
+        });
+      }
       if (field === "primaryColor" || field === "accentColor") {
         patch[field] = trimmed.startsWith("#")
           ? trimmed.toUpperCase()
@@ -108,23 +118,6 @@ export async function PATCH(request: NextRequest) {
         continue;
       }
       patch[field] = trimmed;
-    }
-
-    if ("officeNotificationEmail" in body) {
-      const v = body.officeNotificationEmail;
-      if (v === null || v === undefined || v === "") {
-        patch.officeNotificationEmail = null;
-      } else if (typeof v === "string") {
-        const trimmed = v.trim();
-        if (trimmed.length > 254 || !OFFICE_EMAIL_PATTERN.test(trimmed)) {
-          return apiError(request, {
-            code: "VALIDATION",
-            message: "Office email must be a valid email address",
-            status: 400,
-          });
-        }
-        patch.officeNotificationEmail = trimmed;
-      }
     }
 
     if (Object.keys(patch).length === 0) {

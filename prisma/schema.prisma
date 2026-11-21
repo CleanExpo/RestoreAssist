@@ -991,9 +991,6 @@ model Organization {
   address          String?
   phone            String?
   email            String?
-  // RA-8503: inbox told when a technician submits a job visit. Null means
-  // the owner's email is used.
-  officeNotificationEmail String?
   website          String?
   logoUrl          String?
   primaryColor     String?
