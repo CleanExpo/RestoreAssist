@@ -104,35 +104,30 @@ export function buildDryingTimeline(
 
     if (areaReadings.length === 0) continue;
 
-    const earliest = areaReadings[0];
-    const latest = areaReadings[areaReadings.length - 1];
-    const materialType = modeSurfaceType(areaReadings);
-
-    const curve = computeTargetCurve({
-      initialMC: earliest.moistureLevel,
-      materialType,
-      category,
-      waterClass,
-      roomVolumeM3: DEFAULT_ROOM_VOLUME_M3,
-      dehumidifierCapacityLpd: DEFAULT_DEHU_CAPACITY_LPD,
-    });
-
-    const daysElapsed = Math.max(
-      0,
-      Math.floor((now.getTime() - earliest.recordedAt.getTime()) / MS_PER_DAY),
+    // RA-8536: an area can hold readings on several materials (timber floor,
+    // plasterboard wall). Each material is judged on its own latest reading
+    // against its own drying goal — never against another material's goal.
+    const materials = groupBySurfaceType(areaReadings).map((readings) =>
+      assessMaterial(readings, now, category, waterClass),
     );
-    const dayIndex = Math.min(daysElapsed, curve.daily.length - 1);
-    const expectedTargetMC = curve.daily[dayIndex].targetMC;
-    const dryThreshold = getDryStandard(materialType).dryThreshold;
 
-    const isDry = latest.moistureLevel <= dryThreshold;
-    const gap = latest.moistureLevel - expectedTargetMC;
-    const status: AreaDryingStatus =
-      isDry || gap <= ON_TRACK_GAP_TOLERANCE ? "on-track" : "needs-attention";
+    // Complete only when every monitored material is at its own goal.
+    const allDry = materials.every((m) => m.isDry);
+    const wetMaterials = materials.filter((m) => !m.isDry);
+    const status: AreaDryingStatus = wetMaterials.some(
+      (m) => m.gap > ON_TRACK_GAP_TOLERANCE,
+    )
+      ? "needs-attention"
+      : "on-track";
 
-    const estimateLabel = isDry
+    const estimateLabel = allDry
       ? DRY_COMPLETE_ESTIMATE_LABEL
-      : buildProjectedEstimate(curve.projectedCompletionDay, daysElapsed, now, status);
+      : buildProjectedEstimate(
+          // The area is dry when its slowest material is.
+          Math.max(...wetMaterials.map((m) => m.daysRemaining)),
+          now,
+          status,
+        );
 
     states.push({
       areaId: area.id,
@@ -145,13 +140,57 @@ export function buildDryingTimeline(
   return states;
 }
 
+interface MaterialAssessment {
+  isDry: boolean;
+  /** MC percentage points above the expected target curve today. */
+  gap: number;
+  daysRemaining: number;
+}
+
+/**
+ * Assess one material's readings (sorted oldest first, all the same
+ * surfaceType) against that material's own drying goal — the same
+ * getDryStandard() lookup the technician drying-goal check uses per reading.
+ */
+function assessMaterial(
+  readings: { surfaceType: string; moistureLevel: number; recordedAt: Date }[],
+  now: Date,
+  category: string,
+  waterClass: string,
+): MaterialAssessment {
+  const earliest = readings[0];
+  const latest = readings[readings.length - 1];
+  const materialType = earliest.surfaceType;
+
+  const curve = computeTargetCurve({
+    initialMC: earliest.moistureLevel,
+    materialType,
+    category,
+    waterClass,
+    roomVolumeM3: DEFAULT_ROOM_VOLUME_M3,
+    dehumidifierCapacityLpd: DEFAULT_DEHU_CAPACITY_LPD,
+  });
+
+  const daysElapsed = Math.max(
+    0,
+    Math.floor((now.getTime() - earliest.recordedAt.getTime()) / MS_PER_DAY),
+  );
+  const dayIndex = Math.min(daysElapsed, curve.daily.length - 1);
+  const expectedTargetMC = curve.daily[dayIndex].targetMC;
+  const dryThreshold = getDryStandard(materialType).dryThreshold;
+
+  return {
+    isDry: latest.moistureLevel <= dryThreshold,
+    gap: latest.moistureLevel - expectedTargetMC,
+    daysRemaining: Math.max(curve.projectedCompletionDay - daysElapsed, 0),
+  };
+}
+
 function buildProjectedEstimate(
-  projectedCompletionDay: number,
-  daysElapsed: number,
+  daysRemaining: number,
   now: Date,
   status: AreaDryingStatus,
 ): string {
-  const daysRemaining = Math.max(projectedCompletionDay - daysElapsed, 0);
   const estimatedDryDate = new Date(now.getTime() + daysRemaining * MS_PER_DAY);
   const formattedDate = estimatedDryDate.toLocaleDateString(
     "en-AU",
@@ -163,10 +202,15 @@ function buildProjectedEstimate(
     : `Estimate: needs attention — revised estimate dry by ${formattedDate}.`;
 }
 
-function modeSurfaceType(readings: { surfaceType: string }[]): string {
-  const counts: Record<string, number> = {};
+/** Split readings by surfaceType, preserving each group's chronological order. */
+function groupBySurfaceType<T extends { surfaceType: string }>(
+  readings: T[],
+): T[][] {
+  const groups = new Map<string, T[]>();
   for (const r of readings) {
-    counts[r.surfaceType] = (counts[r.surfaceType] ?? 0) + 1;
+    const group = groups.get(r.surfaceType);
+    if (group) group.push(r);
+    else groups.set(r.surfaceType, [r]);
   }
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "other";
+  return [...groups.values()];
 }
