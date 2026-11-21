@@ -40,6 +40,7 @@ import {
   Trash2,
   X,
   CircleCheck,
+  ScanSearch,
 } from "lucide-react";
 import {
   enqueueSketchSave,
@@ -150,6 +151,11 @@ import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
 import { SketchDamageMarkerLayer } from "./SketchDamageMarkerLayer";
+import { SketchInvestigationLayer } from "./SketchInvestigationLayer";
+import {
+  buildInvestigationOverlay,
+  type SketchViewMode,
+} from "@/lib/sketch/investigation-overlay";
 import {
   IDENTITY_OVERLAY_VIEWPORT,
   overlayViewportFromVpt,
@@ -545,6 +551,8 @@ export function SketchEditorV2({
   // RA-6844 [A5]: grid + right-angle snap for the draw tools. On by default so
   // walls square up and land on the grid; toggled off for freeform tracing.
   const [snapEnabled, setSnapEnabled] = useState(true);
+  // RA-8372: read-only source / pathway / receptor view over the plan.
+  const [viewMode, setViewMode] = useState<SketchViewMode>("plan");
   const [selectedObj, setSelectedObj] = useState<SelectedObject | null>(null);
   const selectedObjRef = useRef<SelectedObject | null>(null);
   selectedObjRef.current = selectedObj;
@@ -2293,6 +2301,27 @@ export function SketchEditorV2({
     [activeIdx],
   );
 
+  const investigationOverlay = useMemo(
+    () =>
+      viewMode === "investigation" && activeFloor
+        ? buildInvestigationOverlay({
+            moisturePins: activeFloor.moisturePins,
+            damageMarkers: activeFloor.damageMarkers,
+            evidencePins: activeFloor.evidencePins,
+            width: viewport.width,
+            height: viewport.height,
+            resolveRoomLabel: resolveDamageMarkerRoom,
+          })
+        : null,
+    [
+      viewMode,
+      activeFloor,
+      viewport.width,
+      viewport.height,
+      resolveDamageMarkerRoom,
+    ],
+  );
+
   const persistEvidencePin = useCallback(
     async (
       coords: {
@@ -3480,6 +3509,32 @@ export function SketchEditorV2({
             </button>
           )}
 
+          {/* RA-8372: investigation view toggle (read-only, derived) */}
+          {!guided && (
+            <button
+              type="button"
+              data-testid="sketch-view-mode-toggle"
+              onClick={() =>
+                setViewMode((m) => (m === "plan" ? "investigation" : "plan"))
+              }
+              aria-pressed={viewMode === "investigation"}
+              title={
+                viewMode === "investigation"
+                  ? "Back to the room plan"
+                  : "Show source, pathway and receptor evidence on the plan"
+              }
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors border",
+                viewMode === "investigation"
+                  ? "text-brand-harbour-200 border-brand-harbour-400 bg-brand-harbour-500/15"
+                  : "text-white/50 border-white/10 hover:text-white hover:bg-white/5",
+              )}
+            >
+              <ScanSearch size={13} />
+              Investigation
+            </button>
+          )}
+
           {/* Scale calibration button */}
           {!readonly && (
             <button
@@ -3931,6 +3986,13 @@ export function SketchEditorV2({
                   onPlaceExisting={handleExistingEvidencePlace}
                   onMove={handleEvidenceMove}
                   onRemove={handleEvidenceRemove}
+                />
+              )}
+
+              {idx === activeIdx && investigationOverlay && (
+                <SketchInvestigationLayer
+                  overlay={investigationOverlay}
+                  overlayViewport={overlayVpt}
                 />
               )}
 
