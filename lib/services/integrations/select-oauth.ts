@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { getOAuthReadiness, isOAuthIntegration, LEGACY_AI_NAMES, OAUTH_PROVIDERS, type OAuthProvider } from "@/lib/integrations/identity";
+import { getOAuthReadiness, isOAuthIntegration, LEGACY_AI_NAMES, OAUTH_PROVIDERS, OAUTH_READY_STATUSES, type IntegrationIdentityInput, type OAuthProvider } from "@/lib/integrations/identity";
 import { isZohoEnabled } from "@/lib/flags/one-crm-flags";
 
 /**
@@ -33,6 +33,30 @@ export function oauthCandidateWhere(providers: readonly OAuthProvider[]): Prisma
 
 /** Apply positive identity and known-AI exclusions before a bounded query. */
 export const OAUTH_CANDIDATE_WHERE: Prisma.IntegrationWhereInput = oauthCandidateWhere(queryableOAuthProviders());
+
+/** SQL presence test for OAuth credentials; never reads token material. */
+export const OAUTH_CREDENTIAL_PRESENT_WHERE: Prisma.IntegrationWhereInput = {
+  accessToken: { not: null, notIn: [""] },
+};
+
+/**
+ * RA-8446: bounded batch prefilter for jobs that act on many rows (crons,
+ * fan-out sync, admin counts). It narrows SQL to rows the readiness owner
+ * could call ready: an accepted status and stored credentials. It is not the
+ * verdict: pass every row it returns through isReadyOAuthCandidate.
+ */
+export const OAUTH_READY_PREFILTER_WHERE: Prisma.IntegrationWhereInput = {
+  status: { in: [...OAUTH_READY_STATUSES] },
+  ...OAUTH_CREDENTIAL_PRESENT_WHERE,
+};
+
+/**
+ * Readiness verdict for a row read under OAUTH_READY_PREFILTER_WHERE (which
+ * proved credentials are present in SQL). The answer is getOAuthReadiness's.
+ */
+export function isReadyOAuthCandidate(row: IntegrationIdentityInput, expectedProvider?: string): boolean {
+  return getOAuthReadiness({ ...row, hasOAuthCredentials: true }, expectedProvider).ready;
+}
 
 export const OAUTH_IDENTITY_SELECT = {
   id: true, userId: true, workspaceId: true, provider: true, name: true,
@@ -78,7 +102,7 @@ export async function selectOAuthIntegration(input: {
   if (input.requireReady) {
     // Test presence in SQL without reading token material into this service.
     const credential = await input.prisma.integration.findFirst({
-      where: { ...where, id: integration.id, accessToken: { not: null, notIn: [""] } }, select: { id: true },
+      where: { ...where, id: integration.id, ...OAUTH_CREDENTIAL_PRESENT_WHERE }, select: { id: true },
     });
     const readiness = getOAuthReadiness({ ...integration, hasOAuthCredentials: Boolean(credential) }, input.provider);
     if (!readiness.ready) return { ok: false, reason: "NOT_READY", detail: readiness.reason };
