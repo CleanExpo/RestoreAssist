@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, use, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -152,7 +152,6 @@ import {
   Thermometer,
   AlertTriangle,
   ClipboardCheck,
-  FileText,
   DollarSign,
   Camera,
   Shield,
@@ -628,10 +627,6 @@ export default function InspectionDetailPage({
   // (no Settings toggle). Legal flag still gates the scrape UI/API.
   const [autoFetchFloorPlan, setAutoFetchFloorPlan] = useState(false);
 
-  useEffect(() => {
-    fetchInspection();
-  }, [id]);
-
   const refetchSketchRooms = useCallback(async () => {
     try {
       const res = await fetch(`/api/inspections/${id}/sketches`);
@@ -695,7 +690,7 @@ export default function InspectionDetailPage({
     [moistureReadings],
   );
 
-  const fetchInspection = async () => {
+  const fetchInspection = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
@@ -742,9 +737,13 @@ export default function InspectionDetailPage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const refreshPhotos = async () => {
+  useEffect(() => {
+    fetchInspection();
+  }, [fetchInspection]);
+
+  const refreshPhotos = useCallback(async () => {
     try {
       const response = await fetch(`/api/inspections/${id}/photos`, { cache: "no-store" });
       if (!response.ok) return;
@@ -754,11 +753,11 @@ export default function InspectionDetailPage({
     } catch {
       // The queued copy remains available for another read or manual retry.
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (activeTab === "photos" && !loading) void refreshPhotos();
-  }, [activeTab, id, loading]);
+  }, [activeTab, loading, refreshPhotos]);
 
   const handleDeletePhoto = async (photoId: string) => {
     const ok = await confirm.ask({

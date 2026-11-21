@@ -1,10 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   User,
-  Mail,
-  Calendar,
   CreditCard,
   Crown,
   Zap,
@@ -137,15 +135,7 @@ export default function SettingsPage() {
     setBiometricLock(localStorage.getItem("ra-biometric-lock") === "true");
   }, []);
 
-  useEffect(() => {
-    if (status === "authenticated" && session?.user) {
-      fetchProfile();
-    } else if (status === "unauthenticated") {
-      setLoading(false);
-    }
-  }, [status, session]);
-
-  const fetchProfile = async (isRefresh = false) => {
+  const fetchProfile = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
     }
@@ -190,7 +180,15 @@ export default function SettingsPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [session]);
+
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      fetchProfile();
+    } else if (status === "unauthenticated") {
+      setLoading(false);
+    }
+  }, [status, session, fetchProfile]);
 
   const handleUpdateProfile = async () => {
     try {
@@ -230,7 +228,7 @@ export default function SettingsPage() {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onFocus);
     };
-  }, []);
+  }, [fetchProfile]);
 
   const getStatusText = (status: string) => {
     switch (status) {

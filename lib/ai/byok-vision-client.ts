@@ -22,7 +22,6 @@ import {
   META_DEFAULT_CHAT_MODEL,
 } from "@/lib/workspace/provider-connections";
 import {
-  BYOK_ALLOWED_MODELS,
   type AllowedModel,
 } from "@/mobile/constants/byok";
 

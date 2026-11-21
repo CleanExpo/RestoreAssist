@@ -99,7 +99,6 @@ function decryptConfig(encrypted: string): ConfigPayload {
   return JSON.parse(decrypt(encrypted)) as ConfigPayload;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toSummary(row: any): ScrapingProviderConnectionSummary {
   let maskedKey = "•••••••••••••••••••";
   try {

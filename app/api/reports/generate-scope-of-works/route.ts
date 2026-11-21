@@ -287,7 +287,7 @@ function buildScopeOfWorksDocument(scopeData: any): string {
   // Format line items with actual calculations
   const formatLineItems = (items: any[]) => {
     let output = "";
-    items.forEach((item: any, index: number) => {
+    items.forEach((item: any, _index: number) => {
       output += `\n## ${item.id}: ${item.description}\n\n`;
       output += `- **Qty:** ${item.qty}\n`;
       output += `- **Unit:** ${item.unit}\n`;
@@ -469,7 +469,7 @@ Note: All line items, quantities, rates, and calculations can be edited by the a
 }
 
 // Legacy function - kept for reference but not used
-function buildScopeOfWorksPrompt(scopeData: any): string {
+function _buildScopeOfWorksPrompt(scopeData: any): string {
   return `Generate a comprehensive Scope of Works document for RestoreAssist with the following structure:
 
 # SCOPE OF WORKS DATA

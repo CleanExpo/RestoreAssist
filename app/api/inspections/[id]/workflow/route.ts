@@ -199,7 +199,7 @@ export async function PATCH(
 
   const { id: inspectionId } = await params;
   const body = await request.json();
-  const { status, skipReason, skipNotes } = body as {
+  const { status, skipReason: _skipReason, skipNotes: _skipNotes } = body as {
     status: "IN_PROGRESS" | "COMPLETED" | "SKIPPED" | "BLOCKED";
     skipReason?: string;
     skipNotes?: string;

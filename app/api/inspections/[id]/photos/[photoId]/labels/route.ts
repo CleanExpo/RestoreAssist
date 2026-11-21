@@ -332,7 +332,6 @@ export async function PATCH(
     }
 
     // ---- Build Prisma update payload (only include provided fields) ----
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: Record<string, any> = {};
     const labelFields = [
       "damageCategory",

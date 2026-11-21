@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -9,7 +9,6 @@ import {
   CheckCircle,
   Clock,
   X,
-  PenTool,
   AlertCircle,
   Eye,
 } from "lucide-react";
@@ -64,11 +63,7 @@ export default function AuthorityFormsViewer({
   >(null);
   const [authorityDescription, setAuthorityDescription] = useState("");
 
-  useEffect(() => {
-    fetchData();
-  }, [reportId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -117,7 +112,11 @@ export default function AuthorityFormsViewer({
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleCreateForm = async (templateCode: string) => {
     try {

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createZipArchive } from "@/lib/exports/create-zip-archive";
-import { Readable } from "stream";
+
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 

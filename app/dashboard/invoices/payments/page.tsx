@@ -139,7 +139,6 @@ export default function PaymentRegisterPage() {
 
       // Normalise API shape → our Payment interface
       const normalised: Payment[] = (data.payments ?? []).map(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API payload shape
         (p: any) => ({
           id: p.id,
           paymentDate: p.paymentDate ? p.paymentDate.substring(0, 10) : "",
