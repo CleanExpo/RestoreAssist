@@ -117,7 +117,7 @@ export function BentoFeatures() {
             className="lg:pb-2"
           >
             <p
-              className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400`}
+              className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600`}
             >
               Where capability sits
             </p>
@@ -136,7 +136,7 @@ export function BentoFeatures() {
                 Office
               </span>
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-slate-500">
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
               Each capability stitches onto the same claim spine — nothing
               orphans between the driveway and the desk.
             </p>
@@ -217,7 +217,7 @@ export function BentoFeatures() {
                         {String(i + 1).padStart(2, "0")}
                       </span>
                       <span
-                        className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400`}
+                        className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600`}
                       >
                         {f.lane}
                       </span>

@@ -71,7 +71,7 @@ export const LAND = {
   surface: "bg-white",
   ink: "text-brand-navy",
   muted: "text-slate-600",
-  faint: "text-slate-500",
+  faint: "text-slate-600",
   border: "border-slate-200/90",
   navy: "bg-brand-navy",
   navyText: "text-brand-navy",

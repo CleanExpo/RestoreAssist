@@ -22,7 +22,7 @@ export default function PrivacyPage() {
         <h1 className="font-[family-name:var(--font-landing-display)] text-3xl font-semibold tracking-tight text-brand-navy mb-2 sm:text-4xl">
           Privacy Policy
         </h1>
-        <p className="text-sm text-slate-500 mb-10">
+        <p className="text-sm text-slate-600 mb-10">
           Effective: {EFFECTIVE_DATE}
         </p>
 
@@ -341,7 +341,7 @@ export default function PrivacyPage() {
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-xs text-slate-500">
+            <p className="mt-3 text-xs text-slate-600">
               On request (see section 7), we will destroy personal information
               once the longest applicable retention period has expired. Building
               and dust-disease records may outlive account closure.
@@ -543,11 +543,11 @@ export default function PrivacyPage() {
                 {CONTACT_EMAIL}
               </a>
             </p>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-slate-600">
               Restore Assist by Unite-Group Nexus Pty Ltd | Australia | ABN 95
               691 477 844
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-600">
               Postal address: {BUSINESS_ADDRESS}
             </p>
           </section>

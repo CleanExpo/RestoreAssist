@@ -82,7 +82,7 @@ export function FinalCTA() {
                 <motion.li
                   key={r}
                   variants={fadeUpSoft}
-                  className="flex items-center gap-2.5 text-sm text-slate-500"
+                  className="flex items-center gap-2.5 text-sm text-slate-600"
                 >
                   <span
                     className="h-1 w-1 rounded-full bg-brand-harbour"
