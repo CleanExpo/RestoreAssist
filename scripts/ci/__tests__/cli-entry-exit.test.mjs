@@ -21,12 +21,15 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { isLibEntry } from "../lib/invoked-gates.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const TSX = path.join(ROOT, "node_modules", ".bin", "tsx");
+// The tsx loader in this process, not the tsx CLI: the CLI forks a child that a
+// timeout kill would orphan, and the orphan holds the pipes open.
+const TSX_LOADER = pathToFileURL(path.join(ROOT, "node_modules", "tsx", "dist", "loader.mjs")).href;
+const tsArgs = (file) => ["--import", TSX_LOADER, file];
 const LIB_SPEC = /from\s*["'](\.\/lib\/[^"']+)["']/;
 
 function entries() {
@@ -101,8 +104,8 @@ test("every thin entry exits with main()'s status while a handle is still open",
           '  process.stdout.write("x".repeat(65536) + "\\nLAST-LINE\\n");\n' +
           "  return 3;\n}\n",
       );
-      const [cmd, args] = ts ? [TSX, [copy]] : [process.execPath, [copy]];
-      const r = await run(cmd, args, {
+      const args = ts ? tsArgs(copy) : [copy];
+      const r = await run(process.execPath, args, {
         cwd: dir,
         env: { PATH: process.env.PATH, HOME: process.env.HOME ?? dir },
         timeoutMs: 20_000,
@@ -121,7 +124,7 @@ test("every thin entry exits with main()'s status while a handle is still open",
 const PRISMA_ENV = { PATH: process.env.PATH, HOME: process.env.HOME ?? tmpdir() };
 
 test("a backfill that never touched Prisma does not initialise it on the way out", async () => {
-  const r = await run(TSX, [path.join(ROOT, "scripts/backfill-evidence-authoritative-rows.ts")], {
+  const r = await run(process.execPath, tsArgs(path.join(ROOT, "scripts/backfill-evidence-authoritative-rows.ts")), {
     cwd: ROOT,
     env: PRISMA_ENV,
     timeoutMs: 60_000,
@@ -132,7 +135,7 @@ test("a backfill that never touched Prisma does not initialise it on the way out
 });
 
 test("a backfill whose Prisma initialisation failed returns 1, not a second throw", async () => {
-  const r = await run(TSX, [path.join(ROOT, "scripts/backfill-moisture-reading-sketch-room.ts")], {
+  const r = await run(process.execPath, tsArgs(path.join(ROOT, "scripts/backfill-moisture-reading-sketch-room.ts")), {
     cwd: ROOT,
     env: PRISMA_ENV,
     timeoutMs: 60_000,
