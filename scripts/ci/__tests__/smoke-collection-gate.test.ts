@@ -24,7 +24,10 @@ import playwrightConfig from "../../../config/playwright.config";
  *   1. every smoke project ignores the walkthrough folder;
  *   2. the required Quality Checks job proves the suite still collects, and
  *      fails on a collection error or on 0 tests;
- *   3. a red production smoke opens one issue, not one per run.
+ *   3. a red production smoke opens one issue, not one per run;
+ *   4. a green run closes that issue, so the next outage opens a fresh one
+ *      (RA-8054);
+ *   5. the Playwright browser download retries before it fails (RA-8054).
  *
  * The workflow steps are executed, not just read: each `run:` block is handed
  * to `bash -e` (GitHub's default shell) with `npx` or `gh` replaced by a stub,
@@ -154,7 +157,8 @@ describe("Quality Checks proves the production smoke suite still collects", () =
 describe("a red production smoke opens one issue, not one per run", () => {
   const wf = workflow("smoke-prod.yml");
   const smokeSteps = wf.jobs.smoke.steps;
-  const last = smokeSteps[smokeSteps.length - 1];
+  const last = smokeSteps.find((s) => s.name === "Open one issue while production smoke is red");
+  if (!last) throw new Error("open-issue step not found in smoke-prod.yml");
 
   it("lets only the smoke job write issues", () => {
     expect(wf.jobs.smoke.permissions).toEqual({ contents: "read", issues: "write" });
@@ -193,5 +197,97 @@ describe("a red production smoke opens one issue, not one per run", () => {
     });
     expect(r.status).toBe(0);
     expect(r.calls).not.toMatch(/^issue create/m);
+  });
+});
+
+describe("a green production smoke closes the open outage issue (RA-8054)", () => {
+  const wf = workflow("smoke-prod.yml");
+  const smokeSteps = wf.jobs.smoke.steps;
+  const close = smokeSteps.find((s) => s.name?.startsWith("Close the open smoke-prod issue"));
+
+  it("has a success-only close step that uses the job's GITHUB_TOKEN", () => {
+    expect(close, "a close-on-green step in the smoke job").toBeDefined();
+    expect(close?.if).toBe("success()");
+    expect(close?.env?.GH_TOKEN).toBe("${{ secrets.GITHUB_TOKEN }}");
+    // It must come after every step whose failure means production is red.
+    const flows = smokeSteps.findIndex((s) => s.id === "flows");
+    expect(smokeSteps.indexOf(close as Step)).toBeGreaterThan(flows);
+  });
+
+  // `issue list` prints the numbers in $FAKE_OPEN; `issue close` exits
+  // $FAKE_CLOSE_RC (default 0).
+  const gh =
+    'printf "%s\\n" "$*" >> "$CALLS"\ncase "$1 $2" in\n  "issue list") [ -n "$FAKE_OPEN" ] && printf "%s\\n" $FAKE_OPEN ;;\n  "issue close") exit "${FAKE_CLOSE_RC:-0}" ;;\nesac\nexit 0';
+
+  it("finds issues the way the open step does: open and labelled smoke-prod-red", () => {
+    const r = runStep(close?.run ?? "exit 99", "gh", gh, {
+      FAKE_OPEN: "2453",
+      RUN_URL: "https://example.test/run/3",
+    });
+    expect(r.status).toBe(0);
+    expect(r.calls).toMatch(/^issue list .*--label smoke-prod-red.*--state open/m);
+  });
+
+  it("closes every open smoke-prod-red issue with a comment linking the green run", () => {
+    const r = runStep(close?.run ?? "exit 99", "gh", gh, {
+      FAKE_OPEN: "2453 2460",
+      RUN_URL: "https://example.test/run/4",
+    });
+    expect(r.status).toBe(0);
+    const closes = r.calls.split("\n").filter((l) => l.startsWith("issue close"));
+    expect(closes).toHaveLength(2);
+    expect(closes[0]).toMatch(/^issue close 2453 /);
+    expect(closes[1]).toMatch(/^issue close 2460 /);
+    expect(r.calls).toContain("https://example.test/run/4");
+  });
+
+  it("closes nothing when no smoke-prod-red issue is open", () => {
+    const r = runStep(close?.run ?? "exit 99", "gh", gh, {
+      FAKE_OPEN: "",
+      RUN_URL: "https://example.test/run/5",
+    });
+    expect(r.status).toBe(0);
+    expect(r.calls).not.toMatch(/^issue close/m);
+  });
+
+  it("fails the step when a close fails, rather than leaving the issue open silently", () => {
+    const r = runStep(close?.run ?? "exit 0", "gh", gh, {
+      FAKE_OPEN: "2453",
+      FAKE_CLOSE_RC: "1",
+      RUN_URL: "https://example.test/run/6",
+    });
+    expect(r.status).not.toBe(0);
+  });
+});
+
+describe("the Playwright browser install retries a transient failure (RA-8054)", () => {
+  const install = workflow("smoke-prod.yml").jobs.smoke.steps.find(
+    (s) => s.name === "Install Playwright browsers",
+  );
+
+  // Fails the first $FAKE_FAILS calls, then succeeds. Every call is logged.
+  const npx =
+    'printf "%s\\n" "$*" >> "$CALLS"\nn=$(wc -l < "$CALLS")\n[ "$n" -gt "$FAKE_FAILS" ] || exit 1\nexit 0';
+  const env = (fails: string) => ({ FAKE_FAILS: fails, INSTALL_BACKOFF_SECONDS: "0" });
+  const attempts = (calls: string) =>
+    calls.split("\n").filter((l) => l === "--no-install playwright install --with-deps chromium");
+
+  it("installs once when the first attempt succeeds", () => {
+    const r = runStep(install?.run ?? "exit 99", "npx", npx, env("0"));
+    expect(r.status).toBe(0);
+    expect(attempts(r.calls)).toHaveLength(1);
+  });
+
+  it("succeeds on the third attempt after two failures (the 12/11 DNS blips)", () => {
+    const r = runStep(install?.run ?? "exit 99", "npx", npx, env("2"));
+    expect(r.status).toBe(0);
+    expect(attempts(r.calls)).toHaveLength(3);
+  });
+
+  it("stops after three attempts and fails the step", () => {
+    const r = runStep(install?.run ?? "exit 0", "npx", npx, env("99"));
+    expect(r.status).not.toBe(0);
+    expect(attempts(r.calls)).toHaveLength(3);
+    expect(r.output).toContain("failed after 3 attempts");
   });
 });
