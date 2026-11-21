@@ -12,6 +12,7 @@ import {
 } from "@/lib/locale/organization-locale";
 import type { Country } from "@/lib/gst-rules";
 import { validateOrganizationLocaleProfile } from "@/lib/locale/validate-organization-profile";
+import { parseEmail } from "@/lib/validation/email";
 
 const PATCHABLE_FIELDS = [
   "legalName",
@@ -139,6 +140,7 @@ export async function PATCH(req: Request) {
       timezone: true,
       abn: true,
       nzbn: true,
+      email: true,
       setupCompletedAt: true,
     },
   });
@@ -244,6 +246,34 @@ export async function PATCH(req: Request) {
         });
       }
       patch.nzbn = normalized;
+      continue;
+    }
+
+    if (field === "email") {
+      // RA-8516: the business email is the office inbox told when a
+      // technician submits a job visit (RA-8503). Trim it and run the same
+      // check the organisation profile save and the send use. Only spaces
+      // clears it, as on the profile.
+      const trimmed = v.trim();
+      if (!trimmed) {
+        patch.email = null;
+        continue;
+      }
+      // As on the profile, an unchanged older value that was never checked
+      // does not block the rest of the step.
+      if (trimmed === org.email?.trim()) {
+        patch.email = trimmed;
+        continue;
+      }
+      const email = parseEmail(trimmed);
+      if (!email) {
+        return apiError(undefined, {
+          code: "VALIDATION",
+          message: "Office email must be a valid email address",
+          status: 400,
+        });
+      }
+      patch.email = email;
       continue;
     }
 

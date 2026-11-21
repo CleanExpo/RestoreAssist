@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { ORGANIZATION_PROFILE_FIELDS } from "@/lib/organization/profile-fields";
+import { resolveOwnedProfileOrganizationId } from "@/lib/organization/owned-profile-organization";
+import { parseEmail } from "@/lib/validation/email";
 
 const profileSelect = {
   legalName: true,
@@ -22,10 +24,6 @@ const profileSelect = {
   nzbn: true,
 } as const;
 
-// RA-8503: the business email is also the inbox told when a technician
-// submits a job visit, so it must be a real address.
-const OFFICE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 function isHexColor(value: string): boolean {
   return /^#[0-9A-Fa-f]{6}$/.test(value);
 }
@@ -40,10 +38,16 @@ export async function GET() {
     });
   }
 
-  const organization = await prisma.organization.findFirst({
-    where: { ownerId: session.user.id },
-    select: profileSelect,
-  });
+  // RA-8516: the same organisation PATCH saves to, never an arbitrary one.
+  const organizationId = await resolveOwnedProfileOrganizationId(
+    session.user.id,
+  );
+  const organization = organizationId
+    ? await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: profileSelect,
+      })
+    : null;
   if (!organization) {
     return apiError(undefined, {
       code: "NOT_FOUND",
@@ -66,10 +70,18 @@ export async function PATCH(request: NextRequest) {
       });
     }
 
-    const org = await prisma.organization.findFirst({
-      where: { ownerId: session.user.id },
-      select: { id: true, email: true },
-    });
+    // RA-8516: an owner of several organisations saves to a deterministic
+    // one (see resolveOwnedProfileOrganizationId), not whichever the
+    // database returns first.
+    const organizationId = await resolveOwnedProfileOrganizationId(
+      session.user.id,
+    );
+    const org = organizationId
+      ? await prisma.organization.findUnique({
+          where: { id: organizationId },
+          select: { id: true, email: true },
+        })
+      : null;
     if (!org) {
       return apiError(request, {
         code: "NOT_FOUND",
@@ -105,12 +117,15 @@ export async function PATCH(request: NextRequest) {
           status: 400,
         });
       }
-      // Only a changed value is checked, so an older stored value that was
-      // never validated does not block saving the rest of the profile.
+      // RA-8503: the business email is also the inbox told when a technician
+      // submits a job visit, so it must be one real address (RA-8516: the
+      // shared parseEmail check, also used at send time). Only a changed
+      // value is checked, so an older stored value that was never validated
+      // does not block saving the rest of the profile.
       if (
         field === "email" &&
         trimmed !== org.email?.trim() &&
-        (trimmed.length > 254 || !OFFICE_EMAIL_PATTERN.test(trimmed))
+        !parseEmail(trimmed)
       ) {
         return apiError(request, {
           code: "VALIDATION",

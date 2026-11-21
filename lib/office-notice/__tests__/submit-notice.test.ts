@@ -395,3 +395,91 @@ describe("notifyOfficeOfSubmittedVisit", () => {
     });
   });
 });
+
+describe("RA-8516 office notice fixes", () => {
+  it.each(["office@example.com,other.invalid", "office@example..com"])(
+    "a saved office email %j is not a usable address: the owner's email is used",
+    async (bad) => {
+      mockOrgFindMany.mockResolvedValue([{ ...ORG_1, email: bad }]);
+      await run();
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(mockSend.mock.calls[0][0].to).toBe("owner@example.com");
+    },
+  );
+
+  it.each(["O&#x27;Brien", "O&#039;Brien"])(
+    "a technician stored as %j is escaped exactly once in the email",
+    async (stored) => {
+      mockInspectionFindUnique.mockImplementation(async (args: { select?: Row }) =>
+        pickSelected({ ...fullInspectionRow, technicianName: stored }, args),
+      );
+      await run();
+      const email = mockSend.mock.calls[0][0] as Row;
+      expect(String(email.html)).toContain("O&#039;Brien has submitted");
+      expect(String(email.html)).not.toContain("&amp;#");
+      expect(String(email.text)).toContain("O'Brien has submitted");
+      const notice = mockNotificationCreateMany.mock.calls[0][0].data[0] as Row;
+      expect(notice.message).toBe("O'Brien submitted job NIR-2026-11-0042.");
+    },
+  );
+
+  it("a name that really contains an entity-like string is decoded only once", async () => {
+    // sanitizeString("A &lt; B") stores "A &amp;lt; B".
+    mockInspectionFindUnique.mockImplementation(async (args: { select?: Row }) =>
+      pickSelected({ ...fullInspectionRow, technicianName: "A &amp;lt; B" }, args),
+    );
+    await run();
+    expect(String(mockSend.mock.calls[0][0].text)).toContain("A &lt; B has submitted");
+    expect(String(mockSend.mock.calls[0][0].html)).toContain("A &amp;lt; B has submitted");
+  });
+
+  it("an in-app write that fails is not logged as sent; the email still goes", async () => {
+    mockNotificationCreateMany.mockRejectedValueOnce(new Error("db down"));
+    await expect(run()).resolves.toBeUndefined();
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(outcomes()).toEqual(["in_app_failed"]);
+    const line = infoSpy.mock.calls.find((c) => c[0] === "[office-notice]")![1] as Row;
+    expect(line.email).toBe("sent");
+    expect(line.inAppWritten).toBe(0);
+    const reported = errorSpy.mock.calls.find(
+      (c) => c[0] === "[error]" && String(c[1]).includes("office-notice-in-app"),
+    );
+    expect(reported).toBeDefined();
+  });
+
+  it("an in-app write that fails with no email address is not logged as no_recipient alone", async () => {
+    mockNotificationCreateMany.mockRejectedValueOnce(new Error("db down"));
+    mockOrgFindMany.mockResolvedValue([{ ...ORG_1, email: null, owner: { email: null } }]);
+    await run();
+    expect(outcomes()).toEqual(["in_app_failed"]);
+  });
+
+  it("a successful in-app write records how many were written", async () => {
+    mockNotificationCreateMany.mockResolvedValueOnce({ count: 3 });
+    await run();
+    expect(outcomes()).toEqual(["sent"]);
+    const line = infoSpy.mock.calls.find((c) => c[0] === "[office-notice]")![1] as Row;
+    expect(line.inAppWritten).toBe(3);
+  });
+
+  it("pins the assumption: a non-owner ADMIN creator's job tells only that ADMIN", async () => {
+    // Not reachable today: invites and role changes grant only MANAGER or
+    // USER. getResourceTenant treats every ADMIN as their own tenant, so the
+    // organisation they are a member of is not told. Revisit if that changes.
+    mockInspectionFindUnique.mockImplementation(async (args: { select?: Row }) =>
+      pickSelected({ ...fullInspectionRow, userId: "member-admin" }, args),
+    );
+    mockGetResourceTenant.mockResolvedValue({ ownerId: "member-admin", organizationId: null });
+    mockUserFindUnique.mockImplementation(async (args: { select?: Row }) =>
+      args.select && "organizationLeftAt" in args.select
+        ? { organizationLeftAt: null }
+        : { email: "member-admin@example.com" },
+    );
+    mockOrgFindMany.mockResolvedValue([]);
+    await run();
+    expect(mockUserFindMany).not.toHaveBeenCalled();
+    expect(inAppRecipients()).toEqual(["member-admin"]);
+    expect(mockSend.mock.calls[0][0].to).toBe("member-admin@example.com");
+  });
+});
+
