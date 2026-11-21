@@ -130,6 +130,8 @@ const AutoClassifyPanel = dynamic(
 // silently drops the completion UI when canSignOff is true.
 import InspectionSignOff from "@/components/inspection/InspectionSignOff";
 import { FieldEvidenceChecklistPanel } from "@/components/inspections/field-evidence-checklist-panel";
+import { CarsiTrainingPanel } from "@/components/inspection/CarsiTrainingPanel";
+import { NextServicePanel } from "@/components/inspection/NextServicePanel";
 // SP-A — close-job Sidekick card. Mounts conditional on IN_BILLING status
 // (or once-closed render of the locked terminal card via `completedAt`).
 const CloseJobPrompt = dynamic(
@@ -1707,6 +1709,9 @@ export default function InspectionDetailPage({
         </h2>
         <StatusTimeline currentStatus={inspection.status} />
       </section>
+
+      <CarsiTrainingPanel claimType={inspection.claimType} />
+      <NextServicePanel inspectionId={inspection.id} />
 
       <InspectionEvidenceReadinessPanel
         claimType={inspection.claimType}

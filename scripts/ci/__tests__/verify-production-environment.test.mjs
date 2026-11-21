@@ -5,7 +5,7 @@ import {
   APPROVED_PRODUCTION_REVIEWERS,
   main,
   verifyProductionEnvironment,
-} from "../verify-production-environment.mjs";
+} from "../lib/verify-production-environment.mjs";
 
 function protectedEnvironment(overrides = {}) {
   return {

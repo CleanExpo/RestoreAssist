@@ -10,7 +10,7 @@ import {
   upsertChunk,
   assertEmbeddingShape,
   parseProvenance,
-} from "@/scripts/ingest-iicrc";
+} from "@/scripts/lib/ingest-iicrc";
 import type { RagIngestBody } from "@/lib/rag/ingest-body";
 
 export async function runStandardsIngest(body: RagIngestBody): Promise<{

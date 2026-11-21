@@ -12,7 +12,7 @@ import {
 import {
   REQUEST_TIMEOUT_MS,
   triggerProductionCrons,
-} from "../ci/trigger-production-crons.mjs";
+} from "../ci/lib/trigger-production-crons.mjs";
 
 /**
  * RA-7645 — the live DigitalOcean site has no scheduler (D-024), so GitHub
@@ -318,7 +318,7 @@ describe("cron-production.yml contract", () => {
     );
     expect(setupNode?.with?.["node-version-file"]).toBe(".nvmrc");
     expect(readFileSync(join(ROOT, ".nvmrc"), "utf8").trim()).toMatch(/^22\./);
-    const script = readFileSync(join(ROOT, "scripts", "ci", "trigger-production-crons.mjs"), "utf8");
+    const script = readFileSync(join(ROOT, "scripts", "ci", "lib", "trigger-production-crons.mjs"), "utf8");
     expect(script).toContain("lib/cron/production-schedule.ts");
   });
 

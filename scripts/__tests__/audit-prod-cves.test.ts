@@ -12,7 +12,7 @@ import {
   selectBlockingFindings,
   ghsaFromUrl,
   type BulkAdvisory,
-} from "../audit-prod-cves";
+} from "../lib/audit-prod-cves";
 
 describe("collectProdDependenciesFromTree", () => {
   it("collects the npm ls production dependency tree without dropping nested versions", () => {

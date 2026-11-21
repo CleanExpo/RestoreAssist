@@ -28,7 +28,7 @@ import {
   assertLocalConnectionString,
   assertLocalTestDatabase,
   localHostOf,
-} from "../scripts/ci/assert-local-test-db.mjs";
+} from "../scripts/ci/lib/assert-local-test-db.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

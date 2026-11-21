@@ -16,7 +16,7 @@ import {
   extractIndexColumns,
   computeDrift,
   computeEnumDrift,
-} from "../check-schema-drift.mjs";
+} from "../lib/check-schema-drift.mjs";
 
 type Def = { columns: string[]; notNull: string[]; uniques: string[][] };
 function shape(defs: Record<string, Def>) {

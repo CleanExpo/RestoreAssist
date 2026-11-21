@@ -13,4 +13,9 @@
  */
 import { main } from "./lib/corpus-hygiene.mjs";
 
-process.exitCode = main();
+const code = main();
+// Exit once main() has returned and stdio has flushed, so no open handle can
+// hold the CLI open after it has finished (RA-7785).
+await new Promise((resolve) => process.stdout.write("", resolve));
+await new Promise((resolve) => process.stderr.write("", resolve));
+process.exit(code);

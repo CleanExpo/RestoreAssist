@@ -22,7 +22,7 @@ import {
   scanDirectory,
   summariseC2,
   type GitleaksFinding,
-} from "../producers/c2-secrets-scan";
+} from "../producers/lib/c2-secrets-scan";
 
 /**
  * C2 producer unit tests.
@@ -197,7 +197,7 @@ describe("the control canary", () => {
      * the assembled value is detected in a .md, and this source scans clean.
      */
     const source = readFileSync(
-      join(process.cwd(), "scripts/ci/producers/c2-secrets-scan.ts"),
+      join(process.cwd(), "scripts/ci/producers/lib/c2-secrets-scan.ts"),
       "utf8",
     );
     expect(source).not.toContain(c2CanarySecret());
