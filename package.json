@@ -108,6 +108,8 @@
     "check:encoding": "node scripts/check-encoding.mjs",
     "check:spec-docs": "node scripts/ci/check-spec-docs.mjs",
     "check:ssot": "node scripts/ci/check-data-source-ssot.mjs --strict",
+    "check:env-schema": "tsx scripts/check-env-schema.ts",
+    "check:process-env-baseline": "node scripts/ci/check-process-env-baseline.mjs",
     "check:release-bootstrap": "node scripts/ci/check-release-bootstrap.mjs",
     "test:unit": "vitest run --config config/vitest.config.js",
     "test:parity": "node scripts/ci/check-test-parity.mjs",

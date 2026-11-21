@@ -169,6 +169,15 @@ const RECIPES = {
       match: /scripts\/x\.mjs:1 /,
     },
   ],
+  "scripts/ci/check-process-env-baseline.mjs": [
+    {
+      // Baselined paths resolve against the working directory, so an empty
+      // tree makes every committed entry stale: main ran and refused.
+      name: "a tree with none of the baselined files fails on stale entries",
+      code: 1,
+      match: /check:process-env-baseline FAILED[\s\S]*: baselined but the file no longer exists; remove it/,
+    },
+  ],
   "scripts/ci/check-release-bootstrap.mjs": [
     {
       name: "a root with no package.json fails",

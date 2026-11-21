@@ -165,6 +165,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # RA-7784: lib/env.ts is the only reader of process.env. The Lint step
+      # above fails a NEW direct reader; this step fails when .env.example and
+      # lib/env.ts ENV_SCHEMA disagree in either direction, and when a file on
+      # config/process-env-baseline.json no longer reads env (the baseline
+      # only shrinks). Names only; no env value is read or printed.
+      - name: Env schema and process-env baseline
+        run: npm run check:env-schema && npm run check:process-env-baseline
+
       - name: Accessibility ratchet
         run: npm run check:a11y
 
