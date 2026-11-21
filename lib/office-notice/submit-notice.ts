@@ -66,7 +66,8 @@ export type SubmitNoticeOutcome =
 // Values saved before RA-8503 were never validated, so check at send time.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function usableEmail(value: string | null | undefined): string | null {
+/** A trimmed, plausible address, or null. Also used by the RA-8497 booking notice. */
+export function usableEmail(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed && trimmed.length <= 254 && EMAIL_PATTERN.test(trimmed)
     ? trimmed
