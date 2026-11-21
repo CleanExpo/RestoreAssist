@@ -250,7 +250,7 @@ export default function BusinessMetricsPage() {
           <CardContent className="text-sm text-muted-foreground">
             {data.payingCustomers} paying{" "}
             {data.planUnmatched > 0 && (
-              <span className="text-amber-600">
+              <span className="text-amber-700 dark:text-amber-400">
                 — {data.planUnmatched} unmatched plan(s)
               </span>
             )}

@@ -339,7 +339,7 @@ export default function AILabPage() {
             <Button
               onClick={runVectorise}
               disabled={isVectorising}
-              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white"
+              className="flex items-center gap-2 bg-brand-cta hover:bg-brand-cta-hover text-white"
             >
               {isVectorising ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -458,7 +458,7 @@ export default function AILabPage() {
               <Button
                 onClick={runEvaluation}
                 disabled={isEvaluating}
-                className="flex items-center gap-2 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
+                className="flex items-center gap-2 bg-brand-cta hover:bg-brand-cta-hover text-white"
               >
                 {isEvaluating ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -623,7 +623,7 @@ export default function AILabPage() {
               <Button
                 onClick={runOptimisation}
                 disabled={isOptimising}
-                className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white"
+                className="flex items-center gap-2 bg-brand-cta hover:bg-brand-cta-hover text-white"
               >
                 {isOptimising ? (
                   <Loader2 size={14} className="animate-spin" />

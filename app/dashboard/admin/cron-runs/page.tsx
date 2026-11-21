@@ -79,14 +79,14 @@ export default function CronRunsPage() {
   const getStatusBadge = (run: CronRun) => {
     if (run.status === "failed") {
       return (
-        <Badge className="bg-red-500/10 text-red-600 dark:text-red-400">
+        <Badge className="bg-red-500/10 text-red-700 dark:text-red-400">
           Failed
         </Badge>
       );
     }
     if (run.status === "completed") {
       return (
-        <Badge className="bg-green-500/10 text-green-600 dark:text-green-400">
+        <Badge className="bg-green-500/10 text-green-700 dark:text-green-400">
           Completed
         </Badge>
       );
@@ -146,8 +146,8 @@ export default function CronRunsPage() {
           className={cn(
             "gap-1",
             (data?.failedCount ?? 0) > 0
-              ? "bg-red-500/10 text-red-600 dark:text-red-400"
-              : "bg-green-500/10 text-green-600 dark:text-green-400",
+              ? "bg-red-500/10 text-red-700 dark:text-red-400"
+              : "bg-green-500/10 text-green-700 dark:text-green-400",
           )}
         >
           {data?.failedCount ?? 0} failed
@@ -222,7 +222,7 @@ export default function CronRunsPage() {
                       )}
                     </div>
                     {run.errorMessage && (
-                      <p className="text-xs text-red-500 dark:text-red-400 mt-1 font-mono break-all">
+                      <p className="text-xs text-red-700 dark:text-red-400 mt-1 font-mono break-all">
                         {run.errorMessage}
                       </p>
                     )}

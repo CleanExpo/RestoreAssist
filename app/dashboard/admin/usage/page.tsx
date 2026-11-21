@@ -546,20 +546,20 @@ export default function AiUsageDashboardPage() {
             />
             <KpiCard
               icon={Clock}
-              iconClass="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+              iconClass="bg-amber-500/10 text-amber-700 dark:text-amber-400"
               title="Pending Billing"
               value={String(data.pendingBillingCount)}
               subtitle="events awaiting billing"
             />
             <KpiCard
               icon={CheckCircle}
-              iconClass="bg-green-500/10 text-green-600 dark:text-green-400"
+              iconClass="bg-green-500/10 text-green-700 dark:text-green-400"
               title="Billed MTD"
               value={`$${data.billedMtd.toFixed(2)} AUD`}
             />
             <KpiCard
               icon={XCircle}
-              iconClass="bg-red-500/10 text-red-600 dark:text-red-400"
+              iconClass="bg-red-500/10 text-red-700 dark:text-red-400"
               title="Failed Events"
               value={String(data.failedCount)}
               subtitle="billing failures"
@@ -596,7 +596,7 @@ export default function AiUsageDashboardPage() {
                         onClick={() => toggleBillingFilter(s)}
                         className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                           billingFilter.has(s)
-                            ? "bg-brand-harbour-500 text-white border-brand-harbour-500"
+                            ? "bg-brand-cta text-white border-brand-cta"
                             : "bg-transparent text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-brand-harbour-400"
                         }`}
                       >
@@ -829,7 +829,7 @@ export default function AiUsageDashboardPage() {
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
                           {user.pending > 0 ? (
-                            <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">
+                            <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-0">
                               {user.pending}
                             </Badge>
                           ) : (
@@ -838,7 +838,7 @@ export default function AiUsageDashboardPage() {
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
                           {user.billed > 0 ? (
-                            <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-0">
+                            <Badge className="bg-green-500/10 text-green-700 dark:text-green-400 border-0">
                               {user.billed}
                             </Badge>
                           ) : (
@@ -847,7 +847,7 @@ export default function AiUsageDashboardPage() {
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
                           {user.failed > 0 ? (
-                            <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 border-0">
+                            <Badge className="bg-red-500/10 text-red-700 dark:text-red-400 border-0">
                               {user.failed}
                             </Badge>
                           ) : (
