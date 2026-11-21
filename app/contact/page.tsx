@@ -131,7 +131,7 @@ export default function ContactPage() {
             }}
           >
             {isDemo
-              ? "Tell us about your business and we will arrange a walkthrough of RestoreAssist."
+              ? "Tell us about your business and what you want to see. We will reply by email to arrange a time."
               : "Get in touch with our team. We're here to help."}
           </motion.p>
         </div>

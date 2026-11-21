@@ -7,6 +7,7 @@ import {
   type HelpCategory,
 } from "@/lib/help/types";
 import Screenshot from "@/components/help/Screenshot";
+import { isPublishedHelpScreenshot } from "@/lib/help/published-screenshots";
 import { VideoExplainer } from "@/components/setup/VideoExplainer";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -58,14 +59,15 @@ export default async function PublicArticlePage({
         <span>{frontmatter.readTimeMin} min read</span>
       </div>
 
-      {frontmatter.heroImage && (
-        <div data-testid="help-hero-figure">
-          <Screenshot
-            src={frontmatter.heroImage}
-            alt={`Hero image for ${frontmatter.title}`}
-          />
-        </div>
-      )}
+      {frontmatter.heroImage &&
+        isPublishedHelpScreenshot(frontmatter.heroImage) && (
+          <div data-testid="help-hero-figure">
+            <Screenshot
+              src={frontmatter.heroImage}
+              alt={`Hero image for ${frontmatter.title}`}
+            />
+          </div>
+        )}
 
       <article className="prose prose-slate mt-8 max-w-none">
         <MDXRemote source={body} components={{ Screenshot, VideoExplainer }} />

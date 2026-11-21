@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title:
-      "Solutions for Australian Restoration Contractors | Restore Assist",
+      "Solutions for Australian Restoration Contractors | RestoreAssist",
     description:
       "Built for the contractor doing the work. Documentation your client understands and your insurer can't argue with.",
     type: "website",

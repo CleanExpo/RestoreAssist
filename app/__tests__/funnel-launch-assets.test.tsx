@@ -150,6 +150,7 @@ vi.mock("@/components/avatar", () => ({
 import Home from "../page";
 import BlogPage from "../blog/page";
 import ComplianceLibraryPage from "../compliance-library/page";
+import ResourcesClientPage from "../resources/ResourcesClientPage";
 import DawnSplitPage from "../landing/dawn-split/page";
 import ClaimFolioPage from "../landing/claim-folio/page";
 import OperatorAtlasPage from "../landing/operator-atlas/page";
@@ -208,22 +209,38 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
     });
   });
 
-  // NOTE: app/blog/page.tsx no longer renders Coming Soon badges — its
-  // articles now ship as real /blog/[slug] routes (see
-  // app/__tests__/blog-route-integrity.test.tsx). compliance-library still
-  // uses Coming Soon badges, so it remains guarded here.
-  describe("Coming Soon badges are non-interactive (not links)", () => {
+  // RA-8403: a stranger read "Coming Soon" tiles as an unfinished product.
+  // Resources lists only what has shipped, and the compliance library is a
+  // reference list that names each publisher instead of promising a download.
+  describe("no Coming Soon tiles on the resource pages (RA-8403)", () => {
     it.each([
       ["app/compliance-library/page.tsx", ComplianceLibraryPage],
-    ])("%s renders aria-disabled Coming Soon badges, never anchors", (_name, Component) => {
+      ["app/resources/ResourcesClientPage.tsx", ResourcesClientPage],
+    ])("%s shows no Coming Soon text", (_name, Component) => {
       const { container, unmount } = render(<Component />);
-      const badges = Array.from(
-        container.querySelectorAll('[aria-disabled="true"]'),
-      ).filter((el) => /coming soon/i.test(el.textContent ?? ""));
-      expect(badges.length).toBeGreaterThan(0);
-      // Every Coming Soon badge must be a non-anchor element (the PR fix).
-      for (const badge of badges) {
-        expect(badge.tagName.toLowerCase()).not.toBe("a");
+      expect(container.textContent ?? "").not.toMatch(/coming soon/i);
+      expect(container.querySelectorAll('[aria-disabled="true"]')).toHaveLength(0);
+      unmount();
+    });
+
+    it("every compliance reference names its publisher", () => {
+      const { container, unmount } = render(<ComplianceLibraryPage />);
+      const headings = Array.from(container.querySelectorAll("h3"));
+      expect(headings.length).toBeGreaterThan(0);
+      const publisherLines = Array.from(container.querySelectorAll("p")).filter(
+        (el) => /^Published by \S/.test(el.textContent ?? ""),
+      );
+      expect(publisherLines).toHaveLength(headings.length);
+      unmount();
+    });
+
+    it("every resources tile links to a page", () => {
+      const { container, unmount } = render(<ResourcesClientPage />);
+      const tiles = Array.from(container.querySelectorAll("li"));
+      expect(tiles.length).toBeGreaterThan(0);
+      for (const tile of tiles) {
+        const href = tile.querySelector("a")?.getAttribute("href") ?? "";
+        expect(href).toMatch(/^\//);
       }
       unmount();
     });
