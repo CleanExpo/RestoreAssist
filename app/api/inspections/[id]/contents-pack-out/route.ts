@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
+import { packOutItemSchema } from "@/lib/contents/pack-out-item-schema";
 import { withIdempotency } from "@/lib/idempotency";
 import {
   assertInspectionTenancy,
@@ -25,46 +25,8 @@ import {
 import { apiError, fromException } from "@/lib/api-errors";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
-
-const packOutItemSchema = z.object({
-  itemDescription: z.string().min(1),
-  make: z.string().nullable().optional(),
-  model: z.string().nullable().optional(),
-  serialNumber: z.string().nullable().optional(),
-  ageYears: z.number().int().nonnegative().nullable().optional(),
-  conditionPreLoss: z
-    .enum(["EXCELLENT", "GOOD", "FAIR", "POOR"])
-    .nullable()
-    .optional(),
-  conditionPostLoss: z
-    .enum(["EXCELLENT", "GOOD", "FAIR", "POOR"])
-    .nullable()
-    .optional(),
-  replacementValueAud: z.number().nonnegative().nullable().optional(),
-  restorationCostEstimate: z.number().nonnegative().nullable().optional(),
-  packOutDecision: z
-    .enum(["CLEAN_ONSITE", "PACK_OUT", "TOTAL_LOSS"])
-    .nullable()
-    .optional(),
-  packOutTag: z.string().nullable().optional(),
-  beforePhotoUrl: z.string().url().nullable().optional(),
-  afterPhotoUrl: z.string().url().nullable().optional(),
-  claimType: z
-    .enum([
-      "WATER",
-      "FIRE",
-      "MOULD",
-      "STORM",
-      "CONTENTS",
-      "BIOHAZARD",
-      "ODOUR",
-      "CARPET",
-      "HVAC",
-      "ASBESTOS",
-    ])
-    .nullable()
-    .optional(),
-});
+// RA-8533: the schema lives in lib/contents so the Contents form builds its
+// body from the same contract this route validates.
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 

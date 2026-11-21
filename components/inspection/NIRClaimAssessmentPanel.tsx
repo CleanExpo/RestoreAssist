@@ -26,6 +26,15 @@ import {
 import toast from "react-hot-toast";
 import { readIfCurrent } from "@/lib/nir-draft-save";
 import {
+  CONDITION_GRADES,
+  CONDITION_GRADE_LABELS,
+  PACK_OUT_DECISIONS,
+  PACK_OUT_DECISION_LABELS,
+  type ConditionGrade,
+  type PackOutDecision,
+  type PackOutItemInput,
+} from "@/lib/contents/pack-out-item-schema";
+import {
   Droplets,
   Flame,
   Wind,
@@ -804,38 +813,107 @@ function StormForm({
   );
 }
 
+// RA-8533: the Contents form sends the contents-pack-out route's own field
+// names, built from the shared schema module. Before this it sent `itemName` /
+// `condition`, the route required `itemDescription`, and every add got a 400.
+const CONDITION_GRADE_OPTIONS = CONDITION_GRADES.map((g) => ({
+  value: g,
+  label: CONDITION_GRADE_LABELS[g],
+}));
+const PACK_OUT_DECISION_OPTIONS = PACK_OUT_DECISIONS.map((d) => ({
+  value: d,
+  label: PACK_OUT_DECISION_LABELS[d],
+}));
+
+type ContentsItemDraft = {
+  itemDescription: string;
+  make: string;
+  model: string;
+  serialNumber: string;
+  ageYears: string;
+  conditionPreLoss: string;
+  conditionPostLoss: string;
+  packOutDecision: string;
+  packOutTag: string;
+  replacementValueAud: string;
+};
+
+const EMPTY_CONTENTS_DRAFT: ContentsItemDraft = {
+  itemDescription: "",
+  make: "",
+  model: "",
+  serialNumber: "",
+  ageYears: "",
+  conditionPreLoss: "",
+  conditionPostLoss: "",
+  packOutDecision: "",
+  packOutTag: "",
+  replacementValueAud: "",
+};
+
+/** Builds the POST body: only schema fields, blanks omitted, numbers parsed. */
+function buildContentsPackOutBody(draft: ContentsItemDraft): PackOutItemInput {
+  const text = (v: string) => (v.trim() ? v.trim() : undefined);
+  const body: PackOutItemInput = {
+    itemDescription: draft.itemDescription.trim(),
+    make: text(draft.make),
+    model: text(draft.model),
+    serialNumber: text(draft.serialNumber),
+    conditionPreLoss: text(
+      draft.conditionPreLoss,
+    ) as PackOutItemInput["conditionPreLoss"],
+    conditionPostLoss: text(
+      draft.conditionPostLoss,
+    ) as PackOutItemInput["conditionPostLoss"],
+    packOutDecision: text(
+      draft.packOutDecision,
+    ) as PackOutItemInput["packOutDecision"],
+    packOutTag: text(draft.packOutTag),
+  };
+  const age = parseInt(draft.ageYears, 10);
+  if (Number.isFinite(age) && age >= 0) body.ageYears = age;
+  const value = parseFloat(draft.replacementValueAud);
+  if (Number.isFinite(value) && value >= 0) body.replacementValueAud = value;
+  return Object.fromEntries(
+    Object.entries(body).filter(([, v]) => v !== undefined),
+  ) as PackOutItemInput;
+}
+
 function ContentsNewItemForm({
   onAdd,
 }: {
-  onAdd: (item: Record<string, unknown>) => void;
+  onAdd: (item: PackOutItemInput) => Promise<boolean>;
 }) {
-  const [form, setForm] = useState<Record<string, unknown>>({
-    itemName: "",
-    itemCategory: "",
-    condition: "",
-    preExistingDamage: false,
-    quantityAffected: 1,
-    replacementValueAud: "",
-  });
+  const [form, setForm] = useState<ContentsItemDraft>(EMPTY_CONTENTS_DRAFT);
 
-  const handleChange = (k: string, v: unknown) =>
+  const handleChange = (k: keyof ContentsItemDraft, v: string) =>
     setForm((p) => ({ ...p, [k]: v }));
 
-  const handleAdd = () => {
-    if (!form.itemName || !form.condition) {
-      toast.error("Item name and condition are required");
+  const handleAdd = async () => {
+    if (!form.itemDescription.trim() || !form.packOutDecision) {
+      toast.error("Item description and disposition are required");
       return;
     }
-    onAdd({ ...form });
-    setForm({
-      itemName: "",
-      itemCategory: "",
-      condition: "",
-      preExistingDamage: false,
-      quantityAffected: 1,
-      replacementValueAud: "",
-    });
+    // Keep what the technician typed if the save is refused.
+    if (await onAdd(buildContentsPackOutBody(form))) {
+      setForm(EMPTY_CONTENTS_DRAFT);
+    }
   };
+
+  const field = (
+    key: keyof ContentsItemDraft,
+    label: string,
+    placeholder?: string,
+  ) => (
+    <div>
+      <label className="text-xs text-neutral-500 mb-1 block">{label}</label>
+      <Input
+        value={form[key]}
+        onChange={(v) => handleChange(key, v)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
 
   return (
     <div className="p-4 rounded-xl border border-dashed border-neutral-200 dark:border-slate-700 space-y-3 mt-2">
@@ -843,47 +921,55 @@ function ContentsNewItemForm({
         Add Pack-Out Item
       </p>
       <div className="grid grid-cols-2 gap-2">
+        {field(
+          "itemDescription",
+          "Item description *",
+          "e.g. Front-loader washing machine",
+        )}
+        {field("make", "Make", "e.g. Samsung")}
+        {field("model", "Model", "e.g. WW80T554DAW")}
+        {field("serialNumber", "Serial number")}
+        {field("packOutTag", "Pack-out tag", "e.g. BOX-014")}
         <div>
           <label className="text-xs text-neutral-500 mb-1 block">
-            Item Name *
+            Age (years)
           </label>
           <Input
-            value={(form.itemName as string) || ""}
-            onChange={(v) => handleChange("itemName", v)}
-            placeholder="e.g. Samsung Washing Machine"
+            type="number"
+            value={form.ageYears}
+            onChange={(v) => handleChange("ageYears", v)}
+            min={0}
+            step={1}
           />
         </div>
         <div>
           <label className="text-xs text-neutral-500 mb-1 block">
-            Category
+            Condition before loss
           </label>
           <Select
-            value={(form.itemCategory as string) || ""}
-            onChange={(v) => handleChange("itemCategory", v || null)}
-            options={[
-              { value: "APPLIANCE", label: "Appliance" },
-              { value: "FURNITURE", label: "Furniture" },
-              { value: "ELECTRONICS", label: "Electronics" },
-              { value: "DOCUMENTS", label: "Documents" },
-              { value: "CLOTHING", label: "Clothing" },
-              { value: "ART", label: "Art / Collectables" },
-              { value: "OTHER", label: "Other" },
-            ]}
+            value={form.conditionPreLoss}
+            onChange={(v) => handleChange("conditionPreLoss", v)}
+            options={CONDITION_GRADE_OPTIONS}
           />
         </div>
         <div>
           <label className="text-xs text-neutral-500 mb-1 block">
-            Condition *
+            Condition after loss
           </label>
           <Select
-            value={(form.condition as string) || ""}
-            onChange={(v) => handleChange("condition", v || null)}
-            options={[
-              { value: "RESTORABLE", label: "Restorable" },
-              { value: "CLEAN_ONSITE", label: "Clean On-site" },
-              { value: "PACK_OUT", label: "Pack Out" },
-              { value: "TOTAL_LOSS", label: "Total Loss" },
-            ]}
+            value={form.conditionPostLoss}
+            onChange={(v) => handleChange("conditionPostLoss", v)}
+            options={CONDITION_GRADE_OPTIONS}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-neutral-500 mb-1 block">
+            Disposition *
+          </label>
+          <Select
+            value={form.packOutDecision}
+            onChange={(v) => handleChange("packOutDecision", v)}
+            options={PACK_OUT_DECISION_OPTIONS}
           />
         </div>
         <div>
@@ -892,35 +978,11 @@ function ContentsNewItemForm({
           </label>
           <Input
             type="number"
-            value={(form.replacementValueAud as number) || ""}
-            onChange={(v) =>
-              handleChange("replacementValueAud", v ? parseFloat(v) : null)
-            }
+            value={form.replacementValueAud}
+            onChange={(v) => handleChange("replacementValueAud", v)}
             min={0}
             step={10}
             placeholder="e.g. 850"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-neutral-500 mb-1 block">
-            Quantity
-          </label>
-          <Input
-            type="number"
-            value={(form.quantityAffected as number) || 1}
-            onChange={(v) =>
-              handleChange("quantityAffected", v ? parseInt(v) : 1)
-            }
-            min={1}
-          />
-        </div>
-        <div className="flex items-end gap-2">
-          <label className="text-xs text-neutral-500">
-            Pre-existing damage
-          </label>
-          <Toggle
-            value={!!form.preExistingDamage}
-            onChange={(v) => handleChange("preExistingDamage", v)}
           />
         </div>
       </div>
@@ -1787,7 +1849,9 @@ const NIRClaimAssessmentPanel = forwardRef<
 
   // ── Add contents item ───────────────────────────────────────────────────────
 
-  const handleAddContentItem = async (item: Record<string, unknown>) => {
+  const handleAddContentItem = async (
+    item: PackOutItemInput,
+  ): Promise<boolean> => {
     setSaving(true);
     try {
       const res = await fetch(
@@ -1802,11 +1866,13 @@ const NIRClaimAssessmentPanel = forwardRef<
         const created = await res.json();
         setContentItems((prev) => [...prev, created]);
         toast.success("Item added");
-      } else {
-        toast.error("Failed to add item");
+        return true;
       }
+      toast.error("Failed to add item");
+      return false;
     } catch {
       toast.error("Network error");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -1955,32 +2021,46 @@ const NIRClaimAssessmentPanel = forwardRef<
                           >
                             <div>
                               <span className="font-medium text-neutral-700 dark:text-slate-200">
-                                {item.itemName as string}
+                                {item.itemDescription as string}
                               </span>
-                              {item.itemCategory != null && (
+                              {(item.make != null || item.model != null) && (
                                 <span className="ml-2 text-xs text-neutral-600 dark:text-neutral-400">
-                                  {(item.itemCategory as string).toLowerCase()}
+                                  {[item.make, item.model]
+                                    .filter((v) => v != null && v !== "")
+                                    .join(" ")}
+                                </span>
+                              )}
+                              {item.conditionPostLoss != null && (
+                                <span className="ml-2 text-xs text-neutral-600 dark:text-neutral-400">
+                                  after loss:{" "}
+                                  {CONDITION_GRADE_LABELS[
+                                    item.conditionPostLoss as ConditionGrade
+                                  ] ?? String(item.conditionPostLoss)}
                                 </span>
                               )}
                             </div>
                             <div className="flex items-center gap-3 text-xs text-neutral-500">
-                              <span
-                                className={cn(
-                                  "px-2 py-0.5 rounded-full font-medium",
-                                  item.condition === "TOTAL_LOSS"
-                                    ? "bg-destructive-subtle text-destructive-subtle-foreground"
-                                    : item.condition === "PACK_OUT"
-                                      ? "bg-warning-subtle text-warning-subtle-foreground"
-                                      : "bg-success-subtle text-success-subtle-foreground",
-                                )}
-                              >
-                                {(item.condition as string)?.replace(/_/g, " ")}
-                              </span>
+                              {item.packOutDecision != null && (
+                                <span
+                                  className={cn(
+                                    "px-2 py-0.5 rounded-full font-medium",
+                                    item.packOutDecision === "TOTAL_LOSS"
+                                      ? "bg-destructive-subtle text-destructive-subtle-foreground"
+                                      : item.packOutDecision === "PACK_OUT"
+                                        ? "bg-warning-subtle text-warning-subtle-foreground"
+                                        : "bg-success-subtle text-success-subtle-foreground",
+                                  )}
+                                >
+                                  {PACK_OUT_DECISION_LABELS[
+                                    item.packOutDecision as PackOutDecision
+                                  ] ?? String(item.packOutDecision)}
+                                </span>
+                              )}
                               {item.replacementValueAud != null && (
                                 <span>
                                   $
-                                  {(
-                                    item.replacementValueAud as number
+                                  {Number(
+                                    item.replacementValueAud,
                                   ).toLocaleString("en-AU")}
                                 </span>
                               )}
