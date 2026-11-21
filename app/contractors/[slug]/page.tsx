@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  parseServicesOffered,
+  serviceLabels,
+} from "@/lib/crm/service-catalogue";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -281,6 +285,25 @@ export default function ContractorProfilePage() {
                     </span>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* RA-8220: Business Card services */}
+            {serviceLabels(parseServicesOffered(contractor.servicesOffered)).length > 0 && (
+              <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  Services
+                </h2>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {serviceLabels(parseServicesOffered(contractor.servicesOffered)).map((label) => (
+                    <li
+                      key={label}
+                      className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300"
+                    >
+                      {label}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 

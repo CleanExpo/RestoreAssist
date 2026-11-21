@@ -60,6 +60,7 @@ const { writes, prismaMock, resetPrismaMock } = vi.hoisted(() => {
     ["inspection", "Inspection", { id: "insp_demo" }],
     ["moistureReading", "MoistureReading", { id: "mr_demo" }],
     ["scopeItem", "ScopeItem", { id: "si_demo" }],
+    ["clientCommsLog", "ClientCommsLog", { id: "ccl_demo" }],
   ];
 
   const prismaMock: Record<string, any> = {};
@@ -178,6 +179,7 @@ describe("POST /api/admin/seed-demo", () => {
         "Inspection",
         "MoistureReading",
         "ScopeItem",
+        "ClientCommsLog",
       ]),
     );
   });
@@ -316,6 +318,16 @@ describe("the seeded demo claim", () => {
     }
   });
 
+  it("links the job to the client and records sent update emails for the timeline (RA-8220)", async () => {
+    await POST(post());
+    const insp = writes.find(([m]) => m === "Inspection")![1];
+    expect(insp.clientId).toBe("client_demo");
+    const emails = writes.filter(([m]) => m === "ClientCommsLog").map(([, d]) => d);
+    expect(emails.map((e) => e.eventType)).toEqual(["STEP_TRANSITION", "DRYING_GOAL_CHANGE"]);
+    expect(emails.every((e) => e.status === "SENT" && e.inspectionId === "insp_demo")).toBe(true);
+    expect(new Set(emails.map((e) => e.idempotencyKey)).size).toBe(2);
+  });
+
   it("is idempotent once the demo inspection exists", async () => {
     prismaMock.inspection.findFirst.mockResolvedValue({ id: "insp_existing" });
 
@@ -397,8 +409,8 @@ describe("the seeded demo claim", () => {
     // And every write must have happened through it, not outside it.
     const insideTx = tx.mock.results[0];
     expect(insideTx.type).toBe("return");
-    // 1 client + 1 report + 1 inspection + 21 readings + 5 scope items.
-    expect(writes.length).toBe(29);
+    // 1 client + 1 report + 1 inspection + 21 readings + 5 scope items + 2 sent emails.
+    expect(writes.length).toBe(31);
   });
 
   it("rolls the whole seed back when a late write fails", async () => {

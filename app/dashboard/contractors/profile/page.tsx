@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  SERVICE_CATALOGUE,
+  parseServicesOffered,
+} from "@/lib/crm/service-catalogue";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -79,6 +83,9 @@ export default function ContractorProfileDashboard() {
   const [teamSize, setTeamSize] = useState("");
   const [isPubliclyVisible, setIsPubliclyVisible] = useState(true);
   const [specializations, setSpecializations] = useState("");
+  // RA-8220: services shown on the public Business Card.
+  const [offeredServices, setOfferedServices] = useState<string[]>([]);
+  const [customServices, setCustomServices] = useState("");
 
   // New certification form
   const [showAddCert, setShowAddCert] = useState(false);
@@ -138,6 +145,9 @@ export default function ContractorProfileDashboard() {
       setTeamSize(loaded?.teamSize?.toString() || "");
       setIsPubliclyVisible(loaded?.isPubliclyVisible ?? true);
       setSpecializations((loaded?.specializations || []).join(", "));
+      const offered = parseServicesOffered(loaded?.servicesOffered);
+      setOfferedServices(offered.services);
+      setCustomServices(offered.custom.join(", "));
 
       const certsData = certsRes.ok ? await certsRes.json() : {};
       setCertifications(certsData.certifications || []);
@@ -172,6 +182,10 @@ export default function ContractorProfileDashboard() {
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean),
+          servicesOffered: {
+            services: offeredServices,
+            custom: customServices.split(","),
+          },
         }),
       });
 
@@ -475,6 +489,51 @@ export default function ContractorProfileDashboard() {
               className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
             />
           </div>
+
+          <fieldset>
+            <legend className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-1">
+              Services you offer
+            </legend>
+            <p className="text-xs text-brand-slate/80 dark:text-slate-400 mb-3">
+              Shown on your public Business Card, and used to suggest a client&apos;s next service after a job.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {SERVICE_CATALOGUE.map((svc) => (
+                <label
+                  key={svc.id}
+                  className="flex items-center gap-2 text-sm text-brand-navy dark:text-slate-200"
+                >
+                  <input
+                    type="checkbox"
+                    checked={offeredServices.includes(svc.id)}
+                    onChange={(e) =>
+                      setOfferedServices((prev) =>
+                        e.target.checked
+                          ? [...prev, svc.id]
+                          : prev.filter((id) => id !== svc.id),
+                      )
+                    }
+                    className="w-4 h-4 text-brand-harbour-500 bg-brand-cream dark:bg-slate-700 border-slate-600 rounded focus:ring-brand-harbour-500"
+                  />
+                  {svc.label}
+                </label>
+              ))}
+            </div>
+            <label
+              htmlFor="customServices"
+              className="block text-sm font-medium text-brand-slate dark:text-slate-300 mt-4 mb-2"
+            >
+              Other services (comma-separated)
+            </label>
+            <input
+              id="customServices"
+              type="text"
+              value={customServices}
+              onChange={(e) => setCustomServices(e.target.value)}
+              placeholder="e.g. Pressure washing, Window cleaning"
+              className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
+            />
+          </fieldset>
 
           <div className="flex items-center gap-3">
             <input
