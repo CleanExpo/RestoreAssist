@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
-const assertInspectionTenancy = vi.fn();
+const assertInspectionReadable = vi.fn();
 const inspectionFindUnique = vi.fn();
 const profileFindUnique = vi.fn();
 const userFindUnique = vi.fn();
@@ -12,7 +12,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 vi.mock("@/lib/app-url", () => ({ getAppUrl: () => "https://restoreassist.app/" }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionTenancy: (...a: unknown[]) => assertInspectionTenancy(...a),
+  assertInspectionReadable: (...a: unknown[]) => assertInspectionReadable(...a),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -31,7 +31,7 @@ const CATALOGUE = JSON.stringify({ v: 1, services: ["carpet-cleaning", "upholste
 beforeEach(() => {
   vi.clearAllMocks();
   getServerSession.mockResolvedValue({ user: { id: "tech1" } });
-  assertInspectionTenancy.mockResolvedValue({ ok: true, data: { id: "insp1", userId: "tech1", workspaceId: "ws1" } });
+  assertInspectionReadable.mockResolvedValue({ ok: true, data: { id: "insp1", userId: "tech1", workspaceId: "ws1" } });
   inspectionFindUnique.mockResolvedValue({
     claimType: "WATER",
     client: { name: "Citizen Household", contactPerson: "Jo Citizen" },
@@ -73,7 +73,7 @@ describe("GET /api/inspections/[id]/next-service (RA-8220)", () => {
   });
 
   it("refuses another tenant's job and reads nothing", async () => {
-    assertInspectionTenancy.mockResolvedValue({ ok: false, status: 404, reason: "Inspection not found" });
+    assertInspectionReadable.mockResolvedValue({ ok: false, status: 404, reason: "Inspection not found" });
     const res = await GET(req(), ctx);
     expect(res.status).toBe(404);
     expect(inspectionFindUnique).not.toHaveBeenCalled();

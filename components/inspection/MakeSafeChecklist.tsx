@@ -110,6 +110,14 @@ function rowOf(state: MakeSafeChecklistState, action: MakeSafeActionName) {
   return state[action] ?? EMPTY_ROW;
 }
 
+/**
+ * RA-8531: what the autosave compares, in the job's list order, so two states
+ * holding the same rows compare equal whatever order their keys were set in.
+ */
+function snapshotOf(list: ActionList, state: MakeSafeChecklistState): string {
+  return JSON.stringify(list.map((action) => [action, rowOf(state, action)]));
+}
+
 export type MakeSafeChecklistHandle = {
   /** Persist current checklist selections to the inspection (no toast). */
   persist: () => Promise<void>;
@@ -165,7 +173,12 @@ const MakeSafeChecklistForInspection = forwardRef<
   const [state, setState] = useState<MakeSafeChecklistState>(() =>
     defaultState(MAKE_SAFE_ACTIONS),
   );
-  const skipAutoSave = useRef(true);
+  // RA-8531: the checklist as last loaded from (or saved to) the server. The
+  // autosave writes only once the stored rows have loaded and only when the
+  // checklist differs from this, so opening a job never sends a save: for the
+  // owner that wrote data on view, and for a colleague without write reach it
+  // was a 404 on every page load.
+  const savedSnapshot = useRef<string | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
   const hydratedRef = useRef(false);
@@ -187,7 +200,9 @@ const MakeSafeChecklistForInspection = forwardRef<
       // A missing row reads as an open applicable item, so it is never the seed.
       const current = onList.map((action) => ({ action, ...rowOf(prev, action) }));
       if (!isIntakeSeed(current)) return prev;
-      skipAutoSave.current = true;
+      // No caller combines a preset with autoSave today (the form saves with
+      // the draft). Were one to, the preset differs from the stored rows and
+      // would be saved like any other change.
       return next;
     });
   }
@@ -197,7 +212,7 @@ const MakeSafeChecklistForInspection = forwardRef<
     if (data?.data) {
       const fromApi = rowsToState(list, data.data);
       setState(fromApi);
-      skipAutoSave.current = true;
+      savedSnapshot.current = snapshotOf(list, fromApi);
       hydratedRef.current = true;
     }
   }, [data, list]);
@@ -216,7 +231,9 @@ const MakeSafeChecklistForInspection = forwardRef<
         if (!hydratedRef.current) {
           throw new Error("Make-safe checklist is still loading");
         }
-        await persistMakeSafeChecklist(inspectionId, stateRef.current);
+        const saving = stateRef.current;
+        await persistMakeSafeChecklist(inspectionId, saving);
+        savedSnapshot.current = snapshotOf(listRef.current, saving);
       },
       readiness: () => {
         const compliance = makeSafeCompliance(
@@ -240,12 +257,16 @@ const MakeSafeChecklistForInspection = forwardRef<
   );
 
   useEffect(() => {
-    if (!autoSave || skipAutoSave.current) {
-      skipAutoSave.current = false;
-      return;
-    }
+    if (!autoSave || !hydratedRef.current) return;
+    if (snapshotOf(listRef.current, state) === savedSnapshot.current) return;
     const timer = window.setTimeout(() => {
-      void persistMakeSafeChecklist(inspectionId, stateRef.current).catch(
+      const saving = stateRef.current;
+      const snapshot = snapshotOf(listRef.current, saving);
+      if (snapshot === savedSnapshot.current) return;
+      persistMakeSafeChecklist(inspectionId, saving).then(
+        () => {
+          savedSnapshot.current = snapshot;
+        },
         () => {
           /* Hub autosave is best-effort; explicit persist on submit surfaces errors. */
         },
