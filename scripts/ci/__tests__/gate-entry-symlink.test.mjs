@@ -144,6 +144,16 @@ const RECIPES = {
       match: /production smoke target must be exactly/,
     },
   ],
+  "scripts/ci/check-corpus-hygiene.mjs": [
+    { name: "usage: no --dir is exit 2", code: 2, match: /usage: check-corpus-hygiene\.mjs --dir/ },
+    {
+      name: "hit: a planted charge-out rate under --strict is exit 1",
+      args: ["--dir", "staging", "--strict"],
+      setup: (cwd) => write(cwd, "staging/rates.md", "Technician charge-out is $440/hr on site.\n"),
+      code: 1,
+      match: /staging\/rates\.md:1/,
+    },
+  ],
   "scripts/ci/check-migration-ledger-parity.mjs": [
     {
       name: "usage: no target origin is could-not-check (2), not a pass",
