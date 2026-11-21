@@ -104,6 +104,30 @@ export function dataUrlToBytes(dataUrl: string): Uint8Array {
 // area and the calibrated drawing scale. `totalAreaM2` is measured-geometry
 // only (the caller passes extractRooms()'s sum, which already excludes
 // underlay_reference per the A0 firewall). Pure + exported for unit testing.
+/**
+ * RA-8239 — fit a room-legend name into `maxWidth` points. Prints the whole
+ * name at 7.5 pt when it fits, else at the largest size down to 6 pt that
+ * fits, else at 6 pt shortened with an ellipsis. `suffix` (the LiDAR tag) is
+ * always kept.
+ */
+export function fitLegendText(
+  label: string,
+  suffix: string,
+  maxWidth: number,
+  measure: (text: string, size: number) => number,
+): { text: string; size: number } {
+  for (const size of [7.5, 7, 6.5, 6]) {
+    if (measure(label + suffix, size) <= maxWidth) {
+      return { text: label + suffix, size };
+    }
+  }
+  let cut = label;
+  while (cut.length > 1 && measure(`${cut}…${suffix}`, 6) > maxWidth) {
+    cut = cut.slice(0, -1);
+  }
+  return { text: `${cut.trimEnd()}…${suffix}`, size: 6 };
+}
+
 export function formatFloorMeta(input: {
   totalAreaM2: number;
   pxPerMetre: number;
@@ -434,23 +458,27 @@ async function addSketchPage(
         });
 
         const lidarTag = room.captureAdapter === "roomplan" ? " · LiDAR" : "";
-        const safeLabel = safe(room.label);
-        const maxLen = lidarTag ? 10 : 14;
-        const truncated =
-          safeLabel.length > maxLen
-            ? safeLabel.slice(0, maxLen - 1) + "…"
-            : safeLabel;
-        page.drawText(`${truncated}${lidarTag}`, {
+        const areaText = `${room.areaM2.toFixed(1)} m²`;
+        const areaW = helvetica.widthOfTextAtSize(areaText, 7.5);
+        // RA-8239: fit the room name to the space it has, not to a fixed
+        // character count. Shrink the type to 6 pt first; shorten with an
+        // ellipsis only when even that does not fit.
+        const nameRoom = legendW - 20 - 8 - areaW - 6;
+        const fitted = fitLegendText(
+          safe(room.label),
+          lidarTag,
+          nameRoom,
+          (text, size) => helvetica.widthOfTextAtSize(text, size),
+        );
+        page.drawText(fitted.text, {
           x: legendX + 20,
           y: ly + 2,
-          size: 7.5,
+          size: fitted.size,
           font: helvetica,
           color: TEXT_MAIN,
         });
 
-        const areaText = `${room.areaM2.toFixed(1)} m²`;
-        const areaX =
-          legendX + legendW - 8 - helvetica.widthOfTextAtSize(areaText, 7.5);
+        const areaX = legendX + legendW - 8 - areaW;
         page.drawText(areaText, {
           x: areaX,
           y: ly + 2,
