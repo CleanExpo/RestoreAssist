@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
-import { auditInspectionById } from "@/lib/evidence/field-evidence-audit";
+import {
+  auditInspectionById,
+  UnknownJobTypeError,
+} from "@/lib/evidence/field-evidence-audit";
 import { buildBeforeYouLeaveActions } from "@/lib/evidence/before-you-leave";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -45,6 +48,16 @@ export async function GET(
       beforeYouLeave: buildBeforeYouLeaveActions(checklist),
     });
   } catch (error) {
+    // RA-8488: no claim type and no Guided Capture job type yet. Something
+    // the technician can fix, so say what, instead of a server error.
+    if (error instanceof UnknownJobTypeError) {
+      return apiError(request, {
+        code: "PRECONDITION_FAILED",
+        message:
+          "This job has no job type yet. Start Guided Capture and choose the job type to see the checklist.",
+        status: 409,
+      });
+    }
     return fromException(request, error, { stage: "field-evidence-checklist" });
   }
 }

@@ -155,6 +155,9 @@ import CaptureWorkflowPage from "../page";
 import type { MetadataCaptureFormProps } from "@/components/evidence/metadata-capture-form";
 import { verifyEvidenceReadback } from "@/lib/evidence/verified-readback";
 
+/** RA-8488: every success notice on this page shares one toast id. */
+const PROGRESS_TOAST = { id: "capture-progress" };
+
 const STEP_ID = "step_1";
 const SECOND_STEP_ID = "step_2";
 
@@ -350,8 +353,11 @@ function captureButtonFor(label: string): HTMLElement {
 
 /** The remove control on the evidence row captured by `name`. */
 function removeButtonFor(name: string): HTMLElement {
-  const row = screen.getByText(name).parentElement?.parentElement;
-  const button = row?.querySelector("button");
+  // Walk up from the name to the nearest element holding a button: the row.
+  // RA-8488 nested the details line one level deeper.
+  let node: HTMLElement | null = screen.getByText(name).parentElement;
+  while (node && !node.querySelector("button")) node = node.parentElement;
+  const button = node?.querySelector("button");
   if (!button) throw new Error(`no remove control found beside ${name}`);
   return button as HTMLElement;
 }
@@ -453,7 +459,10 @@ describe("a photograph that is saved but not counted says so", () => {
     });
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Damage Photo captured"),
+      expect(toast.success).toHaveBeenCalledWith(
+        "Damage Photo captured",
+        PROGRESS_TOAST,
+      ),
     );
   });
 
@@ -465,7 +474,10 @@ describe("a photograph that is saved but not counted says so", () => {
     });
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Damage Photo captured"),
+      expect(toast.success).toHaveBeenCalledWith(
+        "Damage Photo captured",
+        PROGRESS_TOAST,
+      ),
     );
   });
 });
@@ -535,6 +547,7 @@ describe("the duplicate answer is shown as saved, once", () => {
     expect(toast.error).not.toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith(
       "Moisture Reading was already saved. It is on the job once.",
+      PROGRESS_TOAST,
     );
   });
 
@@ -569,7 +582,89 @@ describe("the duplicate answer is shown as saved, once", () => {
     });
 
     expect(screen.getAllByText("Captured by ev_fresh")).toHaveLength(1);
-    expect(toast.success).toHaveBeenCalledWith("Moisture Reading captured");
+    expect(toast.success).toHaveBeenCalledWith(
+      "Moisture Reading captured",
+      PROGRESS_TOAST,
+    );
+  });
+});
+
+// RA-8488: found in the first browser run of the RA-8388 fix.
+describe("RA-8488: the evidence list and the capture notices", () => {
+  it("shows what each reading is, so two readings can be told apart", async () => {
+    const reading = (id: string, title: string) => ({
+      ...evidenceRow(id, "MOISTURE_READING"),
+      title,
+      fileUrl: null,
+      fileMimeType: null,
+    });
+    await renderPage({
+      evidenceItems: [
+        reading("ev_a", "Hall wall (Plasterboard)"),
+        reading("ev_b", "Kitchen floor (Timber)"),
+      ],
+    });
+
+    expect(screen.getByText("Hall wall (Plasterboard)")).toBeInTheDocument();
+    expect(screen.getByText("Kitchen floor (Timber)")).toBeInTheDocument();
+  });
+
+  // The first browser run of this fix showed the title cut to "Syntheti..."
+  // on a 390 px phone: it sat in the details line, which truncates. It must
+  // be its own line that wraps, and never truncated.
+  it("puts the title on its own wrapping line, not in the truncated details line", async () => {
+    await renderPage({
+      evidenceItems: [
+        {
+          ...evidenceRow("ev_a", "MOISTURE_READING"),
+          title: "Synthetic hall wall 1 (Plasterboard)",
+          fileUrl: null,
+          fileMimeType: null,
+        },
+      ],
+    });
+
+    const title = screen.getByText("Synthetic hall wall 1 (Plasterboard)");
+    expect(title).toHaveAttribute("data-testid", "evidence-record-title");
+    expect(title.className).not.toMatch(/\btruncate\b/);
+    expect(title.className).toMatch(/\bbreak-words\b/);
+    // Not a sibling of the capturer's name in the details line.
+    expect(title.parentElement).not.toBe(
+      screen.getByText("Captured by ev_a").parentElement,
+    );
+  });
+
+  it("does not repeat the class name as a title when the record has no title of its own", async () => {
+    await renderPage({
+      evidenceItems: [
+        {
+          ...evidenceRow("ev_c", "MOISTURE_READING"),
+          title: "MOISTURE_READING",
+          fileUrl: null,
+          fileMimeType: null,
+        },
+      ],
+    });
+
+    expect(screen.queryByText("MOISTURE_READING")).toBeNull();
+    expect(screen.getByText("Captured by ev_c")).toBeInTheDocument();
+  });
+
+  it("each new capture notice replaces the last one instead of stacking", async () => {
+    await renderPage({ evidenceItems: [] });
+    for (const id of ["ev_1", "ev_2"]) {
+      savedAnswer.current = { evidenceItem: evidenceRow(id, "MOISTURE_READING") };
+      await act(async () => {
+        fireEvent.click(captureButtonFor("Moisture Reading"));
+      });
+      await act(async () => {
+        fireEvent.click(await screen.findByText("stub: server answered"));
+      });
+    }
+
+    const calls = toast.success.mock.calls;
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    for (const call of calls) expect(call[1]).toEqual(PROGRESS_TOAST);
   });
 });
 

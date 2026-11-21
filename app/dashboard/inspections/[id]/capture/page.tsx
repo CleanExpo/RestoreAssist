@@ -149,6 +149,28 @@ interface EvidenceItem {
   thumbnailUrl: string | null;
   notes: string | null;
   isVerified: boolean;
+  /** RA-8488: for a reading or note, the location and surface it was taken on. */
+  title?: string | null;
+}
+
+/**
+ * RA-8488: every success notice on this page shares one toast id, so a new
+ * one replaces the last instead of piling up over the step on a phone.
+ * Errors and the long "saved but does not count" notice keep their own.
+ */
+const PROGRESS_TOAST = { id: "capture-progress" } as const;
+
+/**
+ * RA-8488: what a reading or note in the evidence list is. Photos and files
+ * are identified by their thumbnail; a record with no media has only its
+ * title. A title equal to the class name is the server's blank-title
+ * fallback and says nothing the tile does not already say.
+ */
+function recordTitle(ev: EvidenceItem): string | null {
+  if (ev.fileUrl || ev.thumbnailUrl) return null;
+  const title = ev.title?.trim();
+  if (!title || title === ev.evidenceClass) return null;
+  return title;
 }
 
 interface Workflow {
@@ -500,7 +522,7 @@ export default function CaptureWorkflowPage({
         const err = await res.json();
         throw new Error(apiErrorMessage(err) || "Failed to create workflow");
       }
-      toast.success("Workflow created — let's begin the inspection!");
+      toast.success("Workflow created — let's begin the inspection!", PROGRESS_TOAST);
       await fetchWorkflow();
     } catch (error: any) {
       toast.error(error.message || "Failed to create workflow");
@@ -524,7 +546,7 @@ export default function CaptureWorkflowPage({
       setWorkflow(data.workflow);
 
       if (status === "COMPLETED") {
-        toast.success("Step completed!");
+        toast.success("Step completed!", PROGRESS_TOAST);
         // Auto-advance to next step
         const nextIdx = data.workflow.steps.findIndex(
           (s: WorkflowStep) =>
@@ -554,7 +576,7 @@ export default function CaptureWorkflowPage({
       if (!res.ok) throw new Error("Failed to skip step");
       const data = await res.json();
       setWorkflow(data.workflow);
-      toast.success("Step skipped — reason recorded");
+      toast.success("Step skipped — reason recorded", PROGRESS_TOAST);
       setSkipDialogOpen(false);
       setSkipStepId(null);
       setSkipReason("NOT_APPLICABLE");
@@ -682,7 +704,7 @@ export default function CaptureWorkflowPage({
       data,
     );
     if (notice.tone === "success") {
-      toast.success(notice.message);
+      toast.success(notice.message, PROGRESS_TOAST);
     } else {
       // Not green, and long enough to read: this is the only time the
       // technician is told before submit that the photograph does not count.
@@ -846,7 +868,7 @@ export default function CaptureWorkflowPage({
       }
       evidenceListVersion.current += 1;
       setEvidenceItems((prev) => prev.filter((e) => e.id !== evidenceId));
-      toast.success("Evidence removed");
+      toast.success("Evidence removed", PROGRESS_TOAST);
     } catch (error) {
       toast.error(
         (error instanceof Error && error.message) ||
@@ -871,7 +893,7 @@ export default function CaptureWorkflowPage({
         toast.error(refusal.message);
         return;
       }
-      toast.success("Inspection submitted successfully");
+      toast.success("Inspection submitted successfully", PROGRESS_TOAST);
       router.push(`/dashboard/inspections/${inspectionId}`);
     } catch {
       toast.error("Failed to submit inspection");
@@ -1513,9 +1535,9 @@ export default function CaptureWorkflowPage({
                         {captured.map((ev) => (
                           <div
                             key={ev.id}
-                            className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 rounded p-1.5"
+                            className="flex items-start justify-between gap-1.5 text-[10px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 rounded p-1.5"
                           >
-                            <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="flex items-start gap-1.5 min-w-0 flex-1">
                               {ev.fileMimeType?.startsWith("video/") ? (
                                 <Video
                                   className="h-3 w-3 flex-shrink-0"
@@ -1528,20 +1550,36 @@ export default function CaptureWorkflowPage({
                                   className="h-7 w-7 rounded object-cover flex-shrink-0 border border-slate-200 dark:border-slate-700"
                                 />
                               ) : (
-                                <MapPin className="h-3 w-3 flex-shrink-0" />
+                                <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" />
                               )}
-                              <span className="truncate">{ev.capturedByName}</span>
-                              <span>·</span>
-                              <Clock className="h-3 w-3" />
-                              <span>
-                                {new Date(ev.capturedAt).toLocaleTimeString()}
-                              </span>
-                              {ev.deviceType && (
-                                <>
+                              <div className="min-w-0 flex-1">
+                                {/* RA-8488: on its own line and allowed to
+                                    wrap. In the details line it was cut to
+                                    "Syntheti..." on a phone, so two readings
+                                    still looked the same. */}
+                                {recordTitle(ev) && (
+                                  <p
+                                    data-testid="evidence-record-title"
+                                    className="text-xs font-medium leading-snug text-slate-800 dark:text-slate-200 break-words whitespace-normal"
+                                  >
+                                    {recordTitle(ev)}
+                                  </p>
+                                )}
+                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                  <span className="truncate">{ev.capturedByName}</span>
                                   <span>·</span>
-                                  <span>{ev.deviceType}</span>
-                                </>
-                              )}
+                                  <Clock className="h-3 w-3" />
+                                  <span>
+                                    {new Date(ev.capturedAt).toLocaleTimeString()}
+                                  </span>
+                                  {ev.deviceType && (
+                                    <>
+                                      <span>·</span>
+                                      <span>{ev.deviceType}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                             <button
                               onClick={() => handleDeleteEvidence(ev.id)}
