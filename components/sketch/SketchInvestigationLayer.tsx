@@ -13,12 +13,12 @@
 
 import { useMemo } from "react";
 import {
-  Camera,
-  Gauge,
-  MapPin,
-  ScanSearch,
-  TriangleAlert,
-} from "lucide-react";
+  ChromeAlertTriangle,
+  ChromeCamera,
+  ChromeDroplet,
+  ChromeMapPin,
+  ChromeScanLine,
+} from "@/components/brand/chrome-icons";
 import { cn } from "@/lib/utils";
 import {
   IDENTITY_OVERLAY_VIEWPORT,
@@ -32,10 +32,12 @@ import {
   type ObservationKind,
 } from "@/lib/sketch/investigation-overlay";
 
-const KIND_ICON: Record<ObservationKind, typeof Gauge> = {
-  instrument_reading: Gauge,
-  photo: Camera,
-  technician_marker: MapPin,
+// Chrome glyphs, not lucide-react (Phill Rule 1, scripts/check-no-lucide.mjs):
+// they inherit the chip's text colour, which branded RAIcon assets cannot.
+const KIND_ICON: Record<ObservationKind, typeof ChromeDroplet> = {
+  instrument_reading: ChromeDroplet,
+  photo: ChromeCamera,
+  technician_marker: ChromeMapPin,
 };
 
 export interface SketchInvestigationLayerProps {
@@ -95,7 +97,7 @@ export function SketchInvestigationLayer({
                 <Icon size={12} aria-hidden />
                 {VALUE_BASIS_LABEL[o.values[0]?.basis ?? "observed"]}
                 {hasGap && (
-                  <TriangleAlert
+                  <ChromeAlertTriangle
                     size={11}
                     className="text-amber-600"
                     aria-hidden
@@ -113,7 +115,7 @@ export function SketchInvestigationLayer({
         className="pointer-events-auto absolute right-3 top-3 w-72 max-w-[calc(100%-1.5rem)] max-h-[70%] overflow-y-auto rounded-lg border border-white/10 bg-brand-navy/95 p-3 text-xs text-white shadow-lg"
       >
         <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-white/70">
-          <ScanSearch size={13} aria-hidden />
+          <ChromeScanLine size={13} aria-hidden />
           Investigation view
         </h3>
         <p className="mb-2 text-white/60">
@@ -164,7 +166,7 @@ export function SketchInvestigationLayer({
           {flaggedCount > 0 && (
             <div data-testid="investigation-flagged">
               <dt className="flex items-center gap-1 font-semibold text-amber-300">
-                <TriangleAlert size={12} aria-hidden />
+                <ChromeAlertTriangle size={12} aria-hidden />
                 Unsupported wording
               </dt>
               <dd className="text-white/70">

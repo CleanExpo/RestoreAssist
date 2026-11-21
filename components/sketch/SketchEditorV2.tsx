@@ -40,7 +40,6 @@ import {
   Trash2,
   X,
   CircleCheck,
-  ScanSearch,
 } from "lucide-react";
 import {
   enqueueSketchSave,
@@ -152,6 +151,7 @@ import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
 import { SketchDamageMarkerLayer } from "./SketchDamageMarkerLayer";
 import { SketchInvestigationLayer } from "./SketchInvestigationLayer";
+import { ChromeScanLine } from "@/components/brand/chrome-icons";
 import {
   buildInvestigationOverlay,
   type SketchViewMode,
@@ -3530,7 +3530,7 @@ export function SketchEditorV2({
                   : "text-white/50 border-white/10 hover:text-white hover:bg-white/5",
               )}
             >
-              <ScanSearch size={13} />
+              <ChromeScanLine size={13} />
               Investigation
             </button>
           )}
