@@ -12,9 +12,11 @@ export type MoistureReadingRow = {
   surfaceType: string;
   moistureLevel: number;
   unit?: string | null;
-  isBaseline?: boolean;
+  // Required keys (RA-8508 review): readers select both, or pass null when
+  // their query already excludes invalidated rows.
+  isBaseline: boolean;
   isMonitoringPoint?: boolean;
-  invalidatedAt?: Date | string | null;
+  invalidatedAt: Date | string | null;
   recordedAt?: Date | string | null;
   createdAt?: Date | string | null;
 };

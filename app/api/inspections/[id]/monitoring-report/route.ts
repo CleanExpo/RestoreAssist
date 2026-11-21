@@ -23,7 +23,7 @@ import {
 import { apiError, fromException } from "@/lib/api-errors";
 
 import {
-  DRYING_GOAL_BASIS_RECORD,
+  DRYING_GOAL_BASIS_SHORT,
   isProgressReading,
   pickReferenceReadings,
   resolveDryingGoal,
@@ -272,7 +272,7 @@ async function buildReport(
     technicianName: inspection.technicianName,
     inspectionDate: inspection.inspectionDate?.toISOString() ?? null,
     // Field name kept for the page that reads it; the value names no standard.
-    iicrcReference: DRYING_GOAL_BASIS_RECORD,
+    iicrcReference: DRYING_GOAL_BASIS_SHORT,
     affectedAreas: inspection.affectedAreas,
     totalDaysMonitored: dailyLogs.length,
     currentAvgMoisture,
