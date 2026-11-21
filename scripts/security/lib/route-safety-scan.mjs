@@ -391,6 +391,9 @@ function findingKey(f) {
   return `${f.file}::${f.class}`;
 }
 
+/** A baseline that cannot be parsed: main() turns it into exit 2 (already logged). */
+class BaselineReadError extends Error {}
+
 function loadBaseline() {
   if (!existsSync(BASELINE_PATH)) return null;
   try {
@@ -398,7 +401,7 @@ function loadBaseline() {
     return new Set((parsed.findings || []).map(findingKey));
   } catch (err) {
     console.error(`[route-safety] could not parse baseline: ${err.message}`);
-    process.exit(2);
+    throw new BaselineReadError();
   }
 }
 
@@ -419,7 +422,7 @@ function loadRawAdminBaseline() {
     console.error(
       `[route-safety] could not parse raw-admin-gate baseline: ${err.message}`,
     );
-    process.exit(2);
+    throw new BaselineReadError();
   }
 }
 
@@ -442,8 +445,7 @@ function writeBaseline(result) {
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-/** Run the CLI. Returns the process exit code; never calls process.exit. */
-export function main() {
+function run() {
   const args = process.argv.slice(2);
   const wantBaseline = args.includes("--baseline");
   const wantJson = args.includes("--json");
@@ -545,4 +547,12 @@ export function main() {
   return 1;
 }
 
-
+/** Run the CLI. Returns the process exit code; never calls process.exit. */
+export function main() {
+  try {
+    return run();
+  } catch (error) {
+    if (error instanceof BaselineReadError) return 2;
+    throw error;
+  }
+}

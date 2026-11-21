@@ -127,7 +127,7 @@ export function selectBlockingFindings(
   return findings;
 }
 
-async function run() {
+async function run(): Promise<number> {
   const ignored = readIgnoredGhsas();
   const payload = collectProdDependencies();
   const packageCount = Object.keys(payload).length;
@@ -142,7 +142,7 @@ async function run() {
     console.error(
       `[audit:prod] bulk advisory endpoint returned HTTP ${res.status}; treating as a gate failure.`,
     );
-    process.exit(1);
+    return 1;
   }
 
   const advisories = (await res.json()) as Record<string, BulkAdvisory[]>;
@@ -152,7 +152,7 @@ async function run() {
     console.log(
       `[audit:prod] ✓ no un-ignored high/critical advisories across ${packageCount} prod packages`,
     );
-    return;
+    return 0;
   }
 
   console.error(
@@ -167,17 +167,14 @@ async function run() {
     "\nFix: upgrade the dependency, or add a justified GHSA to package.json " +
       "auditConfig.ignoreGhsas.",
   );
-  process.exit(1);
+  return 1;
+  return 0;
 }
 
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error("[audit:prod] failed:", error);
     return 1;

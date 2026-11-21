@@ -1084,7 +1084,7 @@ export function runReleaseGate(
   return { report, strictFail: total < max };
 }
 
-function run(): void {
+function run(): number {
   const args = process.argv.slice(2);
   const wantJson = args.includes("--json");
   const strict = args.includes("--strict");
@@ -1116,12 +1116,12 @@ function run(): void {
     process.stderr.write(
       `\nFAIL-CLOSED: score ${report.total_score} < ${report.max_score}. Release blocked.\n`,
     );
-    process.exit(1);
+    return 1;
   }
+  return 0;
 }
 
-/** Run the CLI. Returns the process exit code. */
+/** Run the CLI. Returns run()'s exit code; never exits the process. */
 export function main(): number {
-  run();
-  return Number(process.exitCode ?? 0);
+  return run();
 }

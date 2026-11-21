@@ -428,12 +428,12 @@ export async function produceC2Measurements(): Promise<C2Measurements> {
   }
 }
 
-async function run(): Promise<void> {
+async function run(): Promise<number> {
   const measurements = await produceC2Measurements();
 
   if (process.argv.includes("--json")) {
     console.log(JSON.stringify(measurements));
-    return;
+    return 0;
   }
   console.log(
     `Scanned ${measurements.scannedFileCount} tracked files with ` +
@@ -451,16 +451,13 @@ async function run(): Promise<void> {
         "variables are listed by /api/health.",
     );
   }
+  return 0;
 }
 
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error(String(error));
     return 1;

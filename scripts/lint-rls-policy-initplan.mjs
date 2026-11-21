@@ -4,4 +4,10 @@
 // The logic lives in ./lib/lint-rls-policy-initplan.mjs; import that, never this file.
 import { main } from "./lib/lint-rls-policy-initplan.mjs";
 
-process.exitCode = main();
+const code = main();
+// Exit once main() has returned and stdio has flushed. An idle pg pool or a
+// request left pending by a failed sibling must not hold the CLI open, and
+// main() awaits all of its own work before it returns (RA-7785).
+await new Promise((resolve) => process.stdout.write("", resolve));
+await new Promise((resolve) => process.stderr.write("", resolve));
+process.exit(code);

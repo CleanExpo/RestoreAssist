@@ -394,7 +394,7 @@ function arg(name: string): string | undefined {
   return process.argv.find((a) => a.startsWith(prefix))?.slice(prefix.length);
 }
 
-async function run(): Promise<void> {
+async function run(): Promise<number> {
   // `--list-specs` prints the declared specs, one per line, for the workflow to
   // hand to Playwright. The producer owns the list so the run and the
   // measurement cannot disagree: a spec added to A1_STEP_COVERAGE is executed
@@ -403,7 +403,7 @@ async function run(): Promise<void> {
   // `specsMissingFromReport` -- a real failure with a misleading cause.
   if (process.argv.includes("--list-specs")) {
     for (const spec of declaredSpecs()) console.log(spec);
-    return;
+    return 0;
   }
 
   const reportPath = arg("report");
@@ -412,13 +412,13 @@ async function run(): Promise<void> {
       "--report=<playwright.json> is required. This producer reads a real run's " +
         "report rather than accepting counts, so the measurement cannot be asserted.",
     );
-    process.exit(2);
+    return 2;
   }
   const m = await produceA1Measurements(reportPath, arg("base-url") ?? A1_BASE_URL);
 
   if (process.argv.includes("--json")) {
     console.log(JSON.stringify(m));
-    return;
+    return 0;
   }
   console.log(
     `${m.testsExecuted} tests executed against ${m.baseUrl} @ ${m.deploymentSha}.`,
@@ -444,16 +444,13 @@ async function run(): Promise<void> {
         "every step names a spec that ran and passed against this revision.",
     );
   }
+  return 0;
 }
 
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error(String(error));
     return 1;
