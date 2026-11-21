@@ -10,7 +10,7 @@ import {
   reconcileD3,
   type StripeEventPage,
   type StripeEventRef,
-} from "../producers/d3-revenue-reconciliation";
+} from "../producers/lib/d3-revenue-reconciliation";
 
 /**
  * Controls for the D3 producer.
@@ -184,7 +184,7 @@ describe("fetchAllStripeEvents — a truncated list hides a shortfall", () => {
 
 describe("no measurement reaches the producer from its environment", () => {
   const SOURCE = readFileSync(
-    join(process.cwd(), "scripts", "ci", "producers", "d3-revenue-reconciliation.ts"),
+    join(process.cwd(), "scripts", "ci", "producers", "lib", "d3-revenue-reconciliation.ts"),
     "utf8",
   );
 

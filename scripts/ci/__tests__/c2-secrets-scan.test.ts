@@ -22,7 +22,7 @@ import {
   scanDirectory,
   summariseC2,
   type GitleaksFinding,
-} from "../producers/c2-secrets-scan";
+} from "../producers/lib/c2-secrets-scan";
 
 /**
  * C2 producer unit tests.

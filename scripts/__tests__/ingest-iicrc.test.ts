@@ -21,7 +21,7 @@ import {
   MIN_CHUNK_LENGTH,
   EXPECTED_EMBEDDING_DIMENSIONS,
   type IicrcChunkPrisma,
-} from "../ingest-iicrc.js";
+} from "../lib/ingest-iicrc.js";
 
 const FIXED_VECTOR = Array.from(
   { length: EXPECTED_EMBEDDING_DIMENSIONS },

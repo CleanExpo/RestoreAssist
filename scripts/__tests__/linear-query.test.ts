@@ -5,7 +5,7 @@ import {
   sanitise,
   toIssueInput,
   type IssueNode,
-} from "../linear-query";
+} from "../lib/linear-query";
 
 const ESC = String.fromCharCode(27);
 const BEL = String.fromCharCode(7);

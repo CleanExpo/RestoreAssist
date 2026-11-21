@@ -71,15 +71,15 @@ import crypto from "node:crypto";
 // manifest; the function takes `unknown` and emits JCS (RFC 8785)-style bytes
 // for any plain object.
 import { canonicalizeManifest as canonicalJson } from "../../lib/evidence/manifest-canonical";
-import { A3_EXPECTED_VIEWER_ID } from "./producers/a3-open-blockers";
+import { A3_EXPECTED_VIEWER_ID } from "./producers/lib/a3-open-blockers";
 import {
   C2_ENV_SOURCE,
   C2_SCANNED_REF,
-} from "./producers/c2-secrets-scan";
+} from "./producers/lib/c2-secrets-scan";
 import {
   F1_REPOSITORY,
   F1_REQUIRED_CLASSES,
-} from "./producers/f1-monitoring-alerting";
+} from "./producers/lib/f1-monitoring-alerting";
 import {
   A1_BASE_URL,
   A1_JOURNEY_STEPS,
@@ -87,7 +87,7 @@ import {
 import {
   D1_IOS_GUARD,
   D1_LIFECYCLE,
-} from "./producers/d1-billing-flows";
+} from "./producers/lib/d1-billing-flows";
 
 /** Environment variable carrying the trusted public keys, as JSON. */
 /**
