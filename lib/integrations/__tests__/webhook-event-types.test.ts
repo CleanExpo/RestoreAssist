@@ -32,11 +32,52 @@ interface StoredTrace {
   readonly values: Set<string>;
   /** Source text of every stored expression that could not be traced to a literal. */
   readonly untraced: string[];
+  /**
+   * Every mention of the `webhookEvent` delegate that is neither a recognised
+   * read nor a write this guard traces (RA-8483, RA-8527): an alias, a bracket
+   * access, a destructure, an argument, an unlisted method. Never allow-listed.
+   */
+  readonly untracedUses: string[];
+  /** The status a create write stores `eventType` with (RA-8480). */
+  readonly statusesFor: (eventType: string) => Set<string>;
 }
 
 const WRITE_METHODS = new Set(["create", "upsert", "createMany", "update", "updateMany"]);
+const READ_METHODS = new Set([
+  "findMany",
+  "findFirst",
+  "findFirstOrThrow",
+  "findUnique",
+  "findUniqueOrThrow",
+  "count",
+  "aggregate",
+  "groupBy",
+]);
+/** Delegate method names, which a result row read (`webhookEvent.id`) must not use. */
+const DELEGATE_METHODS = new Set([
+  ...WRITE_METHODS,
+  ...READ_METHODS,
+  "delete",
+  "deleteMany",
+  "createManyAndReturn",
+  "updateManyAndReturn",
+  "fields",
+]);
+const DELEGATE = "webhookEvent";
+const UNKNOWN_STATUS = "<untraced status>";
+const DEFAULT_STATUS = "<column default>";
 
 type Binding = { readonly expr: ts.Expression } | { readonly refuse: string };
+type Fact = { readonly name: string; readonly values: ReadonlySet<string>; readonly positive: boolean };
+
+const strip = (e: ts.Expression): ts.Expression =>
+  ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isNonNullExpression(e)
+    ? strip(e.expression)
+    : e;
+const literalOf = (e: ts.Expression): string | undefined => {
+  const s = strip(e);
+  return ts.isStringLiteral(s) || ts.isNoSubstitutionTemplateLiteral(s) ? s.text : undefined;
+};
 
 /**
  * What a route's WebhookEvent writes store as eventType. It starts at each
@@ -47,6 +88,13 @@ type Binding = { readonly expr: ts.Expression } | { readonly refuse: string };
  * collected the literals a route contains, and each review found a form they
  * could not see (PR 2557); collecting can never be complete, refusing can.
  *
+ * Writes are found the same way (RA-8527): every occurrence of the identifier
+ * or string `webhookEvent` is classified, and only `<x>.webhookEvent.<method>(…)`
+ * with a read or write method, or a result row held in a variable of that name,
+ * is recognised. Anything else is an untraced use. Finding writes by their call
+ * text let `const t = prisma.webhookEvent; t.create(…)` store an unlisted type
+ * with the suite green.
+ *
  * Names are matched by text across the whole file, which over-approximates:
  * every assignment to a name counts, wherever it is. null is not a stored
  * value, because WebhookEvent.eventType is a required column and a write with
@@ -56,15 +104,75 @@ function traceStoredEventTypes(source: string): StoredTrace {
   const file = ts.createSourceFile("route.ts", source, ts.ScriptTarget.Latest, true);
   const values = new Set<string>();
   const untraced: string[] = [];
+  const untracedUses: string[] = [];
   const bindings = new Map<string, Binding[]>();
   const functions = new Map<string, ts.FunctionDeclaration>();
   const writes: ts.CallExpression[] = [];
   const text = (n: ts.Node): string => n.getText(file);
+  const line = (n: ts.Node): number => file.getLineAndCharacterOfPosition(n.getStart(file)).line + 1;
+  const refuseUse = (n: ts.Node): void => {
+    untracedUses.push(`${text(n).replace(/\s+/g, " ").slice(0, 80)} (line ${line(n)})`);
+  };
   const bind = (name: string, b: Binding): void => {
     bindings.set(name, [...(bindings.get(name) ?? []), b]);
   };
 
+  /** `<x>.webhookEvent.<method>(…)` for `<x>.webhookEvent`, or undefined. */
+  const delegateCall = (access: ts.PropertyAccessExpression): { call: ts.CallExpression; method: string } | undefined => {
+    const m = access.parent;
+    if (!ts.isPropertyAccessExpression(m) || m.expression !== access) return undefined;
+    const call = m.parent;
+    if (!ts.isCallExpression(call) || call.expression !== m) return undefined;
+    return { call, method: m.name.text };
+  };
+  /** `await <x>.webhookEvent.<read or write>(…)`: what a result-row variable may hold. */
+  const isResultOfDelegateCall = (e: ts.Expression | undefined): boolean => {
+    if (!e) return true;
+    const s = strip(e);
+    if (!ts.isAwaitExpression(s)) return false;
+    const call = strip(s.expression);
+    if (!ts.isCallExpression(call) || !ts.isPropertyAccessExpression(call.expression)) return false;
+    const access = call.expression.expression;
+    return (
+      ts.isPropertyAccessExpression(access) &&
+      access.name.text === DELEGATE &&
+      (READ_METHODS.has(call.expression.name.text) || WRITE_METHODS.has(call.expression.name.text))
+    );
+  };
+
+  /** Classify one `webhookEvent` identifier. Anything not recognised is refused. */
+  const classify = (id: ts.Identifier): void => {
+    const p = id.parent;
+    if (ts.isPropertyAccessExpression(p) && p.name === id) {
+      const dc = delegateCall(p);
+      if (dc && WRITE_METHODS.has(dc.method)) writes.push(dc.call);
+      else if (!(dc && READ_METHODS.has(dc.method))) refuseUse(dc ? dc.call.expression : p.parent ?? p);
+      return;
+    }
+    // A local variable holding a result row, as every ingest route has.
+    if (ts.isVariableDeclaration(p) && p.name === id && isResultOfDelegateCall(p.initializer)) return;
+    if (
+      ts.isBinaryExpression(p) &&
+      p.left === id &&
+      p.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      isResultOfDelegateCall(p.right)
+    ) {
+      return;
+    }
+    if (ts.isPropertyAccessExpression(p) && p.expression === id && !DELEGATE_METHODS.has(p.name.text)) return;
+    if (ts.isPrefixUnaryExpression(p) && p.operator === ts.SyntaxKind.ExclamationToken) return;
+    refuseUse(ts.isVariableDeclaration(p) || ts.isBinaryExpression(p) ? p : (p.parent ?? p));
+  };
+
   const index = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && node.text === DELEGATE) classify(node);
+    else if (
+      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
+      node.text.toLowerCase() === DELEGATE.toLowerCase()
+    ) {
+      // prisma["webhookEvent"], a model-name string handed to a helper, …
+      refuseUse(node.parent && !ts.isSourceFile(node.parent) ? node.parent : node);
+    }
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
       bind(node.name.text, node.initializer ? { expr: node.initializer } : { refuse: "" });
     } else if (ts.isParameter(node) && ts.isIdentifier(node.name)) {
@@ -77,13 +185,6 @@ function traceStoredEventTypes(source: string): StoredTrace {
       }
     } else if (ts.isFunctionDeclaration(node) && node.name) {
       functions.set(node.name.text, node);
-    } else if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      WRITE_METHODS.has(node.expression.name.text) &&
-      /(^|\.)webhookEvent$/.test(text(node.expression.expression))
-    ) {
-      writes.push(node);
     }
     ts.forEachChild(node, index);
   };
@@ -160,6 +261,8 @@ function traceStoredEventTypes(source: string): StoredTrace {
     return named;
   };
 
+  /** The data object of every row a write creates (create, createMany, upsert's create). */
+  const createdData: ts.Expression[] = [];
   for (const call of writes) {
     const method = (call.expression as ts.PropertyAccessExpression).name.text;
     const arg = call.arguments[0];
@@ -178,9 +281,147 @@ function traceStoredEventTypes(source: string): StoredTrace {
       if (!named && creates && ts.isObjectLiteralExpression(prop.initializer)) {
         untraced.push(`webhookEvent.${method} ${key} sets no eventType`);
       }
+      if (creates) createdData.push(prop.initializer);
     }
   }
-  return { values, untraced };
+
+  // ---- RA-8480: the status a created row is stored with, per event type ----
+
+  /** Facts a condition gives when it is `positive` (true) or not. Unknown shapes give none. */
+  const factsOf = (cond: ts.Expression, positive: boolean): Fact[] => {
+    const c = strip(cond);
+    if (ts.isPrefixUnaryExpression(c) && c.operator === ts.SyntaxKind.ExclamationToken) {
+      return factsOf(c.operand, !positive);
+    }
+    if (!ts.isBinaryExpression(c)) return [];
+    const op = c.operatorToken.kind;
+    const eq = equality(c);
+    if (eq) return [{ name: eq.name, values: new Set([eq.value]), positive: eq.equal === positive }];
+    if (op === ts.SyntaxKind.AmpersandAmpersandToken && positive) {
+      return [...factsOf(c.left, true), ...factsOf(c.right, true)];
+    }
+    if (op === ts.SyntaxKind.BarBarToken && !positive) {
+      return [...factsOf(c.left, false), ...factsOf(c.right, false)];
+    }
+    if (op === ts.SyntaxKind.BarBarToken && positive) {
+      const l = factsOf(c.left, true);
+      const r = factsOf(c.right, true);
+      if (l.length === 1 && r.length === 1 && l[0].positive && r[0].positive && l[0].name === r[0].name) {
+        return [{ name: l[0].name, values: new Set([...l[0].values, ...r[0].values]), positive: true }];
+      }
+    }
+    return [];
+  };
+  const equality = (c: ts.BinaryExpression): { name: string; value: string; equal: boolean } | undefined => {
+    const op = c.operatorToken.kind;
+    const equal = op === ts.SyntaxKind.EqualsEqualsEqualsToken || op === ts.SyntaxKind.EqualsEqualsToken;
+    const notEqual = op === ts.SyntaxKind.ExclamationEqualsEqualsToken || op === ts.SyntaxKind.ExclamationEqualsToken;
+    if (!equal && !notEqual) return undefined;
+    const [l, r] = [strip(c.left), strip(c.right)];
+    if (ts.isIdentifier(l) && literalOf(r) !== undefined) return { name: l.text, value: literalOf(r)!, equal };
+    if (ts.isIdentifier(r) && literalOf(l) !== undefined) return { name: r.text, value: literalOf(l)!, equal };
+    return undefined;
+  };
+  /** The facts that hold where `node` runs: the if/ternary branches it sits in. */
+  const pathFacts = (node: ts.Node): Fact[] => {
+    const out: Fact[] = [];
+    for (let child = node, p = node.parent; p; child = p, p = p.parent) {
+      if (ts.isIfStatement(p)) {
+        if (child === p.thenStatement) out.push(...factsOf(p.expression, true));
+        else if (child === p.elseStatement) out.push(...factsOf(p.expression, false));
+      } else if (ts.isConditionalExpression(p)) {
+        if (child === p.whenTrue) out.push(...factsOf(p.condition, true));
+        else if (child === p.whenFalse) out.push(...factsOf(p.condition, false));
+      }
+    }
+    return out;
+  };
+  /** Three-valued: true, false, or undefined when the facts do not decide it. */
+  const evaluate = (expr: ts.Expression, facts: readonly Fact[], seen: Set<string>): boolean | undefined => {
+    const e = strip(expr);
+    if (e.kind === ts.SyntaxKind.TrueKeyword) return true;
+    if (e.kind === ts.SyntaxKind.FalseKeyword) return false;
+    if (ts.isPrefixUnaryExpression(e) && e.operator === ts.SyntaxKind.ExclamationToken) {
+      const v = evaluate(e.operand, facts, seen);
+      return v === undefined ? undefined : !v;
+    }
+    if (ts.isIdentifier(e)) {
+      const bs = bindings.get(e.text) ?? [];
+      if (seen.has(e.text) || bs.length !== 1 || !("expr" in bs[0])) return undefined;
+      return evaluate(bs[0].expr, facts, new Set([...seen, e.text]));
+    }
+    if (!ts.isBinaryExpression(e)) return undefined;
+    const op = e.operatorToken.kind;
+    if (op === ts.SyntaxKind.AmpersandAmpersandToken || op === ts.SyntaxKind.BarBarToken) {
+      const l = evaluate(e.left, facts, seen);
+      const r = evaluate(e.right, facts, seen);
+      if (op === ts.SyntaxKind.AmpersandAmpersandToken) {
+        return l === false || r === false ? false : l === true && r === true ? true : undefined;
+      }
+      return l === true || r === true ? true : l === false && r === false ? false : undefined;
+    }
+    const eq = equality(e);
+    if (!eq) return undefined;
+    let holds: boolean | undefined;
+    for (const f of facts.filter((x) => x.name === eq.name)) {
+      if (f.positive && !f.values.has(eq.value)) holds = false;
+      else if (f.positive && f.values.size === 1) holds ??= true;
+      else if (!f.positive && f.values.has(eq.value)) holds = false;
+    }
+    return holds === undefined ? undefined : holds === eq.equal;
+  };
+  /** Statuses an object literal stores under `facts`; refuses what it cannot decide. */
+  const statusesIn = (expr: ts.Expression, facts: readonly Fact[], out: Set<string>): boolean => {
+    const e = strip(expr);
+    if (ts.isConditionalExpression(e)) {
+      const v = evaluate(e.condition, facts, new Set());
+      if (v === undefined) out.add(UNKNOWN_STATUS);
+      const a = v !== false && statusesIn(e.whenTrue, facts, out);
+      const b = v !== true && statusesIn(e.whenFalse, facts, out);
+      return a || b;
+    }
+    if (!ts.isObjectLiteralExpression(e)) {
+      out.add(UNKNOWN_STATUS);
+      return false;
+    }
+    let named = false;
+    for (const p of e.properties) {
+      if (ts.isSpreadAssignment(p)) named = statusesIn(p.expression, facts, out) || named;
+      else if (propName(p) === "status") {
+        named = true;
+        const v = ts.isPropertyAssignment(p) ? literalOf(p.initializer) : undefined;
+        out.add(v ?? UNKNOWN_STATUS);
+      }
+    }
+    return named;
+  };
+  const statusesFor = (eventType: string): Set<string> => {
+    const out = new Set<string>();
+    const record = (data: ts.Expression, facts: readonly Fact[]): void => {
+      if (!statusesIn(data, facts, out)) out.add(DEFAULT_STATUS);
+    };
+    for (const data of createdData) {
+      if (!ts.isObjectLiteralExpression(data)) continue;
+      const prop = data.properties.find((p) => propName(p) === "eventType");
+      if (!prop) continue;
+      const value = ts.isPropertyAssignment(prop) ? strip(prop.initializer) : ts.isShorthandPropertyAssignment(prop) ? prop.name : undefined;
+      if (!value) continue;
+      if (literalOf(value) !== undefined) {
+        if (literalOf(value) === eventType) record(data, pathFacts(data));
+        continue;
+      }
+      if (!ts.isIdentifier(value)) continue;
+      // Each place the variable is given this type, with the branch facts that hold there.
+      for (const b of bindings.get(value.text) ?? []) {
+        if (!("expr" in b) || literalOf(b.expr) !== eventType) continue;
+        const fact: Fact = { name: value.text, values: new Set([eventType]), positive: true };
+        record(data, [...pathFacts(b.expr), fact]);
+      }
+    }
+    return out;
+  };
+
+  return { values, untraced, untracedUses, statusesFor };
 }
 
 function walkRoutes(dir: string): string[] {
@@ -194,12 +435,19 @@ function walkRoutes(dir: string): string[] {
   return out;
 }
 
-/** Every webhook route that writes a WebhookEvent row, keyed by its directory. */
+/**
+ * True when a file mentions the delegate at all. Discovery keys on the name,
+ * not on a call shape: a route that only aliases, destructures or bracket-reads
+ * the delegate is still discovered, and its uses are then refused (RA-8527).
+ */
+const mentionsWebhookEvent = (source: string): boolean => /\bwebhookEvent\b/i.test(source);
+
+/** Every webhook route that mentions the WebhookEvent delegate, keyed by its directory. */
 function discoverIngestRoutes(): Map<string, string> {
   const routes = new Map<string, string>();
   for (const file of walkRoutes(WEBHOOK_ROOT)) {
     const source = readFileSync(file, "utf8");
-    if (!/webhookEvent\s*\.\s*(create|upsert|createMany|update|updateMany)\b/.test(source)) continue;
+    if (!mentionsWebhookEvent(source)) continue;
     routes.set(relative(WEBHOOK_ROOT, file).split(sep).slice(0, -1).join("/"), source);
   }
   return routes;
@@ -214,6 +462,9 @@ function compareWithRegistry(
 ): string[] {
   const problems: string[] = [];
   for (const [provider, trace] of stored) {
+    for (const use of trace.untracedUses) {
+      problems.push(`${provider} route uses webhookEvent as \`${use}\`, which is neither a recognised read nor a traced write`);
+    }
     for (const expr of trace.untraced) {
       if (!unlistable.some((u) => u.provider === provider && u.expression === expr)) {
         problems.push(`${provider} route stores \`${expr}\`, which the guard cannot trace to a listed string`);
@@ -246,6 +497,21 @@ function compareWithRegistry(
         problems.push(`${e.provider} "${e.eventType}" is marked drained by ${e.disposition.cron}, which production does not run`);
       }
     }
+    // RA-8480: "skipped at ingest" must be what the route does: every path
+    // that gives the row this type stores it SKIPPED, decided from the
+    // branches, or the entry fails. The converse is checked only where the
+    // branches decide it: QuickBooks' initial "" reaches the write on paths
+    // the guard cannot separate, so its status is untraced, and a type that
+    // is not marked skipped is not required to be traceable.
+    const statuses = [...(stored.get(e.provider)?.statusesFor(e.eventType) ?? [])].sort();
+    if (e.disposition.kind === "skipped-at-ingest" && statuses.join() !== "SKIPPED") {
+      problems.push(
+        `${e.provider} "${e.eventType}" is marked skipped at ingest but its route stores it as ${statuses.join(", ") || "nothing"}`,
+      );
+    }
+    if (e.disposition.kind !== "skipped-at-ingest" && statuses.includes("SKIPPED") && !statuses.includes(UNKNOWN_STATUS)) {
+      problems.push(`${e.provider} "${e.eventType}" is stored SKIPPED at ingest but is marked ${e.disposition.kind}`);
+    }
     if (e.disposition.kind === "open-defect" && !/^RA-\d+$/.test(e.disposition.ticket)) {
       problems.push(`${e.provider} "${e.eventType}" is an open defect with no ticket`);
     }
@@ -272,11 +538,14 @@ describe("webhook event-type registry (RA-8427)", () => {
     expect(routes.length).toBeGreaterThanOrEqual(4);
     // Any other route that writes a WebhookEvent (the log retry resets status)
     // must be proven never to set an event type.
+    // The logs list only reads; the log retry resets status. Both must be
+    // proven never to set an event type, and to use the delegate only in
+    // recognised calls.
     const others = [...discoverIngestRoutes()].filter(([r]) => !known.has(r));
-    expect(others.map(([r]) => r)).toEqual(["logs/[id]/retry"]);
+    expect(others.map(([r]) => r).sort()).toEqual(["logs", "logs/[id]/retry"]);
     for (const [, source] of others) {
       const trace = traceStoredEventTypes(source);
-      expect([...trace.values, ...trace.untraced]).toEqual([]);
+      expect([...trace.values, ...trace.untraced, ...trace.untracedUses]).toEqual([]);
     }
     expect([...known].filter((d) => !routes.includes(d))).toEqual([]);
   });
@@ -310,16 +579,113 @@ describe("webhook event-type registry (RA-8427)", () => {
     for (const p of ["QUICKBOOKS", "MYOB", "SERVICEM8"] as const) {
       expect(stored.get(p)?.untraced).toEqual([]);
     }
+    for (const p of ["QUICKBOOKS", "MYOB", "SERVICEM8", "XERO"] as const) {
+      expect(stored.get(p)?.untracedUses).toEqual([]);
+    }
+  });
+
+  it("reads the ingest status per event type from the real routes (RA-8480)", () => {
+    const stored = storedByProvider();
+    for (const p of ["QUICKBOOKS", "MYOB"] as const) {
+      expect([...stored.get(p)!.statusesFor("payment.created")]).toEqual(["SKIPPED"]);
+      expect([...stored.get(p)!.statusesFor("payment.updated")]).toEqual(["PENDING"]);
+      expect([...stored.get(p)!.statusesFor("payment.deleted")]).toEqual(["PENDING"]);
+    }
+    expect([...stored.get("XERO")!.statusesFor("invoice.created")]).toEqual(["PENDING"]);
   });
 
   // Negative controls: each plants one fault in a copy of a real route and
   // must be reported. The QuickBooks route is the host for every plant.
-  const qbo = (): string => readFileSync(join(WEBHOOK_ROOT, "quickbooks", "route.ts"), "utf8");
-  const problemsWith = (source: string): string[] => {
+  const route = (dir: string): string => readFileSync(join(WEBHOOK_ROOT, dir, "route.ts"), "utf8");
+  const qbo = (): string => route("quickbooks");
+  const problemsWith = (source: string, provider: WebhookProvider = "QUICKBOOKS"): string[] => {
     const stored = storedByProvider();
-    stored.set("QUICKBOOKS", traceStoredEventTypes(source));
+    stored.set(provider, traceStoredEventTypes(source));
     return compareWithRegistry(stored, WEBHOOK_EVENT_TYPES, PRODUCTION_CRONS);
   };
+  const USE = "QUICKBOOKS route uses webhookEvent as `";
+
+  // RA-8483 / RA-8527: every way of reaching the delegate other than a
+  // recognised call must fail. Each plant also stores an unlisted type, which
+  // the event-type trace cannot see because the write is not recognised: the
+  // refused use is the only thing that catches it, so it must be reported.
+  const WRITE = "webhookEvent = await prisma.webhookEvent.create({";
+  it.each([
+    ["an aliased delegate", "const t = prisma.webhookEvent;\n            webhookEvent = await t.create({", "t = prisma.webhookEvent"],
+    ["a bracket access", 'webhookEvent = await prisma["webhookEvent"].create({', 'prisma["webhookEvent"]'],
+    ["a template bracket access", "webhookEvent = await prisma[`webhookEvent`].create({", "prisma[`webhookEvent`]"],
+    ["a destructured delegate", "const { webhookEvent: wh } = prisma;\n            webhookEvent = await wh.create({", "{ webhookEvent: wh }"],
+    ["a shorthand destructure", "const { webhookEvent: _w, ...rest } = prisma;\n            webhookEvent = await _w.create({", "{ webhookEvent: _w, ...rest }"],
+    ["the delegate passed as an argument", "webhookEvent = await storeRow(prisma.webhookEvent, {", "storeRow(prisma.webhookEvent, {"],
+    ["a method called through .call", "webhookEvent = await prisma.webhookEvent.create.call(null, {", "prisma.webhookEvent.create (line"],
+    ["a parenthesised delegate", "webhookEvent = await (prisma.webhookEvent).create({", "(prisma.webhookEvent)"],
+    ["a bracket method", 'webhookEvent = await prisma.webhookEvent["create"]({', 'prisma.webhookEvent["create"]'],
+    ["the result variable rebound to the delegate", "webhookEvent = prisma.webhookEvent;\n            webhookEvent = await webhookEvent.create({", "webhookEvent = prisma.webhookEvent"],
+  ])("fails when a route reaches the delegate through %s", (_form, to, use) => {
+    const source = qbo();
+    expect(source).toContain(WRITE);
+    expect(source).toContain("eventType,\n");
+    const planted = source.replace(WRITE, to).replace("eventType,\n", 'eventType: "planted.missed",\n');
+    const problems = problemsWith(planted);
+    expect(problems.filter((p) => p.startsWith(USE + use))).not.toEqual([]);
+    expect(problems).not.toContain(UNLISTED);
+  });
+
+  it("fails on a delegate method that is neither a recognised read nor a traced write", () => {
+    const source = qbo().replace(WRITE, `await prisma.webhookEvent.deleteMany({});\n            ${WRITE}`);
+    expect(problemsWith(source).some((p) => p.startsWith(USE + "prisma.webhookEvent.deleteMany"))).toBe(true);
+  });
+
+  it("refuses an untraced use in a non-ingest route that mentions the delegate", () => {
+    const logs = route("logs");
+    const planted = logs.replace("prisma.webhookEvent.count({ where })", "count(prisma.webhookEvent)");
+    expect(planted).not.toBe(logs);
+    expect(traceStoredEventTypes(planted).untracedUses).toEqual([
+      expect.stringMatching(/^count\(prisma\.webhookEvent\) \(line \d+\)$/),
+    ]);
+  });
+
+  it("discovers a route by any mention of the delegate, not by a write call shape", () => {
+    // The pre-RA-8527 discovery regex missed all three.
+    const before = /webhookEvent\s*\.\s*(create|upsert|createMany|update|updateMany)\b/;
+    for (const source of [
+      "const t = prisma.webhookEvent;\nawait t.create({ data: {} });",
+      'await prisma["webhookEvent"].create({ data: {} });',
+      "const { webhookEvent: w } = prisma;\nawait w.create({ data: {} });",
+    ]) {
+      expect(before.test(source)).toBe(false);
+      expect(mentionsWebhookEvent(source)).toBe(true);
+    }
+    expect(mentionsWebhookEvent("await prisma.stripeWebhookEvent.create({ data: {} });")).toBe(false);
+  });
+
+  // RA-8480: the skipped-at-ingest label must match what the route stores.
+  it.each([
+    ["QuickBooks", "QUICKBOOKS", "quickbooks"],
+    ["MYOB", "MYOB", "myob"],
+  ] as const)("fails when the %s route stores payment.created PENDING instead of SKIPPED", (_n, provider, dir) => {
+    const source = route(dir);
+    expect(source).toContain('status: "SKIPPED" as const,');
+    expect(problemsWith(source.replace('status: "SKIPPED" as const,', 'status: "PENDING" as const,'), provider)).toContain(
+      `${provider} "payment.created" is marked skipped at ingest but its route stores it as PENDING`,
+    );
+  });
+
+  it("fails when the SKIPPED branch moves to another event type", () => {
+    const from = 'entityName === "Payment" && operation === "Create";';
+    expect(qbo()).toContain(from);
+    const problems = problemsWith(qbo().replace(from, 'entityName === "Payment" && operation === "Update";'));
+    expect(problems).toContain('QUICKBOOKS "payment.created" is marked skipped at ingest but its route stores it as PENDING');
+    expect(problems).toContain('QUICKBOOKS "payment.updated" is stored SKIPPED at ingest but is marked open-defect');
+  });
+
+  it("fails closed when the SKIPPED guard cannot be decided from the branches", () => {
+    const from = 'entityName === "Payment" && operation === "Create";';
+    const problems = problemsWith(qbo().replace(from, "Math.random() > 0.5;"));
+    expect(problems).toContain(
+      `QUICKBOOKS "payment.created" is marked skipped at ingest but its route stores it as ${["PENDING", "SKIPPED", UNKNOWN_STATUS].sort().join(", ")}`,
+    );
+  });
   const UNLISTED = 'QUICKBOOKS route stores "planted.missed" but webhook-event-types.ts does not list it';
 
   it("fails when a route stores a type the registry does not list", () => {
