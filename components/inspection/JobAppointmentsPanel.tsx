@@ -192,6 +192,7 @@ export function JobAppointmentsPanel({ inspectionId }: { inspectionId: string })
 
       {form && (
         <form
+          method="post"
           className="space-y-3 rounded-lg border border-neutral-200 dark:border-slate-700 p-3"
           onSubmit={(e) => {
             e.preventDefault();
