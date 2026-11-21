@@ -56,6 +56,10 @@ import { evidenceBacksReadingRefusal } from "@/lib/evidence/signed-row-guard";
 import { verifyEvidenceSubmission } from "@/lib/evidence/verified-evidence-gate";
 import { isVideoEvidenceClass } from "@/lib/evidence/evidence-classes";
 import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
+import {
+  FrontPhotoInUseError,
+  visitsUsingFrontPhoto,
+} from "@/lib/site-visits/front-photo-guard";
 
 /**
  * The limits on every interactive transaction this route opens.
@@ -1430,6 +1434,10 @@ export async function DELETE(
         where: { inspectionId, fileUrl: url },
       });
       if (stillCited > 0) return;
+      // RA-8498: a visit's front-of-property photo stays. Thrown, so the
+      // evidence delete above rolls back with it: both rows stay.
+      const usedBy = await visitsUsingFrontPhoto(tx, inspectionId, { url });
+      if (usedBy.length > 0) throw new FrontPhotoInUseError(usedBy);
       await tx.inspectionPhoto.deleteMany({ where: { inspectionId, url } });
     };
 
@@ -1490,6 +1498,14 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof FrontPhotoInUseError) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: error.message,
+        status: 409,
+        stage: "front-photo-in-use",
+      });
+    }
     return fromException(request, error, { stage: "evidence-delete" });
   }
 }
