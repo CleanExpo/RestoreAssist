@@ -7,12 +7,6 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { extractTextFromPDF } from "./file-extraction";
-import {
-  retrieveRelevantStandards,
-  buildStandardsContextPrompt,
-  RetrievalQuery,
-} from "./standards-retrieval";
 import { performRevolutionaryGapAnalysis } from "./revolutionary-gap-analysis";
 import {
   createCachedSystemPrompt,
@@ -74,7 +68,7 @@ export interface GapAnalysisResult {
  * Perform enhanced gap analysis on a single PDF
  * Uses standards from Google Drive and comprehensive Australian standards
  */
-async function analyzeSinglePDF(
+async function _analyzeSinglePDF(
   file: { id: string; name: string; buffer: Buffer },
   anthropicApiKey: string,
   standardsContext?: string,
