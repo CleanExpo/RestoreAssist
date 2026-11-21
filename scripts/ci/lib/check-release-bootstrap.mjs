@@ -654,6 +654,20 @@ function providerMigrationViolations(root, packageJson) {
     return { output, balanced: quote === "" && !escaped };
   };
 
+  // One checked read for every provider target (RA-8444). A target inside
+  // scripts/ can still be a directory or unreadable; readFileSync then throws,
+  // which crashed the guard and hid every violation collected so far. Record a
+  // violation and return null so the caller carries on with the next target.
+  const readProviderTarget = (absolutePath, relativePath, description) => {
+    try {
+      if (statSync(absolutePath).isFile()) return readFileSync(absolutePath, "utf8");
+    } catch {
+      // Fall through: a target that cannot be stat'd or read is a violation too.
+    }
+    violations.push(`${description} that is not a readable regular file: ${relativePath}`);
+    return null;
+  };
+
   const inspectLocalExecutable = (relativePath, location) => {
     const normalised = relativePath.replace(/^\.\//, "");
     const absolutePath = resolve(root, normalised);
@@ -664,7 +678,8 @@ function providerMigrationViolations(root, packageJson) {
     }
     if (visitedScripts.has(`executable:${normalised}`)) return;
     visitedScripts.add(`executable:${normalised}`);
-    const source = readFileSync(absolutePath, "utf8");
+    const source = readProviderTarget(absolutePath, normalised, `${location} invokes a provider executable`);
+    if (source === null) return;
     const canExecute =
       /(?:node:)?child_process|\b(?:exec|execFile|spawn|fork|system|popen|check_call|check_output)\s*\(/.test(source) ||
       /\bsubprocess\s*\.|\bos\s*\.\s*(?:system|popen|spawn)/.test(source);
@@ -775,7 +790,8 @@ function providerMigrationViolations(root, packageJson) {
           violations.push(`${analysedLocation} invokes an unavailable or out-of-scope provider shell file: ${relativePath}`);
         } else if (!visitedScripts.has(`file:${relativePath}`)) {
           visitedScripts.add(`file:${relativePath}`);
-          inspect(readFileSync(absolutePath, "utf8"), `${analysedLocation} -> ${relativePath}`);
+          const source = readProviderTarget(absolutePath, relativePath, `${analysedLocation} invokes a provider shell file`);
+          if (source !== null) inspect(source, `${analysedLocation} -> ${relativePath}`);
         }
       }
 
@@ -790,7 +806,8 @@ function providerMigrationViolations(root, packageJson) {
           violations.push(`${analysedLocation} sources an unavailable or out-of-scope provider shell file: ${relativePath}`);
         } else if (!visitedScripts.has(`file:${relativePath}`)) {
           visitedScripts.add(`file:${relativePath}`);
-          inspect(readFileSync(absolutePath, "utf8"), `${analysedLocation} -> ${relativePath}`);
+          const source = readProviderTarget(absolutePath, relativePath, `${analysedLocation} sources a provider shell file`);
+          if (source !== null) inspect(source, `${analysedLocation} -> ${relativePath}`);
         }
       } else if (/^(?:source|\.)\s+/.test(segment)) {
         violations.push(`${analysedLocation} contains a dynamic sourced shell path that cannot be statically proven non-mutating: ${segment}`);
@@ -1090,7 +1107,16 @@ export function findReleaseBootstrapViolations(root) {
 
   for (const path of runtimeSourceFiles(root)) {
     if (path.endsWith(join("scripts", "ci", "check-release-bootstrap.mjs"))) continue;
-    const lines = readFileSync(path, "utf8").split("\n");
+    // Checked read (RA-8444): an unreadable runtime source is a violation to
+    // list, not an exception that hides every violation collected so far.
+    let source;
+    try {
+      source = readFileSync(path, "utf8");
+    } catch {
+      violations.push(`${relative(root, path)} cannot be read, so it cannot be scanned for pnpm runtime paths`);
+      continue;
+    }
+    const lines = source.split("\n");
     lines.forEach((line, index) => {
       if (isCommentOnly(line)) return;
       if (/node_modules[/\\]\.pnpm\b/.test(line) || /\bpnpm\s+(?:install|run|exec|add|build|dev|start|test|lint|type-check|prisma|audit|check:|validate:|security:)\b/.test(line)) {
