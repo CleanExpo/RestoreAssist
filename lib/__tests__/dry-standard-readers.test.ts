@@ -15,6 +15,8 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
+import { PDFParse } from "pdf-parse";
+import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import {
   dryingGoalTableRows,
   evaluateDryingGoal,
@@ -167,5 +169,26 @@ describe("kind 1: every reader gets the goal from the owner", () => {
   it("resolveDryingGoal applies a reference only to moisture-content readings", () => {
     expect(resolveDryingGoal("timber", { timber: 12.5 }, undefined, "WME").basis).toBe("reference");
     expect(resolveDryingGoal("timber", { timber: 12.5 }, undefined, "RH").basis).toBe("guide");
+  });
+});
+
+describe("RA-8517 item 7: the PDF Section 4 footer matches the goal basis", () => {
+  async function pdfText(moistureReadings: unknown[]): Promise<string> {
+    const bytes = await generateIICRCReportPDF(
+      { id: "ra8517-7", reportNumber: "RA8517-7", moistureReadings } as never,
+      {},
+    );
+    const parser = new PDFParse({ data: bytes });
+    return (await parser.getText()).text.replace(/\s+/g, " ");
+  }
+
+  it("does not say every material reaches a reference reading when none was recorded", async () => {
+    const text = await pdfText([
+      { location: "Kitchen", material: "Timber", surfaceType: "Timber", moistureLevel: 22, unit: "%MC" },
+      { location: "Lounge", material: "Drywall", surfaceType: "Drywall", moistureLevel: 30, unit: null },
+    ]);
+    expect(text).toContain("Drying goal:");
+    expect(text).not.toContain("must reach its reference reading");
+    expect(text).toMatch(/Drying goal:[^.]*guide value/);
   });
 });

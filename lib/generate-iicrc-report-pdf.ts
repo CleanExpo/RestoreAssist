@@ -669,7 +669,7 @@ export async function generateIICRCReportPDF(
     });
     w.gap(4);
     w.text(
-      "Drying goal: each affected material must reach its reference reading taken from unaffected like material in the same building.",
+      "Drying goal: the reference reading from unaffected like material in the same building where one was recorded, otherwise a guide value (see Section 9).",
       {
         size: 8,
         color: C_MUTED,
