@@ -309,6 +309,13 @@ export const INSPECTION_LINKS: Readonly<Record<string, LinkUse>> = {
   australianComplianceRecord: ["finding", "one"],
   // RA-8495: the organisation that issued the job number.
   jobNumberOrganization: ["other", "one"],
+  // RA-8496: office job notes. Marked "system" as a stated workaround, not
+  // because notes cannot hold evidence (they may carry health details). An
+  // evidence label adds a JobNote count to the report preview query, and that
+  // table does not exist until the owner applies the RA-8496 migration, so the
+  // preview would fail from merge until then. Reclassify once it is applied
+  // (RA-8521).
+  jobNotes: ["system", "many"],
 };
 
 function isEvidence(use: FieldUse): use is EvidenceKind {

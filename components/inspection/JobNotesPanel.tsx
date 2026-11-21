@@ -191,7 +191,7 @@ export function JobNotesPanel({ inspectionId }: { inspectionId: string }) {
         deletes its notes.
       </p>
 
-      <form onSubmit={submit} className="space-y-2">
+      <form method="post" onSubmit={submit} className="space-y-2">
         <div className="flex flex-wrap gap-2">
           <label className="sr-only" htmlFor={`job-note-kind-${inspectionId}`}>
             Note type

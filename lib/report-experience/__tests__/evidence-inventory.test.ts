@@ -87,6 +87,10 @@ describe("evidence inventory", () => {
     ].sort();
     expect(silentLinks).toEqual([
       "Inspection.captureTokens",
+      // RA-8496 stated workaround, not a key: counting notes would make the
+      // report preview read the JobNote table before its migration is applied.
+      // Remove this entry when RA-8521 reclassifies jobNotes.
+      "Inspection.jobNotes",
       "Inspection.report",
       "Inspection.usageEvents",
       "Inspection.user",
