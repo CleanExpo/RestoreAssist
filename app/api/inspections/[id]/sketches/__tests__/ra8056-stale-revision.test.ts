@@ -514,3 +514,14 @@ describe("RA-8239 the underlay verification receipt", () => {
     );
   });
 });
+
+describe("RA-8239 provenance is never resolved blind", () => {
+  it("refuses the save, writing nothing, when the job's AI room history cannot be read", async () => {
+    p.claimSketch.findMany.mockRejectedValueOnce(new Error("connection reset"));
+
+    const res = await save(laundryOnly, { "x-sketch-revision": STORED_REVISION });
+
+    expect(res.status).toBe(503);
+    expectNothingWritten();
+  });
+});

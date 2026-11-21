@@ -466,10 +466,18 @@ export async function POST(
         }
       }
     } catch (e) {
-      console.error(
-        "[sketches] inspection-wide AI room id load failed (non-fatal):",
-        e,
-      );
+      // RA-8239: without the job's record of AI rooms, a room the Vision
+      // import suggested on another floor would be stored and rendered as
+      // measured on the client's word. Refuse rather than resolve provenance
+      // blind; nothing is written, and the editor queues the save and retries.
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        message:
+          "The job's room history could not be read, so the floor plan was not saved. It will be retried.",
+        status: 503,
+        err: e,
+        stage: "ai-room-history",
+      });
     }
     const byFabric = new Map(
       existingRooms.map(

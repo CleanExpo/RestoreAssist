@@ -29,7 +29,12 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    claimSketch: { findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
+    claimSketch: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(async () => []),
+      update: vi.fn(),
+      create: vi.fn(),
+    },
     sketchUnderlayReference: {
       findFirst: vi.fn(async () => null),
       update: vi.fn(),
