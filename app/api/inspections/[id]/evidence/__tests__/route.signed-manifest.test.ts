@@ -98,6 +98,7 @@ import { prisma } from "@/lib/prisma";
 import { canonicalizeManifest } from "@/lib/evidence/manifest-canonical";
 import type { SignedEvidenceManifest } from "@/lib/evidence/manifest-canonical";
 import { POST } from "../route";
+import { expectRefused } from "@/tests/helpers/expect-refused";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const mCreate = prisma.evidenceItem.create as unknown as ReturnType<
@@ -793,4 +794,282 @@ describe("POST /evidence — Ed25519 signed manifest (RA-7090 slice 2)", () => {
       expect(structured.signedManifestVerified).toBe(false);
     });
   });
+});
+
+// ─── RA-8407: the file must be the kind of media its class names ─────────────
+//
+// The reviewer's probe on RA-8388: a validly SIGNED upload with class
+// VOICE_MEMO and JPEG bytes was answered 201 and stored as `image/jpeg` with
+// `signedManifestVerified: true`. The file path treated every class except
+// VIDEO_WALKTHROUGH as a photograph. A signature proves who sent the bytes and
+// when; it does not make a photograph a voice memo.
+describe("POST /evidence (multipart, signed): media kind fits the class (RA-8407)", () => {
+  const JPEG = FIXTURE_BYTES;
+  const MP4 = new Uint8Array([
+    0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d,
+  ]);
+  const M4A = new Uint8Array([
+    0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x4d, 0x34, 0x41, 0x20,
+  ]);
+  const WEBM = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86]);
+  const WAV = new Uint8Array([
+    0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
+  ]);
+  const PDF = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
+
+  const sha = (bytes: Uint8Array) =>
+    createHash("sha256").update(Buffer.from(bytes)).digest("hex");
+
+  function signedFileForm(opts: {
+    evidenceClass: string;
+    bytes: Uint8Array;
+    declaredType: string;
+    filename?: string;
+  }) {
+    const manifest = manifestFixture({
+      evidenceClass: opts.evidenceClass,
+      sha256: sha(opts.bytes),
+    });
+    const manifestJson = canonicalizeManifest(manifest);
+    const form = new FormData();
+    form.append(
+      "file",
+      new File([opts.bytes], opts.filename ?? "capture-1.bin", {
+        type: opts.declaredType,
+      }),
+    );
+    form.append("evidenceClass", opts.evidenceClass);
+    form.append("workflowStepId", "step1");
+    form.append("deviceType", "IOS_CAPACITOR");
+    form.append(
+      "structuredData",
+      JSON.stringify({ c2paManifest: { sha256: manifest.sha256 } }),
+    );
+    form.append("signedManifest", manifestJson);
+    form.append("manifestSignature", signCanonical(manifestJson));
+    return form;
+  }
+
+  async function expectRefusedWithNothingStored(
+    res: Response,
+    reason: RegExp = /but the file is not an? (JPEG|MP4|audio)[^"]*Nothing was saved/,
+  ) {
+    const body = JSON.stringify(await expectRefused(res, 400, reason));
+    expect(uploadMock).not.toHaveBeenCalled();
+    expect(mCreate).not.toHaveBeenCalled();
+    expect(dbMocks.inspectionPhoto.create).not.toHaveBeenCalled();
+    return body;
+  }
+
+  it("refuses a signed VOICE_MEMO whose bytes are a JPEG, and writes no row", async () => {
+    const res = await POST(
+      multipartRequest(
+        signedFileForm({
+          evidenceClass: "VOICE_MEMO",
+          bytes: JPEG,
+          declaredType: "image/jpeg",
+          filename: "memo.jpg",
+        }),
+      ),
+      params,
+    );
+    await expectRefusedWithNothingStored(
+      res,
+      /This evidence is a voice memo, but the file is not an audio recording/,
+    );
+  });
+
+  it("refuses a signed VOICE_MEMO of JPEG bytes that DECLARES an audio type", async () => {
+    // The declared type is a claim; the bytes are what the server checks.
+    const res = await POST(
+      multipartRequest(
+        signedFileForm({
+          evidenceClass: "VOICE_MEMO",
+          bytes: JPEG,
+          declaredType: "audio/mp4",
+          filename: "memo.m4a",
+        }),
+      ),
+      params,
+    );
+    await expectRefusedWithNothingStored(res);
+  });
+
+  it("refuses a signed VOICE_MEMO whose WebM part declares a video type", async () => {
+    // WebM and MP4 carry sound or picture, so for a voice memo the declared
+    // type has to say audio as well.
+    const res = await POST(
+      multipartRequest(
+        signedFileForm({
+          evidenceClass: "VOICE_MEMO",
+          bytes: WEBM,
+          declaredType: "video/webm",
+          filename: "memo.webm",
+        }),
+      ),
+      params,
+    );
+    await expectRefusedWithNothingStored(res);
+  });
+
+  it("refuses a signed VIDEO_WALKTHROUGH whose MP4 part declares an image type", async () => {
+    const res = await POST(
+      multipartRequest(
+        signedFileForm({
+          evidenceClass: "VIDEO_WALKTHROUGH",
+          bytes: MP4,
+          declaredType: "image/jpeg",
+        }),
+      ),
+      params,
+    );
+    await expectRefusedWithNothingStored(res);
+  });
+
+  it("refuses a signed VIDEO_WALKTHROUGH whose bytes are an audio-only M4A", async () => {
+    const res = await POST(
+      multipartRequest(
+        signedFileForm({
+          evidenceClass: "VIDEO_WALKTHROUGH",
+          bytes: M4A,
+          declaredType: "video/mp4",
+        }),
+      ),
+      params,
+    );
+    await expectRefusedWithNothingStored(res);
+  });
+
+  it("refuses a signed photograph whose JPEG part declares an audio type", async () => {
+    const res = await POST(
+      multipartRequest(
+        signedFileForm({
+          evidenceClass: "PHOTO_DAMAGE",
+          bytes: JPEG,
+          declaredType: "audio/webm",
+        }),
+      ),
+      params,
+    );
+    await expectRefusedWithNothingStored(res);
+  });
+
+  it("refuses a signed photograph whose bytes are audio, whatever the part declares", async () => {
+    const res = await POST(
+      multipartRequest(
+        signedFileForm({
+          evidenceClass: "PHOTO_DAMAGE",
+          bytes: WAV,
+          declaredType: "image/jpeg",
+          filename: "damage.jpg",
+        }),
+      ),
+      params,
+    );
+    await expectRefusedWithNothingStored(res);
+  });
+
+  // Documents are a product decision (RA-8407, "Decisions for Phill"), so
+  // they are pinned exactly as they behave today: image bytes accepted,
+  // declared type not consulted, anything else refused.
+  describe("document classes are unchanged", () => {
+    it("still accepts a JPEG under FLOOR_PLAN whatever the part declares", async () => {
+      const res = await POST(
+        multipartRequest(
+          signedFileForm({
+            evidenceClass: "FLOOR_PLAN",
+            bytes: JPEG,
+            declaredType: "application/pdf",
+          }),
+        ),
+        params,
+      );
+      expect(res.status).toBe(201);
+      expect(mCreate.mock.calls[0][0].data.fileMimeType).toBe("image/jpeg");
+    });
+
+    it("still refuses a PDF under FLOOR_PLAN with today's wording", async () => {
+      const res = await POST(
+        multipartRequest(
+          signedFileForm({
+            evidenceClass: "FLOOR_PLAN",
+            bytes: PDF,
+            declaredType: "application/pdf",
+          }),
+        ),
+        params,
+      );
+      await expectRefusedWithNothingStored(
+        res,
+        /Invalid file type\. Only images are allowed\./,
+      );
+    });
+  });
+
+  // Item 2: an accepted upload is checked for what was stored, not only for
+  // the absence of a refusal. The expected kind is written out here, not read
+  // from the module under test, so the table cannot agree with a wrong rule.
+  const EXPECTED_KIND: Record<string, "image" | "video" | "audio"> = {
+    PHOTO_DAMAGE: "image",
+    PHOTO_EQUIPMENT: "image",
+    PHOTO_PROGRESS: "image",
+    PHOTO_COMPLETION: "image",
+    THERMAL_IMAGE: "image",
+    AFFECTED_CONTENTS: "image",
+    VIDEO_WALKTHROUGH: "video",
+    VOICE_MEMO: "audio",
+    // Unchanged today: a document class stores an image.
+    FLOOR_PLAN: "image",
+    SCOPE_DOCUMENT: "image",
+    LAB_RESULT: "image",
+    AUTHORITY_FORM: "image",
+    THIRD_PARTY_REPORT: "image",
+    COMPLIANCE_CERTIFICATE: "image",
+  };
+  const FIXTURE_FOR_KIND = {
+    image: { bytes: JPEG, declaredType: "image/jpeg", stored: "image/jpeg" },
+    video: { bytes: MP4, declaredType: "video/mp4", stored: "video/mp4" },
+    audio: { bytes: WEBM, declaredType: "audio/webm", stored: "audio/webm" },
+  } as const;
+
+  it("names every class the file path takes", async () => {
+    const { EvidenceClass } = await import("@prisma/client");
+    const { evidenceClassAllowedOnPath } = await import(
+      "@/lib/evidence/submission-path-classes"
+    );
+    const fileClasses = Object.values(EvidenceClass).filter((cls) =>
+      evidenceClassAllowedOnPath(cls, "file"),
+    );
+    expect(Object.keys(EXPECTED_KIND).sort()).toEqual([...fileClasses].sort());
+  });
+
+  it.each(Object.entries(EXPECTED_KIND))(
+    "a signed %s of the right kind is 201, stored as that kind, and truthfully verified",
+    async (evidenceClass, kind) => {
+      const fixture = FIXTURE_FOR_KIND[kind];
+      const res = await POST(
+        multipartRequest(
+          signedFileForm({
+            evidenceClass,
+            bytes: fixture.bytes,
+            declaredType: fixture.declaredType,
+          }),
+        ),
+        params,
+      );
+      expect(res.status).toBe(201);
+      expect(mCreate).toHaveBeenCalledTimes(1);
+      const created = mCreate.mock.calls[0][0].data;
+      expect(created.evidenceClass).toBe(evidenceClass);
+      expect(created.fileMimeType).toBe(fixture.stored);
+      expect(uploadMock.mock.calls[0][0].mimeType).toBe(fixture.stored);
+      // Verified because the server verified it, over these bytes.
+      expect(created.hashSha256).toBe(sha(fixture.bytes));
+      const structured = JSON.parse(created.structuredData);
+      expect(structured.signedManifestVerified).toBe(true);
+      expect(structured.c2paManifest.sha256).toBe(sha(fixture.bytes));
+      expect(structured.c2paManifest.evidenceClass).toBe(evidenceClass);
+      expect(structured.c2paManifest.deviceKeyId).toBe(KEY_ID);
+    },
+  );
 });

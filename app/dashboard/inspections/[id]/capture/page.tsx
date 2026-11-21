@@ -66,6 +66,11 @@ import {
   VIDEO_EVIDENCE_ACCEPT,
 } from "@/lib/evidence/ios-capture";
 import { isVideoEvidenceClass } from "@/lib/evidence/evidence-classes";
+import {
+  AUDIO_EVIDENCE_ACCEPT,
+  capturesWithStillCamera,
+  fileMediaKindForEvidenceClass,
+} from "@/lib/evidence/file-media-kind";
 import type { IOSCaptureResult } from "@/lib/evidence/ios-capture";
 import { verifyEvidenceReadback } from "@/lib/evidence/verified-readback";
 import {
@@ -751,12 +756,15 @@ export default function CaptureWorkflowPage({
         return;
       }
 
-      // Video evidence always goes through the file input: the native Camera
-      // plugin only takes stills, while a video-only input opens the camera
-      // in video mode on iOS, Android and the Capacitor WebView alike.
+      // Video and voice memos always go through the file input: the native
+      // Camera plugin only takes stills. A video-only input opens the camera
+      // in video mode on iOS, Android and the Capacitor WebView alike; an
+      // audio-only input never opens the stills camera (RA-8407).
       const wantsVideo = isVideoEvidenceClass(evidenceClass);
+      const wantsAudio =
+        fileMediaKindForEvidenceClass(evidenceClass) === "audio";
       let capture: IOSCaptureResult;
-      if (isNative && !wantsVideo) {
+      if (isNative && capturesWithStillCamera(evidenceClass)) {
         capture = await captureEvidencePhoto();
       } else {
         const controller = new AbortController();
@@ -766,7 +774,11 @@ export default function CaptureWorkflowPage({
         try {
           selected = await pickEvidencePhotoFile({
             signal: controller.signal,
-            ...(wantsVideo ? { accept: VIDEO_EVIDENCE_ACCEPT } : {}),
+            ...(wantsVideo
+              ? { accept: VIDEO_EVIDENCE_ACCEPT }
+              : wantsAudio
+                ? { accept: AUDIO_EVIDENCE_ACCEPT }
+                : {}),
           });
         } finally {
           pickerAbortRef.current = null;
