@@ -85,9 +85,11 @@ export function ClaimFolioLanding() {
         />
       </div>
 
-      {/* Folio index — desktop */}
+      {/* Folio index — desktop. It floats over light and navy sections, and no
+          single text colour reaches 4.5:1 on both, so it carries its own light
+          backing (RA-4868). */}
       <nav
-        className="fixed top-1/2 right-[max(1rem,calc((100vw-80%)/2-3.5rem))] z-40 hidden -translate-y-1/2 flex-col gap-1 xl:flex"
+        className="fixed top-1/2 right-[max(1rem,calc((100vw-80%)/2-3.5rem))] z-40 hidden -translate-y-1/2 flex-col gap-1 rounded-lg bg-white/85 p-1 backdrop-blur-sm xl:flex"
         aria-label="Page sections"
       >
         {SECTIONS.map((s) => (
