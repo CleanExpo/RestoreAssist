@@ -8957,12 +8957,14 @@ enum JobNoteKind {
 /// the stamp still reads correctly after the person is renamed, re-roled or
 /// removed. `authorUserId` is only a link and goes NULL if the account is
 /// deleted. The notes go with the job when the job itself is deleted.
+/// Both links are onUpdate: Restrict: an id change on a job or account that
+/// has notes is refused by the foreign key, never cascaded into a note.
 model JobNote {
   id           String      @id @default(cuid())
   inspectionId String
-  inspection   Inspection  @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspection   Inspection  @relation(fields: [inspectionId], references: [id], onDelete: Cascade, onUpdate: Restrict)
   authorUserId String?
-  author       User?       @relation("JobNoteAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  author       User?       @relation("JobNoteAuthor", fields: [authorUserId], references: [id], onDelete: SetNull, onUpdate: Restrict)
   authorName   String
   authorRole   Role
   kind         JobNoteKind @default(GENERAL)

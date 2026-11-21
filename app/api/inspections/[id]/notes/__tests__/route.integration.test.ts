@@ -24,6 +24,7 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
 import { prisma } from "@/lib/prisma";
+import { expectRefused } from "@/tests/helpers/expect-refused";
 import { GET, POST } from "../route";
 
 const S = `ra8496-${Date.now().toString(36)}`;
@@ -168,27 +169,107 @@ describe.skipIf(!process.env.DATABASE_URL)(
       ).toBe(before + 1);
     });
 
-    it("the database refuses to change or remove a note, whoever asks", async () => {
+    // The app connects as the table owner, which row level security does not
+    // bind; only the trigger stands between it and an edit. Each refusal is
+    // asserted by the trigger's own words, so a refusal for any other reason
+    // (a bad column, a missing row) cannot pass for it.
+    const CHANGED = /JobNote \S+ cannot be changed; add a new note to correct it/;
+    const REMOVED = /JobNote \S+ cannot be removed; notes are append-only/;
+
+    it("the database refuses to change a note, whoever asks", async () => {
       const note = await prisma.jobNote.findFirstOrThrow({
         where: { inspectionId: ids.inspectionId },
-        select: { id: true, body: true },
+        select: { id: true, body: true, authorUserId: true },
       });
+      expect(note.authorUserId).not.toBeNull();
       await expect(
         prisma.jobNote.update({
           where: { id: note.id },
           data: { body: "rewritten" },
         }),
-      ).rejects.toThrow();
+      ).rejects.toThrow(CHANGED);
+      await expect(
+        prisma.$executeRaw`UPDATE "JobNote" SET "body" = 'rewritten' WHERE "id" = ${note.id}`,
+      ).rejects.toThrow(CHANGED);
+      // Clearing the author link by hand is not the account's ON DELETE SET
+      // NULL, so it is refused too.
       await expect(
         prisma.$executeRaw`UPDATE "JobNote" SET "authorUserId" = NULL WHERE "id" = ${note.id}`,
-      ).rejects.toThrow();
+      ).rejects.toThrow(CHANGED);
       await expect(
-        prisma.$executeRaw`DELETE FROM "JobNote" WHERE "id" = ${note.id}`,
-      ).rejects.toThrow();
+        prisma.$executeRaw`UPDATE "JobNote" SET "createdAt" = now() - interval '1 day' WHERE "id" = ${note.id}`,
+      ).rejects.toThrow(CHANGED);
       const after = await prisma.jobNote.findUniqueOrThrow({
         where: { id: note.id },
       });
       expect(after.body).toBe(note.body);
+      expect(after.authorUserId).toBe(note.authorUserId);
+    });
+
+    it("the database refuses to remove a note, whoever asks", async () => {
+      const note = await prisma.jobNote.findFirstOrThrow({
+        where: { inspectionId: ids.inspectionId },
+        select: { id: true },
+      });
+      await expect(
+        prisma.$executeRaw`DELETE FROM "JobNote" WHERE "id" = ${note.id}`,
+      ).rejects.toThrow(REMOVED);
+      await expect(
+        prisma.jobNote.deleteMany({ where: { inspectionId: ids.inspectionId } }),
+      ).rejects.toThrow(REMOVED);
+      expect(
+        await prisma.jobNote.count({ where: { id: note.id } }),
+      ).toBe(1);
+    });
+
+    // The two foreign-key actions are let through because they run one trigger
+    // level down. Depth alone is not enough: any trigger elsewhere runs at that
+    // depth too. A probe trigger here deletes and unlinks a note while its job
+    // and author still exist; both must be refused.
+    it("the database refuses a change or removal issued from another trigger while the job and author exist", async () => {
+      const note = await prisma.jobNote.findFirstOrThrow({
+        where: { inspectionId: ids.inspectionId, authorUserId: { not: null } },
+        select: { id: true, authorUserId: true },
+      });
+      const probe = `ra8496_probe_${Date.now().toString(36)}`;
+      await prisma.$executeRawUnsafe(
+        `CREATE TABLE "${probe}" ("op" text NOT NULL, "noteId" text NOT NULL)`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE FUNCTION "${probe}_fn"() RETURNS trigger LANGUAGE plpgsql AS $f$
+         BEGIN
+           IF NEW."op" = 'delete' THEN
+             DELETE FROM "JobNote" WHERE "id" = NEW."noteId";
+           ELSE
+             UPDATE "JobNote" SET "authorUserId" = NULL WHERE "id" = NEW."noteId";
+           END IF;
+           RETURN NEW;
+         END $f$`,
+      );
+      await prisma.$executeRawUnsafe(
+        `CREATE TRIGGER "${probe}_t" AFTER INSERT ON "${probe}" FOR EACH ROW EXECUTE FUNCTION "${probe}_fn"()`,
+      );
+      try {
+        await expect(
+          prisma.$executeRawUnsafe(
+            `INSERT INTO "${probe}" VALUES ('delete', $1)`,
+            note.id,
+          ),
+        ).rejects.toThrow(REMOVED);
+        await expect(
+          prisma.$executeRawUnsafe(
+            `INSERT INTO "${probe}" VALUES ('unlink', $1)`,
+            note.id,
+          ),
+        ).rejects.toThrow(CHANGED);
+      } finally {
+        await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "${probe}"`);
+        await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${probe}_fn"()`);
+      }
+      const after = await prisma.jobNote.findUniqueOrThrow({
+        where: { id: note.id },
+      });
+      expect(after.authorUserId).toBe(note.authorUserId);
     });
 
     it("closing an author's account keeps their notes with name and role, and only clears the link", async () => {
@@ -246,14 +327,63 @@ describe.skipIf(!process.env.DATABASE_URL)(
       ).toBe(0);
     });
 
+    // Both links are ON UPDATE RESTRICT, so an id change on a job or an account
+    // that has notes is refused by the foreign key itself and never reaches the
+    // append-only trigger as a cascaded update. Under ON UPDATE CASCADE the
+    // trigger refused it instead, so "it is refused" alone would not tell the
+    // two apart: this test checks the catalog and which constraint refused.
+    it("job and author links are ON UPDATE RESTRICT, and an id change is refused by the foreign key", async () => {
+      const rows = await prisma.$queryRaw<
+        { conname: string; confupdtype: string; confdeltype: string }[]
+      >`SELECT conname, confupdtype::text AS confupdtype, confdeltype::text AS confdeltype
+          FROM pg_constraint
+         WHERE conrelid = '"JobNote"'::regclass AND contype = 'f'
+         ORDER BY conname`;
+      expect(rows).toEqual([
+        {
+          conname: "JobNote_authorUserId_fkey",
+          confupdtype: "r",
+          confdeltype: "n",
+        },
+        {
+          conname: "JobNote_inspectionId_fkey",
+          confupdtype: "r",
+          confdeltype: "c",
+        },
+      ]);
+
+      const note = await prisma.jobNote.findFirstOrThrow({
+        where: { inspectionId: ids.inspectionId },
+        select: { id: true },
+      });
+      let message = "";
+      try {
+        await prisma.$executeRaw`UPDATE "Inspection" SET "id" = ${`${S}-moved`} WHERE "id" = ${ids.inspectionId}`;
+      } catch (e) {
+        message = String((e as Error)?.message ?? e);
+      }
+      expect(message).toContain("JobNote_inspectionId_fkey");
+      expect(message).not.toContain("cannot be changed");
+      const still = await prisma.jobNote.findUniqueOrThrow({
+        where: { id: note.id },
+      });
+      expect(still.inspectionId).toBe(ids.inspectionId);
+    });
+
     it("another business gets 404 on read and add, and leaves no row", async () => {
       const before = await prisma.jobNote.count({
         where: { inspectionId: ids.inspectionId },
       });
       as(ids.outsider);
-      expect((await GET(new NextRequest(url()), ctx())).status).toBe(404);
-      expect((await POST(post({ body: "Outsider note" }), ctx())).status).toBe(
+      await expectRefused(
+        await GET(new NextRequest(url()), ctx()),
         404,
+        /NOT_FOUND/,
+      );
+      await expectRefused(
+        await POST(post({ body: "Outsider note" }), ctx()),
+        404,
+        /NOT_FOUND/,
       );
       expect(
         await prisma.jobNote.count({
@@ -271,12 +401,16 @@ describe.skipIf(!process.env.DATABASE_URL)(
       );
       try {
         as(ids.owner);
-        const got = await GET(new NextRequest(url()), ctx());
-        expect(got.status, await got.clone().text()).toBe(503);
-        expect((await got.json()).error.code).toBe("FEATURE_UNAVAILABLE");
-        const added = await POST(post({ body: "While missing" }), ctx());
-        expect(added.status, await added.clone().text()).toBe(503);
-        expect((await added.json()).error.code).toBe("FEATURE_UNAVAILABLE");
+        await expectRefused(
+          await GET(new NextRequest(url()), ctx()),
+          503,
+          /FEATURE_UNAVAILABLE/,
+        );
+        await expectRefused(
+          await POST(post({ body: "While missing" }), ctx()),
+          503,
+          /FEATURE_UNAVAILABLE/,
+        );
       } finally {
         await prisma.$executeRawUnsafe(
           'ALTER TABLE "JobNote_ra8496_hidden" RENAME TO "JobNote"',

@@ -12,6 +12,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { expectRefused } from "@/tests/helpers/expect-refused";
 
 const h = vi.hoisted(() => {
   const users: Record<
@@ -176,19 +177,19 @@ beforeEach(() => {
 describe("RA-8496 job notes: who may read and add", () => {
   it("401 without a session, and nothing is written", async () => {
     as(null);
-    expect((await GET(get(), ctx())).status).toBe(401);
-    expect((await POST(post({ body: "x" }), ctx())).status).toBe(401);
+    await expectRefused(await GET(get(), ctx()), 401, /UNAUTHORIZED/);
+    await expectRefused(await POST(post({ body: "x" }), ctx()), 401, /UNAUTHORIZED/);
     expect(h.jobNoteCreate).not.toHaveBeenCalled();
   });
 
   it("another organisation gets 404 on read and on add, and nothing is read or written", async () => {
     as("outsider");
-    expect((await GET(get(), ctx())).status).toBe(404);
+    await expectRefused(await GET(get(), ctx()), 404, /NOT_FOUND/);
     const res = await POST(
       post({ kind: "CALL", body: "Rang the insured" }),
       ctx(),
     );
-    expect(res.status).toBe(404);
+    await expectRefused(res, 404, /NOT_FOUND/);
     expect(h.jobNoteFindMany).not.toHaveBeenCalled();
     expect(h.jobNoteCreate).not.toHaveBeenCalled();
   });
@@ -206,7 +207,7 @@ describe("RA-8496 job notes: who may read and add", () => {
     as("support");
     expect((await GET(get(), ctx())).status).toBe(200);
     const res = await POST(post({ kind: "CALL", body: "Support note" }), ctx());
-    expect(res.status).toBe(404);
+    await expectRefused(res, 404, /Inspection not found/);
     expect(h.jobNoteCreate).not.toHaveBeenCalled();
   });
 
@@ -222,8 +223,16 @@ describe("RA-8496 job notes: who may read and add", () => {
       }),
     );
     h.jobNoteCreate.mockClear();
-    h.applyRateLimit.mockResolvedValueOnce(new Response(null, { status: 429 }));
-    expect((await POST(post({ body: "Two" }), ctx())).status).toBe(429);
+    h.applyRateLimit.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { code: "RATE_LIMITED" } }), {
+        status: 429,
+      }),
+    );
+    await expectRefused(
+      await POST(post({ body: "Two" }), ctx()),
+      429,
+      /RATE_LIMITED/,
+    );
     expect(h.jobNoteCreate).not.toHaveBeenCalled();
   });
 });
@@ -341,7 +350,7 @@ describe("RA-8496 job notes: the stamp", () => {
     [{ body: "ok", kind: "DELETE" }, "unknown kind"],
   ])("400 and no write for %j (%s)", async (body) => {
     as("owner");
-    expect((await POST(post(body), ctx())).status).toBe(400);
+    await expectRefused(await POST(post(body), ctx()), 400, /VALIDATION/);
     expect(h.jobNoteCreate).not.toHaveBeenCalled();
   });
 
@@ -415,8 +424,7 @@ describe("RA-8496 job notes: reading", () => {
     );
     as("owner");
     const res = await POST(post({ body: "x" }), ctx());
-    expect(res.status).toBe(503);
-    expect((await res.json()).error.code).toBe("FEATURE_UNAVAILABLE");
+    await expectRefused(res, 503, /FEATURE_UNAVAILABLE/);
   });
 
   it("answers 503 FEATURE_UNAVAILABLE, not 500, before the table exists", async () => {
@@ -427,8 +435,7 @@ describe("RA-8496 job notes: reading", () => {
     );
     as("owner");
     const res = await GET(get(), ctx());
-    expect(res.status).toBe(503);
-    expect((await res.json()).error.code).toBe("FEATURE_UNAVAILABLE");
+    await expectRefused(res, 503, /FEATURE_UNAVAILABLE/);
   });
 });
 
