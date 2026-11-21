@@ -18,6 +18,10 @@ import {
 import type { PowerAssessment } from "@/lib/restoration/equipment-planner";
 import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 import {
+  DEFAULT_BAND_RGB,
+  headerTextColours,
+} from "@/lib/sketch/pdf-header-contrast";
+import {
   placeMoisturePins,
   moistureLegendClasses,
   type MoistureMapPin,
@@ -265,6 +269,15 @@ async function addSketchPage(
     height: HEADER_H,
     color: bandRgb ? rgb(bandRgb.r, bandRgb.g, bandRgb.b) : BRAND_DARK,
   });
+  // RA-8239: header text stays readable on any tenant colour, in colour and
+  // printed in greyscale (WCAG contrast is a luminance ratio).
+  const headerInk = headerTextColours(bandRgb ?? DEFAULT_BAND_RGB);
+  const headerText = rgb(headerInk.text.r, headerInk.text.g, headerInk.text.b);
+  const headerAccent = rgb(
+    headerInk.accent.r,
+    headerInk.accent.g,
+    headerInk.accent.b,
+  );
 
   // Brand zone (left): white-label logo + business name, with graceful
   // fallbacks. Logo lives in the left brand zone so it never collides with the
@@ -288,14 +301,14 @@ async function addSketchPage(
       y: PAGE_H - MARGIN - 22,
       size: 14,
       font: bold,
-      color: rgb(1, 1, 1),
+      color: headerText,
     });
     page.drawText("Floor Plan", {
       x: brandX,
       y: PAGE_H - MARGIN - 40,
       size: 9,
       font: helvetica,
-      color: BRAND_CYAN,
+      color: headerAccent,
     });
   } else if (!logoImage) {
     // Neither name nor logo — fall back to the default so the header is never
@@ -305,14 +318,14 @@ async function addSketchPage(
       y: PAGE_H - MARGIN - 22,
       size: 14,
       font: bold,
-      color: rgb(1, 1, 1),
+      color: headerText,
     });
     page.drawText("Floor Plan", {
       x: brandX,
       y: PAGE_H - MARGIN - 40,
       size: 9,
       font: helvetica,
-      color: BRAND_CYAN,
+      color: headerAccent,
     });
   }
 
@@ -325,7 +338,7 @@ async function addSketchPage(
       y: PAGE_H - MARGIN - 30,
       size: 10,
       font: helvetica,
-      color: rgb(1, 1, 1),
+      color: headerText,
     });
   }
 
@@ -337,7 +350,7 @@ async function addSketchPage(
     y: PAGE_H - MARGIN - 26,
     size: 12,
     font: bold,
-    color: rgb(1, 1, 1),
+    color: headerText,
   });
   if (shared.reportNumber) {
     const refText = `Ref: ${shared.reportNumber}`;
@@ -347,7 +360,7 @@ async function addSketchPage(
       y: PAGE_H - MARGIN - 42,
       size: 9,
       font: helvetica,
-      color: BRAND_CYAN,
+      color: headerAccent,
     });
   }
 
@@ -387,7 +400,7 @@ async function addSketchPage(
     y: PAGE_H - MARGIN - 50,
     size: 8,
     font: helvetica,
-    color: BRAND_CYAN,
+    color: headerAccent,
   });
   let legendW = 0;
 
