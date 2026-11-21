@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { disconnectCliPrisma } from "./cli-prisma";
 import { VOICE_SKU } from "@/lib/billing/voice-addon";
 
 /**
@@ -42,16 +43,17 @@ export async function grandfatherVoiceAddon(): Promise<{
 
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export async function main(): Promise<number> {
+  let code: number;
   try {
     const r = await grandfatherVoiceAddon();
     console.log(
       `Grandfather backfill: granted VOICE entitlement to ${r.granted} workspace(s)`,
     );
-    await prisma.$disconnect();
-    return 0;
+    code = 0;
   } catch (e) {
     console.error(e);
-    await prisma.$disconnect();
-    return 1;
+    code = 1;
   }
+  // Only a client this run initialised is disconnected; a failed cleanup is a failure.
+  return (await disconnectCliPrisma()) ? code : 1;
 }

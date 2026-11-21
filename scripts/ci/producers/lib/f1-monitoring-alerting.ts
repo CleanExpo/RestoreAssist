@@ -292,20 +292,20 @@ export async function produceF1Measurements(
   });
 }
 
-async function run(): Promise<void> {
+async function run(): Promise<number> {
   const token = process.env.GITHUB_TOKEN?.trim();
   if (!token) {
     console.error(
       "GITHUB_TOKEN is not set. This producer reads workflow runs and labels " +
         "directly so the measurement is reproducible rather than transcribed.",
     );
-    process.exit(2);
+    return 2;
   }
   const m = await produceF1Measurements(token);
 
   if (process.argv.includes("--json")) {
     console.log(JSON.stringify(m));
-    return;
+    return 0;
   }
   console.log(
     `${m.checksHealthy}/${m.checksDeclared} production checks healthy.`,
@@ -328,16 +328,13 @@ async function run(): Promise<void> {
         "an alert exists for each class and is registered in F1_ALERT_COVERAGE.",
     );
   }
+  return 0;
 }
 
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error(String(error));
     return 1;

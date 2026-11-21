@@ -210,17 +210,17 @@ export async function produceD3Measurements(): Promise<D3Measurements> {
   return reconcile(key);
 }
 
-async function run(): Promise<void> {
+async function run(): Promise<number> {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
     console.error("STRIPE_SECRET_KEY is not set.");
-    process.exit(2);
+    return 2;
   }
   const measurements = await reconcile(key);
 
   if (process.argv.includes("--json")) {
     console.log(JSON.stringify(measurements));
-    return;
+    return 0;
   }
   console.log(
     `Stripe ${measurements.stripeEventCount} events (${measurements.mode} mode), ` +
@@ -229,6 +229,7 @@ async function run(): Promise<void> {
   if (measurements.missingInDb > 0) {
     console.log(`Missing: ${measurements.missingIds}`);
   }
+  return 0;
 }
 
 /** The Stripe + Prisma round trip, shared by the CLI and the signer. */
@@ -282,14 +283,10 @@ async function reconcile(key: string): Promise<D3Measurements> {
   });
 }
 
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error(String(error));
     return 1;

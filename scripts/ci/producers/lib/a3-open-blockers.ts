@@ -46,9 +46,10 @@
  *   LINEAR_API_KEY=... npx tsx scripts/ci/producers/a3-open-blockers.ts
  *   LINEAR_API_KEY=... npx tsx scripts/ci/producers/a3-open-blockers.ts --json
  *
- * The JSON it prints is the `--measurements` argument for
- * scripts/ci/sign-release-receipt.ts. This script never signs: it has no
- * access to the signing key and must not.
+ * The JSON it prints is for inspection only. The signer takes no
+ * `--measurements` argument: scripts/ci/sign-release-receipt.ts runs this
+ * producer itself. This script never signs: it has no access to the signing
+ * key and must not.
  */
 
 const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql";
@@ -280,20 +281,20 @@ async function fetchViewerId(apiKey: string): Promise<string> {
   return id;
 }
 
-async function run(): Promise<void> {
+async function run(): Promise<number> {
   const apiKey = process.env.LINEAR_API_KEY;
   if (!apiKey) {
     console.error(
       "LINEAR_API_KEY is not set. This producer reads Linear directly so the " +
         "measurement is reproducible in CI rather than transcribed by hand.",
     );
-    process.exit(2);
+    return 2;
   }
   const measurements = await produceA3Measurements(apiKey);
 
   if (process.argv.includes("--json")) {
     console.log(JSON.stringify(measurements));
-    return;
+    return 0;
   }
   console.log(
     `Team ${measurements.teamKey}: ${measurements.populationCount} open issues, ` +
@@ -307,16 +308,13 @@ async function run(): Promise<void> {
         "call is a human one made in Linear.",
     );
   }
+  return 0;
 }
 
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error(String(error));
     return 1;

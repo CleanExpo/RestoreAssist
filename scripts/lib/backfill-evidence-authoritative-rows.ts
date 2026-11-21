@@ -68,6 +68,7 @@ import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { disconnectCliPrisma } from "./cli-prisma";
 import {
   deriveAuthoritativeRow,
   linkPlanToEvidence,
@@ -917,16 +918,17 @@ export async function runInspectionBackfill(
 
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export async function main(): Promise<number> {
+  let code: number;
   try {
     const result = await runInspectionBackfill();
-    await prisma.$disconnect();
     // A missing scope, an unknown inspection and a refused apply are all
     // failures. Exiting 0 on them is how a wrong job number read as
     // "already counted".
-    return result.ok ? 0 : 1;
+    code = result.ok ? 0 : 1;
   } catch (error) {
     console.error("[ra-8388-backfill] failed:", error);
-    await prisma.$disconnect();
-    return 1;
+    code = 1;
   }
+  // Only a client this run initialised is disconnected; a failed cleanup is a failure.
+  return (await disconnectCliPrisma()) ? code : 1;
 }

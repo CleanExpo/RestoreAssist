@@ -16,6 +16,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { disconnectCliPrisma } from "./cli-prisma";
 
 export const BACKFILL_ROOM_PAGE = 5_000;
 const PAGE = BACKFILL_ROOM_PAGE;
@@ -277,13 +278,14 @@ export async function runMoistureReadingSketchRoomBackfill(
 
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export async function main(): Promise<number> {
+  let code: number;
   try {
     await runMoistureReadingSketchRoomBackfill();
-    await prisma.$disconnect();
-    return 0;
+    code = 0;
   } catch (error) {
     console.error("[ra-7610-backfill] failed:", error);
-    await prisma.$disconnect();
-    return 1;
+    code = 1;
   }
+  // Only a client this run initialised is disconnected; a failed cleanup is a failure.
+  return (await disconnectCliPrisma()) ? code : 1;
 }

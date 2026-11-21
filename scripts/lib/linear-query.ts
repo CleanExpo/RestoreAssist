@@ -215,7 +215,7 @@ export function formatLine(node: IssueNode): string {
 }
 
 /** Entry point: validates credentials and arguments, then prints the listing. */
-async function run(): Promise<void> {
+async function run(): Promise<number> {
   const apiKey = process.env.LINEAR_API_KEY;
   if (!apiKey) {
     process.stderr.write(
@@ -224,7 +224,7 @@ async function run(): Promise<void> {
         "export it. The Linear MCP connector does not supply this variable " +
         "— it authenticates Claude's tools, not this process.\n",
     );
-    process.exit(1);
+    return 1;
   }
 
   const limit = Number(flag("limit") ?? 30);
@@ -238,25 +238,22 @@ async function run(): Promise<void> {
     process.stdout.write(
       JSON.stringify(issues.map(toIssueInput), null, 2) + "\n",
     );
-    return;
+    return 0;
   }
 
   if (issues.length === 0) {
     process.stdout.write("No matching issues.\n");
-    return;
+    return 0;
   }
 
   process.stdout.write(issues.map(formatLine).join("\n") + "\n");
+  return 0;
 }
 
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     process.stderr.write(
       `Error querying Linear: ${error instanceof Error ? error.message : String(error)}\n`,

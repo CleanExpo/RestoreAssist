@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { disconnectCliPrisma } from "./cli-prisma";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { SERVICE_CRM_SKU } from "@/lib/billing/service-crm-addon";
 
@@ -94,6 +95,7 @@ export async function grandfatherServiceCrmAddon(): Promise<GrandfatherServiceCr
 
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export async function main(): Promise<number> {
+  let code: number;
   try {
     const r = await grandfatherServiceCrmAddon();
     console.log(
@@ -102,11 +104,11 @@ export async function main(): Promise<number> {
         `${r.workspacesGrandfathered} workspaces ${DRY_RUN ? "would be" : ""} grandfathered, ` +
         `${r.alreadyEntitled} already entitled, ${r.noWorkspace} with no workspace.`,
     );
-    await prisma.$disconnect();
-    return 0;
+    code = 0;
   } catch (e) {
     console.error("[backfill-grandfather-service-crm-addon] failed:", e);
-    await prisma.$disconnect();
-    return 1;
+    code = 1;
   }
+  // Only a client this run initialised is disconnected; a failed cleanup is a failure.
+  return (await disconnectCliPrisma()) ? code : 1;
 }
