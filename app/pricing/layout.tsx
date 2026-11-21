@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     "affordable restoration tools",
   ],
   openGraph: {
-    title: "Pricing - Restoration CRM Plans Australia | Restore Assist",
+    title: "Pricing - Restoration CRM Plans Australia | RestoreAssist",
     description: `Pricing for Australian restoration professionals. ${allowance} inspection reports a month, per-report rates published, IICRC S500 alignment.`,
     type: "website",
     images: [

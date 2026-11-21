@@ -3,7 +3,7 @@ import { MarketingShell } from "@/components/landing/home/MarketingShell";
 import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
-  title: "Contact Restore Assist - Australian Restoration Software",
+  title: "Contact RestoreAssist - Australian Restoration Software",
   description:
     "Contact RestoreAssist for demos, support, or inquiries about our restoration report software. We help Australian restoration professionals streamline their workflow.",
   keywords: [
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     "get restoration software",
   ],
   openGraph: {
-    title: "Contact Restore Assist - Australian Restoration Software",
+    title: "Contact RestoreAssist - Australian Restoration Software",
     description:
       "Get in touch for demos, support, or inquiries about restoration software.",
     type: "website",

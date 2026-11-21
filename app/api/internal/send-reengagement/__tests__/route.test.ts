@@ -66,7 +66,7 @@ describe("POST /api/internal/send-reengagement", () => {
   });
 
   it("sends the branded email with reply-to on a valid authed request", async () => {
-    process.env.EMAIL_REPLY_TO = "airestoreassist@gmail.com";
+    process.env.EMAIL_REPLY_TO = "replies@example.test";
     const res = await POST(
       req(
         { recipientEmail: "ryan.morey@outlook.com.au", recipientName: "Ryan" },
@@ -78,7 +78,7 @@ describe("POST /api/internal/send-reengagement", () => {
     expect(send).toHaveBeenCalledTimes(1);
     const arg = send.mock.calls[0][0];
     expect(arg.to).toBe("ryan.morey@outlook.com.au");
-    expect(arg.replyTo).toBe("airestoreassist@gmail.com");
+    expect(arg.replyTo).toBe("replies@example.test");
     expect(arg.html).toContain("Hi Ryan,");
     expect(arg.html).toContain("utm_source=reengagement");
     expect(json).toMatchObject({ sent: true, to: "ryan.morey@outlook.com.au" });

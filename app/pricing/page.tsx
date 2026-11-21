@@ -369,7 +369,7 @@ function PricingPageContent() {
           </motion.div>
 
           {/* Every "per report" figure on this page — plan cards, pack cards,
-              volume picker, cost disclosure — is the Restore Assist software
+              volume picker, cost disclosure — is the RestoreAssist software
               cost only. Report generation runs on the buyer's own AI key and
               is billed to them by their provider, so the unit rate is not the
               whole cost of producing a report. Saying so once, plainly, next

@@ -1,41 +1,16 @@
 import Link from "next/link";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
-import { CLIENT_PORTAL_PUBLIC_CTA } from "@/lib/portal/canonical-entry";
 import { CONTAINER } from "./motion";
+import { FOOTER_COLUMNS as COLUMNS } from "./footer-links";
 
 const DISPLAY = "font-[family-name:var(--font-landing-display)]";
-
-const COLUMNS = [
-  {
-    title: "Product",
-    links: [
-      { href: "/features", label: "Features" },
-      { href: "/how-it-works", label: "How it works" },
-      { href: "/pricing", label: "Pricing" },
-      { href: "/signup", label: "Start free" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { href: "/resources", label: "Resources" },
-      { href: "/login", label: "Log in" },
-      {
-        href: CLIENT_PORTAL_PUBLIC_CTA.href,
-        label: CLIENT_PORTAL_PUBLIC_CTA.label,
-      },
-      { href: "/privacy", label: "Privacy" },
-      { href: "/terms", label: "Terms" },
-    ],
-  },
-] as const;
 
 export function LandingFooter() {
   return (
     <footer className="border-t border-slate-200/90 bg-white">
       <div className={`${CONTAINER} py-16 lg:py-20`}>
-        <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr] md:gap-12">
+        <div className="grid gap-12 sm:grid-cols-2 md:grid-cols-[1.5fr_1fr_1fr_1fr] md:gap-12">
           <div>
             <Link
               href="/"

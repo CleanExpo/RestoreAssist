@@ -14,6 +14,7 @@
 import { test, expect, type APIRequestContext, type BrowserContext } from "@playwright/test";
 import { applySessionCookieFromResponse } from "../helpers/session-cookie";
 import { findPrerequisiteClaims } from "../../lib/reports/__tests__/prerequisite-claims";
+import { isPublishedHelpScreenshot } from "../../lib/help/published-screenshots";
 
 const VIEWPORT = { width: 1280, height: 720 };
 
@@ -54,8 +55,22 @@ test.describe("RA-7550 report honesty", () => {
       page.getByRole("heading", { level: 1, name: /AI-drafted/i }),
     ).toBeVisible({ timeout: 15_000 });
 
-    await expect(page.getByTestId("help-hero-figure")).toHaveCount(1);
-    await expect(page.getByTestId("help-hero-figure")).toBeVisible();
+    // RA-8403: the hero shows only once its image is uploaded; until then
+    // the page carries no hero rather than a broken image.
+    const heroPublished = isPublishedHelpScreenshot(
+      "ra-help/reports/first-ai-report-hero",
+    );
+    await expect(page.getByTestId("help-hero-figure")).toHaveCount(
+      heroPublished ? 1 : 0,
+    );
+    const brokenImages = await page
+      .locator("main img")
+      .evaluateAll((imgs) =>
+        (imgs as HTMLImageElement[])
+          .filter((img) => img.complete && img.naturalWidth === 0)
+          .map((img) => img.currentSrc || img.src),
+      );
+    expect(brokenImages).toEqual([]);
 
     await expect(
       page.getByText(/not a signed or issued report/i).first(),

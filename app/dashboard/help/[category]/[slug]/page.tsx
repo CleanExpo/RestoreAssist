@@ -10,6 +10,7 @@ import {
   type HelpCategory,
 } from "@/lib/help/types";
 import Screenshot from "@/components/help/Screenshot";
+import { isPublishedHelpScreenshot } from "@/lib/help/published-screenshots";
 import { VideoExplainer } from "@/components/setup/VideoExplainer";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -74,7 +75,8 @@ export default async function HelpArticlePage({
         </div>
       </header>
 
-      {frontmatter.heroImage ? (
+      {frontmatter.heroImage &&
+      isPublishedHelpScreenshot(frontmatter.heroImage) ? (
         <div className="max-w-9xl" data-testid="help-hero-figure">
           <Screenshot
             src={frontmatter.heroImage}
