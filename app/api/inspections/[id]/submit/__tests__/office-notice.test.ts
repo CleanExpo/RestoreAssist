@@ -3,7 +3,7 @@
  *
  * The notice fires only when the submit's CAS wins the DRAFT to SUBMITTED
  * transition, and it carries the submittedAt that CAS wrote, which is the
- * key the delivery ledger uses to send the email exactly once. A retry that
+ * key the delivery ledger uses to send the email at most once. A retry that
  * loses the CAS, or a submit a gate refuses, tells nobody.
  */
 
@@ -14,6 +14,11 @@ vi.mock("@/lib/voice/fire-smoke/server", () => ({
   checkFireSubmitGate: async () => ({ blocked: false }),
   claimSubmitWithFireGate: (db: unknown, _inspection: unknown, claim: (tx: unknown) => unknown) =>
     claim(db),
+}));
+const mockAfter = vi.fn();
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (task: () => unknown) => mockAfter(task),
 }));
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
@@ -201,6 +206,28 @@ describe("submit route — RA-8503 office notice", () => {
     expect(res.status).toBe(400);
     expect(mockNotice).not.toHaveBeenCalled();
     expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("holds the request open until the notice finishes", async () => {
+    let finish: () => void = () => {};
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    mockNotice.mockReturnValue(pending);
+    const { POST } = await import("../route");
+    expect((await POST(submit(), params)).status).toBe(200);
+
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    const held = mockAfter.mock.calls[0][0]() as Promise<void>;
+    let settled = false;
+    void held.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    finish();
+    await held;
+    expect(settled).toBe(true);
   });
 
   it("a failing notice does not fail the submit", async () => {

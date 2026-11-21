@@ -22,7 +22,7 @@
  * key bound to that submit's time. A notice lost to a provider failure or a
  * restart is not resent automatically; the ledger row and the
  * "[office-notice]" outcome log line are the record, and the in-app
- * notification is the durable channel.
+ * notification, once written, is the durable channel.
  *
  * Never throws: a failed notice must not fail a submit that already landed.
  */
@@ -106,7 +106,7 @@ export function buildSubmitNoticeEmail(content: SubmitNoticeContent): {
     <p style="margin: 0;"><strong>Job number:</strong> ${job}</p>
     <p style="margin: 0 0 24px;"><strong>Technician:</strong> ${tech}</p>
     <p><a href="${escapeHtml(content.jobUrl)}" style="color: #3b6d8c;">Open the job</a></p>
-    <p style="color: #64748b; font-size: 13px;">You receive this because your organisation's office address is set to this inbox in RestoreAssist settings.</p>
+    <p style="color: #64748b; font-size: 13px;">You receive this because this inbox is your organisation's office email in RestoreAssist, or its owner's email when no office email is set.</p>
   </body>
 </html>`;
   const text = `Job ${content.jobNumber} is complete
@@ -220,7 +220,7 @@ export async function notifyOfficeOfSubmittedVisit(
     const recipient = usableEmail(org?.email) ?? usableEmail(ownerEmail);
     if (!recipient) {
       logOutcome(inspection.id, "no_recipient", {
-        inAppRecipients: recipientIds.size,
+        inAppTargeted: recipientIds.size,
       });
       return;
     }
@@ -250,7 +250,7 @@ export async function notifyOfficeOfSubmittedVisit(
     });
     logOutcome(inspection.id, delivery.replayed ? "replayed" : "sent", {
       ledgerKey: key,
-      inAppRecipients: recipientIds.size,
+      inAppTargeted: recipientIds.size,
     });
   } catch (error) {
     const ledgerState =

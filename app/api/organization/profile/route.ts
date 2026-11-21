@@ -68,7 +68,7 @@ export async function PATCH(request: NextRequest) {
 
     const org = await prisma.organization.findFirst({
       where: { ownerId: session.user.id },
-      select: { id: true },
+      select: { id: true, email: true },
     });
     if (!org) {
       return apiError(request, {
@@ -90,6 +90,10 @@ export async function PATCH(request: NextRequest) {
       }
       if (typeof v !== "string") continue;
       const trimmed = v.trim();
+      if (field === "email" && trimmed === "") {
+        patch[field] = null;
+        continue;
+      }
       if (
         (field === "primaryColor" || field === "accentColor") &&
         trimmed &&
@@ -101,8 +105,11 @@ export async function PATCH(request: NextRequest) {
           status: 400,
         });
       }
+      // Only a changed value is checked, so an older stored value that was
+      // never validated does not block saving the rest of the profile.
       if (
         field === "email" &&
+        trimmed !== org.email?.trim() &&
         (trimmed.length > 254 || !OFFICE_EMAIL_PATTERN.test(trimmed))
       ) {
         return apiError(request, {

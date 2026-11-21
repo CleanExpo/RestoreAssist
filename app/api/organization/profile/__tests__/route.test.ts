@@ -105,4 +105,30 @@ describe("PATCH /api/organization/profile", () => {
     expect(res.status).toBe(400);
     expect(p.organization.update).not.toHaveBeenCalled();
   });
+
+  it("clears the office email when only spaces are sent", async () => {
+    p.organization.findFirst.mockResolvedValue({ id: "org-1", email: "old@example.com" });
+    p.organization.update.mockResolvedValue({ email: null });
+    const res = await PATCH(
+      new NextRequest("http://localhost/api/organization/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ email: "   " }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(p.organization.update.mock.calls[0][0].data).toEqual({ email: null });
+  });
+
+  it("an unchanged older office email does not block saving other fields", async () => {
+    p.organization.findFirst.mockResolvedValue({ id: "org-1", email: "front desk" });
+    p.organization.update.mockResolvedValue({});
+    const res = await PATCH(
+      new NextRequest("http://localhost/api/organization/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ email: "front desk", tradingName: "Sample Restorations" }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(p.organization.update).toHaveBeenCalled();
+  });
 });
