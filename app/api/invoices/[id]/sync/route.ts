@@ -120,6 +120,15 @@ export async function POST(
         prisma, userId, provider: provider.toUpperCase(),
         workspaceId: invoice.workspaceId ?? null, requireReady: true,
       });
+      // RA-8446: readiness is selectOAuthIntegration({ requireReady })'s answer.
+      // A lapsed access token is not a refusal: the provider sync refreshes it.
+      if (!selection.ok && selection.reason === "NOT_READY") {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `${provider} integration is not connected. Please reconnect.`,
+          status: 400,
+        });
+      }
       const integration = selection.ok ? selection.data : null;
 
       if (!integration) {
@@ -127,26 +136,6 @@ export async function POST(
           code: "NOT_FOUND",
           message: `No ${provider} integration found. Please connect to ${provider} first.`,
           status: 404,
-        });
-      }
-
-      if (integration.status !== "CONNECTED") {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: `${provider} integration is not connected. Please reconnect.`,
-          status: 400,
-        });
-      }
-
-      // Check if token is expired
-      if (
-        integration.tokenExpiresAt &&
-        new Date(integration.tokenExpiresAt) < new Date()
-      ) {
-        return apiError(request, {
-          code: "UNAUTHORIZED",
-          message: `${provider} access token has expired. Please reconnect.`,
-          status: 401,
         });
       }
 
