@@ -15,7 +15,6 @@ import { prisma } from "@/lib/prisma";
 import { assertReportTenancy } from "@/lib/auth/assert-tenancy";
 import {
   legalKeysFrom,
-  type TransitionKey,
 } from "@/lib/progress/state-machine";
 import {
   canPerformTransition,
@@ -345,7 +344,6 @@ export default async function ClaimDetailPage({ params }: Props) {
                 className="rounded-md border p-3 flex gap-3 items-start"
               >
                 {a.signatureDataUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={a.signatureDataUrl}
                     alt="signature"

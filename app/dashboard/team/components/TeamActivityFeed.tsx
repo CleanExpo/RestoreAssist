@@ -431,7 +431,7 @@ export default function TeamActivityFeed() {
                 )}
               />
 
-              {activities.map((activity, idx) => {
+              {activities.map((activity, _idx) => {
                 const config = activityConfig[activity.type];
                 const Icon = config?.icon ?? FileText;
                 const RoleIcon = roleIcon[activity.actorRole] || Wrench;

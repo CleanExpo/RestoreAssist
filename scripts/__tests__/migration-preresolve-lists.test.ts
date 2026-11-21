@@ -4,7 +4,7 @@ import {
   checkPreresolve,
   readRepo,
   requiredMigrations,
-} from "../ci/check-migration-preresolve.mjs";
+} from "../ci/lib/check-migration-preresolve.mjs";
 
 // RA-7502 — the CONCURRENTLY pre-resolve list is hand-written in six places.
 // These tests hold the copies to each other and to prisma/migrations.

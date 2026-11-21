@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { verifyReleaseProvenance } from "../verify-release-provenance.mjs";
+import { verifyReleaseProvenance } from "../lib/verify-release-provenance.mjs";
 
 const MAIN = "a".repeat(40);
 const STALE = "b".repeat(40);

@@ -340,7 +340,6 @@ export default function InviteAcceptPage() {
                       onChange={handleGoogleHeadshot}
                     />
                     {googleHeadshotDataUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={googleHeadshotDataUrl}
                         alt="Headshot preview"

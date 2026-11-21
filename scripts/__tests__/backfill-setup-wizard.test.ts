@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterAll } from 'vitest';
-import { backfill } from '../backfill-setup-wizard';
+import { backfill } from '../lib/backfill-setup-wizard';
 import { prisma } from '@/lib/prisma';
 
 describe.skipIf(!process.env.DATABASE_URL)('backfill', () => {

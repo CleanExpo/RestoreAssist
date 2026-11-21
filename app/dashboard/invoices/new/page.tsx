@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Plus,
   Trash2,
   User,
-  Building2,
   FileText,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -46,9 +45,13 @@ interface LineItem {
 
 export default function NewInvoicePage() {
   const router = useRouter();
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const rawSearchParams = useSearchParams();
+  const searchParams = useMemo(
+    () => rawSearchParams ?? new URLSearchParams(),
+    [rawSearchParams],
+  );
   const [loading, setLoading] = useState(false);
-  const [loadingClients, setLoadingClients] = useState(false);
+  const [_loadingClients, setLoadingClients] = useState(false);
   const {
     treatment: gstTreatment,
     ready: gstReady,
@@ -564,7 +567,7 @@ export default function NewInvoicePage() {
             </div>
 
             <div className="space-y-3">
-              {lineItems.map((item, index) => (
+              {lineItems.map((item, _index) => (
                 <div
                   key={item.id}
                   className="grid grid-cols-12 gap-3 items-start p-4 bg-slate-50 dark:bg-slate-700/30 rounded-lg"

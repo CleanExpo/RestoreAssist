@@ -8,7 +8,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import jwt from "jsonwebtoken";
 import { readTotpSecret } from "@/lib/auth/totp-secret";
 import {
   verifyToken as verifyTotp,

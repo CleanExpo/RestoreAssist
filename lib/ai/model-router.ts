@@ -16,14 +16,11 @@
 import type {
   VisionInput,
   AllowedModel,
-  S500StructuredOutput,
 } from "./byok-client";
 import {
   byokDispatch,
-  parseS500Output,
   S500_VISION_SYSTEM_PROMPT,
 } from "./byok-client";
-import type { RestoreAssistAiResponse } from "./restoreassist-ai-client";
 import {
   restoreAssistAiDispatch,
   isRestoreAssistAiHealthy,
@@ -186,7 +183,7 @@ export async function routeAiRequest(
   }
 
   // Route directly to BYOK for premium tasks
-  const start = Date.now();
+  const _start = Date.now();
   const byokResponse = await byokDispatch({
     model: config.byokModel,
     apiKey: config.byokApiKey,

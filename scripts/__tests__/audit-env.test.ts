@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auditEnv } from "../audit-env";
+import { auditEnv } from "../lib/audit-env";
 
 describe("auditEnv", () => {
   const baseFiles = {

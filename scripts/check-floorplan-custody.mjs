@@ -150,9 +150,12 @@ forbidText(
   "request.formData()",
   "the retired render endpoint must not consume attacker-supplied PNG bytes",
 );
+// RA-8239: the receipt hashes the drawing that is stored (and rendered), which
+// is what lib/reports/claim-sketch-floors.ts re-hashes; stableStringify keeps
+// that hash immune to JSONB key reordering.
 requireText(
   "app/api/inspections/[id]/sketches/route.ts",
-  "stableStringify(securedSketchData)",
+  "stableStringify(authoritativeSketchData)",
   "verification receipts must survive JSONB key reordering",
 );
 

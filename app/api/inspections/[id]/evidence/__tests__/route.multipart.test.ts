@@ -802,7 +802,7 @@ describe("POST /evidence (multipart): one photograph rule (RA-8388)", () => {
     // tests above are the ones that failed first. This one fails if the two
     // writers are ever given different inputs again.
     const { decideBackfill } = await import(
-      "@/scripts/backfill-evidence-authoritative-rows"
+      "@/scripts/lib/backfill-evidence-authoritative-rows"
     );
     for (const [bytes, declared] of [
       [FIXTURE_BYTES, ""],

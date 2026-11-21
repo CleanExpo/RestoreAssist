@@ -43,7 +43,6 @@ describe("squareCropToDataUrl fallback path", () => {
       onerror: (() => void) | null = null;
       width = 100;
       height = 80;
-      // eslint-disable-next-line accessor-pairs
       set src(_value: string) {
         queueMicrotask(() => this.onload?.());
       }
@@ -89,7 +88,6 @@ describe("squareCropToDataUrl fallback path", () => {
     class StubImage {
       onload: (() => void) | null = null;
       onerror: (() => void) | null = null;
-      // eslint-disable-next-line accessor-pairs
       set src(_value: string) {
         queueMicrotask(() => this.onerror?.());
       }

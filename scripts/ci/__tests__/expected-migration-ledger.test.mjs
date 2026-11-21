@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { expectedMigrationLedger } from "../expected-migration-ledger.mjs";
+import { expectedMigrationLedger } from "../lib/expected-migration-ledger.mjs";
 
 test("migration ledger fingerprint is order-independent and population-bound", () => {
   const one = mkdtempSync(join(tmpdir(), "restoreassist-ledger-"));

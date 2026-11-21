@@ -4,7 +4,6 @@ import { apiErrorMessage } from "@/lib/api-error-message";
 import { useState, useEffect } from "react";
 import {
   Check,
-  X,
   Calendar,
   CreditCard,
   Download,
@@ -55,7 +54,7 @@ interface ActiveAddon {
 function SubscriptionPageContent() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
-  const [canceling, setCanceling] = useState(false);
+  const [canceling, _setCanceling] = useState(false);
   // RA-1252: status-aware hero copy when there's no Stripe subscription
   const [userStatus, setUserStatus] = useState<{
     subscriptionStatus?: string;

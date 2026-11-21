@@ -6,7 +6,7 @@ import {
   declaredNotifierLabels,
   summariseF1,
   type WorkflowRun,
-} from "../producers/f1-monitoring-alerting";
+} from "../producers/lib/f1-monitoring-alerting";
 
 /**
  * F1 producer unit tests.

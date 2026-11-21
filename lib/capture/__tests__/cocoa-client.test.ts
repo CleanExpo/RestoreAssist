@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { computeSha256, getCurrentGps } from "../cocoa-client";
 
 describe("computeSha256", () => {

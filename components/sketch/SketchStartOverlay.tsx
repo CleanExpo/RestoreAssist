@@ -148,6 +148,7 @@ export function SketchStartOverlay({
     onApplyUnderlay,
     onImportUnderlay,
     inspectionId,
+    floorNumber,
     holdsRights,
     compliesTerms,
     uploadOriginal,
@@ -186,7 +187,6 @@ export function SketchStartOverlay({
         {preview ? (
           <div className="space-y-4">
             <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black/40">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={markedPreview ?? preview}
                 alt="Uploaded floor plan preview"

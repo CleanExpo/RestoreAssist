@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { verifyRlsRows, type LiveRlsPolicy, type LiveRlsRow } from "../verify-live-rls";
+import { verifyRlsRows, type LiveRlsPolicy, type LiveRlsRow } from "../lib/verify-live-rls";
 
 const models = new Map([
   ["Client", "Client"],

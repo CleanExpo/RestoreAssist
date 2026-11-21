@@ -87,7 +87,10 @@ export default function InterviewsPage() {
     sessions: InterviewSession[];
     pagination?: { page: number; limit: number; total: number; totalPages: number };
   }>("/api/interviews?limit=100");
-  const sessions = sessionsData?.sessions ?? [];
+  const sessions = useMemo(
+    () => sessionsData?.sessions ?? [],
+    [sessionsData?.sessions],
+  );
   const sessionsTotal = sessionsData?.pagination?.total ?? sessions.length;
 
   const {

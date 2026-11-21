@@ -14,10 +14,6 @@ import {
   PDFPage,
   PDFImage,
 } from "pdf-lib";
-import {
-  retrieveRelevantStandards,
-  buildStandardsContextPrompt,
-} from "./standards-retrieval";
 import { describeClause } from "./reports/clause-descriptions";
 import {
   asbestosEraBasis,
@@ -51,12 +47,10 @@ interface PdfColors {
 }
 
 interface MoistureDataResult {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readings: any[];
 }
 
 interface PsychrometricDataResult {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readings: any[];
 }
 
@@ -89,23 +83,14 @@ interface TimelineDataResult {
 }
 
 interface ReportData {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any; // Prisma Report with 110+ fields + parsed JSON blobs — fully typed in a future refactor
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   analysis: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tier1: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tier2: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tier3: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   stateInfo: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   psychrometricAssessment?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   scopeAreas?: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   /** Opaque: only stored-equipment-pricing.ts reads inside it. */
   equipmentSelection?: unknown;
   standardsContext?: string;
@@ -149,10 +134,10 @@ export async function generateForensicReportPDF(
     report,
     analysis,
     tier1,
-    tier2,
-    tier3,
-    stateInfo,
-    psychrometricAssessment,
+    tier2: _tier2,
+    tier3: _tier3,
+    stateInfo: _stateInfo,
+    psychrometricAssessment: _psychrometricAssessment,
     scopeAreas,
     equipmentSelection,
     standardsContext,
@@ -393,9 +378,7 @@ async function renderPage1(
     methTestCount: number | null;
     bioMouldDetected: boolean;
     bioMouldCategory: string | null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     report: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     analysis: any;
     standardsContext?: string;
     timelineData?: TimelineDataResult;
@@ -406,15 +389,15 @@ async function renderPage1(
     helvetica,
     helveticaBold,
     colors,
-    jobRef,
-    inspectionDate,
+    jobRef: _jobRef,
+    inspectionDate: _inspectionDate,
     waterCategory,
     waterClass,
     methScreen,
     methTestCount,
     bioMouldDetected,
     bioMouldCategory,
-    businessInfo,
+    businessInfo: _businessInfo,
   } = options;
   const margin = 50;
   // Start content below header (header is ~100px with section title)
@@ -711,14 +694,13 @@ async function renderPage2(
     colors: PdfColors;
     jobRef: string;
     scopeItems: ScopeItem[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     report: any;
     equipmentSelection?: unknown;
     pricingConfig?: JsonRecord;
   },
 ) {
   const { width, height } = page.getSize();
-  const { helvetica, helveticaBold, colors, jobRef, scopeItems } = options;
+  const { helvetica, helveticaBold, colors, jobRef: _jobRef, scopeItems } = options;
   const margin = 50;
   // Title is now in header, start content below
   let yPosition = height - 80;
@@ -762,7 +744,7 @@ async function renderPage2(
   yPosition -= 20;
 
   // Scope Table
-  const tableStartY = yPosition;
+  const _tableStartY = yPosition;
   const tableWidth = width - 2 * margin;
   const colWidths = {
     item: 100,
@@ -996,9 +978,7 @@ async function renderPage3(
     timelineData: TimelineDataResult;
     moistureData: MoistureDataResult;
     psychrometricData: PsychrometricDataResult;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     report: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     scopeAreas?: any[];
   },
 ) {
@@ -1108,7 +1088,6 @@ async function renderPage3(
     // Moisture Rows
     moistureData.readings
       .slice(0, 5)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .forEach((reading: any, index: number) => {
         if (yPosition < 500) return;
 
@@ -1267,7 +1246,6 @@ async function renderPage3(
     // Psychrometric Rows
     psychrometricData.readings
       .slice(0, 3)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .forEach((reading: any, index: number) => {
         if (yPosition < 400) return;
 
@@ -1357,7 +1335,7 @@ async function renderPage3(
   const ganttY = yPosition;
   const ganttHeight = 150;
   const ganttWidth = width - 2 * margin;
-  const weekWidth = ganttWidth / 2;
+  const _weekWidth = ganttWidth / 2;
 
   // Draw timeline background
   page.drawRectangle({
@@ -1414,7 +1392,7 @@ async function renderPage3(
   const phaseSpacing = 30;
   let phaseY = ganttY - 40;
 
-  phases.forEach((phase: TimelinePhase, index: number) => {
+  phases.forEach((phase: TimelinePhase, _index: number) => {
     const barX = margin + (phase.start / 14) * ganttWidth;
     const barWidth = Math.max(10, (phase.duration / 14) * ganttWidth); // Minimum width for visibility
 
@@ -1729,7 +1707,7 @@ async function renderPage4(
   },
 ) {
   const { width, height } = page.getSize();
-  const { helvetica, helveticaBold, colors, jobRef, businessInfo } = options;
+  const { helvetica, helveticaBold, colors, jobRef, businessInfo: _businessInfo } = options;
   const margin = 50;
   let yPosition = height - 80;
 
@@ -1850,13 +1828,13 @@ function addHeaderFooter(
     helveticaBold,
     colors,
     businessInfo,
-    logoImage,
+    logoImage: _logoImage,
     jobRef,
     inspectionDate,
     pageNumber,
     totalPages,
     isFirstPage,
-    reportTitle,
+    reportTitle: _reportTitle,
     sectionTitle,
   } = options;
 
@@ -2049,9 +2027,9 @@ function addHeaderFooter(
  */
 function buildScopeItems(
   data: ReportData,
-  standardsContext: string,
+  _standardsContext: string,
 ): ScopeItem[] {
-  const { report, tier1, tier2, tier3, scopeAreas } = data;
+  const { report, tier1, tier2: _tier2, tier3: _tier3, scopeAreas } = data;
 
   const waterCategory = tier1?.T1_Q3_waterSource
     ? extractWaterCategory(tier1.T1_Q3_waterSource)
@@ -2115,7 +2093,6 @@ function buildScopeItems(
 
   // Add scope area specific items with dynamic justification
   if (scopeAreas && scopeAreas.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     scopeAreas.forEach((area: any, index: number) => {
       const materials = Array.isArray(area.materials)
         ? area.materials.join(", ")
@@ -2183,7 +2160,6 @@ function buildScopeItems(
 function buildMoistureData(data: ReportData): MoistureDataResult {
   const { report, tier2, scopeAreas } = data;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let moistureReadings: any[] = [];
 
   // Parse moisture readings from report
@@ -2196,7 +2172,7 @@ function buildMoistureData(data: ReportData): MoistureDataResult {
       if (Array.isArray(parsed)) {
         moistureReadings = parsed;
       }
-    } catch (e) {
+    } catch {
       // Ignore parse errors
     }
   }
@@ -2207,7 +2183,6 @@ function buildMoistureData(data: ReportData): MoistureDataResult {
     Array.isArray(tier2.T2_Q1_moistureReadings)
   ) {
     moistureReadings = (tier2.T2_Q1_moistureReadings as JsonRecord[]).map(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (reading: any) => ({
         location: reading.location || reading.room || "Location",
         material: reading.material || "Various",
@@ -2227,7 +2202,6 @@ function buildMoistureData(data: ReportData): MoistureDataResult {
 
   // Extract from scopeAreas if available
   if (scopeAreas && scopeAreas.length > 0 && moistureReadings.length === 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     scopeAreas.forEach((area: any) => {
       if (area.moisture || area.moistureReading) {
         moistureReadings.push({
@@ -2264,9 +2238,8 @@ function buildMoistureData(data: ReportData): MoistureDataResult {
  * Build psychrometric data from report
  */
 function buildPsychrometricData(data: ReportData): PsychrometricDataResult {
-  const { report, psychrometricAssessment, tier2 } = data;
+  const { report, psychrometricAssessment, tier2: _tier2 } = data;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let psychrometricReadings: any[] = [];
 
   // Parse psychrometric readings from report
@@ -2279,7 +2252,7 @@ function buildPsychrometricData(data: ReportData): PsychrometricDataResult {
       if (Array.isArray(parsed)) {
         psychrometricReadings = parsed;
       }
-    } catch (e) {
+    } catch {
       // Ignore parse errors
     }
   }
@@ -2402,9 +2375,7 @@ function buildTimelineData(
 
       if (scopeAreas.length > 0) {
         // Calculate from scope areas volume
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const totalVolume = (scopeAreas as any[]).reduce(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (sum: number, area: any) => {
             return sum + (area.volume || 0);
           },
@@ -2526,9 +2497,7 @@ function buildTimelineData(
  * Build expertise points from standards and report data
  */
 function buildExpertisePoints(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   analysis: any,
   standardsContext: string,
 ): string[] {
@@ -2573,7 +2542,6 @@ function buildExpertisePoints(
  * Build risk points from report data
  */
 function buildRiskPoints(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
   waterCategory: string,
   hasMould: boolean,
@@ -2624,7 +2592,6 @@ function buildRiskPoints(
  * Build rip & repair approach drawbacks
  */
 function buildRipRepairPoints(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
   timelineData: TimelineDataResult | undefined,
 ): string[] {
@@ -2665,7 +2632,6 @@ function buildRipRepairPoints(
  * Build mitigation approach benefits
  */
 function buildMitigationPoints(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
   timelineData: TimelineDataResult | undefined,
 ): string[] {
@@ -2699,9 +2665,7 @@ function buildMitigationPoints(
  * Build communication plan from report data
  */
 function buildCommunicationPlan(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   scopeAreas: any[],
   timelineData: TimelineDataResult,
 ): Array<{
@@ -2795,9 +2759,7 @@ function buildCommunicationPlan(
  * Build forensic summary text
  */
 function buildForensicSummary(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   analysis: any,
   waterCategory: string,
   waterClass: string,
@@ -2924,7 +2886,7 @@ function wrapText(
       } else {
         currentLine = testLine;
       }
-    } catch (error) {
+    } catch {
       // If encoding fails, try sanitizing the word again
       const sanitizedWord = sanitizeTextForPDF(word);
       const testLineSanitized = currentLine
@@ -2938,7 +2900,7 @@ function wrapText(
         } else {
           currentLine = testLineSanitized;
         }
-      } catch (e) {
+      } catch {
         // Skip problematic words
         continue;
       }

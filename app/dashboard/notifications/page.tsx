@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Bell,
   CheckCircle2,
   ExternalLink,
   Info,
@@ -138,7 +137,7 @@ interface NotificationRowProps {
 }
 
 function NotificationRow({ notification, onRead }: NotificationRowProps) {
-  const { Icon, badgeClass, label } = getTypeConfig(notification.type);
+  const { Icon, badgeClass, label: _label } = getTypeConfig(notification.type);
 
   return (
     <div

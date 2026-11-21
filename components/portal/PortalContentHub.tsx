@@ -72,7 +72,6 @@ export function PortalAboutSection({
         About your restoration team
       </h2>
       {logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={logoUrl}
           alt={orgName ? `${orgName} logo` : "Company logo"}

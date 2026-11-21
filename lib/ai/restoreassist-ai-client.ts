@@ -11,7 +11,6 @@
 
 import type {
   VisionInput,
-  ByokResponse,
   S500StructuredOutput,
   ByokRequest,
 } from "./byok-client";

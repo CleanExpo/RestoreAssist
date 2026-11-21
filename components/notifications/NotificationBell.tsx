@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Check, Trash2, X } from "lucide-react";
+import { Bell, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,

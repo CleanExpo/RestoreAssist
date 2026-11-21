@@ -15,7 +15,6 @@ import {
 
 const defaultLoader = () => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require("@capacitor/core").registerPlugin as <T>(
       name: string,
     ) => T;
