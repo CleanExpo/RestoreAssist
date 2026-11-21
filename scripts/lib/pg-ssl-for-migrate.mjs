@@ -134,7 +134,9 @@ function shellSingleQuote(value) {
 }
 
 /**
- * Print `export KEY='…'` lines for `eval "$(node … --export-shell)"` in build.sh.
+ * Print `export KEY='…'` lines for `eval "$(node scripts/pg-ssl-export-shell.mjs)"`.
+ * This module is a library and never runs anything on import (RA-7785); the
+ * former `--export-shell` mode of this file now lives in that entry.
  */
 export function printExportShell(env = process.env) {
   applyMigrateSslToEnv(env);
@@ -143,16 +145,4 @@ export function printExportShell(env = process.env) {
       process.stdout.write(`export ${key}=${shellSingleQuote(env[key])}\n`);
     }
   }
-}
-
-import path from "node:path";
-import { pathToFileURL } from "node:url";
-
-const entry = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (
-  entry &&
-  import.meta.url === pathToFileURL(entry).href &&
-  process.argv.includes("--export-shell")
-) {
-  printExportShell();
 }

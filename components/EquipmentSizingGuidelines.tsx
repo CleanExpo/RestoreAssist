@@ -11,7 +11,7 @@ import {
   Wind,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   AIR_MOVER_RATIO,
@@ -163,8 +163,8 @@ export default function EquipmentSizingGuidelines({
   };
 
   const getPlacementGuidelines = () => {
-    const area = parseFloat(affectedArea.toString());
-    const airmovers = calculateAirmoverRequirements();
+    const _area = parseFloat(affectedArea.toString());
+    const _airmovers = calculateAirmoverRequirements();
 
     return {
       airmovers: [
@@ -276,7 +276,36 @@ export default function EquipmentSizingGuidelines({
     };
   };
 
+  // Latest-value ref so the sizing effect below still fires only when
+  // waterClass / affectedArea / waterCategory change.
+  const latestRef = useRef({
+    calculateAirmoverRequirements,
+    calculateDehumidificationRequirements,
+    getMonitoringRequirements,
+    getSpecialEquipmentRequirements,
+    sizingData,
+    onSizingUpdate,
+  });
   useEffect(() => {
+    latestRef.current = {
+      calculateAirmoverRequirements,
+      calculateDehumidificationRequirements,
+      getMonitoringRequirements,
+      getSpecialEquipmentRequirements,
+      sizingData,
+      onSizingUpdate,
+    };
+  });
+
+  useEffect(() => {
+    const {
+      calculateAirmoverRequirements,
+      calculateDehumidificationRequirements,
+      getMonitoringRequirements,
+      getSpecialEquipmentRequirements,
+      sizingData,
+      onSizingUpdate,
+    } = latestRef.current;
     const airmovers = calculateAirmoverRequirements();
     const dehumidifiers = calculateDehumidificationRequirements();
     const monitoring = getMonitoringRequirements();

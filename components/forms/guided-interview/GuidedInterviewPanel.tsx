@@ -18,7 +18,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { AlertCircle, Loader2, CheckCircle2, Lock, Crown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { QuestionCard } from "./QuestionCard";
@@ -93,7 +92,7 @@ export function GuidedInterviewPanel({
   reportId,
   onComplete,
   onCancel,
-  showAutoPopulatedFields = true,
+  showAutoPopulatedFields: _showAutoPopulatedFields = true,
   onAnswersChange,
 }: GuidedInterviewPanelProps) {
   const router = useRouter();
@@ -433,7 +432,7 @@ export function GuidedInterviewPanel({
         };
       });
     }
-  }, [formTemplateId, jobType, postcode, experienceLevel]); // Removed interviewState dependencies to prevent re-creation
+  }, [formTemplateId, jobType, postcode, experienceLevel, reportId]); // Removed interviewState dependencies to prevent re-creation
 
   /**
    * Restore session from saved answers
@@ -591,7 +590,7 @@ export function GuidedInterviewPanel({
         }));
       }
     },
-    [formTemplateId, jobType, postcode, initializeInterview],
+    [jobType, postcode, initializeInterview],
   );
 
   /**
@@ -626,7 +625,7 @@ export function GuidedInterviewPanel({
           throw new Error(`Failed to submit answer: ${response.statusText}`);
         }
 
-        const progressData = await response.json();
+        const _progressData = await response.json();
 
         // Process field mappings from this question
         const newAutoPopulated = new Map(interviewState.autoPopulatedFields);

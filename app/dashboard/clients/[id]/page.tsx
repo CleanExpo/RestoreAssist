@@ -3,16 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ClientTimeline } from "@/components/clients/ClientTimeline";
 import {
   ArrowLeft,
   Edit,
-  Trash2,
   Phone,
   Mail,
   MapPin,
   Building,
   User,
-  Calendar,
   DollarSign,
   FileText,
   AlertTriangle,
@@ -477,6 +476,9 @@ export default function ClientDetailPage() {
         clientEmail={client.email}
         clientName={client.name}
       />
+
+      {/* RA-8220: client timeline across jobs */}
+      {id && <ClientTimeline clientId={id} />}
 
       {/* Inspections */}
       <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-xl p-6">

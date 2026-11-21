@@ -25,7 +25,6 @@ import {
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
-import { ensureInspectionWorkflowFromClaimType } from "@/lib/evidence/ensure-inspection-workflow";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -142,8 +141,8 @@ export async function POST(
     const data = parsed.data;
     const gates = computeGates(data);
 
-    const record = await prisma.$transaction(async (tx) => {
-      const saved = await tx.mouldRemediationAssessment.upsert({
+    const [record] = await prisma.$transaction([
+      prisma.mouldRemediationAssessment.upsert({
         where: { inspectionId: id },
         create: {
           inspectionId: id,
@@ -231,14 +230,12 @@ export async function POST(
           }),
           ...gates,
         },
-      });
-      await tx.inspection.update({
+      }),
+      prisma.inspection.update({
         where: tenancy.data.inspectionWhere,
         data: { claimType: "MOULD" },
-      });
-      await ensureInspectionWorkflowFromClaimType(tx, id, "MOULD");
-      return saved;
-    });
+      }),
+    ]);
 
     return NextResponse.json(record);
   } catch (err) {

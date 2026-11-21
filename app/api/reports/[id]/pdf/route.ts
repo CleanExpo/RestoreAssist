@@ -121,6 +121,23 @@ export async function GET(
         inspection: {
           select: {
             id: true,
+            // RA-7686: Section 6A (sampling & laboratory results).
+            claimType: true,
+            mouldRemediationAssessment: {
+              select: {
+                mouldConditionLevel: true,
+                airSamplingRequired: true,
+                samplingDate: true,
+                labName: true,
+                labReportReference: true,
+                sporeType: true,
+                sporeCountPreRemediation: true,
+                sporeCountPostRemediation: true,
+                outdoorBaselineCount: true,
+                clearanceCriterion: true,
+                iepAssessmentRequired: true,
+              },
+            },
             // The folders genuine photo uploads use (photoOwnerFolders).
             userId: true,
             workspaceId: true,
@@ -247,6 +264,8 @@ export async function GET(
       scopeAreas: report.scopeAreas
         ? JSON.parse(report.scopeAreas as string)
         : null,
+      claimType: report.inspection?.claimType ?? null,
+      mouldAssessment: report.inspection?.mouldRemediationAssessment ?? null,
     };
 
     // Brand the report with the contractor's own firm identity (logo + accent

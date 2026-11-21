@@ -20,7 +20,6 @@ import {
   assertCatalogPrice,
   billingCountryFromOrg,
   customerPreferredLocaleForCountry,
-  CHECKOUT_CANCEL_PATH,
   monthlyCheckoutPresentation,
   productStatementDescriptorPatch,
 } from "@/lib/billing/checkout-presentation";

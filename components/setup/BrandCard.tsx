@@ -249,7 +249,6 @@ export function BrandCard() {
                         </span>
                       ) : org?.logoUrl ? (
                         // Use plain img — Next/Image needs domain config, fine for in-progress setup UI
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={org.logoUrl}
                           alt="Business logo"
@@ -445,7 +444,6 @@ function BrandPreview({
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/95 ring-1 ring-black/5">
               {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoUrl} alt="" className="h-full w-full object-contain p-1" />
               ) : (
                 <span

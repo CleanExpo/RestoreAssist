@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AlertCircle, Save, ArrowRight, Zap } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -21,7 +21,7 @@ export default function Tier1Questions({
 }: Tier1QuestionsProps) {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [reportData, setReportData] = useState<any>(null);
+  const [_reportData, setReportData] = useState<any>(null);
   const [responses, setResponses] = useState({
     // Initial Data Entry Form Fields (for refinement)
     clientName: "",
@@ -55,12 +55,7 @@ export default function Tier1Questions({
     T1_Q8_waterDuration: "",
   });
 
-  useEffect(() => {
-    // Load existing responses if any
-    fetchExistingResponses();
-  }, [reportId]);
-
-  const fetchExistingResponses = async () => {
+  const fetchExistingResponses = useCallback(async () => {
     try {
       const response = await fetch(`/api/reports/${reportId}`);
       if (response.ok) {
@@ -107,7 +102,12 @@ export default function Tier1Questions({
     } catch (error) {
       console.error("Error fetching existing responses:", error);
     }
-  };
+  }, [reportId]);
+
+  useEffect(() => {
+    // Load existing responses if any
+    fetchExistingResponses();
+  }, [fetchExistingResponses]);
 
   const handleSave = async () => {
     // Validate required fields

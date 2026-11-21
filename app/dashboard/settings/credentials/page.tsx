@@ -6,7 +6,7 @@ import { EngagementLicenceModal } from "@/components/attestation/EngagementLicen
 
 export default function CredentialsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(true);
 
   useEffect(() => {

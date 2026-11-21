@@ -1,40 +1,14 @@
 #!/usr/bin/env node
+// CLI entry. It always runs main(): there is deliberately no is-this-the-main-module
+// check, because Node resolves a symlink in the module URL but not in the process
+// arguments, and such a check silently skips the gate and exits 0 (RA-7785).
+// The logic lives in ./lib/assert-production-smoke-origin.mjs; import that, never this file.
+import { main } from "./lib/assert-production-smoke-origin.mjs";
 
-import { fileURLToPath } from "node:url";
-
-export const PRODUCTION_ORIGIN = "https://restoreassist.app";
-
-export function assertProductionSmokeOrigin(value) {
-  let parsed;
-  try {
-    parsed = new URL(value);
-  } catch {
-    throw new Error(`production smoke origin is invalid: ${JSON.stringify(value)}`);
-  }
-  if (parsed.origin !== PRODUCTION_ORIGIN || parsed.href !== `${PRODUCTION_ORIGIN}/`) {
-    throw new Error(
-      `production smoke target must be exactly ${PRODUCTION_ORIGIN}; observed ${JSON.stringify(value)}`,
-    );
-  }
-  return PRODUCTION_ORIGIN;
-}
-
-export function main(argv = process.argv.slice(2)) {
-  try {
-    if (argv.length !== 1) {
-      throw new Error("usage: assert-production-smoke-origin.mjs <base-url>");
-    }
-    const origin = assertProductionSmokeOrigin(argv[0]);
-    console.log(`[production-smoke-origin] PASS ${origin}`);
-    return 0;
-  } catch (error) {
-    console.error(
-      `[production-smoke-origin] FAIL: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    return 1;
-  }
-}
-
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  process.exitCode = main();
-}
+const code = await main();
+// Exit once main() has returned and stdio has flushed. An idle pg pool or a
+// request left pending by a failed sibling must not hold the CLI open, and
+// main() awaits all of its own work before it returns (RA-7785).
+await new Promise((resolve) => process.stdout.write("", resolve));
+await new Promise((resolve) => process.stderr.write("", resolve));
+process.exit(code);

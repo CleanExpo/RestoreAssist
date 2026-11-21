@@ -14,6 +14,7 @@ type ProfileForm = {
   logoUrl: string | null;
   primaryColor: string;
   accentColor: string;
+  email: string;
 };
 
 const ACCEPTED_LOGO_TYPES = [
@@ -31,6 +32,7 @@ export function OrganizationProfileSetting() {
     logoUrl: null,
     primaryColor: "#1C2E47",
     accentColor: "#8A6B4E",
+    email: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,6 +54,7 @@ export function OrganizationProfileSetting() {
           logoUrl: data?.logoUrl ?? null,
           primaryColor: data?.primaryColor ?? "#1C2E47",
           accentColor: data?.accentColor ?? "#8A6B4E",
+          email: data?.email ?? "",
         });
       })
       .catch((error) =>
@@ -79,7 +82,11 @@ export function OrganizationProfileSetting() {
         throw new Error(body?.error?.message ?? "Could not save organisation profile");
       }
       toast.success("Organisation profile saved");
-      setForm((prev) => ({ ...prev, ...body.data }));
+      setForm((prev) => ({
+        ...prev,
+        ...body.data,
+        email: body.data?.email ?? "",
+      }));
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not save organisation profile",
@@ -189,6 +196,29 @@ export function OrganizationProfileSetting() {
             </div>
           </div>
 
+          <div className="space-y-1.5 border-t border-slate-200 dark:border-slate-700 pt-4">
+            <label htmlFor="org-office-email" className="text-sm text-slate-800 dark:text-slate-200">
+              Office email
+            </label>
+            <Input
+              id="org-office-email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="office@yourbusiness.com.au"
+              aria-describedby="org-office-email-hint"
+              value={form.email}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, email: e.target.value }))
+              }
+              className="border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+            />
+            <p id="org-office-email-hint" className="text-xs text-slate-500">
+              Your business email. When a technician submits a job, this inbox is told
+              the report is ready to send. Leave blank to use the owner&apos;s email.
+            </p>
+          </div>
+
           <div className="space-y-3 border-t border-slate-200 dark:border-slate-700 pt-4">
             <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200">Logo and colours</h3>
             <div className="flex flex-wrap items-center gap-4">
@@ -199,7 +229,6 @@ export function OrganizationProfileSetting() {
                 className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-slate-600 bg-white dark:bg-slate-900"
               >
                 {form.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={form.logoUrl}
                     alt="Organisation logo"

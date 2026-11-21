@@ -11,7 +11,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  ComposedChart,
 } from "recharts";
 import { Loader2, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";

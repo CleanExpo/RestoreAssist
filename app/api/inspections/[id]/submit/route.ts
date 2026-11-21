@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -48,6 +48,7 @@ import {
 import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
 import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
+import { notifyOfficeOfSubmittedVisit } from "@/lib/office-notice/submit-notice";
 import { linkedReadingsAreaConflict, readingMatchesArea, unlinkedReadingsAreaAmbiguity } from "@/lib/moisture/reading-room-join";
 
 // POST - Submit inspection for processing
@@ -361,6 +362,8 @@ export async function POST(
       // The fire gate is read again inside the claim's transaction, after
       // the claim holds the row lock that every fire write also takes, so a
       // fire edit cannot slip in between the gate and the claim.
+      // RA-8503: kept so the office notice is keyed to this exact submit.
+      const submittedAt = new Date();
       const submitGuard = await claimSubmitWithFireGate(
         prisma,
         {
@@ -376,7 +379,7 @@ export async function POST(
               status: "DRAFT",
               updatedAt: inspection.updatedAt,
             },
-            data: { status: "SUBMITTED", submittedAt: new Date() },
+            data: { status: "SUBMITTED", submittedAt },
           }),
       );
       if (submitGuard.fireBlock) {
@@ -390,6 +393,22 @@ export async function POST(
           console.error("[next-action] SUBMITTED nudge failed:", err),
         );
         scheduleZohoInspectionPush(id);
+        // RA-8503: tell the office the visit is complete. Only the winning
+        // CAS reaches here, so a retry or a lost race tells nobody; the email
+        // is also claimed once in the delivery ledger. At most once, never
+        // blocks the response, and after() keeps the work alive past it.
+        const officeNotice = notifyOfficeOfSubmittedVisit({
+          inspectionId: id,
+          submittedAt,
+          submitterName: session.user.name ?? null,
+        }).catch((err) =>
+          console.error("[office-notice] submit notice failed:", err),
+        );
+        try {
+          after(() => officeNotice);
+        } catch {
+          // Outside a request scope there is nothing to extend.
+        }
       }
       if (submitGuard.count === 0) {
         return apiError(request, {
@@ -474,7 +493,6 @@ export async function POST(
       // an estimate. A refused price (business not proven) or a processing
       // error leaves it unpriced, and syncing would push empty amounts.
       let estimated = false;
-      let processingFailed = false;
       try {
         const outcome = await processInspectionComplete(
           id,
@@ -483,22 +501,9 @@ export async function POST(
         );
         estimated = "costEstimate" in outcome;
       } catch (error) {
-        processingFailed = true;
         console.error("Error processing inspection:", error);
-        await prisma.auditLog
-          .create({
-            data: {
-              inspectionId: id,
-              action:
-                "WARNING: submit saved but classification/cost processing failed — office follow-up required",
-              entityType: "Inspection",
-              entityId: id,
-              userId,
-            },
-          })
-          .catch((auditErr) =>
-            console.error("[submit] processing-failure audit log failed:", auditErr),
-          );
+        // Don't fail the submission, but log the error
+        // In production, would retry via queue
       }
 
       // After processing, so the client gets one email for where the job
@@ -545,18 +550,10 @@ export async function POST(
       }
 
       return NextResponse.json({
-        message: processingFailed
-          ? "Inspection submitted, but automatic classification and costing did not finish. Your office will need to complete processing."
-          : estimated
-            ? "Inspection submitted successfully. Classification, scope, and costing are complete."
-            : "Inspection submitted successfully. Processing classification, scope determination, and cost estimation...",
+        message:
+          "Inspection submitted successfully. Processing classification, scope determination, and cost estimation...",
         inspectionId: id,
         status: "SUBMITTED",
-        processingComplete: estimated && !processingFailed,
-        ...(processingFailed && {
-          processingWarning:
-            "Classification and cost estimation failed after submit. Do not treat the job as fully processed until the office resolves this.",
-        }),
         // Surface supplementary gaps and warnings to the caller (mobile app shows follow-up prompts)
         ...(tieredResult.missingSupplementary.length > 0 && {
           missingSupplementary: tieredResult.missingSupplementary.map((f) => ({

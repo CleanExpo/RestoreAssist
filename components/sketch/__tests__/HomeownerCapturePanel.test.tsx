@@ -67,7 +67,7 @@ describe("HomeownerCapturePanel", () => {
 
   it("reviews/promotes a submission and reports measurement follow-up", async () => {
     const onPromoted = vi.fn();
-    installFetch(async (url, init) => {
+    installFetch(async (url, _init) => {
       if (url.includes("homeowner-capture-status")) {
         return { ok: true, json: async () => STATUS_PENDING };
       }
@@ -137,7 +137,7 @@ describe("HomeownerCapturePanel", () => {
   });
 
   it("shows an error message when the invite request fails", async () => {
-    installFetch(async (url, init) => {
+    installFetch(async (url, _init) => {
       if (url.includes("homeowner-capture-status")) {
         return { ok: true, json: async () => STATUS_EMPTY };
       }

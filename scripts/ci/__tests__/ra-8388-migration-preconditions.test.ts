@@ -51,7 +51,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import pg from "pg";
 
-import { assertLocalConnectionString } from "../assert-local-test-db.mjs";
+import { assertLocalConnectionString } from "../lib/assert-local-test-db.mjs";
 
 const MIGRATION = "20261116120000_ra_8388_evidence_link_and_duplicate_guard";
 const repoRoot = resolve(__dirname, "..", "..", "..");

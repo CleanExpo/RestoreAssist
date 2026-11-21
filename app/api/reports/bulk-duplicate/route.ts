@@ -10,7 +10,6 @@ import {
   validateBatchSize,
   deductBulkCredits,
   refundBulkCredits,
-  formatBulkResponse,
   getUnauthorizedReportIds,
 } from "@/lib/bulk-operations";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -126,7 +125,7 @@ export async function POST(request: NextRequest) {
       ? new Date(options.inspectionDate)
       : undefined;
 
-    const errors: Array<{ reportId: string; error: string }> = [];
+    const _errors: Array<{ reportId: string; error: string }> = [];
     const newReportIds: string[] = [];
 
     // 8b. Reserve trial credits BEFORE creating anything.

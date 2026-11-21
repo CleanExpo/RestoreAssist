@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterAll } from "vitest";
-import { grandfatherExistingOrgs } from "../grandfather-existing-orgs";
+import { grandfatherExistingOrgs } from "../lib/grandfather-existing-orgs";
 import { prisma } from "@/lib/prisma";
 
 describe.skipIf(!process.env.DATABASE_URL)("grandfatherExistingOrgs", () => {

@@ -41,18 +41,14 @@ import {
   Upload,
   FileText,
   Thermometer,
-  Droplets,
   Video,
   Mic,
   MapPin,
   Shield,
   Clock,
-  ChevronDown,
   ChevronUp,
   X,
   Play,
-  Pause,
-  Info,
   Lock,
 } from "lucide-react";
 import {
@@ -536,7 +532,7 @@ export default function CaptureWorkflowPage({
         );
         if (nextIdx >= 0) setActiveStepIndex(nextIdx);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update step status");
     }
   };
@@ -569,7 +565,7 @@ export default function CaptureWorkflowPage({
           s.status === "NOT_STARTED" || s.status === "IN_PROGRESS",
       );
       if (nextIdx >= 0) setActiveStepIndex(nextIdx);
-    } catch (error) {
+    } catch {
       toast.error("Failed to skip step");
     } finally {
       setSkipping(false);
@@ -877,7 +873,7 @@ export default function CaptureWorkflowPage({
       }
       toast.success("Inspection submitted successfully");
       router.push(`/dashboard/inspections/${inspectionId}`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to submit inspection");
     } finally {
       setSubmitting(false);
@@ -1526,7 +1522,6 @@ export default function CaptureWorkflowPage({
                                   aria-label="Video"
                                 />
                               ) : ev.thumbnailUrl || ev.fileUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                   src={ev.thumbnailUrl || ev.fileUrl || ""}
                                   alt=""

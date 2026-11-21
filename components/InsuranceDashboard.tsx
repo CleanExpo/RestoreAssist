@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   Shield,
@@ -11,15 +11,56 @@ import {
   AlertTriangle,
   CheckCircle,
   TrendingUp,
-  Users,
-  FileText,
-  BarChart3,
-  Activity,
 } from "lucide-react";
 
 interface InsuranceDashboardProps {
   reports: any[];
 }
+
+const filterReportsByPeriod = (reports: any[], period: string) => {
+  const now = new Date();
+  const cutoffDate = new Date();
+
+  switch (period) {
+    case "7days":
+      cutoffDate.setDate(now.getDate() - 7);
+      break;
+    case "30days":
+      cutoffDate.setDate(now.getDate() - 30);
+      break;
+    case "90days":
+      cutoffDate.setDate(now.getDate() - 90);
+      break;
+    case "ytd":
+      cutoffDate.setFullYear(now.getFullYear(), 0, 1);
+      break;
+    default:
+      return reports;
+  }
+
+  return reports.filter((report) => new Date(report.createdAt) >= cutoffDate);
+};
+
+const calculateCoveragePercentage = (
+  reports: any[],
+  coverageType: string,
+) => {
+  if (reports.length === 0) return 0;
+
+  const reportsWithCoverage = reports.filter((report) => {
+    const coverage = report[coverageType];
+    if (!coverage) return false;
+
+    try {
+      const parsed = JSON.parse(coverage);
+      return Object.values(parsed).some((value: any) => value === true);
+    } catch {
+      return false;
+    }
+  });
+
+  return Math.round((reportsWithCoverage.length / reports.length) * 100);
+};
 
 export default function InsuranceDashboard({
   reports,
@@ -34,11 +75,7 @@ export default function InsuranceDashboard({
     averageCoverage: 0,
   });
 
-  useEffect(() => {
-    calculateInsuranceStats();
-  }, [reports, selectedPeriod]);
-
-  const calculateInsuranceStats = () => {
+  const calculateInsuranceStats = useCallback(() => {
     const filteredReports = filterReportsByPeriod(reports, selectedPeriod);
 
     const stats = {
@@ -71,52 +108,11 @@ export default function InsuranceDashboard({
     );
 
     setInsuranceStats(stats);
-  };
+  }, [reports, selectedPeriod]);
 
-  const filterReportsByPeriod = (reports: any[], period: string) => {
-    const now = new Date();
-    const cutoffDate = new Date();
-
-    switch (period) {
-      case "7days":
-        cutoffDate.setDate(now.getDate() - 7);
-        break;
-      case "30days":
-        cutoffDate.setDate(now.getDate() - 30);
-        break;
-      case "90days":
-        cutoffDate.setDate(now.getDate() - 90);
-        break;
-      case "ytd":
-        cutoffDate.setFullYear(now.getFullYear(), 0, 1);
-        break;
-      default:
-        return reports;
-    }
-
-    return reports.filter((report) => new Date(report.createdAt) >= cutoffDate);
-  };
-
-  const calculateCoveragePercentage = (
-    reports: any[],
-    coverageType: string,
-  ) => {
-    if (reports.length === 0) return 0;
-
-    const reportsWithCoverage = reports.filter((report) => {
-      const coverage = report[coverageType];
-      if (!coverage) return false;
-
-      try {
-        const parsed = JSON.parse(coverage);
-        return Object.values(parsed).some((value: any) => value === true);
-      } catch {
-        return false;
-      }
-    });
-
-    return Math.round((reportsWithCoverage.length / reports.length) * 100);
-  };
+  useEffect(() => {
+    calculateInsuranceStats();
+  }, [calculateInsuranceStats]);
 
   const getCoverageDistribution = () => {
     const total = insuranceStats.totalReports;
@@ -315,7 +311,7 @@ export default function InsuranceDashboard({
             Coverage Distribution
           </h3>
           <div className="space-y-4">
-            {coverageDistribution.map((coverage, index) => (
+            {coverageDistribution.map((coverage, _index) => (
               <div
                 key={coverage.type}
                 className="flex items-center justify-between"
@@ -428,7 +424,7 @@ export default function InsuranceDashboard({
           Recent Reports with Insurance Coverage
         </h3>
         <div className="space-y-3">
-          {recentReports.map((report, index) => {
+          {recentReports.map((report, _index) => {
             const hasProperty =
               report.propertyCover && JSON.parse(report.propertyCover);
             const hasContents =

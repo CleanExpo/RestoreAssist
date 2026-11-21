@@ -29,7 +29,7 @@ import {
   planMoistureReadingSketchRoomBackfill,
   redactedDatabaseTarget,
   runMoistureReadingSketchRoomBackfill,
-} from "../backfill-moisture-reading-sketch-room";
+} from "../lib/backfill-moisture-reading-sketch-room";
 
 const rooms = [
   { id: "sr-a", name: "Bathroom", inspectionId: "job-1" },

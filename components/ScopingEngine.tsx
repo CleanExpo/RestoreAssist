@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { RAIcon } from "@/components/brand/RAIcon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,6 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -47,6 +46,23 @@ interface ScopingEngineProps {
   onScopeComplete: (scopeData: any) => void;
   onCancel: () => void;
 }
+
+// Equipment rate tiers
+const equipmentRates = {
+  "Air Mover": { day: 40, week: 160, month: 500 },
+  Dehumidifier: { day: 110, week: 500, month: 2000 },
+  AFD: { day: 100, week: 500, month: 2000 },
+  "Moisture Meter": { day: 25, week: 100, month: 300 },
+  "Air Scrubber": { day: 80, week: 350, month: 1200 },
+};
+
+// Chemical rates
+const chemicalRates = {
+  "Anti-microbial": 1.5,
+  "Bio-decontamination": 2.5,
+  "Mould Remediation": 1.5,
+  "Odor Control": 1.0,
+};
 
 export default function ScopingEngine({
   reportId,
@@ -145,23 +161,6 @@ export default function ScopingEngine({
     complianceNotes: "",
     assumptions: "",
   });
-
-  // Equipment rate tiers
-  const equipmentRates = {
-    "Air Mover": { day: 40, week: 160, month: 500 },
-    Dehumidifier: { day: 110, week: 500, month: 2000 },
-    AFD: { day: 100, week: 500, month: 2000 },
-    "Moisture Meter": { day: 25, week: 100, month: 300 },
-    "Air Scrubber": { day: 80, week: 350, month: 1200 },
-  };
-
-  // Chemical rates
-  const chemicalRates = {
-    "Anti-microbial": 1.5,
-    "Bio-decontamination": 2.5,
-    "Mould Remediation": 1.5,
-    "Odor Control": 1.0,
-  };
 
   // Load initial scope data if editing
   useEffect(() => {
@@ -264,16 +263,6 @@ export default function ScopingEngine({
     }
   }, [initialScopeData]);
 
-  // Calculate totals whenever data changes
-  useEffect(() => {
-    calculateTotals();
-  }, [
-    scopeData.labourParameters,
-    scopeData.equipmentParameters,
-    scopeData.chemicalApplication,
-    scopeData.timeCalculations,
-  ]);
-
   // Update project duration when calculations change
   useEffect(() => {
     if (
@@ -309,7 +298,7 @@ export default function ScopingEngine({
     scopeData.labourParameters.modifiers,
   ]);
 
-  const calculateTotals = () => {
+  const calculateTotals = useCallback(() => {
     // Calculate labour costs
     let labourTotal = 0;
     scopeData.labourParameters.roles.forEach((role) => {
@@ -363,7 +352,17 @@ export default function ScopingEngine({
         anomalies: [],
       },
     }));
-  };
+  }, [
+    scopeData.labourParameters,
+    scopeData.equipmentParameters,
+    scopeData.chemicalApplication,
+    scopeData.timeCalculations,
+  ]);
+
+  // Calculate totals whenever data changes
+  useEffect(() => {
+    calculateTotals();
+  }, [calculateTotals]);
 
   const handleNext = () => {
     if (currentStep < 8) {
@@ -1082,7 +1081,7 @@ export default function ScopingEngine({
   );
 
   const renderStep5 = () => {
-    const totalHours = scopeData.labourParameters.roles.reduce(
+    const _totalHours = scopeData.labourParameters.roles.reduce(
       (sum, role) => sum + role.hours,
       0,
     );

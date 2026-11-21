@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SupabaseStorageProvider } from "@/lib/storage/supabase-provider";
-import { BUCKET_ORIGINALS } from "@/lib/storage/types";
 
 const { uploadMock, listMock } = vi.hoisted(() => ({
   uploadMock: vi.fn(),

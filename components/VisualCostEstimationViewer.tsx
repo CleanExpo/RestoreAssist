@@ -2,14 +2,11 @@
 
 import {
   AlertTriangle,
-  CheckCircle,
   DollarSign,
   FileText,
-  Printer,
   TrendingUp,
   Calculator,
   Building2,
-  Wrench,
   AlertCircle,
 } from "lucide-react";
 import { moneyOrRateNotSet } from "@/lib/reports/stored-equipment-pricing";
@@ -90,7 +87,7 @@ interface VisualCostEstimationViewerProps {
 export default function VisualCostEstimationViewer({
   data,
 }: VisualCostEstimationViewerProps) {
-  const handlePrint = () => {
+  const _handlePrint = () => {
     window.print();
   };
 

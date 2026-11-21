@@ -35,7 +35,12 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    claimSketch: { findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
+    claimSketch: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(async () => []),
+      update: vi.fn(),
+      create: vi.fn(),
+    },
     sketchUnderlayReference: {
       findFirst: vi.fn(async () => null),
       update: vi.fn(),
@@ -55,6 +60,7 @@ import { POST } from "../route";
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
   claimSketch: {
+    findMany: ReturnType<typeof vi.fn>;
     findFirst: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
@@ -220,7 +226,52 @@ describe("sketch POST → renderedPngUrl persistence", () => {
     );
 
     expect(response.status).toBe(201);
-    expect(storeVerifiedCleanRender).toHaveBeenCalledWith("i1", 0, sketchData);
+    // RA-8239: rendered from the server-trusted drawing, where the legacy
+    // untagged room resolves as technician-measured, so it still prints.
+    const rendered = storeVerifiedCleanRender.mock.calls[0][2] as {
+      objects: Array<{ data: Record<string, unknown> }>;
+    };
+    expect(rendered.objects).toHaveLength(1);
+    expect(rendered.objects[0].data).toMatchObject({
+      type: "room",
+      label: "Legacy",
+      provenance: "operator_measured",
+    });
+  });
+
+  it("RA-8239: renders the server-trusted provenance, not the tag the client posted", async () => {
+    p.claimSketch.findFirst.mockResolvedValueOnce(null);
+    p.claimSketch.create.mockResolvedValueOnce({ id: "s_ai" });
+    // The Vision import recorded this room id as an AI suggestion on the job.
+    p.claimSketch.findMany.mockResolvedValueOnce([
+      { sketchData: { raSketchMeta: { aiSuggestedRoomIds: ["room-ai"] } } },
+    ]);
+    const sketchData = {
+      scaleConfig: { pxPerMetre: 100 },
+      objects: [
+        {
+          type: "polygon",
+          points: [
+            { x: 0, y: 0 },
+            { x: 400, y: 0 },
+            { x: 400, y: 300 },
+          ],
+          // The client claims it was measured; it was never confirmed.
+          data: { type: "room", id: "room-ai", label: "Bed 2", provenance: "operator_measured" },
+        },
+      ],
+    };
+
+    const response = await POST(
+      makePost({ floorNumber: 0, sketchData, requestCanonicalRender: true }),
+      { params: Promise.resolve({ id: "i1" }) },
+    );
+
+    expect(response.status).toBe(201);
+    const rendered = storeVerifiedCleanRender.mock.calls[0][2] as {
+      objects: Array<{ data: Record<string, unknown> }>;
+    };
+    expect(rendered.objects[0].data.provenance).toBe("ai_suggested");
   });
 
   it("still saves geometry when sketch storage is not configured", async () => {

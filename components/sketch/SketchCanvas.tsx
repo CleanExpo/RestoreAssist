@@ -77,7 +77,6 @@ import {
 import {
   DEFAULT_ROOM_SIDE_M,
   ROOM_TAP_THRESHOLD_PX,
-  rectRoomPoints,
   rectRoomPointsFromDiagonal,
   roomLengthWidthM,
   roomEdgeHostSegments,
@@ -3268,7 +3267,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       polygonPtsRef.current = [];
 
       const brushMode = toolMode === "freehand" || toolMode === "damage";
-      canvas.isDrawingMode = brushMode;
+      // RA-8197: a read-only canvas never draws, even with a brush tool.
+      canvas.isDrawingMode = brushMode && !readonly;
       canvas.selection = toolMode === "select" && !readonly;
       canvas.defaultCursor =
         toolMode === "pan"

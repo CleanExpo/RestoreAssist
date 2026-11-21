@@ -37,7 +37,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { NextRequest } from "next/server";
 
-import { expectedMigrationLedger } from "../expected-migration-ledger.mjs";
+import { expectedMigrationLedger } from "../lib/expected-migration-ledger.mjs";
 
 const queryRaw = vi.fn();
 vi.mock("@/lib/rate-limiter", () => ({

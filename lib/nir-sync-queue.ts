@@ -125,6 +125,12 @@ export interface SketchSavePayload {
  * revision instead of refusing its own next save as a conflict.
  */
 export const SKETCH_SAVE_REPLAYED_EVENT = "restoreassist:sketch-save-replayed";
+/**
+ * RA-8197 — the same announcement on a BroadcastChannel, so an editor in
+ * another tab hears it when this tab held the drain lock and replayed that
+ * editor's queued save.
+ */
+export const SKETCH_SAVE_REPLAYED_CHANNEL = "restoreassist:sketch-save-replayed";
 export interface SketchSaveReplayedDetail {
   inspectionId: string;
   floorNumber: number;
@@ -986,6 +992,16 @@ async function announceSketchReplay(
   window.dispatchEvent(
     new CustomEvent(SKETCH_SAVE_REPLAYED_EVENT, { detail }),
   );
+  if (typeof BroadcastChannel !== "undefined") {
+    try {
+      const channel = new BroadcastChannel(SKETCH_SAVE_REPLAYED_CHANNEL);
+      channel.postMessage(detail);
+      channel.close();
+    } catch {
+      // Best-effort, like the window event: an editor that misses it keeps
+      // the revision it had and its next save is answered as a conflict.
+    }
+  }
 }
 
 function announceSketchRejection(entry: SyncQueueEntry, status: number): void {

@@ -9,7 +9,6 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { assertInspectionCapturable } from "@/lib/auth/assert-tenancy";
-import { parseFieldCaptureTime } from "@/lib/evidence/field-capture-time";
 
 function parseMoistureFlag(value: unknown): boolean {
   if (value === true || value === "true" || value === 1 || value === "1") {
@@ -148,9 +147,6 @@ export async function POST(
             : "manual",
           isBaseline: parseMoistureFlag(body.isBaseline),
           isMonitoringPoint: parseMoistureFlag(body.isMonitoringPoint),
-          recordedAt:
-            parseFieldCaptureTime(body.recordedAt ?? body.capturedAtUtc) ??
-            new Date(),
         };
 
         const rawSketchRoomId =
@@ -195,7 +191,6 @@ export async function POST(
           createData.mapY = Math.min(1, Math.max(0, my));
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const moistureReading = await (prisma.moistureReading.create as any)({
           data: createData,
         });

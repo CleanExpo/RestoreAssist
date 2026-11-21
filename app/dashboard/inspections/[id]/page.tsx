@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, use, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -130,9 +130,8 @@ const AutoClassifyPanel = dynamic(
 // silently drops the completion UI when canSignOff is true.
 import InspectionSignOff from "@/components/inspection/InspectionSignOff";
 import { FieldEvidenceChecklistPanel } from "@/components/inspections/field-evidence-checklist-panel";
-import { ClaimPathwayPanel } from "@/components/inspection/ClaimPathwayPanel";
-import { DryingSnapshotPanel } from "@/components/inspection/DryingSnapshotPanel";
-import { JobMarginPanel } from "@/components/inspection/JobMarginPanel";
+import { CarsiTrainingPanel } from "@/components/inspection/CarsiTrainingPanel";
+import { NextServicePanel } from "@/components/inspection/NextServicePanel";
 // SP-A — close-job Sidekick card. Mounts conditional on IN_BILLING status
 // (or once-closed render of the locked terminal card via `completedAt`).
 const CloseJobPrompt = dynamic(
@@ -153,7 +152,6 @@ import {
   Thermometer,
   AlertTriangle,
   ClipboardCheck,
-  FileText,
   DollarSign,
   Camera,
   Shield,
@@ -629,10 +627,6 @@ export default function InspectionDetailPage({
   // (no Settings toggle). Legal flag still gates the scrape UI/API.
   const [autoFetchFloorPlan, setAutoFetchFloorPlan] = useState(false);
 
-  useEffect(() => {
-    fetchInspection();
-  }, [id]);
-
   const refetchSketchRooms = useCallback(async () => {
     try {
       const res = await fetch(`/api/inspections/${id}/sketches`);
@@ -696,7 +690,7 @@ export default function InspectionDetailPage({
     [moistureReadings],
   );
 
-  const fetchInspection = async () => {
+  const fetchInspection = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
@@ -743,9 +737,13 @@ export default function InspectionDetailPage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const refreshPhotos = async () => {
+  useEffect(() => {
+    fetchInspection();
+  }, [fetchInspection]);
+
+  const refreshPhotos = useCallback(async () => {
     try {
       const response = await fetch(`/api/inspections/${id}/photos`, { cache: "no-store" });
       if (!response.ok) return;
@@ -755,11 +753,11 @@ export default function InspectionDetailPage({
     } catch {
       // The queued copy remains available for another read or manual retry.
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (activeTab === "photos" && !loading) void refreshPhotos();
-  }, [activeTab, id, loading]);
+  }, [activeTab, loading, refreshPhotos]);
 
   const handleDeletePhoto = async (photoId: string) => {
     const ok = await confirm.ask({
@@ -1704,21 +1702,15 @@ export default function InspectionDetailPage({
         <FieldAssistPanel inspectionId={inspection.id} />
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2 items-stretch">
-        <ClaimPathwayPanel inspectionId={inspection.id} />
-        <DryingSnapshotPanel inspectionId={inspection.id} compact />
-      </section>
-
-      {isManagerOps && (
-        <JobMarginPanel inspectionId={inspection.id} className="max-w-3xl" />
-      )}
-
       <section className={cn(INSPECTION_HUB_CARD, "p-4 sm:p-5 space-y-3")}>
         <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-slate-400">
           Job progress
         </h2>
         <StatusTimeline currentStatus={inspection.status} />
       </section>
+
+      <CarsiTrainingPanel claimType={inspection.claimType} />
+      <NextServicePanel inspectionId={inspection.id} />
 
       <InspectionEvidenceReadinessPanel
         claimType={inspection.claimType}

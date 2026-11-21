@@ -15,8 +15,6 @@ import {
   ArrowLeft,
   Camera,
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
   X,
   Save,
   Loader2,
@@ -24,7 +22,6 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -310,7 +307,6 @@ function PhotoCard({ photo, onClick }: { photo: Photo; onClick: () => void }) {
     >
       {/* Thumbnail */}
       {photo.thumbnailUrl || photo.url ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={photo.thumbnailUrl ?? photo.url}
           alt={photo.location ?? "Inspection photo"}
@@ -528,7 +524,6 @@ function PhotoPanel({
         )}
 
         {/* Photo */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={photo.url}
           alt="Inspection photo"

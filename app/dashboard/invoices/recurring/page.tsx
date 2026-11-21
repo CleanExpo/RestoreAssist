@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -282,7 +281,7 @@ export default function RecurringInvoicesPage() {
 
       // Derive stats from list
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const _startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       setStats({
         active: list.filter((s) => s.status === "ACTIVE").length,
         paused: list.filter((s) => s.status === "PAUSED").length,
