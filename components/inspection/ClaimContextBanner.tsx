@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  completenessBlockerHasFix,
+  completenessBlockerHref,
+  completenessBlockerLabel,
+} from "@/lib/dashboard/completeness-blocker-links";
 import { ChromeAlertTriangle, ChromeCheckCircle, ChromeSpinner } from "@/components/brand/chrome-icons";
 
 type ClaimContextResponse = {
@@ -85,9 +91,28 @@ export function ClaimContextBanner({ inspectionId }: { inspectionId: string }) {
             {payload.context.stage}
           </p>
           {blocked ? (
-            <p className="mt-1 text-xs opacity-90">
-              Blocking: {payload.completeness.blocking.join(", ")}
-            </p>
+            <div className="mt-1 text-xs opacity-90">
+              <span>Blocking:</span>
+              <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                {payload.completeness.blocking.map((id) => (
+                  <li key={id}>
+                    {completenessBlockerHasFix(id) ? (
+                      <Link
+                        href={completenessBlockerHref(inspectionId, id)}
+                        className="font-medium underline underline-offset-2 hover:opacity-80"
+                      >
+                        {completenessBlockerLabel(id)}
+                      </Link>
+                    ) : (
+                      <span>
+                        {completenessBlockerLabel(id)} (no field on the job
+                        yet)
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : (
             <p className="mt-1 text-xs opacity-90">
               Core intake complete. {payload.context.wetReadingCount} wet point(s)
