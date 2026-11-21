@@ -16,6 +16,7 @@ const getServerSession = vi.fn();
 const withIdempotency = vi.fn();
 const instanceFindUnique = vi.fn();
 const instanceUpdate = vi.fn();
+const instanceUpdateMany = vi.fn();
 const signatureUpdateMany = vi.fn();
 const signatureFindUniqueOrThrow = vi.fn();
 const signatureFindMany = vi.fn();
@@ -34,7 +35,17 @@ vi.mock("@/lib/prisma", () => ({
     authorityFormInstance: {
       findUnique: (...args: unknown[]) => instanceFindUnique(...args),
       update: (...args: unknown[]) => instanceUpdate(...args),
+      updateMany: (...args: unknown[]) => instanceUpdateMany(...args),
     },
+    $transaction: (fn: (tx: unknown) => unknown) =>
+      fn({
+        authorityFormInstance: {
+          updateMany: (...args: unknown[]) => instanceUpdateMany(...args),
+        },
+        authorityFormSignature: {
+          create: (...args: unknown[]) => signatureCreate(...args),
+        },
+      }),
     authorityFormSignature: {
       updateMany: (...args: unknown[]) => signatureUpdateMany(...args),
       findUniqueOrThrow: (...args: unknown[]) =>
@@ -63,6 +74,7 @@ const params = () => ({ params: Promise.resolve({ id: "form-1" }) });
 const ownedForm = {
   id: "form-1",
   status: "PENDING_SIGNATURES",
+  signatures: [{ signedAt: null }],
   report: {
     userId: "user-1",
     assignedManagerId: null,
@@ -75,6 +87,7 @@ beforeEach(() => {
   withIdempotency.mockReset();
   instanceFindUnique.mockReset();
   instanceUpdate.mockReset();
+  instanceUpdateMany.mockReset();
   signatureUpdateMany.mockReset();
   signatureFindUniqueOrThrow.mockReset();
   signatureFindMany.mockReset();
@@ -236,5 +249,43 @@ describe("POST /api/authority-forms/[id]/signatures", () => {
     expect(signatureUpdateMany).not.toHaveBeenCalled();
     expect(signatureCreate).not.toHaveBeenCalled();
     expect(instanceUpdate).not.toHaveBeenCalled();
+  });
+
+  const slot = {
+    action: "add_signatory",
+    signatoryName: "New Person",
+    signatoryRole: "CLIENT",
+  };
+
+  it("RA-8400: a partly signed form takes no new signatory slot", async () => {
+    instanceFindUnique.mockResolvedValue({
+      ...ownedForm,
+      status: "PENDING_SIGNATURES",
+      signatures: [{ signedAt: new Date("2026-11-01T00:00:00Z") }],
+    });
+    const res = await POST(makeRequest(slot), params());
+    expect(res.status).toBe(409);
+    expect(signatureCreate).not.toHaveBeenCalled();
+    expect(instanceUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("RA-8400: the slot is created only after a conditional lock on an open, unsigned form", async () => {
+    instanceUpdateMany.mockResolvedValue({ count: 1 });
+    signatureCreate.mockResolvedValue({ id: "sig-new" });
+    const res = await POST(makeRequest(slot), params());
+    expect(res.status).toBe(200);
+    expect(instanceUpdateMany.mock.calls[0][0].where).toEqual({
+      id: "form-1",
+      status: { notIn: ["CANCELLED", "COMPLETED"] },
+      signatures: { none: { signedAt: { not: null } } },
+    });
+    expect(signatureCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("RA-8400: a signature or cancellation landing after the read blocks the create", async () => {
+    instanceUpdateMany.mockResolvedValue({ count: 0 });
+    const res = await POST(makeRequest(slot), params());
+    expect(res.status).toBe(409);
+    expect(signatureCreate).not.toHaveBeenCalled();
   });
 });

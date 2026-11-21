@@ -4,6 +4,11 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { withIdempotency } from "@/lib/idempotency";
+import {
+  formAcceptsSignatureWhere,
+  formSignatureRefusal,
+  unsignedSlotWhere,
+} from "@/lib/authority-forms/signed-record-guard";
 import { apiError, fromException } from "@/lib/api-errors";
 import { escapeHtml, getFromEmail } from "@/lib/email";
 import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
@@ -86,6 +91,16 @@ export async function POST(
         });
       }
 
+      // RA-8400: a cancelled or completed form issues no signing link.
+      const closedRefusal = formSignatureRefusal(form);
+      if (closedRefusal) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: closedRefusal,
+          status: 409,
+        });
+      }
+
       // Get the signature record — scope by instanceId (matches formId
       // from the URL). signatureId is client-supplied; without this guard
       // a caller who owns formId could pass a foreign signatureId and
@@ -126,7 +141,14 @@ export async function POST(
       // so a signature deleted/reassigned between the two calls can't be
       // mutated either.
       const updateResult = await prisma.authorityFormSignature.updateMany({
-        where: { id: signatureId, instanceId: formId },
+        // RA-8400: only an unsigned slot on a form that still accepts
+        // signatures gets a token.
+        where: {
+          id: signatureId,
+          instanceId: formId,
+          ...unsignedSlotWhere(),
+          instance: formAcceptsSignatureWhere(),
+        },
         data: {
           signatureRequestToken: token,
           signatureRequestSent: true,
@@ -142,10 +164,11 @@ export async function POST(
         });
       }
 
-      // Update form status
+      // Update form status. Conditional on DRAFT in the write itself, so a
+      // cancellation landing after the read cannot be reopened (RA-8400).
       if (form.status === "DRAFT") {
-        await prisma.authorityFormInstance.update({
-          where: { id: formId },
+        await prisma.authorityFormInstance.updateMany({
+          where: { id: formId, status: "DRAFT" },
           data: { status: "PENDING_SIGNATURES" },
         });
       }
