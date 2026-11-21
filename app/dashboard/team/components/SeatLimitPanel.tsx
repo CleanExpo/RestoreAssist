@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { parseCheckoutReply } from "@/lib/billing/checkout-return";
+import {
+  isFinalCheckoutAnswer,
+  parseCheckoutReply,
+} from "@/lib/billing/checkout-return";
 import type { CheckoutReply } from "@/lib/billing/checkout-return";
 import { TECHNICIAN_SEATS_ADDON } from "@/lib/billing/technician-seats-addon";
 
@@ -44,8 +47,8 @@ export function SeatLimitPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [portal, setPortal] = useState<string | null>(null);
   const [blocked, setBlocked] = useState(false);
-  // One key per click. Only a lost response keeps it, so the retry replays the
-  // same purchase instead of buying a second seat.
+  // One key per click. A lost or unclear response keeps it, so the retry
+  // replays the same purchase instead of buying a second seat.
   const lostKeys = useRef(new Map<string, string>());
 
   // Back from Stripe restores this page from the browser cache, button disabled.
@@ -63,15 +66,28 @@ export function SeatLimitPanel({
   };
 
   async function send(request: typeof seatRequest | typeof PLAN_REQUEST) {
-    const key = lostKeys.current.get(request.url) ?? globalThis.crypto.randomUUID();
+    const kept = lostKeys.current.get(request.url);
+    const key = kept ?? globalThis.crypto.randomUUID();
     lostKeys.current.set(request.url, key);
     const res = await fetch(request.url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Idempotency-Key": key },
       body: JSON.stringify(request.body),
     });
-    lostKeys.current.delete(request.url);
-    return parseCheckoutReply(res.status, await res.json().catch(() => ({})));
+    const json: unknown = await res.json().catch(() => null);
+    const reply = parseCheckoutReply(res.status, json);
+    // RA-8272: release the key only on a readable reply that names an outcome.
+    // An unreadable body or a 5xx may have started a purchase, so the next
+    // press replays it instead of buying a second seat.
+    if (
+      isFinalCheckoutAnswer(res.status, json, reply, {
+        unresolved: kept !== undefined,
+        replayed: res.headers?.get?.("Idempotent-Replayed") === "true",
+      })
+    ) {
+      lostKeys.current.delete(request.url);
+    }
+    return reply;
   }
 
   /** Returns true when the page is on its way to Stripe. */

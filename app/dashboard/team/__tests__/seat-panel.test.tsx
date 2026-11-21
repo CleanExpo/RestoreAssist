@@ -277,6 +277,77 @@ describe("Team page at the seat limit", () => {
     expect(await screen.findByText("ask them")).toBeInTheDocument();
   });
 
+  // RA-8272 item 5: only a readable reply that names an outcome releases the
+  // seat purchase key. An unreadable 200 or a 5xx may have started a purchase,
+  // so the next press must replay it, not buy a second seat.
+  const unreadable = (status: number) => ({
+    ok: status < 400,
+    status,
+    headers: new Headers(),
+    json: async () => {
+      throw new SyntaxError("Unexpected end of JSON input");
+    },
+  });
+
+  it("RA-8272: an unreadable 200 keeps the seat key for the next press", async () => {
+    let checkout = 0;
+    const calls = stubFetch({
+      "POST /api/team/invites": () => SEAT_402,
+      "POST /api/addons/checkout": () =>
+        ++checkout === 1 ? unreadable(200) : json(200, { updated: true, seats: 2 }),
+    });
+    await openAndSend();
+    const buy = await screen.findByRole("button", { name: /buy a seat/i });
+    fireEvent.click(buy);
+    await waitFor(() => expect(checkout).toBe(1));
+    await waitFor(() => expect(buy).not.toBeDisabled());
+    fireEvent.click(buy);
+    await waitFor(() => expect(checkout).toBe(2));
+    const posts = postsTo(calls, "/api/addons/checkout");
+    expect(keyOf(posts[0])).toBeTruthy();
+    expect(keyOf(posts[1])).toEqual(keyOf(posts[0]));
+  });
+
+  it("RA-8272: a 5xx keeps the seat key for the next press", async () => {
+    let checkout = 0;
+    const calls = stubFetch({
+      "POST /api/team/invites": () => SEAT_402,
+      "POST /api/addons/checkout": () =>
+        ++checkout === 1
+          ? json(500, { error: { code: "INTERNAL", message: "boom" } })
+          : json(200, { updated: true, seats: 2 }),
+    });
+    await openAndSend();
+    const buy = await screen.findByRole("button", { name: /buy a seat/i });
+    fireEvent.click(buy);
+    await waitFor(() => expect(checkout).toBe(1));
+    await waitFor(() => expect(buy).not.toBeDisabled());
+    fireEvent.click(buy);
+    await waitFor(() => expect(checkout).toBe(2));
+    const posts = postsTo(calls, "/api/addons/checkout");
+    expect(keyOf(posts[1])).toEqual(keyOf(posts[0]));
+  });
+
+  it("RA-8272: a readable refusal releases the key, so the next press is a new purchase", async () => {
+    let checkout = 0;
+    const calls = stubFetch({
+      "POST /api/team/invites": () => SEAT_402,
+      "POST /api/addons/checkout": () =>
+        ++checkout === 1
+          ? json(403, { error: { code: "FORBIDDEN", message: "ask them" } })
+          : json(200, { updated: true, seats: 2 }),
+    });
+    await openAndSend();
+    const buy = await screen.findByRole("button", { name: /buy a seat/i });
+    fireEvent.click(buy);
+    expect(await screen.findByText("ask them")).toBeInTheDocument();
+    await waitFor(() => expect(buy).not.toBeDisabled());
+    fireEvent.click(buy);
+    await waitFor(() => expect(checkout).toBe(2));
+    const posts = postsTo(calls, "/api/addons/checkout");
+    expect(keyOf(posts[1])).not.toEqual(keyOf(posts[0]));
+  });
+
   it("Back from Stripe resets the buy button", async () => {
     vi.stubGlobal("location", { ...window.location, assign: vi.fn(), origin: "http://t" });
     stubFetch({

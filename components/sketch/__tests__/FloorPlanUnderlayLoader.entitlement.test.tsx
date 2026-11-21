@@ -64,6 +64,111 @@ describe("FloorPlanUnderlayLoader — 402 handling (RA-6922 add-on)", () => {
   });
 });
 
+/**
+ * RA-8272 item 6: the upgrade button starts a paid subscription, so it sends
+ * an Idempotency-Key and keeps it until a readable reply names an outcome. A
+ * retried press after a lost or unreadable reply replays the first purchase.
+ */
+describe("FloorPlanUnderlayLoader upgrade checkout key (RA-8272)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  type Reply = { ok: boolean; status: number; headers: Headers; json: () => Promise<unknown> };
+  const reply = (status: number, body: unknown): Reply => ({
+    ok: status < 400,
+    status,
+    headers: new Headers(),
+    json: async () => body,
+  });
+  const unreadable = (status: number): Reply => ({
+    ok: status < 400,
+    status,
+    headers: new Headers(),
+    json: async () => {
+      throw new SyntaxError("Unexpected end of JSON input");
+    },
+  });
+
+  function stub(checkoutReplies: Array<() => Reply | Promise<Reply>>) {
+    vi.stubEnv("NEXT_PUBLIC_UNDERLAY_URL_IMPORT", "1");
+    const keys: Array<string | undefined> = [];
+    let n = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string, init?: RequestInit) => {
+        if (String(input) === "/api/addons/checkout") {
+          keys.push((init?.headers as Record<string, string>)["Idempotency-Key"]);
+          return checkoutReplies[n++]();
+        }
+        return reply(402, { error: { code: "PAYMENT_REQUIRED" } });
+      }),
+    );
+    return keys;
+  }
+
+  async function pressUpgrade() {
+    const button = await screen.findByRole("button", { name: /add floor plan underlay/i });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    return button;
+  }
+
+  function renderLoader() {
+    render(
+      <FloorPlanUnderlayLoader
+        defaultAddress="12 Smith St"
+        inspectionId="i1"
+        onApply={() => {}}
+        onClear={() => {}}
+        autoFetch
+      />,
+    );
+  }
+
+  it("sends an Idempotency-Key and keeps it after an unreadable reply", async () => {
+    const keys = stub([
+      () => unreadable(200),
+      () => reply(403, { error: { code: "FORBIDDEN", message: "no" } }),
+    ]);
+    renderLoader();
+    await pressUpgrade();
+    await pressUpgrade();
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toEqual(keys[0]);
+  });
+
+  it("keeps the key after a lost connection and after a 5xx", async () => {
+    const keys = stub([
+      () => Promise.reject(new TypeError("network")),
+      () => reply(500, { error: { code: "INTERNAL", message: "boom" } }),
+      () => reply(403, { error: { code: "FORBIDDEN", message: "no" } }),
+    ]);
+    renderLoader();
+    await pressUpgrade();
+    await pressUpgrade();
+    await pressUpgrade();
+    expect(keys).toHaveLength(3);
+    expect(keys[0]).toBeTruthy();
+    expect(new Set(keys).size).toBe(1);
+  });
+
+  it("a readable refusal releases the key", async () => {
+    const keys = stub([
+      () => reply(403, { error: { code: "FORBIDDEN", message: "no" } }),
+      () => reply(403, { error: { code: "FORBIDDEN", message: "no" } }),
+    ]);
+    renderLoader();
+    await pressUpgrade();
+    expect(await screen.findByText("no")).toBeInTheDocument();
+    await pressUpgrade();
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBeTruthy();
+    expect(keys[1]).not.toEqual(keys[0]);
+  });
+});
+
 describe("FloorPlanUnderlayLoader room suggestions (RA-8236)", () => {
   const base = { onApply: vi.fn(), onClear: vi.fn(), hasBackground: true };
 
