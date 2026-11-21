@@ -106,12 +106,13 @@ export async function GET(
     });
 
     // RA-8501: the rooms an item can be filed against. Detached rooms are
-    // history, not a placement target (same rule as moisture readings).
+    // history, not a placement target (same rule as moisture readings). 500
+    // matches the sketches route, which reads at most 500 rooms per floor.
     const rooms = await prisma.sketchRoom.findMany({
       where: { detachedAt: null, sketch: { inspectionId: id } },
       select: { id: true, name: true, floorNumber: true },
       orderBy: [{ floorNumber: "asc" }, { name: "asc" }],
-      take: 200,
+      take: 500,
     });
 
     const totalReplacementValueAud = items.reduce(

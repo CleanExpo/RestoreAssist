@@ -26,7 +26,46 @@ import {
 import { apiError, fromException } from "@/lib/api-errors";
 import { buildContentsInventoryWorkbook } from "@/lib/contents/inventory-workbook";
 
-const ITEM_LIMIT = 500;
+/** Rows read per query. */
+const PAGE_SIZE = 500;
+/**
+ * The most items one file carries. A job with more is refused with 413, never
+ * cut short: a file that silently drops item 501 onward reads as the whole
+ * inventory (RA-8501 review round 1).
+ */
+const EXPORT_ITEM_MAX = 5000;
+
+const ITEM_SELECT_BASE = {
+  id: true,
+  itemDescription: true,
+  make: true,
+  model: true,
+  serialNumber: true,
+  packOutDecision: true,
+  packOutTag: true,
+  conditionPreLoss: true,
+  conditionPostLoss: true,
+  beforePhotoUrl: true,
+  afterPhotoUrl: true,
+  sketchRoom: { select: { name: true } },
+} as const;
+
+type ExportItem = {
+  id: string;
+  itemDescription: string;
+  make: string | null;
+  model: string | null;
+  serialNumber: string | null;
+  packOutDecision: string | null;
+  packOutTag: string | null;
+  conditionPreLoss: string | null;
+  conditionPostLoss: string | null;
+  beforePhotoUrl: string | null;
+  afterPhotoUrl: string | null;
+  sketchRoom: { name: string } | null;
+  replacementValueAud?: { toString(): string } | null;
+  restorationCostEstimate?: { toString(): string } | null;
+};
 
 function safeFilePart(value: string): string {
   return value.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "job";
@@ -83,28 +122,38 @@ export async function GET(
       });
     }
 
-    const items = await prisma.contentsPackOutItem.findMany({
-      where: { inspectionId: id },
-      orderBy: { createdAt: "asc" },
-      take: ITEM_LIMIT,
-      select: {
-        itemDescription: true,
-        make: true,
-        model: true,
-        serialNumber: true,
-        packOutDecision: true,
-        packOutTag: true,
-        conditionPreLoss: true,
-        conditionPostLoss: true,
-        beforePhotoUrl: true,
-        afterPhotoUrl: true,
-        sketchRoom: { select: { name: true } },
-        // Money is not even read for a caller who may not see it.
-        ...(includeMoney
-          ? { replacementValueAud: true, restorationCostEstimate: true }
-          : {}),
-      },
-    });
+    // Money is not even read for a caller who may not see it.
+    const select = includeMoney
+      ? {
+          ...ITEM_SELECT_BASE,
+          replacementValueAud: true,
+          restorationCostEstimate: true,
+        }
+      : ITEM_SELECT_BASE;
+
+    // Every item, page by page (keyset on id, in creation order). Reading one
+    // page past the maximum is enough to know the job is too large for one file.
+    const items: ExportItem[] = [];
+    let cursor: string | null = null;
+    for (;;) {
+      const page: ExportItem[] = await prisma.contentsPackOutItem.findMany({
+        where: { inspectionId: id },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        take: PAGE_SIZE,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select,
+      });
+      items.push(...page);
+      if (items.length > EXPORT_ITEM_MAX) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `This job has more than ${EXPORT_ITEM_MAX} contents items, too many for one file.`,
+          status: 413,
+        });
+      }
+      if (page.length < PAGE_SIZE) break;
+      cursor = page[page.length - 1].id;
+    }
 
     const buffer = await buildContentsInventoryWorkbook({
       includeMoney,
@@ -122,9 +171,9 @@ export async function GET(
         inspectionDate: inspection.inspectionDate,
         technicianName: inspection.technicianName,
       },
-      items: items.map((item) => ({
+      items: items.map(({ id: _id, sketchRoom, ...item }) => ({
         ...item,
-        roomName: item.sketchRoom?.name ?? null,
+        roomName: sketchRoom?.name ?? null,
       })),
     });
 

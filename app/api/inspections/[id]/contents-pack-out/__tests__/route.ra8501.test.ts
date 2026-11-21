@@ -173,6 +173,58 @@ describe("GET contents-pack-out/export", () => {
     expect(select).not.toHaveProperty("restorationCostEstimate");
   });
 
+  /** A job holding `n` items, served page by page the way Prisma honours take / cursor / skip. */
+  function serveJobOf(n: number) {
+    const rows = Array.from({ length: n }, (_, i) => ({
+      id: `item_${String(i + 1).padStart(5, "0")}`,
+      itemDescription: `Item ${i + 1}`,
+      make: null,
+      model: null,
+      serialNumber: null,
+      packOutDecision: "PACK_OUT",
+      packOutTag: null,
+      conditionPreLoss: null,
+      conditionPostLoss: null,
+      beforePhotoUrl: null,
+      afterPhotoUrl: null,
+      sketchRoom: null,
+    }));
+    itemFindMany.mockImplementation(
+      async (args: { take?: number; skip?: number; cursor?: { id: string } }) => {
+        let start = 0;
+        if (args.cursor) start = rows.findIndex((r) => r.id === args.cursor!.id) + (args.skip ?? 0);
+        return rows.slice(start, args.take === undefined ? undefined : start + args.take);
+      },
+    );
+  }
+
+  // RA-8501 review round 1 (P1): a single `take: 500` dropped item 501 onward
+  // without a word. Every item must reach the file.
+  it("exports every item of a job with more than one page of items", async () => {
+    serveJobOf(1201);
+    const res = await exportGET(exportReq(), params);
+    expect(res.status).toBe(200);
+    const { wb, values } = await cellsOf(res);
+    const inv = wb.getWorksheet("Inventory")!;
+    expect(inv.rowCount).toBe(1202);
+    expect(values).toContain("Item 1");
+    expect(values).toContain("Item 1201");
+    let items = "";
+    wb.getWorksheet("Claim details")!.eachRow((row) => {
+      if (row.getCell(1).value === "Items") items = String(row.getCell(2).value);
+    });
+    expect(items).toBe("1201");
+  });
+
+  it("refuses, rather than cuts short, a job with more items than one file holds", async () => {
+    serveJobOf(5001);
+    await expectRefused(
+      await exportGET(exportReq(), params),
+      413,
+      /more than 5000 contents items/,
+    );
+  });
+
   it("gives an owner or manager the money columns, on a colleague's job too", async () => {
     assertFinancialWriter.mockResolvedValue({
       ok: true,
