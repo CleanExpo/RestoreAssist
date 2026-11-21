@@ -15,6 +15,7 @@
  *   5. Equipment deployment log (S500 §6)
  *   6. Psychrometric data (S500 §5)
  *   6A. Sampling & laboratory results (mould jobs only, RA-7686)
+ *   6B. Independent verification handoff (mould jobs only, RA-8373)
  *   7. Inspection report narrative
  *   8. Drying goals reference (S500 §12.5.7)
  *   9. Signed declaration
@@ -25,6 +26,10 @@ import {
   shouldPrintMouldLabResults,
   type MouldLabAssessment,
 } from "@/lib/reports/mould-lab-results";
+import {
+  buildVerificationHandoff,
+  verificationHandoffRows,
+} from "@/lib/reports/independent-verification-handoff";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import {
   hexToRgb,
@@ -767,6 +772,28 @@ export async function generateIICRCReportPDF(
       w.kv(label, value, 170);
     }
     w.gap(8);
+
+    // ── SECTION 6B: Independent verification handoff (RA-8373) ──────────────
+    // Derived from the record above; the generator persists nothing. No
+    // reviewer record is stored yet, so reviewer items print as outstanding.
+    // Tenancy is the PDF route's job (resolveReportFinancialReach) before this
+    // generator is called.
+    const handoff = buildVerificationHandoff({
+      tenancy: "asserted_by_caller",
+      restorer: { organizationId: null, userIds: [] },
+      assessment: data.mouldAssessment,
+      reviewer: null,
+    });
+    if (handoff.ok) {
+      w.sectionHeader("SECTION 6B - Independent verification handoff");
+      w.gap(4);
+      w.text(handoff.notice, { size: 9, color: C_MUTED });
+      w.gap(4);
+      for (const [label, value] of verificationHandoffRows(handoff)) {
+        w.kv(label, value, 170);
+      }
+      w.gap(8);
+    }
   }
 
   // ── SECTION 7: Inspection Report Narrative ───────────────────────────────────
