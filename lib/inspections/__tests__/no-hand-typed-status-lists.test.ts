@@ -42,24 +42,10 @@ const INSPECTION_STATUSES = new Set([
 const ALLOWED: Record<string, string> = {
   "app/api/clients/route.ts COMPLETED,ARCHIVED":
     "ReportStatus, not InspectionStatus; the values only coincide.",
-  "app/api/inspections/[id]/guidewire/route.ts ESTIMATED,COMPLETED,SCOPED,CLASSIFIED":
-    "Guidewire export readiness; separate product rule, not reviewed in RA-8421.",
   "app/api/inspections/[id]/reopen/route.ts CLOSED,ARCHIVED":
     "Reopenable terminal states, mirrors the lifecycle edges in lib/lifecycle/inspection-state-machine.ts.",
-  "app/api/inspections/[id]/sign/route.ts ESTIMATED,COMPLETED,SUBMITTED":
-    "Sign-off states; a signed job cannot be signed again, so later states are correctly excluded.",
-  "app/dashboard/inspections/[id]/page.tsx ESTIMATED,COMPLETED,SUBMITTED":
-    "canSignOff; same rule as the sign route above.",
   "app/dashboard/inspections/[id]/page.tsx DRAFT,SUBMITTED,PROCESSING,CLASSIFIED,SCOPED,ESTIMATED,IN_BILLING,CLOSED,ARCHIVED,COMPLETED":
     "STATUS_STEPS display order for the progress bar; names every state.",
-  "app/dashboard/field/page.tsx DRAFT,SUBMITTED,PROCESSING,CLASSIFIED,SCOPED,ESTIMATED,IN_BILLING":
-    "Field view active filter; candidate to move onto isActiveInspectionStatus, out of scope here.",
-  "lib/cron/pulse-digest.ts DRAFT,SUBMITTED,PROCESSING,CLASSIFIED,SCOPED,ESTIMATED":
-    "Digest active filter; excludes IN_BILLING unlike the owner. Candidate to move onto the owner, out of scope here.",
-  "lib/live-teacher/build-teacher-context.ts SUBMITTED,PROCESSING,CLASSIFIED,SCOPED,ESTIMATED,IN_BILLING,COMPLETED,CLOSED,ARCHIVED":
-    "Teacher context: every state past DRAFT except REJECTED; includes the new states.",
-  "lib/messaging/job-resolution.ts COMPLETED,CLOSED,ARCHIVED,REJECTED":
-    "Texted-notes inactive filter; same members as INACTIVE_INSPECTION_STATUSES. Candidate to import it, out of scope here.",
 };
 
 const ELEMENT = String.raw`(?:"([A-Z_]+)"|'([A-Z_]+)'|InspectionStatus\.([A-Z_]+))(?:\s+as\s+const)?`;
