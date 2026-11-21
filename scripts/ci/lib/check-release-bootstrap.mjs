@@ -1107,7 +1107,16 @@ export function findReleaseBootstrapViolations(root) {
 
   for (const path of runtimeSourceFiles(root)) {
     if (path.endsWith(join("scripts", "ci", "check-release-bootstrap.mjs"))) continue;
-    const lines = readFileSync(path, "utf8").split("\n");
+    // Checked read (RA-8444): an unreadable runtime source is a violation to
+    // list, not an exception that hides every violation collected so far.
+    let source;
+    try {
+      source = readFileSync(path, "utf8");
+    } catch {
+      violations.push(`${relative(root, path)} cannot be read, so it cannot be scanned for pnpm runtime paths`);
+      continue;
+    }
+    const lines = source.split("\n");
     lines.forEach((line, index) => {
       if (isCommentOnly(line)) return;
       if (/node_modules[/\\]\.pnpm\b/.test(line) || /\bpnpm\s+(?:install|run|exec|add|build|dev|start|test|lint|type-check|prisma|audit|check:|validate:|security:)\b/.test(line)) {
