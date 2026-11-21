@@ -191,6 +191,14 @@ jobs:
       - name: Lucide guard
         run: npm run check:no-lucide
 
+      # argv main-module guard (RA-7785). Fails, with file and line, if any
+      # script under scripts/ decides whether to run by comparing its module URL
+      # or a filename suffix against the process's script argument. Through a
+      # symlink such a gate skips main() and exits 0 having checked nothing.
+      # Use a thin entry over a lib/ module that always runs main() instead.
+      - name: argv main-module guard
+        run: npm run check:no-argv-guard
+
       # Spec-docs layout guard (PR #1968 lesson). A clean merge of main silently
       # relocated the canonical master spec into docs/root-archive/ via git
       # rename detection. Fails if a CANONICAL-status doc sits in the archive,
