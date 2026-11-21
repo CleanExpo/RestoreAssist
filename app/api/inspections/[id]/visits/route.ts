@@ -14,18 +14,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
-import { JOB_CLOSED_MESSAGE, jobTakesVisitsInTx } from "@/lib/site-visits/job-open-in-tx";
+import { startVisit, visitRefusalResponse } from "@/lib/site-visits/visit-writes";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import {
   assertInspectionAssignedWrite,
   assertInspectionReadable,
-  writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
-import {
-  isVisitLockedStatus,
-  minutesOnSite,
-  parseVisitPatch,
-} from "@/lib/site-visits/visit-gate";
+import { minutesOnSite, parseVisitPatch } from "@/lib/site-visits/visit-gate";
 
 const LIST_LIMIT = 50;
 
@@ -48,7 +43,9 @@ export async function GET(
 
     const visits = await prisma.siteVisit.findMany({
       where: { inspectionId: id },
-      orderBy: { visitNumber: "asc" },
+      // The newest LIST_LIMIT visits (the open one is always the newest),
+      // shown oldest first.
+      orderBy: { visitNumber: "desc" },
       take: LIST_LIMIT,
       select: {
         id: true,
@@ -70,7 +67,7 @@ export async function GET(
     // The optimised bucket is private: sign the front photo's stored URLs,
     // as the photos route does.
     const data = await Promise.all(
-      visits.map(async (v) => ({
+      [...visits].reverse().map(async (v) => ({
         ...v,
         frontPhoto: v.frontPhoto
           ? {
@@ -110,61 +107,11 @@ export async function POST(
     }
     const arrivedAt = parsed.data.arrivedAt ?? now;
 
-    const job = await prisma.inspection.findUnique({ where: { id }, select: { status: true } });
-    if (!job) return tenancyRefusal(request, { status: 404, reason: "Inspection not found" });
-    if (isVisitLockedStatus(job.status)) {
-      return apiError(request, {
-        code: "CONFLICT",
-        message: JOB_CLOSED_MESSAGE,
-        status: 409,
-      });
-    }
-
-    // The scoped parent write takes the job's row lock, so two starts on the
-    // same job run one after the other: the second sees the first's open
-    // visit. The (inspectionId, visitNumber) unique key backs that up (a
-    // collision answers 409 through fromException).
-    const result = await writeWithinInspectionScope(
-      tenancy.data.inspectionManyWhere,
-      { updatedAt: now },
-      async (tx) => {
-        if (!(await jobTakesVisitsInTx(tx, id))) return { closed: true } as const;
-        const open = await tx.siteVisit.findFirst({
-          where: { inspectionId: id, submittedAt: null },
-          select: { id: true, visitNumber: true },
-        });
-        if (open) return { conflict: open.visitNumber } as const;
-        const last = await tx.siteVisit.findFirst({
-          where: { inspectionId: id },
-          orderBy: { visitNumber: "desc" },
-          select: { visitNumber: true },
-        });
-        const visit = await tx.siteVisit.create({
-          data: {
-            inspectionId: id,
-            visitNumber: (last?.visitNumber ?? 0) + 1,
-            technicianId: userId,
-            arrivedAt,
-          },
-        });
-        return { visit } as const;
-      },
-    );
-
-    if (result === null) return tenancyRefusal(request, { status: 404, reason: "Inspection not found" });
-    if ("closed" in result) return apiError(request, {
-        code: "CONFLICT",
-        message: JOB_CLOSED_MESSAGE,
-        status: 409,
-      });
-    if ("conflict" in result) {
-      return apiError(request, {
-        code: "CONFLICT",
-        message: `Visit ${result.conflict} is still open. Submit it before starting another visit.`,
-        status: 409,
-      });
-    }
-    return NextResponse.json({ data: result.visit }, { status: 201 });
+    // Every decision (job still open, no other visit open, next number) is
+    // made under the job's row lock in lib/site-visits/visit-writes.ts.
+    const result = await startVisit(tenancy.data.inspectionManyWhere, { inspectionId: id, userId, arrivedAt, now });
+    if (!result.ok) return visitRefusalResponse(request, result.refusal);
+    return NextResponse.json({ data: result.value }, { status: 201 });
   } catch (error) {
     return fromException(request, error, { stage: "site-visits-post" });
   }

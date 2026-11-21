@@ -8,28 +8,17 @@
  * front of property photo of this job that counts as evidence, and the
  * equipment outcome. lib/site-visits/visit-gate.ts owns that rule.
  *
- * The submit is pinned to the version it checked (`updatedAt`), so an edit
- * that lands in between makes it answer 409 instead of submitting a visit
- * nobody checked. Once submitted the visit is read-only.
+ * The gate runs on the stored visit under the job's row lock, so an edit
+ * cannot land between the check and the submit. Once submitted the visit is
+ * read-only.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
-import { JOB_CLOSED_MESSAGE, jobTakesVisitsInTx } from "@/lib/site-visits/job-open-in-tx";
-import {
-  assertInspectionAssignedWrite,
-  writeWithinInspectionScope,
-} from "@/lib/auth/assert-tenancy";
-import {
-  FILE_EVIDENCE_STATUS_SELECT,
-  rejectedOnlyFileUrls,
-} from "@/lib/evidence/countable-evidence";
-import {
-  evaluateVisitSubmission,
-  isVisitLockedStatus,
-} from "@/lib/site-visits/visit-gate";
+import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import { submitVisit, visitRefusalResponse } from "@/lib/site-visits/visit-writes";
+
 
 const notFound = (request: NextRequest, what = "Site visit not found") =>
   apiError(request, { code: "NOT_FOUND", message: what, status: 404 });
@@ -49,115 +38,11 @@ export async function POST(
     }
     const userId = session!.user!.id;
 
-    const visit = await prisma.siteVisit.findFirst({
-      where: { id: visitId, inspectionId: id },
-      select: {
-        id: true,
-        visitNumber: true,
-        arrivedAt: true,
-        departedAt: true,
-        metOnSite: true,
-        frontPhotoId: true,
-        equipmentOutcome: true,
-        equipmentNote: true,
-        submittedAt: true,
-        updatedAt: true,
-      },
-    });
-    if (!visit) return notFound(request);
-    if (visit.submittedAt) {
-      return apiError(request, {
-        code: "CONFLICT",
-        message: "This visit has already been submitted.",
-        status: 409,
-      });
-    }
-
-    const job = await prisma.inspection.findUnique({ where: { id }, select: { status: true } });
-    if (!job) return notFound(request, "Inspection not found");
-    if (isVisitLockedStatus(job.status)) {
-      return apiError(request, {
-        code: "CONFLICT",
-        message: JOB_CLOSED_MESSAGE,
-        status: 409,
-      });
-    }
-
-    // The front photo must still be a photo of this job, and (RA-8388) a
-    // photograph whose only evidence record is REJECTED does not count.
-    let frontPhotoUsable = false;
-    if (visit.frontPhotoId) {
-      const photo = await prisma.inspectionPhoto.findFirst({
-        where: { id: visit.frontPhotoId, inspectionId: id },
-        select: { url: true },
-      });
-      if (photo) {
-        const records = await prisma.evidenceItem.findMany({
-          where: { inspectionId: id, fileUrl: photo.url },
-          select: FILE_EVIDENCE_STATUS_SELECT.select,
-        });
-        frontPhotoUsable = !rejectedOnlyFileUrls(records).has(photo.url);
-      }
-    }
-
-    const gate = evaluateVisitSubmission(visit, { frontPhotoUsable });
-    if (!gate.ok) {
-      // Field names only; never the recorded values.
-      console.warn("[site-visit.submit_refused]", {
-        inspectionId: id,
-        visitId,
-        missing: gate.missing.map((m) => m.field),
-      });
-      return apiError(request, {
-        code: "VALIDATION",
-        message: `Visit ${visit.visitNumber} cannot be submitted yet: ${gate.missing.map((m) => m.label).join(", ")}.`,
-        status: 422,
-        fields: Object.fromEntries(gate.missing.map((m) => [m.field, m.label])),
-      });
-    }
-
-    const now = new Date();
-    const claimed = await writeWithinInspectionScope(
-      tenancy.data.inspectionManyWhere,
-      { updatedAt: now },
-      async (tx) => {
-        if (!(await jobTakesVisitsInTx(tx, id))) return "closed" as const;
-        const done = await tx.siteVisit.updateMany({
-          where: { id: visitId, inspectionId: id, submittedAt: null, updatedAt: visit.updatedAt },
-          data: { submittedAt: now, submittedById: userId },
-        });
-        // The audit row commits with the submit or not at all: a failed
-        // insert throws and rolls the submit back, so a retry still works.
-        if (done.count === 1) {
-          await tx.auditLog.create({
-            data: {
-              inspectionId: id,
-              action: "Site visit submitted",
-              entityType: "SiteVisit",
-              entityId: visitId,
-              userId,
-              changes: JSON.stringify({ visitNumber: visit.visitNumber }),
-            },
-          });
-        }
-        return done;
-      },
-    );
-    if (claimed === null) return notFound(request, "Inspection not found");
-    if (claimed === "closed") return apiError(request, {
-        code: "CONFLICT",
-        message: JOB_CLOSED_MESSAGE,
-        status: 409,
-      });
-    if (claimed.count === 0) {
-      return apiError(request, {
-        code: "CONFLICT",
-        message: "This visit changed or was submitted while it was being checked. Reload and try again.",
-        status: 409,
-      });
-    }
-
-    return NextResponse.json({ data: { id: visitId, visitNumber: visit.visitNumber, submittedAt: now } });
+    // The gate runs on the stored visit under the job's row lock, and the
+    // audit row commits with the submit (lib/site-visits/visit-writes.ts).
+    const result = await submitVisit(tenancy.data.inspectionManyWhere, { inspectionId: id, visitId, userId, now: new Date() });
+    if (!result.ok) return visitRefusalResponse(request, result.refusal);
+    return NextResponse.json({ data: result.value });
   } catch (error) {
     return fromException(request, error, { stage: "site-visit-submit" });
   }

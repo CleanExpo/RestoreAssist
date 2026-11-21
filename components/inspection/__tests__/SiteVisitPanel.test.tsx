@@ -119,4 +119,37 @@ describe("SiteVisitPanel (RA-8498)", () => {
     render(<SiteVisitPanel inspectionId="i1" />);
     expect(await screen.findByLabelText("Which equipment was removed")).toBeInTheDocument();
   });
+
+  // Review round 2, P1: the photos list is newest first. On a job with more
+  // than 24 photos, an older front of property photo must still be choosable,
+  // and the chosen photo must always be shown.
+  it("lets the technician reach every photo on a job with more than 24", async () => {
+    const photos = Array.from({ length: 30 }, (_, i) => ({ id: `ph_${i + 1}`, url: `u${i + 1}`, thumbnailUrl: null }));
+    const f = stubFetch(
+      () => [openVisit],
+      (url) => (url.endsWith("/photos") ? json({ photos }) : null),
+    );
+    render(<SiteVisitPanel inspectionId="i1" />);
+    await screen.findByLabelText("Photo 1");
+    expect(screen.queryByLabelText("Photo 30")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show all 30 photos" }));
+    fireEvent.click(screen.getByLabelText("Photo 30"));
+    await waitFor(() =>
+      expect(f).toHaveBeenCalledWith(
+        "/api/inspections/i1/visits/v1",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ frontPhotoId: "ph_30" }) }),
+      ),
+    );
+  });
+
+  it("always shows the chosen front photo, even when it is not among the newest 24", async () => {
+    const photos = Array.from({ length: 30 }, (_, i) => ({ id: `ph_${i + 1}`, url: `u${i + 1}`, thumbnailUrl: null }));
+    stubFetch(
+      () => [{ ...openVisit, frontPhotoId: "ph_28" }],
+      (url) => (url.endsWith("/photos") ? json({ photos }) : null),
+    );
+    render(<SiteVisitPanel inspectionId="i1" />);
+    expect(await screen.findByLabelText("Photo 28 (front of property)")).toBeChecked();
+  });
 });
+

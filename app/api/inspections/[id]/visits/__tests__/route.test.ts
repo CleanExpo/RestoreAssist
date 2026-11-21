@@ -10,8 +10,14 @@
  * technician-read-reach); here they are mocked, and the tests prove each
  * route maps a refusal to an opaque 404 and writes nothing, and that every
  * write runs inside writeWithinInspectionScope with the helper's scope.
+ *
+ * Review rounds 1 and 2 (RA-8498): every write decision is made on the
+ * transaction client, after the job row is claimed. The mocks keep the
+ * transaction client and the root client apart, the mocked lock runs one
+ * piece of work at a time (as the job row lock does), and afterEach proves no
+ * write handler read the root client.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { expectRefused } from "@/tests/helpers/expect-refused";
 
@@ -27,12 +33,17 @@ const m = vi.hoisted(() => ({
   visitFindMany: vi.fn(),
   visitFindFirst: vi.fn(),
   visitCreate: vi.fn(),
-  visitUpdateMany: vi.fn(),
+  visitUpdate: vi.fn(),
   photoFindFirst: vi.fn(),
   evidenceFindMany: vi.fn(),
   auditCreate: vi.fn(),
-  txInspectionFindUnique: vi.fn(),
-  txAuditCreate: vi.fn(),
+  // Root-client reads and writes a visit write handler must never make.
+  rootInspectionFindUnique: vi.fn(),
+  rootVisitFindFirst: vi.fn(),
+  rootPhotoFindFirst: vi.fn(),
+  rootEvidenceFindMany: vi.fn(),
+  rootAuditCreate: vi.fn(),
+  lock: Promise.resolve() as Promise<unknown>,
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: m.getServerSession }));
@@ -42,24 +53,23 @@ vi.mock("@/lib/storage/sign-stored-url", () => ({
 }));
 vi.mock("@/lib/prisma", () => {
   const tx = {
+    inspection: { findUnique: m.inspectionFindUnique },
     siteVisit: {
       findFirst: m.visitFindFirst,
       create: m.visitCreate,
-      updateMany: m.visitUpdateMany,
+      update: m.visitUpdate,
     },
-    // RA-8498 review round 1: the job's status is re-read, and the audit row
-    // written, inside the locked transaction (separate mocks from the root
-    // client so a test can tell which one a route used).
-    inspection: { findUnique: m.txInspectionFindUnique },
-    auditLog: { create: m.txAuditCreate },
+    inspectionPhoto: { findFirst: m.photoFindFirst },
+    evidenceItem: { findMany: m.evidenceFindMany },
+    auditLog: { create: m.auditCreate },
   };
   return {
     prisma: {
-      inspection: { findUnique: m.inspectionFindUnique },
-      siteVisit: { findMany: m.visitFindMany, findFirst: m.visitFindFirst },
-      inspectionPhoto: { findFirst: m.photoFindFirst },
-      evidenceItem: { findMany: m.evidenceFindMany },
-      auditLog: { create: m.auditCreate },
+      inspection: { findUnique: m.rootInspectionFindUnique },
+      siteVisit: { findMany: m.visitFindMany, findFirst: m.rootVisitFindFirst },
+      inspectionPhoto: { findFirst: m.rootPhotoFindFirst },
+      evidenceItem: { findMany: m.rootEvidenceFindMany },
+      auditLog: { create: m.rootAuditCreate },
       __tx: tx,
     },
   };
@@ -69,9 +79,12 @@ vi.mock("@/lib/auth/assert-tenancy", async () => {
   return {
     assertInspectionReadable: m.assertInspectionReadable,
     assertInspectionAssignedWrite: m.assertInspectionAssignedWrite,
-    writeWithinInspectionScope: async (scope: unknown, _data: unknown, work: (tx: unknown) => Promise<unknown>) => {
+    // One piece of locked work at a time, like the job row lock.
+    writeWithinInspectionScope: (scope: unknown, _data: unknown, work: (tx: unknown) => Promise<unknown>) => {
       m.scopesSeen.push(scope);
-      return m.scopeMatches ? work(prisma.__tx) : null;
+      const run = m.lock.then(() => (m.scopeMatches ? work(prisma.__tx) : null));
+      m.lock = run.catch(() => undefined);
+      return run;
     },
   };
 });
@@ -106,9 +119,10 @@ const openVisit = (over: Record<string, unknown> = {}) => ({
 });
 
 const writes = () =>
-  m.visitCreate.mock.calls.length + m.visitUpdateMany.mock.calls.length +
+  m.visitCreate.mock.calls.length +
+  m.visitUpdate.mock.calls.length +
   m.auditCreate.mock.calls.length +
-  m.txAuditCreate.mock.calls.length;
+  m.rootAuditCreate.mock.calls.length;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -124,12 +138,20 @@ beforeEach(() => {
   m.visitFindMany.mockResolvedValue([]);
   m.visitFindFirst.mockResolvedValue(null);
   m.visitCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "v_new", ...data }));
-  m.visitUpdateMany.mockResolvedValue({ count: 1 });
+  m.visitUpdate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "v1", ...data }));
+  m.lock = Promise.resolve();
   m.photoFindFirst.mockResolvedValue({ id: "ph_1", url: "https://s/ph1.jpg" });
   m.evidenceFindMany.mockResolvedValue([]);
   m.auditCreate.mockResolvedValue({});
-  m.txInspectionFindUnique.mockResolvedValue({ status: "DRAFT" });
-  m.txAuditCreate.mockResolvedValue({});
+});
+
+afterEach(() => {
+  // No write handler decides on a root-client read (review rounds 1 and 2).
+  expect(m.rootInspectionFindUnique).not.toHaveBeenCalled();
+  expect(m.rootVisitFindFirst).not.toHaveBeenCalled();
+  expect(m.rootPhotoFindFirst).not.toHaveBeenCalled();
+  expect(m.rootEvidenceFindMany).not.toHaveBeenCalled();
+  expect(m.rootAuditCreate).not.toHaveBeenCalled();
 });
 
 describe("every visit handler refuses without a session or reach", () => {
@@ -157,7 +179,7 @@ describe("every visit handler refuses without a session or reach", () => {
 });
 
 describe("GET /visits", () => {
-  it("lists the job's visits, oldest first, with time on site", async () => {
+  it("lists the job's newest visits, shown oldest first, with time on site", async () => {
     m.visitFindMany.mockResolvedValue([{ ...openVisit(), frontPhoto: { id: "ph_1", url: "u", thumbnailUrl: null } }]);
     const res = await GET(req("GET"), ctx);
     expect(res.status).toBe(200);
@@ -167,7 +189,19 @@ describe("GET /visits", () => {
     expect(body.data[0].frontPhoto).toEqual({ id: "ph_1", url: "signed:u", thumbnailUrl: null });
     const args = m.visitFindMany.mock.calls[0][0];
     expect(args.where).toEqual({ inspectionId: "insp_1" });
-    expect(args.orderBy).toEqual({ visitNumber: "asc" });
+    // Newest first in the query so the open visit (always the newest) is
+    // never cut off on a long job; the answer is turned back to oldest first.
+    expect(args.orderBy).toEqual({ visitNumber: "desc" });
+    expect(args.take).toBe(50);
+  });
+
+  it("answers oldest first", async () => {
+    m.visitFindMany.mockResolvedValue([
+      { ...openVisit({ id: "v2", visitNumber: 2 }), frontPhoto: null },
+      { ...openVisit({ visitNumber: 1, submittedAt: new Date() }), frontPhoto: null },
+    ]);
+    const body = await (await GET(req("GET"), ctx)).json();
+    expect(body.data.map((v: { visitNumber: number }) => v.visitNumber)).toEqual([1, 2]);
   });
 });
 
@@ -240,9 +274,11 @@ describe("PATCH /visits/[visitId]", () => {
   it("200: updates only an open visit of this job, inside the scoped write", async () => {
     const res = await PATCH(req("PATCH", { metOnSite: "OWNER" }), vctx);
     expect(res.status).toBe(200);
-    const args = m.visitUpdateMany.mock.calls[0][0];
-    expect(args.where).toEqual({ id: "v1", inspectionId: "insp_1", submittedAt: null });
+    const args = m.visitUpdate.mock.calls[0][0];
+    expect(args.where).toEqual({ id: "v1" });
     expect(args.data).toEqual({ metOnSite: "OWNER" });
+    // The visit was found on this job, under the lock.
+    expect(m.visitFindFirst.mock.calls[0][0].where).toEqual({ id: "v1", inspectionId: "insp_1" });
     expect(m.scopesSeen).toEqual([SCOPE]);
   });
 
@@ -259,12 +295,6 @@ describe("PATCH /visits/[visitId]", () => {
     const res = await PATCH(req("PATCH", { metOnSite: "OWNER" }), vctx);
     await expectRefused(res, 409, /has been submitted/);
     expect(writes()).toBe(0);
-  });
-
-  it("409 when a submit lands between the read and the write", async () => {
-    m.visitUpdateMany.mockResolvedValue({ count: 0 });
-    const res = await PATCH(req("PATCH", { metOnSite: "OWNER" }), vctx);
-    await expectRefused(res, 409, /submitted while you were editing/);
   });
 
   it("400 for a front photo from another job, and writes nothing", async () => {
@@ -292,6 +322,30 @@ describe("PATCH /visits/[visitId]", () => {
     const res = await PATCH(req("PATCH", { metOnSite: "OWNER" }), vctx);
     await expectRefused(res, 409, /job is closed/);
     expect(writes()).toBe(0);
+  });
+
+  // Review round 2, P1: arrival 10:00, departure 13:00. One edit moves the
+  // departure to 11:00, another moves the arrival to 12:00. Each is valid on
+  // its own; together they would store a departure before the arrival. Both
+  // are checked against the stored visit under the lock, so the second sees
+  // the first and is refused.
+  it("two edits at once never store a departure before the arrival", async () => {
+    let row = openVisit({
+      arrivedAt: new Date("2020-03-02T10:00:00Z"),
+      departedAt: new Date("2020-03-02T13:00:00Z"),
+    });
+    m.visitFindFirst.mockImplementation(async () => ({ ...row }));
+    m.visitUpdate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
+      row = { ...row, ...data };
+      return row;
+    });
+    const [a, b] = await Promise.all([
+      PATCH(req("PATCH", { departedAt: "2020-03-02T11:00:00Z" }), vctx),
+      PATCH(req("PATCH", { arrivedAt: "2020-03-02T12:00:00Z" }), vctx),
+    ]);
+    expect([a.status, b.status]).toEqual([200, 400]);
+    await expectRefused(b, 400, /Departure time must be after arrival time/);
+    expect((row.departedAt as Date).getTime()).toBeGreaterThan((row.arrivedAt as Date).getTime());
   });
 });
 
@@ -322,22 +376,21 @@ describe("POST /visits/[visitId]/submit", () => {
     await expectRefused(res, 422, /Front of property photo/);
   });
 
-  it("200: a complete visit is submitted by the caller, pinned to the version checked, and audited", async () => {
+  it("200: a complete visit is submitted by the caller, under the lock, and audited", async () => {
     const visit = openVisit();
     m.visitFindFirst.mockResolvedValue(visit);
     const res = await SUBMIT(req("POST"), vctx);
     expect(res.status).toBe(200);
-    const args = m.visitUpdateMany.mock.calls[0][0];
-    expect(args.where).toEqual({ id: "v1", inspectionId: "insp_1", submittedAt: null, updatedAt: visit.updatedAt });
+    const args = m.visitUpdate.mock.calls[0][0];
+    expect(args.where).toEqual({ id: "v1" });
     expect(args.data.submittedById).toBe("tech_1");
     expect(args.data.submittedAt).toBeInstanceOf(Date);
     expect(m.scopesSeen).toEqual([SCOPE]);
-    // The audit row is written in the same transaction as the submit, so a
-    // failed audit insert rolls the submit back (review round 1, P1).
-    expect(m.txAuditCreate).toHaveBeenCalledTimes(1);
-    expect(m.auditCreate).not.toHaveBeenCalled();
+    // The audit row is written on the transaction client, so a failed audit
+    // insert rolls the submit back (review round 1, P1).
+    expect(m.auditCreate).toHaveBeenCalledTimes(1);
     // The audit row names the visit, never the personal values.
-    const audit = JSON.stringify(m.txAuditCreate.mock.calls[0][0]);
+    const audit = JSON.stringify(m.auditCreate.mock.calls[0][0]);
     expect(audit).not.toContain("TENANT");
   });
 
@@ -348,15 +401,6 @@ describe("POST /visits/[visitId]/submit", () => {
     expect(writes()).toBe(0);
   });
 
-  it("409 when the visit changed after it was checked (lost the race)", async () => {
-    m.visitFindFirst.mockResolvedValue(openVisit());
-    m.visitUpdateMany.mockResolvedValue({ count: 0 });
-    const res = await SUBMIT(req("POST"), vctx);
-    await expectRefused(res, 409, /changed or was submitted/);
-    expect(m.auditCreate).not.toHaveBeenCalled();
-    expect(m.txAuditCreate).not.toHaveBeenCalled();
-  });
-
   it("404 for a visit not on this job", async () => {
     m.visitFindFirst.mockResolvedValue(null);
     const res = await SUBMIT(req("POST"), vctx);
@@ -365,48 +409,33 @@ describe("POST /visits/[visitId]/submit", () => {
   });
 });
 
-// RA-8498 review round 1, P1: a job closed between the route's first status
-// read and the locked write must not take a visit write. Each writer re-reads
-// the status inside the transaction, after the job's row lock is held.
-describe("a job that becomes inactive before the locked write", () => {
-  beforeEach(() => {
-    m.inspectionFindUnique.mockResolvedValue({ status: "SUBMITTED" });
-    m.txInspectionFindUnique.mockResolvedValue({ status: "CLOSED" });
-  });
-
-  it("POST /visits answers 409 and creates no visit", async () => {
-    const res = await POST(req("POST", {}), ctx);
-    await expectRefused(res, 409, /This job is closed/);
-    expect(m.visitCreate).not.toHaveBeenCalled();
-  });
-
-  it("PATCH answers 409 and changes nothing", async () => {
-    m.visitFindFirst.mockResolvedValue(openVisit());
-    const res = await PATCH(req("PATCH", { metOnSite: "OWNER" }), vctx);
-    await expectRefused(res, 409, /This job is closed/);
-    expect(m.visitUpdateMany).not.toHaveBeenCalled();
-  });
-
-  it("submit answers 409, submits nothing and writes no audit row", async () => {
-    m.visitFindFirst.mockResolvedValue(openVisit());
-    const res = await SUBMIT(req("POST"), vctx);
-    await expectRefused(res, 409, /This job is closed/);
-    expect(m.visitUpdateMany).not.toHaveBeenCalled();
-    expect(m.txAuditCreate).not.toHaveBeenCalled();
-  });
-});
-
 // RA-8498 review round 1, P1: the submit and its audit row commit together.
 describe("POST /visits/[visitId]/submit audit failure", () => {
   it("a failed audit insert fails the request inside the transaction", async () => {
     m.visitFindFirst.mockResolvedValue(openVisit());
-    m.txAuditCreate.mockRejectedValue(new Error("audit insert failed"));
+    m.auditCreate.mockRejectedValue(new Error("audit insert failed"));
     const res = await SUBMIT(req("POST"), vctx);
     expect(res.status).toBe(500);
     // The submit update and the audit insert ran on the same transaction
     // client; the real transaction rolls both back on this throw.
-    expect(m.visitUpdateMany).toHaveBeenCalledTimes(1);
-    expect(m.txAuditCreate).toHaveBeenCalledTimes(1);
-    expect(m.auditCreate).not.toHaveBeenCalled();
+    expect(m.visitUpdate).toHaveBeenCalledTimes(1);
+    expect(m.auditCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Review rounds 1 and 2: the job's status is read under the lock, so a job
+// closed after the tenancy check refuses the write.
+describe("a job that is closed by the time the lock is taken", () => {
+  beforeEach(() => {
+    m.inspectionFindUnique.mockResolvedValue({ status: "CLOSED" });
+    m.visitFindFirst.mockResolvedValue(openVisit());
+  });
+  it.each<[string, () => Promise<Response>]>([
+    ["POST start", () => POST(req("POST", {}), ctx)],
+    ["PATCH", () => PATCH(req("PATCH", { metOnSite: "OWNER" }), vctx)],
+    ["POST submit", () => SUBMIT(req("POST"), vctx)],
+  ])("%s answers 409 and writes nothing", async (_n, call) => {
+    await expectRefused(await call(), 409, /This job is closed/);
+    expect(writes()).toBe(0);
   });
 });

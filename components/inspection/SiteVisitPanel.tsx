@@ -20,6 +20,9 @@ import {
   type MetOnSite,
 } from "@/lib/site-visits/visit-gate";
 
+/** Photos shown in the front photo picker before "Show all". */
+const PHOTO_PAGE = 24;
+
 export interface SiteVisitRow {
   id: string;
   visitNumber: number;
@@ -27,7 +30,11 @@ export interface SiteVisitRow {
   departedAt: string | null;
   metOnSite: MetOnSite | null;
   frontPhotoId: string | null;
-  frontPhoto: { id: string; url: string | null; thumbnailUrl: string | null } | null;
+  frontPhoto: {
+    id: string;
+    url: string | null;
+    thumbnailUrl: string | null;
+  } | null;
   equipmentOutcome: EquipmentOutcome | null;
   equipmentNote: string | null;
   submittedAt: string | null;
@@ -63,7 +70,10 @@ function fromLocalInput(value: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+const timeFormat = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 
 function formatDuration(minutes: number | null): string {
   if (minutes === null) return "";
@@ -72,18 +82,27 @@ function formatDuration(minutes: number | null): string {
   return h > 0 ? `${h} h ${m} min` : `${m} min`;
 }
 
-async function readError(res: Response): Promise<{ message: string; fields: Record<string, string> }> {
+async function readError(
+  res: Response,
+): Promise<{ message: string; fields: Record<string, string> }> {
   const body = (await res.json().catch(() => null)) as {
     error?: { message?: string; fields?: Record<string, string> } | string;
   } | null;
   const err = body?.error;
   if (err && typeof err === "object") {
-    return { message: err.message ?? "Something went wrong", fields: err.fields ?? {} };
+    return {
+      message: err.message ?? "Something went wrong",
+      fields: err.fields ?? {},
+    };
   }
-  return { message: typeof err === "string" ? err : "Something went wrong", fields: {} };
+  return {
+    message: typeof err === "string" ? err : "Something went wrong",
+    fields: {},
+  };
 }
 
-const fieldLabel = "block text-xs font-medium text-brand-slate dark:text-white/60 mb-1";
+const fieldLabel =
+  "block text-xs font-medium text-brand-slate dark:text-white/60 mb-1";
 const box =
   "w-full min-h-[44px] rounded-xl border border-brand-mist dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm text-brand-navy dark:text-white";
 const choice = (selected: boolean) =>
@@ -97,6 +116,7 @@ const choice = (selected: boolean) =>
 export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
   const [visits, setVisits] = useState<SiteVisitRow[] | null>(null);
   const [photos, setPhotos] = useState<PhotoOption[]>([]);
+  const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -114,9 +134,14 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
         return;
       }
       setVisits(((await v.json()) as { data: SiteVisitRow[] }).data);
-      if (p.ok) setPhotos(((await p.json()) as { photos?: PhotoOption[] }).photos ?? []);
+      if (p.ok)
+        setPhotos(
+          ((await p.json()) as { photos?: PhotoOption[] }).photos ?? [],
+        );
     } catch {
-      setError("Could not load site visits. Check your connection and try again.");
+      setError(
+        "Could not load site visits. Check your connection and try again.",
+      );
       setVisits((cur) => cur ?? []);
     }
   }, [base, inspectionId]);
@@ -148,7 +173,10 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
   async function save(visit: SiteVisitRow, patch: Patch) {
     setError(null);
     // Show the change straight away; the reload below brings back what saved.
-    setVisits((cur) => cur?.map((v) => (v.id === visit.id ? { ...v, ...patch } : v)) ?? cur);
+    setVisits(
+      (cur) =>
+        cur?.map((v) => (v.id === visit.id ? { ...v, ...patch } : v)) ?? cur,
+    );
     const res = await fetch(`${base}/${visit.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -177,7 +205,11 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
   }
 
   if (visits === null) {
-    return <p className="text-sm text-brand-slate dark:text-white/50 py-6 text-center">Loading site visits...</p>;
+    return (
+      <p className="text-sm text-brand-slate dark:text-white/50 py-6 text-center">
+        Loading site visits...
+      </p>
+    );
   }
 
   return (
@@ -217,7 +249,9 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
                 type="datetime-local"
                 className={box}
                 value={toLocalInput(open.arrivedAt)}
-                onChange={(e) => void save(open, { arrivedAt: fromLocalInput(e.target.value) })}
+                onChange={(e) =>
+                  void save(open, { arrivedAt: fromLocalInput(e.target.value) })
+                }
               />
             </div>
             <div>
@@ -230,12 +264,18 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
                   type="datetime-local"
                   className={box}
                   value={toLocalInput(open.departedAt)}
-                  onChange={(e) => void save(open, { departedAt: fromLocalInput(e.target.value) })}
+                  onChange={(e) =>
+                    void save(open, {
+                      departedAt: fromLocalInput(e.target.value),
+                    })
+                  }
                 />
                 <button
                   type="button"
                   className="min-h-[44px] shrink-0 rounded-xl bg-brand-navy/5 dark:bg-white/10 px-3 text-sm font-medium"
-                  onClick={() => void save(open, { departedAt: new Date().toISOString() })}
+                  onClick={() =>
+                    void save(open, { departedAt: new Date().toISOString() })
+                  }
                 >
                   Now
                 </button>
@@ -265,35 +305,69 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
             <legend className={fieldLabel}>Front of property photo</legend>
             {photos.length === 0 ? (
               <p className="text-sm text-brand-slate dark:text-white/50">
-                No photos on this job yet. Take the front of property photo on the{" "}
-                <a className="underline text-brand-bronze dark:text-brand-gold" href={`/dashboard/inspections/${inspectionId}/photos`}>
+                No photos on this job yet. Take the front of property photo on
+                the{" "}
+                <a
+                  className="underline text-brand-bronze dark:text-brand-gold"
+                  href={`/dashboard/inspections/${inspectionId}/photos`}
+                >
                   Photos page
                 </a>
                 , then choose it here.
               </p>
             ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {photos.slice(0, 24).map((p, i) => (
-                  <label
-                    key={p.id}
-                    className={cn(
-                      "relative block aspect-square overflow-hidden rounded-xl border-2",
-                      open.frontPhotoId === p.id ? "border-brand-gold" : "border-transparent",
-                    )}
+              <>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {/* The newest PHOTO_PAGE photos, plus the chosen one wherever it
+                    is; "Show all" reaches older photos (review round 2). */}
+                  {photos
+                    .map((p, i) => ({ p, i }))
+                    .filter(
+                      ({ p, i }) =>
+                        showAllPhotos ||
+                        i < PHOTO_PAGE ||
+                        p.id === open.frontPhotoId,
+                    )
+                    .map(({ p, i }) => (
+                      <label
+                        key={p.id}
+                        className={cn(
+                          "relative block aspect-square overflow-hidden rounded-xl border-2",
+                          open.frontPhotoId === p.id
+                            ? "border-brand-gold"
+                            : "border-transparent",
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="frontPhotoId"
+                          className="sr-only"
+                          checked={open.frontPhotoId === p.id}
+                          onChange={() =>
+                            void save(open, { frontPhotoId: p.id })
+                          }
+                          aria-label={`Photo ${i + 1}${open.frontPhotoId === p.id ? " (front of property)" : ""}`}
+                        />
+                        {/* eslint-disable-next-line @next/next/no-img-element -- signed storage URL, not a static asset */}
+                        <img
+                          src={p.thumbnailUrl ?? p.url ?? ""}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      </label>
+                    ))}
+                </div>
+                {!showAllPhotos && photos.length > PHOTO_PAGE && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllPhotos(true)}
+                    className="mt-2 min-h-[44px] w-full rounded-xl border border-brand-slate/30 px-4 text-sm font-medium dark:border-white/20"
                   >
-                    <input
-                      type="radio"
-                      name="frontPhotoId"
-                      className="sr-only"
-                      checked={open.frontPhotoId === p.id}
-                      onChange={() => void save(open, { frontPhotoId: p.id })}
-                      aria-label={`Photo ${i + 1}${open.frontPhotoId === p.id ? " (front of property)" : ""}`}
-                    />
-                    {/* eslint-disable-next-line @next/next/no-img-element -- signed storage URL, not a static asset */}
-                    <img src={p.thumbnailUrl ?? p.url ?? ""} alt="" className="h-full w-full object-cover" />
-                  </label>
-                ))}
-              </div>
+                    Show all {photos.length} photos
+                  </button>
+                )}
+              </>
             )}
           </fieldset>
 
@@ -324,7 +398,8 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
                   maxLength={500}
                   defaultValue={open.equipmentNote ?? ""}
                   onBlur={(e) => {
-                    if (e.target.value !== (open.equipmentNote ?? "")) void save(open, { equipmentNote: e.target.value });
+                    if (e.target.value !== (open.equipmentNote ?? ""))
+                      void save(open, { equipmentNote: e.target.value });
                   }}
                 />
               </div>
@@ -353,7 +428,9 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
             onClick={() => void startVisit()}
             className="w-full min-h-[48px] rounded-xl bg-brand-gold text-brand-navy font-semibold disabled:opacity-60"
           >
-            {submitted.length === 0 ? "Start visit" : `Start visit ${submitted.length + 1}`}
+            {submitted.length === 0
+              ? "Start visit"
+              : `Start visit ${submitted.length + 1}`}
           </button>
         </div>
       )}
@@ -366,17 +443,24 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
               className="rounded-xl bg-brand-navy/5 dark:bg-white/5 px-4 py-3 text-sm space-y-1"
             >
               <p className="font-semibold">
-                Visit {v.visitNumber} <span className="font-normal text-brand-slate dark:text-white/50">submitted</span>
+                Visit {v.visitNumber}{" "}
+                <span className="font-normal text-brand-slate dark:text-white/50">
+                  submitted
+                </span>
               </p>
               <p className="text-brand-slate dark:text-white/70">
                 {v.arrivedAt ? timeFormat.format(new Date(v.arrivedAt)) : ""} to{" "}
                 {v.departedAt ? timeFormat.format(new Date(v.departedAt)) : ""}
-                {v.minutesOnSite !== null ? ` (${formatDuration(v.minutesOnSite)} on site)` : ""}
+                {v.minutesOnSite !== null
+                  ? ` (${formatDuration(v.minutesOnSite)} on site)`
+                  : ""}
               </p>
               <p className="text-brand-slate dark:text-white/70">
                 On site: {v.metOnSite ? MET_ON_SITE_LABEL[v.metOnSite] : ""}
                 {" · "}
-                {v.equipmentOutcome ? EQUIPMENT_OUTCOME_LABEL[v.equipmentOutcome] : ""}
+                {v.equipmentOutcome
+                  ? EQUIPMENT_OUTCOME_LABEL[v.equipmentOutcome]
+                  : ""}
               </p>
             </li>
           ))}
