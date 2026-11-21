@@ -92,11 +92,13 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
 import { floorRevisionOf } from "@/lib/sketch/floor-revision-server";
+import { createHash } from "node:crypto";
+import { stableStringify } from "@/lib/sketch/roomplan-custody-queue";
 
 type Fn = ReturnType<typeof vi.fn>;
 const mockSession = getServerSession as unknown as Fn;
 const p = prisma as unknown as {
-  claimSketch: { findFirst: Fn; update: Fn };
+  claimSketch: { findFirst: Fn; findMany: Fn; update: Fn };
   sketchUnderlayReference: { findFirst: Fn; update: Fn };
   sketchElement: { deleteMany: Fn; createMany: Fn };
   sketchRoom: { findMany: Fn; create: Fn; update: Fn; deleteMany: Fn; updateMany: Fn };
@@ -457,6 +459,58 @@ describe("RA-8197 guarded write: lost races have no side effects and only a draw
         where: expect.objectContaining({ id: "underlay-1" }),
         data: expect.objectContaining({ verifiedAt: null }),
       }),
+    );
+  });
+});
+
+describe("RA-8239 the underlay verification receipt", () => {
+  it("hashes the drawing that is stored, when the server adds to it", async () => {
+    gate.storageConfigured = true;
+    p.sketchUnderlayReference.findFirst.mockResolvedValueOnce({ id: "underlay-2" });
+    // The Vision import recorded an AI room on another floor of this job, so
+    // the server writes that record into this floor's stored drawing too.
+    p.claimSketch.findMany.mockResolvedValueOnce([
+      { sketchData: { raSketchMeta: { aiSuggestedRoomIds: ["room-upstairs-ai"] } } },
+    ]);
+    const hall = {
+      type: "polygon",
+      points: [
+        { x: 0, y: 0 },
+        { x: 400, y: 0 },
+        { x: 400, y: 300 },
+      ],
+      data: { type: "room", id: "room-hall", label: "Hall", provenance: "operator_measured" },
+    };
+    const sketchData = {
+      raSketchMeta: { fieldComplete: true },
+      scaleConfig: {
+        pxPerMetre: 100,
+        description: "Known wall = 4 m",
+        pointA: { x: 0, y: 0 },
+        pointB: { x: 400, y: 0 },
+        realMetres: 4,
+      },
+      objects: [hall],
+    };
+
+    const res = await save(sketchData, { "x-sketch-revision": STORED_REVISION }, {
+      requestCanonicalRender: true,
+      confirmUnderlayVerification: true,
+    });
+
+    expect(res.status).toBe(201);
+    const stored = p.claimSketch.update.mock.calls[0][0].data.sketchData;
+    expect(stored).not.toEqual(sketchData);
+    const receipts = p.sketchUnderlayReference.update.mock.calls
+      .map(
+        (call: unknown[]) =>
+          (call[0] as { data?: { verificationJson?: { sketchSha256?: string } } }).data
+            ?.verificationJson,
+      )
+      .filter(Boolean);
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]?.sketchSha256).toBe(
+      createHash("sha256").update(stableStringify(stored)).digest("hex"),
     );
   });
 });

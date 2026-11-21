@@ -95,4 +95,57 @@ describe("RA-8239 the clean render prints measured geometry only", () => {
     ]);
     expect(count(svg, ">Kitchen<")).toBe(1);
   });
+
+  it("leaves out an unconfirmed child inside a measured group", () => {
+    const svg = svgOf([
+      {
+        type: "group",
+        originX: "center",
+        originY: "center",
+        left: 200,
+        top: 150,
+        width: 200,
+        height: 200,
+        data: { type: "room", provenance: "operator_measured", label: "Garage" },
+        objects: [
+          { type: "rect", originX: "center", originY: "center", left: 0, top: 0, width: 200, height: 200 },
+          {
+            type: "text",
+            originX: "center",
+            originY: "center",
+            left: 0,
+            top: 40,
+            width: 60,
+            height: 16,
+            text: "AI Nook",
+            data: { provenance: "ai_suggested" },
+          },
+        ],
+      },
+    ]);
+    expect(svg).toContain("Garage");
+    expect(svg).not.toContain("AI Nook");
+  });
+
+  it("keeps an equipment group's caption in place even when it matches the label", () => {
+    const svg = svgOf([
+      {
+        type: "group",
+        originX: "center",
+        originY: "center",
+        left: 200,
+        top: 150,
+        width: 40,
+        height: 40,
+        data: { type: "equipment", label: "Pump" },
+        objects: [
+          { type: "circle", originX: "center", originY: "center", left: 0, top: 0, radius: 20 },
+          { type: "text", originX: "center", originY: "center", left: 0, top: 0, width: 30, height: 12, text: "Pump" },
+        ],
+      },
+    ]);
+    // The caption at its own (centred) place, plus the label line.
+    expect(count(svg, ">Pump<")).toBe(2);
+    expect(svg).toMatch(/text-anchor="middle">Pump</);
+  });
 });

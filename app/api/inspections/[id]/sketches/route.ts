@@ -1007,8 +1007,10 @@ export async function POST(
           roomCount: underlayVerification.roomCount,
           pxPerMetre: underlayVerification.pxPerMetre,
           scaleDescription: underlayVerification.scaleDescription,
+          // RA-8239: the drawing that was rendered and stored, so the report's
+          // check of the stored sketchData against this receipt matches.
           sketchSha256: createHash("sha256")
-            .update(stableStringify(securedSketchData))
+            .update(stableStringify(authoritativeSketchData))
             .digest("hex"),
           renderSha256: cleanRenderReceipt?.renderSha256,
           storagePath: cleanRenderReceipt?.storagePath,
