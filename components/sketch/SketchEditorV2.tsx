@@ -61,7 +61,6 @@ import {
   readFloorRevision,
 } from "@/lib/sketch/floor-revision";
 import toast from "react-hot-toast";
-import { apiErrorMessage } from "@/lib/api-error-message";
 import { importSketchUserMessage } from "@/lib/sketch/import-sketch-user-message";
 import {
   omitRoomsAlreadyOnCanvas,
@@ -423,15 +422,6 @@ export function SketchEditorV2({
     },
   ]);
   const [activeIdx, setActiveIdx] = useState(0);
-
-  useEffect(() => {
-    dockZoomBaselineRef.current = null;
-    const fc = floorsData[activeIdx]?.canvasRef.current?.getFabricCanvas() as
-      | { viewportTransform?: ArrayLike<number> | null }
-      | null
-      | undefined;
-    setOverlayVpt(overlayViewportFromVpt(fc?.viewportTransform));
-  }, [activeIdx]);
 
   // ── UI state ───────────────────────────────────────────
   const [toolMode, setToolMode] = useState<ToolMode>("select");
@@ -860,7 +850,7 @@ export function SketchEditorV2({
     let cancelled = false;
     setSketchesHydrated(false);
 
-    const loaded: FloorData[] = captureInitialFloors.map((s, i) => {
+    const loaded: FloorData[] = captureInitialFloors.map((s, _i) => {
       const canvasRef = makeFabricCanvas();
       const stored = sketchDataForCaptureEditor(s);
       const pendingSketchData = fabricJsonFromStoredSketchData(stored);
@@ -971,6 +961,15 @@ export function SketchEditorV2({
   // Always-current floors for debounced saves (avoids stale fieldComplete / pins).
   const floorsDataRef = useRef(floorsData);
   floorsDataRef.current = floorsData;
+
+  useEffect(() => {
+    dockZoomBaselineRef.current = null;
+    const fc = floorsDataRef.current[activeIdx]?.canvasRef.current?.getFabricCanvas() as
+      | { viewportTransform?: ArrayLike<number> | null }
+      | null
+      | undefined;
+    setOverlayVpt(overlayViewportFromVpt(fc?.viewportTransform));
+  }, [activeIdx]);
   const activeIdxRef = useRef(activeIdx);
   activeIdxRef.current = activeIdx;
   const inspectionIdRef = useRef(inspectionId);
@@ -1225,7 +1224,7 @@ export function SketchEditorV2({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export failed");
     }
-  }, [activeFloor, roomMoistureSession, viewport.width, viewport.height]);
+  }, [activeFloor, roomMoistureSession]);
 
   // Hidden floors skip layout; re-sync Fabric hit-testing after show/resize.
   useEffect(() => {

@@ -76,13 +76,13 @@ export default function DetailedReportViewer({
         setCopied(true);
         toast.success("Detailed report copied to clipboard!");
         setTimeout(() => setCopied(false), 2000);
-      } catch (error) {
+      } catch {
         toast.error("Failed to copy report");
       }
     }
   };
 
-  const handleDownload = () => {
+  const _handleDownload = () => {
     if (reportContent) {
       const blob = new Blob([reportContent], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
@@ -131,7 +131,7 @@ export default function DetailedReportViewer({
           toast.error(error.error || "Failed to download enhanced PDF", {
             id: "download-enhanced",
           });
-        } catch (e) {
+        } catch {
           toast.error("Invalid response format", { id: "download-enhanced" });
         }
         return;
@@ -184,7 +184,7 @@ export default function DetailedReportViewer({
             errorData.error || "Failed to regenerate enhanced report",
             { id: "regenerate-enhanced" },
           );
-        } catch (e) {
+        } catch {
           toast.error("Failed to regenerate enhanced report", {
             id: "regenerate-enhanced",
           });
@@ -368,7 +368,7 @@ export default function DetailedReportViewer({
                       {children}
                     </h4>
                   ),
-                  p: ({ children, ...props }) => {
+                  p: ({ children }) => {
                     // Convert children to string for pattern matching
                     const getText = (children: any): string => {
                       if (typeof children === "string") return children;

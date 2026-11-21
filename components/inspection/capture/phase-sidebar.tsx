@@ -2,7 +2,6 @@
 
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { Check, MapPin } from "lucide-react";
 interface PhaseEvidenceRule {
   evidenceClass: string;

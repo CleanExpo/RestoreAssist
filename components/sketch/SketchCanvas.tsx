@@ -77,7 +77,6 @@ import {
 import {
   DEFAULT_ROOM_SIDE_M,
   ROOM_TAP_THRESHOLD_PX,
-  rectRoomPoints,
   rectRoomPointsFromDiagonal,
   roomLengthWidthM,
   roomEdgeHostSegments,

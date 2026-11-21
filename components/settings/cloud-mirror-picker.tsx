@@ -73,7 +73,6 @@ export function CloudMirrorPicker() {
 
   useEffect(() => {
     loadCatalog();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dirty = selected !== initial && selected !== "";

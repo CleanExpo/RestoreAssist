@@ -6,7 +6,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  type ChangeEvent,
 } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
@@ -16,11 +15,8 @@ import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
 import {
   Plus,
-  Trash2,
-  ChevronDown,
   Layers,
   Loader2,
-  Save,
   Check,
   FileDown,
 } from "lucide-react";
@@ -253,6 +249,8 @@ export function SketchEditor({
   useEffect(() => {
     const canvas = getFabric();
     if (!canvas) return;
+    // The Map instance is never reassigned, so this local is the same object.
+    const roomDrawStates = roomDrawRef.current;
 
     // Update drawing mode
     canvas.isDrawingMode = toolMode === "freehand";
@@ -378,7 +376,7 @@ export function SketchEditor({
           const fabric = await import("fabric");
           const {
             Line: FLine,
-            Group,
+            Group: _Group,
             Rect,
             IText,
           } = fabric as unknown as {
@@ -458,7 +456,7 @@ export function SketchEditor({
       canvas.off("mouse:down", handleClick);
       // Reset room drawing buffer only when changing away from room tool
       if (toolMode !== "room") {
-        const state = roomDrawRef.current.get(floorId);
+        const state = roomDrawStates.get(floorId);
         if (state) {
           // Remove orphaned temp objects
           const objs = canvas.getObjects();

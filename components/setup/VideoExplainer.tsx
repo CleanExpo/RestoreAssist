@@ -337,7 +337,6 @@ export function VideoExplainer({
         }
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={thumb}
         alt={title}

@@ -6,14 +6,9 @@ import { RAIcon } from "@/components/brand/RAIcon";
 import {
   Thermometer,
   Droplets,
-  BarChart3,
   CheckCircle,
   Clock,
-  AlertTriangle,
-  FileText,
   Activity,
-  Settings,
-  Zap,
   Home,
   Wind,
 } from "lucide-react";
@@ -326,7 +321,7 @@ export default function MonitoringVerificationProcedures({
 
   const getComplianceStatus = () => {
     const targets = getPsychrometricTargets();
-    const moistureTargets = getMoistureTargets();
+    const _moistureTargets = getMoistureTargets();
 
     let complianceScore = 0;
     let totalChecks = 0;
@@ -563,7 +558,7 @@ export default function MonitoringVerificationProcedures({
                 {monitoringData.psychrometricReadings
                   .slice(-5)
                   .reverse()
-                  .map((reading, index) => (
+                  .map((reading, _index) => (
                     <div
                       key={reading.id}
                       className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg"
@@ -703,7 +698,7 @@ export default function MonitoringVerificationProcedures({
                 {monitoringData.moistureReadings
                   .slice(-5)
                   .reverse()
-                  .map((reading, index) => (
+                  .map((reading, _index) => (
                     <div
                       key={reading.id}
                       className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg"

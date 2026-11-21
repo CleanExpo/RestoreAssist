@@ -6,7 +6,6 @@ import {
   Clock,
   DollarSign,
   FileText,
-  Printer,
   Users,
   Wrench,
 } from "lucide-react";
@@ -82,7 +81,7 @@ interface VisualScopeOfWorksViewerProps {
 export default function VisualScopeOfWorksViewer({
   data,
 }: VisualScopeOfWorksViewerProps) {
-  const handlePrint = () => {
+  const _handlePrint = () => {
     window.print();
   };
 

@@ -18,7 +18,7 @@ export function PropertyDataDisplay({
   data,
   fetchedAt,
   source = "CORELOGIC",
-  expiresAt,
+  expiresAt: _expiresAt,
 }: PropertyDataDisplayProps) {
   if (!data) return null;
 

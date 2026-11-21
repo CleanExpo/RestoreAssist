@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   DollarSign,
   Loader2,
@@ -39,11 +39,6 @@ export default function CostEstimationViewer({
   // RA-7625: jurisdiction resolved on the server by generation's own rule.
   const law = jurisdictionLawLabels(report?.lawJurisdiction);
 
-  useEffect(() => {
-    fetchReport();
-    fetchBusinessInfo();
-  }, [reportId]);
-
   const fetchBusinessInfo = async () => {
     try {
       const response = await fetch("/api/user/profile");
@@ -63,7 +58,7 @@ export default function CostEstimationViewer({
     }
   };
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/reports/${reportId}`);
@@ -88,7 +83,7 @@ export default function CostEstimationViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
@@ -99,7 +94,12 @@ export default function CostEstimationViewer({
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportId]);
+
+  useEffect(() => {
+    fetchReport();
+    fetchBusinessInfo();
+  }, [reportId, fetchReport]);
 
   const handleGenerateEstimation = async () => {
     setGenerating(true);
@@ -136,7 +136,7 @@ export default function CostEstimationViewer({
             return;
           }
           errorMessage = apiErrorMessage(error) ?? errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
