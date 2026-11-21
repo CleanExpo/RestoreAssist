@@ -6,7 +6,7 @@
  * jobNumberOrganizationId, organizationId, userId, ...) is never read.
  */
 import { ClaimType, JobClientType } from "@prisma/client";
-import { sanitizeString } from "@/lib/sanitize";
+import { sanitizeForPostgresText } from "@/lib/sanitize";
 
 export const JOB_CLIENT_TYPES = Object.values(JobClientType) as JobClientType[];
 export const INTAKE_CLAIM_TYPES = Object.values(ClaimType) as ClaimType[];
@@ -33,9 +33,12 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_CHARS = /^\+?[0-9 ()-]+$/;
 const POSTCODE = /^[0-9]{4}$/;
 
+// Stored as typed (RA-8515): "O'Brien" and "RH < 40%" stay as written.
+// Only the characters Postgres rejects are removed. Escaping belongs where the
+// text is rendered (React, escapeHtml in emails and HTML exports).
 function text(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
-  const cleaned = sanitizeString(value, max).trim();
+  const cleaned = sanitizeForPostgresText(value).trim().slice(0, max).trim();
   return cleaned.length > 0 ? cleaned : null;
 }
 

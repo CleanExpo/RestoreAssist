@@ -23,6 +23,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import {
   completeIdempotentSuccessInTransaction,
   getIdempotencyKey,
+  replaceCompletedIdempotentResponse,
   withIdempotency,
 } from "@/lib/idempotency";
 import { allocateJobNumber } from "@/lib/jobs/job-number";
@@ -170,6 +171,9 @@ export async function POST(request: NextRequest) {
               method: "POST",
               path: request.nextUrl.pathname,
               rawBody,
+              // null = not known yet. Seeding runs after commit; the cached
+              // body is replaced with the real outcome below (RA-8515), so a
+              // retry that missed this answer still sees the warning.
               responseBody: JSON.stringify({ inspection: responseInspection, makeSafeSeeded: null }),
               responseStatus: 201,
             });
@@ -191,6 +195,26 @@ export async function POST(request: NextRequest) {
             inspectionId: created.responseInspection.id,
             jobNumber: created.responseInspection.jobNumber,
           });
+        }
+        if (creationKey) {
+          try {
+            await replaceCompletedIdempotentResponse({
+              scope: userId,
+              key: creationKey,
+              method: "POST",
+              path: request.nextUrl.pathname,
+              rawBody,
+              responseBody: JSON.stringify({ inspection: created.responseInspection, makeSafeSeeded }),
+            });
+          } catch (cacheErr) {
+            // The replay keeps makeSafeSeeded: null, which the page shows as
+            // "check the make-safe checklist".
+            reportError(cacheErr, {
+              route: "/api/inspections/intake",
+              stage: "idempotency-seed-outcome",
+              inspectionId: created.responseInspection.id,
+            });
+          }
         }
         scheduleZohoInspectionPush(created.responseInspection.id);
 

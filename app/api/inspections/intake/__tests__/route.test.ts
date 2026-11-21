@@ -22,13 +22,14 @@ const m = vi.hoisted(() => {
       $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
     },
     completeInTx: vi.fn(async (..._a: unknown[]) => true),
+    replaceCached: vi.fn(async (..._a: unknown[]) => true),
     allocate: vi.fn(),
     zohoPush: vi.fn(),
     seed: vi.fn(async (..._a: unknown[]) => true),
     reportError: vi.fn(),
   };
 });
-const { getServerSession, tx, prismaMock, completeInTx, allocate, zohoPush, seed, reportError } = m;
+const { getServerSession, tx, prismaMock, completeInTx, replaceCached, allocate, zohoPush, seed, reportError } = m;
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => m.getServerSession(...a),
@@ -40,6 +41,7 @@ vi.mock("@/lib/idempotency", async () => {
   return {
     getIdempotencyKey: real.getIdempotencyKey,
     completeIdempotentSuccessInTransaction: (...a: unknown[]) => m.completeInTx(...a),
+    replaceCompletedIdempotentResponse: (...a: unknown[]) => m.replaceCached(...a),
     withIdempotency: async (req: NextRequest, _scope: string, handler: (b: string) => unknown) =>
       handler(await req.text()),
   };
@@ -100,6 +102,8 @@ beforeEach(() => {
   }));
   tx.auditLog.create.mockResolvedValue({});
   completeInTx.mockResolvedValue(true);
+  replaceCached.mockResolvedValue(true);
+  seed.mockResolvedValue(true);
 });
 
 describe("POST /api/inspections/intake", () => {
@@ -206,6 +210,26 @@ describe("POST /api/inspections/intake", () => {
     expect(reportError).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ stage: "seed-make-safe", inspectionId: "insp-1" }),
+    );
+  });
+
+  it.each([true, false])("records makeSafeSeeded %s in the cached answer for a replay (RA-8515)", async (ok) => {
+    if (!ok) seed.mockRejectedValue(new Error("seed down"));
+    await POST(post(validBody));
+    expect(replaceCached).toHaveBeenCalledTimes(1);
+    const arg = (replaceCached.mock.calls[0] as unknown as [{ scope: string; responseBody: string }])[0];
+    expect(arg.scope).toBe("user-1");
+    expect(JSON.parse(arg.responseBody).makeSafeSeeded).toBe(ok);
+  });
+
+  it("still returns the saved job when the cached answer cannot be updated (RA-8515)", async () => {
+    replaceCached.mockRejectedValue(new Error("db blip"));
+    const res = await POST(post(validBody));
+    expect(res.status).toBe(201);
+    expect((await res.json()).makeSafeSeeded).toBe(true);
+    expect(reportError).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ stage: "idempotency-seed-outcome" }),
     );
   });
 });

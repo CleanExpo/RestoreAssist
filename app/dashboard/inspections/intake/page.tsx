@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { keyForSubmission, type IntakeRequestKey } from "@/lib/jobs/intake-request-key";
+import { makeSafeStateFromResponse, type MakeSafeState } from "@/lib/jobs/intake-make-safe";
 import { RAIcon } from "@/components/brand/RAIcon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,7 +62,7 @@ const EMPTY: FormState = {
 };
 
 type Settings = { prefix: string; derived: boolean; nextJobNumber: string; canEditPrefix: boolean };
-type Saved = { id: string; jobNumber: string; makeSafeSeeded: boolean };
+type Saved = { id: string; jobNumber: string; makeSafe: MakeSafeState };
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -148,7 +149,7 @@ export default function OfficeIntakePage() {
         setSaved({
           id: json.inspection.id,
           jobNumber: json.inspection.jobNumber,
-          makeSafeSeeded: json.makeSafeSeeded !== false,
+          makeSafe: makeSafeStateFromResponse(json.makeSafeSeeded),
         });
         setForm(EMPTY);
         requestKey.current = null;
@@ -213,9 +214,14 @@ export default function OfficeIntakePage() {
           <RAIcon name="success" size={20} decorative className="mt-0.5" />
           <div className="space-y-1">
             <p className="font-medium">Job {saved.jobNumber} logged.</p>
-            {!saved.makeSafeSeeded && (
+            {saved.makeSafe === "not-seeded" && (
               <p className="text-sm text-muted-foreground">
                 The make-safe checklist did not set up. Open the job and check it before submitting.
+              </p>
+            )}
+            {saved.makeSafe === "unknown" && (
+              <p className="text-sm text-muted-foreground">
+                We could not confirm the make-safe checklist was set up. Open the job and check it before submitting.
               </p>
             )}
             <Link href={`/dashboard/inspections/${saved.id}`} className="text-sm underline">
