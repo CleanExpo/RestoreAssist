@@ -25,17 +25,22 @@ const probe = vi.hoisted(() => ({
 }));
 
 const queue = vi.hoisted(() => ({
-  enqueued: [] as Array<{ inspectionId: string; payload: Record<string, unknown> }>,
+  enqueued: [] as Array<{
+    inspectionId: string;
+    payload: Record<string, unknown>;
+  }>,
 }));
 
 vi.mock("@/lib/nir-sync-queue", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/nir-sync-queue")>();
   return {
     ...actual,
-    enqueueSketchSave: vi.fn(async (inspectionId: string, payload: Record<string, unknown>) => {
-      queue.enqueued.push({ inspectionId, payload });
-      return "q1";
-    }),
+    enqueueSketchSave: vi.fn(
+      async (inspectionId: string, payload: Record<string, unknown>) => {
+        queue.enqueued.push({ inspectionId, payload });
+        return "q1";
+      },
+    ),
     getPendingEntries: vi.fn(async () => []),
     getFailedEntries: vi.fn(async () => []),
   };
@@ -45,7 +50,9 @@ vi.mock("next/dynamic", async () => {
   const React = await import("react");
   return {
     default: (
-      loader: () => Promise<{ default: ComponentType<Record<string, unknown>> }>,
+      loader: () => Promise<{
+        default: ComponentType<Record<string, unknown>>;
+      }>,
     ) => {
       let Loaded: ComponentType<Record<string, unknown>> | null = null;
       const pending = loader().then((mod) => {
@@ -110,7 +117,8 @@ vi.mock("../SketchCanvas", async () => {
       props.onReady?.(canvas);
       probe.readyCalls += 1;
       return () => {
-        if (ref && typeof ref !== "function" && ref.current === canvas) ref.current = null;
+        if (ref && typeof ref !== "function" && ref.current === canvas)
+          ref.current = null;
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -145,8 +153,20 @@ function room(id: string, label: string, x: number) {
   };
 }
 
-const storedDrawing = { objects: [room("room-kitchen", "Kitchen", 0), room("room-laundry", "Laundry", 400)] };
-const freehand = { type: "path", path: [["M", 0, 0], ["L", 50, 50]], data: { type: "freehand" } };
+const storedDrawing = {
+  objects: [
+    room("room-kitchen", "Kitchen", 0),
+    room("room-laundry", "Laundry", 400),
+  ],
+};
+const freehand = {
+  type: "path",
+  path: [
+    ["M", 0, 0],
+    ["L", 50, 50],
+  ],
+  data: { type: "freehand" },
+};
 
 const posts: Array<Record<string, unknown>> = [];
 
@@ -166,7 +186,9 @@ function installFetch() {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
       if (url.endsWith("/sketches") && method === "POST") {
-        posts.push(JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>);
+        posts.push(
+          JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>,
+        );
         if (probe.postStatus === 409) {
           return jsonResponse({ conflict: "revision" }, 409);
         }
@@ -175,7 +197,12 @@ function installFetch() {
       if (url.endsWith("/sketches") && method === "GET") {
         return jsonResponse({
           sketches: [
-            { id: "srv-1", floorNumber: 0, floorLabel: "Ground Floor", sketchData: storedDrawing },
+            {
+              id: "srv-1",
+              floorNumber: 0,
+              floorLabel: "Ground Floor",
+              sketchData: storedDrawing,
+            },
           ],
         });
       }
@@ -252,7 +279,10 @@ async function nextSave() {
 async function nextQueuedSave() {
   const before = queue.enqueued.length;
   await settle(1600);
-  await waitUntil(() => queue.enqueued.length > before, "the failed save to be queued");
+  await waitUntil(
+    () => queue.enqueued.length > before,
+    "the failed save to be queued",
+  );
 }
 
 function lastPost() {
@@ -271,7 +301,13 @@ describe("RA-8197 reload and paused-floor safety (SketchEditorV2)", () => {
     posts.length = 0;
     queue.enqueued.length = 0;
     vi.useFakeTimers({
-      toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"],
+      toFake: [
+        "setTimeout",
+        "clearTimeout",
+        "setInterval",
+        "clearInterval",
+        "Date",
+      ],
     });
     vi.stubGlobal("ResizeObserver", ResizeObserverStub);
     installFetch();
@@ -300,16 +336,18 @@ describe("RA-8197 reload and paused-floor safety (SketchEditorV2)", () => {
     probe.json = edited;
     fireEvent.click(screen.getByTestId("draw-stroke"));
     await settle(500);
-    view.rerender(<SketchEditorV2 inspectionId="job-1" sketchReloadToken={1} />);
+    view.rerender(
+      <SketchEditorV2 inspectionId="job-1" sketchReloadToken={1} />,
+    );
     await waitUntil(
       () => queue.enqueued.length > 1,
       "the pending edit's save to be queued",
     );
 
     const pendingEdit = queue.enqueued[1].payload;
-    expect(
-      (pendingEdit.sketchData as { objects: unknown[] }).objects,
-    ).toEqual(edited.objects);
+    expect((pendingEdit.sketchData as { objects: unknown[] }).objects).toEqual(
+      edited.objects,
+    );
     expect(pendingEdit.editorSessionId).toBe(loadedSession);
 
     // The reloaded editor saves under a new session, so its first save cannot
@@ -320,7 +358,9 @@ describe("RA-8197 reload and paused-floor safety (SketchEditorV2)", () => {
     );
     fireEvent.click(screen.getByTestId("draw-stroke"));
     await nextQueuedSave();
-    expect(queue.enqueued.at(-1)?.payload.editorSessionId).not.toBe(loadedSession);
+    expect(queue.enqueued.at(-1)?.payload.editorSessionId).not.toBe(
+      loadedSession,
+    );
   });
 
   it("RA-8197 item 6: a floor paused by a revision conflict becomes read-only", async () => {
