@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 // @ts-expect-error -- plain .mjs helper, no type declarations
-import { parseCssTokens } from "../../scripts/check-design-tokens.mjs";
+import { parseCssTokens } from "../../scripts/lib/check-design-tokens.mjs";
 
 /**
  * RA-8467. .claude/DESIGN.md carries a table of WCAG contrast ratios that

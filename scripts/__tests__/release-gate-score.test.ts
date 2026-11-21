@@ -41,8 +41,8 @@ import {
   shellOK,
   verifyReleaseDbProfile,
   verifyRunbooksSla,
-} from "../release-gate-score";
-import type { Criterion } from "../release-gate-score";
+} from "../lib/release-gate-score";
+import type { Criterion } from "../lib/release-gate-score";
 
 const GATE_VERSION = "1.0.0";
 

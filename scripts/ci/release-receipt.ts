@@ -83,7 +83,7 @@ import {
 import {
   A1_BASE_URL,
   A1_JOURNEY_STEPS,
-} from "./producers/a1-core-journeys";
+} from "./producers/lib/a1-core-journeys";
 import {
   D1_IOS_GUARD,
   D1_LIFECYCLE,

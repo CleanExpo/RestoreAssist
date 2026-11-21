@@ -10,7 +10,7 @@ import {
   getAiAuditIgnoredFilePatterns,
   readPlatformKeyFallbackBaseline,
   type AiCallSiteFinding,
-} from "../audit-ai-call-sites";
+} from "../lib/audit-ai-call-sites";
 import { getAiTaskPolicy } from "../../lib/ai/task-policy";
 
 let liveReport: ReturnType<typeof auditAiCallSites>;
