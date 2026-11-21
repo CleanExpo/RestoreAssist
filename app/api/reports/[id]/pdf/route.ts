@@ -25,7 +25,7 @@ import { relationalMoistureToPdfRows } from "@/lib/reports/pdf-moisture-readings
 
 /**
  * GET /api/reports/[id]/pdf
- * Generates and streams an IICRC S500:2021-compliant PDF for a report.
+ * Generates and streams the IICRC-aligned PDF for a report.
  *
  * Auth modes:
  *   1. Authenticated user (contractor) — standard session auth

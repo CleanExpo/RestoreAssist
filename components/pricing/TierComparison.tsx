@@ -177,7 +177,7 @@ const GROUPS: readonly ComparisonGroup[] = [
         headline: true,
       },
       {
-        // NOT "IICRC S500 compliant". lib/iicrc-inclusion-check.ts sets the
+        // NOT "IICRC S500 compliant". lib/iicrc-inclusion-check.ts sets the iicrc-wording-ignore
         // hard rule that this product never asserts "complies", "certifies",
         // "meets [the standard]" or "required by law" (regression-tested in
         // lib/__tests__/iicrc-inclusion-check.test.ts), and full S500 clause

@@ -1,1 +1,1 @@
-IICRC-compliant CRM for AU water-damage restoration tradies. AI-driven reports.
+CRM for AU water-damage restoration tradies. Reports aligned to IICRC S500.

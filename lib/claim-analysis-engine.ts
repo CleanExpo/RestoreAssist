@@ -117,7 +117,7 @@ export async function analyzeClaimPDF(
 2. **Identify Missing Elements**: Find all missing compliance elements, safety requirements, and billable items
 3. **Analyze Report Flow**: Understand the structure, flow, and technician patterns
 
-**IICRC S500 Compliance Requirements to Check:**
+**IICRC S500-aligned elements to check:**
 - Water category classification (Category 1, 2, or 3)
 - Water class determination (Class 1, 2, 3, or 4)
 - Source of water identification
@@ -198,7 +198,7 @@ Return a comprehensive JSON analysis with all findings.`;
    - What patterns indicate this technician's style?
 
 5. Identify ALL missing elements:
-   - IICRC compliance elements
+   - IICRC-aligned documentation elements
    - OH&S requirements
    - Working at heights documentation
    - Confined spaces procedures

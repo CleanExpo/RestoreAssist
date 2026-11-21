@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   keywords: [
     "restoration software features",
     "AI report generation",
-    "IICRC S500 compliance",
+    "IICRC S500 alignment",
     "water damage assessment",
     "cost estimation software",
     "interactive inspection forms",

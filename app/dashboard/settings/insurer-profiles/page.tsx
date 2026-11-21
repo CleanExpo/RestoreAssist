@@ -175,7 +175,7 @@ function ProfileDetailModal({
             <div className="space-y-2">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <FileText className="w-4 h-4" />
-                IICRC Compliance Note
+                IICRC Standards Note
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {profile.iicrcComplianceNote}

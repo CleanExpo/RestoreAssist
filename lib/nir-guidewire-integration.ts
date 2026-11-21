@@ -374,7 +374,7 @@ export function transformNirToGuidewireClaim(
     ],
     notes: [
       {
-        text: `IICRC Standards Compliance: ${citationText}`,
+        text: `IICRC standards referenced: ${citationText}`,
         confidential: false,
       },
       ...(locationNotes.length > 0

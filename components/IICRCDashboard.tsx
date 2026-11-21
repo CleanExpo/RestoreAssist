@@ -166,7 +166,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
             className="text-2xl font-medium text-white"
             style={{ fontFamily: "Titillium Web, sans-serif" }}
           >
-            IICRC S500 Compliance Dashboard
+            IICRC S500 Alignment Dashboard
           </h2>
           <p className="text-slate-400">
             Professional water damage restoration standards tracking
@@ -397,7 +397,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
           className="text-lg font-medium text-white mb-4"
           style={{ fontFamily: "Titillium Web, sans-serif" }}
         >
-          IICRC S500 Compliance Checklist
+          IICRC S500 Alignment Checklist
         </h3>
         <div className="grid md:grid-cols-2 gap-4">
           <div>

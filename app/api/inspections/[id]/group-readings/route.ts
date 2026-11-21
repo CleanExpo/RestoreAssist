@@ -47,7 +47,8 @@ type GroupResponse = {
 };
 
 // Moisture %MC threshold above which a reading is "elevated" for summary badge.
-// 16%MC aligns with IICRC S500:2021 drying-goal guidance for gypsum/timber.
+// 16%MC is a starting guide value for gypsum/timber, not a standard threshold:
+// no IICRC source for the number is cited (RA-8508 / RA-8511).
 const ELEVATED_THRESHOLD = 16;
 
 export async function POST(

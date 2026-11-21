@@ -73,6 +73,8 @@ export async function GET(
             id: true,
             propertyCountry: true,
             propertyPostcode: true,
+            // RA-8282: the PDF button names the standard for this claim type.
+            claimType: true,
             client: { select: { email: true } },
           },
         },

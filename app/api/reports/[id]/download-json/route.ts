@@ -224,7 +224,7 @@ export async function GET(
       userId: report.userId,
       clientId: report.clientId,
 
-      // IICRC S500 Compliance Fields
+      // IICRC S500-aligned report fields
       reportNumber: report.reportNumber,
       inspectionDate: report.inspectionDate,
       waterCategory: report.waterCategory,

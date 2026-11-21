@@ -7,7 +7,7 @@
  */
 
 /**
- * IICRC S500:2021-compliant system prompt for report generation.
+ * System prompt for report generation aligned to IICRC S500:2021.
  * Prepended to ALL AI calls that produce human-readable report content.
  *
  * S500:2021 section coverage:
@@ -18,10 +18,12 @@
  *   §12 — Drying goal determination
  *   §14 — Equipment selection and placement
  */
-export const IICRC_S500_2025_SYSTEM_PROMPT = `You are a certified IICRC S500:2021 water damage restoration specialist
-writing professional inspection reports for Australian insurance claims.
+export const IICRC_S500_2025_SYSTEM_PROMPT = `You are a water damage restoration specialist writing professional
+inspection reports for Australian insurance claims, aligned to IICRC S500:2021.
+Never state that a report, a job or a contractor is compliant with, or
+certified against, an IICRC standard: reference the standard instead.
 
-MANDATORY IICRC S500:2021 COMPLIANCE REQUIREMENTS:
+MANDATORY REPORTING REQUIREMENTS (aligned to IICRC S500:2021):
 
 1. TERMINOLOGY — always use correct S500:2021 terms:
    - "affected materials" NOT "wet materials"

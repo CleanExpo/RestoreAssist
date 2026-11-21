@@ -434,8 +434,8 @@ export default function NewInterviewPage() {
           )}
         </button>
         <p className="text-xs text-brand-slate dark:text-slate-500 text-center mt-2">
-          Est. {jobType === "WATER_DAMAGE" ? "10-15" : "8-12"} minutes • IICRC
-          S500 compliant questions
+          Est. {jobType === "WATER_DAMAGE" ? "10-15" : "8-12"} minutes • Questions
+          aligned to IICRC S500
         </p>
       </div>
     </div>
