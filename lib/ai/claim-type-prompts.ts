@@ -194,7 +194,7 @@ Produce the scope in exactly these 7 numbered sections:
 6. Daily Monitoring Protocol
    — Moisture reading schedule, equipment checks, psychrometric logs, target thresholds per §11.4.
 7. Drying Validation & Sign-Off
-   — Final moisture readings vs IICRC S500:2021 §11.4 EMC targets, drying goal certificate, reinstatement trigger.
+   — Final moisture readings vs the drying goal (the job's reference reading from unaffected like material; guide values are not a standard), drying goal certificate, reinstatement trigger.
 
 Each section must include:
 - Specific tasks with quantities
@@ -600,7 +600,7 @@ Produce the scope in exactly these 8 numbered sections:
 7. Deodorisation Protocol
    — Thermal fogging, ozone treatment, or hydroxyl generator — specify rooms, durations, and re-entry intervals. Deodorisation must occur AFTER drying validation. Cite S700:2025 §8.4.
 8. Structural Drying Validation & Clearance
-   — Final moisture readings vs IICRC S500:2021 §11.4 EMC targets. Air quality clearance for smoke (soot deposition test if required). Drying goal certificate. Reinstatement trigger.
+   — Final moisture readings vs the drying goal (the job's reference reading from unaffected like material). Air quality clearance for smoke (soot deposition test if required). Drying goal certificate. Reinstatement trigger.
 
 ${CITATION_GROUNDING}
 
@@ -688,7 +688,7 @@ Produce the scope in exactly these 8 numbered sections:
 7. Disposal Protocol
    — Double-bag mould-affected materials in 200 µm poly, label biological waste, seal before leaving containment. Dispose per local council requirements and Safe Work Australia guidance. Cite S520 §8.4.
 8. Clearance Testing & Drying Validation
-   — Post-remediation: visual clearance, independent air sampling for Condition 3 (third-party hygienist). Drying validation: moisture readings vs S500:2021 §11.4 EMC targets. Clearance criteria: Condition 1 restored AND drying goal achieved before containment is removed.
+   — Post-remediation: visual clearance, independent air sampling for Condition 3 (third-party hygienist). Drying validation: moisture readings vs the drying goal (the job's reference reading from unaffected like material). Clearance criteria: Condition 1 restored AND drying goal achieved before containment is removed.
 
 ${CITATION_GROUNDING}
 
@@ -937,7 +937,7 @@ Produce the scope in exactly these 8 numbered sections:
 7. Contents Drying & Restoration (in-facility or specialist)
    — Restorable upholstered items: extraction, specialist wet cleaning. Hard surface items: clean, dry, assess. Electronics: specialist assessment. Documents/photographs: freeze-dry if saturated. Storage: climate-controlled (18–22°C, 45–55% RH) for electronics, artwork, documents.
 8. Drying Validation, Total Loss Schedule & Sign-Off
-   — Structural: moisture readings vs S500:2021 §11.4 EMC targets, drying goal certificate. Total loss schedule: itemised list with ACL replacement value. Reinstatement trigger.
+   — Structural: moisture readings vs the drying goal (the job's reference reading from unaffected like material), drying goal certificate. Total loss schedule: itemised list with ACL replacement value. Reinstatement trigger.
 
 ${CITATION_GROUNDING}
 
@@ -1029,7 +1029,7 @@ Produce the scope in exactly these 8 numbered sections:
 6. Secondary Remediation & Cross-Contamination Mitigation
    — Tasks specifically addressing the interaction between damage types. Equipment quantities justified by applicable IICRC ratios.
 7. Validation & Clearance per Damage Type
-   — Clearance criteria for each damage type: moisture targets (S500:2021 §11.4 where applicable), visual clearance, air quality testing where required.
+   — Clearance criteria for each damage type: moisture goals (the job's reference readings from unaffected like material), visual clearance, air quality testing where required.
 8. Reinstatement Scope
    — Building works to restore property to pre-loss condition per NCC 2022. Licensed trades identified. Insurance assessor sign-off trigger.
 

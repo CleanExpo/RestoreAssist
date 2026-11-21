@@ -29,7 +29,12 @@ import {
   type WaterCategory,
   type WaterClass,
 } from "@/lib/scope-dispatcher";
-import { IICRC_DRY_STANDARDS } from "@/lib/iicrc-dry-standards";
+import {
+  MOISTURE_GUIDE_VALUES,
+  getMoistureStatus,
+  materialKey,
+  pickReferenceReadings,
+} from "@/lib/iicrc-dry-standards";
 import type {
   AssessmentReport,
   DomainGenerateInput,
@@ -109,13 +114,15 @@ function categoryToScopeCategory(itemType: string): ScopeCategory {
   return "MATERIALS";
 }
 
-function buildReport(args: {
+export function buildWaterReport(args: {
   propertyAddress: string;
   category: WaterCategory;
   damageClass: WaterClass;
   affectedAreaM2: number;
   estimatedDays: number;
   moistureSummary: { wet: number; drying: number; dry: number; total: number };
+  /** Materials with a reference reading from unaffected like material. */
+  referenceMaterials: number;
 }): { report: AssessmentReport; citations: StandardCitation[] } {
   const cite = (section: string, note?: string): StandardCitation => ({
     standard: "IICRC S500:2021",
@@ -141,15 +148,16 @@ function buildReport(args: {
     body:
       args.moistureSummary.total === 0
         ? `No moisture readings have been logged for this inspection. ` +
-          `Per S500 §5 baseline psychrometric readings must be taken on ` +
-          `entry and at least daily until the dry-standard is reached.`
+          `Take a reference reading on unaffected like material in the ` +
+          `same building on entry, then read affected materials at least ` +
+          `daily until each is at or below its drying goal.`
         : `${args.moistureSummary.total} moisture readings logged: ` +
-          `${args.moistureSummary.wet} above wet-standard, ` +
-          `${args.moistureSummary.drying} in drying band, ` +
-          `${args.moistureSummary.dry} at or below the IICRC dry-standard. ` +
-          `Drying continues until all monitored materials are at or below ` +
-          `the dry-standard for the material type (S500 §12.5.7).`,
-    citations: [cite("§5"), cite("§12.5.7")],
+          `${args.moistureSummary.wet} wet, ` +
+          `${args.moistureSummary.drying} drying, ` +
+          `${args.moistureSummary.dry} at or below their drying goal. ` +
+          `Drying continues until every monitored material is at or below ` +
+          `its drying goal.`,
+    citations: [],
   });
 
   sections.push({
@@ -175,16 +183,22 @@ function buildReport(args: {
     citations: [cite("§12.5")],
   });
 
-  // Dry-standard reference table (S500 baseline).
-  const drySnippet = IICRC_DRY_STANDARDS.slice(0, 5)
-    .map((d) => `${d.label} ≤ ${d.dryThreshold}%`)
-    .join("; ");
+  // Drying goal basis (RA-8508): the reference reading from unaffected like
+  // material is the goal; guide values have no cited source and are labelled.
   sections.push({
-    heading: "Dry-standard reference",
+    heading: "Drying goal basis",
     body:
-      `Material targets used for verification: ${drySnippet}. ` +
-      `Full table mirrored from lib/iicrc-dry-standards.ts.`,
-    citations: [cite("§12.5.7", "Material-specific dry standards")],
+      args.referenceMaterials > 0
+        ? `Drying goals are set from reference readings taken on unaffected ` +
+          `like material in the same building (${args.referenceMaterials} ` +
+          `material${args.referenceMaterials === 1 ? "" : "s"}). Materials ` +
+          `without a reference reading are compared with a starting guide ` +
+          `value, which is not a published standard.`
+        : `No reference reading from unaffected like material was recorded, ` +
+          `so readings are compared with starting guide values, which are ` +
+          `not a published standard. Record a reference reading for each ` +
+          `affected material to set its drying goal.`,
+    citations: [],
   });
 
   const citations: StandardCitation[] = sections
@@ -225,7 +239,15 @@ export const waterDomain: DomainPlugin = {
             select: { affectedAreaSqm: true, affectedSquareFootage: true },
           },
           moistureReadings: {
-            select: { surfaceType: true, moistureLevel: true },
+            select: {
+              surfaceType: true,
+              moistureLevel: true,
+              isBaseline: true,
+              unit: true,
+              invalidatedAt: true,
+              recordedAt: true,
+              createdAt: true,
+            },
           },
         },
       });
@@ -294,34 +316,34 @@ export const waterDomain: DomainPlugin = {
         gst,
       );
 
-      // Moisture summary — classify each reading against the IICRC dry
-      // standard for its surface type. Unknown materials count toward
-      // total only.
-      const moistureSummary = inspection.moistureReadings.reduce(
-        (acc, r) => {
-          acc.total += 1;
-          const std = IICRC_DRY_STANDARDS.find(
-            (s) =>
-              s.material.toLowerCase() ===
-              (r.surfaceType ?? "").toLowerCase().trim(),
-          );
-          if (!std) return acc;
-          const lvl = r.moistureLevel ?? 0;
-          if (lvl > std.wetThreshold) acc.wet += 1;
-          else if (lvl > std.dryThreshold) acc.drying += 1;
-          else acc.dry += 1;
-          return acc;
-        },
-        { wet: 0, drying: 0, dry: 0, total: 0 },
-      );
+      // Moisture summary — classify each monitored reading against its drying
+      // goal: the reference reading for the material where recorded, else the
+      // guide value. Unknown materials without a reference count toward total only.
+      const references = pickReferenceReadings(inspection.moistureReadings);
+      const moistureSummary = inspection.moistureReadings
+        .filter((r) => !r.isBaseline && !r.invalidatedAt)
+        .reduce(
+          (acc, r) => {
+            acc.total += 1;
+            const key = materialKey(r.surfaceType);
+            const ref = references[key];
+            const known = MOISTURE_GUIDE_VALUES.some((g) => g.material === key);
+            if (ref === undefined && !known) return acc;
+            const status = getMoistureStatus(r.moistureLevel ?? 0, key, ref);
+            acc[status] += 1;
+            return acc;
+          },
+          { wet: 0, drying: 0, dry: 0, total: 0 },
+        );
 
-      const { report, citations } = buildReport({
+      const { report, citations } = buildWaterReport({
         propertyAddress: inspection.propertyAddress,
         category: cat,
         damageClass: dc,
         affectedAreaM2,
         estimatedDays: days,
         moistureSummary,
+        referenceMaterials: Object.keys(references).length,
       });
 
       return {

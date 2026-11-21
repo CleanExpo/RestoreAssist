@@ -11,7 +11,7 @@
  *   6. Psychrometric data (S500 §5)
  *   6A. Sampling & laboratory results (mould jobs only, RA-7686)
  *   7. Inspection report narrative
- *   8. Drying goals reference (S500 §12.5.7)
+ *   8. Drying goal basis (reference readings; guide values marked, RA-8508)
  *   9. Signed declaration
  */
 
@@ -20,6 +20,13 @@ import {
   shouldPrintMouldLabResults,
   type MouldLabAssessment,
 } from "@/lib/reports/mould-lab-results";
+import {
+  MOISTURE_GUIDE_HINT,
+  MOISTURE_GUIDE_LABEL,
+  MOISTURE_GUIDE_VALUES,
+  pickReferenceReadings,
+  type ReferenceCandidate,
+} from "@/lib/iicrc-dry-standards";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import {
   hexToRgb,
@@ -650,7 +657,7 @@ export async function generateIICRCReportPDF(
     });
     w.gap(4);
     w.text(
-      "Drying goal: all affected materials must achieve equilibrium moisture content per S500:2021 §12.5.7.",
+      "Drying goal: each affected material must reach its reference reading taken from unaffected like material in the same building.",
       {
         size: 8,
         color: C_MUTED,
@@ -841,26 +848,41 @@ export async function generateIICRCReportPDF(
     w.gap(8);
   }
 
-  // ── SECTION 9: IICRC Drying Goals Reference ──────────────────────────────────
+  // ── SECTION 9: Drying goal basis (RA-8508) ─────────────────────────────────
+  // The goal for each material is the job's reference reading from unaffected
+  // like material. Guide values have no cited source and are labelled as such.
   w.ensureSpace(80);
-  w.sectionHeader("SECTION 9 — IICRC S500:2021 DRYING GOALS REFERENCE (§12.5.7)");
+  w.sectionHeader("SECTION 9 — DRYING GOAL BASIS");
   w.gap(4);
-  const dryingGoals = [
-    ["Hardwood flooring (solid)", "≤12% MC", "§12.5.7"],
-    ["Softwood / structural timber", "≤19% MC", "§12.5.7"],
-    ["Plasterboard (gypsum)", "≤1% MC", "§12.5.7"],
-    ["Concrete (slab, block)", "≤5% MC", "§12.5.7"],
-    ["Relative humidity (interior)", "≤50% RH", "§5"],
-    ["Indoor temperature", "21–27°C", "§5"],
-  ];
-  w.tableRow(
-    ["Material / Condition", "Drying Goal", "S500:2021 Ref."],
-    [170, 120, 100],
-    true,
+  const references = pickReferenceReadings(moistureArr as ReferenceCandidate[]);
+  const refRows = Object.entries(references);
+  w.tableRow(["Material", "Drying goal", "Basis"], [170, 120, 160], true);
+  if (refRows.length > 0) {
+    refRows.forEach(([mat, mc], i) => {
+      w.tableRow(
+        [sanitise(mat), `≤${mc}% MC`, "Reference reading"],
+        [170, 120, 160],
+        false,
+        i % 2 === 1,
+      );
+    });
+  } else {
+    MOISTURE_GUIDE_VALUES.forEach((g, i) => {
+      w.tableRow(
+        [g.label, `≤${g.dryThreshold}% MC`, MOISTURE_GUIDE_LABEL],
+        [170, 120, 160],
+        false,
+        i % 2 === 1,
+      );
+    });
+  }
+  w.gap(4);
+  w.text(
+    refRows.length > 0
+      ? `Reference readings were taken on unaffected like material in the same building. ${MOISTURE_GUIDE_HINT.replace("Replace it with", "Materials without one use a guide value; replace it with")}`
+      : `No reference reading was recorded. The values above are a starting guide only and are not a published standard. ${MOISTURE_GUIDE_HINT}`,
+    { size: 8, color: C_MUTED, maxWidth: COL_W },
   );
-  dryingGoals.forEach(([mat, goal, ref], i) => {
-    w.tableRow([mat, goal, ref], [170, 120, 100], false, i % 2 === 1);
-  });
   w.gap(8);
 
   // ── SECTION 10: Signed Declaration ───────────────────────────────────────────

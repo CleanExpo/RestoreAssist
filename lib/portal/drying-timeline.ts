@@ -12,7 +12,10 @@
  */
 
 import { computeTargetCurve } from "@/lib/drying/target-curve";
-import { getDryStandard } from "@/lib/iicrc-dry-standards";
+import {
+  pickReferenceReadings,
+  resolveDryingGoal,
+} from "@/lib/iicrc-dry-standards";
 
 const DEFAULT_CATEGORY = "Category 2";
 const DEFAULT_CLASS = "Class 2";
@@ -64,6 +67,10 @@ export interface DryingTimelineReadingInput {
   surfaceType: string;
   moistureLevel: number;
   recordedAt: Date | string;
+  /** RA-8508: a reference reading from unaffected like material (sets the goal). */
+  isBaseline?: boolean;
+  unit?: string | null;
+  invalidatedAt?: Date | string | null;
 }
 
 export interface DryingTimelineAreaInput {
@@ -95,10 +102,12 @@ export function buildDryingTimeline(
   const waterClass = input.targetClass ?? DEFAULT_CLASS;
 
   const states: AreaDryingState[] = [];
+  // Reference readings set the goal; they are not themselves drying progress.
+  const references = pickReferenceReadings(input.readings);
 
   for (const area of input.areas) {
     const areaReadings = input.readings
-      .filter((r) => r.location === area.roomZoneId)
+      .filter((r) => r.location === area.roomZoneId && !r.isBaseline)
       .map((r) => ({ ...r, recordedAt: new Date(r.recordedAt) }))
       .sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
 
@@ -123,7 +132,7 @@ export function buildDryingTimeline(
     );
     const dayIndex = Math.min(daysElapsed, curve.daily.length - 1);
     const expectedTargetMC = curve.daily[dayIndex].targetMC;
-    const dryThreshold = getDryStandard(materialType).dryThreshold;
+    const dryThreshold = resolveDryingGoal(materialType, references).target;
 
     const isDry = latest.moistureLevel <= dryThreshold;
     const gap = latest.moistureLevel - expectedTargetMC;

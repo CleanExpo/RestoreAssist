@@ -53,11 +53,15 @@ export async function GET(
         report: { select: { id: true, status: true } },
         affectedAreas: { select: { id: true, roomZoneId: true } },
         moistureReadings: {
+          // RA-8508: baselines set the drying goal.
           select: {
             location: true,
             surfaceType: true,
             moistureLevel: true,
             recordedAt: true,
+            isBaseline: true,
+            unit: true,
+            invalidatedAt: true,
           },
         },
       },
