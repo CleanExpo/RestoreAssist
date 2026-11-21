@@ -9,6 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { expectRefused } from "@/tests/helpers/expect-refused";
 
 vi.mock("@/lib/voice/fire-smoke/server", () => ({
   checkFireSubmitGate: async () => ({ blocked: false }),
@@ -190,7 +191,7 @@ describe("submit route — RA-8503 office notice", () => {
     mockInspectionUpdateMany.mockResolvedValue({ count: 0 });
     mockInspectionFindUnique.mockResolvedValue({ ...inspection, status: "SUBMITTED" });
     const retry = await POST(submit(), params);
-    expect(retry.status).toBe(409);
+    await expectRefused(retry, 409, /already submitted/);
 
     expect(mockNotice).toHaveBeenCalledTimes(1);
   });
@@ -203,7 +204,7 @@ describe("submit route — RA-8503 office notice", () => {
     });
     const { POST } = await import("../route");
     const res = await POST(submit(), params);
-    expect(res.status).toBe(400);
+    await expectRefused(res, 400, /critical fields missing/);
     expect(mockNotice).not.toHaveBeenCalled();
     expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
   });
