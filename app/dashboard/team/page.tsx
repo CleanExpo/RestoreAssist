@@ -268,8 +268,16 @@ export default function TeamPage() {
     }
   };
 
+  // Latest-value refs so the effect still fires only when the role changes.
+  const loadRef = useRef(load);
+  const hasSessionUserRef = useRef(false);
   useEffect(() => {
-    if (session?.user) load();
+    loadRef.current = load;
+    hasSessionUserRef.current = !!session?.user;
+  });
+
+  useEffect(() => {
+    if (hasSessionUserRef.current) loadRef.current();
   }, [session?.user?.role]);
 
   // Back from Stripe, or the setup checklist: open the invite with the entry kept.

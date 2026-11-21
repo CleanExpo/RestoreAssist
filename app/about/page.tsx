@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 export default function AboutPage() {
   const darkMode = false;

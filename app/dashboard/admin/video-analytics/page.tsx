@@ -21,9 +21,9 @@ const CheckMark = (props: MarkProps) => (
     <RAIcon name="success" size={18} decorative />
   </Mark>
 );
-const PauseMark = (props: MarkProps) => <Mark {...props}>Ⅱ</Mark>;
-const UpMark = (props: MarkProps) => <Mark {...props}>↗</Mark>;
-const DownMark = (props: MarkProps) => <Mark {...props}>↘</Mark>;
+const _PauseMark = (props: MarkProps) => <Mark {...props}>Ⅱ</Mark>;
+const _UpMark = (props: MarkProps) => <Mark {...props}>↗</Mark>;
+const _DownMark = (props: MarkProps) => <Mark {...props}>↘</Mark>;
 const UsersMark = (props: MarkProps) => <Mark {...props}>◉</Mark>;
 
 interface VideoStat {

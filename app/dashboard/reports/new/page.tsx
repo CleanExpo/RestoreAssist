@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import BillingGate from "@/components/capacitor/BillingGate";
@@ -36,8 +36,12 @@ import { PRICING_CONFIG } from "@/lib/pricing";
 
 export default function NewReportPage() {
   const router = useRouter();
-  const searchParams = useSearchParams() ?? new URLSearchParams();
-  const { data: session, update } = useSession();
+  const rawSearchParams = useSearchParams();
+  const searchParams = useMemo(
+    () => rawSearchParams ?? new URLSearchParams(),
+    [rawSearchParams],
+  );
+  const { data: _session, update } = useSession();
   const [uploading, setUploading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [uploadedData, setUploadedData] = useState<any>(null);
@@ -63,7 +67,6 @@ export default function NewReportPage() {
   // Fetch subscription status on mount (always needed for feature gating)
   useEffect(() => {
     fetchSubscriptionStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Check credits and onboarding status on mount (only for new reports)
@@ -169,6 +172,12 @@ export default function NewReportPage() {
   };
 
   // Check for reportId or interview data in URL
+  // Latest loadReportData, so the searchParams effect still fires only when
+  // searchParams changes.
+  const loadReportDataRef = useRef<((id: string) => Promise<void>) | null>(
+    null,
+  );
+
   useEffect(() => {
     const urlReportId = searchParams.get("reportId");
     const interviewDataParam = searchParams.get("interviewData");
@@ -276,7 +285,7 @@ export default function NewReportPage() {
       if (typeof window !== "undefined") {
         localStorage.setItem("currentReportId", urlReportId);
       }
-      loadReportData(urlReportId);
+      loadReportDataRef.current?.(urlReportId);
     } else {
       // Clear localStorage when creating a new report (no reportId in URL)
       if (typeof window !== "undefined") {
@@ -418,6 +427,8 @@ export default function NewReportPage() {
     }
   };
 
+  loadReportDataRef.current = loadReportData;
+
   const handleComplete = () => {
     // Clear localStorage when report is complete
     if (typeof window !== "undefined") {
@@ -463,7 +474,7 @@ export default function NewReportPage() {
         const error = await response.json();
         toast.error(error.error || "Failed to upload PDF");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to upload PDF");
     } finally {
       setUploading(false);
@@ -944,7 +955,7 @@ export default function NewReportPage() {
 
               {/* Setup Steps */}
               <div className="space-y-4">
-                {setupSteps.map((step, index) => {
+                {setupSteps.map((step, _index) => {
                   const Icon = step.icon;
                   return (
                     <div

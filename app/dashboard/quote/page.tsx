@@ -735,7 +735,6 @@ export default function QuotePage() {
             <div className="flex items-start justify-between border-b border-slate-200 dark:border-slate-700 pb-6">
               <div>
                 {quoteResult.contractor.logo && (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={quoteResult.contractor.logo}
                     alt="Logo"
