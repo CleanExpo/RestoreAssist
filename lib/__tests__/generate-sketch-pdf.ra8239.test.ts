@@ -5,12 +5,12 @@
  * L-room (12 m²) is non-blank and prints each room name once with its
  * measured area. Unconfirmed AI suggestions, imported-plan reference rooms
  * and raw free text a technician did not put on the plan as a room never
- * appear. Labels here stay under the legend's 14-character cut, so a
- * "not printed" check cannot pass just because a long label was shortened.
+ * appear. The forbidden labels here are short, so a "not printed" check
+ * cannot pass just because a long label was shortened to fit the legend.
  */
 import { describe, expect, it } from "vitest";
 import { PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
-import { generateSketchPdf } from "@/lib/generate-sketch-pdf";
+import { fitLegendText, generateSketchPdf } from "@/lib/generate-sketch-pdf";
 
 const PNG_1PX =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
@@ -157,5 +157,60 @@ describe("RA-8239 clean structured floor-plan PDF", () => {
     expect(text).not.toContain("AI Study");
     expect(text).not.toContain("Src Room");
     expect(text).not.toContain("Private note");
+  });
+});
+
+describe("RA-8239 room names in the legend are readable", () => {
+  // 1 point per character per point of size: easy to reason about.
+  const measure = (text: string, size: number) => text.length * size * 0.5;
+
+  it("prints a name that fits at the normal 7.5 pt size", () => {
+    expect(fitLegendText("Kitchen", "", 100, measure)).toEqual({
+      text: "Kitchen",
+      size: 7.5,
+    });
+  });
+
+  it("shrinks the type before it shortens the name", () => {
+    // 22 characters: 82.5 wide at 7.5 pt, 66 at 6 pt.
+    const fitted = fitLegendText("Master Bedroom Ensuite", "", 70, measure);
+    expect(fitted.text).toBe("Master Bedroom Ensuite");
+    expect(fitted.size).toBeLessThan(7.5);
+  });
+
+  it("shortens with an ellipsis only when even 6 pt does not fit, and keeps the LiDAR tag", () => {
+    const fitted = fitLegendText(
+      "Master Bedroom Ensuite",
+      " · LiDAR",
+      60,
+      measure,
+    );
+    expect(fitted.size).toBe(6);
+    expect(fitted.text.endsWith("… · LiDAR")).toBe(true);
+    expect(measure(fitted.text, 6)).toBeLessThanOrEqual(60);
+  });
+
+  it("prints a long room name in full in the PDF", async () => {
+    const ensuite = {
+      ...lounge,
+      data: {
+        type: "room",
+        id: "room-ens",
+        label: "Master Bedroom Ensuite",
+        provenance: "operator_measured",
+      },
+    };
+    const text = await pdfText(
+      await generateSketchPdf({
+        floors: [
+          {
+            label: "Ground Floor",
+            pngDataUrl: PNG_1PX,
+            fabricJson: { ...scale, objects: [ensuite] },
+          },
+        ],
+      }),
+    );
+    expect(text).toContain("Master Bedroom Ensuite");
   });
 });
