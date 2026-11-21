@@ -115,7 +115,7 @@ export function InterviewValidationPanel({
               id="iicrc-validation-heading"
               className="text-sm font-semibold text-slate-900 dark:text-white"
             >
-              IICRC S500:2021 compliance check
+              IICRC S500 alignment review
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400">
               Advisory only — does not block report generation.

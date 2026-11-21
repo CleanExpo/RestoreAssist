@@ -49,7 +49,7 @@ const STEPS: TourStep[] = [
   {
     icon: Sparkles,
     title: "Welcome to RestoreAssist",
-    body: "Let's take a 60-second tour of the tools that help Australian and New Zealand restorers run IICRC S500:2021-compliant jobs end-to-end.",
+    body: "Let's take a 60-second tour of the tools that help Australian and New Zealand restorers run jobs aligned to IICRC S500 end-to-end.",
   },
   {
     icon: Plus,

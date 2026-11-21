@@ -18,6 +18,21 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { resolveClientRecipient } from "@/lib/client-recipient";
+import {
+  reportAlignedStandard,
+  standardCite,
+  type StandardKey,
+} from "@/lib/nir-standards-mapping";
+
+/**
+ * RA-8282: the PDF button names the standard the report is aligned to for its
+ * claim type (S500 water, S520 mould, S700 fire), and never says "compliant".
+ */
+function pdfButtonTitle(std: StandardKey | null): string {
+  return std
+    ? `Download the PDF report (aligned to IICRC ${standardCite(std)})`
+    : "Download the PDF report";
+}
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import InspectionReportViewer from "@/components/InspectionReportViewer";
@@ -306,7 +321,12 @@ export default function ReportDetailPage({
         {/* Download IICRC PDF */}
         <button
           onClick={() => requestExport(handleDownloadPDF)}
-          title="Download IICRC S500:2021 compliant PDF"
+          title={pdfButtonTitle(
+            reportAlignedStandard(
+              report?.inspection?.claimType,
+              report?.hazardType,
+            ),
+          )}
           className="flex items-center gap-2 px-3 py-2 bg-brand-cream dark:bg-slate-700 text-brand-navy dark:text-slate-200 rounded-lg font-medium hover:bg-slate-600 transition-colors text-sm"
         >
           <Download size={16} />

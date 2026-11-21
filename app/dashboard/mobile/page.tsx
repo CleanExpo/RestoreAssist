@@ -117,7 +117,7 @@ const V1_FEATURES: MobileFeature[] = [
     id: "ai-reports",
     title: "AI report generation",
     description:
-      "Generate IICRC-compliant scope narratives on-device using the technician's own API key, streamed via SSE.",
+      "Generate IICRC-aligned scope narratives on-device using the technician's own API key, streamed via SSE.",
     status: "done",
     icon: Zap,
   },

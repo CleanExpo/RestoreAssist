@@ -956,6 +956,61 @@ export function standardCite(std: StandardKey, section?: string): string {
   return section ? `${base} §${section.replace(/^§\s*/, "")}` : base;
 }
 
+/**
+ * The IICRC standard a claim type is aligned to, for the one-line reference
+ * a report, button, portal or alt text prints (RA-7665 / RA-8282).
+ *
+ * Water → S500, mould → S520, fire and smoke → S700, biohazard and trauma →
+ * S540. Every other claim type (storm, contents, odour, carpet, HVAC,
+ * asbestos) has no single governing IICRC standard, so it returns null and
+ * the caller prints no standard at all, rather than defaulting to S500.
+ *
+ * Accepts the Prisma `ClaimType` values and the free-text hazard labels older
+ * reports stored ("Water", "Mould", "FIRE_SMOKE").
+ *
+ * The house form of words around the result is a reference, never a claim:
+ * "aligned to IICRC S500:2021" or "references ANSI/IICRC S500-2021", never a
+ * compliance or certification claim. lib/__tests__/iicrc-overclaim-wording.ra7665.test.ts
+ * fails the build if that wording comes back.
+ */
+export function alignedStandardForClaimType(
+  claimType: string | null | undefined,
+): StandardKey | null {
+  if (!claimType) return null;
+  const key = claimType.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (key === "WATER" || key === "WATER_DAMAGE" || key === "FLOOD")
+    return "S500";
+  if (key === "MOULD" || key === "MOLD" || key === "MOULD_REMEDIATION")
+    return "S520";
+  if (
+    key === "FIRE" ||
+    key === "FIRE_SMOKE" ||
+    key === "SMOKE" ||
+    key === "FIRE_DAMAGE"
+  )
+    return "S700";
+  if (key === "BIOHAZARD" || key === "TRAUMA") return "S540";
+  return null;
+}
+
+/**
+ * The standard a whole report is aligned to: the inspection's claim type
+ * first, then the report's own hazard label. A report with neither is a legacy
+ * water report (the report schema began as water damage), so it keeps S500. A
+ * recorded type with no single IICRC standard gets none.
+ *
+ * Shared by the PDF generator, the report page's PDF button and the insurer
+ * portal so the three never disagree about which standard a report names.
+ */
+export function reportAlignedStandard(
+  claimType: string | null | undefined,
+  hazardType?: string | null,
+): StandardKey | null {
+  const recorded = claimType?.trim() || hazardType?.trim();
+  if (!recorded) return "S500";
+  return alignedStandardForClaimType(recorded);
+}
+
 /** Formal designation for report/legal text, e.g. "ANSI/IICRC S500-2021". */
 export function standardDesignation(std: StandardKey): string {
   return STANDARDS_VERSIONS[std].designation;

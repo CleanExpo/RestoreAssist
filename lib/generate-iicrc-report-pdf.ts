@@ -1,6 +1,11 @@
 /**
- * IICRC S500:2021-Compliant Report PDF Generator (RA-428)
+ * IICRC report PDF generator (RA-428)
  * Produces a professional, insurer-grade PDF from RestoreAssist report data.
+ *
+ * The report is aligned to the IICRC standard for its claim type and says so
+ * as a reference only. It never states that the report or the job is
+ * compliant with, or certified against, a standard (RA-7665). The edition
+ * comes from lib/nir-standards-mapping.ts, never a hand-typed year.
  *
  * Sections:
  *   1. Header + property details
@@ -28,6 +33,12 @@ import {
 } from "@/lib/clients/brand";
 import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
+import {
+  reportAlignedStandard,
+  standardCite,
+  standardDesignation,
+  type StandardKey,
+} from "@/lib/nir-standards-mapping";
 import { readEquipmentDeploymentLog } from "@/lib/reports/stored-equipment-pricing";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -294,11 +305,26 @@ export function fmtCurrency(n: number | null | undefined): string {
 
 // ─── Header + Footer ──────────────────────────────────────────────────────────
 
+/** Page header strap, e.g. "Inspection Report | Aligned to IICRC S500:2021". */
+export function reportPdfHeaderStrap(std: StandardKey | null): string {
+  return std
+    ? `Inspection Report | Aligned to IICRC ${standardCite(std)}`
+    : "Inspection Report";
+}
+
+/** Page footer line, e.g. "References ANSI/IICRC S500-2021 | Alignment, not certification". */
+export function reportPdfFooterLine(std: StandardKey | null): string {
+  return std
+    ? `References ${standardDesignation(std)} | Alignment, not certification`
+    : "Restoration inspection report";
+}
+
 function drawPageHeader(
   w: PDFWriter,
   reportNumber: string,
   pageNum: number,
   accent: ReturnType<typeof rgb> = C_NAVY,
+  std: StandardKey | null = "S500",
 ) {
   const p = w.page;
   p.drawRectangle({
@@ -315,7 +341,7 @@ function drawPageHeader(
     font: w.bold,
     color: C_WHITE,
   });
-  p.drawText("IICRC S500:2021 Compliant Inspection Report", {
+  p.drawText(reportPdfHeaderStrap(std), {
     x: MARGIN + 105,
     y: A4_H - 22,
     size: 8,
@@ -334,11 +360,12 @@ function drawPageHeader(
 function drawPageFooter(
   w: PDFWriter,
   accent: ReturnType<typeof rgb> = C_NAVY,
+  std: StandardKey | null = "S500",
 ) {
   const p = w.page;
   p.drawRectangle({ x: 0, y: 0, width: A4_W, height: 28, color: accent });
   p.drawText(
-    "Compliant with IICRC S500:2021 | Australian Water Damage Restoration Standard",
+    reportPdfFooterLine(std),
     {
       x: MARGIN,
       y: 10,
@@ -376,7 +403,7 @@ export interface GenerateIICRCReportOptions {
 }
 
 /**
- * Generate an IICRC S500:2021-compliant PDF from RestoreAssist report data.
+ * Generate the IICRC-aligned inspection report PDF from RestoreAssist report data.
  * Returns a Uint8Array ready to stream as application/pdf.
  */
 export async function generateIICRCReportPDF(
@@ -428,11 +455,13 @@ export async function generateIICRCReportPDF(
 
   const reportNum =
     data.reportNumber ?? `RA-${data.id.slice(0, 8).toUpperCase()}`;
+  // RA-7665 / RA-8282: a mould report references S520, a fire report S700.
+  const pdfStandard = reportAlignedStandard(data.claimType, data.hazardType);
   let pageNum = 1;
 
   // ── SECTION 1: Property & Claim Details ─────────────────────────────────────
-  drawPageHeader(w, reportNum, pageNum, themeRgb);
-  drawPageFooter(w, themeRgb);
+  drawPageHeader(w, reportNum, pageNum, themeRgb, pdfStandard);
+  drawPageFooter(w, themeRgb, pdfStandard);
   if (clientLogoImage) {
     // Render the logo inside the header band — top-right, height-capped
     // to the band so it never bleeds into the page body.
@@ -745,8 +774,8 @@ export async function generateIICRCReportPDF(
     // New page for the narrative — it may be long
     w.newPage();
     pageNum++;
-    drawPageHeader(w, reportNum, pageNum, themeRgb);
-    drawPageFooter(w, themeRgb);
+    drawPageHeader(w, reportNum, pageNum, themeRgb, pdfStandard);
+    drawPageFooter(w, themeRgb, pdfStandard);
     w.y = A4_H - 60;
 
     w.sectionHeader("SECTION 7 — PROFESSIONAL INSPECTION REPORT NARRATIVE");

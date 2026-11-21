@@ -862,7 +862,7 @@ export default function ReportsPage() {
                         <EmptyState
                           icon={<GitBranch size={40} aria-hidden />}
                           title="No reports yet"
-                          description="Water-damage reports appear here once you complete an inspection. Start one to generate your first IICRC-compliant report."
+                          description="Water-damage reports appear here once you complete an inspection. Start one to generate your first IICRC-aligned report."
                           primaryAction={{
                             label: "Create your first report",
                             href: "/dashboard/reports/new",

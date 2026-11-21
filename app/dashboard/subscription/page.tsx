@@ -1,6 +1,7 @@
 "use client";
 
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { standardCite } from "@/lib/nir-standards-mapping";
 import { useState, useEffect } from "react";
 import {
   Check,
@@ -817,10 +818,11 @@ function SubscriptionPageContent() {
                 <div className="text-center p-4 bg-white dark:bg-slate-800/30 rounded-lg">
                   <Shield className="w-6 h-6 text-brand-harbour-700 dark:text-brand-harbour-400 mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-brand-navy dark:text-white mb-2">
-                    IICRC S500 Compliant
+                    Aligned to IICRC {standardCite("S500")}
                   </h4>
                   <p className="text-brand-slate dark:text-slate-400 text-sm">
-                    All reports follow IICRC S500 standards
+                    Reports are structured on, and cite, IICRC S500 section
+                    numbers
                   </p>
                 </div>
                 <div className="text-center p-4 bg-white dark:bg-slate-800/30 rounded-lg">
