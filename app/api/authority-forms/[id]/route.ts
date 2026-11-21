@@ -243,6 +243,7 @@ export async function DELETE(
             assignedAdminId: true,
           },
         },
+        signatures: { select: { signedAt: true }, take: 100 },
       },
     });
 
@@ -267,10 +268,23 @@ export async function DELETE(
       });
     }
 
-    // Delete form (signatures will be cascade deleted)
-    await prisma.authorityFormInstance.delete({
+    // RA-8400: deleting a signed form would cascade-delete the signatures, so
+    // a signed form is a closed legal record here too.
+    const signedRefusal = formTextEditRefusal(existingForm);
+    if (signedRefusal) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: signedRefusal,
+        status: 409,
+      });
+    }
+
+    // Delete form (signatures will be cascade deleted). The unsigned rule sits
+    // in the write itself, so a signature that lands after the read blocks it.
+    const deleted = await prisma.authorityFormInstance.deleteMany({
       where: {
         id,
+        ...noSignedSignatureWhere(),
         report: {
           OR: [
             { userId: session.user.id },
@@ -280,6 +294,14 @@ export async function DELETE(
         },
       },
     });
+
+    if (deleted.count === 0) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "This form changed while you were deleting it; reload and try again",
+        status: 409,
+      });
+    }
 
     return NextResponse.json({ message: "Form deleted successfully" });
   } catch (error) {

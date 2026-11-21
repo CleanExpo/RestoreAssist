@@ -84,6 +84,7 @@ const prismaMock = vi.hoisted(() => {
     invoicePayment: { updateMany: ReturnType<typeof vi.fn> };
     voiceCopilotSession: { updateMany: ReturnType<typeof vi.fn> };
     securityEvent: { create: ReturnType<typeof vi.fn> };
+    authorityFormInstance: { findMany: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
   } = {
     user: { findUnique: vi.fn(), delete: vi.fn(), updateMany: vi.fn() },
@@ -96,6 +97,7 @@ const prismaMock = vi.hoisted(() => {
     invoicePayment: { updateMany: vi.fn() },
     voiceCopilotSession: { updateMany: vi.fn() },
     securityEvent: { create: vi.fn() },
+    authorityFormInstance: { findMany: vi.fn(async () => []) },
     // Interactive transaction: run the callback with the same delegate set as
     // the transactional client so tx.* calls are observable on the mock.
     $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mock)),
@@ -150,6 +152,7 @@ describe("POST /api/account/delete — statutory-record retention", () => {
     prismaMock.user.delete.mockResolvedValue({ id: "user-1" } as never);
     prismaMock.user.updateMany.mockResolvedValue({ count: 2 } as never);
     prismaMock.securityEvent.create.mockResolvedValue({ id: "se-1" } as never);
+    prismaMock.authorityFormInstance.findMany.mockResolvedValue([] as never);
     prismaMock.$transaction.mockImplementation(
       async (cb: (tx: unknown) => Promise<unknown>) => cb(prismaMock),
     );
@@ -247,6 +250,33 @@ describe("POST /api/account/delete — statutory-record retention", () => {
     expect(prismaMock.user.delete).toHaveBeenCalledTimes(1);
   });
 
+  // RA-8526: user.delete cascades Report -> AuthorityFormInstance ->
+  // AuthorityFormSignature. A signed form still reachable after the
+  // reassignment must stop the delete inside the transaction.
+  it("refuses with 409 and never deletes the user when a signed authority form would be reached", async () => {
+    prismaMock.authorityFormInstance.findMany.mockResolvedValue([
+      { reportId: "report-signed" },
+    ] as never);
+    const res = await POST(makeRequest(CONFIRMATION));
+    expect(res.status).toBe(409);
+    expect(prismaMock.user.delete).not.toHaveBeenCalled();
+    expect(prismaMock.authorityFormInstance.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          report: { userId: "user-1" },
+          signatures: { some: { signedAt: { not: null } } },
+        },
+      }),
+    );
+  });
+
+  it("runs the signed-form check after the report reassignment and before user.delete", async () => {
+    await POST(makeRequest(CONFIRMATION));
+    const check = prismaMock.authorityFormInstance.findMany.mock.invocationCallOrder[0];
+    expect(check).toBeGreaterThan(prismaMock.report.updateMany.mock.invocationCallOrder[0]);
+    expect(check).toBeLessThan(prismaMock.user.delete.mock.invocationCallOrder[0]);
+  });
+
   it("does not report success (and lets the transaction roll back) when the delete fails", async () => {
     prismaMock.user.delete.mockRejectedValue(new Error("boom") as never);
     const res = await POST(makeRequest(CONFIRMATION));
@@ -285,6 +315,7 @@ describe("POST /api/account/delete — RA-7893 members keep a leave date", () =>
     ] as never);
     prismaMock.user.delete.mockResolvedValue({ id: "user-1" } as never);
     prismaMock.securityEvent.create.mockResolvedValue({ id: "se-1" } as never);
+    prismaMock.authorityFormInstance.findMany.mockResolvedValue([] as never);
     prismaMock.$transaction.mockImplementation(
       async (cb: (tx: unknown) => Promise<unknown>) => cb(prismaMock),
     );

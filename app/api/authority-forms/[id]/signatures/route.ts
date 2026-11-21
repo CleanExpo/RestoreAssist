@@ -6,7 +6,9 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   formAcceptsSignatureWhere,
+  formNewSlotRefusal,
   formSignatureRefusal,
+  noSignedSignatureWhere,
   unsignedSlotWhere,
 } from "@/lib/authority-forms/signed-record-guard";
 
@@ -63,6 +65,7 @@ export async function POST(
               assignedAdminId: true,
             },
           },
+          signatures: { select: { signedAt: true }, take: 100 },
         },
       });
 
@@ -108,24 +111,52 @@ export async function POST(
           });
         }
 
-        const newSignature = await prisma.authorityFormSignature.create({
-          data: {
-            instanceId: formId,
-            signatoryName,
-            signatoryRole,
-            signatoryEmail: signatoryEmail || null,
-          },
+        // RA-8400: once anyone has signed, a new slot would appear on the
+        // executed document.
+        const newSlotRefusal = formNewSlotRefusal(form);
+        if (newSlotRefusal) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: newSlotRefusal,
+            status: 409,
+          });
+        }
+
+        // The same rule sits in the write: the form row is locked by a
+        // conditional update, then the slot is created in the same
+        // transaction, so a signature or cancellation landing after the read
+        // above blocks the create.
+        const newSignature = await prisma.$transaction(async (tx) => {
+          const open = await tx.authorityFormInstance.updateMany({
+            where: {
+              id: formId,
+              ...formAcceptsSignatureWhere(),
+              ...noSignedSignatureWhere(),
+            },
+            data: { updatedAt: new Date() },
+          });
+          if (open.count === 0) return null;
+          const created = await tx.authorityFormSignature.create({
+            data: {
+              instanceId: formId,
+              signatoryName,
+              signatoryRole,
+              signatoryEmail: signatoryEmail || null,
+            },
+          });
+          // Update form status to pending if still draft
+          await tx.authorityFormInstance.updateMany({
+            where: { id: formId, status: "DRAFT" },
+            data: { status: "PENDING_SIGNATURES" },
+          });
+          return created;
         });
 
-        // Update form status to pending if still draft
-        const currentForm = await prisma.authorityFormInstance.findUnique({
-          where: { id: formId },
-          select: { status: true },
-        });
-        if (currentForm?.status === "DRAFT") {
-          await prisma.authorityFormInstance.update({
-            where: { id: formId },
-            data: { status: "PENDING_SIGNATURES" },
+        if (!newSignature) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: "This form changed while you were editing it; reload and try again",
+            status: 409,
           });
         }
 
