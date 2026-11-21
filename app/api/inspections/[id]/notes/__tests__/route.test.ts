@@ -316,7 +316,7 @@ describe("RA-8496 job notes: a retried save never makes a second note", () => {
     },
   );
 
-  it.each([[123], ["x".repeat(101)], [""]])(
+  it.each([[123], ["x".repeat(101)], [""], ["   "], [" draft-1"], ["draft 1"]])(
     "400 for an unusable request id %j",
     async (clientRequestId) => {
       as("office");

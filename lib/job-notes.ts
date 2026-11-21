@@ -126,7 +126,9 @@ export function parseJobNoteInput(input: unknown): ParsedJobNote {
     if (
       typeof raw.clientRequestId !== "string" ||
       raw.clientRequestId.length === 0 ||
-      raw.clientRequestId.length > JOB_NOTE_REQUEST_ID_MAX
+      raw.clientRequestId.length > JOB_NOTE_REQUEST_ID_MAX ||
+      // A UUID or a short token: no spaces, so "  " or " id" is not a key.
+      !/^[A-Za-z0-9_.:-]+$/.test(raw.clientRequestId)
     ) {
       return {
         ok: false,
