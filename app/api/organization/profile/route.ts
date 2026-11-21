@@ -12,6 +12,7 @@ const profileSelect = {
   address: true,
   phone: true,
   email: true,
+  officeNotificationEmail: true,
   website: true,
   logoUrl: true,
   primaryColor: true,
@@ -21,6 +22,9 @@ const profileSelect = {
   abn: true,
   nzbn: true,
 } as const;
+
+// RA-8503: the inbox told when a technician submits a job visit.
+const OFFICE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function isHexColor(value: string): boolean {
   return /^#[0-9A-Fa-f]{6}$/.test(value);
@@ -104,6 +108,23 @@ export async function PATCH(request: NextRequest) {
         continue;
       }
       patch[field] = trimmed;
+    }
+
+    if ("officeNotificationEmail" in body) {
+      const v = body.officeNotificationEmail;
+      if (v === null || v === undefined || v === "") {
+        patch.officeNotificationEmail = null;
+      } else if (typeof v === "string") {
+        const trimmed = v.trim();
+        if (trimmed.length > 254 || !OFFICE_EMAIL_PATTERN.test(trimmed)) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Office email must be a valid email address",
+            status: 400,
+          });
+        }
+        patch.officeNotificationEmail = trimmed;
+      }
     }
 
     if (Object.keys(patch).length === 0) {

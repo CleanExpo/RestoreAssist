@@ -48,7 +48,7 @@ interface EmailSendResult {
 /**
  * Provider failures come back as `{ data: null, error }`. Fail-loud senders funnel through this so a failed send actually throws (and sendWithRetry can retry it) instead of being silently reported as success.
  */
-function assertEmailSuccess<T extends EmailSendResult>(
+export function assertEmailSuccess<T extends EmailSendResult>(
   result: T,
   stage: string,
 ): T {

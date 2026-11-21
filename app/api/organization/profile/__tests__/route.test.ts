@@ -62,4 +62,47 @@ describe("PATCH /api/organization/profile", () => {
     expect(res.status).toBe(200);
     expect(p.organization.update).toHaveBeenCalled();
   });
+
+  // RA-8503: the office inbox told when a technician submits a job visit.
+  it("saves a trimmed office email", async () => {
+    p.organization.findFirst.mockResolvedValue({ id: "org-1" });
+    p.organization.update.mockResolvedValue({ officeNotificationEmail: "office@example.com" });
+    const res = await PATCH(
+      new NextRequest("http://localhost/api/organization/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ officeNotificationEmail: "  office@example.com " }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(p.organization.update.mock.calls[0][0].data).toEqual({
+      officeNotificationEmail: "office@example.com",
+    });
+  });
+
+  it("clears the office email so the owner's email is used", async () => {
+    p.organization.findFirst.mockResolvedValue({ id: "org-1" });
+    p.organization.update.mockResolvedValue({ officeNotificationEmail: null });
+    const res = await PATCH(
+      new NextRequest("http://localhost/api/organization/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ officeNotificationEmail: "" }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(p.organization.update.mock.calls[0][0].data).toEqual({
+      officeNotificationEmail: null,
+    });
+  });
+
+  it("refuses an office email that is not an email address", async () => {
+    p.organization.findFirst.mockResolvedValue({ id: "org-1" });
+    const res = await PATCH(
+      new NextRequest("http://localhost/api/organization/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ officeNotificationEmail: "not an email" }),
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(p.organization.update).not.toHaveBeenCalled();
+  });
 });

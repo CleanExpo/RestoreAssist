@@ -48,6 +48,7 @@ import {
 import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
 import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
+import { notifyOfficeOfSubmittedVisit } from "@/lib/office-notice/submit-notice";
 import { linkedReadingsAreaConflict, readingMatchesArea, unlinkedReadingsAreaAmbiguity } from "@/lib/moisture/reading-room-join";
 
 // POST - Submit inspection for processing
@@ -361,6 +362,8 @@ export async function POST(
       // The fire gate is read again inside the claim's transaction, after
       // the claim holds the row lock that every fire write also takes, so a
       // fire edit cannot slip in between the gate and the claim.
+      // RA-8503: kept so the office notice is keyed to this exact submit.
+      const submittedAt = new Date();
       const submitGuard = await claimSubmitWithFireGate(
         prisma,
         {
@@ -376,7 +379,7 @@ export async function POST(
               status: "DRAFT",
               updatedAt: inspection.updatedAt,
             },
-            data: { status: "SUBMITTED", submittedAt: new Date() },
+            data: { status: "SUBMITTED", submittedAt },
           }),
       );
       if (submitGuard.fireBlock) {
@@ -390,6 +393,16 @@ export async function POST(
           console.error("[next-action] SUBMITTED nudge failed:", err),
         );
         scheduleZohoInspectionPush(id);
+        // RA-8503: tell the office the visit is complete. Only the winning
+        // CAS reaches here, so a retry or a lost race sends nothing; the
+        // email is also claimed once in the delivery ledger. Never blocks.
+        void notifyOfficeOfSubmittedVisit({
+          inspectionId: id,
+          submittedAt,
+          submitterName: session.user.name ?? null,
+        }).catch((err) =>
+          console.error("[office-notice] submit notice failed:", err),
+        );
       }
       if (submitGuard.count === 0) {
         return apiError(request, {
