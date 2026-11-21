@@ -6,7 +6,7 @@
  */
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { RAIcon } from "@/components/brand/RAIcon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -191,8 +191,7 @@ export default function OfficeIntakePage() {
           href="/dashboard/inspections"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Jobs
+          Back to jobs
         </Link>
       </div>
 
@@ -207,7 +206,7 @@ export default function OfficeIntakePage() {
 
       {saved && (
         <div role="status" className="flex items-start gap-3 rounded-lg border p-4">
-          <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" aria-hidden="true" />
+          <RAIcon name="success" size={20} decorative className="mt-0.5" />
           <div className="space-y-1">
             <p className="font-medium">Job {saved.jobNumber} logged.</p>
             {!saved.makeSafeSeeded && (
@@ -305,8 +304,7 @@ export default function OfficeIntakePage() {
         </div>
 
         <Button type="submit" disabled={!canSave}>
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-          {saving ? "Saving" : "Save job"}
+          {saving ? "Saving..." : "Save job"}
         </Button>
       </form>
 
