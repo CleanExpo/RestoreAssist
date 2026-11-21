@@ -38,7 +38,16 @@ import {
 import { useSession } from "next-auth/react";
 import { clearOfflineContext, getOfflineOwner, setOfflineSession, refreshOfflineOwner, listenForOfflineInvalidation, OFFLINE_CONTEXT_EVENT } from "@/lib/offline/account-boundary";
 import { SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline/sync-status-event";
-import { DRAFT_SAVE_STATUS_EVENT, type DraftSaveStatusDetail } from "@/lib/offline/draft-save-status";
+import Link from "next/link";
+import {
+  ACTIVE_DRAFT_EVENT,
+  DRAFT_SAVE_STATUS_EVENT,
+  draftKey,
+  getActiveDraft,
+  isSameDraft,
+  type DraftRef,
+  type DraftSaveStatusDetail,
+} from "@/lib/offline/draft-save-status";
 
 import {
   getSyncStatus,
@@ -59,6 +68,21 @@ import {
 
 // ─── CONTEXT ──────────────────────────────────────────────────────────────────
 
+/** RA-8358: one inspection whose last Save Draft did not write everything. */
+export interface UnsavedDraft extends DraftRef {
+  /** The account that made the failed save (RA-8360). */
+  userId: string | null;
+}
+
+/**
+ * RA-8360: who the provider believes is signed in. "unknown" is the first page
+ * load, before next-auth has answered; "signed-out" follows a real sign-out.
+ */
+type DraftAccount =
+  | { kind: "unknown" }
+  | { kind: "signed-out" }
+  | { kind: "user"; id: string };
+
 interface NirOfflineContextValue {
   syncStatus: SyncStatus;
   queueStats: QueueStats;
@@ -71,8 +95,14 @@ interface NirOfflineContextValue {
   /** An authenticated session needs a server-verified offline owner before a green status is trustworthy. */
   ownerVerificationRequired: boolean;
   ownerVerified: boolean;
-  /** RA-8330: the last draft save on this page did not write everything. */
-  draftSaveFailed: boolean;
+  /**
+   * RA-8358: every inspection whose last Save Draft did not write everything,
+   * for the signed-in account. An entry clears only when the same inspection
+   * later saves in full; a save of a different inspection leaves it alone.
+   */
+  unsavedDrafts: UnsavedDraft[];
+  /** RA-8358: the draft the open inspection form shows, or null when none is open. */
+  activeDraft: DraftRef | null;
   /** Manually trigger a sync drain of queued writes. */
   triggerSync: () => Promise<void>;
 }
@@ -86,7 +116,8 @@ const NirOfflineContext = createContext<NirOfflineContextValue>({
   statusCheckFailed: false,
   ownerVerificationRequired: false,
   ownerVerified: false,
-  draftSaveFailed: false,
+  unsavedDrafts: [],
+  activeDraft: null,
   triggerSync: async () => {},
 });
 
@@ -127,13 +158,32 @@ const STATUS_CONFIG: Record<
  * Satisfies OFFLINE_REQUIREMENTS.syncStatusIndicator: "Always visible — persistent status bar element"
  */
 export function NirSyncStatusBadge() {
-  const { syncStatus, queueStats, pendingEvidenceUploads, pendingVoiceNotes, statusCheckFailed, ownerVerificationRequired, ownerVerified, draftSaveFailed } =
+  const { syncStatus, queueStats, pendingEvidenceUploads, pendingVoiceNotes, statusCheckFailed, ownerVerificationRequired, ownerVerified, unsavedDrafts, activeDraft } =
     useNirOffline();
+  // RA-8358: on an inspection, show that inspection's draft state. Anywhere
+  // else (or when this inspection saved), count the drafts that did not save
+  // and link to the job when there is exactly one.
+  const activeDraftFailed =
+    activeDraft !== null && unsavedDrafts.some((d) => isSameDraft(d, activeDraft));
+  const otherUnsaved = activeDraft
+    ? unsavedDrafts.filter((d) => !isSameDraft(d, activeDraft))
+    : unsavedDrafts;
+  const draftLabel = activeDraftFailed
+    ? "Draft not saved"
+    : otherUnsaved.length === 1
+      ? "1 draft not saved"
+      : otherUnsaved.length > 1
+        ? `${otherUnsaved.length} drafts not saved`
+        : null;
+  const draftHref =
+    !activeDraftFailed && otherUnsaved.length === 1 && otherUnsaved[0].inspectionId
+      ? `/dashboard/inspections/new?draft=${encodeURIComponent(otherUnsaved[0].inspectionId)}`
+      : null;
   const unverifiedOwner = ownerVerificationRequired && !ownerVerified;
   const totalPending = unverifiedOwner ? 0 :
     queueStats.pending + pendingEvidenceUploads + pendingVoiceNotes;
-  const config = draftSaveFailed
-    ? { label: "Draft not saved", className: STATUS_CONFIG.SYNC_CONFLICT.className, dot: STATUS_CONFIG.SYNC_CONFLICT.dot }
+  const config = draftLabel
+    ? { label: draftLabel, className: STATUS_CONFIG.SYNC_CONFLICT.className, dot: STATUS_CONFIG.SYNC_CONFLICT.dot }
     : statusCheckFailed || (unverifiedOwner && typeof navigator !== "undefined" && navigator.onLine)
     ? { label: "Sync status unavailable", className: STATUS_CONFIG.PENDING_SYNC.className, dot: STATUS_CONFIG.PENDING_SYNC.dot }
     : queueStats.failed > 0
@@ -157,7 +207,13 @@ export function NirSyncStatusBadge() {
         className={`h-1.5 w-1.5 rounded-full ${config.dot}`}
         aria-hidden="true"
       />
-      <span>{config.label}</span>
+      {draftHref ? (
+        <Link href={draftHref} className="underline underline-offset-2">
+          {config.label}
+        </Link>
+      ) : (
+        <span>{config.label}</span>
+      )}
       {totalPending > 0 && (
         <span className="ml-0.5 tabular-nums">({totalPending})</span>
       )}
@@ -186,33 +242,86 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
   const [pendingVoiceNotes, setPendingVoiceNotes] = useState(0);
   const [statusCheckFailed, setStatusCheckFailed] = useState(false);
   const [ownerVerified, setOwnerVerified] = useState(false);
-  const [draftSaveFailed, setDraftSaveFailed] = useState(false);
+  // RA-8358: failures keyed by inspection. Held in memory only; nothing about
+  // the badge is written to localStorage or IndexedDB.
+  const [unsavedDraftMap, setUnsavedDraftMap] = useState<Record<string, UnsavedDraft>>({});
+  const [activeDraft, setActiveDraftState] = useState<DraftRef | null>(getActiveDraft);
+
+  // A draft-save failure belongs to the account that made the save (RA-8330
+  // round 7, RA-8360). A next-auth refresh sets the status to "loading", which
+  // briefly makes sessionUserId null for the same account; that keeps the
+  // account as it was and must not clear anything.
+  const draftAccount = useRef<DraftAccount>({ kind: "unknown" });
 
   useEffect(() => {
     const onDraftSave = (event: Event) => {
-      setDraftSaveFailed(!(event as CustomEvent<DraftSaveStatusDetail>).detail?.ok);
+      const detail = (event as CustomEvent<DraftSaveStatusDetail>).detail;
+      if (!detail || typeof detail.formKey !== "string") return;
+      const draft: DraftRef = { inspectionId: detail.inspectionId ?? null, formKey: detail.formKey };
+      const account = draftAccount.current;
+      // The account the save belongs to: the one the form named, else the one
+      // signed in now, else none yet known.
+      const owner = detail.userId ?? (account.kind === "user" ? account.id : null);
+      setUnsavedDraftMap((prev) => {
+        const next: Record<string, UnsavedDraft> = {};
+        // Drop this draft's earlier entries, including one from before its
+        // inspection existed. Entries for any other inspection stay.
+        for (const [key, entry] of Object.entries(prev)) {
+          if (!isSameDraft(entry, draft)) next[key] = entry;
+        }
+        if (detail.ok) return next;
+        // RA-8360: a failure for an account that is no longer signed in, or
+        // one that arrives after sign-out, is not shown to anyone.
+        if (account.kind === "signed-out") return next;
+        if (account.kind === "user" && owner !== null && owner !== account.id) return next;
+        next[draftKey(draft)] = { ...draft, userId: owner };
+        return next;
+      });
+    };
+    const onActiveDraft = (event: Event) => {
+      setActiveDraftState((event as CustomEvent<DraftRef | null>).detail ?? null);
     };
     window.addEventListener(DRAFT_SAVE_STATUS_EVENT, onDraftSave);
-    return () => window.removeEventListener(DRAFT_SAVE_STATUS_EVENT, onDraftSave);
+    window.addEventListener(ACTIVE_DRAFT_EVENT, onActiveDraft);
+    // The form may have announced itself before this listener existed.
+    setActiveDraftState(getActiveDraft());
+    return () => {
+      window.removeEventListener(DRAFT_SAVE_STATUS_EVENT, onDraftSave);
+      window.removeEventListener(ACTIVE_DRAFT_EVENT, onActiveDraft);
+    };
   }, []);
 
-  // A draft-save failure belongs to the account that made the save (RA-8330 round 7).
-  // Clear it only on a real sign-out or a switch to a different account. A
-  // next-auth refresh sets the status to "loading", which briefly makes
-  // sessionUserId null for the same account; that must not clear the failure.
-  const draftSaveAccount = useRef<string | null>(null);
+  // Clear on a real sign-out or a switch to a different account.
   useEffect(() => {
     if (sessionStatus === "unauthenticated") {
-      draftSaveAccount.current = null;
-      setDraftSaveFailed(false);
+      // Only a session that ended is a sign-out. Arriving signed out is not:
+      // a failure reported then still shows, and the first sign-in claims it.
+      if (draftAccount.current.kind === "user") draftAccount.current = { kind: "signed-out" };
+      setUnsavedDraftMap({});
       return;
     }
     if (!sessionUserId) return;
-    if (draftSaveAccount.current !== null && draftSaveAccount.current !== sessionUserId) {
-      setDraftSaveFailed(false);
-    }
-    draftSaveAccount.current = sessionUserId;
+    const previous = draftAccount.current;
+    draftAccount.current = { kind: "user", id: sessionUserId };
+    if (previous.kind === "user" && previous.id === sessionUserId) return;
+    // First sign-in on this page load: keep failures from before next-auth
+    // answered unless another account made them, and claim them for this one.
+    // After a sign-out or from another account: keep only this account's own.
+    setUnsavedDraftMap((prev) => {
+      const next: Record<string, UnsavedDraft> = {};
+      for (const [key, entry] of Object.entries(prev)) {
+        if (entry.userId === sessionUserId) next[key] = entry;
+        else if (previous.kind === "unknown" && entry.userId === null) {
+          next[key] = { ...entry, userId: sessionUserId };
+        }
+      }
+      return next;
+    });
   }, [sessionStatus, sessionUserId]);
+
+  // Sign-out and account changes prune the map above, and a failure that
+  // arrives for another account is never added, so every entry is this one's.
+  const unsavedDrafts = Object.values(unsavedDraftMap);
   const statusReadVersion = useRef(0);
 
   const refreshStatus = useCallback(async () => {
@@ -376,7 +485,8 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
         statusCheckFailed,
         ownerVerificationRequired: sessionStatus === "authenticated",
         ownerVerified,
-        draftSaveFailed,
+        unsavedDrafts,
+        activeDraft,
         triggerSync,
       }}
     >

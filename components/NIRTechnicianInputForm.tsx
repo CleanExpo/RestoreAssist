@@ -45,7 +45,7 @@ import {
   sidecarPart,
   type DraftSavePart,
 } from "@/lib/nir-draft-save";
-import { trackDraftSave } from "@/lib/offline/draft-save-status";
+import { clearActiveDraft, setActiveDraft, trackDraftSave } from "@/lib/offline/draft-save-status";
 import {
   calculateClassificationPreview as computeClassificationPreview,
   manualClassificationPayload,
@@ -225,6 +225,14 @@ export default function NIRTechnicianInputForm({
   const [inspectionId, setInspectionId] = useState<string | null>(null);
   const [creatingInspection, setCreatingInspection] = useState(false);
   const inspectionIdRef = useRef<string | null>(null);
+  // RA-8358: names this form to the sync badge until the inspection exists.
+  const [draftFormKey] = useState(
+    () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+  );
+  useEffect(() => {
+    setActiveDraft({ inspectionId: inspectionId ?? draftInspectionId ?? null, formKey: draftFormKey });
+  }, [inspectionId, draftInspectionId, draftFormKey]);
+  useEffect(() => () => clearActiveDraft(draftFormKey), [draftFormKey]);
   const makeSafeChecklistRef = useRef<MakeSafeChecklistHandle | null>(null);
   const claimAssessmentRef = useRef<NIRClaimAssessmentPanelHandle | null>(null);
   const inspectionCreationRef = useRef<{
@@ -4593,7 +4601,12 @@ export default function NIRTechnicianInputForm({
             } finally {
               setSaving(false);
             }
-          })}
+          }, () => ({
+            // RA-8358: report under the inspection this save was for, read
+            // after the attempt so a save that created it uses the new id.
+            inspectionId: inspectionIdRef.current ?? inspectionId ?? draftInspectionId ?? null,
+            formKey: draftFormKey,
+          }), session?.user?.id ?? null)}
           disabled={
             saving || deletingPhotoId !== null || !propertyAddress.trim() || !propertyPostcode.trim()
           }
