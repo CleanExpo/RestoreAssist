@@ -6,12 +6,14 @@
  * an unreadable header, in colour and on a greyscale print. WCAG contrast is
  * a luminance ratio, so meeting it also holds once the page is greyscale.
  */
+import { inflateSync } from "node:zlib";
+import { PDFDocument, PDFRawStream } from "pdf-lib";
 import { describe, expect, it } from "vitest";
+import { generateSketchPdf } from "@/lib/generate-sketch-pdf";
 import {
   contrastRatio,
-  generateSketchPdf,
   headerTextColours,
-} from "@/lib/generate-sketch-pdf";
+} from "@/lib/sketch/pdf-header-contrast";
 
 const DEFAULT_BAND = { r: 0.11, g: 0.18, b: 0.28 };
 const WHITE = { r: 1, g: 1, b: 1 };
@@ -64,5 +66,34 @@ describe("RA-8239 header ink", () => {
       branding: { businessName: "Sunny Restorations", primaryColor: "#FFE000" },
     });
     expect(bytes.byteLength).toBeGreaterThan(1000);
+  });
+
+  it("draws the scale and area line in accessible ink on a cyan band", async () => {
+    // A #00BAD4 band is the accent colour itself, so cyan text on it vanishes.
+    const PNG_1PX =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    const bytes = await generateSketchPdf({
+      floors: [
+        { label: "Ground Floor", pngDataUrl: PNG_1PX, fabricJson: null },
+      ],
+      branding: { businessName: "Teal Restorations", primaryColor: "#00BAD4" },
+    });
+    const doc = await PDFDocument.load(bytes);
+    const ops: string[] = [];
+    for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+      if (!(obj instanceof PDFRawStream)) continue;
+      const raw = Buffer.from(obj.getContents());
+      let text: string;
+      try {
+        text = inflateSync(raw).toString("latin1");
+      } catch {
+        text = raw.toString("latin1");
+      }
+      if (/\bTj\b/.test(text)) ops.push(text);
+    }
+    const content = ops.join("\n");
+    expect(content).toMatch(/\bTj\b/);
+    // No text is filled with the brand cyan (0 0.73 0.83 rg) on this band.
+    expect(content).not.toMatch(/(^|\s)0 0\.73 0\.83 rg/);
   });
 });
