@@ -19,6 +19,8 @@ const instanceUpdate = vi.fn();
 const signatureUpdateMany = vi.fn();
 const signatureFindUniqueOrThrow = vi.fn();
 const signatureFindMany = vi.fn();
+const signatureFindFirst = vi.fn();
+const signatureCreate = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -38,6 +40,8 @@ vi.mock("@/lib/prisma", () => ({
       findUniqueOrThrow: (...args: unknown[]) =>
         signatureFindUniqueOrThrow(...args),
       findMany: (...args: unknown[]) => signatureFindMany(...args),
+      findFirst: (...args: unknown[]) => signatureFindFirst(...args),
+      create: (...args: unknown[]) => signatureCreate(...args),
     },
   },
 }));
@@ -74,6 +78,8 @@ beforeEach(() => {
   signatureUpdateMany.mockReset();
   signatureFindUniqueOrThrow.mockReset();
   signatureFindMany.mockReset();
+  signatureFindFirst.mockReset();
+  signatureCreate.mockReset();
 
   getServerSession.mockResolvedValue({ user: { id: "user-1" } });
   withIdempotency.mockImplementation(
@@ -109,7 +115,12 @@ describe("POST /api/authority-forms/[id]/signatures", () => {
     expect(json.allSigned).toBe(true);
     expect(signatureUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "sig-1", instanceId: "form-1" },
+        where: {
+          id: "sig-1",
+          instanceId: "form-1",
+          signedAt: null,
+          instance: { status: { notIn: ["CANCELLED", "COMPLETED"] } },
+        },
       }),
     );
     // All signatures signed → form transitions to COMPLETED.
@@ -139,6 +150,16 @@ describe("POST /api/authority-forms/[id]/signatures", () => {
     expect(json.error.code).toBe("NOT_FOUND");
     expect(signatureUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: expect.objectContaining({
+          id: "sig-belongs-to-another-tenant",
+          instanceId: "form-1",
+        }),
+      }),
+    );
+    // The 404/409 lookup is scoped by this form, so it cannot reveal
+    // another tenant's signature.
+    expect(signatureFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
         where: { id: "sig-belongs-to-another-tenant", instanceId: "form-1" },
       }),
     );
@@ -166,5 +187,54 @@ describe("POST /api/authority-forms/[id]/signatures", () => {
 
     expect(res.status).toBe(403);
     expect(signatureUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("RA-8400: a second sign on an already-signed slot returns 409 and keeps the first record", async () => {
+    // The slot exists on this form but is already signed: the unsigned-slot
+    // guard in the write matches 0 rows.
+    signatureUpdateMany.mockResolvedValueOnce({ count: 0 });
+    signatureFindFirst.mockResolvedValueOnce({ id: "sig-1" });
+
+    const res = await POST(
+      makeRequest({
+        signatureId: "sig-1",
+        signatureData: "data:image/png;base64,replacement",
+        signatoryName: "Someone Else",
+      }),
+      params(),
+    );
+
+    expect(res.status).toBe(409);
+    expect(signatureUpdateMany.mock.calls[0][0].where).toMatchObject({
+      id: "sig-1",
+      instanceId: "form-1",
+      signedAt: null,
+    });
+    expect(signatureFindUniqueOrThrow).not.toHaveBeenCalled();
+    expect(instanceUpdate).not.toHaveBeenCalled();
+  });
+
+  it("RA-8400: a cancelled form refuses a staff signature and a new slot", async () => {
+    instanceFindUnique.mockResolvedValue({ ...ownedForm, status: "CANCELLED" });
+
+    const sign = await POST(
+      makeRequest({ signatureId: "sig-1", signatureData: "data:image/png;base64,abc" }),
+      params(),
+    );
+    expect(sign.status).toBe(409);
+
+    const slot = await POST(
+      makeRequest({
+        action: "add_signatory",
+        signatoryName: "New Person",
+        signatoryRole: "CLIENT",
+      }),
+      params(),
+    );
+    expect(slot.status).toBe(409);
+
+    expect(signatureUpdateMany).not.toHaveBeenCalled();
+    expect(signatureCreate).not.toHaveBeenCalled();
+    expect(instanceUpdate).not.toHaveBeenCalled();
   });
 });
