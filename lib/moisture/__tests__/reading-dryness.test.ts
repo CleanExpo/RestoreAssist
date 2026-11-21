@@ -3,14 +3,17 @@ import {
   assessReadingDryness,
   summariseWetReadings,
 } from "../reading-dryness";
+import { getDryStandard } from "@/lib/iicrc-dry-standards";
 
 describe("assessReadingDryness", () => {
-  it("plasterboard above the 1% dry standard reads not_dry", () => {
+  it("plasterboard above the guide dry value reads not_dry", () => {
+    // RA-8510: the value comes from the guide table, not a second copy.
+    const target = getDryStandard("plasterboard").dryThreshold;
     const r = assessReadingDryness({ surfaceType: "drywall", moistureLevel: 22 });
     expect(r.status).toBe("not_dry");
     if (r.status === "not_dry") {
-      expect(r.targetMc).toBe(1);
-      expect(r.marginMc).toBe(21);
+      expect(r.targetMc).toBe(target);
+      expect(r.marginMc).toBe(22 - target);
       expect(r.material).toContain("plasterboard");
     }
   });
@@ -20,14 +23,14 @@ describe("assessReadingDryness", () => {
     expect(r.status).toBe("dry");
   });
 
-  it("timber uses the 16% standard (14% dry, 22% not_dry)", () => {
+  it("timber uses the guide timber value (14% dry, 22% not_dry)", () => {
     expect(assessReadingDryness({ surfaceType: "wood", moistureLevel: 14 }).status).toBe("dry");
     expect(assessReadingDryness({ surfaceType: "timber", moistureLevel: 22 }).status).toBe("not_dry");
   });
 
   it("resolves materials that already match by alias (carpet, concrete)", () => {
-    expect(assessReadingDryness({ surfaceType: "carpet", moistureLevel: 8 }).status).toBe("not_dry"); // >5
-    expect(assessReadingDryness({ surfaceType: "concrete", moistureLevel: 6 }).status).toBe("not_dry"); // >4
+    expect(assessReadingDryness({ surfaceType: "carpet", moistureLevel: 8 }).status).toBe("not_dry"); // > guide carpet value
+    expect(assessReadingDryness({ surfaceType: "concrete", moistureLevel: 6 }).status).toBe("not_dry"); // > guide concrete value
   });
 
   it("treats a reading with no unit as moisture content", () => {
@@ -42,6 +45,13 @@ describe("assessReadingDryness", () => {
   it("returns unknown for non-moisture-content units (RH, temperature)", () => {
     expect(assessReadingDryness({ surfaceType: "drywall", moistureLevel: 60, unit: "RH" }).status).toBe("unknown");
     expect(assessReadingDryness({ surfaceType: "drywall", moistureLevel: 21, unit: "CELSIUS" }).status).toBe("unknown");
+  });
+
+  it("returns unknown for a material with no guide row (RA-8510)", () => {
+    // Fibro has no row in the guide table, so only a reference reading can
+    // say it is dry; a borrowed number would be a guess.
+    const r = assessReadingDryness({ surfaceType: "fibro", moistureLevel: 0.5 });
+    expect(r.status).toBe("unknown");
   });
 
   it("returns unknown (never guesses) for an unrecognised surface or missing surface", () => {

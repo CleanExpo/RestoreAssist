@@ -35,7 +35,9 @@ export function evaluateDrying(input: DryInput): DryEvaluation {
 
   let resolvedTarget = targetMc;
   if (resolvedTarget === undefined && materialId) {
-    resolvedTarget = getMaterial(materialId)?.dryStandardMc;
+    // RA-8510: a material with no guide row has a null value; treat it as no
+    // target (the caller must supply a reference reading as targetMc).
+    resolvedTarget = getMaterial(materialId)?.dryStandardMc ?? undefined;
   }
 
   if (resolvedTarget === undefined) {
