@@ -69,10 +69,10 @@ export interface DryingTimelineReadingInput {
   moistureLevel: number;
   recordedAt: Date | string;
   /** RA-8508: a reference reading from unaffected like material (sets the goal). */
-  isBaseline?: boolean;
-  /** Required key (RA-8508 review): null means no unit was recorded. */
+  // Required keys (RA-8508 review): null means not recorded / not invalidated.
+  isBaseline: boolean;
   unit: string | null;
-  invalidatedAt?: Date | string | null;
+  invalidatedAt: Date | string | null;
 }
 
 export interface DryingTimelineAreaInput {

@@ -50,6 +50,8 @@ function pdfReferenceCandidates(rows: any[]): ReferenceCandidate[] {
       typeof r.moistureLevel === "number" ? r.moistureLevel : Number.parseFloat(String(r.moistureLevel ?? "")),
     isBaseline: r.isBaseline === true,
     unit: typeof r.unit === "string" ? r.unit : null,
+    // Relational rows are queried with invalidatedAt: null; JSON rows carry none.
+    invalidatedAt: null,
     recordedAt: r.date ?? null,
   }));
 }

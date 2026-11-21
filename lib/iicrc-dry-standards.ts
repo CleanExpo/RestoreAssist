@@ -167,9 +167,9 @@ export interface DryingGoal {
 export interface ReferenceCandidate {
   surfaceType?: string | null;
   moistureLevel?: number | null;
-  isBaseline?: boolean | null;
+  isBaseline: boolean | null | undefined;
   unit: string | null | undefined;
-  invalidatedAt?: Date | string | null;
+  invalidatedAt: Date | string | null | undefined;
   recordedAt?: Date | string | null;
   createdAt?: Date | string | null;
 }
@@ -184,8 +184,10 @@ export function materialKey(surfaceType: string | null | undefined): string {
  * (baseline) reading and not invalidated. Every reader filters with this.
  */
 export function isProgressReading(r: {
-  isBaseline?: boolean | null;
-  invalidatedAt?: Date | string | null;
+  // Required keys (RA-8508 review): a reader must select both, or pass an
+  // explicit null when its query already excludes invalidated rows.
+  isBaseline: boolean | null | undefined;
+  invalidatedAt: Date | string | null | undefined;
 }): boolean {
   return !r.isBaseline && !r.invalidatedAt;
 }
@@ -440,6 +442,9 @@ export function dryingGoalCertificate(
 ): string {
   return `Drying Goal: ACHIEVED — ${achievedAtIso ?? "date not recorded"} — All materials at or below their drying goal, measured against ${dryingGoalBasisText(bases)} — ${totalDryingDays ?? "?"} day(s) drying`;
 }
+
+/** Short form of the basis, for badges and labels. Names no standard. */
+export const DRYING_GOAL_BASIS_SHORT = "Goal: reference reading, else guide";
 
 /** Neutral value written to new DryingGoalRecord rows in place of a standard citation. */
 export const DRYING_GOAL_BASIS_RECORD =
