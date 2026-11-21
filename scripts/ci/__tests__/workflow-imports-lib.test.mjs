@@ -48,11 +48,13 @@ export function workflowEntryImports(workflowsDir = WORKFLOWS) {
 // .mjs/.js modules are really imported, as the workflow step does; .ts modules
 // (run through tsx in the workflow) are checked against their export
 // declarations, because plain node cannot load them.
-const NAMED_IMPORT_RE = /\bimport\s*\{([^}]*)\}\s*from\s*["']\.\/(scripts\/[A-Za-z0-9_./-]+)["']/g;
+// Named bindings, alone or after a default binding (`import helper, { name } from ...`).
+const NAMED_IMPORT_RE = /\bimport(?:\s+[A-Za-z_$][\w$]*\s*,)?\s*\{([^}]*)\}\s*from\s*["']\.\/(scripts\/[A-Za-z0-9_./-]+)["']/g;
 
 function tsExports(source) {
   const names = new Set();
-  const decl = /^\s*export\s+(?:declare\s+)?(?:default\s+)?(?:async\s+)?(?:function\*?|const|let|var|class|enum)\s+([A-Za-z_$][\w$]*)/gm;
+  // `export default function name()` exports `default`, not `name`, so it is not a named export.
+  const decl = /^\s*export\s+(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class|enum)\s+([A-Za-z_$][\w$]*)/gm;
   for (const m of source.matchAll(decl)) names.add(m[1]);
   for (const m of source.matchAll(/^\s*export\s*\{([^}]*)\}/gm)) {
     for (const part of m[1].split(",")) {
@@ -105,14 +107,19 @@ test("the export check fails on a removed export (negative control)", async () =
   try {
     mkdirSync(join(dir, ".github", "workflows"), { recursive: true });
     mkdirSync(join(dir, "scripts", "lib"), { recursive: true });
-    writeFileSync(join(dir, "scripts", "lib", "gone.mjs"), "export function main() {}\n");
-    writeFileSync(join(dir, "scripts", "lib", "typed.ts"), "export function present() {}\nfunction hidden() {}\n");
+    writeFileSync(join(dir, "scripts", "lib", "gone.mjs"), "export function main() {}\nexport default function helper() {}\n");
+    writeFileSync(
+      join(dir, "scripts", "lib", "typed.ts"),
+      "export function present() {}\nfunction hidden() {}\nexport default function ownerEvidence() {}\n",
+    );
     writeFileSync(
       join(dir, ".github", "workflows", "w.yml"),
       [
         "run: |",
         "  node --input-type=module -e 'import { verifyReleaseProvenance } from \"./scripts/lib/gone.mjs\";'",
         "  npx tsx -e \"import { present, hidden } from './scripts/lib/typed';\"",
+        "  node --input-type=module -e 'import helper, { alsoGone } from \"./scripts/lib/gone.mjs\";'",
+        "  npx tsx -e \"import { ownerEvidence } from './scripts/lib/typed';\"",
         "",
       ].join("\n"),
     );
@@ -120,6 +127,10 @@ test("the export check fails on a removed export (negative control)", async () =
     assert.deepEqual(found, [
       "w.yml:2 imports { verifyReleaseProvenance } from scripts/lib/gone.mjs, which does not export it",
       "w.yml:3 imports { hidden } from scripts/lib/typed, which does not export it",
+      // A default binding before the named list no longer hides the named import.
+      "w.yml:4 imports { alsoGone } from scripts/lib/gone.mjs, which does not export it",
+      // A default declaration is not a named export.
+      "w.yml:5 imports { ownerEvidence } from scripts/lib/typed, which does not export it",
     ]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
