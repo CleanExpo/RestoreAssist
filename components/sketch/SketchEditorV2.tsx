@@ -152,6 +152,7 @@ import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
 import { SketchDamageMarkerLayer } from "./SketchDamageMarkerLayer";
 import { SketchInvestigationLayer } from "./SketchInvestigationLayer";
 import { ChromeScanLine } from "@/components/brand/chrome-icons";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import {
   buildInvestigationOverlay,
   type SketchViewMode,
@@ -2706,12 +2707,30 @@ export function SketchEditorV2({
     [activeIdx, floorsData, height, inspectionId, uid, width],
   );
 
+  // RA-8396: the red X on an evidence pin used to delete it in one click.
+  const evidenceRemoveConfirm = useConfirmDialog();
+  const askEvidenceRemove = evidenceRemoveConfirm.ask;
+
   const handleEvidenceRemove = useCallback(
     async (id: string) => {
       const sketchId = floorsData[activeIdx]?.floor.id;
       const pinsBefore = floorsData[activeIdx]?.evidencePins ?? [];
       const removedIndex = pinsBefore.findIndex((p) => p.id === id);
       const removed = removedIndex >= 0 ? pinsBefore[removedIndex] : undefined;
+      // Ask before anything changes: Cancel leaves the pin and sends no request.
+      const caption = removed?.caption?.trim();
+      const pinName = caption
+        ? `“${caption}”`
+        : removed?.roomName
+          ? `the photo pin in ${removed.roomName}`
+          : "this photo pin";
+      const ok = await askEvidenceRemove({
+        title: "Remove evidence pin?",
+        description: `Removing ${pinName} takes it off the floor plan, and the link between that photo and this spot on the plan is lost. The photo stays in the job's photo list, but you would need to pin it again.`,
+        confirmLabel: "Remove pin",
+        destructive: true,
+      });
+      if (!ok) return;
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
@@ -2764,7 +2783,7 @@ export function SketchEditorV2({
         restore(`Photo pin not deleted (${res.status}). It is still on the report.`);
       }
     },
-    [activeIdx, floorsData, inspectionId, uid],
+    [activeIdx, askEvidenceRemove, floorsData, inspectionId, uid],
   );
 
   // ── Scale calibration ───────────────────────────────────
@@ -3436,6 +3455,7 @@ export function SketchEditorV2({
         className,
       )}
     >
+      <evidenceRemoveConfirm.Mount />
       {/* RA-8056 — a save refused because the floor changed elsewhere. */}
       {revisionConflictLabels.length > 0 && (
         <div
