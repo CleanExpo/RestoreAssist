@@ -6,9 +6,12 @@
  *   and makes Outlook send accept or decline replies to a mailbox nobody
  *   reads. Acknowledging a visit stays in RestoreAssist.
  * - Times carry the organisation's timezone (DTSTART;TZID=...) with a
- *   VTIMEZONE block, so the event reads as the office booked it. A zone this
- *   file has no rules for is written as UTC instants instead, which every
- *   client converts to the reader's own zone; the instant is right either way.
+ *   VTIMEZONE block, so the event reads as the office booked it. Australian
+ *   zones and Pacific/Auckland use yearly RRULE observances (the form Outlook,
+ *   Google and Apple write); any other valid IANA zone gets observances built
+ *   from the platform's timezone data for the years around the visit. Only a
+ *   zone the platform does not know is written as UTC instants, which every
+ *   client converts to the reader's own zone.
  * - Lines end in CRLF and fold at 75 octets without splitting a character.
  *   TEXT values are escaped, so a typed title cannot add a property.
  * - The UID is stable per booking, so a later CANCEL can replace the event.
@@ -121,7 +124,7 @@ const ZONES: Record<string, Observance[]> = {
   ],
 };
 
-/** Zones written with their own VTIMEZONE; any other zone is written as UTC. */
+/** Zones with hand-written yearly rules; other valid zones are generated. */
 export const ICS_TIME_ZONES: readonly string[] = Object.keys(ZONES);
 
 // CONTROL characters are not allowed in TEXT (RFC 5545 3.3.11); tab is.
@@ -181,11 +184,98 @@ function uriValue(value: string): string {
   return value.replace(CONTROL, "").replace(/[\r\n]/g, "");
 }
 
+const HOUR_MS = 60 * 60 * 1000;
+
+function offsetMinutesAt(t: number, timeZone: string): number {
+  const w = wallClockAt(new Date(t), timeZone);
+  const asUtc = Date.UTC(w.year, w.month - 1, w.day, w.hour, w.minute, w.second);
+  return Math.round((asUtc - Math.floor(t / 1000) * 1000) / 60000);
+}
+
+function formatOffset(minutes: number): string {
+  const sign = minutes < 0 ? "-" : "+";
+  const abs = Math.abs(minutes);
+  return `${sign}${pad(Math.floor(abs / 60))}${pad(abs % 60)}`;
+}
+
+/** The wall-clock reading of instant t at a fixed offset, YYYYMMDDTHHMMSS. */
+function stampAtOffset(t: number, offsetMinutes: number): string {
+  return utcStamp(new Date(t + offsetMinutes * 60000)).slice(0, -1);
+}
+
+function shortZoneName(t: number, timeZone: string, fallback: string): string {
+  const name = new Intl.DateTimeFormat("en-AU", { timeZone, timeZoneName: "short" })
+    .formatToParts(new Date(t))
+    .find((p) => p.type === "timeZoneName")?.value;
+  return escapeIcsText(name || fallback);
+}
+
+/**
+ * Observances for any zone the platform knows, read from Intl: one per
+ * changeover from the year before the visit to the year after it ends, each
+ * with an explicit onset and no RRULE. Null for a zone Intl rejects.
+ */
+function generatedObservances(
+  timeZone: string,
+  start: Date,
+  end: Date,
+): Observance[] | null {
+  try {
+    new Intl.DateTimeFormat("en-AU", { timeZone });
+  } catch {
+    return null;
+  }
+  const from = Date.UTC(start.getUTCFullYear() - 1, 0, 1);
+  const to = Date.UTC(end.getUTCFullYear() + 2, 0, 1);
+  const changes: Array<{ at: number; from: number; to: number }> = [];
+  let previous = offsetMinutesAt(from, timeZone);
+  const first = previous;
+  for (let t = from + HOUR_MS; t <= to; t += HOUR_MS) {
+    const current = offsetMinutesAt(t, timeZone);
+    if (current === previous) continue;
+    // Narrow the changeover to the minute.
+    let lo = t - HOUR_MS;
+    let hi = t;
+    while (hi - lo > 60000) {
+      const mid = lo + Math.floor((hi - lo) / 120000) * 60000;
+      if (offsetMinutesAt(mid, timeZone) === previous) lo = mid;
+      else hi = mid;
+    }
+    changes.push({ at: hi, from: previous, to: current });
+    previous = current;
+  }
+  const lowest = Math.min(first, ...changes.map((c) => c.to));
+  const kind = (offset: number): Observance["kind"] =>
+    offset > lowest ? "DAYLIGHT" : "STANDARD";
+  const observances: Observance[] = [
+    {
+      kind: kind(first),
+      dtstart: stampAtOffset(from, first),
+      from: formatOffset(first),
+      to: formatOffset(first),
+      name: shortZoneName(from, timeZone, formatOffset(first)),
+    },
+  ];
+  for (const c of changes) {
+    observances.push({
+      kind: kind(c.to),
+      // The onset is written in the offset the clocks change FROM.
+      dtstart: stampAtOffset(c.at, c.from),
+      from: formatOffset(c.from),
+      to: formatOffset(c.to),
+      name: shortZoneName(c.at, timeZone, formatOffset(c.to)),
+    });
+  }
+  return observances;
+}
+
 export function buildIcsEvent(input: IcsEventInput): string {
   if (!(input.end.getTime() > input.start.getTime())) {
     throw new Error("buildIcsEvent: end must be after start");
   }
-  const observances = ZONES[input.timeZone];
+  const observances =
+    ZONES[input.timeZone] ??
+    generatedObservances(input.timeZone, input.start, input.end);
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",

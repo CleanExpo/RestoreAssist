@@ -15,6 +15,32 @@ import {
   zonedWallClockToInstant,
 } from "@/lib/calendar/zoned-time";
 
+/**
+ * RA-8497: the caller's organisation and its timezone, re-read from the
+ * database. Typed booking times are read in this zone, and the panel shows
+ * stored times in it, so the office sees the time it booked whatever the
+ * browser's zone. An organisation-less account reads the default zone.
+ */
+async function callerOrganisation(
+  userId: string,
+): Promise<{ organizationId: string | null; timeZone: string }> {
+  const caller = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { organizationId: true },
+  });
+  const organizationId =
+    typeof caller?.organizationId === "string" && caller.organizationId
+      ? caller.organizationId
+      : null;
+  const org = organizationId
+    ? await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { timezone: true },
+      })
+    : null;
+  return { organizationId, timeZone: resolveTimeZone(org?.timezone) };
+}
+
 /** GET / POST — V1 Phase 5 job appointments */
 export async function GET(
   request: NextRequest,
@@ -55,7 +81,8 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({ data: appointments });
+    const { timeZone } = await callerOrganisation(session.user.id);
+    return NextResponse.json({ data: appointments, timeZone });
   } catch (error) {
     return fromException(request, error, { stage: "appointments-get" });
   }
@@ -96,16 +123,11 @@ export async function POST(
     const body = (
       parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {}
     ) as Record<string, unknown>;
-    // RA-8497: re-read the caller's organisation from the database; it scopes
-    // both the timezone typed times are read in and who may be assigned.
-    const caller = await prisma.user.findUnique({
-      where: { id: session!.user!.id },
-      select: { organizationId: true },
-    });
-    const callerOrgId =
-      typeof caller?.organizationId === "string" && caller.organizationId
-        ? caller.organizationId
-        : null;
+    // RA-8497: the caller's organisation scopes both the timezone typed
+    // times are read in and who may be assigned.
+    const { organizationId: callerOrgId, timeZone } = await callerOrganisation(
+      session!.user!.id,
+    );
 
     let startsAt: Date | null;
     let endsAt: Date | null;
@@ -113,13 +135,6 @@ export async function POST(
       // RA-8497: the booking form sends the date and times the office typed.
       // They are read in the organisation's timezone, never the browser's,
       // so an office worker in another state books the organisation's 9 am.
-      const org = callerOrgId
-        ? await prisma.organization.findUnique({
-            where: { id: callerOrgId },
-            select: { timezone: true },
-          })
-        : null;
-      const timeZone = resolveTimeZone(org?.timezone);
       const date = String(body.date ?? "");
       startsAt = zonedWallClockToInstant(date, String(body.startTime ?? ""), timeZone);
       endsAt = zonedWallClockToInstant(date, String(body.endTime ?? ""), timeZone);
@@ -211,13 +226,18 @@ export async function POST(
       // file). Fire-and-forget (rule 13): the 201 never waits on email, a
       // failed notice never fails the booking, and after() keeps the work
       // alive past the response. At most once per booking (delivery ledger).
-      const notice = notifyTechnicianOfBooking({ appointmentId: row.id }).catch(
-        (err) => console.error("[appointment-notice] booking notice failed:", err),
-      );
+      // The notice starts INSIDE the callback, after the response, so it reads
+      // the booking's status then: one cancelled in the meantime is not sent.
+      const appointmentId = row.id;
+      const runNotice = () =>
+        notifyTechnicianOfBooking({ appointmentId }).catch((err) =>
+          console.error("[appointment-notice] booking notice failed:", err),
+        );
       try {
-        after(() => notice);
+        after(runNotice);
       } catch {
-        // Outside a request scope there is nothing to extend.
+        // Outside a request scope after() throws; send without it.
+        void runNotice();
       }
     }
 

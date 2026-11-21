@@ -5,6 +5,12 @@ import { ChromeCalendar, ChromePlus, ChromeSpinner } from "@/components/brand/ch
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DEFAULT_TIME_ZONE,
+  formatVisitWindow,
+  resolveTimeZone,
+  wallClockAt,
+} from "@/lib/calendar/zoned-time";
 
 type Appointment = {
   id: string;
@@ -32,16 +38,17 @@ type BookingForm = {
   notes: string;
 };
 
-function tomorrow(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
+/** Tomorrow's date in the organisation's timezone, not the device's. */
+function tomorrow(timeZone: string): string {
+  const today = wallClockAt(new Date(), timeZone);
+  const d = new Date(Date.UTC(today.year, today.month - 1, today.day + 1));
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
-const emptyForm = (): BookingForm => ({
+const emptyForm = (timeZone: string): BookingForm => ({
   title: "Site visit",
-  date: tomorrow(),
+  date: tomorrow(timeZone),
   startTime: "09:00",
   endTime: "11:00",
   assignedUserId: "",
@@ -63,6 +70,9 @@ export function JobAppointmentsPanel({ inspectionId }: { inspectionId: string })
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<BookingForm | null>(null);
+  // The server reads typed times in the organisation's timezone and sends it
+  // with the list, so booked times are shown in it too.
+  const [timeZone, setTimeZone] = useState(DEFAULT_TIME_ZONE);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,6 +82,7 @@ export function JobAppointmentsPanel({ inspectionId }: { inspectionId: string })
       if (!res.ok) throw new Error("Failed to load appointments");
       const json = await res.json();
       setRows(json.data ?? []);
+      setTimeZone(resolveTimeZone(json.timeZone));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Load failed");
     } finally {
@@ -169,7 +180,7 @@ export function JobAppointmentsPanel({ inspectionId }: { inspectionId: string })
           <button
             type="button"
             disabled={saving}
-            onClick={() => setForm(emptyForm())}
+            onClick={() => setForm(emptyForm(timeZone))}
             className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-800 text-xs font-medium px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-slate-700 disabled:opacity-50"
           >
             <ChromePlus className="h-3 w-3" />
@@ -300,8 +311,13 @@ export function JobAppointmentsPanel({ inspectionId }: { inspectionId: string })
           >
             <span className="font-medium block">{row.title}</span>
             <span className="text-slate-500 block">
-              {new Date(row.startsAt).toLocaleString()} –{" "}
-              {new Date(row.endsAt).toLocaleTimeString()} · {row.status}
+              {formatVisitWindow(
+                new Date(row.startsAt),
+                new Date(row.endsAt),
+                timeZone,
+                "AU",
+              )}{" "}
+              · {row.status}
             </span>
             {row.assignedUserId && (
               <span className="block">Technician: {assigneeName(row.assignedUserId)}</span>

@@ -129,7 +129,7 @@ describe("buildIcsEvent: the organisation's timezone", () => {
     });
   }
 
-  it("each built-in VTIMEZONE agrees with the platform's timezone data, 2026 to 2029", () => {
+  it("every VTIMEZONE agrees with the platform's timezone data, built-in and generated", () => {
     // Read the way a calendar reads DTSTART;TZID: a wall-clock in the zone,
     // turned into an instant by the file's own VTIMEZONE. A rule typed wrong
     // (a month, a Sunday, an offset) moves a week or more of times.
@@ -153,7 +153,18 @@ describe("buildIcsEvent: the organisation's timezone", () => {
         .find((p) => p.type === "timeZoneName")?.value;
     };
     const twoHours = 2 * 60 * 60 * 1000;
-    for (const timeZone of ICS_TIME_ZONES) {
+    // Built-in zones carry yearly rules: check four years. Any other valid
+    // zone is generated for the year before the visit (January 2026) to the
+    // year after: check 2025 to 2027. Chatham changes by 45 minutes.
+    const built = ICS_TIME_ZONES.map((z) => [z, 2026, 2030] as const);
+    const generated = [
+      "Pacific/Chatham",
+      "Europe/London",
+      "America/New_York",
+      "Asia/Kolkata",
+      "America/Sao_Paulo",
+    ].map((z) => [z, 2025, 2028] as const);
+    for (const [timeZone, fromYear, toYear] of [...built, ...generated]) {
       ICAL.TimezoneService.reset();
       const { event: parsed } = parse(event({ timeZone }));
       const zone = parsed.startDate.zone!;
@@ -170,8 +181,8 @@ describe("buildIcsEvent: the organisation's timezone", () => {
       let skipped = 0;
       // Every 90 minutes for four years: each wall-clock hour and half hour
       // is visited on many days of every month.
-      const from = Date.UTC(2026, 0, 1);
-      const to = Date.UTC(2030, 0, 1);
+      const from = Date.UTC(fromYear, 0, 1);
+      const to = Date.UTC(toYear, 0, 1);
       for (let t = from; t < to; t += 90 * 60 * 1000) {
         if (intlOffset(timeZone, t - twoHours) !== intlOffset(timeZone, t + twoHours)) {
           skipped += 1;
@@ -199,12 +210,14 @@ describe("buildIcsEvent: the organisation's timezone", () => {
         }
         checked += 1;
       }
-      expect(checked).toBeGreaterThan(23_000);
-      // Daylight-time zones change twice a year: 8 changeovers in 4 years,
-      // each leaving out a 4-hour window (at most 3 samples).
-      expect(skipped).toBeLessThanOrEqual(8 * 3);
+      const years = toYear - fromYear;
+      expect(checked).toBeGreaterThan(years * 365 * 16 - 30);
+      // Daylight-time zones change twice a year, each changeover leaving out
+      // a 4-hour window (at most 3 samples).
+      expect(skipped).toBeLessThanOrEqual(years * 2 * 3);
     }
-  });
+    // About 400,000 parser reads; 20 s locally, so allow slower CI runners.
+  }, 120_000);
 
   it("covers every Australian state and territory capital and New Zealand", () => {
     expect(ICS_TIME_ZONES).toEqual(
@@ -222,8 +235,45 @@ describe("buildIcsEvent: the organisation's timezone", () => {
     );
   });
 
-  it("an unknown or invalid timezone falls back to UTC times without throwing", () => {
-    for (const timeZone of ["Not/AZone", "", "Europe/London"]) {
+  it("a valid zone without built-in rules still carries its TZID and a VTIMEZONE", () => {
+    // Pacific/Chatham, January 2026: +13:45.
+    const { event: parsed, vevent, root } = parse(
+      event({
+        timeZone: "Pacific/Chatham",
+        start: new Date("2026-01-14T19:15:00Z"),
+        end: new Date("2026-01-14T21:15:00Z"),
+      }),
+    );
+    expect(root.getAllSubcomponents("vtimezone")).toHaveLength(1);
+    expect(vevent.getFirstProperty("dtstart")?.getParameter("tzid")).toBe(
+      "Pacific/Chatham",
+    );
+    expect(wallClock(parsed.startDate)).toBe("2026-01-15 09:00");
+    expect(parsed.startDate.toJSDate().toISOString()).toBe(
+      "2026-01-14T19:15:00.000Z",
+    );
+  });
+
+  it("a generated changeover onset is exact to the minute and written in the offset it leaves", () => {
+    // Europe/London 2026: summer time from 01:00 UTC on 29 March (01:00 GMT)
+    // to 01:00 UTC on 25 October (02:00 BST).
+    const london = event({ timeZone: "Europe/London" });
+    expect(london).toContain(
+      "BEGIN:DAYLIGHT\r\nDTSTART:20260329T010000\r\nTZOFFSETFROM:+0000\r\nTZOFFSETTO:+0100\r\n",
+    );
+    expect(london).toContain(
+      "BEGIN:STANDARD\r\nDTSTART:20261025T020000\r\nTZOFFSETFROM:+0100\r\nTZOFFSETTO:+0000\r\n",
+    );
+    // Australia/LHI (Lord Howe under another name, so generated): daylight
+    // time from 02:00 local (+10:30) on 4 October 2026, which is 15:30 UTC,
+    // half way between two hourly samples.
+    expect(event({ timeZone: "Australia/LHI" })).toContain(
+      "DTSTART:20261004T020000\r\nTZOFFSETFROM:+1030\r\nTZOFFSETTO:+1100\r\n",
+    );
+  });
+
+  it("a timezone the platform does not know falls back to UTC times without throwing", () => {
+    for (const timeZone of ["Not/AZone", ""]) {
       let ics = "";
       expect(() => {
         ics = event({ timeZone });

@@ -292,6 +292,12 @@ describe("notifyTechnicianOfBooking", () => {
     );
   });
 
+  it("a failed in-app write does not stop the email", async () => {
+    mockNotificationCreate.mockRejectedValue(new Error("notification table down"));
+    await notifyTechnicianOfBooking({ appointmentId: "appt-1" });
+    expect(sentEmail().to).toBe("tech@example.test");
+  });
+
   it("never throws when the booking cannot be read", async () => {
     mockAppointmentFindUnique.mockRejectedValue(new Error("db down"));
     await expect(

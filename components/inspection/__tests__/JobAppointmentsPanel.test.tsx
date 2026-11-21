@@ -31,11 +31,13 @@ function json(body: unknown, ok = true) {
 
 let posted: Record<string, unknown> | null;
 let appointments: unknown[];
+let orgTimeZone: string | undefined;
 
 beforeEach(() => {
   vi.restoreAllMocks();
   posted = null;
   appointments = [];
+  orgTimeZone = undefined;
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string, init?: RequestInit) => {
@@ -45,7 +47,8 @@ beforeEach(() => {
         appointments = [booked];
         return json({ data: booked });
       }
-      if (url.endsWith("/appointments")) return json({ data: appointments });
+      if (url.endsWith("/appointments"))
+        return json({ data: appointments, timeZone: orgTimeZone });
       return json({}, false);
     }),
   );
@@ -126,5 +129,36 @@ describe("JobAppointmentsPanel (RA-8497)", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "The visit must end after it starts",
     );
+  });
+
+  it("shows booked times in the organisation's timezone, not the device's", async () => {
+    // 9:00 to 11:00 am in Perth; noon in Sydney and 1 am in UTC.
+    orgTimeZone = "Australia/Perth";
+    appointments = [
+      {
+        ...booked,
+        startsAt: "2026-01-15T01:00:00.000Z",
+        endsAt: "2026-01-15T03:00:00.000Z",
+      },
+    ];
+    render(<JobAppointmentsPanel inspectionId="i1" />);
+    const when = await screen.findByText(/Thursday 15 January 2026/);
+    expect(when.textContent).toMatch(/9:00\s?am to 11:00\s?am/i);
+  });
+
+  it("defaults the visit date to tomorrow in the organisation's timezone", async () => {
+    // 11:30 UTC on 14 January: 00:30 on the 15th in Auckland (tomorrow is
+    // the 16th), still the 14th in Sydney and in UTC (tomorrow the 15th).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-14T11:30:00.000Z"));
+    try {
+      orgTimeZone = "Pacific/Auckland";
+      render(<JobAppointmentsPanel inspectionId="i1" />);
+      await screen.findByText("No appointments yet.");
+      fireEvent.click(screen.getByRole("button", { name: /add visit/i }));
+      expect(screen.getByLabelText("Date")).toHaveValue("2026-01-16");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

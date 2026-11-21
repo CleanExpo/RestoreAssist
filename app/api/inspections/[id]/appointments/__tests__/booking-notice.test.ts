@@ -37,6 +37,7 @@ const mockUserFindUnique = vi.fn();
 const mockUserFindFirst = vi.fn();
 const mockOrgFindUnique = vi.fn();
 const mockAppointmentCreate = vi.fn();
+const mockAppointmentFindMany = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
@@ -48,6 +49,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     jobAppointment: {
       create: (...a: unknown[]) => mockAppointmentCreate(...a),
+      findMany: (...a: unknown[]) => mockAppointmentFindMany(...a),
     },
   },
 }));
@@ -57,7 +59,7 @@ vi.mock("@/lib/scheduling/appointment-notice", () => ({
   notifyTechnicianOfBooking: (...a: unknown[]) => mockNotify(...a),
 }));
 
-import { POST } from "../route";
+import { GET, POST } from "../route";
 
 const params = { params: Promise.resolve({ id: "insp-1" }) };
 
@@ -176,22 +178,34 @@ describe("POST /api/inspections/[id]/appointments (RA-8497)", () => {
     expect(mockAfter).not.toHaveBeenCalled();
   });
 
-  it("schedules the technician's notice under after(), once, for the new booking", async () => {
-    let release: () => void = () => {};
-    mockNotify.mockReturnValue(new Promise<void>((r) => (release = r)));
+  it("starts the technician's notice only inside after(), once, for the new booking", async () => {
     const res = await post(booking);
-    // The 201 does not wait for the notice.
     expect(res.status).toBe(201);
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    // Nothing has started yet: a booking cancelled before after() runs is
+    // read as cancelled by the notice, not as the SCHEDULED it was at 201.
+    expect(mockNotify).not.toHaveBeenCalled();
+    const task = mockAfter.mock.calls[0][0] as () => Promise<unknown>;
+    await task();
     expect(mockNotify).toHaveBeenCalledTimes(1);
     expect(mockNotify).toHaveBeenCalledWith({ appointmentId: "appt-1" });
-    expect(mockAfter).toHaveBeenCalledTimes(1);
-    release();
   });
 
-  it("a failing notice does not change the 201", async () => {
+  it("sends without after() outside a request scope", async () => {
+    mockAfter.mockImplementation(() => {
+      throw new Error("after() was called outside a request scope");
+    });
+    const res = await post(booking);
+    expect(res.status).toBe(201);
+    expect(mockNotify).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failing notice does not change the 201 and is caught", async () => {
     mockNotify.mockRejectedValue(new Error("mail down"));
     const res = await post(booking);
     expect(res.status).toBe(201);
+    const task = mockAfter.mock.calls[0][0] as () => Promise<unknown>;
+    await expect(task()).resolves.toBeUndefined();
   });
 
   it("schedules nothing for a booking with no technician", async () => {
@@ -234,5 +248,31 @@ describe("POST /api/inspections/[id]/appointments (RA-8497)", () => {
     const res = await post(booking);
     await expectRefused(res, 403, /Only managers or owners may schedule visits/);
     expect(mockAppointmentCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/inspections/[id]/appointments (RA-8497)", () => {
+  function get() {
+    return GET(
+      new NextRequest("http://localhost/api/inspections/insp-1/appointments"),
+      params,
+    );
+  }
+
+  it("returns the caller's organisation timezone, so the panel shows booked times in it", async () => {
+    mockGetServerSession.mockResolvedValue({ user: { id: "manager-1" } });
+    mockAppointmentFindMany.mockResolvedValue([]);
+    mockOrgFindUnique.mockResolvedValue({ timezone: "Australia/Perth" });
+    const body = await (await get()).json();
+    expect(body).toEqual({ data: [], timeZone: "Australia/Perth" });
+  });
+
+  it("falls back to Australia/Sydney for an invalid zone or no organisation", async () => {
+    mockGetServerSession.mockResolvedValue({ user: { id: "manager-1" } });
+    mockAppointmentFindMany.mockResolvedValue([]);
+    mockOrgFindUnique.mockResolvedValue({ timezone: "Not/AZone" });
+    expect((await (await get()).json()).timeZone).toBe("Australia/Sydney");
+    mockUserFindUnique.mockResolvedValue({ organizationId: null });
+    expect((await (await get()).json()).timeZone).toBe("Australia/Sydney");
   });
 });
