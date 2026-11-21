@@ -50,6 +50,7 @@ import {
   removeFailedEntry,
   type SyncQueueEntry,
   type SketchSavePayload,
+  SKETCH_SAVE_REPLAYED_CHANNEL,
   SKETCH_SAVE_REPLAYED_EVENT,
   type SketchSaveReplayedDetail,
 } from "@/lib/nir-sync-queue";
@@ -604,6 +605,12 @@ export function SketchEditorV2({
   // RA-8197: the session a pending debounced save was scheduled under, and a
   // handle on performSave for the load effect (declared above performSave).
   const pendingSaveSessionRef = useRef<string | null>(null);
+  // RA-8197 item 1: revisions that a replay of one of this editor's own
+  // queued saves produced, by `${editorSessionId}:${floorNumber}`, and the
+  // saves waiting to hear of one. A live save refused because its own older
+  // queued save replayed first may adopt exactly such a revision and retry.
+  const ownReplayRevisionsRef = useRef(new Map<string, Set<string>>());
+  const ownReplayWaitersRef = useRef(new Set<() => void>());
   const performSaveRef = useRef<
     ((renderImage?: boolean, sessionId?: string) => Promise<void>) | null
   >(null);
@@ -1254,6 +1261,36 @@ export function SketchEditorV2({
     marks.set(clientKey, (marks.get(clientKey) ?? 0) + 1);
   }, []);
 
+  /**
+   * RA-8197 item 1: resolves true once a replay of this session's own queued
+   * save is known to have moved the floor to `revision`. Waits a short while,
+   * because the replay's announcement and the live save's refusal can arrive
+   * in either order.
+   */
+  const waitForOwnReplay = useCallback(
+    (sessionId: string, floorNumber: number, revision: string) => {
+      const key = `${sessionId}:${floorNumber}`;
+      const known = () =>
+        ownReplayRevisionsRef.current.get(key)?.has(revision) === true;
+      if (known()) return Promise.resolve(true);
+      return new Promise<boolean>((resolve) => {
+        const waiters = ownReplayWaitersRef.current;
+        const check = () => {
+          if (!known()) return;
+          waiters.delete(check);
+          clearTimeout(timer);
+          resolve(true);
+        };
+        const timer = setTimeout(() => {
+          waiters.delete(check);
+          resolve(false);
+        }, 1500);
+        waiters.add(check);
+      });
+    },
+    [],
+  );
+
   const performSaveNow = useCallback(
     async (renderImage = false, sessionId?: string) => {
       setSaving(true);
@@ -1293,7 +1330,7 @@ export function SketchEditorV2({
         const clientUpdatedAt = Date.now();
         // RA-8056: the revision this save is based on. Capture-link saves go
         // to their own route and carry none.
-        const baseRevision = captureToken
+        let baseRevision = captureToken
           ? undefined
           : floorRevisionRef.current.has(fd.clientKey)
             ? (floorRevisionRef.current.get(fd.clientKey) ?? undefined)
@@ -1388,15 +1425,43 @@ export function SketchEditorV2({
           ? `/api/capture/${captureToken}/sketch`
           : `/api/inspections/${inspectionId}/sketches`;
         try {
-          const res = await fetch(saveUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-client-updated-at": String(clientUpdatedAt),
-              ...(baseRevision ? { [FLOOR_REVISION_HEADER]: baseRevision } : {}),
-            },
-            body: JSON.stringify(body),
-          });
+          const postFloor = (revisionToSend: string | undefined) =>
+            fetch(saveUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-client-updated-at": String(clientUpdatedAt),
+                ...(revisionToSend
+                  ? { [FLOOR_REVISION_HEADER]: revisionToSend }
+                  : {}),
+              },
+              body: JSON.stringify(body),
+            });
+          let res = await postFloor(baseRevision);
+          // RA-8197 item 1: refused because this editor's own older queued
+          // save for the floor replayed first. That save is superseded by
+          // this one, so adopt the revision it produced and send once more.
+          // A revision produced by anyone else stays a conflict.
+          if (res.status === 409 && !captureToken && inspectionId) {
+            const refusal = (await res
+              .clone()
+              .json()
+              .catch(() => null)) as { serverRevision?: unknown } | null;
+            const serverRevision = refusal?.serverRevision;
+            if (
+              isFloorRevisionConflict(refusal) &&
+              typeof serverRevision === "string" &&
+              (await waitForOwnReplay(
+                editorSessionId,
+                fd.floor.floorNumber,
+                serverRevision,
+              ))
+            ) {
+              baseRevision = serverRevision;
+              floorRevisionRef.current.set(fd.clientKey, serverRevision);
+              res = await postFloor(baseRevision);
+            }
+          }
           if (res.ok) {
             if (
               removalMark > 0 &&
@@ -1677,6 +1742,7 @@ export function SketchEditorV2({
       recordPersistedPendingFloor,
       uid,
       onSketchPersisted,
+      waitForOwnReplay,
     ],
   );
 
@@ -1703,16 +1769,24 @@ export function SketchEditorV2({
   // change and must stay a conflict.
   useEffect(() => {
     if (!inspectionId || captureMode) return;
-    const onReplayed = (event: Event) => {
-      const detail = (event as CustomEvent<SketchSaveReplayedDetail>).detail;
+    const onReplayDetail = (detail: SketchSaveReplayedDetail | undefined) => {
       if (
         !detail ||
         detail.inspectionId !== inspectionId ||
-        detail.editorSessionId !== editorSessionIdRef.current ||
+        !detail.editorSessionId ||
         !detail.revision
       ) {
         return;
       }
+      // RA-8197 item 1: remember every revision a replay of one of this
+      // editor's sessions produced (a save scheduled before a reload keeps
+      // its old session), and wake the saves waiting to hear of one.
+      const replayKey = `${detail.editorSessionId}:${detail.floorNumber}`;
+      const seen = ownReplayRevisionsRef.current.get(replayKey) ?? new Set();
+      seen.add(detail.revision);
+      ownReplayRevisionsRef.current.set(replayKey, seen);
+      for (const wake of [...ownReplayWaitersRef.current]) wake();
+      if (detail.editorSessionId !== editorSessionIdRef.current) return;
       const floor = floorsDataRef.current.find(
         (fd) => fd.floor.floorNumber === detail.floorNumber,
       );
@@ -1725,9 +1799,25 @@ export function SketchEditorV2({
         revisions.set(floor.clientKey, detail.revision);
       }
     };
+    const onReplayed = (event: Event) =>
+      onReplayDetail((event as CustomEvent<SketchSaveReplayedDetail>).detail);
     window.addEventListener(SKETCH_SAVE_REPLAYED_EVENT, onReplayed);
-    return () =>
+    // RA-8197 item 1: a save this editor queued can be replayed by another
+    // tab holding the drain lock; that tab announces it on this channel.
+    let channel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        channel = new BroadcastChannel(SKETCH_SAVE_REPLAYED_CHANNEL);
+        channel.onmessage = (message: MessageEvent<SketchSaveReplayedDetail>) =>
+          onReplayDetail(message.data);
+      } catch {
+        channel = null;
+      }
+    }
+    return () => {
       window.removeEventListener(SKETCH_SAVE_REPLAYED_EVENT, onReplayed);
+      channel?.close();
+    };
   }, [inspectionId, captureMode]);
 
   // PR4b freshness: debounced saves persist sketchData but NOT a fresh render
