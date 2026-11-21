@@ -13,6 +13,7 @@
 
 import { computeTargetCurve } from "@/lib/drying/target-curve";
 import {
+  isProgressReading,
   pickReferenceReadings,
   resolveDryingGoal,
 } from "@/lib/iicrc-dry-standards";
@@ -107,7 +108,7 @@ export function buildDryingTimeline(
 
   for (const area of input.areas) {
     const areaReadings = input.readings
-      .filter((r) => r.location === area.roomZoneId && !r.isBaseline)
+      .filter((r) => r.location === area.roomZoneId && isProgressReading(r))
       .map((r) => ({ ...r, recordedAt: new Date(r.recordedAt) }))
       .sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
 
@@ -132,7 +133,12 @@ export function buildDryingTimeline(
     );
     const dayIndex = Math.min(daysElapsed, curve.daily.length - 1);
     const expectedTargetMC = curve.daily[dayIndex].targetMC;
-    const dryThreshold = resolveDryingGoal(materialType, references).target;
+    const dryThreshold = resolveDryingGoal(
+      materialType,
+      references,
+      undefined,
+      latest.unit,
+    ).target;
 
     const isDry = latest.moistureLevel <= dryThreshold;
     const gap = latest.moistureLevel - expectedTargetMC;

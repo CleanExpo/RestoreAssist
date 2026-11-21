@@ -13,10 +13,8 @@
 
 import { evaluateDrying } from "@/lib/anz/dry-standard";
 import { findMaterialByName } from "@/lib/anz/materials";
-
-// Units that express moisture content and are comparable to a dry standard.
-// RH / CELSIUS are environmental, not material MC — never assessed here.
-const MC_UNITS = new Set(["PERCENT_MC", "WME", "PERCENT", "%MC", "MC"]);
+// RA-8508: one owner for which units are moisture content (RH / CELSIUS are not).
+import { isMoistureContentUnit } from "@/lib/moisture/units";
 
 // Free-text surfaceType synonyms → an ANZ material name/alias resolvable by
 // findMaterialByName. Anything not here is passed through as-is (carpet,
@@ -48,12 +46,6 @@ export interface ReadingInput {
   surfaceType: string | null | undefined;
   moistureLevel: number;
   unit?: string | null;
-}
-
-function isMoistureContentUnit(unit: string | null | undefined): boolean {
-  // No unit recorded → assume a moisture-content reading (the common case).
-  if (!unit) return true;
-  return MC_UNITS.has(unit.trim().toUpperCase());
 }
 
 function resolveSurfaceMaterial(surfaceType: string) {

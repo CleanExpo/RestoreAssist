@@ -33,6 +33,7 @@ import {
 } from "@/lib/scope-narrative-prompts";
 import {
   getMoistureStatus,
+  isProgressReading,
   pickReferenceReadings,
   resolveDryingGoal,
 } from "@/lib/iicrc-dry-standards";
@@ -244,9 +245,9 @@ export async function POST(
     // one was recorded; otherwise a guide value, labelled as such in the prompt.
     const references = pickReferenceReadings(inspection.moistureReadings);
     const moistureInputs: MoistureReadingInput[] = inspection.moistureReadings
-      .filter((r) => !r.isBaseline && !r.invalidatedAt)
+      .filter(isProgressReading)
       .map((r) => {
-        const goal = resolveDryingGoal(r.surfaceType, references);
+        const goal = resolveDryingGoal(r.surfaceType, references, undefined, r.unit);
         const status = getMoistureStatus(
           r.moistureLevel,
           r.surfaceType,

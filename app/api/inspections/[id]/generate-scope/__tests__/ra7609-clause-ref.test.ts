@@ -53,6 +53,7 @@ vi.mock("@/lib/scope-narrative-prompts", () => ({
 vi.mock("@/lib/iicrc-dry-standards", () => ({
   getDryStandard: () => ({ dryThreshold: 16 }),
   getMoistureStatus: () => "dry",
+  isProgressReading: (r: { isBaseline?: boolean; invalidatedAt?: unknown }) => !r.isBaseline && !r.invalidatedAt,
   pickReferenceReadings: () => ({}),
   resolveDryingGoal: () => ({ target: 16, basis: "guide" }),
 }));

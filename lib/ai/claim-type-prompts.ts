@@ -192,7 +192,7 @@ Produce the scope in exactly these 7 numbered sections:
 5. Drying Equipment Setup (IICRC S500:2021 ratios)
    — Equipment quantities derived from affected area (m²), wiring load checked against AS/NZS 3012:2019.
 6. Daily Monitoring Protocol
-   — Moisture reading schedule, equipment checks, psychrometric logs, target thresholds per §11.4.
+   — Moisture reading schedule, equipment checks, psychrometric logs, each material's drying goal (the job's reference reading from unaffected like material).
 7. Drying Validation & Sign-Off
    — Final moisture readings vs the drying goal (the job's reference reading from unaffected like material; guide values are not a standard), drying goal certificate, reinstatement trigger.
 
@@ -234,7 +234,8 @@ function buildWaterClassGuidance(damageClass?: number): string {
     case 3:
       return `Class 3 — Greatest evaporative load. Ceiling, walls, and insulation saturated. Moisture has migrated beyond the primary loss area into structure above and adjacent. Wall cavities must be opened or flood-cut to permit airflow. Insulation removal required if saturated. Target drying time: 7–10 days. IICRC S500:2021 §7.4.`;
     case 4:
-      return `Class 4 — Wet materials with very low permeance/porosity requiring specialty drying. Includes hardwood flooring, concrete, plaster, crawl spaces, and brick masonry. Extended drying cycles. Desiccant dehumidification may be required. Drying target is equilibrium moisture content (EMC) for the material, not a standard threshold. IICRC S500:2021 §7.5.`;
+      return `Class 4 — Wet materials with very low permeance/porosity requiring specialty drying. Includes hardwood flooring, concrete, plaster, crawl spaces, and brick masonry. Extended drying cycles. Desiccant dehumidification may be required. IICRC S500:2021 §7.5.
+Drying target is equilibrium moisture content (EMC) for the material, not a standard threshold.`;
     default:
       return `Class ${damageClass} specified. Apply IICRC S500:2021 §7 protocols appropriate for the identified evaporation load class.`;
   }
