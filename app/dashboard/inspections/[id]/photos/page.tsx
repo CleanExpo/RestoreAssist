@@ -1348,7 +1348,7 @@ export default function InspectionPhotosPage({ params }: PageProps) {
               </p>
             )}
           </div>
-          <InspectionPhotoUploadControl inspectionId={id} label="Upload" onVerified={(photo) => {
+          <InspectionPhotoUploadControl inspectionId={id} label="Upload" multiple onVerified={(photo) => {
             setPhotos((prev) => [photo as unknown as Photo, ...prev.filter((row) => row.id !== photo.id)]);
           }} />
         </div>
