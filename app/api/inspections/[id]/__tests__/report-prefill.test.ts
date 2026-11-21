@@ -171,6 +171,8 @@ describe("GET /api/inspections/[id]/report-prefill", () => {
       "classifications",
       "inspectionDate",
       "inspectionNumber",
+      // RA-8495: the mapping reads the office job number first.
+      "jobNumber",
       "lossDescription",
       "propertyAddress",
       "propertyCountry",

@@ -231,7 +231,7 @@ export default function OfficeIntakePage() {
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="space-y-5" noValidate>
+      <form method="post" onSubmit={onSubmit} className="space-y-5" noValidate>
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="propertyAddress">Job address</Label>
