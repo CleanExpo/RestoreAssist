@@ -831,11 +831,18 @@ describe("SketchEditorV2 first save on a brand-new floor (RA-7677)", () => {
       expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("10,20");
     }
 
+    // RA-8396: the X asks first; these cases are about what follows Remove pin.
+    async function removePin() {
+      fireEvent.click(screen.getByTestId("remove-pin-pin-1"));
+      await settle(0);
+      fireEvent.click(screen.getByRole("button", { name: "Remove pin" }));
+      await settle(0);
+    }
+
     it("restores a deleted pin and tells the technician when DELETE returns 500", async () => {
       const calls = installPinFetch(async () => jsonResponse({ error: "boom" }, 500));
       await renderSavedPin();
-      fireEvent.click(screen.getByTestId("remove-pin-pin-1"));
-      await settle(0);
+      await removePin();
       expect(calls).toEqual(["DELETE"]);
       expect(screen.getByTestId("pin-count").textContent).toBe("1");
       expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("10,20");
@@ -845,8 +852,7 @@ describe("SketchEditorV2 first save on a brand-new floor (RA-7677)", () => {
     it("restores a deleted pin when the DELETE request never reaches the server", async () => {
       installPinFetch(async () => { throw new TypeError("Failed to fetch"); });
       await renderSavedPin();
-      fireEvent.click(screen.getByTestId("remove-pin-pin-1"));
-      await settle(0);
+      await removePin();
       expect(screen.getByTestId("pin-count").textContent).toBe("1");
       expect(toastSpy.error).toHaveBeenCalledWith(expect.stringMatching(/not deleted/i));
     });
@@ -876,8 +882,7 @@ describe("SketchEditorV2 first save on a brand-new floor (RA-7677)", () => {
       fireEvent.click(screen.getByTestId("move-pin-pin-1"));
       await settle(0);
       expect(screen.getByTestId("pin-xy-pin-1").textContent).toBe("300,400");
-      fireEvent.click(screen.getByTestId("remove-pin-pin-1"));
-      await settle(0);
+      await removePin();
       expect(screen.getByTestId("pin-count").textContent).toBe("0");
       expect(toastSpy.error).not.toHaveBeenCalled();
     });
@@ -911,8 +916,7 @@ describe("SketchEditorV2 first save on a brand-new floor (RA-7677)", () => {
       await renderSavedPin();
       fireEvent.click(screen.getByTestId("move-pin-pin-1"));
       await settle(0);
-      fireEvent.click(screen.getByTestId("remove-pin-pin-1"));
-      await settle(0);
+      await removePin();
       // The DELETE waits for the move so the server sees them in order.
       expect(calls).toEqual(["PATCH"]);
       expect(screen.getByTestId("pin-count").textContent).toBe("0");
