@@ -12,7 +12,7 @@ import {
 import {
   REQUEST_TIMEOUT_MS,
   triggerProductionCrons,
-} from "../ci/trigger-production-crons.mjs";
+} from "../ci/lib/trigger-production-crons.mjs";
 
 /**
  * RA-7645 — the live DigitalOcean site has no scheduler (D-024), so GitHub

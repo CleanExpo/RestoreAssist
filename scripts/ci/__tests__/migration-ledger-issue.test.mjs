@@ -16,7 +16,7 @@ import {
   planIssueActions,
   syncLedgerIssue,
   targetConfig,
-} from "../migration-ledger-issue.mjs";
+} from "../lib/migration-ledger-issue.mjs";
 
 const ISSUE_SCRIPT = fileURLToPath(
   new URL("../migration-ledger-issue.mjs", import.meta.url),

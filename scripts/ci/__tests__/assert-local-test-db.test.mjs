@@ -10,7 +10,7 @@ import {
   LocalTestDatabaseError,
   assertLocalConnectionString,
   assertLocalTestDatabase,
-} from "../assert-local-test-db.mjs";
+} from "../lib/assert-local-test-db.mjs";
 
 const SCRIPT = fileURLToPath(new URL("../assert-local-test-db.mjs", import.meta.url));
 const LOCAL = "postgresql://ci:ci@localhost:5432/ci";

@@ -13,7 +13,7 @@ import {
   lintSql,
   isMigrationSql,
   MIGRATION_ROOTS,
-} from "../lint-rls-policy-initplan.mjs";
+} from "../lib/lint-rls-policy-initplan.mjs";
 
 const BARE = `CREATE POLICY "ra9999_select" ON public."Widget"
   FOR SELECT TO authenticated

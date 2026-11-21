@@ -10,7 +10,7 @@ import {
   reconcileD3,
   type StripeEventPage,
   type StripeEventRef,
-} from "../producers/d3-revenue-reconciliation";
+} from "../producers/lib/d3-revenue-reconciliation";
 
 /**
  * Controls for the D3 producer.

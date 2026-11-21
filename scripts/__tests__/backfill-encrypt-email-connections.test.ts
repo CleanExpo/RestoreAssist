@@ -4,7 +4,7 @@ import {
   parseMode,
   type EmailConnectionBackfillRow,
   type EmailConnectionBackfillStore,
-} from "../backfill-encrypt-email-connections";
+} from "../lib/backfill-encrypt-email-connections";
 import { isEncryptedEmailConnectionToken } from "@/lib/email/email-connection-tokens";
 
 process.env.CREDENTIAL_ENCRYPTION_KEY =

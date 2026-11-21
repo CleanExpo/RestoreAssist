@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { assertDirectDatabaseUrl } from "../../assert-direct-database-url.mjs";
+import { assertDirectDatabaseUrl } from "../../lib/assert-direct-database-url.mjs";
 
 const HOST = "db.udooysjajglluvuxkijp.supabase.co";
 const DATABASE = "postgres";

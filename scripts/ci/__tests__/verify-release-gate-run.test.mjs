@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import { deflateRawSync } from "node:zlib";
 
-import { verifyReleaseGateRun } from "../verify-release-gate-run.mjs";
+import { verifyReleaseGateRun } from "../lib/verify-release-gate-run.mjs";
 
 const SHA = "a".repeat(40);
 const OPTIONS = {

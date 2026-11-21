@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   auditRouteSafety,
   compareRawAdminBaseline,
-} from "../security/route-safety-scan.mjs";
+} from "../security/lib/route-safety-scan.mjs";
 
 const INTAKE_PATH = "app/api/revenue/job-file-audit/intake/route.ts";
 const intakeSource = readFileSync(join(process.cwd(), INTAKE_PATH), "utf8");
