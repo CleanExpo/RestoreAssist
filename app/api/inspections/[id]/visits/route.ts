@@ -100,7 +100,15 @@ export async function POST(
     const body = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
     const now = new Date();
     // Only an arrival time may be given when starting; the rest is recorded
-    // with PATCH. Same validation as an update.
+    // with PATCH. Anything else is refused, not ignored, as PATCH does.
+    const extra = Object.keys(body).find((k) => k !== "arrivedAt");
+    if (extra) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Unknown field: ${extra}. Starting a visit can only take an arrival time.`,
+        status: 400,
+      });
+    }
     const parsed = parseVisitPatch("arrivedAt" in body ? { arrivedAt: body.arrivedAt } : {}, now);
     if (!parsed.ok) {
       return apiError(request, { code: "VALIDATION", message: parsed.error, status: 400 });

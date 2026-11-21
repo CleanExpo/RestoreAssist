@@ -236,6 +236,17 @@ describe("POST /visits (start)", () => {
     expect(writes()).toBe(0);
   });
 
+  // Discovery sweep: start refuses fields it does not take, like PATCH does,
+  // so a client cannot believe it set the number, the starter or the submit.
+  it.each(["visitNumber", "submittedAt", "technicianId", "metOnSite"])(
+    "400 when the start body carries %s, and writes nothing",
+    async (field) => {
+      const res = await POST(req("POST", { [field]: "x", arrivedAt: "2020-03-02T22:05:00Z" }), ctx);
+      await expectRefused(res, 400, new RegExp(`Unknown field: ${field}|only take an arrival time`));
+      expect(writes()).toBe(0);
+    },
+  );
+
   it("400 on a malformed arrival time, and writes nothing", async () => {
     const res = await POST(req("POST", { arrivedAt: "this morning" }), ctx);
     await expectRefused(res, 400, /ISO 8601/);

@@ -152,6 +152,10 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
 
   const open = visits?.find((v) => !v.submittedAt) ?? null;
   const submitted = visits?.filter((v) => v.submittedAt) ?? [];
+  // The list holds the newest visits only, so the next number follows the
+  // highest one shown, never the count of rows (the server numbers it the same).
+  const nextVisitNumber =
+    (visits ?? []).reduce((n, v) => Math.max(n, v.visitNumber), 0) + 1;
 
   async function startVisit() {
     setBusy(true);
@@ -177,12 +181,29 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
       (cur) =>
         cur?.map((v) => (v.id === visit.id ? { ...v, ...patch } : v)) ?? cur,
     );
-    const res = await fetch(`${base}/${visit.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-    if (!res.ok) setError((await readError(res)).message);
+    // What the visit held before, to take a refused change back off the
+    // screen even if the reload below fails.
+    const prior = Object.fromEntries(
+      Object.keys(patch).map((k) => [k, visit[k as keyof SiteVisitRow]]),
+    ) as Patch;
+    let saved = false;
+    try {
+      const res = await fetch(`${base}/${visit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      saved = res.ok;
+      if (!res.ok) setError((await readError(res)).message);
+    } catch {
+      setError("Could not save. Check your connection and try again.");
+    }
+    if (!saved) {
+      setVisits(
+        (cur) =>
+          cur?.map((v) => (v.id === visit.id ? { ...v, ...prior } : v)) ?? cur,
+      );
+    }
     await load();
   }
 
@@ -348,7 +369,6 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
                           }
                           aria-label={`Photo ${i + 1}${open.frontPhotoId === p.id ? " (front of property)" : ""}`}
                         />
-                        {/* eslint-disable-next-line @next/next/no-img-element -- signed storage URL, not a static asset */}
                         <img
                           src={p.thumbnailUrl ?? p.url ?? ""}
                           alt=""
@@ -430,7 +450,7 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
           >
             {submitted.length === 0
               ? "Start visit"
-              : `Start visit ${submitted.length + 1}`}
+              : `Start visit ${nextVisitNumber}`}
           </button>
         </div>
       )}

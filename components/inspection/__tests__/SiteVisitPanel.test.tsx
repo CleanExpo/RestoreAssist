@@ -151,5 +151,42 @@ describe("SiteVisitPanel (RA-8498)", () => {
     render(<SiteVisitPanel inspectionId="i1" />);
     expect(await screen.findByLabelText("Photo 28 (front of property)")).toBeChecked();
   });
+
+  // Discovery sweep (Cursor, 6c20e3fbb), same class as the photo picker: the
+  // list holds the newest 50 visits, so the next number comes from the
+  // highest number shown, never from how many rows came back.
+  it("numbers the next visit after the highest visit, even past the 50 listed", async () => {
+    const list = Array.from({ length: 50 }, (_, i) => ({
+      ...openVisit,
+      id: `v${i + 11}`,
+      visitNumber: i + 11,
+      submittedAt: "2026-11-21T23:00:00.000Z",
+    }));
+    stubFetch(() => list);
+    render(<SiteVisitPanel inspectionId="i1" />);
+    expect(await screen.findByRole("button", { name: "Start visit 61" })).toBeInTheDocument();
+  });
+
+  // Discovery sweep: a refused change must not stay on screen when the reload
+  // after it also fails.
+  it("takes back a refused change even when the reload fails", async () => {
+    let loads = 0;
+    stubFetch(
+      () => [openVisit],
+      (url, init) => {
+        if (url === "/api/inspections/i1/visits/v1" && init?.method === "PATCH") {
+          return json({ error: { code: "VALIDATION", message: "Refused" } }, 400);
+        }
+        if (url.endsWith("/visits") && !init?.method && ++loads > 1) {
+          return Promise.reject(new Error("offline"));
+        }
+        return null;
+      },
+    );
+    render(<SiteVisitPanel inspectionId="i1" />);
+    fireEvent.click(await screen.findByLabelText("Tenant"));
+    expect(await screen.findByText(/Refused|Could not load/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Tenant")).not.toBeChecked());
+  });
 });
 
