@@ -1,6 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import path from "path";
-import { pathToFileURL } from "url";
 
 export type AuditSeverity = "error" | "warning";
 

@@ -1,4 +1,3 @@
-import { pathToFileURL } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
 

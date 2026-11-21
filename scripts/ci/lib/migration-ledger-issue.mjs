@@ -28,8 +28,6 @@
  * failed or the environment is incomplete; the step goes red.
  */
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 /**
  * One alarm per database (RA-8386). Each target has its own label, because a

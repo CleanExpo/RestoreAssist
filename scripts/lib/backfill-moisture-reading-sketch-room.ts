@@ -15,7 +15,6 @@
  *   npx tsx scripts/backfill-moisture-reading-sketch-room.ts --apply
  */
 
-import { fileURLToPath } from "node:url";
 import { prisma } from "@/lib/prisma";
 
 export const BACKFILL_ROOM_PAGE = 5_000;

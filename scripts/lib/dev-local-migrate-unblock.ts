@@ -12,7 +12,6 @@
  * The Prisma CLI resolve steps live in scripts/dev-local-migrate.sh so this
  * file is not scanned as a seventh CONCURRENTLY pre-resolve site.
  */
-import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { pgPoolTls } from "../../lib/prisma-pool-config";

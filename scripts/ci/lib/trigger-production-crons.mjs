@@ -23,8 +23,6 @@
  * the HTTP status and the item count, never the secret or a success body.
  */
 
-import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
 import {
   PRODUCTION_ENABLED,
   PRODUCTION_ORIGIN,

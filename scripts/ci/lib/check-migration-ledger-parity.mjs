@@ -36,8 +36,6 @@
  *
  * Output is counts and PASS/WARN/FAIL only. Fingerprints are never printed.
  */
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { expectedMigrationLedger } from "./expected-migration-ledger.mjs";
 

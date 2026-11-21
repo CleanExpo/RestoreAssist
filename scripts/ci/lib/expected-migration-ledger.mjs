@@ -2,7 +2,6 @@
 import { createHash } from "node:crypto";
 import { appendFileSync, lstatSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 export function expectedMigrationLedger(root = process.cwd()) {
   const directory = resolve(root, "prisma", "migrations");

@@ -1,6 +1,5 @@
 
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 
 // No independent production reviewer identity has yet been confirmed for this
 // personal-account repository. Keep this versioned trust anchor empty until a

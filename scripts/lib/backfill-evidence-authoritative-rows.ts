@@ -64,7 +64,6 @@
  */
 
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
 
 import type { Prisma } from "@prisma/client";
 

@@ -3,7 +3,6 @@ import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node
 import { createHash } from "node:crypto";
 import * as nodePath from "node:path";
 import { extname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { isAlias, parse as parseYaml, parseDocument, visit } from "yaml";
 
 const IMMUTABLE_ACTION_REF = /^[0-9a-f]{40}$/i;

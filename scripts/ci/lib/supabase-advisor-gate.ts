@@ -15,7 +15,6 @@
  * Run: `pnpm audit:advisors` or `npx tsx scripts/ci/supabase-advisor-gate.ts`
  */
 
-import { pathToFileURL } from "url";
 
 const PROD_PROJECT_REF = "udooysjajglluvuxkijp"; // restoreassist-prod-2026
 

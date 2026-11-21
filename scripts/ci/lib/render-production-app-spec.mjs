@@ -2,7 +2,6 @@
 import { createHash } from "node:crypto";
 import { chmodSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 export const DIGEST_SENTINEL = `sha256:${"0".repeat(64)}`;
 export const SHA_SENTINEL = "0".repeat(40);

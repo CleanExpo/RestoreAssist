@@ -1,6 +1,5 @@
 
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 
 const FULL_SHA = /^[0-9a-f]{40}$/i;
 const RELEASE_TAG = /^refs\/tags\/v\d+\.\d+\.\d+$/;

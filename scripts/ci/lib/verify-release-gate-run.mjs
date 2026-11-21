@@ -1,7 +1,6 @@
 
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import { inflateRawSync } from "node:zlib";
 
 const FULL_SHA = /^[0-9a-f]{40}$/i;
