@@ -22,6 +22,10 @@ const profileSelect = {
   nzbn: true,
 } as const;
 
+// RA-8503: the business email is also the inbox told when a technician
+// submits a job visit, so it must be a real address.
+const OFFICE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function isHexColor(value: string): boolean {
   return /^#[0-9A-Fa-f]{6}$/.test(value);
 }
@@ -64,7 +68,7 @@ export async function PATCH(request: NextRequest) {
 
     const org = await prisma.organization.findFirst({
       where: { ownerId: session.user.id },
-      select: { id: true },
+      select: { id: true, email: true },
     });
     if (!org) {
       return apiError(request, {
@@ -86,6 +90,10 @@ export async function PATCH(request: NextRequest) {
       }
       if (typeof v !== "string") continue;
       const trimmed = v.trim();
+      if (field === "email" && trimmed === "") {
+        patch[field] = null;
+        continue;
+      }
       if (
         (field === "primaryColor" || field === "accentColor") &&
         trimmed &&
@@ -94,6 +102,19 @@ export async function PATCH(request: NextRequest) {
         return apiError(request, {
           code: "VALIDATION",
           message: `${field} must be a 6-digit hex colour such as #1C2E47`,
+          status: 400,
+        });
+      }
+      // Only a changed value is checked, so an older stored value that was
+      // never validated does not block saving the rest of the profile.
+      if (
+        field === "email" &&
+        trimmed !== org.email?.trim() &&
+        (trimmed.length > 254 || !OFFICE_EMAIL_PATTERN.test(trimmed))
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Office email must be a valid email address",
           status: 400,
         });
       }
