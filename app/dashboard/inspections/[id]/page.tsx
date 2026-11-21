@@ -47,6 +47,7 @@ import HandoverPackagePanel from "@/components/inspection/HandoverPackagePanel";
 import { MakeSafeChecklist } from "@/components/inspection/MakeSafeChecklist";
 import { ClaimContextBanner } from "@/components/inspection/ClaimContextBanner";
 import { JobAppointmentsPanel } from "@/components/inspection/JobAppointmentsPanel";
+import { JobNotesPanel } from "@/components/inspection/JobNotesPanel";
 import { FieldAssistPanel } from "@/components/inspection/FieldAssistPanel";
 import { InspectionWorkflowStrip } from "@/components/inspection/InspectionWorkflowStrip";
 import { InspectionWorkspaceLinks } from "@/components/inspection/InspectionWorkspaceLinks";
@@ -1701,6 +1702,9 @@ export default function InspectionDetailPage({
         <JobAppointmentsPanel inspectionId={inspection.id} />
         <FieldAssistPanel inspectionId={inspection.id} />
       </section>
+
+      {/* RA-8496: append-only, time-stamped job notes (calls, bookings, review). */}
+      <JobNotesPanel inspectionId={inspection.id} />
 
       <section className={cn(INSPECTION_HUB_CARD, "p-4 sm:p-5 space-y-3")}>
         <h2 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-slate-400">

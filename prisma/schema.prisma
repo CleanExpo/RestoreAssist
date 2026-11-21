@@ -191,6 +191,7 @@ model User {
   inspections             Inspection[]
   jobAppointmentsCreated  JobAppointment[]      @relation("JobAppointmentCreator")
   jobAppointmentsAssigned JobAppointment[]      @relation("JobAppointmentAssignee")
+  jobNotesAuthored        JobNote[]             @relation("JobNoteAuthor")
   chatMessages            ChatMessage[]
   usageEvents             UsageEvent[]          @relation("usageEvents")
   emailConnection         EmailConnection?
@@ -2362,6 +2363,8 @@ model Inspection {
   claimProgress   ClaimProgress?
   authorisations  Authorisation[]
   jobAppointments JobAppointment[]
+  // RA-8496: append-only job notes
+  jobNotes        JobNote[]
 
   // RA-261 NIR phase 1 — re-modelled here per issue #963.
   // Tables existed on prod (via repair hotfix #960) but had no Prisma models.
@@ -8934,6 +8937,44 @@ model JobAppointment {
   @@index([inspectionId, startsAt])
   @@index([assignedUserId, startsAt])
   @@index([status])
+}
+
+/// RA-8496 — what a job note was written for. Office staff note every call to
+/// the insured and every booking or re-booking; technicians and reviewers add
+/// their own.
+enum JobNoteKind {
+  GENERAL
+  CALL
+  BOOKING
+  REBOOKING
+  REVIEW
+}
+
+/// RA-8496 — an append-only, time-stamped note on a job.
+///
+/// Never edited and never deleted through the app: a correction is a new note.
+/// The author's name and role are copied onto the row when it is written, so
+/// the stamp still reads correctly after the person is renamed, re-roled or
+/// removed. `authorUserId` is only a link and goes NULL if the account is
+/// deleted. The notes go with the job when the job itself is deleted.
+model JobNote {
+  id           String      @id @default(cuid())
+  inspectionId String
+  inspection   Inspection  @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  authorUserId String?
+  author       User?       @relation("JobNoteAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  authorName   String
+  authorRole   Role
+  kind         JobNoteKind @default(GENERAL)
+  body         String      @db.Text
+  createdAt    DateTime    @default(now())
+  /// One id per draft, sent by the panel, so a save retried after a lost
+  /// response returns the note already written instead of adding a second.
+  clientRequestId String?
+
+  @@unique([inspectionId, clientRequestId])
+  @@index([inspectionId, createdAt])
+  @@index([authorUserId])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
