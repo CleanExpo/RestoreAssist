@@ -12,6 +12,7 @@ const getServerSession = vi.fn();
 const instanceFindUnique = vi.fn();
 const instanceUpdateMany = vi.fn();
 const instanceUpdate = vi.fn();
+const instanceDeleteMany = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -23,11 +24,12 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: (...args: unknown[]) => instanceFindUnique(...args),
       updateMany: (...args: unknown[]) => instanceUpdateMany(...args),
       update: (...args: unknown[]) => instanceUpdate(...args),
+      deleteMany: (...args: unknown[]) => instanceDeleteMany(...args),
     },
   },
 }));
 
-import { PUT } from "../route";
+import { DELETE, PUT } from "../route";
 
 const params = () => ({ params: Promise.resolve({ id: "form-1" }) });
 function putReq(body: Record<string, unknown>) {
@@ -53,6 +55,7 @@ beforeEach(() => {
   instanceFindUnique.mockReset();
   instanceUpdateMany.mockReset();
   instanceUpdate.mockReset();
+  instanceDeleteMany.mockReset();
   getServerSession.mockResolvedValue({ user: { id: "user-1" } });
 });
 
@@ -145,5 +148,36 @@ describe("PUT /api/authority-forms/:id (RA-8400)", () => {
     expect(instanceUpdateMany.mock.calls[0][0].where).toMatchObject({
       signatures: { none: { signedAt: { not: null } } },
     });
+  });
+});
+
+describe("DELETE /api/authority-forms/:id (RA-8400)", () => {
+  const delReq = () =>
+    new NextRequest("http://localhost/api/authority-forms/form-1", { method: "DELETE" });
+
+  it("refuses to delete a signed form, which would cascade-delete its signatures", async () => {
+    instanceFindUnique.mockResolvedValueOnce(
+      form("PARTIALLY_SIGNED", new Date("2026-11-01T00:00:00Z")),
+    );
+    const res = await DELETE(delReq(), params());
+    expect(res.status).toBe(409);
+    expect(instanceDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("carries the unsigned rule and the ownership filter in the delete itself", async () => {
+    instanceFindUnique.mockResolvedValueOnce(form("DRAFT", null));
+    instanceDeleteMany.mockResolvedValueOnce({ count: 1 });
+    const res = await DELETE(delReq(), params());
+    expect(res.status).toBe(200);
+    const where = instanceDeleteMany.mock.calls[0][0].where;
+    expect(where.signatures).toEqual({ none: { signedAt: { not: null } } });
+    expect(where.report.OR).toHaveLength(3);
+  });
+
+  it("answers 409 when a signature lands between the read and the delete", async () => {
+    instanceFindUnique.mockResolvedValueOnce(form("DRAFT", null));
+    instanceDeleteMany.mockResolvedValueOnce({ count: 0 });
+    const res = await DELETE(delReq(), params());
+    expect(res.status).toBe(409);
   });
 });

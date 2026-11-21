@@ -8,6 +8,7 @@ import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   formAcceptsSignatureWhere,
+  formNewSlotRefusal,
   formSignatureRefusal,
   formTextEditRefusal,
   noSignedSignatureWhere,
@@ -22,6 +23,16 @@ describe("signed-record rules", () => {
     expect(formSignatureRefusal({ status: "DRAFT" })).toBeNull();
     expect(formSignatureRefusal({ status: "PENDING_SIGNATURES" })).toBeNull();
     expect(formSignatureRefusal({ status: "PARTIALLY_SIGNED" })).toBeNull();
+  });
+
+  it("refuses a new slot on a closed form or once any signature is signed", () => {
+    expect(formNewSlotRefusal({ status: "CANCELLED", signatures: [] })).toMatch(/cancelled/);
+    expect(
+      formNewSlotRefusal({ status: "PENDING_SIGNATURES", signatures: [{ signedAt: new Date() }] }),
+    ).toMatch(/new signatory/);
+    expect(
+      formNewSlotRefusal({ status: "PENDING_SIGNATURES", signatures: [{ signedAt: null }] }),
+    ).toBeNull();
   });
 
   it("refuses a wording change once any signature is signed", () => {
@@ -70,7 +81,8 @@ describe("signed-record rules", () => {
 // ---------------------------------------------------------------------------
 
 const REPO_ROOT = join(__dirname, "..", "..", "..");
-const SCAN_ROOTS = ["app/api", "lib"];
+// RA-8526: all server code and scripts, not only app/api.
+const SCAN_ROOTS = ["app", "lib", "scripts"];
 const WRITE_CALL =
   /\b(authorityFormInstance|authorityFormSignature)\s*\.\s*(create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/;
 const GUARD_IMPORT = /from\s+["']@\/lib\/authority-forms\/signed-record-guard["']/;
@@ -80,14 +92,13 @@ const GUARDED_WRITERS = [
   "app/api/authority-forms/[id]/route.ts",
   "app/api/authority-forms/[id]/signatures/route.ts",
   "app/api/authority-forms/sign/[token]/route.ts",
+  "app/api/authority-forms/[id]/send-signature-request/route.ts",
 ];
 
 /** Writers reviewed and left unguarded, each with its reason. */
 const EXEMPT_WRITERS: Record<string, string> = {
   "app/api/reports/[id]/authority-forms/route.ts":
     "creates a new DRAFT form and its empty signature slots; nothing is signed yet",
-  "app/api/authority-forms/[id]/send-signature-request/route.ts":
-    "issues a signing token only; writes no wording or signature, and the sign route refuses a closed form",
   "lib/portal/clear-client-signing-links.ts":
     "clears signing tokens to revoke links; only removes the ability to sign",
 };
@@ -139,5 +150,113 @@ describe("authority-form writer allow-list (RA-8400)", () => {
       const src = readFileSync(join(REPO_ROOT, f), "utf8");
       expect(GUARD_IMPORT.test(src), `${f} must import the guard`).toBe(true);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RA-8526 — cascade deleters, derived from the schema
+//
+// A delete of any model that cascades into AuthorityFormInstance erases signed
+// forms without naming a form model, so the writer scan above cannot see it.
+// The ancestors are read from prisma/schema.prisma (onDelete: Cascade, walked
+// transitively), never typed by hand: a new cascade parent joins the scan the
+// moment it is added to the schema.
+// ---------------------------------------------------------------------------
+
+/** child model -> parent models it cascades from (onDelete: Cascade). */
+function cascadeParents(schema: string): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  const modelRe = /^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm;
+  for (const m of schema.matchAll(modelRe)) {
+    const child = m[1];
+    for (const line of m[2].split("\n")) {
+      const f = line.match(/^\s*\w+\s+(\w+)\??\s.*@relation\([^)]*onDelete:\s*Cascade/);
+      if (!f) continue;
+      if (!out.has(child)) out.set(child, new Set());
+      out.get(child)!.add(f[1]);
+    }
+  }
+  return out;
+}
+
+function cascadeAncestors(schema: string, target: string): string[] {
+  const parents = cascadeParents(schema);
+  const seen = new Set<string>();
+  const stack = [target];
+  while (stack.length) {
+    for (const p of parents.get(stack.pop()!) ?? []) {
+      if (!seen.has(p)) {
+        seen.add(p);
+        stack.push(p);
+      }
+    }
+  }
+  return [...seen].sort();
+}
+
+const camel = (m: string) => m[0].toLowerCase() + m.slice(1);
+
+/** Deleters of a cascade ancestor that must call the guard module. */
+const GUARDED_CASCADE_DELETERS = [
+  "app/api/reports/[id]/route.ts",
+  "app/api/reports/bulk-delete/route.ts",
+  "app/api/account/delete/route.ts",
+];
+
+describe("cascade deleters of a signed form (RA-8526)", () => {
+  const schema = readFileSync(join(REPO_ROOT, "prisma", "schema.prisma"), "utf8");
+  const ancestors = cascadeAncestors(schema, "AuthorityFormInstance");
+  const deleteCall = new RegExp(
+    `\\b(${ancestors.map(camel).join("|")})\\s*\\.\\s*(delete|deleteMany)\\s*\\(`,
+  );
+  const files: string[] = [];
+  for (const root of SCAN_ROOTS) walk(join(REPO_ROOT, root), files);
+  const deleters = files
+    .filter((f) => deleteCall.test(readFileSync(f, "utf8")))
+    .map((f) => relative(REPO_ROOT, f).split(sep).join("/"))
+    .sort();
+
+  it("reads the cascade chain from the schema (positive control)", () => {
+    expect(ancestors).toContain("Report");
+    expect(ancestors).toContain("User");
+    // Walks transitively and only follows Cascade.
+    expect(
+      cascadeAncestors(
+        "model A {\n  b B @relation(fields: [bId], references: [id], onDelete: Cascade)\n}\n" +
+          "model B {\n  c C @relation(fields: [cId], references: [id], onDelete: Cascade)\n  d D? @relation(fields: [dId], references: [id], onDelete: SetNull)\n}\n",
+        "A",
+      ),
+    ).toEqual(["B", "C"]);
+  });
+
+  it("finds the known deleters (positive control: an empty scan fails)", () => {
+    for (const f of GUARDED_CASCADE_DELETERS) expect(deleters).toContain(f);
+  });
+
+  it("every deleter of a cascade ancestor calls the guard module", () => {
+    expect(
+      deleters.filter((f) => !GUARDED_CASCADE_DELETERS.includes(f)),
+      "New delete of a model that cascades into authority forms: call reportsHoldingSignedForms / assertNoSignedFormCascade from lib/authority-forms/signed-record-guard and add the file to GUARDED_CASCADE_DELETERS",
+    ).toEqual([]);
+    for (const f of GUARDED_CASCADE_DELETERS) {
+      const src = readFileSync(join(REPO_ROOT, f), "utf8");
+      expect(GUARD_IMPORT.test(src), `${f} must import the guard`).toBe(true);
+      expect(
+        /reportsHoldingSignedForms|assertNoSignedFormCascade/.test(src),
+        `${f} must run the signed-form check before deleting`,
+      ).toBe(true);
+    }
+  });
+});
+
+describe("database erasure switch (RA-8526 proposed migration)", () => {
+  it("no application code or script sets the signed-form erasure setting", () => {
+    const files: string[] = [];
+    for (const root of SCAN_ROOTS) walk(join(REPO_ROOT, root), files);
+    const setters = files.filter((f) =>
+      readFileSync(f, "utf8").includes("allow_signed_form_erasure"),
+    );
+    expect(files.length).toBeGreaterThan(100);
+    expect(setters).toEqual([]);
   });
 });

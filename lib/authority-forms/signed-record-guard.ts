@@ -15,7 +15,7 @@
  *     status change that lands between the read and the write still blocks it.
  */
 
-import type { AuthorityFormStatus } from "@prisma/client";
+import type { AuthorityFormStatus, Prisma } from "@prisma/client";
 
 /** A form in one of these states takes no new signature and no new slot. */
 export const CLOSED_FORM_STATUSES: readonly AuthorityFormStatus[] = [
@@ -64,8 +64,25 @@ export function formSignatureRefusal(form: {
 }
 
 /**
+ * Returns the reason a form takes no NEW signatory slot: it is closed, or
+ * somebody has already signed it (a new slot would appear on the executed
+ * document, which is rendered from the live rows).
+ */
+export function formNewSlotRefusal(form: {
+  status: AuthorityFormStatus | string;
+  signatures: ReadonlyArray<{ signedAt: Date | string | null }>;
+}): string | null {
+  return (
+    formSignatureRefusal(form) ??
+    (form.signatures.some((s) => s.signedAt !== null)
+      ? "This form has been signed and can no longer take a new signatory"
+      : null)
+  );
+}
+
+/**
  * Returns the reason a signed form cannot be edited by staff (wording or
- * status), or null.
+ * status) or deleted, or null.
  */
 export function formTextEditRefusal(form: {
   signatures: ReadonlyArray<{ signedAt: Date | string | null }>;
@@ -86,4 +103,69 @@ export function statusMoveRefusal(
     return null;
   }
   return `Status cannot be changed from ${from} to ${String(to)}`;
+}
+
+// ---------------------------------------------------------------------------
+// RA-8526 — deletes that reach a signed form through the database cascade.
+//
+// AuthorityFormInstance is onDelete: Cascade from Report, and Report is
+// onDelete: Cascade from User. A Report or User delete therefore erases
+// every form and signature under it without naming either form model.
+// Every delete of a cascade ancestor takes its rule from here; the allow-list
+// test derives the ancestors from prisma/schema.prisma, so a new cascade
+// parent or a new deleter fails that test until it calls this module.
+// ---------------------------------------------------------------------------
+
+/** Where fragment for AuthorityFormInstance: at least one signature is signed. */
+export function signedFormWhere() {
+  return { signatures: { some: { signedAt: { not: null } } } };
+}
+
+/**
+ * Where fragment for Report: it holds no signed authority form. Placed in
+ * every report delete so a signature that lands after the check still
+ * blocks the delete.
+ */
+export function reportHoldsNoSignedFormWhere() {
+  return { authorityForms: { none: signedFormWhere() } };
+}
+
+export const SIGNED_FORM_CASCADE_REFUSAL =
+  "This report holds a signed authority form. A signed authority form is the client's legal consent and cannot be deleted, so the report cannot be deleted either";
+
+/** Thrown inside a transaction when a delete would cascade into a signed form. */
+export class SignedFormCascadeError extends Error {
+  constructor(readonly reportIds: string[]) {
+    super(SIGNED_FORM_CASCADE_REFUSAL);
+    this.name = "SignedFormCascadeError";
+  }
+}
+
+/** The one read every cascade deleter runs (prisma or a transaction client). */
+export type SignedFormReader = Pick<Prisma.TransactionClient, "authorityFormInstance">;
+
+/**
+ * Returns the ids of reports matched by `reportWhere` that hold a signed
+ * authority form (at most 100). Empty means the delete may go ahead.
+ */
+export async function reportsHoldingSignedForms(
+  db: SignedFormReader,
+  reportWhere: Prisma.ReportWhereInput,
+): Promise<string[]> {
+  const rows = await db.authorityFormInstance.findMany({
+    where: { report: reportWhere, ...signedFormWhere() },
+    select: { reportId: true },
+    distinct: ["reportId"],
+    take: 100,
+  });
+  return rows.map((r) => r.reportId);
+}
+
+/** Throws SignedFormCascadeError when any matched report holds a signed form. */
+export async function assertNoSignedFormCascade(
+  db: SignedFormReader,
+  reportWhere: Prisma.ReportWhereInput,
+): Promise<void> {
+  const held = await reportsHoldingSignedForms(db, reportWhere);
+  if (held.length > 0) throw new SignedFormCascadeError(held);
 }

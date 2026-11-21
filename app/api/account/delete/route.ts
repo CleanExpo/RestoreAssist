@@ -32,6 +32,10 @@ import { validateCsrf } from "@/lib/csrf";
 import { extractRequestContext } from "@/lib/security-audit";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  assertNoSignedFormCascade,
+  SignedFormCascadeError,
+} from "@/lib/authority-forms/signed-record-guard";
 
 const CONFIRMATION_PHRASE = "DELETE MY ACCOUNT";
 
@@ -212,11 +216,25 @@ export async function POST(request: NextRequest) {
         // inspection record (privacy policy 2.7), including when the
         // inspection's owner closes their account.
         await tx.voiceCopilotSession.updateMany(reassignToRetentionOwner);
+        // RA-8526: user.delete cascades into any Report still owned by the
+        // user, and from there into authority forms and their signatures.
+        // The reassignment above should leave none; this refuses (and rolls
+        // back) if a signed form would still be reached.
+        await assertNoSignedFormCascade(tx, { userId: user.id });
         await tx.user.delete({ where: { id: user.id } });
       });
 
       return NextResponse.json({ success: true });
     } catch (error) {
+      if (error instanceof SignedFormCascadeError) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: error.message,
+          status: 409,
+          err: error,
+          stage: "delete",
+        });
+      }
       return fromException(request, error, { stage: "delete" });
     }
   });
