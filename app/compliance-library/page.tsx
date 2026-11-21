@@ -43,11 +43,6 @@ export default function ComplianceLibraryPage() {
             "Standard and Reference Guide for Professional Mold Remediation",
           publisher: "IICRC",
         },
-        {
-          title: "IICRC R520 Reference Guide",
-          description: "Reference Guide for Professional Mold Remediation",
-          publisher: "IICRC",
-        },
       ],
     },
     {
@@ -59,23 +54,20 @@ export default function ComplianceLibraryPage() {
           publisher: "Standards Australia and Standards New Zealand",
         },
         {
-          title: "NCC 2022",
-          description: "National Construction Code Volume One and Two",
-          publisher: "Australian Building Codes Board",
-        },
-        {
-          title: "Building Code of Australia",
-          description: "Current building regulations and requirements",
+          title: "National Construction Code (NCC)",
+          description:
+            "Volumes One and Two hold the Building Code of Australia; Volume Three is the Plumbing Code of Australia. Check the edition in force for your job.",
           publisher: "Australian Building Codes Board",
         },
       ],
     },
     {
-      category: "Insurance Guidelines",
+      category: "Insurance",
       items: [
         {
-          title: "Insurance Council of Australia Guidelines",
-          description: "Industry guidelines for restoration work",
+          title: "General Insurance Code of Practice",
+          description:
+            "The code subscribing insurers follow when they handle a claim",
           publisher: "Insurance Council of Australia",
         },
       ],

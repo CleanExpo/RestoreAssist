@@ -80,6 +80,7 @@ pilot-workflow.spec.ts                   smoke
 portal-recovery-help.spec.ts             unrun:RA-7551 public portal walk at 1280x720, merged without a runner; not tagged @smoke and no workflow names it. Candidate for smoke (public /portal/* only, read-only)
 portal-unknown-token.spec.ts             smoke
 procurement.spec.ts                      workflow:sketch-e2e.yml
+public-phone-overflow.spec.ts            smoke
 security.spec.ts                         workflow:sketch-e2e.yml
 setup-abr-unreachable.spec.ts            workflow:sketch-e2e.yml
 setup-happy-path.spec.ts                 a1

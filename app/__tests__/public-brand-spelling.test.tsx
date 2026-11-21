@@ -5,9 +5,8 @@
  * Assist by Unite-Group Nexus Pty Ltd"), which name the business as
  * registered, not the product.
  *
- * Scope: the public marketing pages and the components they share. Signed-in
- * screens, emails and the pricing cost disclosure are tracked separately on
- * the issue.
+ * Scope: the public marketing pages and the components and copy they render.
+ * Signed-in screens and emails are tracked separately on the issue.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -22,17 +21,24 @@ const PUBLIC_DIRS = [
   "app/contact",
   "app/demo",
   "app/features",
+  "app/forgot-password",
   "app/help",
   "app/how-it-works",
+  "app/login",
   "app/pricing",
   "app/privacy",
   "app/resources",
+  "app/signup",
   "app/solutions",
   "app/support",
   "app/terms",
   "components/landing",
+  "components/pricing",
   "components/seo",
 ];
+
+/** Single files whose copy renders on a public page (the pricing cards). */
+const PUBLIC_FILES = ["lib/pricing.ts"];
 
 const SOURCE = /\.(tsx?|jsx?|mdx?)$/;
 
@@ -72,7 +78,10 @@ describe("public brand spelling (RA-8403)", () => {
   });
 
   it("public pages spell the product RestoreAssist", () => {
-    const files = PUBLIC_DIRS.flatMap((d) => walk(path.join(ROOT, d)));
+    const files = [
+      ...PUBLIC_DIRS.flatMap((d) => walk(path.join(ROOT, d))),
+      ...PUBLIC_FILES.map((f) => path.join(ROOT, f)),
+    ];
     // Positive control: the walk really reaches the public pages.
     expect(files.length).toBeGreaterThan(20);
     const offenders = files.flatMap((f) =>

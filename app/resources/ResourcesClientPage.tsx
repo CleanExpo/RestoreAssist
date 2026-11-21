@@ -116,7 +116,7 @@ export default function ResourcesClientPage() {
                     );
 
                     // Only shipped resources are listed (RA-8403): every
-                    // tile links somewhere real, none says "Coming Soon".
+                    // tile links somewhere real; nothing is listed before it ships.
                     return (
                       <li key={item.title}>
                         <Link
