@@ -317,20 +317,20 @@ export async function produceD1Measurements(): Promise<D1Measurements> {
   });
 }
 
-async function run(): Promise<void> {
+async function run(): Promise<number> {
   const key = process.env.STRIPE_TEST_SECRET_KEY;
   if (!key) {
     console.error(
       "STRIPE_TEST_SECRET_KEY is not set. D1 walks TEST mode by design -- the " +
         "evidence file is explicit that this must never run against prod Stripe.",
     );
-    process.exit(2);
+    return 2;
   }
 
   const m = await produceD1Measurements();
   if (process.argv.includes("--json")) {
     console.log(JSON.stringify(m));
-    return;
+    return 0;
   }
   console.log(
     `${m.guardedRoutes}/${m.billingRoutesScanned} Stripe routes carry ${D1_IOS_GUARD}.`,
@@ -341,16 +341,13 @@ async function run(): Promise<void> {
         `${D1_IOS_GUARD} or be declared in D1_NOT_PURCHASE_INITIATING with a reason.`,
     );
   }
+  return 0;
 }
 
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error(String(error));
     return 1;

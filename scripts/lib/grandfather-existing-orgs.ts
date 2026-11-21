@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { disconnectCliPrisma } from "./cli-prisma";
 
 /**
  * One-shot grandfather backfill. Marks every Organization with
@@ -25,16 +26,17 @@ export async function grandfatherExistingOrgs(): Promise<{ marked: number }> {
 
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export async function main(): Promise<number> {
+  let code: number;
   try {
     const r = await grandfatherExistingOrgs();
     console.log(
       `Grandfather backfill: marked ${r.marked} organizations as setup-complete`,
     );
-    await prisma.$disconnect();
-    return 0;
+    code = 0;
   } catch (e) {
     console.error(e);
-    await prisma.$disconnect();
-    return 1;
+    code = 1;
   }
+  // Only a client this run initialised is disconnected; a failed cleanup is a failure.
+  return (await disconnectCliPrisma()) ? code : 1;
 }

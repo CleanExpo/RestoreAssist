@@ -150,7 +150,7 @@ export async function upsertChunk(
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-async function run(): Promise<void> {
+async function run(): Promise<number> {
   const corpusPath = path.resolve(
     path.dirname(new URL(import.meta.url).pathname),
     "..",
@@ -194,18 +194,15 @@ async function run(): Promise<void> {
       `${totalTokenEstimate.toLocaleString()} tokens ≈ $${costUsd.toFixed(6)} USD`,
   );
 
-  if (failed > 0) process.exit(1);
+  if (failed > 0) return 1;
+  return 0;
 }
 
 // Run only when executed directly (not imported in tests)
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error("Fatal:", error);
     return 1;

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { disconnectCliPrisma } from "./cli-prisma";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 
 /**
@@ -64,16 +65,17 @@ export async function grandfatherAiCopilotAddon(): Promise<{
 
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export async function main(): Promise<number> {
+  let code: number;
   try {
     const r = await grandfatherAiCopilotAddon();
     console.log(
       `Grandfather backfill: entitled ${r.grandfathered} workspace(s) for AI_COPILOT (${r.skipped} skipped — no workspace)`,
     );
-    await prisma.$disconnect();
-    return 0;
+    code = 0;
   } catch (e) {
     console.error(e);
-    await prisma.$disconnect();
-    return 1;
+    code = 1;
   }
+  // Only a client this run initialised is disconnected; a failed cleanup is a failure.
+  return (await disconnectCliPrisma()) ? code : 1;
 }

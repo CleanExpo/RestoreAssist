@@ -76,33 +76,29 @@ function createClient(): PrismaClient {
   });
 }
 
-async function run(): Promise<void> {
+async function run(): Promise<number> {
   const mode = process.argv[2] ?? "ensure-index";
   const prisma = createClient();
 
   try {
     if (mode === "--check") {
-      process.exitCode = (await isReplayMigrationStuck(prisma)) ? 2 : 0;
-      return;
+      return (await isReplayMigrationStuck(prisma)) ? 2 : 0;
     }
     if (mode === "--ensure-index") {
       await ensureReplayIndex(prisma);
-      return;
+      return 0;
     }
     throw new Error(`Unknown mode ${mode}; use --check or --ensure-index`);
   } finally {
     await prisma.$disconnect();
   }
+  return 0;
 }
 
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     return 1;

@@ -96,7 +96,7 @@ function printReport(ref: string, evaluation: AdvisorEvaluation): void {
   }
 }
 
-async function run(): Promise<void> {
+async function run(): Promise<number> {
   const ref = process.env.SUPABASE_PROJECT_REF || PROD_PROJECT_REF;
   const token = process.env.SUPABASE_ACCESS_TOKEN;
 
@@ -104,8 +104,7 @@ async function run(): Promise<void> {
     console.error(
       "SUPABASE_ACCESS_TOKEN is not set — cannot reach the advisors API. Failing closed.",
     );
-    process.exitCode = 1;
-    return;
+    return 1;
   }
 
   const lints = await fetchSecurityAdvisors(ref, token);
@@ -113,18 +112,15 @@ async function run(): Promise<void> {
   printReport(ref, evaluation);
 
   if (!evaluation.passed) {
-    process.exitCode = 1;
+    return 1;
   }
+  return 0;
 }
 
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     return 1;

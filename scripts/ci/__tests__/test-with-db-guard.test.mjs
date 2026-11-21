@@ -51,6 +51,9 @@ test("a worktree whose node_modules lives elsewhere is refused before any docker
   mkdirSync(join(repo, "scripts", "ci"), { recursive: true });
   copyFileSync(join(ROOT, SCRIPT), join(repo, SCRIPT));
   copyFileSync(join(ROOT, "scripts/ci/assert-local-test-db.mjs"), join(repo, "scripts/ci/assert-local-test-db.mjs"));
+  // The guard entry imports its logic from ./lib/ (RA-7785); without it the copy cannot load.
+  mkdirSync(join(repo, "scripts", "ci", "lib"), { recursive: true });
+  copyFileSync(join(ROOT, "scripts/ci/lib/assert-local-test-db.mjs"), join(repo, "scripts/ci/lib/assert-local-test-db.mjs"));
   symlinkSync(join(ROOT, "node_modules"), join(repo, "node_modules"));
   const docker = fakeDocker();
   const run = runScript(repo, docker);
@@ -58,8 +61,15 @@ test("a worktree whose node_modules lives elsewhere is refused before any docker
   assert.match(run.stderr, /node_modules resolves outside this worktree/);
   assert.deepEqual(docker.calls(), []);
 
-  const allowed = runScript(repo, fakeDocker({ runExit: 1 }), { RA_CI_PG_SHARED_CLIENT_OK: "1" });
+  const allowedDocker = fakeDocker({ runExit: 1 });
+  const allowed = runScript(repo, allowedDocker, { RA_CI_PG_SHARED_CLIENT_OK: "1" });
   assert.match(allowed.stderr, /shared-client override active, node_modules=/);
+  // The override message prints before the database guard runs, so it alone
+  // would pass with a guard that cannot load. Reaching docker proves it ran.
+  assert.ok(
+    allowedDocker.calls().some((c) => c.startsWith("run")),
+    `the override run never reached docker run:\n${allowedDocker.calls().join("\n")}\n${allowed.stderr}`,
+  );
 });
 
 test("an unsafe container name is refused before any docker call", () => {

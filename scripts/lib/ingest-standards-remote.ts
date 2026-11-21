@@ -107,21 +107,21 @@ function parseDriverArgs(argv: string[] = process.argv.slice(2)): DriverArgs {
   };
 }
 
-async function run() {
+async function run(): Promise<number> {
   const token = process.env.STANDARDS_INGEST_TOKEN?.trim();
   if (!token) {
     console.error(
       "FATAL: STANDARDS_INGEST_TOKEN is not set. It must match the value in " +
         "Vercel (Production) for /api/cron/ingest-standards.",
     );
-    process.exit(1);
+    return 1;
   }
 
   const { dir, base, provenance, jurisdiction, only, maxFiles, maxBytes } =
     parseDriverArgs();
   if (!fs.existsSync(dir)) {
     console.error(`FATAL: staging dir not found: ${dir}`);
-    process.exit(1);
+    return 1;
   }
 
   const folders = fs
@@ -133,7 +133,7 @@ async function run() {
 
   if (folders.length === 0) {
     console.error(`FATAL: no <STANDARD>-<EDITION> folders under ${dir}`);
-    process.exit(1);
+    return 1;
   }
 
   let failures = 0;
@@ -226,20 +226,17 @@ async function run() {
 
   if (failures > 0) {
     console.error(`\n${failures} batch(es) failed — re-run is safe (idempotent).`);
-    process.exit(1);
+    return 1;
   }
   console.log("\nDONE — all standards ingested.");
+  return 0;
 }
 
 // Run only when executed directly (not imported in tests)
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error(error);
     return 1;

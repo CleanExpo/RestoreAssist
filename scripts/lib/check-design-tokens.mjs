@@ -80,7 +80,7 @@ function run() {
         "tables were removed or their format changed -- this gate would " +
         "silently pass on an empty set, which is how the last drift survived.",
     );
-    process.exit(1);
+    return 1;
   }
 
   const drift = findDrift(cssTokens, docTokens);
@@ -102,16 +102,16 @@ function run() {
     console.error(
       "\napp/globals.css is the source of truth. Update DESIGN.md to match it.",
     );
-    process.exit(1);
+    return 1;
   }
 
   console.log(
     `OK: ${docTokens.size} DESIGN.md tokens match app/globals.css (of ${cssTokens.size} brand tokens declared).`,
   );
+  return 0;
 }
 
-/** Run the CLI. Returns the process exit code. */
+/** Run the CLI. Returns run()'s exit code; never exits the process. */
 export function main() {
-  run();
-  return Number(process.exitCode ?? 0);
+  return run();
 }

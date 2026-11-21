@@ -95,8 +95,12 @@ function walkFiles(root: string, relativePath: string): string[] {
 }
 
 function shouldAuditFile(file: string): boolean {
+  const posix = file.split(path.sep).join("/");
   return (
-    file !== "scripts/audit-env.ts" &&
+    // The rule names live in the implementation, which moved to scripts/lib/
+    // (RA-7785); the entry is excluded too so neither scans itself.
+    posix !== "scripts/audit-env.ts" &&
+    posix !== "scripts/lib/audit-env.ts" &&
     !file.startsWith(`scripts${path.sep}__tests__${path.sep}`)
   );
 }

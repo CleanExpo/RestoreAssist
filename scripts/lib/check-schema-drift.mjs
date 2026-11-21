@@ -316,12 +316,12 @@ export function formatFindings(findings) {
 async function run() {
   if (!fs.existsSync(SCHEMA_PATH)) {
     console.error(`✗ schema file not found at ${SCHEMA_PATH}`);
-    process.exit(2);
+    return 2;
   }
   const expected = parseSchemaObjects(fs.readFileSync(SCHEMA_PATH, "utf-8"));
   if (expected.tables.length === 0) {
     console.error("✗ no models found in schema — parse error?");
-    process.exit(2);
+    return 2;
   }
 
   // Prisma 7 driver-adapter clients cannot be constructed bare — a plain
@@ -338,7 +338,7 @@ async function run() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     console.error("✗ DATABASE_URL is unset — drift check needs a live database");
-    process.exit(2);
+    return 2;
   }
   const ssl = pgMigrateSslOption(connectionString);
   const pool = new Pool({
@@ -378,9 +378,9 @@ async function run() {
       console.error(
         "[drift-check] SKIP_SCHEMA_DRIFT_CHECK=1 — connect/query failed; not failing the build.",
       );
-      process.exit(0);
+      return 0;
     }
-    process.exit(2);
+    return 2;
   }
   await prisma.$disconnect();
 
@@ -418,7 +418,7 @@ async function run() {
     console.log(
       `[drift-check] ✓ no schema drift — ${expected.tables.length} models: columns, unique indexes, nullability, and enum values all match`,
     );
-    process.exit(0);
+    return 0;
   }
 
   // Rollout policy: the ORIGINAL scalar-column check stays FATAL (a schema column
@@ -448,7 +448,7 @@ async function run() {
     console.error(
       "[drift-check] SKIP_SCHEMA_DRIFT_CHECK=1 — findings reported above; not failing the build (Heroku/recover escape hatch).",
     );
-    process.exit(0);
+    return 0;
   }
 
   if (columnDrift.length > 0) {
@@ -458,28 +458,25 @@ async function run() {
     console.error(
       "affected migrations against the direct :5432 connection (RA-1807 runbook).",
     );
-    process.exit(1);
+    return 1;
   }
   if (strict) {
     console.error(
       "DRIFT_STRICT=1 — unique/nullability drift is fatal (prod verification mode).",
     );
-    process.exit(1);
+    return 1;
   }
   console.error(
     "[drift-check] unique/nullability drift is REPORT-ONLY (set DRIFT_STRICT=1 to enforce) — not failing the build.",
   );
-  process.exit(0);
+  return 0;
+  return 0;
 }
 
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main() {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error(`[drift-check] unexpected error: ${error.stack || error.message}`);
     return 2;

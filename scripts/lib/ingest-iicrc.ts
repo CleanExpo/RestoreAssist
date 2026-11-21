@@ -228,7 +228,7 @@ export interface IngestSummary {
   chunksSkipped: number;
 }
 
-async function run() {
+async function run(): Promise<number> {
   validateIngestEnv();
 
   const { dir, standard, edition, provenance, jurisdiction } = parseArgs();
@@ -239,7 +239,7 @@ async function run() {
 
   if (!fs.existsSync(dir)) {
     console.error(`Directory not found: ${dir}`);
-    process.exit(1);
+    return 1;
   }
 
   // This script reads plain text only — it does not parse PDF binaries. A raw
@@ -258,12 +258,12 @@ async function run() {
       `FATAL: found ${unconvertedPdfs.length} .pdf file(s) with no matching .txt extraction: ` +
         `${unconvertedPdfs.join(", ")}. Run 'pdftotext <file>.pdf <file>.txt' for each, then re-run.`,
     );
-    process.exit(1);
+    return 1;
   }
 
   if (txtFiles.length === 0) {
     console.log("No .txt files found. Extract text first with pdftotext.");
-    process.exit(0);
+    return 0;
   }
 
   const files = txtFiles;
@@ -277,50 +277,53 @@ async function run() {
 
   const BATCH = 100;
 
-  for (const file of files) {
-    const filePath = path.join(dir, file);
-    console.log(`Processing: ${file}`);
-    const text = fs.readFileSync(filePath, "utf-8");
-    const chunks = chunkText(text);
-    console.log(`  ${chunks.length} chunks`);
+  try {
+    for (const file of files) {
+      const filePath = path.join(dir, file);
+      console.log(`Processing: ${file}`);
+      const text = fs.readFileSync(filePath, "utf-8");
+      const chunks = chunkText(text);
+      console.log(`  ${chunks.length} chunks`);
 
-    for (let i = 0; i < chunks.length; i += BATCH) {
-      const batch = chunks.slice(i, i + BATCH);
-      const embeddings = await embedBatchDynamic(batch);
-      assertEmbeddingShape(embeddings, batch.length);
+      for (let i = 0; i < chunks.length; i += BATCH) {
+        const batch = chunks.slice(i, i + BATCH);
+        const embeddings = await embedBatchDynamic(batch);
+        assertEmbeddingShape(embeddings, batch.length);
 
-      for (let j = 0; j < batch.length; j++) {
-        const content = batch[j];
-        const contentHash = buildContentHash(standard, edition, content);
-        const { section, heading } = extractSection(content);
-        const pageNumber = Math.floor((i + j) / 2) + 1;
+        for (let j = 0; j < batch.length; j++) {
+          const content = batch[j];
+          const contentHash = buildContentHash(standard, edition, content);
+          const { section, heading } = extractSection(content);
+          const pageNumber = Math.floor((i + j) / 2) + 1;
 
-        const result = await upsertChunk(prisma, {
-          standard,
-          edition,
-          section,
-          heading,
-          content,
-          contentHash,
-          pageNumber,
-          embedding: embeddings[j],
-          provenance,
-          jurisdiction,
-        });
+          const result = await upsertChunk(prisma, {
+            standard,
+            edition,
+            section,
+            heading,
+            content,
+            contentHash,
+            pageNumber,
+            embedding: embeddings[j],
+            provenance,
+            jurisdiction,
+          });
 
-        if (result === "inserted") summary.chunksUpserted++;
-        else summary.chunksSkipped++;
+          if (result === "inserted") summary.chunksUpserted++;
+          else summary.chunksSkipped++;
+        }
+
+        process.stdout.write(
+          `  Progress: ${Math.min(i + BATCH, chunks.length)}/${chunks.length}\r`,
+        );
       }
-
-      process.stdout.write(
-        `  Progress: ${Math.min(i + BATCH, chunks.length)}/${chunks.length}\r`,
-      );
+      console.log();
+      summary.filesProcessed++;
     }
-    console.log();
-    summary.filesProcessed++;
-  }
 
-  await prisma.$disconnect();
+  } finally {
+    await prisma.$disconnect();
+  }
 
   const totalChunks = summary.chunksUpserted + summary.chunksSkipped;
   console.log(
@@ -338,19 +341,16 @@ async function run() {
         `zero chunks (all shorter than ${MIN_CHUNK_LENGTH} chars after chunking). ` +
         `Check that --dir points at extracted text (pdftotext output), not raw PDFs.`,
     );
-    process.exit(1);
+    return 1;
   }
+  return 0;
 }
 
 // Run only when executed directly (not imported in tests)
-/**
- * Run the CLI. Returns the process exit code. A failure inside run() that sets
- * process.exitCode is carried through rather than overwritten with 0.
- */
+/** Run the CLI. Returns run()'s exit code, or 1 if it throws; never exits the process. */
 export async function main(): Promise<number> {
   try {
-    await run();
-    return Number(process.exitCode ?? 0);
+    return await run();
   } catch (error) {
     console.error(error);
     return 1;
