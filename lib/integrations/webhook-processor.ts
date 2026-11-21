@@ -8,7 +8,10 @@ import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-process
 import { createQuickBooksClient } from "@/lib/integrations/quickbooks/client";
 import { createMYOBClient } from "@/lib/integrations/myob/client";
 import { isOAuthIntegration } from "./identity";
-import { reclaimStaleWebhookEvents } from "@/lib/jobs/webhook-reclaim";
+import {
+  reclaimStaleWebhookEvents,
+  WEBHOOK_MAX_RETRIES,
+} from "@/lib/jobs/webhook-reclaim";
 
 const WEBHOOK_INTEGRATION_IDENTITY_SELECT = {
   provider: true, name: true, icon: true, config: true,
@@ -188,7 +191,7 @@ export async function processWebhookEvent(eventId: string): Promise<void> {
 
     // Update retry count and status
     const retryCount = event.retryCount + 1;
-    const maxRetries = 5;
+    const maxRetries = WEBHOOK_MAX_RETRIES;
 
     await prisma.webhookEvent.update({
       where: { id: eventId },
@@ -748,9 +751,8 @@ export async function processPendingWebhookEvents(
   const pendingEvents = await prisma.webhookEvent.findMany({
     where: {
       status: "PENDING",
-      retryCount: {
-        lt: 5, // Max 5 retries
-      },
+      // RA-8481 — the one WebhookEvent retry limit.
+      retryCount: { lt: WEBHOOK_MAX_RETRIES },
     },
     orderBy: {
       createdAt: "asc",
@@ -873,7 +875,7 @@ export async function processQboMyobPendingPayments(
 
       const message = err instanceof Error ? err.message : String(err);
       const retryCount = event.retryCount + 1;
-      const maxRetries = 5;
+      const maxRetries = WEBHOOK_MAX_RETRIES;
       await prisma.webhookEvent.update({
         where: { id: event.id },
         data: {
@@ -968,7 +970,7 @@ export async function retryUnresolvedQboMyobPayments(
 
       const message = err instanceof Error ? err.message : String(err);
       const retryCount = event.retryCount + 1;
-      const maxRetries = 5;
+      const maxRetries = WEBHOOK_MAX_RETRIES;
       if (retryCount >= maxRetries) {
         // Exhausted — surface to FAILED monitoring instead of silently
         // retrying forever. Terminal, so it leaves the SKIPPED marker filter.
