@@ -2,7 +2,7 @@
 // string or comment cannot hide a sink and a boolean use is not reported.
 import { describe, expect, it } from "vitest";
 // @ts-expect-error -- plain ESM script without type declarations
-import { findSinks } from "../check-api-error-sinks.mjs";
+import { findSinks } from "../lib/check-api-error-sinks.mjs";
 
 const kinds = (src: string) => findSinks(src, "x.tsx").map((f: { kind: string }) => f.kind);
 

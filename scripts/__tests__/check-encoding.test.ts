@@ -11,7 +11,7 @@ import {
   findVisibleMojibake,
   inspectBytes,
   main,
-} from "../check-encoding.mjs";
+} from "../lib/check-encoding.mjs";
 
 const ROOT = process.cwd();
 const GATE = join(ROOT, "scripts", "check-encoding.mjs");

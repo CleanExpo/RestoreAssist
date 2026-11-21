@@ -1,31 +1,7 @@
-const DEFAULT_REVIEW_FILE_LIMIT = 100;
+// CLI entry. It always runs main(): there is deliberately no is-this-the-main-module
+// check, because Node resolves a symlink in the module URL but not in the process
+// arguments, and such a check silently skips the gate and exits 0 (RA-7785).
+// The logic lives in ./lib/check-pr-scope.mjs; import that, never this file.
+import { main } from "./lib/check-pr-scope.mjs";
 
-export function evaluatePrScope(rawChangedFiles, limit = DEFAULT_REVIEW_FILE_LIMIT) {
-  const changedFiles = Number(rawChangedFiles);
-  if (!Number.isInteger(changedFiles) || changedFiles < 0) {
-    return {
-      ok: false,
-      message: `PR_CHANGED_FILES must be a non-negative integer; received ${JSON.stringify(rawChangedFiles)}`,
-    };
-  }
-
-  if (changedFiles > limit) {
-    return {
-      ok: false,
-      message:
-        `PR changes ${changedFiles} files, above the ${limit}-file review ceiling. ` +
-        "Split or stack the work so every changed file receives review.",
-    };
-  }
-
-  return {
-    ok: true,
-    message: `PR scope is reviewable: ${changedFiles}/${limit} changed files.`,
-  };
-}
-
-if (process.argv[1]?.endsWith("check-pr-scope.mjs")) {
-  const result = evaluatePrScope(process.env.PR_CHANGED_FILES);
-  console.log(result.message);
-  if (!result.ok) process.exitCode = 1;
-}
+process.exitCode = main();

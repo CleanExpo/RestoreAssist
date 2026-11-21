@@ -1,0 +1,33 @@
+{
+  "note": "Scripts that still decide whether to run from the process script argument (RA-7785 group 2 helpers, none invoked by CI). check:no-argv-guard tolerates up to the listed number of findings per file and fails on any other. Entries only come out: convert the file to a thin entry over a lib/ module, then delete its line. Never add one.",
+  "total": 42,
+  "files": {
+    "scripts/assert-direct-database-url.mjs": 1,
+    "scripts/audit-env.ts": 1,
+    "scripts/backfill-encrypt-email-connections.ts": 1,
+    "scripts/backfill-evidence-authoritative-rows.ts": 2,
+    "scripts/backfill-grandfather-service-crm-addon.ts": 2,
+    "scripts/backfill-moisture-reading-sketch-room.ts": 2,
+    "scripts/backfill-setup-wizard.ts": 2,
+    "scripts/ci/assert-local-test-db.mjs": 1,
+    "scripts/ci/producers/a3-open-blockers.ts": 1,
+    "scripts/ci/producers/c2-secrets-scan.ts": 1,
+    "scripts/ci/producers/d1-billing-flows.ts": 1,
+    "scripts/ci/producers/d3-revenue-reconciliation.ts": 1,
+    "scripts/ci/producers/f1-monitoring-alerting.ts": 1,
+    "scripts/dev-local-migrate-unblock.ts": 2,
+    "scripts/grandfather-ai-copilot-addon.ts": 2,
+    "scripts/grandfather-bookkeeping-addon.ts": 2,
+    "scripts/grandfather-client-comms-addon.ts": 2,
+    "scripts/grandfather-existing-orgs.ts": 2,
+    "scripts/grandfather-payments-addon.ts": 2,
+    "scripts/grandfather-voice-addon.ts": 2,
+    "scripts/ingest-iicrc.ts": 2,
+    "scripts/ingest-standards-remote.ts": 2,
+    "scripts/ingest-standards.ts": 2,
+    "scripts/lib/pg-ssl-for-migrate.mjs": 1,
+    "scripts/linear-query.ts": 2,
+    "scripts/pilot/validate-paid-pilot-package.mjs": 1,
+    "scripts/verify-live-rls.ts": 1
+  }
+}

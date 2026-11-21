@@ -55,7 +55,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { canonicalizeManifest as canonicalJson } from "../../lib/evidence/manifest-canonical";
-import { markdownSection } from "../release-gate-score";
+import { markdownSection } from "../lib/release-gate-score";
 
 const PRIVATE_KEY_ENV = "RELEASE_RECEIPT_PRIVATE_KEY";
 const ROOT = process.cwd();
@@ -140,7 +140,7 @@ const PRODUCERS: Record<
             "is nothing to measure without one.",
         );
       }
-      const { produceA1Measurements } = await import("./producers/a1-core-journeys");
+      const { produceA1Measurements } = await import("./producers/lib/a1-core-journeys");
       return produceA1Measurements(reportPath) as Promise<Record<string, unknown>>;
     },
   },
