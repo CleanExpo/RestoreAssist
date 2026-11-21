@@ -9,11 +9,17 @@
  *   4. Moisture readings table (S500 §10)
  *   5. Equipment deployment log (S500 §6)
  *   6. Psychrometric data (S500 §5)
+ *   6A. Sampling & laboratory results (mould jobs only, RA-7686)
  *   7. Inspection report narrative
  *   8. Drying goals reference (S500 §12.5.7)
  *   9. Signed declaration
  */
 
+import {
+  mouldLabResultRows,
+  shouldPrintMouldLabResults,
+  type MouldLabAssessment,
+} from "@/lib/reports/mould-lab-results";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import {
   hexToRgb,
@@ -50,6 +56,9 @@ export interface IICRCReportData {
   /** Opaque: only stored-equipment-pricing.ts reads inside it. */
   equipmentSelection?: unknown;
   scopeAreas?: any;
+  /** RA-7686: the job's claim type and mould sampling record, for Section 6A. */
+  claimType?: string | null;
+  mouldAssessment?: MouldLabAssessment | null;
   user?: {
     name?: string | null;
     email?: string | null;
@@ -717,6 +726,17 @@ export async function generateIICRCReportPDF(
         i % 2 === 1,
       );
     });
+    w.gap(8);
+  }
+
+  // ── SECTION 6A: Sampling & Laboratory Results (RA-7686) ─────────────────────
+  // Mould jobs only. Empty fields print "Not tested"; no automatic pass/fail.
+  if (shouldPrintMouldLabResults(data.mouldAssessment, data.claimType)) {
+    w.sectionHeader("SECTION 6A - Sampling & laboratory results");
+    w.gap(4);
+    for (const [label, value] of mouldLabResultRows(data.mouldAssessment)) {
+      w.kv(label, value, 170);
+    }
     w.gap(8);
   }
 
