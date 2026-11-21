@@ -12,39 +12,71 @@
 -- lib/authority-forms/signed-record-guard.ts gives the user a clear 409; this
 -- is the backstop that does not depend on every writer calling it.
 --
---   1. A signed AuthorityFormSignature row cannot be deleted. Postgres fires
---      row triggers for ON DELETE CASCADE actions too, so deleting the parent
---      AuthorityFormInstance, its Report, or the Report's User fails as a
---      whole and rolls back.
---   2. A signed AuthorityFormSignature row keeps its signature evidence:
---      signer, image, time, IP, user agent and form. Token and request
---      bookkeeping columns may still change (link revocation).
---   3. Once any signature on a form is signed, the form's wording and
---      parties cannot change. status, pdfUrl, draftPdfUrl, completedAt and
---      updatedAt stay writable so signing can complete the form.
+-- A form is "signed" once any of its AuthorityFormSignature rows has signedAt.
+--
+--   1. A signed signature row cannot be deleted. Postgres fires row triggers
+--      for ON DELETE CASCADE actions too, so deleting the parent form, its
+--      Report, or the Report's User fails as a whole and rolls back.
+--   2. A signed signature row is frozen except for an allow-list of link
+--      bookkeeping columns (signatureRequestToken, signatureRequestSent,
+--      signatureRequestSentAt, updatedAt). Every other column, including any
+--      column added later, is frozen by default.
+--   3. No new signature row can be added to a signed form (a new slot would
+--      appear on the executed document, which is rendered from live rows).
+--   4. A signed form row is frozen except for status, pdfUrl, draftPdfUrl,
+--      completedAt and updatedAt, which signing needs to complete the form.
+--      Every other column, including any added later, is frozen by default.
+--
+-- Tested against Postgres (PGlite) by
+-- lib/authority-forms/__tests__/signed-form-trigger.pglite.test.ts.
 --
 -- Before approving, note:
 --   - Integration test cleanups that delete a user or report holding a signed
 --     form (for example lib/authority-forms/__tests__/signed-record-guard.integration.test.ts)
 --     will fail against a database with these triggers. They must delete the
---     fixture inside a session that sets
+--     fixture inside a transaction that runs
 --     `SET LOCAL restoreassist.allow_signed_form_erasure = 'on'`.
 --   - That setting is the only way past the triggers. It is for a lawful,
 --     reviewed erasure (for example a court order) run by a person with
---     database access, never by application code. The app never sets it; a
---     test in lib/authority-forms/__tests__/signed-record-guard.test.ts can be
---     added to keep it that way.
---   - Rollback: DROP TRIGGER ... ; DROP FUNCTION ... (bottom of this file).
+--     database access, never by application code. A test in
+--     lib/authority-forms/__tests__/signed-record-guard.test.ts fails if any
+--     file under app, lib or scripts names the setting.
+--   - Rollback: the DROP statements at the bottom of this file.
 
 CREATE OR REPLACE FUNCTION ra_signed_form_erasure_allowed() RETURNS boolean
 LANGUAGE sql STABLE AS $$
   SELECT coalesce(current_setting('restoreassist.allow_signed_form_erasure', true), '') = 'on'
 $$;
 
+CREATE OR REPLACE FUNCTION ra_authority_form_is_signed(form_id text) RETURNS boolean
+LANGUAGE sql STABLE AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM "AuthorityFormSignature" s
+    WHERE s."instanceId" = form_id AND s."signedAt" IS NOT NULL
+  )
+$$;
+
 CREATE OR REPLACE FUNCTION ra_guard_signed_authority_signature() RETURNS trigger
 LANGUAGE plpgsql AS $$
+DECLARE
+  -- The only columns of a signed signature row that may change.
+  mutable text[] := ARRAY['signatureRequestToken', 'signatureRequestSent', 'signatureRequestSentAt', 'updatedAt'];
 BEGIN
-  IF OLD."signedAt" IS NULL OR ra_signed_form_erasure_allowed() THEN
+  IF ra_signed_form_erasure_allowed() THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    IF ra_authority_form_is_signed(NEW."instanceId") THEN
+      RAISE EXCEPTION 'RA-8526: authority form % has been signed and cannot take a new signatory',
+        NEW."instanceId"
+        USING ERRCODE = 'restrict_violation';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF OLD."signedAt" IS NULL THEN
     IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
     RETURN NEW;
   END IF;
@@ -55,16 +87,7 @@ BEGIN
       USING ERRCODE = 'restrict_violation';
   END IF;
 
-  IF NEW."instanceId"      IS DISTINCT FROM OLD."instanceId"
-  OR NEW."signatoryName"   IS DISTINCT FROM OLD."signatoryName"
-  OR NEW."signatoryRole"   IS DISTINCT FROM OLD."signatoryRole"
-  OR NEW."signatoryEmail"  IS DISTINCT FROM OLD."signatoryEmail"
-  OR NEW."signatoryPhone"  IS DISTINCT FROM OLD."signatoryPhone"
-  OR NEW."signatureData"   IS DISTINCT FROM OLD."signatureData"
-  OR NEW."signatureUrl"    IS DISTINCT FROM OLD."signatureUrl"
-  OR NEW."ipAddress"       IS DISTINCT FROM OLD."ipAddress"
-  OR NEW."userAgent"       IS DISTINCT FROM OLD."userAgent"
-  OR NEW."signedAt"        IS DISTINCT FROM OLD."signedAt" THEN
+  IF (to_jsonb(NEW) - mutable) IS DISTINCT FROM (to_jsonb(OLD) - mutable) THEN
     RAISE EXCEPTION 'RA-8526: signature % on authority form % is signed and cannot be changed',
       OLD."id", OLD."instanceId"
       USING ERRCODE = 'restrict_violation';
@@ -75,37 +98,20 @@ $$;
 
 DROP TRIGGER IF EXISTS ra_8526_signed_signature_guard ON "AuthorityFormSignature";
 CREATE TRIGGER ra_8526_signed_signature_guard
-  BEFORE UPDATE OR DELETE ON "AuthorityFormSignature"
+  BEFORE INSERT OR UPDATE OR DELETE ON "AuthorityFormSignature"
   FOR EACH ROW EXECUTE FUNCTION ra_guard_signed_authority_signature();
 
 CREATE OR REPLACE FUNCTION ra_guard_signed_authority_form() RETURNS trigger
 LANGUAGE plpgsql AS $$
+DECLARE
+  -- The only columns of a signed form row that may change.
+  mutable text[] := ARRAY['status', 'pdfUrl', 'draftPdfUrl', 'completedAt', 'updatedAt'];
 BEGIN
-  IF ra_signed_form_erasure_allowed() THEN
+  IF ra_signed_form_erasure_allowed() OR NOT ra_authority_form_is_signed(OLD."id") THEN
     RETURN NEW;
   END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM "AuthorityFormSignature" s
-    WHERE s."instanceId" = OLD."id" AND s."signedAt" IS NOT NULL
-  ) THEN
-    RETURN NEW;
-  END IF;
-
-  IF NEW."templateId"           IS DISTINCT FROM OLD."templateId"
-  OR NEW."reportId"             IS DISTINCT FROM OLD."reportId"
-  OR NEW."companyName"          IS DISTINCT FROM OLD."companyName"
-  OR NEW."companyLogo"          IS DISTINCT FROM OLD."companyLogo"
-  OR NEW."companyABN"           IS DISTINCT FROM OLD."companyABN"
-  OR NEW."companyPhone"         IS DISTINCT FROM OLD."companyPhone"
-  OR NEW."companyEmail"         IS DISTINCT FROM OLD."companyEmail"
-  OR NEW."companyWebsite"       IS DISTINCT FROM OLD."companyWebsite"
-  OR NEW."companyAddress"       IS DISTINCT FROM OLD."companyAddress"
-  OR NEW."clientName"           IS DISTINCT FROM OLD."clientName"
-  OR NEW."clientAddress"        IS DISTINCT FROM OLD."clientAddress"
-  OR NEW."incidentBrief"        IS DISTINCT FROM OLD."incidentBrief"
-  OR NEW."incidentDate"         IS DISTINCT FROM OLD."incidentDate"
-  OR NEW."authorityDescription" IS DISTINCT FROM OLD."authorityDescription" THEN
-    RAISE EXCEPTION 'RA-8526: authority form % has been signed and its wording cannot be changed',
+  IF (to_jsonb(NEW) - mutable) IS DISTINCT FROM (to_jsonb(OLD) - mutable) THEN
+    RAISE EXCEPTION 'RA-8526: authority form % has been signed and cannot be changed',
       OLD."id"
       USING ERRCODE = 'restrict_violation';
   END IF;
@@ -123,4 +129,5 @@ CREATE TRIGGER ra_8526_signed_form_guard
 --   DROP TRIGGER IF EXISTS ra_8526_signed_signature_guard ON "AuthorityFormSignature";
 --   DROP FUNCTION IF EXISTS ra_guard_signed_authority_form();
 --   DROP FUNCTION IF EXISTS ra_guard_signed_authority_signature();
+--   DROP FUNCTION IF EXISTS ra_authority_form_is_signed(text);
 --   DROP FUNCTION IF EXISTS ra_signed_form_erasure_allowed();

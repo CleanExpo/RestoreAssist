@@ -163,18 +163,62 @@ describe("authority-form writer allow-list (RA-8400)", () => {
 // moment it is added to the schema.
 // ---------------------------------------------------------------------------
 
-/** child model -> parent models it cascades from (onDelete: Cascade). */
-function cascadeParents(schema: string): Map<string, Set<string>> {
-  const out = new Map<string, Set<string>>();
-  const modelRe = /^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm;
-  for (const m of schema.matchAll(modelRe)) {
-    const child = m[1];
-    for (const line of m[2].split("\n")) {
-      const f = line.match(/^\s*\w+\s+(\w+)\??\s.*@relation\([^)]*onDelete:\s*Cascade/);
-      if (!f) continue;
-      if (!out.has(child)) out.set(child, new Set());
-      out.get(child)!.add(f[1]);
+const HAS_CASCADE = /onDelete\s*:\s*Cascade\b/;
+const ALL_CASCADES = /onDelete\s*:\s*Cascade\b/g;
+
+const stripComments = (s: string) => s.replace(/\/\/[^\n]*/g, "");
+
+/**
+ * Splits a model body into whole field declarations. A declaration continues
+ * across lines while any bracket is open, so a multi-line @relation(...) is
+ * read as one field.
+ */
+function fieldDeclarations(body: string): string[] {
+  const out: string[] = [];
+  let buf = "";
+  let depth = 0;
+  for (const line of body.split("\n")) {
+    buf += (buf ? " " : "") + line.trim();
+    for (const ch of line) {
+      if (ch === "(" || ch === "[") depth++;
+      else if (ch === ")" || ch === "]") depth--;
     }
+    if (depth <= 0) {
+      if (buf.trim()) out.push(buf.trim());
+      buf = "";
+      depth = 0;
+    }
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out;
+}
+
+/**
+ * child model -> parent models it cascades from (onDelete: Cascade). Fails
+ * closed: every `onDelete: Cascade` in the schema must be attributed to a
+ * parsed relation field, so a layout the parser cannot read throws instead
+ * of silently dropping a cascade parent.
+ */
+function cascadeParents(rawSchema: string): Map<string, Set<string>> {
+  const schema = stripComments(rawSchema);
+  const out = new Map<string, Set<string>>();
+  let attributed = 0;
+  for (const m of schema.matchAll(/^\s*model\s+(\w+)\s*\{([\s\S]*?)^\s*\}/gm)) {
+    const child = m[1];
+    for (const decl of fieldDeclarations(m[2])) {
+      if (!/@relation\s*\(/.test(decl) || !HAS_CASCADE.test(decl)) continue;
+      const type = decl.match(/^\w+\s+(\w+)/);
+      if (!type) continue;
+      attributed++;
+      if (!out.has(child)) out.set(child, new Set());
+      out.get(child)!.add(type[1]);
+    }
+  }
+  const total = schema.match(ALL_CASCADES)?.length ?? 0;
+  if (attributed !== total) {
+    throw new Error(
+      `schema parser attributed ${attributed} of ${total} onDelete: Cascade relations; extend the parser before trusting the cascade scan`,
+    );
   }
   return out;
 }
@@ -227,6 +271,31 @@ describe("cascade deleters of a signed form (RA-8526)", () => {
         "A",
       ),
     ).toEqual(["B", "C"]);
+  });
+
+  it("reads multi-line, named and optional relations, and fails closed on a layout it cannot read", () => {
+    const schema = [
+      "model A {",
+      "  id String @id",
+      "  // a comment naming onDelete: Cascade is ignored",
+      "  b  B? @relation(\"AB\",",
+      "    fields: [bId],",
+      "    references: [id],",
+      "    onDelete: Cascade",
+      "  )",
+      "  c C @relation(name: \"AC\", fields: [cId], references: [id], onDelete: Cascade)",
+      "}",
+      "model B {",
+      "  id String @id",
+      "}",
+      "model C {",
+      "  id String @id",
+      "}",
+    ].join("\n");
+    expect(cascadeAncestors(schema, "A")).toEqual(["B", "C"]);
+    expect(() =>
+      cascadeAncestors("model A {\n  @@ignore // stray onDelete: Cascade\n  x String /* onDelete: Cascade */\n}\n", "A"),
+    ).toThrow(/attributed 0 of 1/);
   });
 
   it("finds the known deleters (positive control: an empty scan fails)", () => {
