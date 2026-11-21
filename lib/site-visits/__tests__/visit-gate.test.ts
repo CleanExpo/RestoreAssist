@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EQUIPMENT_NOTE_MAX,
   evaluateVisitSubmission,
+  isVisitLockedStatus,
   minutesOnSite,
   parseVisitPatch,
   type VisitForGate,
@@ -136,5 +137,14 @@ describe("parseVisitPatch", () => {
   ])("refuses %s", (_label, body) => {
     const r = parseVisitPatch(body as unknown, now);
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("isVisitLockedStatus", () => {
+  it.each(["COMPLETED", "REJECTED", "CLOSED", "ARCHIVED"])("%s locks the job's visits", (s) => {
+    expect(isVisitLockedStatus(s)).toBe(true);
+  });
+  it.each(["DRAFT", "SUBMITTED", "ESTIMATED", "IN_BILLING"])("%s still takes visits (re-attendance)", (s) => {
+    expect(isVisitLockedStatus(s)).toBe(false);
   });
 });

@@ -206,7 +206,7 @@ describe("POST /visits (start)", () => {
     expect(m.visitCreate).not.toHaveBeenCalled();
   });
 
-  it.each(["CLOSED", "ARCHIVED", "COMPLETED"])("409 on a %s job", async (status) => {
+  it.each(["CLOSED", "ARCHIVED", "COMPLETED", "REJECTED"])("409 on a %s job", async (status) => {
     m.inspectionFindUnique.mockResolvedValue({ status });
     const res = await POST(req("POST", {}), ctx);
     await expectRefused(res, 409, /job is closed/);

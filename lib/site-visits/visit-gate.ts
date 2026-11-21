@@ -11,6 +11,7 @@
  *
  * Pure: no database, no clock except the `now` a caller passes in.
  */
+import { isActiveInspectionStatus } from "@/lib/inspections/active-status";
 
 export const MET_ON_SITE_VALUES = ["OWNER", "TENANT", "CLIENT_SUPERVISOR", "NO_ONE"] as const;
 export type MetOnSite = (typeof MET_ON_SITE_VALUES)[number];
@@ -36,13 +37,13 @@ export const EQUIPMENT_OUTCOME_LABEL: Record<EquipmentOutcome, string> = {
 export const EQUIPMENT_NOTE_MAX = 500;
 
 /**
- * Job statuses on which no visit may be started, changed or submitted. A
- * submitted job still takes re-attendances (DRC step 9); a closed one is
- * reopened first.
+ * No visit may be started, changed or submitted on a job that is no longer
+ * active (lib/inspections/active-status.ts owns that list: completed,
+ * rejected, closed, archived). A submitted or invoiced job still takes
+ * re-attendances (DRC step 9); a closed one is reopened first.
  */
-const VISIT_LOCKED_STATUSES = new Set(["COMPLETED", "CLOSED", "ARCHIVED"]);
 export function isVisitLockedStatus(status: string): boolean {
-  return VISIT_LOCKED_STATUSES.has(status);
+  return !isActiveInspectionStatus(status);
 }
 
 /** How far ahead of the server clock an arrival may be (phone clocks drift). */
