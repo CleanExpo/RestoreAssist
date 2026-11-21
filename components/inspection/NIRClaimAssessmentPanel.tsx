@@ -85,6 +85,11 @@ export type NIRClaimAssessmentPanelHandle = {
   /** RA-8330: true once the saved assessment and compliance records have
    *  loaded. Before that, persist() refuses rather than save a half-loaded form. */
   isReady: () => boolean;
+  /** RA-8359: true when a read of the saved records failed. The panel shows
+   *  the error and a Try again action instead of an empty form. */
+  loadFailed: () => boolean;
+  /** RA-8359: re-runs every read that failed. Resolves to isReady(). */
+  reload: () => Promise<boolean>;
   applyQuickFillSeed: (seed: {
     assessment?: Record<string, unknown>;
     compliance?: Record<string, unknown>;
@@ -1490,6 +1495,48 @@ function AustralianComplianceForm({
   );
 }
 
+// ─── Load failure notice (RA-8359) ────────────────────────────────────────────
+
+/** Shown in place of a form whose saved record could not be read, so a failed
+ *  read never looks like "nothing entered yet" and cannot be typed over. */
+function LoadFailedNotice({
+  testId,
+  what,
+  retrying = false,
+  onRetry,
+}: {
+  testId: string;
+  what: string;
+  retrying?: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      data-testid={testId}
+      className="py-4 flex flex-col gap-3 text-sm text-neutral-700 dark:text-slate-200"
+    >
+      <div className="flex items-start gap-2">
+        <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-500" />
+        <p>
+          We couldn&apos;t load {what}. It is hidden so nothing can be saved over
+          it. Check your connection, then press Try again. Save Draft also
+          tries to load it again.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-slate-600 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-slate-800 disabled:opacity-50"
+      >
+        {retrying && <Loader2 size={13} className="animate-spin" />}
+        Try again
+      </button>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const NIRClaimAssessmentPanel = forwardRef<
@@ -1512,6 +1559,8 @@ const NIRClaimAssessmentPanel = forwardRef<
   const [selectedType, setSelectedType] = useState<NIRClaimType | null>(
     lockedClaimType ?? initialClaimType ?? null,
   );
+  const selectedTypeRef = useRef(selectedType);
+  selectedTypeRef.current = selectedType;
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [contentItems, setContentItems] = useState<Record<string, unknown>[]>(
     [],
@@ -1519,6 +1568,13 @@ const NIRClaimAssessmentPanel = forwardRef<
   const [complianceData, setComplianceData] = useState<Record<string, unknown>>(
     {},
   );
+  // Writes read these. The loaders also set them at once, so a save that runs
+  // straight after a re-read (RA-8359) sends the record just read, not the
+  // form as it was before React re-rendered.
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
+  const complianceDataRef = useRef(complianceData);
+  complianceDataRef.current = complianceData;
   const [asbestosWarning, setAsbestosWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [_saving, setSaving] = useState(false);
@@ -1533,6 +1589,21 @@ const NIRClaimAssessmentPanel = forwardRef<
   const complianceLoadedRef = useRef(false);
   const assessmentRequestRef = useRef(0);
   const complianceRequestRef = useRef(0);
+  // RA-8359: a failed read is shown as an error with Try again, never as an
+  // empty form that looks like "no assessment yet".
+  const [assessmentLoadFailed, setAssessmentLoadFailed] = useState(false);
+  const [complianceLoadFailed, setComplianceLoadFailed] = useState(false);
+  const [complianceRetrying, setComplianceRetrying] = useState(false);
+  const assessmentLoadFailedRef = useRef(false);
+  const complianceLoadFailedRef = useRef(false);
+  const markAssessmentFailed = (failed: boolean) => {
+    assessmentLoadFailedRef.current = failed;
+    setAssessmentLoadFailed(failed);
+  };
+  const markComplianceFailed = (failed: boolean) => {
+    complianceLoadFailedRef.current = failed;
+    setComplianceLoadFailed(failed);
+  };
 
   // ── Load assessment for a claim type ──────────────────────────────────────
 
@@ -1543,6 +1614,7 @@ const NIRClaimAssessmentPanel = forwardRef<
       const request = ++assessmentRequestRef.current;
       const isCurrent = () => request === assessmentRequestRef.current;
       assessmentLoadedRef.current = false;
+      markAssessmentFailed(false);
       setLoading(true);
       try {
         // RA-8330 round 7: readIfCurrent re-checks after the body is read too.
@@ -1554,6 +1626,7 @@ const NIRClaimAssessmentPanel = forwardRef<
         if (res.ok) {
           const record = res.record as Record<string, unknown> | null;
           if (record && type !== "CONTENTS") {
+            formDataRef.current = record;
             setFormData(record);
             if (type === "WATER") {
               const c = waterChoice(record);
@@ -1572,14 +1645,18 @@ const NIRClaimAssessmentPanel = forwardRef<
           assessmentLoadedRef.current = true;
         } else if (res.status === 404) {
           // No record yet; start from the Quick Fill seed, if any
+          formDataRef.current = { ...(assessmentSeedRef.current ?? {}) };
           setFormData({ ...(assessmentSeedRef.current ?? {}) });
           setGates({});
           if (type === "CONTENTS") setContentItems([]);
           assessmentLoadedRef.current = true;
+        } else {
+          // Any other status: the saved record is unknown, so stay not ready.
+          markAssessmentFailed(true);
         }
-        // Any other status: the saved record is unknown, so stay not ready.
       } catch {
         // Network error: saved record unknown, stay not ready.
+        if (isCurrent()) markAssessmentFailed(true);
       } finally {
         if (isCurrent()) setLoading(false);
       }
@@ -1599,15 +1676,37 @@ const NIRClaimAssessmentPanel = forwardRef<
       if (!res) return;
       if (res.ok) {
         const record = res.record as Record<string, unknown> | null;
-        if (record) setComplianceData(record);
+        if (record) {
+          complianceDataRef.current = record;
+          setComplianceData(record);
+        }
         complianceLoadedRef.current = true;
+        markComplianceFailed(false);
       } else if (res.status === 404) {
         complianceLoadedRef.current = true;
+        markComplianceFailed(false);
+      } else {
+        // Saved record unknown: stay not ready.
+        markComplianceFailed(true);
       }
     } catch {
       // Saved record unknown: stay not ready.
+      if (request === complianceRequestRef.current) markComplianceFailed(true);
     }
   }, [inspectionId]);
+
+  // RA-8359: Try again (and Save Draft) re-run only the reads that failed.
+  const retryFailedLoads = useCallback(async () => {
+    const reads: Promise<void>[] = [];
+    const type = selectedTypeRef.current;
+    if (assessmentLoadFailedRef.current && type) reads.push(loadAssessment(type));
+    if (complianceLoadFailedRef.current) {
+      setComplianceRetrying(true);
+      reads.push(loadCompliance().finally(() => setComplianceRetrying(false)));
+    }
+    await Promise.all(reads);
+    return assessmentLoadedRef.current && complianceLoadedRef.current;
+  }, [loadAssessment, loadCompliance]);
 
   useEffect(() => {
     const type = lockedClaimType ?? initialClaimType;
@@ -1659,18 +1758,15 @@ const NIRClaimAssessmentPanel = forwardRef<
 
   // ── Save assessment ─────────────────────────────────────────────────────────
 
-  const formDataRef = useRef(formData);
-  formDataRef.current = formData;
-  const complianceDataRef = useRef(complianceData);
-  complianceDataRef.current = complianceData;
-  const selectedTypeRef = useRef(selectedType);
-  selectedTypeRef.current = selectedType;
-
   const persistAssessment = async (options?: { silent?: boolean }) => {
     const type = selectedTypeRef.current;
     if (!type || type === "CONTENTS") return;
     const meta = CLAIM_TYPES.find((c) => c.type === type);
     if (!meta) return;
+    // RA-8359: never write over a saved record this panel has not read.
+    if (!assessmentLoadedRef.current) {
+      throw new Error("Claim assessment has not loaded; nothing was saved");
+    }
     setSaving(true);
     try {
       const res = await fetch(
@@ -1715,6 +1811,10 @@ const NIRClaimAssessmentPanel = forwardRef<
   };
 
   const persistCompliance = async (options?: { silent?: boolean }) => {
+    // RA-8359: never write over a saved record this panel has not read.
+    if (!complianceLoadedRef.current) {
+      throw new Error("Australian Compliance has not loaded; nothing was saved");
+    }
     setSavingCompliance(true);
     try {
       const res = await fetch(
@@ -1757,9 +1857,16 @@ const NIRClaimAssessmentPanel = forwardRef<
       persistAssessment: () => persistFnsRef.current.persistAssessment({ silent: true }),
       persistCompliance: () => persistFnsRef.current.persistCompliance({ silent: true }),
       isReady: () => assessmentLoadedRef.current && complianceLoadedRef.current,
+      loadFailed: () =>
+        assessmentLoadFailedRef.current || complianceLoadFailedRef.current,
+      reload: () => retryFailedLoads(),
       persist: async () => {
         if (!(assessmentLoadedRef.current && complianceLoadedRef.current)) {
-          throw new Error("Claim assessment is still loading");
+          throw new Error(
+            assessmentLoadFailedRef.current || complianceLoadFailedRef.current
+              ? "Claim assessment could not be loaded"
+              : "Claim assessment is still loading",
+          );
         }
         await persistFnsRef.current.persistAssessment({ silent: true });
         await persistFnsRef.current.persistCompliance({ silent: true });
@@ -1782,7 +1889,7 @@ const NIRClaimAssessmentPanel = forwardRef<
         }
       },
     }),
-    [onWaterClassificationSaved],
+    [onWaterClassificationSaved, retryFailedLoads],
   );
 
   // ── Add contents item ───────────────────────────────────────────────────────
@@ -1923,6 +2030,12 @@ const NIRClaimAssessmentPanel = forwardRef<
               <div className="py-8 flex items-center justify-center">
                 <Loader2 size={20} className="animate-spin text-neutral-700 dark:text-neutral-300" />
               </div>
+            ) : assessmentLoadFailed ? (
+              <LoadFailedNotice
+                testId="nir-claim-assessment-load-error"
+                what={`the saved ${currentMeta?.label ?? "claim"} assessment`}
+                onRetry={() => void retryFailedLoads()}
+              />
             ) : (
               <>
                 {selectedType === "WATER" && (
@@ -2023,11 +2136,22 @@ const NIRClaimAssessmentPanel = forwardRef<
       )}
 
       {/* Australian Compliance (always visible) */}
-      <AustralianComplianceForm
-        data={complianceData}
-        onChange={(k, v) => setComplianceData((p) => ({ ...p, [k]: v }))}
-        asbestosWarning={asbestosWarning}
-      />
+      {complianceLoadFailed ? (
+        <div className="rounded-xl border border-neutral-200 dark:border-slate-700 px-4">
+          <LoadFailedNotice
+            testId="nir-compliance-load-error"
+            what="the saved Australian Compliance record"
+            retrying={complianceRetrying}
+            onRetry={() => void retryFailedLoads()}
+          />
+        </div>
+      ) : (
+        <AustralianComplianceForm
+          data={complianceData}
+          onChange={(k, v) => setComplianceData((p) => ({ ...p, [k]: v }))}
+          asbestosWarning={asbestosWarning}
+        />
+      )}
     </div>
   );
 });
