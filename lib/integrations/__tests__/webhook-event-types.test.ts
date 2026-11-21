@@ -93,7 +93,13 @@ const literalOf = (e: ts.Expression): string | undefined => {
  * with a read or write method, or a result row held in a variable of that name,
  * is recognised. Anything else is an untraced use. Finding writes by their call
  * text let `const t = prisma.webhookEvent; t.create(…)` store an unlisted type
- * with the suite green.
+ * with the suite green. A string that names the delegate or the table (bracket
+ * access, raw SQL on "WebhookEvent") is an untraced use too (RA-8483).
+ *
+ * A name that takes a value other than by `name = value` (a destructure, a
+ * for-of or for-in target, a catch binding, `++`) is refused, and so is a
+ * spread or computed key in a write's argument, which could replace `data`
+ * (RA-8483). A repeated `data` key is read every time.
  *
  * Names are matched by text across the whole file, which over-approximates:
  * every assignment to a name counts, wherever it is. null is not a stored
@@ -164,25 +170,90 @@ function traceStoredEventTypes(source: string): StoredTrace {
     refuseUse(ts.isVariableDeclaration(p) || ts.isBinaryExpression(p) ? p : (p.parent ?? p));
   };
 
+  /**
+   * Every name a destructuring target or binding pattern assigns (RA-8483).
+   * Each is bound as refused: the guard does not open a destructure, so a
+   * name that takes a value this way cannot be traced, even when the same
+   * name also has a plain assignment the guard can read.
+   */
+  const targetsOf = (n: ts.Node): ts.Identifier[] => {
+    if (ts.isIdentifier(n)) return [n];
+    if (ts.isParenthesizedExpression(n) || ts.isSpreadElement(n) || ts.isSpreadAssignment(n)) return targetsOf(n.expression);
+    if (ts.isObjectBindingPattern(n) || ts.isArrayBindingPattern(n)) {
+      return n.elements.flatMap((e) => (ts.isBindingElement(e) ? targetsOf(e.name) : []));
+    }
+    if (ts.isArrayLiteralExpression(n)) return n.elements.flatMap(targetsOf);
+    if (ts.isObjectLiteralExpression(n)) {
+      return n.properties.flatMap((p) =>
+        ts.isShorthandPropertyAssignment(p)
+          ? [p.name]
+          : ts.isPropertyAssignment(p) || ts.isSpreadAssignment(p)
+            ? targetsOf(ts.isPropertyAssignment(p) ? p.initializer : p.expression)
+            : [],
+      );
+    }
+    // A default inside a destructure: `[a = "x"] = …`, `{ k: a = "x" } = …`.
+    if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken) return targetsOf(n.left);
+    return [];
+  };
+  const refuseTargets = (target: ts.Node, why: string): void => {
+    for (const id of targetsOf(target)) bind(id.text, { refuse: why });
+  };
+  const forHead = (s: ts.ForOfStatement | ts.ForInStatement): string =>
+    `for (${text(s.initializer)} ${ts.isForOfStatement(s) ? "of" : "in"} ${text(s.expression)})`;
+  /** A string that names the delegate or the table: `prisma["webhookEvent"]`, raw SQL on "WebhookEvent". */
+  const namesTable = (s: string): boolean =>
+    s.toLowerCase() === DELEGATE.toLowerCase() || /\bwebhook_?events?\b/i.test(s);
+
   const index = (node: ts.Node): void => {
     if (ts.isIdentifier(node) && node.text === DELEGATE) classify(node);
-    else if (
-      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
-      node.text.toLowerCase() === DELEGATE.toLowerCase()
-    ) {
-      // prisma["webhookEvent"], a model-name string handed to a helper, …
-      refuseUse(node.parent && !ts.isSourceFile(node.parent) ? node.parent : node);
+    else if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) && namesTable(node.text)) {
+      // prisma["webhookEvent"], a model-name string handed to a helper,
+      // $executeRawUnsafe('INSERT INTO "WebhookEvent" …'), …
+      const p = node.parent;
+      refuseUse(p && !ts.isSourceFile(p) ? p : node);
+    } else if ((ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) && namesTable(node.text)) {
+      // A substituted template: refuse the whole query, or its tagged call.
+      let t: ts.Node = node.parent;
+      while (ts.isTemplateSpan(t) || ts.isTemplateExpression(t)) t = t.parent;
+      refuseUse(t);
     }
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
-      bind(node.name.text, node.initializer ? { expr: node.initializer } : { refuse: "" });
-    } else if (ts.isParameter(node) && ts.isIdentifier(node.name)) {
-      bind(node.name.text, { refuse: `parameter ${node.name.text}` });
+    if (ts.isVariableDeclaration(node)) {
+      const list = node.parent;
+      const loop = ts.isVariableDeclarationList(list) ? list.parent : undefined;
+      // A loop or catch binding takes a value with no initialiser to read.
+      const why =
+        loop && (ts.isForOfStatement(loop) || ts.isForInStatement(loop))
+          ? forHead(loop)
+          : ts.isCatchClause(list)
+            ? `catch (${text(node)})`
+            : undefined;
+      if (why) refuseTargets(node.name, why);
+      else if (ts.isIdentifier(node.name)) {
+        bind(node.name.text, node.initializer ? { expr: node.initializer } : { refuse: "" });
+      } else refuseTargets(node.name, text(node));
+    } else if (ts.isParameter(node)) {
+      refuseTargets(node.name, `parameter ${text(node.name)}`);
     } else if (ts.isBinaryExpression(node) && ts.isIdentifier(node.left)) {
       const op = node.operatorToken.kind;
       if (op === ts.SyntaxKind.EqualsToken) bind(node.left.text, { expr: node.right });
       else if (op >= ts.SyntaxKind.FirstCompoundAssignment && op <= ts.SyntaxKind.LastCompoundAssignment) {
         bind(node.left.text, { refuse: text(node) });
       }
+    } else if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      (ts.isObjectLiteralExpression(node.left) || ts.isArrayLiteralExpression(node.left))
+    ) {
+      refuseTargets(node.left, text(node));
+    } else if ((ts.isForOfStatement(node) || ts.isForInStatement(node)) && !ts.isVariableDeclarationList(node.initializer)) {
+      refuseTargets(node.initializer, forHead(node));
+    } else if (
+      (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+      (node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken) &&
+      ts.isIdentifier(node.operand)
+    ) {
+      bind(node.operand.text, { refuse: text(node) });
     } else if (ts.isFunctionDeclaration(node) && node.name) {
       functions.set(node.name.text, node);
     }
@@ -270,18 +341,28 @@ function traceStoredEventTypes(source: string): StoredTrace {
       untraced.push(`webhookEvent.${method}(${arg ? text(arg) : ""})`);
       continue;
     }
+    // RA-8483: a spread or computed key in the argument can replace `data`
+    // with a row the guard never reads.
+    for (const p of arg.properties) {
+      if (ts.isSpreadAssignment(p)) untraced.push(`webhookEvent.${method} ...${text(p.expression)}`);
+      else if (p.name && ts.isComputedPropertyName(p.name)) untraced.push(`webhookEvent.${method} ${text(p)}`);
+    }
     for (const key of method === "upsert" ? ["create", "update"] : ["data"]) {
-      const prop = arg.properties.find((p) => propName(p) === key);
+      // Every repeat of the key is read: at runtime the last one wins.
+      const props = arg.properties.filter((p) => propName(p) === key);
       const creates = method === "create" || method === "createMany" || (method === "upsert" && key === "create");
-      if (!prop || !ts.isPropertyAssignment(prop)) {
-        if (creates || prop) untraced.push(`webhookEvent.${method} ${key}: ${prop ? text(prop) : "missing"}`);
-        continue;
+      if (props.length === 0 && creates) untraced.push(`webhookEvent.${method} ${key}: missing`);
+      for (const prop of props) {
+        if (!ts.isPropertyAssignment(prop)) {
+          untraced.push(`webhookEvent.${method} ${key}: ${text(prop)}`);
+          continue;
+        }
+        const named = readObject(prop.initializer);
+        if (!named && creates && ts.isObjectLiteralExpression(prop.initializer)) {
+          untraced.push(`webhookEvent.${method} ${key} sets no eventType`);
+        }
+        if (creates) createdData.push(prop.initializer);
       }
-      const named = readObject(prop.initializer);
-      if (!named && creates && ts.isObjectLiteralExpression(prop.initializer)) {
-        untraced.push(`webhookEvent.${method} ${key} sets no eventType`);
-      }
-      if (creates) createdData.push(prop.initializer);
     }
   }
 
@@ -687,6 +768,66 @@ describe("webhook event-type registry (RA-8427)", () => {
     );
   });
   const UNLISTED = 'QUICKBOOKS route stores "planted.missed" but webhook-event-types.ts does not list it';
+
+  // RA-8483 (CodeRabbit re-review of PR 2557, and the shapes beside them): a
+  // name can take a value without a plain `name = value`, and a write can
+  // store a row without a `data` property the guard reads. Each plant stores
+  // "planted.missed" in a copy of the QuickBooks route; before RA-8483 the
+  // guard saw none of them and reported nothing.
+  const TAIL = "\n            });\n          } catch (err) {";
+  const cannotTrace = (expr: string): string =>
+    `QUICKBOOKS route stores \`${expr}\`, which the guard cannot trace to a listed string`;
+  it.each([
+    ["a destructuring assignment", '({ eventType } = { eventType: "planted.missed" });', '{ eventType } = { eventType: "planted.missed" }'],
+    ["a renaming destructuring assignment", '({ type: eventType } = { type: "planted.missed" });', '{ type: eventType } = { type: "planted.missed" }'],
+    ["an array destructuring assignment", '[eventType] = ["planted.missed"];', '[eventType] = ["planted.missed"]'],
+    ["a destructuring declaration", '{ const { eventType } = { eventType: "planted.missed" }; void eventType; }', '{ eventType } = { eventType: "planted.missed" }'],
+    ["a for-of target", 'for (eventType of ["planted.missed"]) break;', 'for (eventType of ["planted.missed"])'],
+    ["a for-of declaration", 'for (const eventType of ["planted.missed"]) void eventType;', 'for (const eventType of ["planted.missed"])'],
+    ["a catch binding", 'try { throw "planted.missed"; } catch (eventType) { void eventType; }', "catch (eventType)"],
+  ])("fails when the stored name takes a value through %s", (_form, to, expr) => {
+    const from = 'eventType = "payment.deleted";';
+    const source = qbo();
+    expect(source).toContain(from);
+    expect(problemsWith(source.replace(from, to))).toContain(cannotTrace(expr));
+  });
+
+  it.each([
+    ["a spread after data", "...overrides,", "webhookEvent.create ...overrides"],
+    ["a computed key", '[dataKey]: { eventType: "planted.missed" },', 'webhookEvent.create [dataKey]: { eventType: "planted.missed" }'],
+  ])("fails when a write's argument holds %s", (_form, prop, expr) => {
+    const source = qbo();
+    expect(source).toContain(TAIL);
+    expect(problemsWith(source.replace(TAIL, `\n              ${prop}${TAIL}`))).toContain(cannotTrace(expr));
+  });
+
+  it("reads every data key a write repeats, as the last one wins", () => {
+    const source = qbo();
+    expect(source).toContain(TAIL);
+    const planted = source.replace(TAIL, `\n              data: { eventType: "planted.missed", status: "PENDING" },${TAIL}`);
+    expect(problemsWith(planted)).toContain(UNLISTED);
+  });
+
+  it.each([
+    ["a tagged raw query", 'await prisma.$executeRaw`INSERT INTO "WebhookEvent" ("eventType") VALUES (\'planted.missed\')`;'],
+    ["an unsafe raw query", "await prisma.$executeRawUnsafe('INSERT INTO \"WebhookEvent\" (\"eventType\") VALUES ($1)', t);"],
+    ["a substituted raw query", 'await prisma.$executeRaw`UPDATE "WebhookEvent" SET "eventType" = ${t}`;'],
+  ])("fails when a route reaches the table through %s", (_form, sql) => {
+    const planted = qbo().replace(WRITE, `${sql}\n            ${WRITE}`);
+    expect(problemsWith(planted).filter((p) => p.startsWith(USE))).not.toEqual([]);
+  });
+
+  it("traces a write made through a transaction client or an aliased client", () => {
+    const trace = traceStoredEventTypes(
+      [
+        'const db = prisma;\nawait db.webhookEvent.create({ data: { eventType: "a.b" } });',
+        'await prisma.$transaction(async (tx) => { await tx.webhookEvent.create({ data: { eventType: "c.d" } }); });',
+      ].join("\n"),
+    );
+    expect([...trace.values].sort()).toEqual(["a.b", "c.d"]);
+    expect(trace.untraced).toEqual([]);
+    expect(trace.untracedUses).toEqual([]);
+  });
 
   it("fails when a route stores a type the registry does not list", () => {
     const problems = problemsWith(qbo().replace('eventType = "payment.deleted";', 'eventType = "payment.reversed";'));
