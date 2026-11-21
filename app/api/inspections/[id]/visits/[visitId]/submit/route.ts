@@ -17,6 +17,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { JOB_CLOSED_MESSAGE, jobTakesVisitsInTx } from "@/lib/site-visits/job-open-in-tx";
 import {
   assertInspectionAssignedWrite,
   writeWithinInspectionScope,
@@ -77,7 +78,7 @@ export async function POST(
     if (isVisitLockedStatus(job.status)) {
       return apiError(request, {
         code: "CONFLICT",
-        message: "This job is closed. Reopen it before submitting a site visit.",
+        message: JOB_CLOSED_MESSAGE,
         status: 409,
       });
     }
@@ -119,13 +120,35 @@ export async function POST(
     const claimed = await writeWithinInspectionScope(
       tenancy.data.inspectionManyWhere,
       { updatedAt: now },
-      (tx) =>
-        tx.siteVisit.updateMany({
+      async (tx) => {
+        if (!(await jobTakesVisitsInTx(tx, id))) return "closed" as const;
+        const done = await tx.siteVisit.updateMany({
           where: { id: visitId, inspectionId: id, submittedAt: null, updatedAt: visit.updatedAt },
           data: { submittedAt: now, submittedById: userId },
-        }),
+        });
+        // The audit row commits with the submit or not at all: a failed
+        // insert throws and rolls the submit back, so a retry still works.
+        if (done.count === 1) {
+          await tx.auditLog.create({
+            data: {
+              inspectionId: id,
+              action: "Site visit submitted",
+              entityType: "SiteVisit",
+              entityId: visitId,
+              userId,
+              changes: JSON.stringify({ visitNumber: visit.visitNumber }),
+            },
+          });
+        }
+        return done;
+      },
     );
     if (claimed === null) return notFound(request, "Inspection not found");
+    if (claimed === "closed") return apiError(request, {
+        code: "CONFLICT",
+        message: JOB_CLOSED_MESSAGE,
+        status: 409,
+      });
     if (claimed.count === 0) {
       return apiError(request, {
         code: "CONFLICT",
@@ -133,17 +156,6 @@ export async function POST(
         status: 409,
       });
     }
-
-    await prisma.auditLog.create({
-      data: {
-        inspectionId: id,
-        action: "Site visit submitted",
-        entityType: "SiteVisit",
-        entityId: visitId,
-        userId,
-        changes: JSON.stringify({ visitNumber: visit.visitNumber }),
-      },
-    });
 
     return NextResponse.json({ data: { id: visitId, visitNumber: visit.visitNumber, submittedAt: now } });
   } catch (error) {

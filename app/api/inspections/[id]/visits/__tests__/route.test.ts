@@ -31,6 +31,8 @@ const m = vi.hoisted(() => ({
   photoFindFirst: vi.fn(),
   evidenceFindMany: vi.fn(),
   auditCreate: vi.fn(),
+  txInspectionFindUnique: vi.fn(),
+  txAuditCreate: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: m.getServerSession }));
@@ -45,6 +47,11 @@ vi.mock("@/lib/prisma", () => {
       create: m.visitCreate,
       updateMany: m.visitUpdateMany,
     },
+    // RA-8498 review round 1: the job's status is re-read, and the audit row
+    // written, inside the locked transaction (separate mocks from the root
+    // client so a test can tell which one a route used).
+    inspection: { findUnique: m.txInspectionFindUnique },
+    auditLog: { create: m.txAuditCreate },
   };
   return {
     prisma: {
@@ -99,7 +106,9 @@ const openVisit = (over: Record<string, unknown> = {}) => ({
 });
 
 const writes = () =>
-  m.visitCreate.mock.calls.length + m.visitUpdateMany.mock.calls.length + m.auditCreate.mock.calls.length;
+  m.visitCreate.mock.calls.length + m.visitUpdateMany.mock.calls.length +
+  m.auditCreate.mock.calls.length +
+  m.txAuditCreate.mock.calls.length;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -119,6 +128,8 @@ beforeEach(() => {
   m.photoFindFirst.mockResolvedValue({ id: "ph_1", url: "https://s/ph1.jpg" });
   m.evidenceFindMany.mockResolvedValue([]);
   m.auditCreate.mockResolvedValue({});
+  m.txInspectionFindUnique.mockResolvedValue({ status: "DRAFT" });
+  m.txAuditCreate.mockResolvedValue({});
 });
 
 describe("every visit handler refuses without a session or reach", () => {
@@ -321,9 +332,12 @@ describe("POST /visits/[visitId]/submit", () => {
     expect(args.data.submittedById).toBe("tech_1");
     expect(args.data.submittedAt).toBeInstanceOf(Date);
     expect(m.scopesSeen).toEqual([SCOPE]);
-    expect(m.auditCreate).toHaveBeenCalledTimes(1);
+    // The audit row is written in the same transaction as the submit, so a
+    // failed audit insert rolls the submit back (review round 1, P1).
+    expect(m.txAuditCreate).toHaveBeenCalledTimes(1);
+    expect(m.auditCreate).not.toHaveBeenCalled();
     // The audit row names the visit, never the personal values.
-    const audit = JSON.stringify(m.auditCreate.mock.calls[0][0]);
+    const audit = JSON.stringify(m.txAuditCreate.mock.calls[0][0]);
     expect(audit).not.toContain("TENANT");
   });
 
@@ -340,6 +354,7 @@ describe("POST /visits/[visitId]/submit", () => {
     const res = await SUBMIT(req("POST"), vctx);
     await expectRefused(res, 409, /changed or was submitted/);
     expect(m.auditCreate).not.toHaveBeenCalled();
+    expect(m.txAuditCreate).not.toHaveBeenCalled();
   });
 
   it("404 for a visit not on this job", async () => {
@@ -347,5 +362,51 @@ describe("POST /visits/[visitId]/submit", () => {
     const res = await SUBMIT(req("POST"), vctx);
     await expectRefused(res, 404, /Site visit not found/);
     expect(writes()).toBe(0);
+  });
+});
+
+// RA-8498 review round 1, P1: a job closed between the route's first status
+// read and the locked write must not take a visit write. Each writer re-reads
+// the status inside the transaction, after the job's row lock is held.
+describe("a job that becomes inactive before the locked write", () => {
+  beforeEach(() => {
+    m.inspectionFindUnique.mockResolvedValue({ status: "SUBMITTED" });
+    m.txInspectionFindUnique.mockResolvedValue({ status: "CLOSED" });
+  });
+
+  it("POST /visits answers 409 and creates no visit", async () => {
+    const res = await POST(req("POST", {}), ctx);
+    await expectRefused(res, 409, /This job is closed/);
+    expect(m.visitCreate).not.toHaveBeenCalled();
+  });
+
+  it("PATCH answers 409 and changes nothing", async () => {
+    m.visitFindFirst.mockResolvedValue(openVisit());
+    const res = await PATCH(req("PATCH", { metOnSite: "OWNER" }), vctx);
+    await expectRefused(res, 409, /This job is closed/);
+    expect(m.visitUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("submit answers 409, submits nothing and writes no audit row", async () => {
+    m.visitFindFirst.mockResolvedValue(openVisit());
+    const res = await SUBMIT(req("POST"), vctx);
+    await expectRefused(res, 409, /This job is closed/);
+    expect(m.visitUpdateMany).not.toHaveBeenCalled();
+    expect(m.txAuditCreate).not.toHaveBeenCalled();
+  });
+});
+
+// RA-8498 review round 1, P1: the submit and its audit row commit together.
+describe("POST /visits/[visitId]/submit audit failure", () => {
+  it("a failed audit insert fails the request inside the transaction", async () => {
+    m.visitFindFirst.mockResolvedValue(openVisit());
+    m.txAuditCreate.mockRejectedValue(new Error("audit insert failed"));
+    const res = await SUBMIT(req("POST"), vctx);
+    expect(res.status).toBe(500);
+    // The submit update and the audit insert ran on the same transaction
+    // client; the real transaction rolls both back on this throw.
+    expect(m.visitUpdateMany).toHaveBeenCalledTimes(1);
+    expect(m.txAuditCreate).toHaveBeenCalledTimes(1);
+    expect(m.auditCreate).not.toHaveBeenCalled();
   });
 });

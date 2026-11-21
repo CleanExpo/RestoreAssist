@@ -14,6 +14,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { JOB_CLOSED_MESSAGE, jobTakesVisitsInTx } from "@/lib/site-visits/job-open-in-tx";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import {
   assertInspectionAssignedWrite,
@@ -114,7 +115,7 @@ export async function POST(
     if (isVisitLockedStatus(job.status)) {
       return apiError(request, {
         code: "CONFLICT",
-        message: "This job is closed. Reopen it before recording a site visit.",
+        message: JOB_CLOSED_MESSAGE,
         status: 409,
       });
     }
@@ -127,6 +128,7 @@ export async function POST(
       tenancy.data.inspectionManyWhere,
       { updatedAt: now },
       async (tx) => {
+        if (!(await jobTakesVisitsInTx(tx, id))) return { closed: true } as const;
         const open = await tx.siteVisit.findFirst({
           where: { inspectionId: id, submittedAt: null },
           select: { id: true, visitNumber: true },
@@ -150,6 +152,11 @@ export async function POST(
     );
 
     if (result === null) return tenancyRefusal(request, { status: 404, reason: "Inspection not found" });
+    if ("closed" in result) return apiError(request, {
+        code: "CONFLICT",
+        message: JOB_CLOSED_MESSAGE,
+        status: 409,
+      });
     if ("conflict" in result) {
       return apiError(request, {
         code: "CONFLICT",
