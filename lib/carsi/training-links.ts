@@ -34,7 +34,7 @@ export interface CarsiCourseLink {
 const COURSES = {
   waterEssentials: { slug: "water-damage-essentials", title: "Water Damage Essentials" },
   appliedDrying: { slug: "introduction-to-applied-structural-drying", title: "Applied Structural Drying" },
-  psychrometry: { slug: "psychrometry-building-science-for-drying", title: "Psychrometry and Building Science for Drying" },
+  psychrometry: { slug: "introduction-to-psychrometry-science-and-calculations", title: "Psychrometry Science and Calculations" },
   moistureMeters: { slug: "moisture-meters-readings-and-dry-standards", title: "Moisture Meters, Readings and Dry Standards" },
   extraction: { slug: "introduction-to-water-extraction-methods", title: "Water Extraction Methods" },
   microbial: { slug: "introduction-to-applied-microbial-remediation", title: "Applied Microbial Remediation" },
