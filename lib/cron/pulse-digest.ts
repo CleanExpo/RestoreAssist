@@ -103,6 +103,10 @@ export async function runPulseDigest(): Promise<CronJobResult> {
           surfaceType: true,
           moistureLevel: true,
           recordedAt: true,
+          // RA-8508: references set the goal; invalidated readings never count.
+          isBaseline: true,
+          unit: true,
+          invalidatedAt: true,
         },
       },
     },

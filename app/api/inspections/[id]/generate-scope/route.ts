@@ -32,10 +32,9 @@ import {
   type EquipmentItemInput,
 } from "@/lib/scope-narrative-prompts";
 import {
-  getMoistureStatus,
   isProgressReading,
   pickReferenceReadings,
-  resolveDryingGoal,
+  readingGoalStatus,
 } from "@/lib/iicrc-dry-standards";
 import { safeRetrieveSimilarJobs } from "@/lib/ai/rag-context";
 import {
@@ -247,12 +246,7 @@ export async function POST(
     const moistureInputs: MoistureReadingInput[] = inspection.moistureReadings
       .filter(isProgressReading)
       .map((r) => {
-        const goal = resolveDryingGoal(r.surfaceType, references, undefined, r.unit);
-        const status = getMoistureStatus(
-          r.moistureLevel,
-          r.surfaceType,
-          goal.basis === "reference" ? goal.target : undefined,
-        );
+        const { goal, status } = readingGoalStatus(r, references);
         return {
           location: r.location,
           surfaceType: r.surfaceType,

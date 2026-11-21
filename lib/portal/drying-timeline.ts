@@ -70,7 +70,8 @@ export interface DryingTimelineReadingInput {
   recordedAt: Date | string;
   /** RA-8508: a reference reading from unaffected like material (sets the goal). */
   isBaseline?: boolean;
-  unit?: string | null;
+  /** Required key (RA-8508 review): null means no unit was recorded. */
+  unit: string | null;
   invalidatedAt?: Date | string | null;
 }
 

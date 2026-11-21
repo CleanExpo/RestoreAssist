@@ -38,6 +38,22 @@ import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
 import { readEquipmentDeploymentLog } from "@/lib/reports/stored-equipment-pricing";
 
+/**
+ * RA-8508: PDF moisture rows as owner inputs. Rows come from the relational
+ * adapter (lib/reports/pdf-moisture-readings.ts, which carries `unit`) or from
+ * legacy JSON (no unit, no baseline flag, so never a reference).
+ */
+function pdfReferenceCandidates(rows: any[]): ReferenceCandidate[] {
+  return rows.map((r) => ({
+    surfaceType: r.surfaceType ?? r.material ?? r.materialType ?? null,
+    moistureLevel:
+      typeof r.moistureLevel === "number" ? r.moistureLevel : Number.parseFloat(String(r.moistureLevel ?? "")),
+    isBaseline: r.isBaseline === true,
+    unit: typeof r.unit === "string" ? r.unit : null,
+    recordedAt: r.date ?? null,
+  }));
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface IICRCReportData {
@@ -617,7 +633,7 @@ export async function generateIICRCReportPDF(
     w.tableRow(mCols, mWidths, true);
     // RA-8508: each row's goal and status come from the owner (the job's
     // reference reading first, then the guide), the same goal Section 9 prints.
-    const rowReferences = pickReferenceReadings(moistureArr as ReferenceCandidate[]);
+    const rowReferences = pickReferenceReadings(pdfReferenceCandidates(moistureArr));
     moistureArr.forEach((r: any, i: number) => {
       const val = r.moistureLevel ?? r.value ?? r.reading ?? r.moisture ?? "";
       const rowGoal = moistureRowGoal(
@@ -850,7 +866,7 @@ export async function generateIICRCReportPDF(
   w.gap(4);
   // One row per material with a reference reading, plus a guide row for each
   // monitored material without one (owner: dryingGoalTableRows).
-  const goalRows = dryingGoalTableRows(moistureArr as ReferenceCandidate[]);
+  const goalRows = dryingGoalTableRows(pdfReferenceCandidates(moistureArr));
   const anyReference = goalRows.some((g) => g.basis === "reference");
   w.tableRow(["Material", "Drying goal", "Basis"], [170, 120, 160], true);
   goalRows.forEach((g, i) => {

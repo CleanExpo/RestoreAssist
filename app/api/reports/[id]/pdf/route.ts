@@ -151,6 +151,7 @@ export async function GET(
                 surfaceType: true,
                 moistureLevel: true,
                 depth: true,
+                unit: true,
                 isBaseline: true,
                 isMonitoringPoint: true,
                 recordedAt: true,
