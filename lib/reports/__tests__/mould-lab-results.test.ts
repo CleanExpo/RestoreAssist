@@ -43,6 +43,12 @@ describe("mould lab result rows (RA-7686)", () => {
     expect(all).toContain("Indoor below outdoor, same genera (as recorded;");
   });
 
+  it("spells comparison operators out so the PDF font cannot drop them", () => {
+    expect(rows({ clearanceCriterion: "Indoor ≤ 500 spores/m3" })["Clearance criterion:"]).toMatch(/^Indoor <= 500 spores\/m3 /);
+    expect(rows({ clearanceCriterion: "Ratio ≥ 1" })["Clearance criterion:"]).toMatch(/^Ratio >= 1 /);
+    expect(rows({ clearanceCriterion: "Indoor < outdoor" })["Clearance criterion:"]).toMatch(/^Indoor < outdoor /);
+  });
+
   it("prints only for mould jobs", () => {
     expect(shouldPrintMouldLabResults(null, "WATER")).toBe(false);
     expect(shouldPrintMouldLabResults(undefined, null)).toBe(false);
@@ -61,6 +67,16 @@ describe("report PDF section 6A (RA-7686 acceptance)", () => {
     expect(text).toContain("Sampling & laboratory results");
     expect(text).toContain("Harbour Test Laboratory");
     expect(text).toContain("Not tested");
+  }, 30_000);
+
+  it("keeps a ≤ criterion meaning-preserving in the PDF text", async () => {
+    const text = await pdfText({
+      id: "mould-criterion-fixture",
+      claimType: "MOULD",
+      mouldAssessment: { clearanceCriterion: "Indoor ≤ 500 spores/m3" },
+    });
+    expect(text).toContain("Indoor <= 500 spores/m3");
+    expect(text).not.toMatch(/Indoor\s+500 spores/);
   }, 30_000);
 
   it("prints no such section on a water-only job (negative control)", async () => {
