@@ -28,7 +28,6 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
 const SKIP_TOP_LEVEL = new Set(["node_modules", ".git", ".next"]);
 const PROBE_NAME = ".ra-8478-watch-probe";
@@ -233,9 +232,9 @@ async function main() {
   process.exit(1);
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((error) => {
-    console.error(error);
-    process.exit(2);
-  });
-}
+// Always run: this file is a CLI entry only and exports nothing, so there is
+// no main-module check to skip it when reached through a symlink (RA-7785).
+main().catch((error) => {
+  console.error(error);
+  process.exit(2);
+});
