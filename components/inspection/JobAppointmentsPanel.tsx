@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ChromeCalendar, ChromePlus, ChromeSpinner } from "@/components/brand/chrome-icons";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -270,22 +271,19 @@ export function JobAppointmentsPanel({ inspectionId }: { inspectionId: string })
             and contact details in the note, not the visit name.
           </p>
           <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex min-h-11 items-center gap-1 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-medium px-3 py-2 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={saving} className="min-h-11">
               {saving && <ChromeSpinner className="h-3 w-3 animate-spin" />}
               Book visit
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               disabled={saving}
               onClick={() => setForm(null)}
-              className="min-h-11 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-xs font-medium"
+              className="min-h-11"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       )}
