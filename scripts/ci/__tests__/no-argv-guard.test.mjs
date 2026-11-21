@@ -21,6 +21,14 @@ const SHAPES = {
   "regex test": `if (/x\\.ts$/.test(${ARG} ?? "")) main();\n`,
   "resolved entry then compare": `const entry = ${ARG} ? path.resolve(${ARG}) : "";\nif (entry && import.meta.url === pathToFileURL(entry).href) main();\n`,
   "URL pathname": `const isMain =\n  ${ARG} != null &&\n  new URL(import.meta.url).pathname === ${ARG};\n`,
+  // RA-8484 (findings 16 and 17): basename, far endsWith and far pathname.
+  "basename compared": `import path from "node:path";\nif (path.basename(${ARG}) === "gate.mjs") main();\n`,
+  "basename bound, compared later": `const entry = path.basename(${ARG} ?? "");\n${"const pad = 0;\n".repeat(8)}if (entry === "gate.mjs") main();\n`,
+  "argument bound, endsWith later": `const entry = ${ARG};\n${"const pad = 0;\n".repeat(8)}if (entry && entry.endsWith("gate.mjs")) main();\n`,
+  "pathname bound, compared later": `const self = new URL(import.meta.url).pathname;\n${"const pad = 0;\n".repeat(8)}if (self === ${ARG}) main();\n`,
+  "typed binding, regex test later": `const entry: string = ${ARG} ?? "";\n${"const pad = 0;\n".repeat(8)}if (/gate\\.ts$/.test(entry)) main();\n`,
+  "argument includes": `if (${ARG}.includes("gate")) main();\n`,
+  "argument equals __filename": `if (${ARG} === __filename) main();\n`,
 };
 
 for (const [name, text] of Object.entries(SHAPES)) {
@@ -36,6 +44,16 @@ test("ignores the fault described in comments", () => {
 
 test("does not flag a thin entry", () => {
   assert.deepEqual(scanText('import { main } from "./lib/x.mjs";\n\nprocess.exitCode = await main();\n'), []);
+});
+
+test("does not flag the argument read only for a usage message", () => {
+  const text = `const name = path.basename(${ARG} ?? "gate");\n${"const pad = 0;\n".repeat(8)}console.error(\`usage: \${name} <file>\`);\n`;
+  assert.deepEqual(scanText(text), []);
+});
+
+test("an alias is matched by whole name, not as part of a longer one", () => {
+  const text = `const entry = ${ARG};\n${"const pad = 0;\n".repeat(8)}if (entryCount === 2) stop();\nrun(entry);\n`;
+  assert.deepEqual(scanText(text), []);
 });
 
 test("reports the line of the argument read", () => {
