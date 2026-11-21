@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, posix, win32 } from "node:path";
 import test from "node:test";
@@ -992,4 +992,72 @@ test("semantic workflow inspection rejects a sibling directory that shares the r
   const target = `./../${basename(root)}-evil/action`;
   writeFileSync(workflowPath, readFileSync(workflowPath, "utf8").replace(`actions/checkout@${PIN}`, target));
   assert.match(findReleaseBootstrapViolations(root).join("\n"), /local reference escapes the repository/);
+});
+
+// RA-8444: a provider target that exists but is a directory, or cannot be read,
+// must be listed as a violation. It used to reach readFileSync, which threw, so
+// the guard crashed and printed none of the violations it had already collected.
+function withDirectoryTargets(options, directories) {
+  const root = fixture(options);
+  for (const directory of directories) mkdirSync(join(root, directory), { recursive: true });
+  return root;
+}
+
+test("lists a directory named like a provider executable instead of crashing", () => {
+  const direct = findReleaseBootstrapViolations(
+    withDirectoryTargets({ providerBuild: "node scripts/tool.mjs" }, ["scripts/tool.mjs"]),
+  ).join("\n");
+  assert.match(direct, /invokes a provider executable that is not a readable regular file: scripts\/tool\.mjs/);
+  assert.match(direct, /not an exact approved provider command/, "violations collected before the bad target are still listed");
+
+  const imported = findReleaseBootstrapViolations(
+    withDirectoryTargets(
+      {
+        providerBuild: "node scripts/tool.mjs",
+        shellFiles: { "scripts/tool.mjs": "import './helper';\n" },
+      },
+      ["scripts/helper.sh"],
+    ),
+  ).join("\n");
+  assert.match(imported, /invokes a provider executable that is not a readable regular file: scripts\/helper\.sh/);
+});
+
+test("lists a directory named like a provider shell file instead of crashing", () => {
+  const violations = findReleaseBootstrapViolations(
+    withDirectoryTargets({ providerRun: "sh scripts/run.sh" }, ["scripts/run.sh"]),
+  ).join("\n");
+  assert.match(violations, /invokes a provider shell file that is not a readable regular file: scripts\/run\.sh/);
+  assert.match(violations, /not an exact approved provider command/);
+});
+
+test("lists a directory named like a sourced provider shell file instead of crashing", () => {
+  const violations = findReleaseBootstrapViolations(
+    withDirectoryTargets(
+      {
+        providerRun: "bash scripts/start.sh",
+        shellFiles: { "scripts/start.sh": "#!/bin/sh\n. scripts/lib.sh\nnpx prisma migrate deploy\n" },
+      },
+      ["scripts/lib.sh"],
+    ),
+  ).join("\n");
+  assert.match(violations, /sources a provider shell file that is not a readable regular file: scripts\/lib\.sh/);
+  // The guard carries on past the bad target and still inspects the rest of the file.
+  assert.match(violations, /scripts\/start\.sh.*automatic production migration command/);
+});
+
+test("lists an unreadable provider shell file instead of crashing", (t) => {
+  if (process.platform === "win32" || process.getuid?.() === 0) {
+    t.skip("chmod 000 cannot make a file unreadable on Windows or for root");
+    return;
+  }
+  const root = fixture({ providerRun: "sh scripts/run.sh", shellFiles: { "scripts/run.sh": "#!/bin/sh\necho ok\n" } });
+  chmodSync(join(root, "scripts", "run.sh"), 0o000);
+  try {
+    assert.match(
+      findReleaseBootstrapViolations(root).join("\n"),
+      /invokes a provider shell file that is not a readable regular file: scripts\/run\.sh/,
+    );
+  } finally {
+    chmodSync(join(root, "scripts", "run.sh"), 0o644);
+  }
 });
