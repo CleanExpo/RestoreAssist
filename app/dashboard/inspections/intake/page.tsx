@@ -5,7 +5,8 @@
  * number is issued on save; the number shown before saving is an estimate.
  */
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { keyForSubmission, type IntakeRequestKey } from "@/lib/jobs/intake-request-key";
 import { RAIcon } from "@/components/brand/RAIcon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,9 +81,10 @@ export default function OfficeIntakePage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [prefixDraft, setPrefixDraft] = useState("");
   const [prefixMessage, setPrefixMessage] = useState<string | null>(null);
-  // One key per form: every retry of this form reuses it, so a double click
-  // or a resubmit after a timeout returns the same job and the same number.
-  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => newKey());
+  // The key follows the body (lib/jobs/intake-request-key.ts): resending the
+  // same form reuses it, so a double click or a resubmit after a timeout
+  // returns the same job and number; a corrected form gets a new key.
+  const requestKey = useRef<IntakeRequestKey | null>(null);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -134,10 +136,12 @@ export default function OfficeIntakePage() {
     setSaving(true);
     setError(null);
     try {
+      const body = JSON.stringify(form);
+      requestKey.current = keyForSubmission(requestKey.current, body, newKey);
       const res = await fetch("/api/inspections/intake", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-        body: JSON.stringify(form),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": requestKey.current.key },
+        body,
       });
       const json = await res.json().catch(() => null);
       if (res.status === 201 && json?.inspection?.jobNumber) {
@@ -147,7 +151,7 @@ export default function OfficeIntakePage() {
           makeSafeSeeded: json.makeSafeSeeded !== false,
         });
         setForm(EMPTY);
-        setIdempotencyKey(newKey());
+        requestKey.current = null;
         void loadSettings();
         return;
       }
