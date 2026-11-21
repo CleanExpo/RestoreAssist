@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title:
-      "Features - AI-Assisted Damage Assessment & IICRC S500 Alignment | Restore Assist",
+      "Features - AI-Assisted Damage Assessment & IICRC S500 Alignment | RestoreAssist",
     description:
       "AI-assisted report generation, IICRC S500 alignment, and comprehensive restoration tools used by Australian professionals.",
     type: "website",

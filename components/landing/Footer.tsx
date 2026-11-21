@@ -92,7 +92,7 @@ export default function Footer({ darkMode }: FooterProps) {
               <Link href="/" className="shrink-0">
                 <Image
                   src="/logo.png"
-                  alt="Restore Assist Logo"
+                  alt="RestoreAssist Logo"
                   width={96}
                   height={96}
                   className="object-contain"
@@ -106,7 +106,7 @@ export default function Footer({ darkMode }: FooterProps) {
                       '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                   }}
                 >
-                  Restore Assist
+                  RestoreAssist
                 </h3>
                 <p
                   className={`text-sm mb-4 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}

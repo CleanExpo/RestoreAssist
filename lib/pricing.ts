@@ -42,7 +42,7 @@ export const PRICING_CONFIG = {
     trialQuickFillCredits: 30,
     /** @deprecated Use `trialReportCredits`. Kept so display cards reading `reportLimit` still work. */
     reportLimit: PLAN_REPORT_ALLOWANCE,
-    description: `Try Restore Assist free for 15 days — ${PLAN_REPORT_ALLOWANCE} inspection report credits with basic features. No credit card required.`,
+    description: `Try RestoreAssist free for 15 days — ${PLAN_REPORT_ALLOWANCE} inspection report credits with basic features. No credit card required.`,
     features: [
       "15-day free trial",
       `${PLAN_REPORT_ALLOWANCE} inspection report credits`,
