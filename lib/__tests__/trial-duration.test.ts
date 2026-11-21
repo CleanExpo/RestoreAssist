@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { TRIAL_DAYS } from "@/lib/billing/constants";
 
 describe("trial duration centralisation", () => {
   it("auth.ts uses TRIAL_DAYS for new signup trialEndsAt", async () => {

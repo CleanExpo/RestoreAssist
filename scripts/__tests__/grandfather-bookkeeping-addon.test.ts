@@ -20,7 +20,7 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
 
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
-import { grandfatherBookkeepingAddon } from "../grandfather-bookkeeping-addon";
+import { grandfatherBookkeepingAddon } from "../lib/grandfather-bookkeeping-addon";
 
 const mockFindMany = prisma.integration.findMany as ReturnType<typeof vi.fn>;
 const mockUpsert = prisma.featureEntitlement.upsert as ReturnType<typeof vi.fn>;

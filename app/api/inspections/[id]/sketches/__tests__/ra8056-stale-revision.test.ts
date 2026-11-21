@@ -16,7 +16,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma as scopePrisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 
-const gate = vi.hoisted(() => ({ viaAssignment: false, storageConfigured: false }));
+const gate = vi.hoisted(() => ({
+  viaAssignment: false,
+  storageConfigured: false,
+  childInspectionFilter: undefined as Record<string, unknown> | undefined,
+}));
 const render = vi.hoisted(() => ({
   storeVerifiedCleanRender: vi.fn(async () => ({
     storagePath: "inspections/i1/exports/verified/floor-0-new.png",
@@ -42,13 +46,13 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
     data: {
       inspectionWhere: { id: "insp-1" },
       inspectionManyWhere: { id: "insp-1" },
-      childInspectionFilter: undefined,
+      childInspectionFilter: gate.childInspectionFilter,
       viaAssignment: gate.viaAssignment,
     },
   })),
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const client: Record<string, unknown> = {
     claimSketch: {
       findFirst: vi.fn(),
       findMany: vi.fn(async () => []),
@@ -73,19 +77,29 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: vi.fn(async () => ({ count: 0 })),
       createMany: vi.fn(async () => ({ count: 0 })),
     },
-    $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
-  },
-}));
+  };
+  // Array form runs the operations; the interactive form runs the callback on
+  // the same client, so a throw inside it stops the operations after it.
+  client.$transaction = vi.fn(async (arg: unknown) =>
+    typeof arg === "function"
+      ? (arg as (tx: unknown) => unknown)(client)
+      : Promise.all(arg as unknown[]),
+  );
+  return { prisma: client };
+});
 
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
 import { floorRevisionOf } from "@/lib/sketch/floor-revision-server";
+import { createHash } from "node:crypto";
+import { stableStringify } from "@/lib/sketch/roomplan-custody-queue";
 
 type Fn = ReturnType<typeof vi.fn>;
 const mockSession = getServerSession as unknown as Fn;
 const p = prisma as unknown as {
-  claimSketch: { findFirst: Fn; update: Fn };
+  claimSketch: { findFirst: Fn; findMany: Fn; update: Fn };
+  sketchUnderlayReference: { findFirst: Fn; update: Fn };
   sketchElement: { deleteMany: Fn; createMany: Fn };
   sketchRoom: { findMany: Fn; create: Fn; update: Fn; deleteMany: Fn; updateMany: Fn };
   sketchMoistureReading: { findMany: Fn; deleteMany: Fn; createMany: Fn };
@@ -187,6 +201,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   gate.viaAssignment = false;
   gate.storageConfigured = false;
+  gate.childInspectionFilter = undefined;
   mockSession.mockResolvedValue({ user: { id: "u_1" } });
   p.sketchRoom.findMany.mockImplementation(async (args) => projectRooms(args));
   p.claimSketch.findFirst.mockResolvedValue({
@@ -340,5 +355,173 @@ describe("RA-8056 legacy callers", () => {
 
     expect(res.status).toBe(201);
     expect(p.claimSketch.update.mock.calls[0][0].where).toEqual({ id: "s_1" });
+  });
+});
+
+describe("RA-8197 guarded write: lost races have no side effects and only a drawing change is a conflict", () => {
+  const p2025 = () =>
+    Object.assign(new Error("Record to update not found."), { code: "P2025" });
+  const storedRow = {
+    id: "s_1",
+    sketchData: storedData,
+    moisturePoints: [],
+    renderedPngUrl: null,
+    updatedAt: STORED_AT,
+  };
+  const BUMPED_AT = new Date("2026-09-20T00:01:00.000Z");
+
+  // Queued once-values survive vi.clearAllMocks; reset them so no test here
+  // can read a value another test left behind.
+  beforeEach(() => {
+    p.claimSketch.findFirst.mockReset().mockResolvedValue(storedRow);
+    p.claimSketch.update.mockReset().mockResolvedValue({
+      id: "s_1",
+      sketchData: savedData,
+      updatedAt: new Date("2026-09-20T00:05:00.000Z"),
+    });
+    p.sketchUnderlayReference.findFirst.mockReset().mockResolvedValue(null);
+    p.sketchUnderlayReference.update.mockReset();
+  });
+
+  it("a race where only the row's timestamp moved retries once and saves", async () => {
+    p.claimSketch.update.mockRejectedValueOnce(p2025());
+    p.claimSketch.findFirst
+      .mockResolvedValueOnce(storedRow)
+      .mockResolvedValueOnce({ sketchData: storedData, updatedAt: BUMPED_AT });
+
+    const res = await save(laundryOnly, { "x-sketch-revision": STORED_REVISION });
+
+    expect(res.status).toBe(201);
+    expect(p.claimSketch.update).toHaveBeenCalledTimes(2);
+    expect(p.claimSketch.update.mock.calls[1][0].where.updatedAt).toEqual(BUMPED_AT);
+  });
+
+  it("the retry happens once: a second lost race is a conflict", async () => {
+    p.claimSketch.update.mockRejectedValueOnce(p2025()).mockRejectedValueOnce(p2025());
+    p.claimSketch.findFirst
+      .mockResolvedValueOnce(storedRow)
+      .mockResolvedValueOnce({ sketchData: storedData, updatedAt: BUMPED_AT })
+      .mockResolvedValueOnce({
+        sketchData: storedData,
+        updatedAt: new Date("2026-09-20T00:02:00.000Z"),
+      });
+
+    const res = await save(laundryOnly, { "x-sketch-revision": STORED_REVISION });
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).conflict).toBe("revision");
+    expect(p.claimSketch.update).toHaveBeenCalledTimes(2);
+    expect(p.sketchRoom.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("a write refused because the caller lost access to the job is not found, not a conflict", async () => {
+    // D-028: a technician reaches the floor only through their assignment.
+    // The row still exists, but the assignment was removed after the check.
+    gate.viaAssignment = true;
+    gate.childInspectionFilter = { assignedUserId: "u_1" };
+    p.claimSketch.update.mockRejectedValueOnce(p2025());
+    p.claimSketch.findFirst
+      .mockResolvedValueOnce(storedRow)
+      .mockImplementation(async (args: { where?: { inspection?: unknown } }) =>
+        args?.where?.inspection
+          ? null
+          : { sketchData: savedData, updatedAt: BUMPED_AT },
+      );
+
+    const res = await save(laundryOnly, { "x-sketch-revision": STORED_REVISION });
+
+    expect(res.status).toBe(404);
+    expect(p.sketchRoom.deleteMany).not.toHaveBeenCalled();
+    expect(p.sketchRoom.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("a save that loses the race with an active underlay leaves its verification in place", async () => {
+    p.sketchUnderlayReference.findFirst.mockResolvedValueOnce({ id: "underlay-1" });
+    p.claimSketch.update.mockRejectedValueOnce(p2025());
+    p.claimSketch.findFirst
+      .mockResolvedValueOnce(storedRow)
+      .mockResolvedValueOnce({ sketchData: savedData, updatedAt: BUMPED_AT });
+
+    const res = await save(laundryOnly, { "x-sketch-revision": STORED_REVISION });
+
+    expect(res.status).toBe(409);
+    expect(p.sketchUnderlayReference.update).not.toHaveBeenCalled();
+  });
+
+  it("a save that wins with an active underlay revokes its verification with the write", async () => {
+    p.sketchUnderlayReference.findFirst.mockResolvedValueOnce({ id: "underlay-1" });
+
+    const res = await save(laundryOnly, { "x-sketch-revision": STORED_REVISION });
+
+    expect(res.status).toBe(201);
+    expect(p.sketchUnderlayReference.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "underlay-1" }),
+        data: expect.objectContaining({ verifiedAt: null }),
+      }),
+    );
+  });
+});
+
+describe("RA-8239 the underlay verification receipt", () => {
+  it("hashes the drawing that is stored, when the server adds to it", async () => {
+    gate.storageConfigured = true;
+    p.sketchUnderlayReference.findFirst.mockResolvedValueOnce({ id: "underlay-2" });
+    // The Vision import recorded an AI room on another floor of this job, so
+    // the server writes that record into this floor's stored drawing too.
+    p.claimSketch.findMany.mockResolvedValueOnce([
+      { sketchData: { raSketchMeta: { aiSuggestedRoomIds: ["room-upstairs-ai"] } } },
+    ]);
+    const hall = {
+      type: "polygon",
+      points: [
+        { x: 0, y: 0 },
+        { x: 400, y: 0 },
+        { x: 400, y: 300 },
+      ],
+      data: { type: "room", id: "room-hall", label: "Hall", provenance: "operator_measured" },
+    };
+    const sketchData = {
+      raSketchMeta: { fieldComplete: true },
+      scaleConfig: {
+        pxPerMetre: 100,
+        description: "Known wall = 4 m",
+        pointA: { x: 0, y: 0 },
+        pointB: { x: 400, y: 0 },
+        realMetres: 4,
+      },
+      objects: [hall],
+    };
+
+    const res = await save(sketchData, { "x-sketch-revision": STORED_REVISION }, {
+      requestCanonicalRender: true,
+      confirmUnderlayVerification: true,
+    });
+
+    expect(res.status).toBe(201);
+    const stored = p.claimSketch.update.mock.calls[0][0].data.sketchData;
+    expect(stored).not.toEqual(sketchData);
+    const receipts = p.sketchUnderlayReference.update.mock.calls
+      .map(
+        (call: unknown[]) =>
+          (call[0] as { data?: { verificationJson?: { sketchSha256?: string } } }).data
+            ?.verificationJson,
+      )
+      .filter(Boolean);
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]?.sketchSha256).toBe(
+      createHash("sha256").update(stableStringify(stored)).digest("hex"),
+    );
+  });
+});
+
+describe("RA-8239 provenance is never resolved blind", () => {
+  it("refuses the save, writing nothing, when the job's AI room history cannot be read", async () => {
+    p.claimSketch.findMany.mockRejectedValueOnce(new Error("connection reset"));
+
+    const res = await save(laundryOnly, { "x-sketch-revision": STORED_REVISION });
+
+    expect(res.status).toBe(503);
+    expectNothingWritten();
   });
 });

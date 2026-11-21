@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Circle, Clock, User, Mail } from "lucide-react";
+import { CheckCircle, Circle, Clock, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Signatory {
@@ -34,7 +34,7 @@ interface SignatoryFlowTimelineProps {
 export function SignatoryFlowTimeline({
   signatories,
   className,
-  compact = false,
+  compact: _compact = false,
 }: SignatoryFlowTimelineProps) {
   if (signatories.length === 0) {
     return null;

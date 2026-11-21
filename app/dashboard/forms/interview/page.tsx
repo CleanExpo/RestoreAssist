@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -40,7 +40,11 @@ import {
  * View-only summary: ?sessionId=<id> (no formTemplateId) shows completed interview Q&A.
  */
 export default function InterviewPage() {
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const rawSearchParams = useSearchParams();
+  const searchParams = useMemo(
+    () => rawSearchParams ?? new URLSearchParams(),
+    [rawSearchParams],
+  );
   const router = useRouter();
   const formTemplateId = searchParams.get("formTemplateId") || "";
   const reportId = searchParams.get("reportId");

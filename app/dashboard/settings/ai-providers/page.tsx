@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { parseAiProviderQueryParam } from "@/lib/onboarding/ai-provider-step";
 import {
@@ -13,7 +13,6 @@ import {
   Loader2,
   Plus,
   RefreshCw,
-  Trash2,
   X,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -126,7 +125,11 @@ const STATUS_COLOUR: Record<ConnectionStatus, string> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AiProvidersPage() {
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const rawSearchParams = useSearchParams();
+  const searchParams = useMemo(
+    () => rawSearchParams ?? new URLSearchParams(),
+    [rawSearchParams],
+  );
   const [wsStatus, setWsStatus] = useState<WorkspaceStatus | null>(null);
   const [connections, setConnections] = useState<ProviderConnectionSummary[]>(
     [],

@@ -65,14 +65,12 @@ import {
   countChangedPixels,
   flatPng,
   genuineImage,
-  makeJpeg,
   makeJpegWithoutScan,
   makeOrientedJpeg,
   makeTruncatedScanJpeg,
   makePng,
   makePngWithGarbageIdat,
   makePngWithoutIdat,
-  makeWebp,
   makeWebpCanvasOnly,
 } from "@/lib/media/__tests__/image-fixtures";
 

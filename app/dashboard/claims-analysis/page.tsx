@@ -29,7 +29,6 @@ import {
   Search,
   Copy,
   ChevronDown,
-  ChevronRight,
   FolderOpen,
   X,
   Clock,
@@ -41,9 +40,8 @@ import { exportClaimsCSV, exportClaimsPDF } from "@/lib/claims-export";
 import { GoogleDriveFolderPicker } from "@/components/claims/GoogleDriveFolderPicker";
 import {
   StandardsBadge,
-  StandardsGroup,
 } from "@/components/claims/StandardsBadge";
-import { ScoreRing, ScoreRingGroup } from "@/components/claims/ScoreRing";
+import { ScoreRingGroup } from "@/components/claims/ScoreRing";
 import { StatCard, StatCardGrid } from "@/components/claims/StatCard";
 import {
   SeverityDistributionChart,
@@ -166,7 +164,7 @@ interface DriveFile {
 }
 
 export default function ClaimsAnalysisPage() {
-  const { data: session } = useSession();
+  const { data: _session } = useSession();
   const [folderId, setFolderId] = useState("");
   const [folderName, setFolderName] = useState("");
   const [files, setFiles] = useState<DriveFile[]>([]);
@@ -484,7 +482,7 @@ export default function ClaimsAnalysisPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const _getStatusColor = (status: string) => {
     switch (status) {
       case "COMPLETED":
         return "bg-green-500";
@@ -529,13 +527,13 @@ export default function ClaimsAnalysisPage() {
     }
   };
 
-  const getScoreColor = (score: number) => {
+  const _getScoreColor = (score: number) => {
     if (score >= 80) return "text-success";
     if (score >= 60) return "text-yellow-600 dark:text-yellow-400";
     return "text-destructive";
   };
 
-  const resetAnalysis = () => {
+  const _resetAnalysis = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;

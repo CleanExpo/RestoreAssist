@@ -195,7 +195,7 @@ export function formatChartData(
 
   return Array.from(grouped.values())
     .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
-    .map(({ dateObj, ...rest }) => rest);
+    .map(({ dateObj: _dateObj, ...rest }) => rest);
 }
 
 /**
@@ -287,7 +287,7 @@ export function generateForecast(
 }> {
   const regression = linearRegression(historicalData);
   const lastX = historicalData[historicalData.length - 1]?.x || 0;
-  const lastY = historicalData[historicalData.length - 1]?.y || 0;
+  const _lastY = historicalData[historicalData.length - 1]?.y || 0;
 
   const result = [
     ...historicalData.map((p) => ({
@@ -304,7 +304,7 @@ export function generateForecast(
   const rmse = Math.sqrt(
     residuals.reduce((sum, r) => sum + r * r, 0) / historicalData.length,
   );
-  const standardError = rmse / Math.sqrt(historicalData.length);
+  const _standardError = rmse / Math.sqrt(historicalData.length);
 
   for (let i = 1; i <= daysToForecast; i++) {
     const x = lastX + i;

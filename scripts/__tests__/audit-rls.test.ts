@@ -5,7 +5,7 @@
  * breaks coverage or reverts a 2026-06-16 hardening migration fails here.
  */
 import { describe, expect, it } from "vitest";
-import { runRlsAudit } from "../audit-rls";
+import { runRlsAudit } from "../lib/audit-rls";
 
 describe("audit-rls standalone gate", () => {
   const result = runRlsAudit();

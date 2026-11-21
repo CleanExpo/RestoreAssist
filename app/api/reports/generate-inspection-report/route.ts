@@ -12,7 +12,6 @@ import {
   reportGenUnexpectedKeyFailureCopy,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import {
-  hasValue,
   extractMaterialsFromReport,
 } from "@/lib/reports/extract-report-data";
 import { buildInspectionReportPrompt } from "@/lib/reports/generate-report-ai";
@@ -447,7 +446,7 @@ export async function POST(request: NextRequest) {
           costEstimates: nirData.costEstimates || [],
         };
       }
-    } catch (error) {
+    } catch {
       // Continue without NIR data - report generation will use other Report model data
       inspectionData = null;
     }

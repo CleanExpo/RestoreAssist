@@ -61,7 +61,7 @@ export function generateInvoiceSentEmail(data: InvoiceEmailData): string {
     invoiceNumber,
     invoiceDate,
     dueDate,
-    totalIncGST,
+    totalIncGST: _totalIncGST,
     amountDue,
     customerName,
     publicToken,

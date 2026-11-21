@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -138,7 +138,11 @@ const TABS: { label: string; value: FilterType }[] = [
 
 function SearchPageInner() {
   const router = useRouter();
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const rawSearchParams = useSearchParams();
+  const searchParams = useMemo(
+    () => rawSearchParams ?? new URLSearchParams(),
+    [rawSearchParams],
+  );
 
   const initialQuery = searchParams.get("q") ?? "";
   const initialType = (searchParams.get("type") as FilterType) ?? "all";

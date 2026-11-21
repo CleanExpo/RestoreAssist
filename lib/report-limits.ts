@@ -95,7 +95,7 @@ export async function getUserReportLimits(
       // the cap never truncates real data yet closes the unbounded-growth risk.
       take: 1000,
     });
-  } catch (error: any) {
+  } catch {
     // If AddonPurchase model doesn't exist yet, just use addonReports field
   }
 

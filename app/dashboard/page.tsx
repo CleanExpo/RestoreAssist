@@ -345,7 +345,11 @@ function DashboardContent({
   workspaceNotice?: { message: string; onRetry: () => void } | null;
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const rawSearchParams = useSearchParams();
+  const searchParams = useMemo(
+    () => rawSearchParams ?? new URLSearchParams(),
+    [rawSearchParams],
+  );
 
   useEffect(() => {
     const isWelcome = searchParams?.get("welcome") === "1";

@@ -16,7 +16,6 @@ import {
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import BillingGate from "@/components/capacitor/BillingGate";
 
 interface ReportLimits {
@@ -108,7 +107,7 @@ export default function CreditsPage() {
 }
 
 function CreditsPageContent() {
-  const { data: session, status: sessionStatus } = useSession();
+  const { data: _session, status: sessionStatus } = useSession();
   const [data, setData] = useState<CreditData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -139,7 +138,7 @@ function CreditsPageContent() {
         trialStatus: p.trialStatus ?? null,
       });
       setError(null);
-    } catch (err) {
+    } catch {
       setError("Could not load credit information. Please refresh.");
     } finally {
       setLoading(false);

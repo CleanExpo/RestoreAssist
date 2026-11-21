@@ -61,7 +61,6 @@ export function logAiUsage(input: AiUsageLogInput): void {
           latencyMs: input.latencyMs,
           success: input.success,
           errorType: input.errorType ?? null,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           metadata: (input.metadata ?? undefined) as any,
         },
       })

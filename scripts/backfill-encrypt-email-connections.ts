@@ -21,7 +21,7 @@ import {
   isEncryptedEmailConnectionToken,
 } from "@/lib/email/email-connection-tokens";
 import { assertDirectDatabaseUrl } from "./assert-direct-database-url.mjs";
-import { assertExpectedLogicalIdentity } from "./verify-database-identity.mjs";
+import { assertExpectedLogicalIdentity } from "./lib/verify-database-identity.mjs";
 import {
   pgMigrateSslOption,
   withRequireAsNoVerify,

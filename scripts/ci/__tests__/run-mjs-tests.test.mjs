@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { findDrift, readManifest } from "../run-mjs-tests.mjs";
+import { findDrift, readManifest } from "../lib/run-mjs-tests.mjs";
 
 function manifestFile(lines) {
   const dir = mkdtempSync(path.join(tmpdir(), "ra-mjs-manifest-"));

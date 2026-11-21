@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { loadAndValidate } from "./validate-paid-pilot-package.mjs";
+import { loadAndValidate } from "./lib/validate-paid-pilot-package.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

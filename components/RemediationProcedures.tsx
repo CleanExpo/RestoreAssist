@@ -6,16 +6,8 @@ import {
   AlertTriangle,
   Shield,
   Droplets,
-  Wind,
-  Thermometer,
   CheckCircle,
-  XCircle,
   Users,
-  Zap,
-  Home,
-  FileText,
-  Clock,
-  Activity,
 } from "lucide-react";
 
 interface RemediationProceduresProps {
@@ -29,8 +21,8 @@ interface RemediationProceduresProps {
 
 export default function RemediationProcedures({
   waterCategory,
-  waterClass,
-  affectedArea,
+  waterClass: _waterClass,
+  affectedArea: _affectedArea,
   safetyHazards,
   onUpdate,
   initialData,

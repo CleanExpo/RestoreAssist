@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateAdvisors, type AdvisorLint } from "../supabase-advisor-gate";
+import { evaluateAdvisors, type AdvisorLint } from "../lib/supabase-advisor-gate";
 
 // Mirrors the real prod advisor shape (restoreassist-prod-2026): only INFO/WARN.
 const GREEN_FIXTURE: AdvisorLint[] = [

@@ -12,7 +12,7 @@ import {
   upsertChunk,
   type CorpusEntry,
   type EmbeddingProvider,
-} from "../ingest-standards.js";
+} from "../lib/ingest-standards.js";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, posix, win32 } from "node:path";
 import test from "node:test";
 
-import { findReleaseBootstrapViolations, isPathStrictlyInside } from "../check-release-bootstrap.mjs";
+import { findReleaseBootstrapViolations, isPathStrictlyInside } from "../lib/check-release-bootstrap.mjs";
 
 const PIN = "3d3c42e5aac5ba805825da76410c181273ba90b1";
 const APPROVED_ENV = [

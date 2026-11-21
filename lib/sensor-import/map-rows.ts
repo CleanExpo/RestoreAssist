@@ -323,8 +323,14 @@ function inRange(value: number, range: { min: number; max: number }): boolean {
 
 const AFTER_SIGN_BLOCKERS = /[=(|!*/^]/;
 
+// RA-8474: invisible format characters (Unicode Cf: zero-width space, byte-order
+// mark, joiners, soft hyphen) render as nothing, so a value that starts with
+// them is judged by what follows. Such a value is refused, never stripped.
+const LEADING_FORMAT_CHARS = /^\p{Cf}+/u;
+
 /** True when a spreadsheet would treat the value as a formula if it were ever exported and opened. */
-function isFormulaLeading(value: string): boolean {
+function isFormulaLeading(raw: string): boolean {
+  const value = raw.replace(LEADING_FORMAT_CHARS, "");
   if (value.length === 0) return false;
   const first = value.charAt(0);
   if (first === "=" || first === "@" || first === "\t" || first === "\r") return true;

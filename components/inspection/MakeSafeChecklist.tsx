@@ -206,7 +206,6 @@ const MakeSafeChecklistForInspection = forwardRef<
   useEffect(() => {
     if (data?.data && usableSeed) applyQuickFill(usableSeed);
     // applyQuickFill reads refs and the state updater only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, usableSeed]);
 
   useImperativeHandle(

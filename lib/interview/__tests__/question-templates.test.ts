@@ -9,7 +9,6 @@ import {
   getQuestionsForSubscriptionTier,
 } from "../question-templates";
 import { QuestionGenerationEngine } from "../question-generation-engine";
-import { Question } from "../types";
 
 describe("Interview Question Templates", () => {
   describe("Library Structure", () => {
@@ -247,7 +246,7 @@ describe("Interview Question Templates", () => {
 
   describe("Conditional Shows", () => {
     it("conditional show rules should reference valid fields", () => {
-      const validFieldTypes = [
+      const _validFieldTypes = [
         "water_source",
         "time_since_loss",
         "affected_area_percentage",

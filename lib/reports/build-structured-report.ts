@@ -14,7 +14,6 @@ import {
 } from "@/lib/restoration/plan-inputs";
 import {
   requiredPpe,
-  type HazardProfile,
   type MouldCondition,
 } from "@/lib/restoration/ppe-requirements";
 import {
@@ -253,7 +252,7 @@ export function buildStructuredBasicReport(data: {
           }
         });
       }
-    } catch (e) {
+    } catch {
       // Not JSON, skip
     }
   }

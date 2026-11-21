@@ -7,10 +7,8 @@ import {
   MapPin,
   Camera,
   CheckCircle,
-  AlertCircle,
   Plus,
   X,
-  Save,
   ArrowRight,
   Loader2,
   Sparkles,
@@ -18,11 +16,9 @@ import {
   Trash2,
   Pencil,
   Upload,
-  FileImage,
   Map,
   Shield,
   Zap,
-  Eye,
   Locate,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -737,12 +733,6 @@ export default function NIRTechnicianInputForm({
     // choice is made with the Category / Class selectors below.
   }, [initialData]);
 
-  // Initialize inspection if reportId provided
-  useEffect(() => {
-    if (reportId && !inspectionId) {
-      initializeInspection();
-    }
-  }, [reportId]);
 
   // Fetch Quick Fill credits on mount
   useEffect(() => {
@@ -892,6 +882,20 @@ export default function NIRTechnicianInputForm({
     }
   };
 
+  // Initialize inspection if reportId provided
+  // Latest-value ref: initialise only when reportId changes, but always with
+  // the current inspectionId / initializer closure.
+  const initInspectionRef = useRef({ inspectionId, initializeInspection });
+  useEffect(() => {
+    initInspectionRef.current = { inspectionId, initializeInspection };
+  });
+  useEffect(() => {
+    const latest = initInspectionRef.current;
+    if (reportId && !latest.inspectionId) {
+      latest.initializeInspection();
+    }
+  }, [reportId]);
+
   const linkedAreaConflict = linkedReadingsAreaConflict(moistureReadings, affectedAreas);
   const unlinkedAreaAmbiguity = unlinkedReadingsAreaAmbiguity(moistureReadings, affectedAreas);
 
@@ -1012,7 +1016,7 @@ export default function NIRTechnicianInputForm({
     return errors;
   };
 
-  const validateForm = (options?: { forSubmit?: boolean }): boolean => {
+  const _validateForm = (options?: { forSubmit?: boolean }): boolean => {
     const errors = collectValidationErrors(options);
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -2556,7 +2560,7 @@ export default function NIRTechnicianInputForm({
                     );
                   }
                 }
-              } catch (error) {
+              } catch {
                 toast.error("Failed to check Quick Fill credits");
               } finally {
                 setLoadingCredits(false);

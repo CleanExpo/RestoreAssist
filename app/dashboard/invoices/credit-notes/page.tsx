@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -329,6 +329,8 @@ function ExpandedDetailRow({ creditNote }: ExpandedRowProps) {
 export default function CreditNotesPage() {
   const { status: authStatus } = useSession();
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
 
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -339,7 +341,7 @@ export default function CreditNotesPage() {
   // Redirect if unauthenticated
   useEffect(() => {
     if (authStatus === "unauthenticated") {
-      router.push("/login");
+      routerRef.current.push("/login");
     } else if (authStatus === "authenticated") {
       fetchCreditNotes();
     }

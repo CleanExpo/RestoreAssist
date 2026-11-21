@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -11,7 +10,6 @@ import {
   ResponsiveContainer,
   ComposedChart,
   Area,
-  AreaChart,
 } from "recharts";
 import { Loader2, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";

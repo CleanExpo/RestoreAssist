@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  parseServicesOffered,
+  serialiseServicesOffered,
+} from "@/lib/crm/service-catalogue";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -125,6 +129,15 @@ export async function PUT(request: NextRequest) {
     const slug =
       existing?.slug ?? (await findFreeSlug(slugify(user?.businessName)));
 
+    // RA-8220: the service catalogue is stored as normalised v1 JSON. A body
+    // without the key leaves the stored value untouched (undefined = no change).
+    const storedServices =
+      servicesOffered === undefined
+        ? undefined
+        : typeof servicesOffered === "string"
+          ? serialiseServicesOffered(parseServicesOffered(servicesOffered))
+          : serialiseServicesOffered(servicesOffered ?? {});
+
     // Upsert contractor profile
     const profile = await prisma.contractorProfile.upsert({
       where: { userId: session.user.id },
@@ -137,7 +150,7 @@ export async function PUT(request: NextRequest) {
         insuranceCertificate,
         isPubliclyVisible: isPubliclyVisible ?? true,
         specializations: specializations || [],
-        servicesOffered,
+        servicesOffered: storedServices,
         searchKeywords: searchKeywords || [],
       },
       update: {
@@ -147,7 +160,7 @@ export async function PUT(request: NextRequest) {
         insuranceCertificate,
         isPubliclyVisible: isPubliclyVisible ?? true,
         specializations: specializations || [],
-        servicesOffered,
+        servicesOffered: storedServices,
         searchKeywords: searchKeywords || [],
       },
       include: {

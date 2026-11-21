@@ -23,7 +23,10 @@ const source = readFileSync(
 
 function startAnalysisSource(): string {
   const start = source.indexOf("  const startAnalysis = async () => {");
-  const end = source.indexOf("\n  const getStatusColor", start);
+  // The next top-level declaration after startAnalysis, whatever it is called
+  // (an unused helper there was renamed with a leading underscore by the lint cleanup).
+  const next = source.slice(start + 1).search(/\n {2}const [A-Za-z_]/);
+  const end = next < 0 ? -1 : start + 1 + next;
   if (start < 0 || end < 0) throw new Error("startAnalysis not found in page.tsx");
   // Component-level values startAnalysis reads, taken from the page itself.
   const prelude = [

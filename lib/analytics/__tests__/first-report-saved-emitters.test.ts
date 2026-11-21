@@ -66,6 +66,8 @@ const h = vi.hoisted(() => {
     scopeItem: { create: fn(), createMany: fn() },
     costEstimate: { createMany: fn() },
     moistureReading: { create: fn() },
+    // RA-8220: seed-demo records two sent update emails for the client timeline.
+    clientCommsLog: { create: fn() },
     integration: { findFirst: fn(), findMany: fn() },
     externalJob: { findMany: fn(), update: fn() },
     externalClient: { findFirst: fn() },
@@ -365,6 +367,7 @@ beforeEach(() => {
   h.db.scopeItem.createMany.mockResolvedValue({ count: 0 });
   h.db.costEstimate.createMany.mockResolvedValue({ count: 0 });
   h.db.moistureReading.create.mockResolvedValue({});
+  h.db.clientCommsLog.create.mockResolvedValue({});
 });
 
 // ═════════════════════════════════════════════════════════════════════════════

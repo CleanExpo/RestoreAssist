@@ -16,8 +16,15 @@
  */
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Search, X, SlidersHorizontal, ChevronDown } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import { Search, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -74,7 +81,11 @@ const SORT_OPTIONS = [
 export function useInspectionFilters() {
   const router = useRouter();
   const pathname = usePathname() ?? "";
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const rawSearchParams = useSearchParams();
+  const searchParams = useMemo(
+    () => rawSearchParams ?? new URLSearchParams(),
+    [rawSearchParams],
+  );
   const [isPending, startTransition] = useTransition();
 
   const filters = parseFilters(searchParams);

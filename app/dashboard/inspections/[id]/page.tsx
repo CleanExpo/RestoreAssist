@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, use, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -130,6 +130,8 @@ const AutoClassifyPanel = dynamic(
 // silently drops the completion UI when canSignOff is true.
 import InspectionSignOff from "@/components/inspection/InspectionSignOff";
 import { FieldEvidenceChecklistPanel } from "@/components/inspections/field-evidence-checklist-panel";
+import { CarsiTrainingPanel } from "@/components/inspection/CarsiTrainingPanel";
+import { NextServicePanel } from "@/components/inspection/NextServicePanel";
 // SP-A — close-job Sidekick card. Mounts conditional on IN_BILLING status
 // (or once-closed render of the locked terminal card via `completedAt`).
 const CloseJobPrompt = dynamic(
@@ -150,7 +152,6 @@ import {
   Thermometer,
   AlertTriangle,
   ClipboardCheck,
-  FileText,
   DollarSign,
   Camera,
   Shield,
@@ -626,10 +627,6 @@ export default function InspectionDetailPage({
   // (no Settings toggle). Legal flag still gates the scrape UI/API.
   const [autoFetchFloorPlan, setAutoFetchFloorPlan] = useState(false);
 
-  useEffect(() => {
-    fetchInspection();
-  }, [id]);
-
   const refetchSketchRooms = useCallback(async () => {
     try {
       const res = await fetch(`/api/inspections/${id}/sketches`);
@@ -693,7 +690,7 @@ export default function InspectionDetailPage({
     [moistureReadings],
   );
 
-  const fetchInspection = async () => {
+  const fetchInspection = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
@@ -740,9 +737,13 @@ export default function InspectionDetailPage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const refreshPhotos = async () => {
+  useEffect(() => {
+    fetchInspection();
+  }, [fetchInspection]);
+
+  const refreshPhotos = useCallback(async () => {
     try {
       const response = await fetch(`/api/inspections/${id}/photos`, { cache: "no-store" });
       if (!response.ok) return;
@@ -752,11 +753,11 @@ export default function InspectionDetailPage({
     } catch {
       // The queued copy remains available for another read or manual retry.
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (activeTab === "photos" && !loading) void refreshPhotos();
-  }, [activeTab, id, loading]);
+  }, [activeTab, loading, refreshPhotos]);
 
   const handleDeletePhoto = async (photoId: string) => {
     const ok = await confirm.ask({
@@ -1707,6 +1708,9 @@ export default function InspectionDetailPage({
         </h2>
         <StatusTimeline currentStatus={inspection.status} />
       </section>
+
+      <CarsiTrainingPanel claimType={inspection.claimType} />
+      <NextServicePanel inspectionId={inspection.id} />
 
       <InspectionEvidenceReadinessPanel
         claimType={inspection.claimType}

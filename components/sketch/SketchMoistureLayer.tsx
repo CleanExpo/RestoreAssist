@@ -13,7 +13,7 @@
  *   Class 4 (≥ 40%)     → red
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { X, Droplets } from "lucide-react";
 import {
@@ -87,11 +87,14 @@ export function SketchMoistureLayer({
   className,
 }: SketchMoistureLayerProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const vpt =
-    overlayViewport ??
-    (canvasZoom === 1 || !canvasZoom
-      ? IDENTITY_OVERLAY_VIEWPORT
-      : { zoom: canvasZoom, panX: 0, panY: 0 });
+  const vpt = useMemo(
+    () =>
+      overlayViewport ??
+      (canvasZoom === 1 || !canvasZoom
+        ? IDENTITY_OVERLAY_VIEWPORT
+        : { zoom: canvasZoom, panX: 0, panY: 0 }),
+    [overlayViewport, canvasZoom],
+  );
 
   // ── Drop new pin ─────────────────────────────────────────
   const handleLayerClick = useCallback(
@@ -128,9 +131,7 @@ export function SketchMoistureLayer({
       active,
       pins,
       onChange,
-      vpt.zoom,
-      vpt.panX,
-      vpt.panY,
+      vpt,
       width,
       height,
       clipRoomPoints,

@@ -40,6 +40,8 @@ import { normalizeClaimType } from "@/lib/evidence/claim-type";
  */
 export interface InspectionPrefillSource {
   inspectionNumber?: string | null;
+  /** RA-8495: the organisation's own job number (office intake), when issued. */
+  jobNumber?: string | null;
   propertyAddress?: string | null;
   propertyPostcode?: string | null;
   inspectionDate?: Date | string | null;
@@ -180,7 +182,9 @@ export function buildReportPrefill(
     if (value !== undefined) fields[key] = value;
   };
 
-  set("jobNumber", text(inspection.inspectionNumber));
+  // RA-8495: the office quotes its own number (e.g. DRC-0001) to builders and
+  // adjusters, so the report carries it; older jobs fall back to the NIR number.
+  set("jobNumber", text(inspection.jobNumber) ?? text(inspection.inspectionNumber));
   set("propertyAddress", text(inspection.propertyAddress));
   set("propertyPostcode", text(inspection.propertyPostcode));
   set("technicianName", text(inspection.technicianName));

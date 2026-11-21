@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         .map((p) => p.stripeSessionId)
         .filter((id): id is string => id !== null);
       canUsePurchaseTable = true;
-    } catch (error: any) {
+    } catch {
       canUsePurchaseTable = false;
     }
 
@@ -127,13 +127,13 @@ export async function POST(request: NextRequest) {
 
         // CRITICAL: Create purchase record FIRST (to prevent duplicates)
         // This acts as a unique lock - if creation fails, purchase was already processed
-        let purchaseRecord = null;
+        let _purchaseRecord = null;
         let shouldProcess = false;
 
         if (canUsePurchaseTable) {
           try {
             // Try to create the record - this will fail if it already exists (unique constraint)
-            purchaseRecord = await prisma.addonPurchase.create({
+            _purchaseRecord = await prisma.addonPurchase.create({
               data: {
                 userId: session.user.id,
                 addonKey: addonKey,
@@ -171,13 +171,13 @@ export async function POST(request: NextRequest) {
         }
 
         // Get current user value before update
-        const userBefore = await prisma.user.findUnique({
+        const _userBefore = await prisma.user.findUnique({
           where: { id: session.user.id },
           select: { addonReports: true },
         });
 
         // ALWAYS update user's addonReports (works with or without table)
-        const updatedUser = await prisma.user.update({
+        const _updatedUser = await prisma.user.update({
           where: { id: session.user.id },
           data: {
             addonReports: {

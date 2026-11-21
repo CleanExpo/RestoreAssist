@@ -337,7 +337,9 @@ describe("AC-5 numbers and units", () => {
   });
 });
 
-const UNSAFE = ['=HYPERLINK("x")', "@x", "\tTabbed", "\rReturned", "-1+cmd|x", "-2*3", "<b>=x", "<b> =x", "<i></i>@x"];
+// RA-8474: the last four hide the formula prefix behind invisible format
+// characters (zero-width space, byte-order mark, joiners, soft hyphen).
+const UNSAFE = ['=HYPERLINK("x")', "@x", "\tTabbed", "\rReturned", "-1+cmd|x", "-2*3", "<b>=x", "<b> =x", "<i></i>@x", "\u200B=cmd", "\uFEFF@x", "\u200D\u2060+SUM(A1)", "\u00AD\t=x"];
 
 describe("AC-6 text guard", () => {
   const T = "2026-01-15 09:30";

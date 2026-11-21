@@ -6,7 +6,6 @@ import {
   Calendar,
   CheckCircle,
   ClipboardCheck,
-  DollarSign,
   Droplet,
   FileText,
   HardHat,
@@ -321,8 +320,8 @@ const LEAD_ERA_QUALIFIER =
 export default function RestorationInspectionReportViewer({
   data,
 }: RestorationInspectionReportViewerProps) {
-  const [detailedAnalysis, setDetailedAnalysis] = useState<any>(null);
-  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+  const [_detailedAnalysis, _setDetailedAnalysis] = useState<any>(null);
+  const [_loadingAnalysis, _setLoadingAnalysis] = useState(false);
   const jurisdiction = viewerJurisdiction({
     state: data.compliance?.state ?? data.property?.state,
     workSafetyAuthority: data.compliance?.workSafetyAuthority,
@@ -2410,7 +2409,6 @@ export default function RestorationInspectionReportViewer({
                       key={i}
                       className="border border-slate-200 rounded-lg overflow-hidden"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={floor.imageUrl!}
                         alt={floor.floorLabel ?? `Floor ${floor.floorNumber}`}

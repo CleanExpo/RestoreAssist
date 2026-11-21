@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { MapPin, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
@@ -51,6 +51,8 @@ const defaultForm = {
 export default function ServiceAreasPage() {
   const { status } = useSession();
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const confirm = useConfirmDialog();
 
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
@@ -67,7 +69,7 @@ export default function ServiceAreasPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/login");
+      routerRef.current.push("/login");
     } else if (status === "authenticated") {
       loadServiceAreas();
     }

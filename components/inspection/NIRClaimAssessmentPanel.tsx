@@ -1521,8 +1521,8 @@ const NIRClaimAssessmentPanel = forwardRef<
   );
   const [asbestosWarning, setAsbestosWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [savingCompliance, setSavingCompliance] = useState(false);
+  const [_saving, setSaving] = useState(false);
+  const [_savingCompliance, setSavingCompliance] = useState(false);
   const [gates, setGates] = useState<Record<string, boolean>>({});
   // RA-8330: the Quick Fill seed must survive the first load. A claim with no
   // saved record (404) starts from the seed, not an empty form.
@@ -1746,18 +1746,23 @@ const NIRClaimAssessmentPanel = forwardRef<
     }
   };
 
+  const persistFnsRef = useRef({ persistAssessment, persistCompliance });
+  useEffect(() => {
+    persistFnsRef.current = { persistAssessment, persistCompliance };
+  });
+
   useImperativeHandle(
     ref,
     () => ({
-      persistAssessment: () => persistAssessment({ silent: true }),
-      persistCompliance: () => persistCompliance({ silent: true }),
+      persistAssessment: () => persistFnsRef.current.persistAssessment({ silent: true }),
+      persistCompliance: () => persistFnsRef.current.persistCompliance({ silent: true }),
       isReady: () => assessmentLoadedRef.current && complianceLoadedRef.current,
       persist: async () => {
         if (!(assessmentLoadedRef.current && complianceLoadedRef.current)) {
           throw new Error("Claim assessment is still loading");
         }
-        await persistAssessment({ silent: true });
-        await persistCompliance({ silent: true });
+        await persistFnsRef.current.persistAssessment({ silent: true });
+        await persistFnsRef.current.persistCompliance({ silent: true });
       },
       applyQuickFillSeed: (seed) => {
         if (seed.assessment) {
@@ -1777,7 +1782,7 @@ const NIRClaimAssessmentPanel = forwardRef<
         }
       },
     }),
-    [inspectionId, onWaterClassificationSaved],
+    [onWaterClassificationSaved],
   );
 
   // ── Add contents item ───────────────────────────────────────────────────────

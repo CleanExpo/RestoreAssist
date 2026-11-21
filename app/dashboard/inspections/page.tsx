@@ -182,7 +182,10 @@ export default function InspectionsPage() {
   const listError: ParsedApiError | null = fetchError
     ? { code: "UNKNOWN", message: fetchError, status: 0 }
     : null;
-  const inspections = inspectionsData?.inspections ?? [];
+  const inspections = useMemo(
+    () => inspectionsData?.inspections ?? [],
+    [inspectionsData],
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -364,6 +367,7 @@ export default function InspectionsPage() {
         }
         secondaryLinks={[
           { href: "/dashboard", label: "Overview" },
+          { href: "/dashboard/inspections/intake", label: "Log a job" },
           { href: "/dashboard/inspections/schedule", label: "Schedule" },
           { href: "/dashboard/field", label: "Field capture" },
           { href: "/dashboard/reports", label: "Reports" },
