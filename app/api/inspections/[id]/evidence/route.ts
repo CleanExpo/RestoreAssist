@@ -54,7 +54,10 @@ import {
 import { isSignedCaptureDuplicate } from "@/lib/evidence/signed-capture-key";
 import { evidenceBacksReadingRefusal } from "@/lib/evidence/signed-row-guard";
 import { verifyEvidenceSubmission } from "@/lib/evidence/verified-evidence-gate";
-import { isVideoEvidenceClass } from "@/lib/evidence/evidence-classes";
+import {
+  checkEvidenceFileMedia,
+  fileMediaKindForEvidenceClass,
+} from "@/lib/evidence/file-media-kind";
 import { evaluateUnsignedSubmission } from "@/lib/evidence/signing-policy";
 
 /**
@@ -740,7 +743,8 @@ async function handleMultipartEvidencePost(
         status: 400,
       });
     }
-    const isVideoClass = isVideoEvidenceClass(evidenceClass);
+    const mediaKind = fileMediaKindForEvidenceClass(evidenceClass);
+    const isVideoClass = mediaKind === "video";
 
     // Guard before arrayBuffer() — multipart bypasses Next.js body size limits.
     const MAX_EVIDENCE_BYTES = 20 * 1024 * 1024; // 20 MB — matches /photos
@@ -751,97 +755,40 @@ async function handleMultipartEvidencePost(
         code: "VALIDATION",
         message: isVideoClass
           ? "Video too large — maximum 100 MB. Record a shorter clip."
-          : "File too large — maximum 20 MB per evidence photo",
+          : mediaKind === "audio"
+            ? "Voice memo too large — maximum 20 MB. Record a shorter memo."
+            : "File too large — maximum 20 MB per evidence photo",
         status: 413,
       });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Magic-byte validation — prevents Content-Type spoofing (mirrors /photos)
-    const isJpeg =
-      buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-    const isPng =
-      buffer[0] === 0x89 &&
-      buffer[1] === 0x50 &&
-      buffer[2] === 0x4e &&
-      buffer[3] === 0x47;
-    const isGif =
-      buffer[0] === 0x47 &&
-      buffer[1] === 0x49 &&
-      buffer[2] === 0x46 &&
-      buffer[3] === 0x38;
-    const isWebp =
-      buffer[0] === 0x52 &&
-      buffer[1] === 0x49 &&
-      buffer[2] === 0x46 &&
-      buffer[3] === 0x46 &&
-      buffer[8] === 0x57 &&
-      buffer[9] === 0x45 &&
-      buffer[10] === 0x42 &&
-      buffer[11] === 0x50;
-    // MP4 / MOV carry an ISO-BMFF "ftyp" box at offset 4; WebM is EBML.
-    // HEIF/AVIF stills share the ftyp box, so their image brands are refused.
-    const ftypBrand = buffer.subarray(8, 12).toString("latin1");
-    const IMAGE_FTYP_BRANDS = new Set([
-      "heic", "heix", "heim", "heis", "hevc", "hevx", "hevm", "hevs",
-      "mif1", "msf1", "avif", "avis",
-    ]);
-    const isVideo =
-      (buffer[4] === 0x66 &&
-        buffer[5] === 0x74 &&
-        buffer[6] === 0x79 &&
-        buffer[7] === 0x70 &&
-        !IMAGE_FTYP_BRANDS.has(ftypBrand)) ||
-      (buffer[0] === 0x1a &&
-        buffer[1] === 0x45 &&
-        buffer[2] === 0xdf &&
-        buffer[3] === 0xa3);
-    const isImage = isJpeg || isPng || isGif || isWebp;
-    if (isVideoClass ? !isVideo : !isImage) {
+    // RA-8407: the file must be the kind of media its class names. Checked
+    // on the declared part type AND the file's own leading bytes, never the
+    // file name. This used to treat every class except VIDEO_WALKTHROUGH as
+    // a photograph, so a signed VOICE_MEMO of JPEG bytes was stored as a
+    // verified `image/jpeg`. One owner decides; see file-media-kind.ts.
+    //
+    // RA-8388 round 1: the type this route RECORDS is the type the bytes
+    // proved, not the type the part declared. One value, used for the stored
+    // object, `EvidenceItem.fileMimeType`, `InspectionPhoto.mimeType` and the
+    // photograph rule, so whatever reads the record later is given what this
+    // route was given.
+    const declaredType = file.type;
+    const media = checkEvidenceFileMedia({
+      evidenceClass,
+      declaredType,
+      bytes: buffer,
+    });
+    if (!media.ok) {
       return apiError(request, {
         code: "VALIDATION",
-        message: isVideoClass
-          ? "Invalid file type. Video walkthroughs must be MP4, MOV or WebM."
-          : "Invalid file type. Only images are allowed.",
+        message: media.message,
         status: 400,
       });
     }
-
-    // RA-8388 round 1: the type this route RECORDS is the type the check
-    // above proved, not the type the part declared.
-    //
-    // It used to decide "is this a photograph" from the raw `file.type` and
-    // store `file.type || "image/jpeg"`. Those are two different values, so a
-    // real JPEG whose part declared no image type was saved and never
-    // counted, while the backfill, reading the stored column, would count
-    // it later: two writers, two rules. A declared type is a claim by the
-    // client; the magic bytes are what this server verified. Past the guard
-    // above, a non-video upload IS one of these four image kinds.
-    //
-    // One value, used for the stored object, `EvidenceItem.fileMimeType`,
-    // `InspectionPhoto.mimeType` and the photograph rule, so whatever reads
-    // the record later is given what this route was given.
-    const declaredType = file.type;
-    const verifiedMimeType = isVideoClass
-      ? // A video's exact subtype is not something four magic bytes settle,
-        // so a declared video type is kept. A declared type that is NOT a
-        // video type is replaced by the container the bytes proved; the old
-        // default labelled such a video "image/jpeg".
-        declaredType.toLowerCase().startsWith("video/")
-        ? declaredType
-        : buffer[0] === 0x1a
-          ? "video/webm"
-          : ftypBrand === "qt  "
-            ? "video/quicktime"
-            : "video/mp4"
-      : isJpeg
-        ? "image/jpeg"
-        : isPng
-          ? "image/png"
-          : isGif
-            ? "image/gif"
-            : "image/webp";
+    const verifiedMimeType = media.mimeType;
 
     // Server-side hash over the exact bytes that will be stored.
     const fileSha256 = crypto.createHash("sha256").update(buffer).digest("hex");

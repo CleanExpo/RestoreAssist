@@ -29,7 +29,10 @@ describe("video walkthrough capture", () => {
     expect(capturePage).toMatch(
       /const wantsVideo = isVideoEvidenceClass\(evidenceClass\)/,
     );
-    expect(capturePage).toMatch(/if \(isNative && !wantsVideo\) \{\s*capture = await captureEvidencePhoto\(\)/);
-    expect(capturePage).toMatch(/wantsVideo \? \{ accept: VIDEO_EVIDENCE_ACCEPT \} : \{\}/);
+    // RA-8407: the stills camera is opened only for a class that holds a
+    // still (photographs and, unchanged, documents), so neither a video nor
+    // a voice memo reaches it.
+    expect(capturePage).toMatch(/if \(isNative && capturesWithStillCamera\(evidenceClass\)\) \{\s*capture = await captureEvidencePhoto\(\)/);
+    expect(capturePage).toMatch(/wantsVideo\s*\?\s*\{ accept: VIDEO_EVIDENCE_ACCEPT \}/);
   });
 });

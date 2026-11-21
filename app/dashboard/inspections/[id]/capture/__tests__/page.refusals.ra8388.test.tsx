@@ -47,8 +47,10 @@ const stable = vi.hoisted(() => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => stable.router }));
 vi.mock("next-auth/react", () => ({ useSession: () => stable.session }));
+// RA-8407: a test can put the page on a native device.
+const capacitor = vi.hoisted(() => ({ isNative: false }));
 vi.mock("@/components/providers/CapacitorProvider", () => ({
-  useCapacitor: () => ({ isNative: false }),
+  useCapacitor: () => ({ isNative: capacitor.isNative }),
 }));
 vi.mock("@/components/ConfirmDialog", () => ({
   useConfirmDialog: () => ({ ask: vi.fn(), Mount: () => null }),
@@ -93,6 +95,7 @@ vi.mock("@/lib/evidence/ios-capture", async (importOriginal) => {
       async () => new File(["jpeg-bytes"], "photo.jpg", { type: "image/jpeg" }),
     ),
     evidencePhotoFromFile: vi.fn(async () => capture),
+    captureEvidencePhoto: vi.fn(async () => capture),
     buildEvidenceFormData: vi.fn(() => new FormData()),
     evidenceIdempotencyKey: vi.fn(async () => "idem-key-1"),
   };
@@ -154,6 +157,11 @@ vi.mock("@/components/evidence/metadata-capture-form", () => ({
 import CaptureWorkflowPage from "../page";
 import type { MetadataCaptureFormProps } from "@/components/evidence/metadata-capture-form";
 import { verifyEvidenceReadback } from "@/lib/evidence/verified-readback";
+import {
+  captureEvidencePhoto,
+  pickEvidencePhotoFile,
+} from "@/lib/evidence/ios-capture";
+import { AUDIO_EVIDENCE_ACCEPT } from "@/lib/evidence/file-media-kind";
 
 /** RA-8488: every success notice on this page shares one toast id. */
 const PROGRESS_TOAST = { id: "capture-progress" };
@@ -183,6 +191,7 @@ function workflowBody(
   evidenceItems: unknown[],
   isReadyToSubmit = false,
   twoSteps = false,
+  requiredClasses: string[] = ["PHOTO_DAMAGE", "MOISTURE_READING"],
 ) {
   const secondStep = {
     id: SECOND_STEP_ID,
@@ -218,10 +227,7 @@ function workflowBody(
           stepTitle: "Moisture survey",
           stepDescription: null,
           stepDescriptionShort: null,
-          requiredEvidenceClasses: JSON.stringify([
-            "PHOTO_DAMAGE",
-            "MOISTURE_READING",
-          ]),
+          requiredEvidenceClasses: JSON.stringify(requiredClasses),
           optionalEvidenceClasses: null,
           minimumEvidenceCount: 1,
           isMandatory: true,
@@ -264,6 +270,8 @@ async function renderPage(opts: {
   validation?: Record<string, unknown>;
   /** Replaces the answer to the photograph POST, for one that never comes. */
   onUploadRequest?: (init?: RequestInit) => Promise<Response>;
+  /** The first step's required classes, when a test needs others. */
+  requiredClasses?: string[];
 }) {
   let workflowLoads = 0;
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
@@ -279,6 +287,7 @@ async function renderPage(opts: {
           opts.evidenceItems,
           opts.readyToSubmit,
           opts.twoSteps,
+          opts.requiredClasses,
         ),
       });
     }
@@ -368,6 +377,7 @@ beforeEach(() => {
   toast.success.mockClear();
   savedAnswer.current = null;
   gate.real = false;
+  capacitor.isNative = false;
 });
 
 afterEach(() => {
@@ -1214,5 +1224,50 @@ describe("an item in the issues list opens the step it names", () => {
       screen.queryByRole("heading", { level: 1, name: "Moisture survey" }),
     ).toBeNull();
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+  });
+});
+// RA-8407: a voice memo is a sound recording. The capture screen opened the
+// stills camera for it, so the only thing a technician could send under
+// "Voice Memo" was a photograph.
+describe("a voice memo never opens the stills camera", () => {
+  beforeEach(() => {
+    vi.mocked(pickEvidencePhotoFile).mockClear();
+    vi.mocked(captureEvidencePhoto).mockClear();
+  });
+
+  async function tapCapture(label: string) {
+    await act(async () => {
+      fireEvent.click(captureButtonFor(label));
+    });
+  }
+
+  it("on the web, opens an audio-only picker", async () => {
+    await renderPage({ evidenceItems: [], requiredClasses: ["VOICE_MEMO"] });
+    await tapCapture("Voice Memo");
+    await waitFor(() => expect(pickEvidencePhotoFile).toHaveBeenCalled());
+    const accept = vi.mocked(pickEvidencePhotoFile).mock.calls[0][0]?.accept;
+    expect(accept).toBe(AUDIO_EVIDENCE_ACCEPT);
+    for (const type of (accept ?? "").split(",")) {
+      expect(type.startsWith("audio/")).toBe(true);
+    }
+  });
+
+  it("on a native device, does not open the native stills camera", async () => {
+    capacitor.isNative = true;
+    await renderPage({ evidenceItems: [], requiredClasses: ["VOICE_MEMO"] });
+    await tapCapture("Voice Memo");
+    await waitFor(() => expect(pickEvidencePhotoFile).toHaveBeenCalled());
+    expect(captureEvidencePhoto).not.toHaveBeenCalled();
+    expect(vi.mocked(pickEvidencePhotoFile).mock.calls[0][0]?.accept).toBe(
+      AUDIO_EVIDENCE_ACCEPT,
+    );
+  });
+
+  it("control: a photograph on a native device still opens the stills camera", async () => {
+    capacitor.isNative = true;
+    await renderPage({ evidenceItems: [], requiredClasses: ["PHOTO_DAMAGE"] });
+    await tapCapture("Damage Photo");
+    await waitFor(() => expect(captureEvidencePhoto).toHaveBeenCalled());
+    expect(pickEvidencePhotoFile).not.toHaveBeenCalled();
   });
 });
