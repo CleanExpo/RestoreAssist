@@ -36,12 +36,14 @@ export default function ComplianceLibraryPage() {
           description:
             "Standard and Reference Guide for Professional Water Damage Restoration",
           publisher: "IICRC",
+          scope: "Used in Australia and New Zealand",
         },
         {
           title: "IICRC S520 Standard",
           description:
             "Standard and Reference Guide for Professional Mold Remediation",
           publisher: "IICRC",
+          scope: "Used in Australia and New Zealand",
         },
       ],
     },
@@ -52,12 +54,14 @@ export default function ComplianceLibraryPage() {
           title: "AS/NZS ISO 9001",
           description: "Quality management systems - Requirements",
           publisher: "Standards Australia and Standards New Zealand",
+          scope: "Used in Australia and New Zealand",
         },
         {
           title: "National Construction Code (NCC)",
           description:
             "Volumes One and Two hold the Building Code of Australia; Volume Three is the Plumbing Code of Australia. Check the edition in force for your job.",
           publisher: "Australian Building Codes Board",
+          scope: "Applies in Australia only",
         },
       ],
     },
@@ -69,6 +73,7 @@ export default function ComplianceLibraryPage() {
           description:
             "The code subscribing insurers follow when they handle a claim",
           publisher: "Insurance Council of Australia",
+          scope: "Applies in Australia only",
         },
       ],
     },
@@ -108,10 +113,10 @@ export default function ComplianceLibraryPage() {
                 '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
-            The standards and guidelines restoration work in Australia and
-            New Zealand is measured against. This is a reference list: we do
-            not host or sell these documents. Get the current edition from
-            each publisher.
+            A reference list of the standards and codes restoration work is
+            checked against. Each entry says where it applies. We do not host
+            or sell these documents: get the current edition from each
+            publisher.
           </motion.p>
         </div>
       </section>
@@ -175,6 +180,11 @@ export default function ComplianceLibraryPage() {
                         }}
                       >
                         Published by {item.publisher}
+                      </p>
+                      <p
+                        className={`mt-1 text-sm ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
+                      >
+                        {item.scope}
                       </p>
                     </div>
                   ))}

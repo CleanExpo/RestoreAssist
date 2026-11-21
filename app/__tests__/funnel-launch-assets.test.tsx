@@ -231,6 +231,17 @@ describe("funnel launch assets — render smoke (PR #1303)", () => {
         (el) => /^Published by \S/.test(el.textContent ?? ""),
       );
       expect(publisherLines).toHaveLength(headings.length);
+      // Each reference says where it applies, so an Australian-only code is
+      // never presented as covering New Zealand work.
+      const scopeLines = Array.from(container.querySelectorAll("p")).filter(
+        (el) =>
+          /^(Used in Australia and New Zealand|Applies in Australia only)$/.test(
+            el.textContent ?? "",
+          ),
+      );
+      expect(scopeLines).toHaveLength(headings.length);
+      const text = container.textContent ?? "";
+      expect(text).not.toMatch(/work in Australia and\s+New Zealand is measured/);
       unmount();
     });
 
