@@ -127,7 +127,7 @@ export async function dispatchReviewAskNotification(
   const org = job.workspace?.owner?.organization ?? null;
   const reviewUrl = org?.googleReviewUrl ?? "";
   const orgName =
-    org?.tradingName || org?.name || job.workspace?.name || "Restore Assist";
+    org?.tradingName || org?.name || job.workspace?.name || "RestoreAssist";
 
   const logicalKey = `reviewask:${inspectionId}`;
   const base = {
