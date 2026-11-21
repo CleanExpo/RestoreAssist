@@ -28,8 +28,8 @@ vi.mock("@/lib/rag/retrieve", () => ({
   retrieveForCitation: retrieveForCitationMock,
   retrieveForReasoning: retrieveForReasoningMock,
 }));
-vi.mock("@/scripts/ingest-iicrc", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/scripts/ingest-iicrc")>();
+vi.mock("@/scripts/lib/ingest-iicrc", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/scripts/lib/ingest-iicrc")>();
   return { ...actual, upsertChunk: upsertChunkMock };
 });
 

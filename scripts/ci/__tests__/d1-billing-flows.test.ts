@@ -9,7 +9,7 @@ import {
   fetchAllD1Events,
   summariseD1,
   type StripeLifecycleEvent,
-} from "../producers/d1-billing-flows";
+} from "../producers/lib/d1-billing-flows";
 
 /**
  * D1 producer controls.

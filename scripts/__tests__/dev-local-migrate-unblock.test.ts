@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   REPLAY_INDEX_MIGRATION,
   assertLocalDatabaseUrl,
-} from "../dev-local-migrate-unblock";
+} from "../lib/dev-local-migrate-unblock";
 
 describe("dev-local-migrate-unblock", () => {
   it("names the replay-index migration CI pre-resolves", () => {
