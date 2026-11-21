@@ -1,35 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
-import { CLIENT_PORTAL_PUBLIC_CTA } from "@/lib/portal/canonical-entry";
 import { CONTAINER } from "./motion";
+import { FOOTER_COLUMNS as COLUMNS } from "./footer-links";
 
 const DISPLAY = "font-[family-name:var(--font-landing-display)]";
-
-const COLUMNS = [
-  {
-    title: "Product",
-    links: [
-      { href: "/features", label: "Features" },
-      { href: "/how-it-works", label: "How it works" },
-      { href: "/pricing", label: "Pricing" },
-      { href: "/signup", label: "Start free" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { href: "/resources", label: "Resources" },
-      { href: "/login", label: "Log in" },
-      {
-        href: CLIENT_PORTAL_PUBLIC_CTA.href,
-        label: CLIENT_PORTAL_PUBLIC_CTA.label,
-      },
-      { href: "/privacy", label: "Privacy" },
-      { href: "/terms", label: "Terms" },
-    ],
-  },
-] as const;
 
 export function LandingFooter() {
   return (
