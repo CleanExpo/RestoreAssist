@@ -35,18 +35,18 @@ export default function ComplianceLibraryPage() {
           title: "IICRC S500 Standard",
           description:
             "Standard and Reference Guide for Professional Water Damage Restoration",
-          type: "PDF",
+          publisher: "IICRC",
         },
         {
           title: "IICRC S520 Standard",
           description:
             "Standard and Reference Guide for Professional Mold Remediation",
-          type: "PDF",
+          publisher: "IICRC",
         },
         {
           title: "IICRC R520 Reference Guide",
           description: "Reference Guide for Professional Mold Remediation",
-          type: "PDF",
+          publisher: "IICRC",
         },
       ],
     },
@@ -56,17 +56,17 @@ export default function ComplianceLibraryPage() {
         {
           title: "AS/NZS ISO 9001",
           description: "Quality management systems - Requirements",
-          type: "PDF",
+          publisher: "Standards Australia and Standards New Zealand",
         },
         {
           title: "NCC 2022",
           description: "National Construction Code Volume One and Two",
-          type: "PDF",
+          publisher: "Australian Building Codes Board",
         },
         {
           title: "Building Code of Australia",
           description: "Current building regulations and requirements",
-          type: "PDF",
+          publisher: "Australian Building Codes Board",
         },
       ],
     },
@@ -76,12 +76,7 @@ export default function ComplianceLibraryPage() {
         {
           title: "Insurance Council of Australia Guidelines",
           description: "Industry guidelines for restoration work",
-          type: "PDF",
-        },
-        {
-          title: "Claims Process Documentation",
-          description: "Standard procedures for insurance claims",
-          type: "PDF",
+          publisher: "Insurance Council of Australia",
         },
       ],
     },
@@ -121,7 +116,10 @@ export default function ComplianceLibraryPage() {
                 '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
-            Access standards, guidelines, and compliance documentation.
+            The standards and guidelines restoration work in Australia and
+            New Zealand is measured against. This is a reference list: we do
+            not host or sell these documents. Get the current edition from
+            each publisher.
           </motion.p>
         </div>
       </section>
@@ -167,15 +165,6 @@ export default function ComplianceLibraryPage() {
                         >
                           {item.title}
                         </h3>
-                        <span
-                          className={`text-xs px-2 py-1 rounded ${darkMode ? "bg-brand-bronze/20 text-brand-bronze" : "bg-brand-bronze/10 text-brand-bronze"}`}
-                          style={{
-                            fontFamily:
-                              '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                          }}
-                        >
-                          {item.type}
-                        </span>
                       </div>
                       <p
                         className={`text-sm mb-4 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
@@ -186,21 +175,15 @@ export default function ComplianceLibraryPage() {
                       >
                         {item.description}
                       </p>
-                      {/* RA funnel launch assets: compliance-library resources
-                          aren't published as individual pages yet, so there's no
-                          destination route. Render a non-interactive "Coming Soon"
-                          badge instead of a dead href="#" link. Swap to a real
-                          download/route link once each resource is published. */}
-                      <span
-                        aria-disabled="true"
-                        className={`text-sm font-medium ${darkMode ? "text-brand-bronze/70" : "text-brand-bronze/70"}`}
+                      <p
+                        className={`text-sm font-medium ${darkMode ? "text-brand-bronze" : "text-brand-bronze"}`}
                         style={{
                           fontFamily:
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        Coming Soon
-                      </span>
+                        Published by {item.publisher}
+                      </p>
                     </div>
                   ))}
                 </div>

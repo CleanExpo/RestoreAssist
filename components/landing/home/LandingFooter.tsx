@@ -10,7 +10,7 @@ export function LandingFooter() {
   return (
     <footer className="border-t border-slate-200/90 bg-white">
       <div className={`${CONTAINER} py-16 lg:py-20`}>
-        <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr] md:gap-12">
+        <div className="grid gap-12 sm:grid-cols-2 md:grid-cols-[1.5fr_1fr_1fr_1fr] md:gap-12">
           <div>
             <Link
               href="/"

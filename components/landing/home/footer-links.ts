@@ -14,19 +14,29 @@ export const FOOTER_COLUMNS = [
       { href: "/how-it-works", label: "How it works" },
       { href: "/pricing", label: "Pricing" },
       { href: "/signup", label: "Start free" },
+      { href: "/demo", label: "Book a demo" },
     ],
   },
   {
     title: "Company",
     links: [
+      { href: "/about", label: "About" },
+      { href: "/contact", label: "Contact" },
       { href: "/resources", label: "Resources" },
+      { href: "/privacy", label: "Privacy" },
+      { href: "/terms", label: "Terms" },
+    ],
+  },
+  {
+    title: "Help",
+    links: [
+      { href: "/help", label: "Help centre" },
+      { href: "/support", label: "Support" },
       { href: "/login", label: "Log in" },
       {
         href: CLIENT_PORTAL_PUBLIC_CTA.href,
         label: CLIENT_PORTAL_PUBLIC_CTA.label,
       },
-      { href: "/privacy", label: "Privacy" },
-      { href: "/terms", label: "Terms" },
     ],
   },
 ] as const;
