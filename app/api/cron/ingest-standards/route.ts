@@ -31,7 +31,7 @@ import {
   upsertChunk,
   assertEmbeddingShape,
   parseProvenance,
-} from "@/scripts/ingest-iicrc";
+} from "@/scripts/lib/ingest-iicrc";
 // Type-only import: erased at compile time, so it does NOT eagerly load
 // lib/rag/retrieve (which constructs an OpenAI client at module load).
 import type { ChunkResult } from "@/lib/rag/retrieve";

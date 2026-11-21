@@ -109,7 +109,8 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// The baselines live beside the CLI entry in scripts/security/, one level up.
+const __dirname = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const API_ROOT = path.join(REPO_ROOT, "app", "api");
 const BASELINE_PATH = path.join(__dirname, "route-safety-baseline.json");

@@ -472,7 +472,6 @@ async function run() {
   process.exit(0);
 }
 
-// Run only when invoked directly (not when imported by the drift-gate tests).
 /**
  * Run the CLI. Returns the process exit code. A failure inside run() that sets
  * process.exitCode is carried through rather than overwritten with 0.

@@ -35,6 +35,7 @@ const repoRoot = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
+  "..",
 );
 const E2E_ROOT = path.join(repoRoot, "e2e");
 const E2E_REL = path.relative(repoRoot, E2E_ROOT).split(path.sep).join("/");
@@ -258,15 +259,5 @@ function main(argv) {
   }
   return 0;
 }
-
-// `file://${process.argv[1]}` is not a correct file URL: a path containing a
-// space (or a Windows backslash) encodes differently, the comparison silently
-// fails, main() never runs, and the process exits 0 having checked NOTHING.
-// Proved 2026-09-07 by invoking this gate through a directory with a space in
-// its name: zero output, exit 0, gate fully disarmed while looking green.
-// `pathToFileURL` is the encoding-correct form, and is what audit-api-routes.ts,
-// audit-env.ts, supabase-advisor-gate.ts and pg-ssl-for-migrate.mjs already use.
-// Raised by independent review.
-
 
 export { main };

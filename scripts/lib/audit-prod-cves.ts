@@ -170,8 +170,6 @@ async function run() {
   process.exit(1);
 }
 
-// Only run when invoked directly (`tsx scripts/audit-prod-cves.ts`), not when
-// imported by a test — keeps the pure exports side-effect-free under vitest.
 /**
  * Run the CLI. Returns the process exit code. A failure inside run() that sets
  * process.exitCode is carried through rather than overwritten with 0.

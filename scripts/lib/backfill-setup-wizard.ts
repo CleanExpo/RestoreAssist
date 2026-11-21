@@ -104,7 +104,6 @@ export async function backfill(): Promise<{
   return { usersTouched, orgsUpdated, pricingMoved };
 }
 
-// CLI entry point — ESM-compatible main check
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export async function main(): Promise<number> {
   try {

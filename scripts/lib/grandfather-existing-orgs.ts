@@ -24,7 +24,6 @@ export async function grandfatherExistingOrgs(): Promise<{ marked: number }> {
   return { marked: result.count };
 }
 
-// ESM-compatible CLI entry point (project uses "type": "module")
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export async function main(): Promise<number> {
   try {

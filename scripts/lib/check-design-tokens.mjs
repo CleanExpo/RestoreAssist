@@ -110,8 +110,6 @@ function run() {
   );
 }
 
-// Only run when invoked directly, so the tests can import the helpers.
-
 /** Run the CLI. Returns the process exit code. */
 export function main() {
   run();

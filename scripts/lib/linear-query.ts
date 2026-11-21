@@ -249,9 +249,6 @@ async function run(): Promise<void> {
   process.stdout.write(issues.map(formatLine).join("\n") + "\n");
 }
 
-// CLI entry point — ESM-compatible main check, matching
-// scripts/backfill-setup-wizard.ts. Without it, importing this module from a
-// test would run the query and exit the process.
 /**
  * Run the CLI. Returns the process exit code. A failure inside run() that sets
  * process.exitCode is carried through rather than overwritten with 0.

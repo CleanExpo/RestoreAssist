@@ -285,6 +285,3 @@ export function main() {
   console.error("This is the auth_rls_initplan recurrence guard (RA-4827 → RA-4956).");
   return 1;
 }
-
-// Run only when invoked directly (not when imported by the test).
-

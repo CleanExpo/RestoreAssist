@@ -262,6 +262,3 @@ export function main(root = ROOT) {
   );
   return 1;
 }
-
-// Run only when invoked directly (not when imported by the encoding-guard tests).
-

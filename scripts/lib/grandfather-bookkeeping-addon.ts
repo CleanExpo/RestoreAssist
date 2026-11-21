@@ -58,7 +58,6 @@ export async function grandfatherBookkeepingAddon(): Promise<{
   return { granted, skippedNoWorkspace };
 }
 
-// ESM-compatible CLI entry point (project uses "type": "module")
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export async function main(): Promise<number> {
   try {

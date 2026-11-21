@@ -153,6 +153,7 @@ export async function upsertChunk(
 async function run(): Promise<void> {
   const corpusPath = path.resolve(
     path.dirname(new URL(import.meta.url).pathname),
+    "..",
     "data/standards-corpus.json",
   );
 

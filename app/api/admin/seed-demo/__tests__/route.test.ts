@@ -40,7 +40,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseSchemaObjects } from "@/scripts/check-schema-drift.mjs";
+import { parseSchemaObjects } from "@/scripts/lib/check-schema-drift.mjs";
 
 const getServerSession = vi.fn();
 const verifyAdminFromDb = vi.fn();

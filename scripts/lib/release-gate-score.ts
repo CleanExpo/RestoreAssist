@@ -1120,11 +1120,6 @@ function run(): void {
   }
 }
 
-// Only run when invoked directly (`npx tsx scripts/release-gate-score.ts`),
-// not when imported by a test — the same guard scripts/audit-prod-cves.ts uses.
-// Without it, importing this module to test ownerEvidence() would execute every
-// criterion, including the smoke suites.
-
 /** Run the CLI. Returns the process exit code. */
 export function main(): number {
   run();

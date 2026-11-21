@@ -1297,6 +1297,7 @@ function printTextReport(report: AiCallSiteAuditReport): void {
 
 const PLATFORM_KEY_FALLBACK_BASELINE_PATH = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
+  "..",
   "ai-platform-key-fallback-baseline.json",
 );
 

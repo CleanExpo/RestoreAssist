@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -13,6 +13,7 @@ import {
 } from "../lib/assert-local-test-db.mjs";
 
 const SCRIPT = fileURLToPath(new URL("../assert-local-test-db.mjs", import.meta.url));
+const LIB = fileURLToPath(new URL("../lib/assert-local-test-db.mjs", import.meta.url));
 const LOCAL = "postgresql://ci:ci@localhost:5432/ci";
 const REMOTE = "postgresql://u:p@db.example.invalid:5432/x";
 
@@ -116,6 +117,9 @@ test("the shell entry point refuses from a path that needs URL encoding", () => 
   try {
     const copy = join(dir, "assert-local-test-db.mjs");
     copyFileSync(SCRIPT, copy);
+    // The entry imports its logic from ./lib/ (RA-7785), so the copy needs both.
+    mkdirSync(join(dir, "lib"));
+    copyFileSync(LIB, join(dir, "lib", "assert-local-test-db.mjs"));
     const run = spawnSync(process.execPath, [copy], {
       env: { PATH: process.env.PATH, DATABASE_URL: REMOTE },
       encoding: "utf8",

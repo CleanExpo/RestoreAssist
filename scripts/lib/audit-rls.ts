@@ -37,7 +37,7 @@ import {
   SERVICE_ONLY,
 } from "../audit-rls-coverage";
 
-const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const MIG = (f: string) => resolve(REPO, "docs/ops/supabase-migrations-archive", f);
 
 /** The 6 legacy Unite-Group CRM tables whose always-true policies were dropped. */
@@ -215,7 +215,6 @@ export function runRlsAudit(): AuditResult {
   return { ok: failures.length === 0, failures, report };
 }
 
-// ── CLI runner (cross-platform entry-point check) ──
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export function main(): number {
   let code = 0;

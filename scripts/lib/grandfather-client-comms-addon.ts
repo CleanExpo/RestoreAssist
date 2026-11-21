@@ -49,7 +49,6 @@ export async function grandfatherClientCommsAddon(): Promise<{
   return { grandfathered, skipped };
 }
 
-// ESM-compatible CLI entry point (project uses "type": "module")
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export async function main(): Promise<number> {
   try {

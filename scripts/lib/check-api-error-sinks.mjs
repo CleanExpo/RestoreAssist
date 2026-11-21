@@ -56,7 +56,7 @@ import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
-const ROOT = join(fileURLToPath(import.meta.url), "..", "..");
+const ROOT = join(fileURLToPath(import.meta.url), "..", "..", "..");
 const SCAN_DIRS = ["app", "components", "hooks", "lib"];
 const EXT = /\.(ts|tsx|js|jsx|mjs)$/;
 const SKIP_DIR = new Set(["node_modules", ".next", "__tests__", "__mocks__"]);

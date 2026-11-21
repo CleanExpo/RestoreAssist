@@ -309,7 +309,6 @@ async function run(): Promise<void> {
   }
 }
 
-// Only run when invoked directly, so the pure exports stay importable.
 /**
  * Run the CLI. Returns the process exit code. A failure inside run() that sets
  * process.exitCode is carried through rather than overwritten with 0.

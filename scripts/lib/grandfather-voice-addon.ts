@@ -41,7 +41,6 @@ export async function grandfatherVoiceAddon(): Promise<{
   return { granted };
 }
 
-// ESM-compatible CLI entry point (project uses "type": "module")
 /** Run the CLI. Returns the process exit code; never calls process.exit. */
 export async function main(): Promise<number> {
   try {
