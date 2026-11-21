@@ -31,9 +31,10 @@ import {
 } from "@/lib/scope-dispatcher";
 import {
   MOISTURE_GUIDE_VALUES,
-  getMoistureStatus,
+  isProgressReading,
   materialKey,
   pickReferenceReadings,
+  readingGoalStatus,
 } from "@/lib/iicrc-dry-standards";
 import type {
   AssessmentReport,
@@ -322,15 +323,17 @@ export const waterDomain: DomainPlugin = {
       // guide value. Unknown materials without a reference count toward total only.
       const references = pickReferenceReadings(inspection.moistureReadings);
       const moistureSummary = inspection.moistureReadings
-        .filter((r) => !r.isBaseline && !r.invalidatedAt)
+        .filter(isProgressReading)
         .reduce(
           (acc, r) => {
             acc.total += 1;
             const key = materialKey(r.surfaceType);
-            const ref = references[key];
             const known = MOISTURE_GUIDE_VALUES.some((g) => g.material === key);
-            if (ref === undefined && !known) return acc;
-            const status = getMoistureStatus(r.moistureLevel ?? 0, key, ref);
+            const { goal, status } = readingGoalStatus(
+              { surfaceType: key, moistureLevel: r.moistureLevel ?? 0, unit: r.unit },
+              references,
+            );
+            if (goal.basis === "guide" && !known) return acc;
             acc[status] += 1;
             return acc;
           },

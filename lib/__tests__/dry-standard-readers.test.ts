@@ -12,6 +12,8 @@
  * Each test here asserts on the owner's output, so a reader that stops calling
  * the owner, or an owner that loses a rule, turns these red.
  */
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   dryingGoalTableRows,
@@ -20,9 +22,11 @@ import {
   isProgressReading,
   moistureRowGoal,
   pickReferenceReadings,
+  readingGoalStatus,
   resolveDryingGoal,
 } from "@/lib/iicrc-dry-standards";
 import { isMoistureContentUnit } from "@/lib/moisture/units";
+import { relationalMoistureToPdfRows } from "@/lib/reports/pdf-moisture-readings";
 import { buildDryingTimeline, isAreaAtDryingGoal } from "@/lib/portal/drying-timeline";
 
 const t = (iso: string) => new Date(iso);
@@ -75,6 +79,30 @@ describe("kind 2: one rule for which readings count", () => {
   });
 });
 
+describe("kind 2: no reader re-writes the progress-reading rule", () => {
+  it("only the owner filters on isBaseline and invalidatedAt together", () => {
+    const root = join(__dirname, "..", "..");
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        if (name === "node_modules" || name === ".next" || name === "__tests__") continue;
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (/\.(ts|tsx)$/.test(name)) files.push(p);
+      }
+    };
+    for (const d of ["app", "lib", "components"]) walk(join(root, d));
+    const rule = /isBaseline\s*&&\s*!\s*[\w.?]*invalidatedAt|invalidatedAt\s*&&\s*!\s*[\w.?]*isBaseline/;
+    const hits = files
+      .filter((f) => !f.endsWith(join("lib", "iicrc-dry-standards.ts")))
+      .filter((f) => rule.test(readFileSync(f, "utf8")))
+      .map((f) => relative(root, f));
+    expect(hits).toEqual([]);
+    // positive control: the rule sees the hand-written form
+    expect(rule.test("(r) => !r.isBaseline && !r.invalidatedAt")).toBe(true);
+  });
+});
+
 describe("kind 1: every reader gets the goal from the owner", () => {
   it("guide and stored-target lookups ignore case and spaces", () => {
     expect(getDryStandard(" Plasterboard").material).toBe("plasterboard");
@@ -117,6 +145,23 @@ describe("kind 1: every reader gets the goal from the owner", () => {
     const rows = dryingGoalTableRows([]);
     expect(rows.length).toBeGreaterThan(5);
     expect(rows.every((r) => r.basis === "guide")).toBe(true);
+  });
+
+  it("PDF rows keep the unit, so an RH baseline never becomes a moisture goal (verdict round)", () => {
+    const rows = relationalMoistureToPdfRows([
+      { location: "Hallway", surfaceType: "timber", moistureLevel: 55, unit: "RH", isBaseline: true },
+      { location: "Lounge", surfaceType: "timber", moistureLevel: 20, unit: null },
+    ]);
+    expect(rows[0].unit).toBe("RH");
+    const goal = dryingGoalTableRows(rows as never);
+    expect(goal).toEqual([{ material: "timber", target: getDryStandard("timber").dryThreshold, basis: "guide" }]);
+  });
+
+  it("water assessment counts readings with the owner's status, not its own comparison", () => {
+    const refs = { timber: 12.5 };
+    // 15% timber against a 12.5% reference is not dry; an RH reading ignores the reference.
+    expect(readingGoalStatus({ surfaceType: "timber", moistureLevel: 15, unit: null }, refs).status).not.toBe("dry");
+    expect(readingGoalStatus({ surfaceType: "timber", moistureLevel: 15, unit: "RH" }, refs).goal.basis).toBe("guide");
   });
 
   it("resolveDryingGoal applies a reference only to moisture-content readings", () => {

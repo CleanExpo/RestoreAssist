@@ -35,11 +35,11 @@ function pointKey(r: MoistureReadingRow): string {
  * - excludes baselines (reference only)
  * - one row per location+surface: the newest by recordedAt/createdAt
  */
-export function latestMonitoringReadingsForDryingGoal(
-  readings: MoistureReadingRow[],
-): MoistureReadingRow[] {
+export function latestMonitoringReadingsForDryingGoal<T extends MoistureReadingRow>(
+  readings: T[],
+): T[] {
   const candidates = readings.filter(isProgressReading);
-  const byKey = new Map<string, MoistureReadingRow>();
+  const byKey = new Map<string, T>();
 
   for (const reading of candidates) {
     const key = pointKey(reading);

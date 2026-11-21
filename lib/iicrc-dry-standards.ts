@@ -159,11 +159,16 @@ export interface DryingGoal {
   basis: DryingGoalBasis;
 }
 
+/**
+ * `unit` is a required key (RA-8508 review): a reader that does not select the
+ * unit cannot pass its rows here, so an RH reading can never silently become a
+ * moisture-content reference. `null` means no unit was recorded.
+ */
 export interface ReferenceCandidate {
   surfaceType?: string | null;
   moistureLevel?: number | null;
   isBaseline?: boolean | null;
-  unit?: string | null;
+  unit: string | null | undefined;
   invalidatedAt?: Date | string | null;
   recordedAt?: Date | string | null;
   createdAt?: Date | string | null;
@@ -245,7 +250,8 @@ export interface MonitoredReading {
   location: string;
   surfaceType: string;
   moistureLevel: number;
-  unit?: string | null;
+  /** Required key: see ReferenceCandidate. */
+  unit: string | null | undefined;
   recordedAt?: Date | string | null;
   createdAt?: Date | string | null;
 }
@@ -320,7 +326,27 @@ export interface MoistureRowInput {
   surfaceType?: string | null;
   moistureLevel?: number | string | null;
   isBaseline?: boolean | null;
-  unit?: string | null;
+  /** Required key: see ReferenceCandidate. */
+  unit: string | null | undefined;
+}
+
+/**
+ * Status of one progress reading against its drying goal (reference first,
+ * then the stored snapshot, then the guide). Every reader that colours or
+ * counts a reading calls this; none compares numbers itself.
+ */
+export function readingGoalStatus(
+  reading: { surfaceType: string; moistureLevel: number; unit: string | null | undefined },
+  references: Record<string, number>,
+  storedTarget?: number | null,
+): { goal: DryingGoal; status: MoistureStatus } {
+  const goal = resolveDryingGoal(reading.surfaceType, references, storedTarget, reading.unit);
+  const status = getMoistureStatus(
+    reading.moistureLevel,
+    reading.surfaceType,
+    goal.basis === "reference" ? goal.target : undefined,
+  );
+  return { goal, status };
 }
 
 /**
@@ -338,10 +364,9 @@ export function moistureRowGoal(
   if (row.isBaseline) return { goalText, status: "REFERENCE", basis: goal.basis };
   const level = typeof row.moistureLevel === "number" ? row.moistureLevel : parseFloat(String(row.moistureLevel ?? ""));
   if (!Number.isFinite(level)) return { goalText, status: "—", basis: goal.basis };
-  const status = getMoistureStatus(
-    level,
-    material,
-    goal.basis === "reference" ? goal.target : undefined,
+  const { status } = readingGoalStatus(
+    { surfaceType: material, moistureLevel: level, unit: row.unit },
+    references,
   );
   return {
     goalText,
