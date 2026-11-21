@@ -184,7 +184,7 @@ describe("fetchAllStripeEvents — a truncated list hides a shortfall", () => {
 
 describe("no measurement reaches the producer from its environment", () => {
   const SOURCE = readFileSync(
-    join(process.cwd(), "scripts", "ci", "producers", "d3-revenue-reconciliation.ts"),
+    join(process.cwd(), "scripts", "ci", "producers", "lib", "d3-revenue-reconciliation.ts"),
     "utf8",
   );
 

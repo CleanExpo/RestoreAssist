@@ -69,7 +69,7 @@ describe("EmailConnection encrypted persistence boundary", () => {
 
   it("keeps the live backfill bound to direct identity and the expected fingerprint", () => {
     const script = readFileSync(
-      join(ROOT, "scripts/backfill-encrypt-email-connections.ts"),
+      join(ROOT, "scripts/lib/backfill-encrypt-email-connections.ts"),
       "utf8",
     );
     for (const required of [
