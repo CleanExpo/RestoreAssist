@@ -141,3 +141,74 @@ export function parseCheckoutReply(
   }
   return { kind: "refused", message: errorMessage(payload) };
 }
+
+/*
+ * RA-8272: moved here from components/addons/AddonCardDeck.tsx so every
+ * checkout caller releases its Idempotency-Key by the same rule.
+ */
+/**
+ * Review rounds 1 and 2: whether a checkout reply is a FINAL answer, so the
+ * pack's Idempotency-Key can be released and the next press may start a new
+ * purchase. Decided positively: only a reply we could read and that names an
+ * outcome counts. Everything else means the purchase may or may not have
+ * happened, and the key must be kept so a retry replays the first result:
+ *   - no readable body (connection cut mid-reply, truncated or non-JSON body);
+ *   - a server error (5xx): the work may have run before it failed;
+ *   - a 409 that is not the billing-portal case: the idempotency layer saying
+ *     the same request is still running or its result could not be verified;
+ *   - a 2xx that names no outcome (no checkout link, no seat count).
+ */
+/**
+ * Review round 3: the checkout route and the idempotency layer both send 409.
+ * Every 409 either can send, and what it means:
+ *   - route, apiError envelope `{ error: { code: "CONFLICT", message } }`:
+ *     the pack is free in the Founding Trial, or another seat checkout won the
+ *     race. Nothing was bought; final. (The idempotency layer caches this reply,
+ *     so keeping the key would replay it for ever.)
+ *   - billing-portal reply (`portalRequired: true`): final.
+ *   - idempotency layer, plain-string `error`: the same request is still
+ *     running, or its completion could not be verified, or the key was reused
+ *     with another body. Outcome unknown; keep the key.
+ */
+function isRouteConflict(body: unknown): boolean {
+  const error = (body as { error?: unknown }).error;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === "CONFLICT"
+  );
+}
+
+/**
+ * Review round 4: some refusals come from checks the route runs BEFORE it
+ * looks up the Idempotency-Key (iOS block, sign-in, owner check, rate limit).
+ * They refuse this press only and say nothing about an earlier press with the
+ * same key. So once a key has an unknown outcome (`unresolved`), a refusal
+ * settles it only when it is the server's stored reply for that key, which
+ * the idempotency layer marks with `Idempotent-Replayed: true` (`replayed`).
+ * Keeping a key is always safe: the server either replays the stored outcome
+ * or, if nothing was stored, runs the request once.
+ */
+export function isFinalCheckoutAnswer(
+  status: number,
+  body: unknown,
+  reply: CheckoutReply,
+  context: { unresolved: boolean; replayed: boolean } = {
+    unresolved: false,
+    replayed: false,
+  },
+): boolean {
+  if (body === null || typeof body !== "object") return false;
+  if (status >= 500) return false;
+  if (status >= 200 && status < 300) {
+    return reply.kind === "redirect" || reply.kind === "updated";
+  }
+  if (
+    status === 409 &&
+    !(reply.kind === "portalRequired" || isRouteConflict(body))
+  ) {
+    return false;
+  }
+  if (context.unresolved && !context.replayed) return false;
+  return true;
+}
