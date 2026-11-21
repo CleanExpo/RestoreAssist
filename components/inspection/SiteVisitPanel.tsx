@@ -9,7 +9,7 @@
  * which owns the rule (lib/site-visits/visit-gate.ts); if anything is
  * missing, the list it sends back is shown next to the form.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   EQUIPMENT_OUTCOME_LABEL,
@@ -22,6 +22,21 @@ import {
 
 /** Photos shown in the front photo picker before "Show all". */
 const PHOTO_PAGE = 24;
+
+interface PhotoListBody {
+  photos?: PhotoOption[];
+  /** RA-8522: set when the job has older photos than this page holds. */
+  nextCursor?: string | null;
+}
+
+/** The newest page first, then any older photos already loaded, once each. */
+function mergePhotos(
+  newest: PhotoOption[],
+  loaded: PhotoOption[],
+): PhotoOption[] {
+  const seen = new Set(newest.map((p) => p.id));
+  return [...newest, ...loaded.filter((p) => !seen.has(p.id))];
+}
 
 export interface SiteVisitRow {
   id: string;
@@ -117,6 +132,11 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
   const [visits, setVisits] = useState<SiteVisitRow[] | null>(null);
   const [photos, setPhotos] = useState<PhotoOption[]>([]);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
+  // RA-8522: the photos API pages at 500. `olderCursor` fetches the next page;
+  // `olderLoaded` keeps those pages through the reload after each save.
+  const [olderCursor, setOlderCursor] = useState<string | null>(null);
+  const olderLoaded = useRef(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -134,10 +154,12 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
         return;
       }
       setVisits(((await v.json()) as { data: SiteVisitRow[] }).data);
-      if (p.ok)
-        setPhotos(
-          ((await p.json()) as { photos?: PhotoOption[] }).photos ?? [],
-        );
+      if (p.ok) {
+        const body = (await p.json()) as PhotoListBody;
+        setPhotos((cur) => mergePhotos(body.photos ?? [], cur));
+        // Once older pages are loaded, their cursor stays the one to follow.
+        if (!olderLoaded.current) setOlderCursor(body.nextCursor ?? null);
+      }
     } catch {
       setError(
         "Could not load site visits. Check your connection and try again.",
@@ -150,7 +172,37 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
     void load();
   }, [load]);
 
+  async function loadOlderPhotos() {
+    if (!olderCursor) return;
+    setLoadingOlder(true);
+    try {
+      const res = await fetch(
+        `/api/inspections/${inspectionId}/photos?cursor=${encodeURIComponent(olderCursor)}`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) {
+        setError((await readError(res)).message);
+        return;
+      }
+      const body = (await res.json()) as PhotoListBody;
+      setPhotos((cur) => mergePhotos(cur, body.photos ?? []));
+      olderLoaded.current = true;
+      setOlderCursor(body.nextCursor ?? null);
+    } catch {
+      setError("Could not load older photos. Check your connection and try again.");
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
   const open = visits?.find((v) => !v.submittedAt) ?? null;
+  // RA-8522: the chosen front photo is always shown, even when it is older
+  // than every page loaded so far; the visit row carries it.
+  const chosenNotLoaded =
+    open?.frontPhoto && !photos.some((p) => p.id === open.frontPhoto!.id)
+      ? open.frontPhoto
+      : null;
+  const pickerPhotos = chosenNotLoaded ? [...photos, chosenNotLoaded] : photos;
   const submitted = visits?.filter((v) => v.submittedAt) ?? [];
   // The list holds the newest visits only, so the next number follows the
   // highest one shown, never the count of rows (the server numbers it the same).
@@ -324,7 +376,7 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
 
           <fieldset>
             <legend className={fieldLabel}>Front of property photo</legend>
-            {photos.length === 0 ? (
+            {pickerPhotos.length === 0 ? (
               <p className="text-sm text-brand-slate dark:text-white/50">
                 No photos on this job yet. Take the front of property photo on
                 the{" "}
@@ -341,7 +393,7 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {/* The newest PHOTO_PAGE photos, plus the chosen one wherever it
                     is; "Show all" reaches older photos (review round 2). */}
-                  {photos
+                  {pickerPhotos
                     .map((p, i) => ({ p, i }))
                     .filter(
                       ({ p, i }) =>
@@ -384,9 +436,25 @@ export function SiteVisitPanel({ inspectionId }: { inspectionId: string }) {
                     onClick={() => setShowAllPhotos(true)}
                     className="mt-2 min-h-[44px] w-full rounded-xl border border-brand-slate/30 px-4 text-sm font-medium dark:border-white/20"
                   >
-                    Show all {photos.length} photos
+                    {olderCursor
+                      ? `Show ${photos.length} newest photos`
+                      : `Show all ${photos.length} photos`}
                   </button>
                 )}
+                {(showAllPhotos || photos.length <= PHOTO_PAGE) &&
+                  olderCursor && (
+                    <button
+                      type="button"
+                      disabled={loadingOlder}
+                      onClick={() => {
+                        setShowAllPhotos(true);
+                        void loadOlderPhotos();
+                      }}
+                      className="mt-2 min-h-[44px] w-full rounded-xl border border-brand-slate/30 px-4 text-sm font-medium disabled:opacity-60 dark:border-white/20"
+                    >
+                      {loadingOlder ? "Loading older photos..." : "Load older photos"}
+                    </button>
+                  )}
               </>
             )}
           </fieldset>
