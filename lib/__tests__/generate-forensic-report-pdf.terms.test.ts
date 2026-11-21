@@ -44,6 +44,36 @@ describe("generateForensicReportPDF — terms summary", () => {
   });
 });
 
+// RA-7699: three more passages of scrambled copy sat outside the terms section.
+describe("generateForensicReportPDF — scrambled copy sweep", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(new Uint8Array([1]))));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("prints none of the garbled passages from pages 2, 3 and 5", async () => {
+    const pdf = await generateForensicReportPDF(baseData(""));
+    const text = (await extractPdfText(pdf)).replace(/\s+/g, " ");
+
+    for (const token of [
+      "Chomtice",
+      "pittattit",
+      "comehers",
+      "authertation",
+      "umiermatarove",
+      "collocation",
+      "tusuler",
+    ]) {
+      expect(text).not.toContain(token);
+    }
+    expect(text).toContain("Communication Plan and Dispatchers");
+    expect(text).toContain("Please sign below to confirm receipt of this report.");
+  });
+});
+
 // The summary paragraph used to print "screening: NEGATIVE" for any screen that
 // was not POSITIVE, while the badge on the same page said "Not assessed".
 describe("generateForensicReportPDF — methamphetamine summary", () => {

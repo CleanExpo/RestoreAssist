@@ -720,7 +720,7 @@ async function renderPage2(
 
   // Remediation description
   const remediationText =
-    "The remediation is to scope the whole structural implementation, remediation, and preservation of remediation structures, testing remediation barometers, and resource of the whole collocation rate the Investigation Chomtice:";
+    "The remediation plan covers the following areas:";
   const remediationLines = wrapText(
     remediationText,
     width - 2 * margin,
@@ -946,7 +946,7 @@ async function renderPage2(
       "• Project Clean Estimation",
       "• Project Remediation",
       "• Project Drying and Variables",
-      "• Communication Plan and Dispatchers (pittattit)",
+      "• Communication Plan and Dispatchers",
       "• Eventual Cost Projection",
     ];
 
@@ -1742,7 +1742,7 @@ async function renderPage4(
   yPosition -= 25;
 
   const authText =
-    "The Authorisation & Acceptance is processed for both details, allow safer and common sections, and foremostly accepted tusuler site-vaimcrintioort umiermatarove amcohstiamentes. Please are both your comehers for authertation a signature:";
+    "Please sign below to confirm receipt of this report.";
   const authLines = wrapText(authText, width - 2 * margin, helvetica, 10);
 
   authLines.forEach((line: string) => {
