@@ -7,14 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Loader2,
   CheckCircle2,
   AlertTriangle,
   XCircle,
   ExternalLink,
   ArrowLeft,
   RefreshCw,
-  ClipboardCheck,
   FileText,
   Download,
 } from "lucide-react";

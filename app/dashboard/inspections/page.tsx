@@ -182,7 +182,10 @@ export default function InspectionsPage() {
   const listError: ParsedApiError | null = fetchError
     ? { code: "UNKNOWN", message: fetchError, status: 0 }
     : null;
-  const inspections = inspectionsData?.inspections ?? [];
+  const inspections = useMemo(
+    () => inspectionsData?.inspections ?? [],
+    [inspectionsData],
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");

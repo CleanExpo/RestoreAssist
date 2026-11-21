@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,7 +37,7 @@ const ACTION_TABS: { key: ActionFilter; label: string }[] = [
   { key: "view", label: "View" },
 ];
 
-function getActionVariant(
+function _getActionVariant(
   action: string,
 ): "default" | "secondary" | "destructive" | "outline" {
   const lower = action.toLowerCase();

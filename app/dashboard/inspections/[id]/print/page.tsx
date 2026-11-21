@@ -110,7 +110,7 @@ function fmtCurrency(val: number): string {
   });
 }
 
-function fmtDate(iso: string): string {
+function _fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-AU", {
     day: "2-digit",
     month: "long",

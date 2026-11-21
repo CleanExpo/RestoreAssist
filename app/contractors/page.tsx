@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Search,
   MapPin,
@@ -58,11 +58,7 @@ export default function ContractorDirectoryPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    fetchContractors();
-  }, [search, postcode, state, minRating, page]);
-
-  const fetchContractors = async () => {
+  const fetchContractors = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -82,7 +78,11 @@ export default function ContractorDirectoryPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, postcode, state, minRating, page]);
+
+  useEffect(() => {
+    fetchContractors();
+  }, [fetchContractors]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

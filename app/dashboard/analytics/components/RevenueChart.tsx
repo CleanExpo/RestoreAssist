@@ -1,9 +1,7 @@
 "use client";
 
 import {
-  AreaChart,
   Area,
-  BarChart,
   Bar,
   XAxis,
   YAxis,

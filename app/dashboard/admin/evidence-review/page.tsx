@@ -9,13 +9,11 @@ import {
   Search,
   AlertTriangle,
   CheckCircle,
-  Clock,
   ChevronDown,
   ChevronRight,
   FileWarning,
   ClipboardCheck,
   Filter,
-  BarChart3,
   Eye,
   Loader2,
 } from "lucide-react";
@@ -26,7 +24,6 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { JOB_TYPE_LABELS } from "@/lib/evidence/workflow-definitions";
 import type { JobType } from "@/lib/evidence/workflow-definitions";
-import { RISK_TIER_LABELS } from "@/lib/types/evidence";
 
 // ═══ Types ═══════════════════════════════════════════════════════════
 

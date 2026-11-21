@@ -802,7 +802,6 @@ function ImageGenResult({ output }: { output: unknown }) {
         dashboardSurfaceClass,
       )}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- remote gen URL */}
       <img
         src={data.image_url}
         alt={promptExcerpt || "Generated image"}

@@ -12,7 +12,7 @@
  * - Cursor-based pagination (load more)
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Camera,
   Filter,
@@ -28,7 +28,6 @@ import {
   Code2,
   CheckSquare,
   Square,
-  BarChart3,
   HardDrive,
   TrendingUp,
   Tag,
@@ -787,7 +786,6 @@ function AssetCard({
       onClick={onToggle}
     >
       <div className="relative aspect-square bg-muted flex items-center justify-center overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`/api/storage/thumbnail?path=${encodeURIComponent(asset.storagePath)}`}
           alt={asset.originalFilename}

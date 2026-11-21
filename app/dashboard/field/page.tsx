@@ -146,7 +146,6 @@ export default function FieldDashboardPage() {
       })
       .catch(() => {});
     return () => cleanup?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadInspections(): Promise<RefreshResult> {
@@ -314,7 +313,6 @@ export default function FieldDashboardPage() {
 
   useEffect(() => {
     loadInspections();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeJobs = inspections.filter((i) =>

@@ -15,12 +15,10 @@ import {
   Download,
   Eye,
   Edit,
-  MoreVertical,
   Copy,
   Trash2,
   CheckSquare,
   Square,
-  X,
   GitBranch,
   RefreshCw,
   Sparkles,
@@ -32,7 +30,6 @@ import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 import toast from "react-hot-toast";
 import {
   EvaluatorScoreBadge,
-  PhaseProgressBar,
 } from "@/components/SessionMetadataCard";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
@@ -83,9 +80,9 @@ export default function ReportsPage() {
       ? { kind: "updated", message: "Reports updated" }
       : { kind: "error", message: "Could not refresh reports. Try again." };
   });
-  const reports = reportsData?.reports ?? [];
+  const reports = useMemo(() => reportsData?.reports ?? [], [reportsData]);
   const [duplicating, setDuplicating] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState<string | null>(null);
+  const [_downloading, setDownloading] = useState<string | null>(null);
   // RA-1192: per-row synopsis generation. Keyed by report id so multiple rows
   // can be generated in parallel without stepping on each other's state.
   const [synopsising, setSynopsising] = useState<string | null>(null);
@@ -117,7 +114,7 @@ export default function ReportsPage() {
       });
 
       if (response.ok) {
-        const newReport = await response.json();
+        const _newReport = await response.json();
         toast.success("Report duplicated successfully!", {
           duration: 4000,
           style: {
@@ -216,7 +213,7 @@ export default function ReportsPage() {
   };
 
   // Download report function
-  const downloadReport = async (reportId: string) => {
+  const _downloadReport = async (reportId: string) => {
     try {
       setDownloading(reportId);
       const response = await fetch(`/api/reports/${reportId}/download`);

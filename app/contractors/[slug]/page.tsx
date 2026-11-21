@@ -4,7 +4,7 @@ import {
   parseServicesOffered,
   serviceLabels,
 } from "@/lib/crm/service-catalogue";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -106,11 +106,7 @@ export default function ContractorProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchProfile();
-  }, [params.slug, session]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const res = await fetch(`/api/contractors/${params.slug}`);
       if (!res.ok) {
@@ -123,7 +119,12 @@ export default function ContractorProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.slug]);
+
+  useEffect(() => {
+    fetchProfile();
+    // session is a trigger: re-fetch when auth state changes
+  }, [fetchProfile, session]);
 
   if (loading) {
     return (
@@ -158,7 +159,7 @@ export default function ContractorProfilePage() {
     certifications,
     serviceAreas,
     reviews,
-    ratingBreakdown,
+    ratingBreakdown: _ratingBreakdown,
     subRatings,
     requiresAuthForContact,
   } = data;

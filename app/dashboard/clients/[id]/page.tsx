@@ -7,13 +7,11 @@ import { ClientTimeline } from "@/components/clients/ClientTimeline";
 import {
   ArrowLeft,
   Edit,
-  Trash2,
   Phone,
   Mail,
   MapPin,
   Building,
   User,
-  Calendar,
   DollarSign,
   FileText,
   AlertTriangle,
