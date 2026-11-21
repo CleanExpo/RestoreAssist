@@ -12,7 +12,7 @@
 import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache";
 import { requireAiTaskPolicy } from "@/lib/ai/task-policy";
 import { buildAiUsageMetadata } from "@/lib/ai/usage-metadata";
-import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
+import { ok, type ServiceResult } from "@/lib/services/_shared/result";
 import {
   callAnthropicWithFallback,
   type AnthropicReason,

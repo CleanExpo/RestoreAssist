@@ -69,7 +69,6 @@ const ADDONS: Record<string, string> = {
 const TECH_SEATS = 2;
 
 type Role = "ADMIN" | "USER" | "MANAGER";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Json = Record<string, any>;
 
 // ---------------------------------------------------------------- small helpers

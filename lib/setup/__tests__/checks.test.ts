@@ -8,7 +8,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { runAllChecks, CHECKS, pricingCheck, type CheckResult } from "../checks";
+import { runAllChecks, CHECKS, pricingCheck } from "../checks";
 import { prisma } from "@/lib/prisma";
 
 // Shared, hoisted flag so a single module mock can serve two suites: the

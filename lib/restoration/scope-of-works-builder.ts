@@ -66,7 +66,7 @@ export function buildScopeOfWorksData(data: {
     pricingConfig,
     stateInfo,
     equipmentSelection,
-    psychrometricAssessment,
+    psychrometricAssessment: _psychrometricAssessment,
     scopeAreas = [],
   } = data;
   if (!pricingConfig) {
@@ -136,20 +136,20 @@ export function buildScopeOfWorksData(data: {
   const storedEquipmentLines = readStoredEquipment(equipmentSelection);
 
   // Calculate equipment quantities from actual selections
-  let airMoversQty = 0;
-  let dehumidifiersQty = 0;
-  let afdQty = 0;
+  let _airMoversQty = 0;
+  let _dehumidifiersQty = 0;
+  let _afdQty = 0;
 
   storedEquipmentLines.forEach((line) => {
     if (line.groupId.startsWith("airmover-")) {
-      airMoversQty += line.quantity;
+      _airMoversQty += line.quantity;
     } else if (
       line.groupId.startsWith("lgr-") ||
       line.groupId.startsWith("desiccant-")
     ) {
-      dehumidifiersQty += line.quantity;
+      _dehumidifiersQty += line.quantity;
     } else if (line.groupId.includes("afd")) {
-      afdQty += line.quantity;
+      _afdQty += line.quantity;
     }
   });
 

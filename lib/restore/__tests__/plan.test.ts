@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { it, expect, vi, beforeEach } from "vitest";
 import { RestoreMode } from "@prisma/client";
 
 const { queueRestoreJobMock, storageMirrorJobMock } = vi.hoisted(() => ({

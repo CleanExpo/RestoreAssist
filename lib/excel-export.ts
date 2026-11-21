@@ -26,7 +26,7 @@ export interface ExcelExportOptions {
 }
 
 /** Represents a JSON-parsed field from the Report model (stored as JSON string in DB). */
-type JsonRecord = Record<string, unknown>;
+type _JsonRecord = Record<string, unknown>;
 
 /** Minimal shape of a Prisma Report row after JSON fields have been parsed. */
 export interface ParsedReport {
@@ -96,7 +96,6 @@ export interface ParsedReport {
 /**
  * Helper to safely parse JSON
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function safeParse(value: unknown): any {
   if (!value) return null;
   if (typeof value === "object") return value;
@@ -1718,7 +1717,7 @@ export async function generateSingleReportExcel(
  */
 export async function generateExcelWorkbook(
   reports: ParsedReport[],
-  options: ExcelExportOptions = {},
+  _options: ExcelExportOptions = {},
 ): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "RestoreAssist";

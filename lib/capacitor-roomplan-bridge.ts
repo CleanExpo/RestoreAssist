@@ -22,7 +22,6 @@ type RegisterPlugin = <T>(name: string) => T;
 
 let registerPluginLoader: () => RegisterPlugin | null = () => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- match capacitor lazy load
     const { registerPlugin } = require("@capacitor/core") as {
       registerPlugin: RegisterPlugin;
     };
