@@ -20,6 +20,10 @@ const probe = vi.hoisted(() => ({
   json: { objects: [] } as Record<string, unknown>,
   canvas: null as FabricCanvasRef | null,
   postStatus: 201,
+  /** When set, only the next POST is refused as a revision conflict. */
+  conflictOnce: null as { serverRevision: string } | null,
+  /** The x-sketch-revision header each POST carried. */
+  sentRevisions: [] as Array<string | null>,
   /** onReady calls that have returned (the editor's handler ran). */
   readyCalls: 0,
 }));
@@ -171,12 +175,14 @@ const freehand = {
 const posts: Array<Record<string, unknown>> = [];
 
 function jsonResponse(body: unknown, status = 200): Response {
-  return {
+  const response = {
     ok: status >= 200 && status < 300,
     status,
     json: async () => body,
     text: async () => JSON.stringify(body),
-  } as Response;
+    clone: () => jsonResponse(body, status),
+  };
+  return response as unknown as Response;
 }
 
 function installFetch() {
@@ -189,6 +195,13 @@ function installFetch() {
         posts.push(
           JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>,
         );
+        const headers = (init?.headers ?? {}) as Record<string, string>;
+        probe.sentRevisions.push(headers["x-sketch-revision"] ?? null);
+        if (probe.conflictOnce) {
+          const { serverRevision } = probe.conflictOnce;
+          probe.conflictOnce = null;
+          return jsonResponse({ conflict: "revision", serverRevision }, 409);
+        }
         if (probe.postStatus === 409) {
           return jsonResponse({ conflict: "revision" }, 409);
         }
@@ -297,6 +310,8 @@ describe("RA-8197 reload and paused-floor safety (SketchEditorV2)", () => {
     probe.json = { objects: [] };
     probe.canvas = null;
     probe.postStatus = 201;
+    probe.conflictOnce = null;
+    probe.sentRevisions.length = 0;
     probe.readyCalls = 0;
     posts.length = 0;
     queue.enqueued.length = 0;
@@ -379,5 +394,59 @@ describe("RA-8197 reload and paused-floor safety (SketchEditorV2)", () => {
     );
     expect(screen.getByTestId("draw-stroke").dataset.readonly).toBe("true");
     expect(screen.queryByRole("button", { name: "Clear Canvas" })).toBeNull();
+  });
+
+  it("RA-8197 item 1: a live save refused because its own queued save replayed first adopts that revision and saves", async () => {
+    await renderJobWithRooms();
+    // Learn this editor's session from a save it queues while offline.
+    probe.postStatus = 503;
+    fireEvent.click(screen.getByTestId("draw-stroke"));
+    await nextQueuedSave();
+    const session = queue.enqueued[0].payload.editorSessionId as string;
+    probe.postStatus = 201;
+
+    // The queue (here, another tab holding the drain lock) replays that save
+    // and announces the floor's new revision on the broadcast channel.
+    const announcer = new BroadcastChannel(
+      "restoreassist:sketch-save-replayed",
+    );
+    announcer.postMessage({
+      inspectionId: "job-1",
+      floorNumber: 0,
+      editorSessionId: session,
+      baseRevision: "rev-old",
+      revision: "rev-replayed",
+    });
+    announcer.close();
+    await settle(0);
+
+    // The live save was based on the revision before the replay.
+    probe.conflictOnce = { serverRevision: "rev-replayed" };
+    const before = posts.length;
+    fireEvent.click(screen.getByTestId("draw-stroke"));
+    await settle(1600);
+    await waitUntil(() => posts.length >= before + 2, "the retried save");
+
+    expect(probe.sentRevisions.at(-1)).toBe("rev-replayed");
+    expect(screen.queryByTestId("floor-paused-shield")).toBeNull();
+    expect(
+      queue.enqueued.some((e) => e.payload.refusedAsConflict === true),
+    ).toBe(false);
+  });
+
+  it("RA-8197 item 1: a revision no replay of this editor produced stays a conflict", async () => {
+    await renderJobWithRooms();
+    probe.conflictOnce = { serverRevision: "rev-from-another-editor" };
+
+    fireEvent.click(screen.getByTestId("draw-stroke"));
+    await settle(1600);
+    // The editor waits briefly for an announcement that never comes.
+    await settle(1600);
+    await waitUntil(
+      () => screen.queryByTestId("floor-paused-shield"),
+      "the floor to pause on the conflict",
+    );
+    expect(posts).toHaveLength(1);
+    expect(queue.enqueued.at(-1)?.payload.refusedAsConflict).toBe(true);
   });
 });
