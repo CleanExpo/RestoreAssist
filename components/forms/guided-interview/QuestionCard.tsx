@@ -29,12 +29,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { HelpCircle, Loader2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { Question } from "@/lib/interview";
 
 interface QuestionCardProps {
@@ -51,7 +45,7 @@ interface QuestionCardProps {
 export function QuestionCard({
   question,
   onAnswer,
-  isLoading = false,
+  isLoading: _isLoading = false,
   answeredQuestions = 0,
   totalQuestions = 0,
 }: QuestionCardProps) {

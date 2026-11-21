@@ -10,7 +10,6 @@ import {
   Clipboard,
   ArrowRight,
 } from "lucide-react";
-import { parseSearchQuery } from "@/lib/search-utils";
 
 interface SearchResult {
   id: string;
@@ -60,6 +59,14 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     }
   }, [isOpen]);
 
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    setQuery("");
+    setResults([]);
+    setSelectedIndex(0);
+    onClose?.();
+  }, [onClose]);
+
   // Close on escape
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -70,15 +77,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
 
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [isOpen]);
-
-  const handleClose = () => {
-    setIsOpen(false);
-    setQuery("");
-    setResults([]);
-    setSelectedIndex(0);
-    onClose?.();
-  };
+  }, [isOpen, handleClose]);
 
   const performSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim() || searchQuery.length < 2) {

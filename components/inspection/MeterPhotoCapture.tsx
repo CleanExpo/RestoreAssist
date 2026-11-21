@@ -1206,7 +1206,6 @@ export function MeterPhotoCapture({
       {preview && !extraction && (
         <div className="space-y-3">
           {/* Preview */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={preview}
             alt="Meter display preview"

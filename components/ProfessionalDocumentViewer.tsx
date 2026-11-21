@@ -226,7 +226,7 @@ export default function ProfessionalDocumentViewer({
     // Convert remaining line breaks to paragraphs (but skip signature section)
     html = html
       .split("\n")
-      .map((line, index, array) => {
+      .map((line, _index, _array) => {
         const trimmed = line.trim();
         if (!trimmed) return "";
         // Skip if already HTML

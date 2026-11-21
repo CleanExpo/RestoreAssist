@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X, CheckCircle, Circle, ArrowRight, Sparkles } from "lucide-react";
+import { CheckCircle, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface OnboardingStepModalProps {
@@ -20,7 +20,7 @@ export default function OnboardingStepModal({
   description,
   children,
 }: OnboardingStepModalProps) {
-  const router = useRouter();
+  const _router = useRouter();
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const isOnboarding = searchParams.get("onboarding") === "true";
   const [isVisible, setIsVisible] = useState(false);
@@ -99,7 +99,7 @@ export default function OnboardingStepModal({
               {steps.map((s, index) => {
                 const isCompleted = s.number < step;
                 const isCurrent = s.number === step;
-                const isUpcoming = s.number > step;
+                const _isUpcoming = s.number > step;
 
                 return (
                   <div key={s.number} className="flex items-center flex-1">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   AlertTriangle,
   Save,
@@ -59,11 +59,7 @@ export default function Tier2Questions({
     T2_Q7_insuranceConsiderations: "",
   });
 
-  useEffect(() => {
-    fetchExistingResponses();
-  }, [reportId]);
-
-  const fetchExistingResponses = async () => {
+  const fetchExistingResponses = useCallback(async () => {
     try {
       const response = await fetch(`/api/reports/${reportId}`);
       if (response.ok) {
@@ -110,7 +106,11 @@ export default function Tier2Questions({
     } catch (error) {
       console.error("Error fetching existing responses:", error);
     }
-  };
+  }, [reportId]);
+
+  useEffect(() => {
+    fetchExistingResponses();
+  }, [fetchExistingResponses]);
 
   const handleSave = async () => {
     setLoading(true);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MapPin, Loader2, Search, X, ChevronRight } from "lucide-react";
+import { MapPin, Loader2, X, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ParsedAddress {

@@ -8,8 +8,6 @@ import {
   Building2,
   AlertTriangle,
   Square,
-  Printer,
-  Download,
   FileText,
   MapPin,
   Thermometer,
@@ -17,7 +15,6 @@ import {
   Shield,
   Image as ImageIcon,
   User,
-  Clock,
   CheckCircle,
 } from "lucide-react";
 import {

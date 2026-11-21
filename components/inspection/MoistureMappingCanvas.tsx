@@ -188,36 +188,39 @@ export default function MoistureMappingCanvas({
 
   // RA-7713: place a reading locally, then persist it through onPlaceReading.
   // A failed save puts the reading back in the unplaced list and says so.
-  const placeReadingAt = (reading: MoistureReading, x: number, y: number) => {
-    const newPoint: MoisturePoint = { id: reading.id, x, y, reading };
-    const updatedPoints = [
-      ...points.filter((p) => p.id !== reading.id),
-      newPoint,
-    ];
-    setPoints(updatedPoints);
-    setUnplacedReadings((prev) => prev.filter((r) => r.id !== reading.id));
-    setPlacingReading(null);
-    setPlaceError(null);
-    onPointsChange?.(updatedPoints);
-    if (!onPlaceReading) return;
-    const position = {
-      mapX: Math.min(1, Math.max(0, x / CANVAS_WIDTH)),
-      mapY: Math.min(1, Math.max(0, y / CANVAS_HEIGHT)),
-    };
-    Promise.resolve()
-      .then(() => onPlaceReading(reading.id, position))
-      .catch((err: unknown) => {
-        setPoints((prev) => prev.filter((p) => p.id !== reading.id));
-        setUnplacedReadings((prev) =>
-          prev.some((r) => r.id === reading.id) ? prev : [...prev, reading],
-        );
-        setPlaceError(
-          `Could not save the position of ${reading.location}: ${
-            err instanceof Error ? err.message : "unknown error"
-          }. Try again.`,
-        );
-      });
-  };
+  const placeReadingAt = useCallback(
+    (reading: MoistureReading, x: number, y: number) => {
+      const newPoint: MoisturePoint = { id: reading.id, x, y, reading };
+      const updatedPoints = [
+        ...points.filter((p) => p.id !== reading.id),
+        newPoint,
+      ];
+      setPoints(updatedPoints);
+      setUnplacedReadings((prev) => prev.filter((r) => r.id !== reading.id));
+      setPlacingReading(null);
+      setPlaceError(null);
+      onPointsChange?.(updatedPoints);
+      if (!onPlaceReading) return;
+      const position = {
+        mapX: Math.min(1, Math.max(0, x / CANVAS_WIDTH)),
+        mapY: Math.min(1, Math.max(0, y / CANVAS_HEIGHT)),
+      };
+      Promise.resolve()
+        .then(() => onPlaceReading(reading.id, position))
+        .catch((err: unknown) => {
+          setPoints((prev) => prev.filter((p) => p.id !== reading.id));
+          setUnplacedReadings((prev) =>
+            prev.some((r) => r.id === reading.id) ? prev : [...prev, reading],
+          );
+          setPlaceError(
+            `Could not save the position of ${reading.location}: ${
+              err instanceof Error ? err.message : "unknown error"
+            }. Try again.`,
+          );
+        });
+    },
+    [points, onPointsChange, onPlaceReading],
+  );
 
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
@@ -245,12 +248,10 @@ export default function MoistureMappingCanvas({
       placingReading,
       placingEquipment,
       readonly,
-      points,
       equipmentPoints,
       sketchMode,
-      onPointsChange,
       onEquipmentPointsChange,
-      onPlaceReading,
+      placeReadingAt,
     ],
   );
 
@@ -806,9 +807,7 @@ export default function MoistureMappingCanvas({
                 Floor plan overview without moisture or equipment data.
               </p>
               {backgroundImage ? (
-                <p className="text-xs text-success">
-                  Floor plan loaded
-                </p>
+                <p className="text-xs text-success">Floor plan loaded</p>
               ) : (
                 <p className="text-xs text-amber-700 dark:text-amber-400">
                   Upload a floor plan to get started
@@ -873,8 +872,8 @@ export default function MoistureMappingCanvas({
                   </div>
                   {!readonly && (
                     <p className="text-xs text-neutral-600 dark:text-slate-400">
-                      Select a reading, then click the grid to place it, or
-                      drag it onto the grid.
+                      Select a reading, then click the grid to place it, or drag
+                      it onto the grid.
                     </p>
                   )}
                   <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
@@ -925,10 +924,7 @@ export default function MoistureMappingCanvas({
 
               {unplacedReadings.length === 0 && points.length > 0 && (
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 text-center">
-                  <Droplets
-                    className="mx-auto text-success mb-1"
-                    size={20}
-                  />
+                  <Droplets className="mx-auto text-success mb-1" size={20} />
                   <p className="text-xs text-success font-medium">
                     All readings placed
                   </p>

@@ -11,7 +11,7 @@ import {
   Thermometer,
   Wind,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   AIR_MOVER_RATIO,
@@ -45,7 +45,7 @@ interface DryingPlanTemplatesProps {
 export default function DryingPlanTemplates({
   waterClass,
   affectedArea,
-  waterCategory,
+  waterCategory: _waterCategory,
   onPlanUpdate,
   initialData,
 }: DryingPlanTemplatesProps) {
@@ -270,7 +270,7 @@ export default function DryingPlanTemplates({
   };
 
   const getEquipmentPlacement = () => {
-    const area = parseFloat(affectedArea.toString());
+    const _area = parseFloat(affectedArea.toString());
     const airmovers = calculateEquipmentNeeds().airmovers;
 
     return {
@@ -321,13 +321,33 @@ export default function DryingPlanTemplates({
     return schedule;
   };
 
+  // Latest-value ref: the sync effect below must fire only when the template
+  // inputs change, not whenever these per-render closures change.
+  const latestRef = useRef({
+    calculateEquipmentNeeds,
+    getPsychrometricTargets,
+    calculateDryingTime,
+    dryingPlan,
+    onPlanUpdate,
+  });
   useEffect(() => {
-    const equipment = calculateEquipmentNeeds();
-    const targets = getPsychrometricTargets();
-    const dryingTime = calculateDryingTime();
+    latestRef.current = {
+      calculateEquipmentNeeds,
+      getPsychrometricTargets,
+      calculateDryingTime,
+      dryingPlan,
+      onPlanUpdate,
+    };
+  });
+
+  useEffect(() => {
+    const latest = latestRef.current;
+    const equipment = latest.calculateEquipmentNeeds();
+    const targets = latest.getPsychrometricTargets();
+    const dryingTime = latest.calculateDryingTime();
 
     const newPlan = {
-      ...dryingPlan,
+      ...latest.dryingPlan,
       dehumidificationCapacity: equipment.dehumidification,
       airmoversCount: equipment.airmovers,
       targetHumidity: targets.humidity,
@@ -336,7 +356,7 @@ export default function DryingPlanTemplates({
     };
 
     setDryingPlan(newPlan);
-    onPlanUpdate(newPlan);
+    latest.onPlanUpdate(newPlan);
   }, [waterClass, affectedArea, selectedTemplate]);
 
   const handleInputChange = (field: string, value: any) => {

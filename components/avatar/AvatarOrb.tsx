@@ -375,7 +375,6 @@ export function AvatarOrb({
             {avatarImageUrl === MARGOT_AVATAR_ORB_PATH ? (
               <MargotAvatar size={size - 8} />
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={avatarImageUrl}
                 alt={`${MARGOT_DISPLAY_NAME} avatar`}
