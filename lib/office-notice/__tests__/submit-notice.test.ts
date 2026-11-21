@@ -107,6 +107,8 @@ const ORG_1 = {
   id: "org-1",
   ownerId: "owner-1",
   email: "office@example.com",
+  // Set up before the job was made (CREATED_AT).
+  createdAt: new Date("2026-10-01T00:00:00.000Z"),
   owner: { email: "owner@example.com" },
 };
 
@@ -337,6 +339,51 @@ describe("notifyOfficeOfSubmittedVisit", () => {
       expect(mockUserFindMany).not.toHaveBeenCalled();
       expect(inAppRecipients()).toEqual(["owner-1"]);
       expect(mockSend.mock.calls[0][0].to).toBe("owner@example.com");
+    });
+
+    it("an organisation set up after the job is not told about it; the owner alone is", async () => {
+      mockOrgFindMany.mockResolvedValue([
+        { ...ORG_1, id: "org-B", email: "office@org-b.example", createdAt: new Date("2026-11-10T00:00:00.000Z") },
+      ]);
+      await run();
+      expect(mockUserFindMany).not.toHaveBeenCalled();
+      expect(inAppRecipients()).toEqual(["owner-1"]);
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(mockSend.mock.calls[0][0].to).toBe("owner@example.com");
+    });
+
+    it("a creator who left an organisation after making the job is not proven its tenant: nobody is told", async () => {
+      // getResourceTenant says "the creator themself" for any ADMIN, even one
+      // who belonged to another business when the job was made.
+      mockInspectionFindUnique.mockImplementation(async (args: { select?: Row }) =>
+        pickSelected({ ...fullInspectionRow, userId: "tech-now-admin" }, args),
+      );
+      mockGetResourceTenant.mockResolvedValue({ ownerId: "tech-now-admin", organizationId: null });
+      mockUserFindUnique.mockImplementation(async (args: { select?: Row }) =>
+        args.select && "organizationLeftAt" in args.select
+          ? { organizationLeftAt: new Date("2026-11-15T00:00:00.000Z") }
+          : { email: "tech@own-firm.example" },
+      );
+      mockOrgFindMany.mockResolvedValue([
+        { ...ORG_1, id: "org-own", ownerId: "tech-now-admin", email: "office@own-firm.example" },
+      ]);
+
+      await run();
+
+      expect(mockNotificationCreateMany).not.toHaveBeenCalled();
+      expect(mockSend).not.toHaveBeenCalled();
+      expect(outcomes()).toEqual(["no_tenant"]);
+    });
+
+    it("a creator who left an organisation before making the job is still told as its owner", async () => {
+      mockUserFindUnique.mockImplementation(async (args: { select?: Row }) =>
+        args.select && "organizationLeftAt" in args.select
+          ? { organizationLeftAt: new Date("2026-09-01T00:00:00.000Z") }
+          : { email: "owner@example.com" },
+      );
+      await run();
+      expect(inAppRecipients()).toEqual(["admin-1", "manager-1", "owner-1"]);
+      expect(mockSend.mock.calls[0][0].to).toBe("office@example.com");
     });
 
     it("no usable address sends no email but still tells the owner in-app", async () => {

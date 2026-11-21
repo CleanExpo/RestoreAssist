@@ -124,6 +124,7 @@ const ORG_SELECT = {
   id: true,
   ownerId: true,
   email: true,
+  createdAt: true,
   owner: { select: { email: true } },
 } as const;
 
@@ -131,11 +132,17 @@ const ORG_SELECT = {
  * The organisation that owns the job, or null for a sole trader. One owner
  * may own several organisations; when the tenant names none and the owner
  * owns more than one, no organisation is guessed.
+ *
+ * When the tenant is the creator themself, getResourceTenant names no
+ * organisation, so one is only used when it is the owner's sole organisation
+ * AND it already existed when the job was made. An organisation set up after
+ * the job is not the job's, so its office and staff are not told; the owner
+ * alone is.
  */
-async function resolveTenantOrganization(tenant: {
-  ownerId: string;
-  organizationId: string | null;
-}) {
+async function resolveTenantOrganization(
+  tenant: { ownerId: string; organizationId: string | null },
+  jobCreatedAt: Date,
+) {
   if (tenant.organizationId) {
     const org = await prisma.organization.findUnique({
       where: { id: tenant.organizationId },
@@ -148,7 +155,27 @@ async function resolveTenantOrganization(tenant: {
     select: ORG_SELECT,
     take: 2,
   });
-  return owned.length === 1 ? owned[0] : null;
+  if (owned.length !== 1) return null;
+  const [org] = owned;
+  return org.createdAt.getTime() <= jobCreatedAt.getTime() ? org : null;
+}
+
+/**
+ * getResourceTenant answers "the creator themself" for every ADMIN before it
+ * looks at membership history. A creator who has since left an organisation
+ * they belonged to when the job was made is therefore not proven to be the
+ * job's tenant: the job may be that organisation's work. Fail closed.
+ */
+async function selfTenantUnproven(
+  creatorId: string,
+  jobCreatedAt: Date,
+): Promise<boolean> {
+  const creator = await prisma.user.findUnique({
+    where: { id: creatorId },
+    select: { organizationLeftAt: true },
+  });
+  const leftAt = creator?.organizationLeftAt;
+  return leftAt instanceof Date && leftAt.getTime() > jobCreatedAt.getTime();
 }
 
 export async function notifyOfficeOfSubmittedVisit(
@@ -180,7 +207,14 @@ export async function notifyOfficeOfSubmittedVisit(
       logOutcome(inspection.id, "no_tenant");
       return;
     }
-    const org = await resolveTenantOrganization(tenant);
+    if (
+      !tenant.organizationId &&
+      (await selfTenantUnproven(inspection.userId, inspection.createdAt))
+    ) {
+      logOutcome(inspection.id, "no_tenant", { reason: "left_after_job" });
+      return;
+    }
+    const org = await resolveTenantOrganization(tenant, inspection.createdAt);
 
     const technicianName =
       inspection.technicianName?.trim() ||
