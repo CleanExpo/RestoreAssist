@@ -190,6 +190,21 @@ describe("GET /api/addons/catalog", () => {
       expect(json.access.CLIENT_COMMS).toMatchObject({ label: "optional_paid", action: "buy" });
     });
 
+    it("RA-8469: a caller whose user row is missing is offered no buy on any card", async () => {
+      mockSession.mockResolvedValue({ user: { id: "ghost-1" } });
+      mockGetWorkspace.mockResolvedValue({ id: "ws1" });
+      mockFindMany.mockResolvedValue([]);
+      mockUser.mockResolvedValue(null);
+      mockOwner.mockResolvedValue(null);
+
+      const res = await GET(req());
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      for (const sku of Object.keys(RECURRING_ADDONS)) {
+        expect(["buy", "add_seat", "manage"]).not.toContain(json.access[sku].action);
+      }
+    });
+
     it("team member: no card offers a buy, add or manage action", async () => {
       mockSession.mockResolvedValue({ user: { id: "tech-1" } });
       mockGetWorkspace.mockResolvedValue({ id: "ws-owner" });

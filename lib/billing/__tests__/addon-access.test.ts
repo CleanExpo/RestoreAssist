@@ -4,6 +4,7 @@ import {
   addonFeatureLive,
   holdingFor,
   COMING_SOON_REASON,
+  NO_PLAN_REASON,
   OWNER_ONLY_REASON,
   TRIAL_PACK_REASON,
   type AddonViewer,
@@ -77,6 +78,15 @@ describe("addonAccess mirrors POST /api/addons/checkout", () => {
       perSeat: true,
       holding: "none",
       viewer: owner({ subscriptionStatus: "TRIAL", trialEndsAt: TEN_DAYS_AGO }),
+      label: "unavailable",
+      action: "choose_plan",
+    },
+    {
+      // RA-8469: a user row with no plan at all, not just a non-ACTIVE one.
+      name: "an owner with no subscription status (null) must choose a plan",
+      perSeat: false,
+      holding: "none",
+      viewer: owner({ subscriptionStatus: null }),
       label: "unavailable",
       action: "choose_plan",
     },
@@ -187,6 +197,16 @@ describe("addonAccess mirrors POST /api/addons/checkout", () => {
       expect(got.reason.length).toBeGreaterThan(0);
     });
   }
+
+  it("RA-8469: a null subscription status gives the no-plan reason", () => {
+    const got = addonAccess({
+      perSeat: false,
+      holding: "none",
+      viewer: owner({ subscriptionStatus: null }),
+      now: NOW,
+    });
+    expect(got).toMatchObject({ action: "choose_plan", reason: NO_PLAN_REASON });
+  });
 
   it("says why in plain words", () => {
     expect(
