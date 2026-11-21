@@ -349,6 +349,24 @@ describe("buildIcsEvent: RFC 5545 structure", () => {
     expect(vevent.getAllProperties("attendee")).toHaveLength(0);
   });
 
+  it("RA-8525: a cancellation is METHOD:CANCEL, STATUS:CANCELLED, same UID and times", () => {
+    const booked = parse(event());
+    ICAL.TimezoneService.reset();
+    const { root, vevent, event: cancelled } = parse(
+      event({ cancelled: true, sequence: 1 }),
+    );
+    expect(booked.root.getFirstPropertyValue("method")).toBe("PUBLISH");
+    expect(booked.vevent.getFirstPropertyValue("status")).toBe("CONFIRMED");
+    expect(root.getFirstPropertyValue("method")).toBe("CANCEL");
+    expect(vevent.getFirstPropertyValue("status")).toBe("CANCELLED");
+    expect(vevent.getFirstPropertyValue("sequence")).toBe(1);
+    expect(vevent.getFirstPropertyValue("uid")).toBe(
+      booked.vevent.getFirstPropertyValue("uid"),
+    );
+    expect(cancelled.startDate.toString()).toBe(booked.event.startDate.toString());
+    expect(root.getAllSubcomponents("vevent")).toHaveLength(1);
+  });
+
   it("refuses an end that is not after the start", () => {
     expect(() =>
       event({
