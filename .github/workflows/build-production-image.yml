@@ -128,7 +128,7 @@ jobs:
           #    resolved above instead: same assertions, no network, no token.
           export MAIN_SHA="${MAIN}"
           node --input-type=module -e '
-            import { verifyReleaseProvenance } from "./scripts/ci/verify-release-provenance.mjs";
+            import { verifyReleaseProvenance } from "./scripts/ci/lib/verify-release-provenance.mjs";
             verifyReleaseProvenance({
               ref: process.env.GITHUB_REF ?? "",
               sha: process.env.GITHUB_SHA ?? "",
