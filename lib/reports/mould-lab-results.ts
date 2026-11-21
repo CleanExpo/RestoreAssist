@@ -33,8 +33,24 @@ const CONDITION_LABEL: Record<string, string> = {
   CONDITION_3: "Condition 3",
 };
 
+/**
+ * The report font is WinAnsi, so the PDF sanitiser drops anything outside
+ * Latin-1. Spell comparison operators out first: "Indoor ≤ 500" must never
+ * print as "Indoor 500", which reverses what the professional recorded.
+ */
+const OPERATOR_TEXT: Array<[RegExp, string]> = [
+  [/≤|⩽/g, "<="],
+  [/≥|⩾/g, ">="],
+  [/≠/g, "!="],
+  [/≈/g, "~"],
+];
+
+export function preserveOperators(v: string): string {
+  return OPERATOR_TEXT.reduce((acc, [re, to]) => acc.replace(re, to), v);
+}
+
 function text(v: string | null | undefined): string {
-  const t = (v ?? "").trim();
+  const t = preserveOperators((v ?? "").trim());
   return t || NOT_TESTED;
 }
 
@@ -67,7 +83,7 @@ export function shouldPrintMouldLabResults(
 
 export function mouldLabResultRows(a: MouldLabAssessment | null | undefined): Array<[string, string]> {
   const x = a ?? {};
-  const criterion = (x.clearanceCriterion ?? "").trim();
+  const criterion = preserveOperators((x.clearanceCriterion ?? "").trim());
   return [
     ["Condition level:", x.mouldConditionLevel ? CONDITION_LABEL[x.mouldConditionLevel] ?? x.mouldConditionLevel : NOT_TESTED],
     ["Air sampling:", x.airSamplingRequired ? "Required" : x.airSamplingRequired === false ? "Not required" : NOT_TESTED],
