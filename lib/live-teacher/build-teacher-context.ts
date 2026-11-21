@@ -12,6 +12,7 @@
 import { prisma } from "@/lib/prisma";
 import type { TeacherContext } from "@/lib/live-teacher/claude-cloud";
 import { summariseWetReadings } from "@/lib/moisture/reading-dryness";
+import { SUBMITTED_OR_LATER_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 
 type Stage = TeacherContext["stage"];
 
@@ -43,17 +44,9 @@ export interface InspectionSnapshot {
   hasPhotos: boolean;
 }
 
-const SUBMITTED_STATUSES = new Set([
-  "SUBMITTED",
-  "PROCESSING",
-  "CLASSIFIED",
-  "SCOPED",
-  "ESTIMATED",
-  "IN_BILLING",
-  "COMPLETED",
-  "CLOSED",
-  "ARCHIVED",
-]);
+const SUBMITTED_STATUSES: ReadonlySet<string> = new Set(
+  SUBMITTED_OR_LATER_INSPECTION_STATUSES,
+);
 
 /**
  * Pure stage/room/missing-fields derivation from an inspection snapshot.
