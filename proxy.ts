@@ -4,7 +4,6 @@ import { getToken } from "next-auth/jwt";
 import { applyRateLimitEdge } from "@/lib/rate-limiter-edge";
 import { isIosShellUserAgent } from "@/lib/capacitor";
 import {
-  TRIAL_EXPIRED_PAY_PATH,
   hardPaywallUpgradeRoute,
   shouldLockDashboardForSubscription,
 } from "@/lib/billing/trial-expired-pay-route";

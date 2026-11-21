@@ -229,7 +229,6 @@ export function OrganizationProfileSetting() {
                 className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-slate-600 bg-white dark:bg-slate-900"
               >
                 {form.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={form.logoUrl}
                     alt="Organisation logo"

@@ -1,5 +1,4 @@
 import {
-  processPendingWebhookEvents,
   processWebhookEvent,
 } from "@/lib/integrations/webhook-processor";
 import { prisma } from "@/lib/prisma";
@@ -182,7 +181,7 @@ export async function retryFailedEvents(
     maxRetries?: number;
   } = {},
 ): Promise<number> {
-  const { eventIds, olderThan, limit = 100, maxRetries = 5 } = options;
+  const { eventIds, olderThan, limit: _limit = 100, maxRetries = 5 } = options;
 
   const where: any = {
     status: "FAILED",

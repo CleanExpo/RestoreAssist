@@ -4,7 +4,7 @@ import {
   SERVICE_CATALOGUE,
   parseServicesOffered,
 } from "@/lib/crm/service-catalogue";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -63,8 +63,10 @@ interface ServiceArea {
 }
 
 export default function ContractorProfileDashboard() {
-  const { data: session, status } = useSession();
+  const { data: _session, status } = useSession();
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const confirm = useConfirmDialog();
 
   const [profile, setProfile] = useState<ContractorProfile | null>(null);
@@ -111,7 +113,7 @@ export default function ContractorProfileDashboard() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/login");
+      routerRef.current.push("/login");
     } else if (status === "authenticated") {
       fetchProfile();
     }
@@ -254,7 +256,7 @@ export default function ContractorProfileDashboard() {
           text: apiErrorMessage(data) || "Failed to add certification",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to add certification" });
     }
   };
@@ -279,7 +281,7 @@ export default function ContractorProfileDashboard() {
       } else {
         setMessage({ type: "error", text: "Failed to delete certification" });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to delete certification" });
     }
   };
@@ -319,7 +321,7 @@ export default function ContractorProfileDashboard() {
           text: apiErrorMessage(data) || "Failed to add service area",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to add service area" });
     }
   };
@@ -344,7 +346,7 @@ export default function ContractorProfileDashboard() {
       } else {
         setMessage({ type: "error", text: "Failed to delete service area" });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to delete service area" });
     }
   };

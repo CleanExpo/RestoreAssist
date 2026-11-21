@@ -34,7 +34,7 @@ async function canDispatchWebhook(event: { id: string; integrationId: string; pr
  * Handles payment status updates, invoice changes, and customer sync
  */
 
-interface WebhookEvent {
+interface _WebhookEvent {
   id: string;
   provider: IntegrationProvider;
   integrationId: string;

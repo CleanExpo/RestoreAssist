@@ -708,7 +708,6 @@ export function FloorPlanUnderlayLoader({
                         : "border-transparent hover:border-neutral-300 dark:hover:border-slate-500",
                     )}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={img}
                       alt={`Property image ${i + 1}`}
@@ -733,7 +732,6 @@ export function FloorPlanUnderlayLoader({
                 Ready to place as a reference underlay
               </div>
               <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-900">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={uploadPreview ?? selectedImage}
                   alt="Uploaded floor plan preview"

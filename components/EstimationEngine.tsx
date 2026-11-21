@@ -15,7 +15,6 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -28,7 +27,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
 import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 import {
   Save,
@@ -38,10 +36,8 @@ import {
   AlertCircle,
   CheckCircle,
   Lock,
-  History,
   Plus,
   Trash2,
-  Edit2,
   ChevronRight,
   Bookmark,
   BookmarkCheck,
@@ -228,7 +224,7 @@ export default function EstimationEngine({
         toast.error("Failed to load existing estimate data");
       }
     }
-  }, [initialEstimateData]);
+  }, [initialEstimateData, estimateData]);
 
   // Auto-generate line items from scope if available (only once, and only if no initial data)
   useEffect(() => {
@@ -487,11 +483,7 @@ export default function EstimationEngine({
         totalIncGST,
       };
     });
-  }, [
-    estimateData.lineItems,
-    estimateData.commercialParams,
-    estimateData.rateTables,
-  ]);
+  }, [estimateData]);
 
   const generateLineItemsFromScope = () => {
     const items: any[] = [];
