@@ -26,6 +26,7 @@ import {
 import {
   inspectionStatusAllowsDisputePack,
   inspectionStatusAllowsNirReport,
+  inspectionStatusAllowsSignOff,
 } from "@/lib/inspections/active-status";
 import {
   ATTENDANCE_NOT_RECORDED_LABEL,
@@ -1342,9 +1343,7 @@ export default function InspectionDetailPage({
   const showMoistureTabs = moistureReadingsRequired(
     inspection.claimType as IicrcClaimType | null | undefined,
   );
-  const canSignOff = ["ESTIMATED", "COMPLETED", "SUBMITTED"].includes(
-    inspection.status,
-  );
+  const canSignOff = inspectionStatusAllowsSignOff(inspection.status);
   const canGenerateInvoice =
     (inspection.status === "SUBMITTED" && Boolean(inspection.signedAt)) ||
     inspection.status === "IN_BILLING";
