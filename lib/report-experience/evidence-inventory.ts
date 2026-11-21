@@ -236,6 +236,15 @@ export const INSPECTION_FIELDS: Readonly<Record<string, FieldUse>> = {
   createdAt: "system",
   updatedAt: "shown",
   workspaceId: "system",
+  // RA-8495: office "log a job" intake. Listed by name when filled.
+  jobNumber: "other",
+  jobNumberOrganizationId: "system",
+  policyNumber: "other",
+  clientType: "other",
+  insuredName: "other",
+  insuredPhone: "other",
+  insuredEmail: "other",
+  officeNotes: "finding",
 };
 
 export const INSPECTION_LINKS: Readonly<Record<string, LinkUse>> = {
@@ -298,6 +307,8 @@ export const INSPECTION_LINKS: Readonly<Record<string, LinkUse>> = {
   carpetRestorationAssessment: ["finding", "one"],
   hvacAssessment: ["finding", "one"],
   australianComplianceRecord: ["finding", "one"],
+  // RA-8495: the organisation that issued the job number.
+  jobNumberOrganization: ["other", "one"],
 };
 
 function isEvidence(use: FieldUse): use is EvidenceKind {

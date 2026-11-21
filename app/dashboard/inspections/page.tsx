@@ -367,6 +367,7 @@ export default function InspectionsPage() {
         }
         secondaryLinks={[
           { href: "/dashboard", label: "Overview" },
+          { href: "/dashboard/inspections/intake", label: "Log a job" },
           { href: "/dashboard/inspections/schedule", label: "Schedule" },
           { href: "/dashboard/field", label: "Field capture" },
           { href: "/dashboard/reports", label: "Reports" },
