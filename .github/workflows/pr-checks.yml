@@ -233,6 +233,14 @@ jobs:
       - name: Data-source SSOT gate
         run: npm run check:ssot
 
+      # Corpus-hygiene gate (RA-7790). Fails if a charge-out rate ($440/hr,
+      # 120 per day) sits in the committed clean fixture, or if the scan finds
+      # no .txt/.md files (exit 2). The real staging tree is the operator's
+      # ingest folder and is not committed; ingest itself runs scanText. Do not
+      # drop --strict. See .claude/skills/rag-corpus-hygiene/SKILL.md.
+      - name: Corpus-hygiene gate
+        run: node scripts/ci/check-corpus-hygiene.mjs --dir scripts/ci/fixtures/corpus-hygiene/clean --strict
+
       # Standards-citation integrity gate (STORM #7 / RA-6934). Fails on stale
       # IICRC editions (source literals + scripts/data/*.json corpus) and on
       # fabricated S500 section numbers whose top-level chapter does not exist in
