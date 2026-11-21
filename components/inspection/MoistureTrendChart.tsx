@@ -323,7 +323,9 @@ export default function MoistureTrendChart({
                   <td className="px-4 py-2.5 text-right">
                     {level <= GUIDE_MC ? (
                       <span className="inline-flex items-center gap-1 text-xs text-success-subtle-foreground bg-success-subtle px-2 py-0.5 rounded-full">
-                        <CheckCircle2 size={11} /> Dry
+                        {/* Guide-relative only: this chart has no reference
+                            readings, so it never calls a location dry (RA-8508). */}
+                        <CheckCircle2 size={11} /> At or below guide
                       </span>
                     ) : level <= 25 ? (
                       <span className="inline-flex items-center gap-1 text-xs text-warning-subtle-foreground bg-warning-subtle px-2 py-0.5 rounded-full">

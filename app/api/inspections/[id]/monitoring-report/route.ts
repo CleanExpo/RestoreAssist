@@ -1,5 +1,7 @@
 /**
- * Daily Drying Monitoring Report — IICRC S500:2021 §11.4
+ * Daily Drying Monitoring Report. Each reading is judged against its drying
+ * goal from lib/iicrc-dry-standards.ts (RA-8508): the job's reference reading
+ * from unaffected like material, otherwise a starting guide value.
  *
  * GET  /api/inspections/[id]/monitoring-report
  *      Returns grouped daily log from all moisture readings for the inspection.
@@ -20,26 +22,12 @@ import {
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
-// ── IICRC S500:2021 §11.4 per-material dry MC% thresholds ───────────────────
-// Source: IICRC S500:2021 Standard for Professional Water Damage Restoration
-// All values represent the maximum acceptable moisture content % for "DRY" status
-const IICRC_TARGETS: Record<string, number> = {
-  timber: 19, // Timber / hardwood
-  softwood: 19, // Softwood / pine (same as hardwood, varies by species)
-  plasterboard: 1.5, // Plasterboard / drywall
-  concrete: 3.5, // Concrete / masonry
-  carpet: 3, // Carpet
-  vinyl: 3.5, // Vinyl / LVT
-  particleboard: 10, // Particleboard / MDF
-  brick: 4, // Brick / render
-  insulation: 2, // Insulation (fibreglass)
-  other: 15, // Generic fallback
-};
-
-/** Resolve per-material IICRC target for a surfaceType string */
-function getTarget(surfaceType: string): number {
-  return IICRC_TARGETS[surfaceType.toLowerCase()] ?? IICRC_TARGETS["other"];
-}
+import {
+  DRYING_GOAL_BASIS_RECORD,
+  isProgressReading,
+  pickReferenceReadings,
+  resolveDryingGoal,
+} from "@/lib/iicrc-dry-standards";
 
 /** Format a Date to a YYYY-MM-DD string in local time */
 function toDateKey(date: Date): string {
@@ -54,6 +42,9 @@ interface RawReading {
   moistureLevel: number;
   depth: string;
   notes: string | null;
+  isBaseline: boolean;
+  unit: string | null;
+  invalidatedAt: Date | null;
   recordedAt: Date;
 }
 
@@ -127,6 +118,9 @@ async function buildReport(
           moistureLevel: true,
           depth: true,
           notes: true,
+          isBaseline: true,
+          unit: true,
+          invalidatedAt: true,
           recordedAt: true,
         },
       },
@@ -146,8 +140,12 @@ async function buildReport(
   }
 
   // Group readings by date key
+  // RA-8508: reference readings set the goal and invalidated readings are
+  // retained for audit only; neither counts as drying progress.
+  const allReadings = inspection.moistureReadings as RawReading[];
+  const references = pickReferenceReadings(allReadings);
   const byDate = new Map<string, RawReading[]>();
-  for (const r of inspection.moistureReadings as RawReading[]) {
+  for (const r of allReadings.filter(isProgressReading)) {
     const key = toDateKey(new Date(r.recordedAt));
     if (!byDate.has(key)) byDate.set(key, []);
     byDate.get(key)!.push(r);
@@ -160,7 +158,12 @@ async function buildReport(
     const dayReadings = byDate.get(date)!;
 
     const snapshots: ReadingSnapshot[] = dayReadings.map((r: RawReading) => {
-      const target = getTarget(r.surfaceType);
+      const target = resolveDryingGoal(
+        r.surfaceType,
+        references,
+        undefined,
+        r.unit,
+      ).target;
       return {
         id: r.id,
         location: r.location,
@@ -189,7 +192,7 @@ async function buildReport(
     if (aboveTargetCount === 0) {
       dryingStatus = "ACHIEVED";
       statusReason =
-        "All readings at or below IICRC S500:2021 §11.4 material targets";
+        "All readings at or below their drying goal";
     } else if (idx === 0) {
       // First day — no comparison baseline
       dryingStatus = "PROGRESSING";
@@ -268,7 +271,8 @@ async function buildReport(
     propertyAddress: inspection.propertyAddress,
     technicianName: inspection.technicianName,
     inspectionDate: inspection.inspectionDate?.toISOString() ?? null,
-    iicrcReference: "IICRC S500:2021 §11.4",
+    // Field name kept for the page that reads it; the value names no standard.
+    iicrcReference: DRYING_GOAL_BASIS_RECORD,
     affectedAreas: inspection.affectedAreas,
     totalDaysMonitored: dailyLogs.length,
     currentAvgMoisture,

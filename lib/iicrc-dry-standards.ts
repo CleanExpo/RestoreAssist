@@ -16,6 +16,8 @@
  *   wet    = reading > wetThreshold
  */
 
+import { isMoistureContentUnit } from "@/lib/moisture/units";
+
 export interface DryStandard {
   material: string;
   label: string;
@@ -117,10 +119,11 @@ export const METER_TYPES = [
   { value: "infrared", label: "Infrared Thermometer" },
 ];
 
-/** The guide row for a material (falls back to "other"). */
+/** The guide row for a material, matched ignoring case and spaces (falls back to "other"). */
 export function getDryStandard(material: string): DryStandard {
+  const key = materialKey(material);
   return (
-    MOISTURE_GUIDE_VALUES.find((s) => s.material === material) ??
+    MOISTURE_GUIDE_VALUES.find((s) => s.material === key) ??
     MOISTURE_GUIDE_VALUES.find((s) => s.material === "other")!
   );
 }
@@ -171,6 +174,17 @@ export function materialKey(surfaceType: string | null | undefined): string {
   return (surfaceType ?? "").trim().toLowerCase();
 }
 
+/**
+ * The one rule for which readings count as drying progress: not a reference
+ * (baseline) reading and not invalidated. Every reader filters with this.
+ */
+export function isProgressReading(r: {
+  isBaseline?: boolean | null;
+  invalidatedAt?: Date | string | null;
+}): boolean {
+  return !r.isBaseline && !r.invalidatedAt;
+}
+
 function timestamp(r: ReferenceCandidate): number {
   const raw = r.recordedAt ?? r.createdAt;
   if (!raw) return 0;
@@ -181,7 +195,8 @@ function timestamp(r: ReferenceCandidate): number {
 /**
  * Reference reading per material: the newest valid baseline reading
  * (`isBaseline`, not invalidated, moisture-content unit) for that material.
- * Relative-humidity and other non-MC readings are never used.
+ * Relative-humidity and other non-MC readings are never used
+ * (lib/moisture/units.ts owns that rule).
  */
 export function pickReferenceReadings(
   readings: ReadonlyArray<ReferenceCandidate>,
@@ -189,7 +204,7 @@ export function pickReferenceReadings(
   const newest = new Map<string, { mc: number; at: number }>();
   for (const r of readings) {
     if (!r.isBaseline || r.invalidatedAt) continue;
-    if (r.unit && r.unit !== "PERCENT_MC") continue;
+    if (!isMoistureContentUnit(r.unit)) continue;
     const mc = r.moistureLevel;
     if (typeof mc !== "number" || !Number.isFinite(mc)) continue;
     const key = materialKey(r.surfaceType);
@@ -205,14 +220,17 @@ export function pickReferenceReadings(
 
 /**
  * The drying goal for a material: the reference reading when one exists,
- * otherwise the stored target (a guide snapshot) or the guide value.
+ * otherwise the stored target (a guide snapshot) or the guide value. A
+ * reference applies only to a moisture-content reading (`unit`); an RH or
+ * temperature reading keeps the guide behaviour it had before RA-8508.
  */
 export function resolveDryingGoal(
   material: string,
   references: Record<string, number> = {},
   storedTarget?: number | null,
+  unit?: string | null,
 ): DryingGoal {
-  const ref = references[materialKey(material)];
+  const ref = isMoistureContentUnit(unit) ? references[materialKey(material)] : undefined;
   if (typeof ref === "number" && Number.isFinite(ref)) {
     return { target: ref, basis: "reference" };
   }
@@ -227,6 +245,7 @@ export interface MonitoredReading {
   location: string;
   surfaceType: string;
   moistureLevel: number;
+  unit?: string | null;
   recordedAt?: Date | string | null;
   createdAt?: Date | string | null;
 }
@@ -256,8 +275,17 @@ export function evaluateDryingGoal(
   const failing: DryingGoalGap[] = [];
   const snapshot: Array<Record<string, unknown>> = [];
   const used = new Set<DryingGoalBasis>();
+  // Stored snapshot keys are guide material keys ("plasterboard"); match the
+  // reading's surfaceType to them ignoring case and spaces.
+  const stored: Record<string, number> = {};
+  for (const [k, v] of Object.entries(storedTargets)) stored[materialKey(k)] = v;
   for (const r of readings) {
-    const goal = resolveDryingGoal(r.surfaceType, references, storedTargets[r.surfaceType]);
+    const goal = resolveDryingGoal(
+      r.surfaceType,
+      references,
+      stored[materialKey(r.surfaceType)],
+      r.unit,
+    );
     used.add(goal.basis);
     snapshot.push({
       id: r.id,
@@ -281,6 +309,79 @@ export function evaluateDryingGoal(
   }
   const bases = (["reference", "guide"] as const).filter((b) => used.has(b));
   return { failing, snapshot, bases };
+}
+
+// ── Report rows (PDF Sections 4 and 9) ───────────────────────────────────────
+
+export type MoistureRowStatus = "WITHIN GOAL" | "MONITORING" | "ABOVE GOAL" | "REFERENCE" | "—";
+
+export interface MoistureRowInput {
+  material?: string | null;
+  surfaceType?: string | null;
+  moistureLevel?: number | string | null;
+  isBaseline?: boolean | null;
+  unit?: string | null;
+}
+
+/**
+ * Goal text and status for one moisture table row, from the owner's goal
+ * (reference first, then the guide). A reference reading is labelled as one
+ * and never judged against itself.
+ */
+export function moistureRowGoal(
+  row: MoistureRowInput,
+  references: Record<string, number>,
+): { goalText: string; status: MoistureRowStatus; basis: DryingGoalBasis } {
+  const material = row.surfaceType ?? row.material ?? "other";
+  const goal = resolveDryingGoal(material, references, undefined, row.unit);
+  const goalText = `≤${goal.target}%`;
+  if (row.isBaseline) return { goalText, status: "REFERENCE", basis: goal.basis };
+  const level = typeof row.moistureLevel === "number" ? row.moistureLevel : parseFloat(String(row.moistureLevel ?? ""));
+  if (!Number.isFinite(level)) return { goalText, status: "—", basis: goal.basis };
+  const status = getMoistureStatus(
+    level,
+    material,
+    goal.basis === "reference" ? goal.target : undefined,
+  );
+  return {
+    goalText,
+    status: status === "dry" ? "WITHIN GOAL" : status === "drying" ? "MONITORING" : "ABOVE GOAL",
+    basis: goal.basis,
+  };
+}
+
+export interface DryingGoalTableRow {
+  material: string;
+  target: number;
+  basis: DryingGoalBasis;
+}
+
+/**
+ * The drying goal table: one row per material with a reference reading, plus
+ * a guide row for every monitored material without one. With no readings at
+ * all, the full guide table (every row marked as a guide).
+ */
+export function dryingGoalTableRows(
+  readings: ReadonlyArray<ReferenceCandidate>,
+): DryingGoalTableRow[] {
+  const references = pickReferenceReadings(readings);
+  const rows: DryingGoalTableRow[] = Object.entries(references).map(([material, target]) => ({
+    material,
+    target,
+    basis: "reference" as const,
+  }));
+  const seen = new Set(Object.keys(references));
+  for (const r of readings) {
+    if (!isProgressReading(r) || !isMoistureContentUnit(r.unit)) continue;
+    const key = materialKey(r.surfaceType);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    rows.push({ material: key, target: getDryStandard(key).dryThreshold, basis: "guide" });
+  }
+  if (rows.length === 0) {
+    return MOISTURE_GUIDE_VALUES.map((g) => ({ material: g.label, target: g.dryThreshold, basis: "guide" as const }));
+  }
+  return rows;
 }
 
 // ── Plain-English wording for messages, certificates and reports ─────────────

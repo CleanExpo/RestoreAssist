@@ -4,11 +4,14 @@
  * readings are excluded from the drying-goal pass/fail set.
  */
 
+import { isProgressReading } from "@/lib/iicrc-dry-standards";
+
 export type MoistureReadingRow = {
   id: string;
   location: string;
   surfaceType: string;
   moistureLevel: number;
+  unit?: string | null;
   isBaseline?: boolean;
   isMonitoringPoint?: boolean;
   invalidatedAt?: Date | string | null;
@@ -35,7 +38,7 @@ function pointKey(r: MoistureReadingRow): string {
 export function latestMonitoringReadingsForDryingGoal(
   readings: MoistureReadingRow[],
 ): MoistureReadingRow[] {
-  const candidates = readings.filter((r) => !r.isBaseline && !r.invalidatedAt);
+  const candidates = readings.filter(isProgressReading);
   const byKey = new Map<string, MoistureReadingRow>();
 
   for (const reading of candidates) {

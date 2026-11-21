@@ -30,6 +30,18 @@ const STANDARD_LABEL = /IICRC|S500/i;
 const GOAL_TERMS =
   /dry[ -]?standard|dry ?threshold|wet ?threshold|target EMC|EMC target|drying goal|target curve|finalMC|DRY_STANDARD|MOISTURE_GUIDE/i;
 
+/**
+ * Built-output rule (RA-8508 review round): wording that names a moisture goal
+ * or threshold, on the same line as a standard name or a bare section number.
+ * Broader than GOAL_TERMS: it also catches "target thresholds per §11.4".
+ */
+const BUILT_GOAL =
+  /EMC|moisture (target|goal|threshold)|drying (goal|target)|dry[ -]?standard|target thresholds?|final MC|MC target/i;
+const CITATION = /§\s*\d|IICRC|S500/;
+export function citesStandardForMoistureGoal(line: string): boolean {
+  return BUILT_GOAL.test(line) && CITATION.test(line);
+}
+
 /** Flags a source line that puts a standard's name beside drying-goal wording. */
 export function labelsGoalAsStandard(line: string): boolean {
   if (/^\s*import\s|from\s+["']@?\/?.*iicrc-dry-standards["']/.test(line)) return false;
@@ -63,6 +75,7 @@ function readerFiles(): string[] {
     "lib/generate-iicrc-report-pdf.ts",
     "lib/assessments/domains/mould.ts",
     "components/sketch/SketchMoistureLayer.tsx",
+    "app/api/inspections/[id]/monitoring-report/route.ts",
   ].map((p) => join(ROOT, p));
   return [...new Set([...importers, ...known])];
 }
@@ -73,6 +86,13 @@ describe("line rule (positive and negative controls)", () => {
     expect(labelsGoalAsStandard("message: `still above IICRC S500 target EMC`")).toBe(true);
     expect(labelsGoalAsStandard(`${MOISTURE_GUIDE_LABEL} for {std.label}`)).toBe(false);
     expect(labelsGoalAsStandard('import { getDryStandard } from "@/lib/iicrc-dry-standards";')).toBe(false);
+  });
+
+  it("built-output rule catches a bare section beside threshold wording", () => {
+    expect(citesStandardForMoistureGoal("psychrometric logs, target thresholds per §11.4.")).toBe(true);
+    expect(citesStandardForMoistureGoal("Drying target is EMC for the material. IICRC S500:2021 §7.5.")).toBe(true);
+    expect(citesStandardForMoistureGoal("Confirm whether removal area exceeds 10 m² bonded threshold")).toBe(false);
+    expect(citesStandardForMoistureGoal("Water category determination → cite S500:2021 §3")).toBe(false);
   });
 });
 
@@ -157,6 +177,14 @@ describe("built output carries no standard label on the moisture goal", () => {
       expect(s.body).not.toMatch(STANDARD_LABEL);
       expect(s.citations ?? []).toEqual([]);
     }
+    // Every section, whatever its heading: a body that names a moisture goal
+    // carries no standard citation (RA-8508 review: "Estimated duration").
+    for (const s of report.sections) {
+      if (BUILT_GOAL.test(s.body)) {
+        expect(s.body, s.heading).not.toMatch(CITATION);
+        expect(s.citations ?? [], s.heading).toEqual([]);
+      }
+    }
   });
 
   it("claim-type prompts do not tie moisture targets to a standard", () => {
@@ -165,10 +193,26 @@ describe("built output carries no standard label on the moisture goal", () => {
       "biohazard", "odour", "carpet", "hvac", "asbestos",
     ] as const;
     for (const type of types) {
-      const prompt = getClaimTypePrompt(type, { damageCategory: 2, damageClass: 3 });
-      expect(prompt.length).toBeGreaterThan(100);
-      for (const line of prompt.split("\n")) {
-        expect(labelsGoalAsStandard(line), line).toBe(false);
+      for (const damageClass of [1, 2, 3, 4]) {
+        for (const damageCategory of [1, 2, 3]) {
+          const prompt = getClaimTypePrompt(type, { damageCategory, damageClass });
+          expect(prompt.length).toBeGreaterThan(100);
+          for (const line of prompt.split("\n")) {
+            expect(labelsGoalAsStandard(line), line).toBe(false);
+            expect(citesStandardForMoistureGoal(line), line).toBe(false);
+          }
+        }
+      }
+    }
+  });
+
+  it("AI system prompts do not tie moisture goals to a standard", async () => {
+    const constants = await import("@/lib/ai/constants");
+    const prompts = Object.values(constants).filter((v): v is string => typeof v === "string");
+    expect(prompts.length).toBeGreaterThanOrEqual(3);
+    for (const p of prompts) {
+      for (const line of p.split("\n")) {
+        expect(citesStandardForMoistureGoal(line), line).toBe(false);
       }
     }
   });

@@ -178,8 +178,7 @@ export function buildWaterReport(args: {
       `Expected dry-time for Class ${args.damageClass} damage is ` +
       `${args.estimatedDays} days under nominal conditions ` +
       `(ambient ~24 °C / 50% RH). Actual duration is governed by daily ` +
-      `psychrometric monitoring; equipment is removed only when the ` +
-      `dry-standard is met for every monitored material.`,
+      `psychrometric monitoring.`,
     citations: [cite("§12.5")],
   });
 
@@ -188,7 +187,9 @@ export function buildWaterReport(args: {
   sections.push({
     heading: "Drying goal basis",
     body:
-      args.referenceMaterials > 0
+      `Equipment is removed only when every monitored material has reached ` +
+      `its drying goal. ` +
+      (args.referenceMaterials > 0
         ? `Drying goals are set from reference readings taken on unaffected ` +
           `like material in the same building (${args.referenceMaterials} ` +
           `material${args.referenceMaterials === 1 ? "" : "s"}). Materials ` +
@@ -197,7 +198,7 @@ export function buildWaterReport(args: {
         : `No reference reading from unaffected like material was recorded, ` +
           `so readings are compared with starting guide values, which are ` +
           `not a published standard. Record a reference reading for each ` +
-          `affected material to set its drying goal.`,
+          `affected material to set its drying goal.`),
     citations: [],
   });
 

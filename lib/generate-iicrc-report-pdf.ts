@@ -23,7 +23,8 @@ import {
 import {
   MOISTURE_GUIDE_HINT,
   MOISTURE_GUIDE_LABEL,
-  MOISTURE_GUIDE_VALUES,
+  dryingGoalTableRows,
+  moistureRowGoal,
   pickReferenceReadings,
   type ReferenceCandidate,
 } from "@/lib/iicrc-dry-standards";
@@ -95,9 +96,6 @@ const C_TEXT = rgb(0.1, 0.1, 0.1);
 const C_MUTED = rgb(0.45, 0.45, 0.45);
 const C_LIGHT = rgb(0.94, 0.96, 0.98);
 const C_WHITE = rgb(1, 1, 1);
-const C_GREEN = rgb(0.08, 0.5, 0.08);
-const C_AMBER = rgb(0.7, 0.4, 0.0);
-const C_RED = rgb(0.75, 0.1, 0.1);
 
 const WATER_CATEGORIES: Record<string, string> = {
   "1": "Category 1 — Clean Water (S500:2021 §10.4.1)",
@@ -617,32 +615,28 @@ export async function generateIICRCReportPDF(
     ];
     const mWidths = [100, 90, 65, 65, 65, 68];
     w.tableRow(mCols, mWidths, true);
+    // RA-8508: each row's goal and status come from the owner (the job's
+    // reference reading first, then the guide), the same goal Section 9 prints.
+    const rowReferences = pickReferenceReadings(moistureArr as ReferenceCandidate[]);
     moistureArr.forEach((r: any, i: number) => {
       const val = r.moistureLevel ?? r.value ?? r.reading ?? r.moisture ?? "";
-      const threshold =
-        r.threshold ??
-        (r.material?.toLowerCase().includes("timber") ? "≤18%" : "≤14%");
-      const numVal = parseFloat(String(val));
-      const _statusColor = isNaN(numVal)
-        ? C_MUTED
-        : numVal > 18
-          ? C_RED
-          : numVal > 14
-            ? C_AMBER
-            : C_GREEN;
-      const status = isNaN(numVal)
-        ? "—"
-        : numVal > 18
-          ? "ABOVE GOAL"
-          : numVal > 14
-            ? "MONITORING"
-            : "WITHIN GOAL";
+      const rowGoal = moistureRowGoal(
+        {
+          material: r.material ?? r.materialType,
+          surfaceType: r.surfaceType,
+          moistureLevel: val,
+          isBaseline: r.isBaseline,
+          unit: r.unit,
+        },
+        rowReferences,
+      );
+      const status = rowGoal.status;
       w.tableRow(
         [
           r.location ?? r.room ?? r.roomZoneId ?? "—",
           r.material ?? r.materialType ?? "—",
           val ? `${val}%` : "—",
-          String(threshold),
+          rowGoal.goalText,
           status,
           r.date
             ? fmtDate(r.date)
@@ -854,31 +848,26 @@ export async function generateIICRCReportPDF(
   w.ensureSpace(80);
   w.sectionHeader("SECTION 9 — DRYING GOAL BASIS");
   w.gap(4);
-  const references = pickReferenceReadings(moistureArr as ReferenceCandidate[]);
-  const refRows = Object.entries(references);
+  // One row per material with a reference reading, plus a guide row for each
+  // monitored material without one (owner: dryingGoalTableRows).
+  const goalRows = dryingGoalTableRows(moistureArr as ReferenceCandidate[]);
+  const anyReference = goalRows.some((g) => g.basis === "reference");
   w.tableRow(["Material", "Drying goal", "Basis"], [170, 120, 160], true);
-  if (refRows.length > 0) {
-    refRows.forEach(([mat, mc], i) => {
-      w.tableRow(
-        [sanitise(mat), `≤${mc}% MC`, "Reference reading"],
-        [170, 120, 160],
-        false,
-        i % 2 === 1,
-      );
-    });
-  } else {
-    MOISTURE_GUIDE_VALUES.forEach((g, i) => {
-      w.tableRow(
-        [g.label, `≤${g.dryThreshold}% MC`, MOISTURE_GUIDE_LABEL],
-        [170, 120, 160],
-        false,
-        i % 2 === 1,
-      );
-    });
-  }
+  goalRows.forEach((g, i) => {
+    w.tableRow(
+      [
+        sanitise(g.material),
+        `≤${g.target}% MC`,
+        g.basis === "reference" ? "Reference reading" : MOISTURE_GUIDE_LABEL,
+      ],
+      [170, 120, 160],
+      false,
+      i % 2 === 1,
+    );
+  });
   w.gap(4);
   w.text(
-    refRows.length > 0
+    anyReference
       ? `Reference readings were taken on unaffected like material in the same building. ${MOISTURE_GUIDE_HINT.replace("Replace it with", "Materials without one use a guide value; replace it with")}`
       : `No reference reading was recorded. The values above are a starting guide only and are not a published standard. ${MOISTURE_GUIDE_HINT}`,
     { size: 8, color: C_MUTED, maxWidth: COL_W },
