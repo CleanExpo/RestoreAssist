@@ -31,7 +31,11 @@ import {
   type MoistureReadingInput,
   type EquipmentItemInput,
 } from "@/lib/scope-narrative-prompts";
-import { getDryStandard, getMoistureStatus } from "@/lib/iicrc-dry-standards";
+import {
+  getMoistureStatus,
+  pickReferenceReadings,
+  resolveDryingGoal,
+} from "@/lib/iicrc-dry-standards";
 import { safeRetrieveSimilarJobs } from "@/lib/ai/rag-context";
 import {
   getClaimTypePrompt,
@@ -159,6 +163,11 @@ export async function POST(
             location: true,
             surfaceType: true,
             moistureLevel: true,
+            isBaseline: true,
+            unit: true,
+            invalidatedAt: true,
+            recordedAt: true,
+            createdAt: true,
           },
         },
         // RA-1383 (M-7): EnvironmentalData is now a time-series. Use the most
@@ -231,15 +240,24 @@ export async function POST(
     }
 
     // Build moisture readings input
-    const moistureInputs: MoistureReadingInput[] =
-      inspection.moistureReadings.map((r) => {
-        const std = getDryStandard(r.surfaceType);
-        const status = getMoistureStatus(r.moistureLevel, r.surfaceType);
+    // RA-8508: the goal is the job's reference reading for the material where
+    // one was recorded; otherwise a guide value, labelled as such in the prompt.
+    const references = pickReferenceReadings(inspection.moistureReadings);
+    const moistureInputs: MoistureReadingInput[] = inspection.moistureReadings
+      .filter((r) => !r.isBaseline && !r.invalidatedAt)
+      .map((r) => {
+        const goal = resolveDryingGoal(r.surfaceType, references);
+        const status = getMoistureStatus(
+          r.moistureLevel,
+          r.surfaceType,
+          goal.basis === "reference" ? goal.target : undefined,
+        );
         return {
           location: r.location,
           surfaceType: r.surfaceType,
           moistureLevel: r.moistureLevel,
-          target: std.dryThreshold,
+          target: goal.target,
+          targetBasis: goal.basis,
           status: status.toUpperCase() as "DRY" | "DRYING" | "WET",
         };
       });
