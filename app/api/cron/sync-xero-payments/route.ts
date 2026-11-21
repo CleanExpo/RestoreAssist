@@ -6,6 +6,7 @@ import { verifyCronAuth } from "@/lib/cron/auth";
 import { runCronJob } from "@/lib/cron/runner";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
+import { WebhookReclaimError } from "@/lib/jobs/webhook-reclaim";
 
 const MAX_XERO_INTEGRATIONS_PER_CRON_RUN = 100;
 
@@ -34,7 +35,8 @@ function xeroDollarsToCents(value: unknown): number | null {
  * Secured by CRON_SECRET bearer token via verifyCronAuth (timing-safe comparison).
  *
  * Integration rule: sync failures NEVER block user-facing operations.
- * This route always returns 200 with structured stats — never 5xx.
+ * This route returns 200 with structured stats, except when the stale-claim
+ * reclaim fails (RA-8481): that fails the run so monitoring sees it.
  */
 export async function GET(request: NextRequest) {
   const authError = verifyCronAuth(request);
@@ -66,6 +68,11 @@ async function syncXeroPaymentsOnce() {
     invoiceErrors: 0,
   };
 
+  // RA-8481 — a failed stale-claim reclaim is not a per-event problem: dead
+  // claims stay PROCESSING and are never retried. The polling phase still
+  // runs, then the error is rethrown so runCronJob records the run failed.
+  let reclaimError: WebhookReclaimError | null = null;
+
   // ── Phase 1: Drain pending webhook events ────────────────────────────────
   try {
     const batchResult = await processXeroWebhookBatch(50);
@@ -74,6 +81,7 @@ async function syncXeroPaymentsOnce() {
     stats.webhookEventsSkipped = batchResult.skipped;
   } catch (err) {
     console.error("[Xero Payment Sync] Webhook batch processing error:", err);
+    if (err instanceof WebhookReclaimError) reclaimError = err;
     // Non-fatal — continue to polling phase
   }
 
@@ -208,6 +216,8 @@ async function syncXeroPaymentsOnce() {
       // Do not abort — process remaining integrations
     }
   }
+
+  if (reclaimError) throw reclaimError;
 
   return {
     itemsProcessed: stats.webhookEventsProcessed + stats.invoicesMarkedPaid,

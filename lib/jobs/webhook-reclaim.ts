@@ -18,7 +18,9 @@ import { prisma } from "@/lib/prisma";
  * request time limits are the bound that holds there.
  *
  * Each reclaim counts as an attempt (`retryCount + 1`), using the same bound
- * as every other webhook retry path. A row that kills its run every time
+ * as every other webhook retry path. WEBHOOK_MAX_RETRIES below is that one
+ * bound (RA-8481): every comparison of a WebhookEvent retryCount imports it,
+ * enforced by lib/jobs/__tests__/webhook-retry-limit-owner.test.ts. A row that kills its run every time
  * ends FAILED with retryCount at the bound, which retryFailedEvents does not
  * reset, so it cannot loop.
  */
@@ -30,8 +32,35 @@ export const WEBHOOK_RECLAIM_MESSAGE =
 export const WEBHOOK_RECLAIM_EXHAUSTED_MESSAGE =
   "Processing was interrupted before it finished on every attempt; retry limit reached.";
 
+/**
+ * RA-8481 — a reclaim that could not run. The drains that call the reclaim
+ * sit inside cron routes that treat a drain error as non-fatal and carry on,
+ * which would make a broken reclaim look like a successful run while dead
+ * claims pile up. The routes rethrow this error so runCronJob records the run
+ * failed and the route returns a failure.
+ */
+export class WebhookReclaimError extends Error {
+  readonly cause: unknown;
+  constructor(cause: unknown) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    super(`Webhook stale-claim reclaim failed: ${detail}`);
+    this.name = "WebhookReclaimError";
+    this.cause = cause;
+  }
+}
+
 export async function reclaimStaleWebhookEvents(
   options: { staleAfterMs?: number; maxRetries?: number } = {},
+): Promise<{ released: number; failed: number }> {
+  try {
+    return await reclaim(options);
+  } catch (err) {
+    throw err instanceof WebhookReclaimError ? err : new WebhookReclaimError(err);
+  }
+}
+
+async function reclaim(
+  options: { staleAfterMs?: number; maxRetries?: number },
 ): Promise<{ released: number; failed: number }> {
   const {
     staleAfterMs = WEBHOOK_STALE_CLAIM_MS,
