@@ -9,6 +9,14 @@ const commsFindMany = vi.fn();
 vi.mock("next-auth", () => ({ getServerSession: (...a: unknown[]) => getServerSession(...a) }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
+// RA-8535: reach comes from the tenancy helpers; the reach rules themselves
+// are proven against a fake database in customer-record.ra8535.test.ts.
+const CLIENT_REACH = { AND: [{ OR: [{ userId: "owner1" }] }] };
+const JOB_REACH = { AND: [{ OR: [{ userId: "owner1" }] }] };
+vi.mock("@/lib/auth/assert-tenancy", () => ({
+  resolveClientReach: vi.fn(async () => ({ ok: true, data: CLIENT_REACH })),
+  resolveInspectionReach: vi.fn(async () => ({ ok: true, data: JOB_REACH })),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     client: { findFirst: (...a: unknown[]) => clientFindFirst(...a) },
@@ -43,12 +51,17 @@ describe("GET /api/clients/[id]/timeline (RA-8220)", () => {
     expect(events[2].title).toContain("Water damage job NIR-2026-11-0001");
   });
 
-  it("checks ownership with the session user and reads nothing else for a stranger's client", async () => {
+  it("checks the client with the list's reach and reads nothing else for a client out of reach", async () => {
     clientFindFirst.mockResolvedValue(null);
     const res = await GET(req(), ctx);
     expect(res.status).toBe(404);
-    expect(clientFindFirst.mock.calls[0][0].where).toEqual({ id: "c1", userId: "owner1" });
+    expect(clientFindFirst.mock.calls[0][0].where).toEqual({ AND: [{ id: "c1" }, CLIENT_REACH] });
     expect(inspectionFindMany).not.toHaveBeenCalled();
+  });
+
+  it("reads only jobs within the caller's job reach", async () => {
+    await GET(req(), ctx);
+    expect(inspectionFindMany.mock.calls[0][0].where).toEqual({ AND: [{ clientId: "c1" }, JOB_REACH] });
   });
 
   it("bounds every query", async () => {

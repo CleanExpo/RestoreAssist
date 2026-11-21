@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { buildClientTimeline } from "@/lib/crm/client-timeline";
+import {
+  resolveClientReach,
+  resolveInspectionReach,
+} from "@/lib/auth/assert-tenancy";
 
 const MAX_JOBS = 50;
 const MAX_COMMS = 200;
@@ -16,8 +20,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
     const { id } = await params;
+    // RA-8535: the client takes the list's reach; each job on it takes the
+    // caller's own job reach, so opening a client shows no job the caller
+    // could not open directly.
+    const [clientReach, inspectionReach] = await Promise.all([
+      resolveClientReach(session),
+      resolveInspectionReach(session),
+    ]);
+    if (!clientReach.ok || !inspectionReach.ok) {
+      const denied = !clientReach.ok
+        ? clientReach
+        : (inspectionReach as typeof clientReach & { ok: false });
+      return apiError(request, { code: "UNAUTHORIZED", message: denied.reason, status: denied.status });
+    }
     const client = await prisma.client.findFirst({
-      where: { id, userId: session.user.id },
+      where: { AND: [{ id }, clientReach.data] },
       select: { id: true },
     });
     if (!client) {
@@ -25,7 +42,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const inspections = await prisma.inspection.findMany({
-      where: { clientId: id },
+      where: { AND: [{ clientId: id }, inspectionReach.data] },
       select: {
         id: true,
         inspectionNumber: true,

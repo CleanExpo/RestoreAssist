@@ -47,6 +47,18 @@ function compare(actual: any, filter: any): boolean {
         return !value.includes(actual);
       case "not":
         return !compare(actual, value);
+      case "equals":
+        return filter.mode === "insensitive" &&
+          typeof actual === "string" &&
+          typeof value === "string"
+          ? actual.toLowerCase() === value.toLowerCase()
+          : actual === value;
+      case "mode":
+        // Read by `equals` above; not a condition of its own.
+        if (value !== "insensitive" && value !== "default") {
+          throw new Error(`fake-tenant-db: unknown mode ${value}`);
+        }
+        return true;
       case "gte":
         return actual != null && time(actual) >= time(value);
       case "gt":
