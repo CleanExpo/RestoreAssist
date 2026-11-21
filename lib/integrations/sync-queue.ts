@@ -293,27 +293,67 @@ export async function getSyncQueueStats(userId: string): Promise<{
   };
 }
 
-/** Cancel a PENDING job. Returns true if cancelled, false if not found/not pending. */
-export async function cancelJob(jobId: string): Promise<boolean> {
+/**
+ * RA-8482: resolve a job only if its invoice belongs to `userId`.
+ * InvoiceSyncJob has no relation to Invoice, so ownership is checked through
+ * Invoice.userId (as in getSyncQueueStats). A job owned by another user and a
+ * job that does not exist both come back as null, so a caller cannot tell
+ * the two apart and learn that another tenant's job id is real.
+ */
+async function _findOwnedJob(jobId: string, userId: string) {
+  if (!jobId || !userId) return null;
+  const job = await prisma.invoiceSyncJob.findUnique({ where: { id: jobId } });
+  if (!job) return null;
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: job.invoiceId, userId },
+    select: { id: true },
+  });
+  return invoice ? job : null;
+}
+
+/**
+ * Cancel one of `userId`'s PENDING jobs. Returns false when the job is not
+ * found, belongs to another user, or is not pending.
+ */
+export async function cancelJob(
+  jobId: string,
+  userId: string,
+): Promise<boolean> {
+  const job = await _findOwnedJob(jobId, userId);
+  if (!job) return false;
   const result = await prisma.invoiceSyncJob.updateMany({
-    where: { id: jobId, status: "PENDING" },
+    where: { id: job.id, invoiceId: job.invoiceId, status: "PENDING" },
     data: { status: "FAILED", errorMessage: "Cancelled by user" },
   });
   return result.count > 0;
 }
 
-/** Retry a FAILED job by resetting it to PENDING. */
-export async function retryJob(jobId: string): Promise<boolean> {
+/**
+ * Retry one of `userId`'s FAILED jobs by resetting it to PENDING. Returns
+ * false when the job is not found, belongs to another user, or is not failed.
+ */
+export async function retryJob(
+  jobId: string,
+  userId: string,
+): Promise<boolean> {
+  const job = await _findOwnedJob(jobId, userId);
+  if (!job) return false;
   const result = await prisma.invoiceSyncJob.updateMany({
-    where: { id: jobId, status: "FAILED" },
+    where: { id: job.id, invoiceId: job.invoiceId, status: "FAILED" },
     data: { status: "PENDING", retryCount: 0, errorMessage: null },
   });
   return result.count > 0;
 }
 
-/** Get a single job's current status. */
-export async function getJobStatus(jobId: string): Promise<SyncJob | null> {
-  const job = await prisma.invoiceSyncJob.findUnique({ where: { id: jobId } });
+/**
+ * Get one of `userId`'s jobs. Returns null when the job is not found or
+ * belongs to another user.
+ */
+export async function getJobStatus(
+  jobId: string,
+  userId: string,
+): Promise<SyncJob | null> {
+  const job = await _findOwnedJob(jobId, userId);
   if (!job) return null;
 
   return {
