@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { OAUTH_CANDIDATE_WHERE } from "@/lib/services/integrations/select-oauth";
-import { isOAuthIntegration } from "@/lib/integrations/identity";
+import { isReadyOAuthCandidate, OAUTH_CANDIDATE_WHERE, OAUTH_READY_PREFILTER_WHERE } from "@/lib/services/integrations/select-oauth";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import { processZohoSyncBatch } from "@/lib/integrations/zoho/queue";
 import { verifyCronAuth } from "@/lib/cron/auth";
@@ -46,7 +45,8 @@ async function syncInvoicesOnce() {
   const integrations = await prisma.integration.findMany({
     where: {
       ...OAUTH_CANDIDATE_WHERE,
-      status: "CONNECTED",
+      // RA-8446: readiness is getOAuthReadiness's answer, not status === CONNECTED.
+      ...OAUTH_READY_PREFILTER_WHERE,
       provider: {
         in: ["XERO", "QUICKBOOKS", "MYOB"],
       },
@@ -55,7 +55,7 @@ async function syncInvoicesOnce() {
       name: true, icon: true, config: true, workspaceId: true,
       tokenExpiresAt: true, realmId: true, companyId: true,
       id: true,
-      provider: true,
+      provider: true, status: true,
       userId: true,
       tenantId: true, lastSyncAt: true,
     },
@@ -81,7 +81,8 @@ async function syncInvoicesOnce() {
   let totalQueued = 0;
 
   for (const integration of integrations) {
-    if (!isOAuthIntegration(integration)) continue;
+    // A CONNECTED row with no organisation (tenantId / realmId) is not ready.
+    if (!isReadyOAuthCandidate(integration)) continue;
     try {
       const syncWindow =
         integration.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000);

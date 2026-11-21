@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { OAUTH_CANDIDATE_WHERE } from "@/lib/services/integrations/select-oauth";
-import { isOAuthIntegration } from "@/lib/integrations/identity";
+import { isReadyOAuthCandidate, OAUTH_CANDIDATE_WHERE, OAUTH_READY_PREFILTER_WHERE } from "@/lib/services/integrations/select-oauth";
 import { verifyCronAuth } from "@/lib/cron/auth";
 import { runCronJob } from "@/lib/cron/runner";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
@@ -90,13 +89,14 @@ async function syncXeroPaymentsOnce() {
     where: {
       ...OAUTH_CANDIDATE_WHERE,
       provider: "XERO",
-      status: "CONNECTED",
+      // RA-8446: readiness is getOAuthReadiness's answer, not status === CONNECTED.
+      ...OAUTH_READY_PREFILTER_WHERE,
     },
     select: {
       name: true, icon: true, config: true, workspaceId: true,
       tokenExpiresAt: true, realmId: true, companyId: true,
       id: true,
-      provider: true, tenantId: true,
+      provider: true, tenantId: true, status: true,
       userId: true,
     },
     orderBy: { createdAt: "asc" },
@@ -104,7 +104,8 @@ async function syncXeroPaymentsOnce() {
   });
 
   for (const integration of xeroIntegrations) {
-    if (!isOAuthIntegration(integration, "XERO") || !integration.tenantId) continue;
+    // The owner refuses a row with no Xero organisation (tenantId).
+    if (!isReadyOAuthCandidate(integration, "XERO") || !integration.tenantId) continue;
 
     try {
       // Service-layer credentials result — log + continue on failure so a single
