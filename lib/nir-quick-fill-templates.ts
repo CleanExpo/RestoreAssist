@@ -340,10 +340,11 @@ export const NIR_QUICK_FILL_TEMPLATES: Record<string, NirQuickFillTemplate> = {
       { id: "eq-2", type: "Air Mover", quantity: 6 },
     ],
     dryingDuration: 10,
+    // RA-8540: a quick-fill template records observations only. The mould
+    // condition is the assessor's entry and the spore type comes from a
+    // laboratory report, so neither is pre-filled.
     assessmentSeed: {
-      mouldConditionLevel: "CONDITION_3",
       visibleGrowthObserved: true,
-      sporeType: "STACHYBOTRYS",
       affectedAreaM2: 8.75,
       moistureSourceIdentified: true,
       rootCauseAddressed: false,

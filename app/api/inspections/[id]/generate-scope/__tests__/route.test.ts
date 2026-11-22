@@ -8,6 +8,7 @@ const safeRetrieveSimilarJobs = vi.fn();
 const resolveWorkspaceAiKey = vi.fn();
 const generateScopeStream = vi.fn();
 const assessS500IntakeComplete = vi.fn();
+const getClaimTypePrompt = vi.fn((..._args: unknown[]) => "system prompt");
 
 vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
@@ -37,7 +38,7 @@ vi.mock("@/lib/ai/rag-context", () => ({
     safeRetrieveSimilarJobs(...args),
 }));
 vi.mock("@/lib/ai/claim-type-prompts", () => ({
-  getClaimTypePrompt: () => "system prompt",
+  getClaimTypePrompt: (...args: unknown[]) => getClaimTypePrompt(...args),
   getMultiClaimPrompt: () => "multi system prompt",
 }));
 vi.mock("@/lib/services/ai/generate-scope", () => ({
@@ -64,6 +65,7 @@ beforeEach(() => {
   resolveWorkspaceAiKey.mockReset();
   generateScopeStream.mockReset();
   assessS500IntakeComplete.mockReset();
+  getClaimTypePrompt.mockClear();
   assessS500IntakeComplete.mockResolvedValue({ ok: true });
 
   getServerSession.mockResolvedValue({ user: { id: "user_1" } });
@@ -86,14 +88,23 @@ beforeEach(() => {
   });
 });
 
-function postRequest() {
+function postRequest(extra: Record<string, unknown> = {}) {
   return new NextRequest(
     "http://localhost/api/inspections/inspection_1/generate-scope",
     {
       method: "POST",
-      body: JSON.stringify({ affectedAreaM2: 42 }),
+      body: JSON.stringify({ affectedAreaM2: 42, ...extra }),
     },
   );
+}
+
+function emptyStream() {
+  return {
+    [Symbol.asyncIterator]: () => ({
+      next: async () => ({ done: true, value: undefined }),
+    }),
+    abort: vi.fn(),
+  };
 }
 
 describe("POST /api/inspections/[id]/generate-scope", () => {
@@ -158,6 +169,52 @@ describe("POST /api/inspections/[id]/generate-scope", () => {
       }),
     );
     // Drain the SSE stream so the ReadableStream start() completes cleanly.
+    await response.text();
+  });
+
+  // RA-8540: the scope writer may use only the condition a human assessor
+  // recorded. The route loads it and hands it to the prompt builder; with no
+  // record it passes null, so the prompt says "none recorded".
+  it("passes the assessor-recorded mould condition to the prompt builder", async () => {
+    inspectionFindFirst.mockResolvedValueOnce({
+      propertyAddress: "1 Test St, Brisbane, QLD",
+      inspectionDate: new Date("2026-07-01T00:00:00.000Z"),
+      moistureReadings: [],
+      environmentalData: [],
+      classifications: [{ category: "2", class: "2" }],
+      scopeItems: [],
+      mouldRemediationAssessment: { mouldConditionLevel: "CONDITION_3" },
+    });
+    generateScopeStream.mockResolvedValueOnce({ ok: true, data: emptyStream() });
+
+    const response = await POST(postRequest({ claimType: "mould" }), {
+      params: Promise.resolve({ id: "inspection_1" }),
+    });
+
+    expect(response.status).toBe(200);
+    const include = inspectionFindFirst.mock.calls[0]?.[0]?.include;
+    expect(include?.mouldRemediationAssessment).toEqual({
+      select: { mouldConditionLevel: true },
+    });
+    expect(getClaimTypePrompt).toHaveBeenCalledWith(
+      "mould",
+      expect.objectContaining({ recordedMouldCondition: "CONDITION_3" }),
+    );
+    await response.text();
+  });
+
+  it("passes no mould condition when no assessor has recorded one", async () => {
+    generateScopeStream.mockResolvedValueOnce({ ok: true, data: emptyStream() });
+
+    const response = await POST(postRequest({ claimType: "mould" }), {
+      params: Promise.resolve({ id: "inspection_1" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(getClaimTypePrompt).toHaveBeenCalledWith(
+      "mould",
+      expect.objectContaining({ recordedMouldCondition: null }),
+    );
     await response.text();
   });
 });

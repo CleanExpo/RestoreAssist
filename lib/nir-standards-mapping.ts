@@ -182,7 +182,7 @@ export const S520_FIELD_MAP = {
       },
     },
     engineLogic:
-      "Map visual observation to Condition 1/2/3. Condition 3 triggers mandatory full remediation scope and containment.",
+      "Condition 1/2/3 comes only from the assessor's recorded entry (RA-8540); the engine never derives it from visual observation. An assessor-recorded Condition 3 drives the full remediation scope and containment.",
     adjusterValue:
       "Remediation scope is standard-justified — not estimator discretion.",
   },
