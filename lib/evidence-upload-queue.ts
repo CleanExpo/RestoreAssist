@@ -378,6 +378,11 @@ function photoVisibleForQueuedEntry(
 async function tryClearQueuedPhotoViaListing(
   db: IDBDatabase,
   entry: EvidenceQueueEntry,
+  // RA-7877: a match on content alone (same bytes) says a photo like this one is
+  // on the inspection, not that THIS queued upload reached it. A caller that
+  // has no server id for the upload must not let that match delete the only
+  // copy of the queued photo; it stays queued as "unverified".
+  hashOnlyProvesUpload = true,
 ): Promise<
   | { kind: "cleared" }
   | { kind: "offline" }
@@ -394,7 +399,10 @@ async function tryClearQueuedPhotoViaListing(
   const unverified = { kind: "unverified", readbackStatus: readback.status } as const;
   if (!Array.isArray(listing?.photos)) return unverified;
   const photos: ListedPhoto[] = listing.photos;
-  if (photos.some((photo) => photoVisibleForQueuedEntry(photo, entry))) {
+  if (
+    photos.some((photo) => photoVisibleForQueuedEntry(photo, entry)) &&
+    (hashOnlyProvesUpload || entry.serverPhotoId)
+  ) {
     await removeEntry(db, entry.id);
     return { kind: "cleared" };
   }
@@ -459,7 +467,7 @@ async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
         } else {
           const first = Date.parse(entry.postAttemptedAt);
           if (!Number.isFinite(first) || Date.now() - first > POST_KEY_WINDOW_MS) {
-            const verify = await tryClearQueuedPhotoViaListing(db, entry);
+            const verify = await tryClearQueuedPhotoViaListing(db, entry, false);
             if (verify.kind === "cleared") {
               uploaded++;
               continue;

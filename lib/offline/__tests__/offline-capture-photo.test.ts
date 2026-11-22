@@ -17,6 +17,7 @@ let uninstall: () => void;
 let creates = 0;
 let photoPosts = 0;
 let listingStatus = 200;
+let listingPhotos: unknown[] = [];
 const fetchMock = vi.fn();
 
 beforeEach(() => {
@@ -25,6 +26,7 @@ beforeEach(() => {
   creates = 0;
   photoPosts = 0;
   listingStatus = 200;
+  listingPhotos = [];
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url === "/api/auth/offline-context") return new Response(JSON.stringify({ owner: A }));
@@ -38,7 +40,7 @@ beforeEach(() => {
         // The first answer is always lost: the request may or may not have been processed.
         throw new TypeError("Failed to fetch");
       }
-      return new Response(JSON.stringify({ photos: [] }), { status: listingStatus });
+      return new Response(JSON.stringify({ photos: listingPhotos }), { status: listingStatus });
     }
     return new Response("{}", { status: 404 });
   });
@@ -141,6 +143,18 @@ describe("evidence queue: a photo POST whose answer was lost (RA-7877 round 2)",
     await evidence.drainEvidenceQueue();
     expect(photoPosts).toBe(1);
     expect(await evidence.getQueuedEvidenceForInspection("inspection-1")).toHaveLength(1);
+  });
+
+  it("never drops a queued photo because an earlier photo on the inspection has identical bytes", async () => {
+    const evidence = await lostFirstAnswer();
+    const [queued] = await evidence.getQueuedEvidenceForInspection("inspection-1");
+    // Photo P, already on the inspection, has the same bytes (same hash) as the queued photo Q.
+    listingPhotos = [{ id: "photo-p", url: "https://example.test/p.jpg", cocoaSha256: queued.cocoaSha256 }];
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 25 * 60 * 60 * 1000);
+    await evidence.drainEvidenceQueue();
+    const kept = await evidence.getQueuedEvidenceForInspection("inspection-1");
+    expect(kept.map((entry) => entry.id)).toEqual(["photo-key-12345"]);
   });
 
   it("repeats the POST after the key lifetime only when the listing proves the photo absent", async () => {
