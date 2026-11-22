@@ -1,0 +1,39 @@
+{
+  "schema": "done/1",
+  "work_id": "w_383db6c34cac",
+  "version": 2,
+  "supersedes": "w_6fb3f9ff22ad",
+  "goal": "RA-7957 v2: form templates can be created (POST) and archived (DELETE) by ADMIN or MANAGER only, role re-read from the database, owner-scoped with no cross-tenant reach; PATCH gets the same gate; create screen sends schema-valid enums; delete failures are shown; an archived template starts no new interview and takes no new submission",
+  "created_at_utc": "2026-11-22T00:28:46Z",
+  "identity_key": "fix/ra-7957-form-template-create-20261122@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-7957-form-template-create",
+  "baseline_observed": {
+    "head": "7c625d86b14ead81a6d5950a67d38e7834ca6c2a",
+    "branch": "fix/ra-7957-form-template-create-20261122",
+    "dirty_count": 4
+  },
+  "criteria": [
+    {
+      "id": "RA7957-ROUTES",
+      "text": "Route tests pass: create 201 for ADMIN/MANAGER; 403 for USER (and for a stale ADMIN session whose DB role is USER) with no write; body carrying userId/workspaceId/createdBy/isSystemTemplate refused 400; invalid input 400; DELETE and PATCH of another user's template 404 with nothing changed; DELETE archives, never hard-deletes",
+      "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js app/api/form-templates/__tests__/mutations.test.ts",
+      "timeout": 300
+    },
+    {
+      "id": "RA7957-SCREENS",
+      "text": "Screen tests pass: the new-template screen offers only FormType/FormCategory enum values with default category CUSTOM and sends a schema-valid payload; the list shows a delete failure and keeps the row",
+      "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js app/__tests__/form-template-mutations.test.tsx",
+      "timeout": 300
+    },
+    {
+      "id": "RA7957-ARCHIVED",
+      "text": "An archived template (isActive false) is refused by /api/forms/interview/start and /api/forms/submit with 404 and no session or submission is created",
+      "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js app/api/forms/submit/__tests__/route.test.ts app/api/forms/interview/start/__tests__/route.test.ts",
+      "timeout": 300
+    },
+    {
+      "id": "RA7957-SCOPE",
+      "text": "Only the two form-template routes, a role helper under lib/form-templates/, the two screens, the forms submit and interview-start routes, their tests and this work item's Done files change against the merge base",
+      "recipe": "git diff --name-only 863c634fcdecad6bbf2bc2ca86cc4b82a2d7b89a...HEAD | grep -v -E '^(app/api/form-templates/route.ts|app/api/form-templates/\\[id\\]/route.ts|app/api/form-templates/__tests__/mutations.test.ts|lib/form-templates/.*|app/dashboard/form-templates/new/page.tsx|app/dashboard/forms/templates/page.tsx|app/__tests__/form-template-mutations.test.tsx|app/api/forms/submit/(route.ts|__tests__/route.test.ts)|app/api/forms/interview/start/(route.ts|__tests__/route.test.ts)|\\.claude/done/.*)$'; test $? -eq 1"
+    }
+  ]
+}

@@ -73,6 +73,8 @@ export async function POST(request: NextRequest) {
         where: {
           id: formTemplateId,
           OR: [{ userId: session.user.id }, { isSystemTemplate: true }],
+          // RA-7957: an archived template starts no new interviews.
+          isActive: true,
         },
       });
 
