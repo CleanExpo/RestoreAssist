@@ -78,6 +78,8 @@ vi.mock("@/lib/prisma", () => {
   const client = {
     agentTask,
     agentWorkflow,
+    // RA-8000: the workflow row lock; the real lock is tested in workflow-lock-order.test.ts.
+    $queryRaw: async () => [],
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(client),
   };
   return { prisma: client };
