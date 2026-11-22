@@ -236,6 +236,8 @@ const SURFACE_BANNED: ReadonlyArray<{ id: string; re: RegExp }> = [
   { id: "printed-inferred-condition", re: /S520 Condition 3 \(active growth\)/i },
   // Provenance the code cannot prove: any assigned team member can write the form.
   { id: "assessor-provenance", re: /(entered|recorded) by the assessor/i },
+  // RA-8541: a colloquial name invites naming a species from what is seen.
+  { id: "black-mould-label", re: /\(Black Mould\)/i },
 ];
 
 interface Hit {
@@ -284,6 +286,7 @@ describe("RA-8540 mould product copy — no over-reach", () => {
       "printed-inferred-condition":
         "S520 Condition 3 (active growth): fit-tested RPE required (AS/NZS 1715)",
       "assessor-provenance": "Condition 3, as recorded by the assessor on this job.",
+      "black-mould-label": '{ value: "STACHYBOTRYS", label: "Stachybotrys (Black Mould)" }',
     };
     for (const { id, re } of SURFACE_BANNED) {
       expect(re.test(samples[id]), id).toBe(true);
