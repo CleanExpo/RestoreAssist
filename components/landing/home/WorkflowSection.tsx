@@ -25,7 +25,7 @@ const STEPS = [
   {
     step: "02",
     title: "Finish the report",
-    body: "IICRC S500:2021-aligned report drafts take shape in minutes from what you captured. You review, edit, and own every decision before it leaves your company.",
+    body: "IICRC S500:2021-aligned report drafts are built from what you captured. You review, edit, and own every decision before it leaves your company.",
   },
   {
     step: "03",

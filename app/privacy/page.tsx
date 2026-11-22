@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Privacy Policy — RestoreAssist",
   description:
     "Privacy Policy for RestoreAssist and RestoreAssist CET applications.",
+  alternates: { canonical: "/privacy" },
   robots: { index: true, follow: true },
 };
 

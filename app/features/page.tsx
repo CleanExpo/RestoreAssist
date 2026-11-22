@@ -22,6 +22,7 @@ import {
   VIEWPORT,
 } from "@/components/landing/home/motion";
 import { useLandingReduceMotion } from "@/components/landing/home/useLandingReduceMotion";
+import { TRIAL_INCLUDES, PAID_ADDS, KEY_BILLING_NOTE } from "./features-copy";
 
 type FeatureItem = {
   /** The concrete, checkable part of the claim. */
@@ -259,7 +260,7 @@ const GROUPS: readonly FeatureGroup[] = [
       {
         label: "A4 PDFs across the document set",
         detail:
-          "Inspection report, scope of works, cost estimation, enhanced and forensic reports, floor plans, invoices, signed authority forms, dispute defence pack, stabilisation certificate and close-out pack.",
+          "Inspection report, scope of works, cost estimation, forensic reports, floor plans, invoices, signed authority forms, dispute defence pack, stabilisation certificate and close-out pack.",
       },
       {
         label: "Excel workbooks",
@@ -326,39 +327,12 @@ const freeCfg = PRICING_CONFIG.free;
 const monthlyCfg = PRICING_CONFIG.pricing.monthly;
 
 /**
- * What separates the two columns is REPORT VOLUME and the settings a paid
- * account may write — not report depth. Verified 2026-08-07:
- *   - lib/report-limits.ts canCreateReport: TRIAL spends a finite credit grant
- *     inside the trial window; ACTIVE spends a monthly limit that resets and
- *     can be topped up with add-on packs. That is the enforced boundary.
- *   - app/api/pricing-config/route.ts:105 returns 403 to TRIAL on write, so
- *     custom rates really are a paid capability.
- *   - The Enhanced and Optimised report types are NOT gated:
- *     generate-enhanced/route.ts:130 admits TRIAL, and
- *     save-tier-responses/route.ts sets reportDepthLevel after auth and
- *     ownership only. PDF upload is not gated either — parse-pdf/route.ts
- *     checks a session and a rate limit and nothing else. Both were listed
- *     here as things paying unlocked; both were removed rather than reworded,
- *     because the API does not hold the boundary. If either is ever gated in
- *     code, put it back — not before.
+ * What separates the two columns is REPORT TYPE, REPORT VOLUME and the
+ * settings a paid account may write. The trial is Basic reports only; Enhanced
+ * and Optimised are paid, enforced on the server by
+ * lib/billing/paid-base-plan.ts. The wording lives in ./features-copy.ts and
+ * is tested against lib/pricing.ts (RA-8542).
  */
-const TRIAL_INCLUDES: readonly string[] = [
-  `${freeCfg.trialDays} days, no credit card`,
-  `${freeCfg.trialReportCredits} inspection report credits`,
-  "Basic, Enhanced and Optimised report types, same as on the paid plan",
-  "Every capture, evidence, standards and export capability above",
-  "Basic reports without pasting an API key",
-];
-
-const PAID_ADDS: readonly string[] = [
-  `${monthlyCfg.reportLimit} inspection reports a month, plus ${monthlyCfg.signupBonus} in your first`,
-  "A monthly allowance that resets, in place of a one-off trial credit grant",
-  "Your own labour, equipment and chemical rates, in place of the state defaults",
-  // RA-7714: Ascora is a migration source, not an ongoing connection, and
-  // both it and Xero are separately-priced add-ons, not part of the plan price.
-  "Optional add-ons, including Migrate from Ascora",
-  `Report packs when a month runs long, from $${PRICING_CONFIG.addons.pack8.amount} for ${PRICING_CONFIG.addons.pack8.reportLimit}`,
-];
 
 export default function FeaturesPage() {
   const reduce = useLandingReduceMotion();
@@ -442,9 +416,7 @@ export default function FeaturesPage() {
 
           <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-[1.7] text-slate-500">
             {monthlyCfg.currency}, incl. GST. Bookkeeping connections to Xero
-            also require the Bookkeeping add-on. Report
-            generation on both plans runs on your own AI provider key, billed to
-            you by that provider.
+            also require the Bookkeeping add-on. {KEY_BILLING_NOTE}
           </p>
         </div>
       </section>

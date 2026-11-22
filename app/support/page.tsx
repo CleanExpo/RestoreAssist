@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Support — RestoreAssist",
   description:
     "Get help with RestoreAssist. Contact our support team, browse FAQs, or access documentation for the RestoreAssist field app and CET kiosk.",
+  alternates: { canonical: "/support" },
   robots: { index: true, follow: true },
 };
 
