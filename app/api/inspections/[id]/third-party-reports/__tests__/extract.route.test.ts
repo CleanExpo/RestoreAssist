@@ -13,6 +13,7 @@ const m = vi.hoisted(() => ({
   logAiUsage: vi.fn(),
   extractLabReport: vi.fn(),
   assessmentFindFirst: vi.fn(),
+  inspectionFindFirst: vi.fn(),
   writes: vi.fn(),
 }));
 
@@ -27,7 +28,11 @@ vi.mock("@/lib/prisma", () => ({
       update: m.writes,
     },
     auditLog: { create: m.writes },
-    inspection: { update: m.writes, updateMany: m.writes },
+    inspection: {
+      findFirst: m.inspectionFindFirst,
+      update: m.writes,
+      updateMany: m.writes,
+    },
     $transaction: m.writes,
   },
 }));
@@ -94,8 +99,12 @@ beforeEach(() => {
   m.getServerSession.mockResolvedValue({ user: { id: "u1" } });
   m.assertWrite.mockResolvedValue({
     ok: true,
-    data: { childInspectionFilter: undefined },
+    data: {
+      inspectionWhere: { id: "insp_1" },
+      childInspectionFilter: undefined,
+    },
   });
+  m.inspectionFindFirst.mockResolvedValue({ workspaceId: "ws1" });
   m.assertSpender.mockResolvedValue({ ok: true, data: { id: "u1", role: "MANAGER" } });
   m.requireActiveSubscription.mockResolvedValue(null);
   m.applyRateLimit.mockResolvedValue(null);
@@ -215,7 +224,8 @@ describe("POST third-party-reports/extract", () => {
     expect(m.checkWorkspaceBudget).not.toHaveBeenCalled();
   });
 
-  it("checks the budget of, and logs usage to, the workspace that owns the key", async () => {
+  it("checks the budget of, and logs usage to, the workspace that owns the key and the job", async () => {
+    m.inspectionFindFirst.mockResolvedValue({ workspaceId: "wsOwner" });
     m.resolveKey.mockResolvedValue({
       apiKey: "sk-test",
       workspaceId: "wsOwner",
@@ -228,6 +238,30 @@ describe("POST third-party-reports/extract", () => {
     expect(m.logAiUsage).toHaveBeenCalledWith(
       expect.objectContaining({ workspaceId: "wsOwner", success: true }),
     );
+  });
+
+  it("an admin in two workspaces reading a job in workspace B never spends workspace A's key or cap", async () => {
+    // The caller's resolved key belongs to workspace A; the job is in B.
+    m.inspectionFindFirst.mockResolvedValue({ workspaceId: "wsB" });
+    m.resolveKey.mockResolvedValue({
+      apiKey: "sk-from-A",
+      workspaceId: "wsA",
+      source: "byok",
+    });
+    const res = await POST(req(PDF), ctx);
+    expect(res.status).toBe(403);
+    expect(m.extractLabReport).not.toHaveBeenCalled();
+    expect(m.checkWorkspaceBudget).not.toHaveBeenCalled();
+    expect(m.logAiUsage).not.toHaveBeenCalled();
+    expect(m.writes).not.toHaveBeenCalled();
+  });
+
+  it("refuses with no spend when the job belongs to no workspace, so the key cannot be tied to it", async () => {
+    m.inspectionFindFirst.mockResolvedValue({ workspaceId: null });
+    const res = await POST(req(PDF), ctx);
+    expect(res.status).toBe(403);
+    expect(m.extractLabReport).not.toHaveBeenCalled();
+    expect(m.checkWorkspaceBudget).not.toHaveBeenCalled();
   });
 
   it("402 and no AI call when the resolved key names no workspace", async () => {

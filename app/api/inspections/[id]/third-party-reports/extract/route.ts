@@ -193,6 +193,22 @@ export async function POST(
         status: 402,
       });
     }
+    // The key and the cap must belong to the job's own workspace. The
+    // resolver is keyed on the caller, so an admin in two workspaces reading a
+    // job in workspace B would otherwise spend workspace A's key and cap. A job
+    // with no workspace cannot be tied to any key, so it is refused as well.
+    const job = await prisma.inspection.findFirst({
+      where: tenancy.data.inspectionWhere,
+      select: { workspaceId: true },
+    });
+    if (!job?.workspaceId || job.workspaceId !== resolved.workspaceId) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message:
+          "This job's workspace does not match the AI key available to you.",
+        status: 403,
+      });
+    }
     const workspaceId = resolved.workspaceId;
     const apiKey = resolved.apiKey;
 
@@ -279,7 +295,7 @@ export async function POST(
     });
 
     // Read-only comparison with what the job holds today.
-    const job = await prisma.mouldRemediationAssessment.findFirst({
+    const current = await prisma.mouldRemediationAssessment.findFirst({
       where: { inspectionId, inspection: tenancy.data.childInspectionFilter },
       select: {
         labName: true,
@@ -291,7 +307,7 @@ export async function POST(
         sporeCountPostRemediation: true,
       },
     });
-    const { facts, gaps } = compareFacts(result.data.facts, job);
+    const { facts, gaps } = compareFacts(result.data.facts, current);
 
     const fileName = file.name.slice(0, 255);
     const sha256 = sha256Hex(pdf);
