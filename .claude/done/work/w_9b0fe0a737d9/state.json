@@ -1,0 +1,51 @@
+{
+  "schema": "done/1",
+  "criterion_evidence": "PROVEN",
+  "verification_status": "PASS",
+  "delivery_status": "NOT_STARTED",
+  "verified_head": "c71561b09294bd68f4c0f29110a3630d6384d1c4",
+  "updated_at_utc": "2026-11-22T00:32:23Z",
+  "last_verify": {
+    "head": "c71561b09294bd68f4c0f29110a3630d6384d1c4",
+    "at_utc": "2026-11-22T00:32:23Z",
+    "matrix": [
+      {
+        "id": "C1",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "/Users/phill-mac/.local/bin/node node_modules/vitest/vitest.mjs run --config config/vitest.config.js lib/__tests__/mould-no-overreach.test.ts",
+        "exit_code": 0,
+        "timeout_s": 600,
+        "duration_s": 4.0,
+        "output_digest": "20e10f99e274998d179c2bda707e939bf73e3df0b1f2e7aaa37ceb426efeee69",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_9b0fe0a737d9/c71561b09294/C1-ab861dc170dc-20e10f99e274998d.log",
+        "output_tail": "\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-8540-mould\u001b[39m\n\n \u001b[32m✓\u001b[39m lib/__tests__/mould-no-overreach.test.ts \u001b[2m(\u001b[22m\u001b[2m28 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 827\u001b[2mms\u001b[22m\u001b[39m\n     \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m product source carries no mould over-reach phrasing \u001b[33m 800\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m28 passed\u001b[39m\u001b[22m\u001b[90m (28)\u001b[39m\n\u001b[2m   Start at \u001b[22m 10:26:30\n\u001b[2m   Duration \u001b[22m 3.08s\u001b[2m (transform 1.86s, setup 127ms, import 1.99s, tests 827ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "C2",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "/Users/phill-mac/.local/bin/node node_modules/vitest/vitest.mjs run --config config/vitest.config.js lib/__tests__ lib/assessments/__tests__ lib/evidence/__tests__ lib/reports/__tests__ lib/claim-intelligence/__tests__ app/api/inspections/[id]/generate-scope/__tests__/route.test.ts",
+        "exit_code": 0,
+        "timeout_s": 2400,
+        "duration_s": 210.7,
+        "output_digest": "ba435b2550223221a05e88011a81602f98db757cdc31528b0ab106838082ea5d",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_9b0fe0a737d9/c71561b09294/C2-9685eb765661-ba435b2550223221.log",
+        "output_tail": "SECRET, NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID, STRIPE_WEBHOOK_SECRET, CLIENT_PORTAL_JWT_SECRET\n\n \u001b[32m✓\u001b[39m lib/__tests__/env-check.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/credential-vault.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 6\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/workspace-secondary-links.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 12\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/evidence/__tests__/verified-readback.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/nir-vision-ocr.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/app-url.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/cloudinary-file-upload.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 5\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/nir-claim-type-helpers.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/local-subscription-plan-display.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 5\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/strict-queue-count.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/trial-duration.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 115\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/version-history-export.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/public-token-shape.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/upload-pdf-copy.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/nir-report-floor-plans.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/pdf-export-escaping.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 14\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/bulk-operations.aggregate-errors.ra8348.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/sanitize-decode.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/pdf-moisture-readings.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/evidence/__tests__/video-evidence.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/email-from.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/nir-moisture-map-coordinates.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/__tests__/nir-tiered-completion.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m scripts/lib/__tests__/script-to-vtt.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/ai-ownership-export-meta.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m scripts/lib/__tests__/elevenlabs-tts.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/ai-ownership-watermark.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/should-warn-ai-draft-export.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/ai-ownership-public.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/reports/__tests__/ai-ownership-footer.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 8\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m251 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m3 skipped\u001b[39m\u001b[90m (254)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m4180 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m24 skipped\u001b[39m\u001b[90m (4204)\u001b[39m\n\u001b[2m   Start at \u001b[22m 10:26:35\n\u001b[2m   Duration \u001b[22m 208.59s\u001b[2m (transform 16.31s, setup 8.89s, import 56.62s, tests 74.30s, environment 35.53s)\u001b[22m"
+      },
+      {
+        "id": "C3",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "/Users/phill-mac/.local/bin/node scripts/type-check.mjs",
+        "exit_code": 0,
+        "timeout_s": 1500,
+        "duration_s": 135.9,
+        "output_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_9b0fe0a737d9/c71561b09294/C3-8a214cef6d47-e3b0c44298fc1c14.log",
+        "output_tail": ""
+      }
+    ],
+    "blockers": []
+  }
+}

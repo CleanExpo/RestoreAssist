@@ -1,0 +1,34 @@
+{
+  "schema": "done/1",
+  "work_id": "w_9b0fe0a737d9",
+  "version": 1,
+  "supersedes": null,
+  "goal": "RA-8540: mould AI prompts and workflow copy never assign condition or clearance, name a species from visual evidence, state an unsourced area threshold as law, or call S520 a regulation; AI mould category is not used as an assessed value",
+  "created_at_utc": "2026-11-22T00:09:41Z",
+  "identity_key": "claude/ra-8540-mould-no-overreach@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-8540-mould",
+  "baseline_observed": {
+    "head": "863c634fcdecad6bbf2bc2ca86cc4b82a2d7b89a",
+    "branch": "claude/ra-8540-mould-no-overreach",
+    "dirty_count": 0
+  },
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "Guard test lib/__tests__/mould-no-overreach.test.ts passes: mould-bearing scope prompts carry no condition/clearance assignment instruction and do carry the assessor-only instruction; workflow, domain and guidance copy carry no species-as-trigger, unsourced area-threshold-as-law or S520-as-regulation wording; AI analysis mould category is not used when no human value exists",
+      "recipe": "/Users/phill-mac/.local/bin/node node_modules/vitest/vitest.mjs run --config config/vitest.config.js lib/__tests__/mould-no-overreach.test.ts",
+      "timeout": 600
+    },
+    {
+      "id": "C2",
+      "text": "Existing suites for the touched modules still pass (prompts/standards guards in lib/__tests__, assessments, evidence workflows, reports, claim-intelligence, generate-scope route)",
+      "recipe": "/Users/phill-mac/.local/bin/node node_modules/vitest/vitest.mjs run --config config/vitest.config.js lib/__tests__ lib/assessments/__tests__ lib/evidence/__tests__ lib/reports/__tests__ lib/claim-intelligence/__tests__ app/api/inspections/[id]/generate-scope/__tests__/route.test.ts",
+      "timeout": 2400
+    },
+    {
+      "id": "C3",
+      "text": "Type check passes",
+      "recipe": "/Users/phill-mac/.local/bin/node scripts/type-check.mjs",
+      "timeout": 1500
+    }
+  ]
+}
