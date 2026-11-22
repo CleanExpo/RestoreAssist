@@ -87,4 +87,51 @@ describe("generateForensicReportPDF — moisture readings (RA-8547)", () => {
     expect(section).not.toContain("12%");
     expect(section).not.toMatch(/\bDRY\b|\bWET\b/);
   });
+
+  it("prints every saved reading, or says how many are not shown (8 readings)", async () => {
+    const locations = Array.from({ length: 8 }, (_, i) => `Bay ${i + 1}x`);
+    const section = moistureSection(
+      await pdfText(
+        baseData({
+          tier2: {
+            T2_Q1_moistureReadings: locations.map((location, i) => ({
+              location,
+              material: "Plasterboard",
+              reading: 30 + i,
+            })),
+          },
+        }),
+      ),
+    );
+    const missing = locations.filter((loc) => !section.includes(loc));
+    if (missing.length > 0) {
+      expect(section).toContain(
+        `${missing.length} further saved moisture readings are not shown in this table.`,
+      );
+    }
+  });
+});
+
+describe("generateForensicReportPDF — scope items (RA-8547 follow-up)", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(new Uint8Array([1]))),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("states no saturation or removal finding from an AI area's moisture figure", async () => {
+    const text = await pdfText(
+      baseData({
+        scopeAreas: [{ name: "Lounge", materials: ["Carpet"], moisture: 25 }],
+      }),
+    );
+    expect(text).toContain("Lounge");
+    expect(text).not.toMatch(/saturation requiring removal/i);
+    expect(text).not.toMatch(/indicates saturation/i);
+  });
 });

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildForensicMoistureRows,
   MOISTURE_NOT_RECORDED,
+  moistureRowsNotShownNote,
 } from "../forensic-moisture-rows";
 
 describe("buildForensicMoistureRows (RA-8547)", () => {
@@ -87,5 +88,21 @@ describe("buildForensicMoistureRows (RA-8547)", () => {
       dryStandard: MOISTURE_NOT_RECORDED,
       status: "DRY",
     });
+  });
+});
+
+describe("moistureRowsNotShownNote (RA-8547 follow-up)", () => {
+  it("returns no note when every reading is shown", () => {
+    expect(moistureRowsNotShownNote(0)).toBeNull();
+    expect(moistureRowsNotShownNote(-2)).toBeNull();
+  });
+
+  it("states how many saved readings are not shown", () => {
+    expect(moistureRowsNotShownNote(1)).toBe(
+      "1 further saved moisture reading is not shown in this table.",
+    );
+    expect(moistureRowsNotShownNote(3)).toBe(
+      "3 further saved moisture readings are not shown in this table.",
+    );
   });
 });

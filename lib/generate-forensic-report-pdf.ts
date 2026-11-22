@@ -24,7 +24,9 @@ import { isSafePublicHttpsUrl } from "./security/safe-external-url";
 import { extractWaterCategory } from "@/lib/reports/extract-report-data";
 import {
   buildForensicMoistureRows,
+  FORENSIC_MOISTURE_TABLE_MAX_ROWS,
   MOISTURE_NOT_RECORDED,
+  moistureRowsNotShownNote,
   type ForensicMoistureRow,
 } from "@/lib/reports/forensic-moisture-rows";
 
@@ -1090,11 +1092,14 @@ async function renderPage3(
 
     yPosition = moistureHeaderY - 30;
 
-    // Moisture Rows
-    moistureData.readings
-      .slice(0, 5)
-      .forEach((reading: ForensicMoistureRow, index: number) => {
+    // Moisture Rows — RA-8547 follow-up: count what is drawn so any saved
+    // reading left out is declared below the table, not dropped silently.
+    let moistureRowsShown = 0;
+    moistureData.readings.forEach(
+      (reading: ForensicMoistureRow, index: number) => {
+        if (index >= FORENSIC_MOISTURE_TABLE_MAX_ROWS) return;
         if (yPosition < 500) return;
+        moistureRowsShown += 1;
 
         const rowHeight = 25;
 
@@ -1169,7 +1174,22 @@ async function renderPage3(
         );
 
         yPosition -= rowHeight + 2;
+      },
+    );
+
+    const notShownNote = moistureRowsNotShownNote(
+      moistureData.readings.length - moistureRowsShown,
+    );
+    if (notShownNote) {
+      yPosition -= 12;
+      page.drawText(sanitizeTextForPDF(notShownNote), {
+        x: margin,
+        y: yPosition,
+        size: 9,
+        font: helvetica,
+        color: colors.black,
       });
+    }
 
     yPosition -= 20;
   } else {
@@ -2135,9 +2155,9 @@ function buildScopeItems(
       const areaJustification =
         waterCategory === "Category 3"
           ? `IICRC S500 requires removal of porous materials (${materials}) contaminated with Category 3 unsanitary water; cleaning is not verifiable. Category 3 contamination poses significant health risks.`
-          : moistureLevel && moistureLevel > 20
-            ? `IICRC S500 requires removal of saturated porous materials (${materials}) where moisture content exceeds dry standard goals. Moisture reading of ${moistureLevel}% indicates saturation requiring removal.`
-            : `IICRC S500 requires appropriate remediation of affected materials (${materials}) based on contamination level and material porosity. Controlled removal and disposal under containment protocols.`;
+          : // RA-8547 follow-up: no saturation/removal finding is derived
+            // from an AI scope area's moisture figure against a fixed number.
+            `IICRC S500 requires appropriate remediation of affected materials (${materials}) based on contamination level and material porosity. Controlled removal and disposal under containment protocols.`;
 
       items.push({
         item: areaName,
