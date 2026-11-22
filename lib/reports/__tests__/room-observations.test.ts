@@ -8,6 +8,7 @@ import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import {
   ROOM_OBSERVATIONS_NOTICE,
   roomObservationGroups,
+  roomObservationsOmittedNotice,
   shouldPrintRoomObservations,
   type ReportRoomObservation,
 } from "../room-observations";
@@ -67,6 +68,13 @@ describe("room observation rows", () => {
     expect(g.room).toBe("Room not named");
   });
 
+  it("says how many observations a bounded read left out, and nothing when none", () => {
+    expect(roomObservationsOmittedNotice(0)).toBeNull();
+    expect(roomObservationsOmittedNotice(null)).toBeNull();
+    expect(roomObservationsOmittedNotice(1)).toBe("1 further recorded observation is not shown here.");
+    expect(roomObservationsOmittedNotice(3)).toBe("3 further recorded observations are not shown here.");
+  });
+
   it("the notice rules out species, diagnosis, condition and clearance", () => {
     expect(ROOM_OBSERVATIONS_NOTICE).toMatch(/not a diagnosis/);
     expect(ROOM_OBSERVATIONS_NOTICE).toMatch(/species/);
@@ -81,6 +89,16 @@ describe("report PDF section 6C (RA-7694 acceptance)", () => {
     expect(text).toContain("Bedroom 2");
     expect(text).toMatch(/musty; intermittent; intensity 2 of 3/);
     expect(text.indexOf("Bedroom 2")).toBeLessThan(text.indexOf("musty; intermittent"));
+  }, 30_000);
+
+  it("says in the PDF when recorded observations were left out", async () => {
+    const text = await pdfText({
+      id: "ro-omitted",
+      claimType: "WATER",
+      roomObservations: [musty],
+      roomObservationsOmitted: 2,
+    });
+    expect(text).toContain("2 further recorded observations are not shown here.");
   }, 30_000);
 
   it("prints no such section when nothing was recorded (negative control)", async () => {

@@ -47,7 +47,7 @@ describe("room observation input", () => {
 
   it("refuses an unknown kind or basis", () => {
     expect(bad({ kind: "MOULD_SPECIES", roomLabel: "x" })).toMatch(/kind/);
-    expect(bad({ kind: "STAINING", roomLabel: "x", basis: "PROVEN" })).toMatch(/basis/);
+    expect(bad({ kind: "STAINING", roomLabel: "x", surface: "wall", basis: "PROVEN" })).toMatch(/basis/);
   });
 
   it("refuses an intensity outside 1 to 3, or not a whole number", () => {
@@ -78,8 +78,24 @@ describe("room observation input", () => {
     expect(bad({ kind: "STAINING", roomLabel: "x".repeat(121) })).toMatch(/roomLabel/);
     expect(bad({ kind: "STAINING", roomLabel: "x", detail: "d".repeat(1001) })).toMatch(/detail/);
     const future = new Date(Date.now() + 3600_000).toISOString();
-    expect(bad({ kind: "STAINING", roomLabel: "x", observedAt: future })).toMatch(/future/);
-    expect(bad({ kind: "STAINING", roomLabel: "x", observedAt: "not a date" })).toMatch(/observedAt/);
+    expect(bad({ kind: "STAINING", roomLabel: "x", surface: "wall", observedAt: future })).toMatch(/future/);
+    expect(bad({ kind: "STAINING", roomLabel: "x", surface: "wall", observedAt: "not a date" })).toMatch(/observedAt/);
+  });
+
+  it("refuses a time that is not a full ISO 8601 date-time with a zone", () => {
+    for (const t of ["2020", "2020-01-01", "2020-01-01T10:00", "01/02/2026 10:00", "Jan 1 2020"]) {
+      expect(bad({ kind: "STAINING", roomLabel: "x", surface: "wall", observedAt: t }), t).toMatch(/ISO 8601/);
+    }
+    for (const t of ["2026-11-20T01:00:00Z", "2026-11-20T11:00:00.123+10:00"]) {
+      expect(ok({ kind: "STAINING", roomLabel: "x", surface: "wall", observedAt: t }).observedAt).toBeInstanceOf(Date);
+    }
+  });
+
+  it("refuses staining or growth with nothing recorded about it", () => {
+    expect(bad({ kind: "STAINING", roomLabel: "Hall" })).toMatch(/staining/i);
+    expect(bad({ kind: "VISIBLE_GROWTH", roomLabel: "Hall" })).toMatch(/growth/i);
+    expect(ok({ kind: "STAINING", roomLabel: "Hall", detail: "brown ring" }).detail).toBe("brown ring");
+    expect(ok({ kind: "VISIBLE_GROWTH", roomLabel: "Hall", areaM2: 0 }).areaM2).toBe(0);
   });
 
   it("refuses a body that is not an object", () => {

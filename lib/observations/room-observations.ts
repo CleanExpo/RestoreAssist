@@ -55,6 +55,11 @@ export type RoomObservationCheck =
   | { ok: true; data: RoomObservationInput }
   | { ok: false; message: string };
 
+// Explicit ISO 8601 date-time with a zone. `new Date("2020")` would otherwise
+// turn a bare year into a timestamp that prints as a wrong day.
+const ISO_DATE_TIME =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
@@ -187,10 +192,26 @@ export function checkRoomObservationInput(body: unknown): RoomObservationCheck {
     };
   }
 
+  if (k === "STAINING" && !surface.value && !detail.value) {
+    return {
+      ok: false,
+      message: "Record where the staining is (surface) or describe it (detail)",
+    };
+  }
+  if (k === "VISIBLE_GROWTH" && !surface.value && !detail.value && areaM2 === null) {
+    return {
+      ok: false,
+      message: "Record the surface, the visible area or a detail for the growth",
+    };
+  }
+
   let observedAt: Date | null = null;
   if (body.observedAt !== undefined && body.observedAt !== null) {
-    if (typeof body.observedAt !== "string") {
-      return { ok: false, message: "observedAt must be an ISO date-time" };
+    if (typeof body.observedAt !== "string" || !ISO_DATE_TIME.test(body.observedAt)) {
+      return {
+        ok: false,
+        message: "observedAt must be an ISO 8601 date-time with a time zone",
+      };
     }
     const d = new Date(body.observedAt);
     if (Number.isNaN(d.getTime())) {

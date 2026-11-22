@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import {
   roomObservationGroups,
+  roomObservationsOmittedNotice,
   ROOM_OBSERVATIONS_NOTICE,
   type ReportRoomObservation,
 } from "@/lib/reports/room-observations";
@@ -31,6 +32,7 @@ export function RoomObservationsPanel({
   className?: string;
 }) {
   const [rows, setRows] = useState<ReportRoomObservation[] | null>(null);
+  const [omitted, setOmitted] = useState(0);
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,8 +54,12 @@ export function RoomObservationsPanel({
     try {
       const r = await fetch(url);
       if (!r.ok) throw new Error(String(r.status));
-      const j = (await r.json()) as { observations: ReportRoomObservation[] };
+      const j = (await r.json()) as {
+        observations: ReportRoomObservation[];
+        omitted?: number;
+      };
       setRows(j.observations);
+      setOmitted(j.omitted ?? 0);
     } catch {
       setRows(null);
       setLoadFailed(true);
@@ -151,6 +157,11 @@ export function RoomObservationsPanel({
           ))}
         </ul>
       )}
+      {roomObservationsOmittedNotice(omitted) ? (
+        <p className="text-xs text-neutral-600 dark:text-slate-400" data-testid="room-observations-omitted">
+          {roomObservationsOmittedNotice(omitted)}
+        </p>
+      ) : null}
 
       <form
         className="grid gap-3 sm:grid-cols-2"

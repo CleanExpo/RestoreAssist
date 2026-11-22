@@ -85,6 +85,15 @@ function valueText(o: ReportRoomObservation): string {
   return `${parts.join("; ")}. ${basis}${when ? `, ${when}` : ""}.`;
 }
 
+/** A bounded read must say what it left out. Null when nothing was omitted. */
+export function roomObservationsOmittedNotice(
+  omitted: number | null | undefined,
+): string | null {
+  return typeof omitted === "number" && omitted > 0
+    ? `${omitted.toLocaleString("en-AU")} further recorded observation${omitted === 1 ? " is" : "s are"} not shown here.`
+    : null;
+}
+
 /** Print only when at least one observation was recorded. */
 export function shouldPrintRoomObservations(
   rows: ReadonlyArray<ReportRoomObservation> | null | undefined,

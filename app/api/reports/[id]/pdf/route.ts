@@ -159,7 +159,7 @@ export async function GET(
             userId: true,
             workspaceId: true,
             user: { select: { organizationId: true } },
-            _count: { select: { photos: true } },
+            _count: { select: { photos: true, roomObservations: true } },
             moistureReadings: {
               where: { invalidatedAt: null },
               orderBy: { recordedAt: "asc" },
@@ -285,6 +285,12 @@ export async function GET(
       claimType: report.inspection?.claimType ?? null,
       mouldAssessment: report.inspection?.mouldRemediationAssessment ?? null,
       roomObservations: report.inspection?.roomObservations ?? [],
+      // Said in the PDF, never silent: how many were beyond the bounded read.
+      roomObservationsOmitted: Math.max(
+        0,
+        (report.inspection?._count?.roomObservations ?? 0) -
+          (report.inspection?.roomObservations?.length ?? 0),
+      ),
     };
 
     // Brand the report with the contractor's own firm identity (logo + accent

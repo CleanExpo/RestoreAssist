@@ -30,6 +30,7 @@ import {
 import {
   ROOM_OBSERVATIONS_NOTICE,
   roomObservationGroups,
+  roomObservationsOmittedNotice,
   shouldPrintRoomObservations,
   type ReportRoomObservation,
 } from "@/lib/reports/room-observations";
@@ -110,6 +111,8 @@ export interface IICRCReportData {
   mouldAssessment?: MouldLabAssessment | null;
   /** RA-7694: per-room odour, visible growth and staining, for Section 6C. */
   roomObservations?: ReportRoomObservation[] | null;
+  /** Recorded observations beyond the bounded read, so the report can say so. */
+  roomObservationsOmitted?: number | null;
   user?: {
     name?: string | null;
     email?: string | null;
@@ -843,6 +846,10 @@ export async function generateIICRCReportPDF(
         w.kv(label, value, 110);
       }
       w.gap(4);
+    }
+    const omitted = roomObservationsOmittedNotice(data.roomObservationsOmitted);
+    if (omitted) {
+      w.text(omitted, { size: 8, color: C_MUTED, maxWidth: COL_W });
     }
     w.gap(4);
   }

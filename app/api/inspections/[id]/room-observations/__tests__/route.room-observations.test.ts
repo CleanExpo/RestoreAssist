@@ -1,6 +1,7 @@
 /**
  * RA-7694: /api/inspections/[id]/room-observations. Create, list, and the
- * failure paths: sign-in, another tenant's job, another job's room, bad input.
+ * failure paths: sign-in, another tenant's job, another job's room, bad input,
+ * and the scope being re-asserted inside the read and the write.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { prisma as scopePrisma } from "@/lib/prisma";
@@ -22,15 +23,16 @@ vi.mock("@/lib/auth/assert-tenancy", () => ({
       viaAssignment: false,
     },
   })),
-  assertInspectionReadable: vi.fn(async () => ({
+  resolveInspectionReach: vi.fn(async () => ({
     ok: true,
-    data: { id: "i1", userId: "u_1", workspaceId: null },
+    data: { OR: [{ userId: "u_1" }] },
   })),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    sketchRoom: { findFirst: vi.fn() },
-    roomObservation: { create: vi.fn(), findMany: vi.fn() },
+    $queryRaw: vi.fn(),
+    inspection: { findFirst: vi.fn() },
+    roomObservation: { create: vi.fn(), findMany: vi.fn(), count: vi.fn() },
   },
 }));
 
@@ -38,17 +40,19 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import {
   assertInspectionAssignedWrite,
-  assertInspectionReadable,
+  resolveInspectionReach,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { GET, POST } from "../route";
 
 const fn = (x: unknown) => x as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
-  sketchRoom: { findFirst: ReturnType<typeof vi.fn> };
+  $queryRaw: ReturnType<typeof vi.fn>;
+  inspection: { findFirst: ReturnType<typeof vi.fn> };
   roomObservation: {
     create: ReturnType<typeof vi.fn>;
     findMany: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -68,12 +72,14 @@ function get(): NextRequest {
 beforeEach(() => {
   vi.clearAllMocks();
   fn(getServerSession).mockResolvedValue({ user: { id: "u_1" } });
-  p.sketchRoom.findFirst.mockResolvedValue({ name: "Bedroom 2" });
+  p.$queryRaw.mockResolvedValue([{ name: "Bedroom 2" }]);
   p.roomObservation.create.mockImplementation(async ({ data }: any) => ({
     id: "ro_1",
     ...data,
   }));
   p.roomObservation.findMany.mockResolvedValue([]);
+  p.roomObservation.count.mockResolvedValue(0);
+  p.inspection.findFirst.mockResolvedValue({ id: "i1" });
 });
 
 describe("POST room-observations", () => {
@@ -101,32 +107,46 @@ describe("POST room-observations", () => {
       source: "manual",
       capturedByUserId: "u_1",
     });
+    expect(p.$queryRaw).not.toHaveBeenCalled();
   });
 
-  it("copies the room name from a linked sketch room", async () => {
+  it("a linked room is looked up and locked inside the write, on this job, not detached", async () => {
     const res = await POST(
       post({ kind: "STAINING", sketchRoomId: "room1", surface: "ceiling" }),
       params,
     );
     expect(res.status).toBe(201);
-    expect(p.roomObservation.create.mock.calls[0][0].data.roomLabel).toBe("Bedroom 2");
-    const where = p.sketchRoom.findFirst.mock.calls[0][0].where;
-    expect(where).toMatchObject({
-      id: "room1",
-      detachedAt: null,
-      sketch: { inspectionId: "i1" },
-    });
+    const query = p.$queryRaw.mock.calls[0][0] as { sql: string; values: unknown[] };
+    expect(query.sql).toMatch(/FOR SHARE OF sr/);
+    expect(query.sql).toMatch(/"detachedAt" IS NULL/);
+    expect(query.sql).toMatch(/cs\."inspectionId"/);
+    expect(query.values).toEqual(["room1", "i1"]);
+  });
+
+  it("the room's own name is the label; a different label sent with a room id is ignored", async () => {
+    await POST(
+      post({
+        kind: "STAINING",
+        sketchRoomId: "room1",
+        roomLabel: "Kitchen",
+        surface: "wall",
+      }),
+      params,
+    );
+    const data = p.roomObservation.create.mock.calls[0][0].data;
+    expect(data.roomLabel).toBe("Bedroom 2");
+    expect(data.sketchRoomId).toBe("room1");
   });
 
   it("writes through the caller's job scope", async () => {
-    await POST(post({ kind: "STAINING", roomLabel: "Hall" }), params);
+    await POST(post({ kind: "STAINING", roomLabel: "Hall", surface: "wall" }), params);
     expect(fn(writeWithinInspectionScope).mock.calls[0][0]).toEqual({ id: "i1" });
   });
 
-  it("422 for a room that is not on this job", async () => {
-    p.sketchRoom.findFirst.mockResolvedValueOnce(null);
+  it("422 for a room that is not on this job, detached or gone, and nothing is written", async () => {
+    p.$queryRaw.mockResolvedValueOnce([]);
     const res = await POST(
-      post({ kind: "STAINING", sketchRoomId: "foreign" }),
+      post({ kind: "STAINING", sketchRoomId: "foreign", surface: "wall" }),
       params,
     );
     expect(res.status).toBe(422);
@@ -140,6 +160,9 @@ describe("POST room-observations", () => {
       { kind: "VISIBLE_GROWTH", roomLabel: "x", areaM2: -1 },
       { kind: "STAINING", roomLabel: "x", odourPattern: "CONSTANT" },
       { kind: "STAINING" },
+      { kind: "STAINING", roomLabel: "Hall" },
+      { kind: "VISIBLE_GROWTH", roomLabel: "Hall" },
+      { kind: "STAINING", roomLabel: "Hall", surface: "wall", observedAt: "2020" },
     ]) {
       const res = await POST(post(body), params);
       expect(res.status, JSON.stringify(body)).toBe(422);
@@ -154,7 +177,7 @@ describe("POST room-observations", () => {
 
   it("401 when not signed in", async () => {
     fn(getServerSession).mockResolvedValueOnce(null);
-    const res = await POST(post({ kind: "STAINING", roomLabel: "Hall" }), params);
+    const res = await POST(post({ kind: "STAINING", roomLabel: "Hall", surface: "wall" }), params);
     expect(res.status).toBe(401);
     expect(p.roomObservation.create).not.toHaveBeenCalled();
   });
@@ -165,36 +188,54 @@ describe("POST room-observations", () => {
       status: 404,
       reason: "Inspection not found",
     });
-    const res = await POST(post({ kind: "STAINING", roomLabel: "Hall" }), params);
+    const res = await POST(post({ kind: "STAINING", roomLabel: "Hall", surface: "wall" }), params);
     expect(res.status).toBe(404);
     expect(p.roomObservation.create).not.toHaveBeenCalled();
   });
 
   it("404 when the job leaves the caller's reach during the write", async () => {
     fn(writeWithinInspectionScope).mockResolvedValueOnce(null);
-    const res = await POST(post({ kind: "STAINING", roomLabel: "Hall" }), params);
+    const res = await POST(post({ kind: "STAINING", roomLabel: "Hall", surface: "wall" }), params);
     expect(res.status).toBe(404);
   });
 });
 
 describe("GET room-observations", () => {
-  it("lists the job's observations, bounded", async () => {
+  it("lists the job's observations with the caller's reach inside the query", async () => {
     p.roomObservation.findMany.mockResolvedValueOnce([{ id: "ro_1" }]);
+    p.roomObservation.count.mockResolvedValueOnce(1);
     const res = await GET(get(), params);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ observations: [{ id: "ro_1" }] });
+    expect(await res.json()).toEqual({ observations: [{ id: "ro_1" }], omitted: 0 });
     const arg = p.roomObservation.findMany.mock.calls[0][0];
-    expect(arg.where).toEqual({ inspectionId: "i1" });
+    expect(arg.where).toEqual({
+      inspectionId: "i1",
+      inspection: { OR: [{ userId: "u_1" }] },
+    });
     expect(arg.take).toBe(500);
   });
 
-  it("an empty job lists an empty array, not an error", async () => {
+  it("says how many were left out of a bounded read", async () => {
+    p.roomObservation.findMany.mockResolvedValueOnce(new Array(500).fill({ id: "x" }));
+    p.roomObservation.count.mockResolvedValueOnce(503);
     const res = await GET(get(), params);
-    expect(await res.json()).toEqual({ observations: [] });
+    expect((await res.json()).omitted).toBe(3);
   });
 
-  it("404 for another tenant's job, and nothing is read", async () => {
-    fn(assertInspectionReadable).mockResolvedValueOnce({
+  it("an empty job the caller can reach is an empty list, not an error", async () => {
+    const res = await GET(get(), params);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ observations: [], omitted: 0 });
+  });
+
+  it("an empty result for a job outside the caller's reach is a 404, not an empty list", async () => {
+    p.inspection.findFirst.mockResolvedValueOnce(null);
+    const res = await GET(get(), params);
+    expect(res.status).toBe(404);
+  });
+
+  it("404 when the caller's reach cannot be resolved", async () => {
+    fn(resolveInspectionReach).mockResolvedValueOnce({
       ok: false,
       status: 404,
       reason: "Inspection not found",

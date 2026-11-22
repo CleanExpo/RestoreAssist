@@ -6,20 +6,25 @@
  *
  * Records what was seen, smelt or measured. No species, diagnosis, condition or
  * clearance. The report prints these in Section 6C.
+ *
+ * One rule for both handlers: the caller's reach and the room's membership are
+ * asserted in the SAME statement or transaction that reads or writes the rows,
+ * never only in a check before it.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   assertInspectionAssignedWrite,
-  assertInspectionReadable,
+  resolveInspectionReach,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { checkRoomObservationInput } from "@/lib/observations/room-observations";
 
-const LIST_LIMIT = 500;
+const ROOM_OBSERVATION_LIST_LIMIT = 500;
 
 const SELECT = {
   id: true,
@@ -54,26 +59,51 @@ export async function GET(
     }
     const { id } = await params;
 
-    const tenancy = await assertInspectionReadable(session, id);
-    if (!tenancy.ok) {
+    const reach = await resolveInspectionReach(session);
+    if (!reach.ok) {
       return apiError(request, {
-        code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
-        message: tenancy.reason ?? "Forbidden",
-        status: tenancy.status,
+        code: reach.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+        message: reach.reason ?? "Forbidden",
+        status: reach.status,
       });
     }
 
-    const observations = await prisma.roomObservation.findMany({
-      where: { inspectionId: id },
-      orderBy: { observedAt: "asc" },
-      take: LIST_LIMIT,
-      select: SELECT,
+    // The caller's reach is part of this query, so a job that leaves their
+    // reach between a check and the read returns nothing.
+    const where = { inspectionId: id, inspection: reach.data };
+    const [observations, total] = await Promise.all([
+      prisma.roomObservation.findMany({
+        where,
+        orderBy: { observedAt: "asc" },
+        take: ROOM_OBSERVATION_LIST_LIMIT,
+        select: SELECT,
+      }),
+      prisma.roomObservation.count({ where }),
+    ]);
+    if (total === 0) {
+      // An empty list is only trusted for a job the caller can reach.
+      const job = await prisma.inspection.findFirst({
+        where: { id, ...reach.data },
+        select: { id: true },
+      });
+      if (!job) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+          status: 404,
+        });
+      }
+    }
+    return NextResponse.json({
+      observations,
+      omitted: Math.max(0, total - observations.length),
     });
-    return NextResponse.json({ observations });
   } catch (error) {
     return fromException(request, error, { stage: "list-room-observations" });
   }
 }
+
+class RoomNotOnJob extends Error {}
 
 export async function POST(
   request: NextRequest,
@@ -121,53 +151,63 @@ export async function POST(
     }
     const input = checked.data;
 
-    // A linked room must belong to THIS job's floor plan and still exist on it.
-    // Its name is copied onto the record so the report keeps it.
-    let roomLabel = input.roomLabel;
-    if (input.sketchRoomId) {
-      const room = await prisma.sketchRoom.findFirst({
-        where: {
-          id: input.sketchRoomId,
-          detachedAt: null,
-          sketch: { inspectionId: id },
+    // D-028: re-check the caller's reach inside the write. A linked room is
+    // looked up INSIDE the same transaction and held with FOR SHARE until it
+    // commits, so it cannot be deleted, detached or moved to another job
+    // between the check and the insert. Its name is the label; a label sent
+    // with a room id is ignored, so a record never names a different room than
+    // the one it links to.
+    let created;
+    try {
+      created = await writeWithinInspectionScope(
+        tenancy.data.inspectionManyWhere,
+        { updatedAt: new Date() },
+        async (tx) => {
+          let roomLabel = input.roomLabel;
+          if (input.sketchRoomId) {
+            const rooms = await tx.$queryRaw<Array<{ name: string }>>(Prisma.sql`
+              SELECT sr."name" AS "name"
+              FROM "SketchRoom" sr
+              JOIN "ClaimSketch" cs ON cs."id" = sr."sketchId"
+              WHERE sr."id" = ${input.sketchRoomId}
+                AND sr."detachedAt" IS NULL
+                AND cs."inspectionId" = ${id}
+              FOR SHARE OF sr
+            `);
+            if (rooms.length === 0) throw new RoomNotOnJob();
+            roomLabel = rooms[0].name;
+          }
+          return tx.roomObservation.create({
+            data: {
+              inspectionId: id,
+              sketchRoomId: input.sketchRoomId,
+              roomLabel: roomLabel as string,
+              kind: input.kind,
+              basis: input.basis,
+              odourDescriptor: input.odourDescriptor,
+              odourIntensity: input.odourIntensity,
+              odourPattern: input.odourPattern,
+              areaM2: input.areaM2,
+              surface: input.surface,
+              detail: input.detail,
+              source: "manual",
+              capturedByUserId: userId,
+              ...(input.observedAt ? { observedAt: input.observedAt } : {}),
+            },
+            select: SELECT,
+          });
         },
-        select: { name: true },
-      });
-      if (!room) {
+      );
+    } catch (e) {
+      if (e instanceof RoomNotOnJob) {
         return apiError(request, {
           code: "VALIDATION",
           message: "The selected room does not belong to this job.",
           status: 422,
         });
       }
-      roomLabel = roomLabel ?? room.name;
+      throw e;
     }
-
-    // D-028: re-check the caller's reach inside the write.
-    const created = await writeWithinInspectionScope(
-      tenancy.data.inspectionManyWhere,
-      { updatedAt: new Date() },
-      (tx) =>
-        tx.roomObservation.create({
-          data: {
-            inspectionId: id,
-            sketchRoomId: input.sketchRoomId,
-            roomLabel: roomLabel as string,
-            kind: input.kind,
-            basis: input.basis,
-            odourDescriptor: input.odourDescriptor,
-            odourIntensity: input.odourIntensity,
-            odourPattern: input.odourPattern,
-            areaM2: input.areaM2,
-            surface: input.surface,
-            detail: input.detail,
-            source: "manual",
-            capturedByUserId: userId,
-            ...(input.observedAt ? { observedAt: input.observedAt } : {}),
-          },
-          select: SELECT,
-        }),
-    );
     if (!created) {
       return apiError(request, {
         code: "NOT_FOUND",

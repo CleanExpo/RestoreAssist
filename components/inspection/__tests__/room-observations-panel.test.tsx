@@ -54,6 +54,21 @@ describe("RoomObservationsPanel", () => {
     expect(list.textContent).toContain("musty; intermittent; intensity 2 of 3");
   });
 
+  it("says when observations were left out of the list", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        json(200, {
+          observations: [{ roomLabel: "Hall", kind: "STAINING", basis: "OBSERVED", surface: "wall" }],
+          omitted: 4,
+        }),
+      ),
+    );
+    render(<RoomObservationsPanel inspectionId="i1" />);
+    const note = await screen.findByTestId("room-observations-omitted");
+    expect(note.textContent).toBe("4 further recorded observations are not shown here.");
+  });
+
   it("posts the structured odour fields and reloads", async () => {
     const calls: Array<{ method?: string; body?: string }> = [];
     vi.stubGlobal(
