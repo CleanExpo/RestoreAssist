@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 // GET /api/invoices/templates - List invoice templates
 export async function GET(request: NextRequest) {
@@ -13,6 +14,15 @@ export async function GET(request: NextRequest) {
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 
@@ -54,6 +64,15 @@ export async function POST(request: NextRequest) {
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 

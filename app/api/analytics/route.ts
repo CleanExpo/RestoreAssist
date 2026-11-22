@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { canSeeMoney, moneySafe } from "@/lib/auth/redact-money";
 
 // Helper function to get date range filter
 function getDateFilter(dateRange: string) {
@@ -248,7 +249,7 @@ export async function GET(request: NextRequest) {
 
     // Handle empty data case
     if (totalReports === 0) {
-      return NextResponse.json({
+      return NextResponse.json(await moneySafe(session, {
         kpis: {
           totalReports: {
             value: 0,
@@ -279,7 +280,7 @@ export async function GET(request: NextRequest) {
         statusDistribution: [],
         byDayOfWeek: [],
         periodComparison: null,
-      });
+      }));
     }
 
     // Calculate average turnaround time (hours between createdAt and updatedAt/completionDate)
@@ -561,7 +562,7 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    return NextResponse.json({
+    return NextResponse.json(await moneySafe(session, {
       kpis: {
         totalReports: {
           value: totalReports,
@@ -586,13 +587,16 @@ export async function GET(request: NextRequest) {
       reportTrendData,
       hazardDistribution,
       insuranceTypeData,
-      statePerformance,
+      // RA-8494: each state's figure is revenue; a technician gets the states only.
+      statePerformance: (await canSeeMoney(session))
+        ? statePerformance
+        : statePerformance.map(({ state }) => ({ state })),
       turnaroundTime,
       topClients,
       statusDistribution,
       byDayOfWeek,
       periodComparison,
-    });
+    }));
   } catch (error) {
     return fromException(request, error, { stage: "load" });
   }

@@ -33,6 +33,7 @@ import {
   type EstimateStatus,
 } from "@/lib/estimate-status";
 import { freezeEstimateApprovalSnapshot } from "@/lib/estimate/approval-snapshot";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 export async function PATCH(
   request: NextRequest,
@@ -45,6 +46,15 @@ export async function PATCH(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 

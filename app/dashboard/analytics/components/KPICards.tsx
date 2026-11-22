@@ -17,16 +17,18 @@ interface KPIData {
     value: number;
     change: string;
   };
+  /** null for a user who may not see money (RA-8494): the card is left out. */
   totalRevenue: {
     value: number;
     formatted: string;
     change: string;
-  };
+  } | null;
+  /** null for a user who may not see money (RA-8494): the card is left out. */
   avgReportValue: {
     value: number;
     formatted: string;
     change: string;
-  };
+  } | null;
   avgCompletion: {
     value: string;
     formatted: string;
@@ -89,14 +91,14 @@ export default function KPICards({ data, loading = false }: KPICardsProps) {
     },
     {
       label: "Total Revenue",
-      value: kpis.totalRevenue.formatted,
-      change: kpis.totalRevenue.change,
+      value: kpis.totalRevenue?.formatted ?? "",
+      change: kpis.totalRevenue?.change ?? "",
       icon: DollarSign,
     },
     {
       label: "Avg Report Value",
-      value: kpis.avgReportValue.formatted,
-      change: kpis.avgReportValue.change,
+      value: kpis.avgReportValue?.formatted ?? "",
+      change: kpis.avgReportValue?.change ?? "",
       icon: BarChart3,
     },
     {
@@ -105,7 +107,11 @@ export default function KPICards({ data, loading = false }: KPICardsProps) {
       change: kpis.avgCompletion.change,
       icon: Clock,
     },
-  ];
+  ].filter(
+    (card) =>
+      !(card.label === "Total Revenue" && kpis.totalRevenue == null) &&
+      !(card.label === "Avg Report Value" && kpis.avgReportValue == null),
+  );
 
   if (loading) {
     return (

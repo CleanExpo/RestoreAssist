@@ -8,6 +8,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 const CATEGORY_TO_UI: Record<string, string> = {
   IICRC_COMPLIANCE: "iicrc",
@@ -207,7 +208,7 @@ export async function GET(request: NextRequest) {
 
     const summary = buildSummaryFromResults(results);
 
-    return NextResponse.json({
+    return NextResponse.json(await moneySafe(session, {
       batch: {
         id: batch.id,
         folderId: batch.folderId,
@@ -219,7 +220,7 @@ export async function GET(request: NextRequest) {
       },
       results,
       summary,
-    });
+    }));
   } catch (err) {
     return fromException(request, err, { stage: "load" });
   }

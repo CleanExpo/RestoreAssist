@@ -46,7 +46,7 @@ function buildQueryText(options: {
 /**
  * Format similar jobs into an AI-readable context block.
  */
-function formatContextPrompt(jobs: SimilarJob[]): string {
+function formatContextPrompt(jobs: SimilarJob[], withPrices: boolean): string {
   if (jobs.length === 0) return "";
   return [
     "## Similar Historical Jobs (use as reference only — do not copy verbatim)",
@@ -61,7 +61,9 @@ function formatContextPrompt(jobs: SimilarJob[]): string {
         `\n- Location: ${job.suburb}, ${job.state}` +
         `\n- Job: ${job.jobName}` +
         `\n- Items: ${job.itemCount}, Equipment: ${job.equipmentCount}` +
-        `\n- Value: $${job.totalExTax.toFixed(2)} ex-tax` +
+        // RA-8494: a past job's value only for a caller who may see money;
+        // the model's narrative is streamed to the caller and stored.
+        (withPrices ? `\n- Value: $${job.totalExTax.toFixed(2)} ex-tax` : "") +
         `\n- Description: ${job.description.slice(0, 300)}${
           job.description.length > 300 ? "..." : ""
         }`,
@@ -121,6 +123,8 @@ export async function retrieveSimilarJobs(options: {
   description: string;
   suburb?: string;
   limit?: number;
+  /** Whether the caller may see money (canSeeMoney); no default, so no caller forgets. */
+  withPrices: boolean;
 }): Promise<RAGContext> {
   const { tenantId, claimType, limit = 5 } = options;
 
@@ -160,7 +164,7 @@ export async function retrieveSimilarJobs(options: {
 
   return {
     similarJobs: similar,
-    contextPrompt: formatContextPrompt(similar),
+    contextPrompt: formatContextPrompt(similar, options.withPrices),
     jobCount: similar.length,
   };
 }

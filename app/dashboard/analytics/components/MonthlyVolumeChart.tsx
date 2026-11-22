@@ -47,13 +47,13 @@ interface MonthlyData {
 
 interface Summary {
   totalReports: number;
-  totalRevenue: number;
+  totalRevenue: number | null;
   avgMonthlyReports: number;
   avgMonthlyRevenue: number;
   growthRate: number;
   bestMonth: { label: string; reports: number } | null;
   worstMonth: { label: string; reports: number } | null;
-  ytd: { reports: number; revenue: number };
+  ytd: { reports: number; revenue: number | null };
 }
 
 interface MonthlyVolumeChartProps {
@@ -192,6 +192,9 @@ export default function MonthlyVolumeChart({
             >
               Reports
             </button>
+            {/* RA-8494: no revenue view for a user who may not see money
+                (the API withholds revenue as null). */}
+            {summary?.totalRevenue != null && (
             <button
               onClick={() => setViewMode("revenue")}
               className={cn(
@@ -207,7 +210,9 @@ export default function MonthlyVolumeChart({
             >
               Revenue
             </button>
+            )}
           </div>
+
         </div>
 
         {/* Summary Stats */}
@@ -423,7 +428,7 @@ export default function MonthlyVolumeChart({
                 ((value: any, name: string) => {
                   if (name === "reports") return [value, "Reports"];
                   if (name === "revenue")
-                    return [`$${value.toLocaleString()}`, "Revenue"];
+                    return [value == null ? "" : `$${value.toLocaleString()}`, "Revenue"];
                   if (name === "completed") return [value, "Completed"];
                   if (name === "pending") return [value, "Pending"];
                   return [value, name];
@@ -504,6 +509,7 @@ export default function MonthlyVolumeChart({
                 {summary.ytd.reports}
               </p>
             </div>
+            {summary.ytd.revenue != null && (
             <div>
               <p
                 className={cn(
@@ -517,6 +523,7 @@ export default function MonthlyVolumeChart({
                 ${summary.ytd.revenue.toLocaleString()}
               </p>
             </div>
+            )}
             <div>
               <p
                 className={cn(
@@ -535,6 +542,7 @@ export default function MonthlyVolumeChart({
                 {summary.totalReports}
               </p>
             </div>
+            {summary.totalRevenue != null && (
             <div>
               <p
                 className={cn(
@@ -548,6 +556,7 @@ export default function MonthlyVolumeChart({
                 ${summary.totalRevenue.toLocaleString()}
               </p>
             </div>
+            )}
           </div>
         </div>
       )}

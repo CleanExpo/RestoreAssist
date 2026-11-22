@@ -81,10 +81,14 @@ describe("GET /api/clients revenue (RA-8146)", () => {
     expect(list["tech-client"].reportsCount).toBe(2);
   });
 
-  it("shows a technician only their own invoices on a client they own", async () => {
+  // RA-8494: a technician sees the client they own, but no revenue at all,
+  // not even from their own invoices (D-023 amendment RA-8494).
+  it("shows a technician the client they own and no revenue figure", async () => {
     const list = await listFor("tech-a");
     expect(Object.keys(list)).toEqual(["tech-client"]);
-    expect(list["tech-client"].totalRevenue).toBe(30);
+    // Withheld means null, never absent (readers are typed number | null).
+    expect(list["tech-client"].totalRevenue).toBeNull();
+    expect(list["tech-client"].reportsCount).toBe(2);
   });
 
   it("keeps another organisation apart", async () => {
@@ -102,19 +106,20 @@ describe("GET /api/clients revenue (RA-8146)", () => {
 });
 
 describe("GET /api/clients/[id] revenue (RA-8146)", () => {
-  it("gives a technician their invoices and no colleague's money, anywhere in the body", async () => {
+  // RA-8494: no money anywhere in a technician's body, their own work included.
+  it("gives a technician the client with no revenue and no report cost, anywhere in the body", async () => {
     const res = await detailFor("tech-a", "tech-client");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.totalRevenue).toBe(30);
-    expect(body.invoicedCount).toBe(1);
-    const costs = Object.fromEntries(
-      body.reports.map((r: { id: string; totalCost: number | null }) => [r.id, r.totalCost]),
-    );
-    expect(costs).toEqual({ "tech-report": 111, "colleague-report": null });
+    expect(body.totalRevenue).toBeNull();
+    for (const r of body.reports as Array<Record<string, unknown>>) {
+      expect(r.totalCost ?? null).toBeNull();
+
+    }
     const text = JSON.stringify(body);
     expect(text).not.toContain("5000");
     expect(text).not.toContain("1000");
+    expect(text).not.toContain("111");
     expect(body.reportsCount).toBe(2);
   });
 

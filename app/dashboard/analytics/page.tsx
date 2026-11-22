@@ -82,8 +82,8 @@ const REPORTS_COLOUR = CHART_SERIES[1];
 interface AnalyticsData {
   kpis: {
     totalReports: { value: number; change: string };
-    totalRevenue: { value: number; formatted: string; change: string };
-    avgReportValue: { value: number; formatted: string; change: string };
+    totalRevenue: { value: number; formatted: string; change: string } | null;
+    avgReportValue: { value: number; formatted: string; change: string } | null;
     avgCompletion: { value: string; formatted: string; change: string };
   };
   reportTrendData: Array<{ date: string; reports: number; revenue: number }>;
@@ -187,7 +187,7 @@ export default function AnalyticsPage() {
   const [insightsData, setInsightsData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedMetric, setSelectedMetric] = useState<"revenue" | "reports">(
+  const [chosenMetric, setSelectedMetric] = useState<"revenue" | "reports">(
     "revenue",
   );
   const [selectedMember, setSelectedMember] = useState<{
@@ -239,13 +239,15 @@ export default function AnalyticsPage() {
     if (!data) return null;
 
     const totalReports = data.kpis.totalReports.value;
-    const totalRevenue = data.kpis.totalRevenue.value;
-    const avgValue = data.kpis.avgReportValue.value;
+    // RA-8494: money KPIs are null for a user who may not see prices.
+    const totalRevenue = data.kpis.totalRevenue?.value ?? null;
+    const avgValue = data.kpis.avgReportValue?.value ?? null;
 
     // Calculate growth rate
-    const revenueChange = parseFloat(
-      data.kpis.totalRevenue.change.replace("%", "").replace("+", ""),
-    );
+    const revenueChange =
+      data.kpis.totalRevenue == null
+        ? null
+        : parseFloat(data.kpis.totalRevenue.change.replace("%", "").replace("+", ""));
     const reportsChange = parseFloat(
       data.kpis.totalReports.change.replace("%", "").replace("+", ""),
     );
@@ -264,11 +266,16 @@ export default function AnalyticsPage() {
       avgValuePerReport: avgValue,
       totalValue: totalRevenue,
       reportCount: totalReports,
-      isGrowing: revenueChange > 0 && reportsChange > 0,
+      isGrowing: (revenueChange ?? reportsChange) > 0 && reportsChange > 0,
       topHazard: data.hazardDistribution[0]?.name || "N/A",
       topHazardCount: data.hazardDistribution[0]?.value || 0,
     };
   }, [data]);
+
+  // RA-8494: a user who may not see prices gets null money figures; the
+  // trend then shows report counts, never an empty revenue line.
+  const moneyWithheld = data != null && data.kpis?.totalRevenue == null;
+  const selectedMetric = moneyWithheld ? "reports" : chosenMetric;
 
   // RA-1207: empty when API returns zeros (not only when `data` is null)
   const isEmpty =
@@ -573,8 +580,8 @@ export default function AnalyticsPage() {
                         insights.isGrowing ? "text-success" : "text-destructive",
                       )}
                     >
-                      {insights.revenueGrowth > 0 ? "+" : ""}
-                      {insights.revenueGrowth.toFixed(1)}%
+                      {(insights.revenueGrowth ?? insights.reportsGrowth) > 0 ? "+" : ""}
+                      {(insights.revenueGrowth ?? insights.reportsGrowth).toFixed(1)}%
                     </p>
                   </div>
                   {insights.isGrowing ? (
@@ -616,6 +623,7 @@ export default function AnalyticsPage() {
                 </div>
               </DashboardPanel>
 
+              {insights.avgValuePerReport != null && (
               <DashboardPanel>
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -629,6 +637,7 @@ export default function AnalyticsPage() {
                   <DollarSign className="h-7 w-7 text-muted-foreground shrink-0" />
                 </div>
               </DashboardPanel>
+              )}
             </div>
           )}
 
@@ -895,6 +904,7 @@ export default function AnalyticsPage() {
                 title="Revenue vs reports trend"
                 action={
                   <div className="flex gap-1 rounded-lg border border-border p-0.5 bg-muted/40">
+                    {!moneyWithheld && (
                     <button
                       type="button"
                       onClick={() => setSelectedMetric("revenue")}
@@ -907,6 +917,7 @@ export default function AnalyticsPage() {
                     >
                       Revenue
                     </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setSelectedMetric("reports")}

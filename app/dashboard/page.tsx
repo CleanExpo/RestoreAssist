@@ -403,15 +403,6 @@ function DashboardContent({
     "/api/inspections?limit=20&sort=recent",
   );
 
-  const {
-    data: invoicesRaw,
-    loading: invoicesLoading,
-    error: invoicesError,
-    refetch: refetchInvoices,
-  } = useFetchWithError<{ invoices: InvoiceRow[] }>(
-    "/api/invoices?limit=20",
-  );
-
   // The lists above are capped pages for the rows on screen. The figures come
   // from here, and stay null rather than falling back to a list's length.
   const {
@@ -420,6 +411,19 @@ function DashboardContent({
     error: countsFetchError,
     refetch: refetchCounts,
   } = useFetchWithError<HomeCounts>("/api/dashboard/home-counts");
+
+  // RA-8494: a technician never sees money. The totals answer says whether
+  // this user may. The invoice list still loads in parallel (no extra wait for
+  // an owner); for a user who may not see money its deliberate refusal is not
+  // a load failure, and the money sections are left out.
+  const mayViewMoney = countsRaw?.mayViewMoney !== false;
+  const {
+    data: invoicesRaw,
+    loading: invoicesLoading,
+    error: invoicesFetchError,
+    refetch: refetchInvoices,
+  } = useFetchWithError<{ invoices: InvoiceRow[] }>("/api/invoices?limit=20");
+  const invoicesError = mayViewMoney ? invoicesFetchError : null;
 
   useEffect(() => {
     if (!session.user?.name) return;
@@ -482,6 +486,7 @@ function DashboardContent({
       hasAnyWork,
       counts,
       countsFailed: Boolean(countsError),
+      mayViewMoney,
       // Only shown once everything loaded, so these zeros never reach the page
       // in place of a failed read.
       focus: resolveHomeFocus({
@@ -511,6 +516,7 @@ function DashboardContent({
     inspectionsRaw,
     invoicesRaw,
     countsRaw,
+    mayViewMoney,
     reportsLoading,
     clientsLoading,
     inspectionsLoading,
@@ -719,11 +725,13 @@ function DashboardContent({
                     label="Open reports"
                     value={model.counts?.openReports ?? null}
                   />
-                  <StatChip
-                    variant="hero"
-                    label="Awaiting payment"
-                    value={model.counts?.awaitingPayment ?? null}
-                  />
+                  {model.mayViewMoney && (
+                    <StatChip
+                      variant="hero"
+                      label="Awaiting payment"
+                      value={model.counts?.awaitingPayment ?? null}
+                    />
+                  )}
                   <StatChip
                     variant="hero"
                     label="Clients"
@@ -779,15 +787,17 @@ function DashboardContent({
             loading={countsLoading}
             unavailable={model.countsFailed}
           />
-          <PipelineStep
-            index={2}
-            href="/dashboard/invoices"
-            label="Invoice"
-            hint="Waiting on payment"
-            value={model.counts?.awaitingPayment ?? null}
-            loading={countsLoading}
-            unavailable={model.countsFailed}
-          />
+          {model.mayViewMoney && (
+            <PipelineStep
+              index={2}
+              href="/dashboard/invoices"
+              label="Invoice"
+              hint="Waiting on payment"
+              value={model.counts?.awaitingPayment ?? null}
+              loading={countsLoading}
+              unavailable={model.countsFailed}
+            />
+          )}
           <PipelineStep
             index={3}
             href="/dashboard/clients"
@@ -956,6 +966,7 @@ function DashboardContent({
           )}
         </DashboardPanel>
 
+        {model.mayViewMoney && (
         <DashboardPanel className="xl:col-span-5 bg-gradient-to-br from-card via-card to-amber-500/[0.05]">
           <DashboardPanelHeader
             title="Unpaid invoices"
@@ -1010,6 +1021,7 @@ function DashboardContent({
             </ul>
           )}
         </DashboardPanel>
+        )}
             </div>
 
       <DashboardPanel className="bg-gradient-to-br from-card via-card to-violet-500/[0.05]">
@@ -1261,16 +1273,19 @@ function SectionLabel({
 type HomeCounts = {
   activeJobs: number;
   openReports: number;
-  awaitingPayment: number;
+  /** null for a user who may not see money (RA-8494). */
+  awaitingPayment: number | null;
   clients: number;
+  mayViewMoney?: boolean;
 };
 
 function isHomeCounts(value: unknown): value is HomeCounts {
   const counts = value as Partial<HomeCounts> | null;
+  const withheld = counts?.mayViewMoney === false && counts?.awaitingPayment === null;
   return (
     Number.isInteger(counts?.activeJobs) &&
     Number.isInteger(counts?.openReports) &&
-    Number.isInteger(counts?.awaitingPayment) &&
+    (withheld || Number.isInteger(counts?.awaitingPayment)) &&
     Number.isInteger(counts?.clients)
   );
 }

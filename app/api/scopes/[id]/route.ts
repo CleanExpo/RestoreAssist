@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 /**
  * GET / PATCH / DELETE /api/scopes/[id]
@@ -48,6 +49,15 @@ export async function GET(
         status: 401,
       });
     }
+    // RA-8494: the whole answer is money; a technician is refused before any query.
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(_request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
+      });
+    }
     const { id } = await params;
 
     const result = await loadScopeForUser(id, session.user.id);
@@ -76,6 +86,15 @@ export async function PATCH(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: the whole answer is money; a technician is refused before any query.
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
     const { id } = await params;
@@ -143,6 +162,15 @@ export async function DELETE(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: the whole answer is money; a technician is refused before any query.
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(_request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
     const { id } = await params;

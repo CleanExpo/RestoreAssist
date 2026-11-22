@@ -21,6 +21,7 @@ import {
   recordPulseOptOut,
   type PulseConsentDb,
 } from "@/lib/pulse/opt-out";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 const MAX_REPORT_ROWS = 200;
 
@@ -126,7 +127,8 @@ export async function GET(
     const lastJob =
       client.reports.length > 0 ? client.reports[0].createdAt : null;
 
-    return NextResponse.json({
+    // RA-8494: revenue and report costs go only to a caller who may see money.
+    const body = {
       ...client,
       reports: client.reports.map((report) => ({
         ...report,
@@ -136,7 +138,8 @@ export async function GET(
       invoicedCount: invoiced._count,
       lastJob: lastJob ? new Date(lastJob).toLocaleDateString() : "Never",
       reportsCount: client._count.reports,
-    });
+    };
+    return NextResponse.json(await moneySafe(session, body));
   } catch (error) {
     return fromException(request, error, { stage: "client-get" });
   }

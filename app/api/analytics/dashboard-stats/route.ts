@@ -10,6 +10,7 @@ import {
   finishedJobWhere,
 } from "@/lib/inspections/active-status";
 import { EXCLUDED_FROM_REVENUE } from "@/lib/invoice-status";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 const DRYING_SAMPLE_CAP = 5000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -126,13 +127,13 @@ export async function GET(request: NextRequest) {
     const completionRatePct =
       totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
-    return NextResponse.json({
+    return NextResponse.json(await moneySafe(session, {
       activeJobs,
       avgDryingDays,
       avgDryingTruncated,
       revenueMtdAud,
       completionRatePct,
-    });
+    }));
   } catch (error) {
     return fromException(request, error, { stage: "load" });
   }
