@@ -544,6 +544,63 @@ describe.skipIf(!process.env.DATABASE_URL)("RA-8000 approval engine", () => {
       expect((await task(taskId)).status).toBe("READY");
     });
 
+    it("a plain sibling promoted in the same poll that pauses the workflow is not claimed; it runs after approval (mutant: drop the workflow-RUNNING clause from the claim)", async () => {
+      const wf = await makeWorkflow(
+        [
+          { key: "a", agentSlug: slugA, status: "COMPLETED" },
+          {
+            key: "gated",
+            agentSlug: slugA,
+            status: "PENDING",
+            dependsOn: ["a"],
+            requiresApproval: true,
+          },
+          { key: "plain", agentSlug: slugB, status: "PENDING", dependsOn: ["a"] },
+        ],
+        { status: "RUNNING" },
+      );
+      await poll(wf.workflowId);
+      expect((await workflow(wf.workflowId)).status).toBe("PAUSED");
+      expect((await task(wf.ids.gated)).status).toBe("AWAITING_APPROVAL");
+      expect((await task(wf.ids.plain)).status).toBe("READY");
+      expect(calls).toEqual([]);
+      const ok = await decideApproval({
+        userId: USER_ID,
+        workflowId: wf.workflowId,
+        taskId: wf.ids.gated,
+        decision: "approve",
+      });
+      expect(ok.ok).toBe(true);
+      await poll(wf.workflowId);
+      expect(calls).toContain("b");
+    });
+
+    it("dead-letter review does not reopen a workflow that paused after its read; the task stays dead-lettered (mutant: unconditional workflow update)", async () => {
+      const { reviewDeadLetterTasks } = await import("@/lib/cron/dead-letter-review");
+      const wf = await makeWorkflow(
+        [
+          { key: "dead", agentSlug: slugA, status: "DEAD_LETTER", attempts: 1 },
+          {
+            key: "gated",
+            agentSlug: slugA,
+            status: "PENDING",
+            requiresApproval: true,
+          },
+        ],
+        { status: "RUNNING" },
+      );
+      await prisma.$executeRaw`UPDATE "AgentTask" SET "errorCode" = 'TIMEOUT', "updatedAt" = now() - interval '2 hours' WHERE id = ${wf.ids.dead}`;
+      await reviewDeadLetterTasks({
+        afterRead: async () => {
+          await prisma.$executeRaw`UPDATE "AgentTask" SET status = 'AWAITING_APPROVAL', "approvalRequestedAt" = now() WHERE id = ${wf.ids.gated}`;
+          await prisma.$executeRaw`UPDATE "AgentWorkflow" SET status = 'PAUSED' WHERE id = ${wf.workflowId}`;
+        },
+      });
+      expect((await workflow(wf.workflowId)).status).toBe("PAUSED");
+      expect((await task(wf.ids.dead)).status).toBe("DEAD_LETTER");
+      expect((await task(wf.ids.gated)).status).toBe("AWAITING_APPROVAL");
+    });
+
     it("the sweep leaves a PAUSED workflow's RUNNING task alone; the same row is reclaimed while RUNNING (positive control)", async () => {
       const { sweepExpiredLeases } = await import("@/lib/agents");
       const { expireLease } = await import("../durable/fixtures");
@@ -554,8 +611,9 @@ describe.skipIf(!process.env.DATABASE_URL)("RA-8000 approval engine", () => {
       await sweepExpiredLeases({ workflowId: live.workflowId });
       expect((await task(live.ids.a)).status).toBe("READY");
 
-      const still = await makeWorkflow([{ key: "a", agentSlug: slugA }], { status: "PAUSED" });
+      const still = await makeWorkflow([{ key: "a", agentSlug: slugA }], { status: "RUNNING" });
       expect(await claimTask(still.ids.a, 15_000)).not.toBeNull();
+      await prisma.agentWorkflow.update({ where: { id: still.workflowId }, data: { status: "PAUSED" } });
       await expireLease(still.ids.a);
       await sweepExpiredLeases({ workflowId: still.workflowId });
       expect((await task(still.ids.a)).status).toBe("RUNNING");

@@ -46,8 +46,9 @@ export interface TaskClaim {
  * Claim a READY task: RUNNING, a fresh lease token, a database-clock lease of
  * `timeoutMs + LEASE_MARGIN_MS`, and `attempts + 1`, in one compare-and-swap.
  * Returns null when the task was not READY (another worker has it) or needs
- * an approval it has not received (RA-8000: four writers can set READY, and
- * this predicate is what stops each of them skipping approval).
+ * an approval it has not received, or its workflow is not RUNNING (RA-8000:
+ * four writers can set READY, and a poll can pause the workflow after it has
+ * promoted a plain sibling; this predicate is what stops both).
  */
 export async function claimTask(
   taskId: string,
@@ -68,6 +69,10 @@ export async function claimTask(
     WHERE id = ${taskId}
       AND status = 'READY'
       AND ("requiresApproval" = false OR "approvedAt" IS NOT NULL)
+      AND EXISTS (
+        SELECT 1 FROM "AgentWorkflow" w
+        WHERE w.id = "AgentTask"."workflowId" AND w.status = 'RUNNING'
+      )
     RETURNING attempts, "maxRetries", "workflowId"`;
 
   const row = rows[0];

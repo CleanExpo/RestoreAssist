@@ -17,13 +17,17 @@ const RECOVERABLE_WORKFLOW_STATUSES = [
   "FAILED",
 ] as const;
 
+class WorkflowNotRecoverableError extends Error {}
+
 /**
  * Reviews DEAD_LETTER tasks and re-queues those with transient/retryable errors.
  * Only re-queues tasks that have been in DEAD_LETTER for at least 30 minutes.
  *
  * @returns Result with count of tasks reviewed and count re-queued
  */
-export async function reviewDeadLetterTasks(): Promise<CronJobResult> {
+export async function reviewDeadLetterTasks(
+  hooks: { afterRead?: () => Promise<void> } = {},
+): Promise<CronJobResult> {
   const ageThreshold = new Date(Date.now() - MIN_AGE_MS);
 
   const deadLetterTasks = await prisma.agentTask.findMany({
@@ -40,6 +44,8 @@ export async function reviewDeadLetterTasks(): Promise<CronJobResult> {
     take: BATCH_SIZE,
     orderBy: { updatedAt: "asc" },
   });
+
+  await hooks.afterRead?.();
 
   let requeued = 0;
 
@@ -67,18 +73,25 @@ export async function reviewDeadLetterTasks(): Promise<CronJobResult> {
 
         await unskipUpstreamFailed(tx, task.workflowId);
 
-        // Ensure workflow is RUNNING
-        if (task.workflow.status !== "RUNNING") {
-          await tx.agentWorkflow.update({
-            where: { id: task.workflowId },
-            data: {
-              status: "RUNNING",
-              completedAt: null,
-              errorMessage: null,
-            },
-          });
-        }
+        // RA-8000: the workflow status is swapped from a recoverable state,
+        // never overwritten from the stale read above. A workflow that paused
+        // for approval after the read is left alone and the task stays
+        // dead-lettered (the rollback undoes the re-queue above).
+        const swapped = await tx.agentWorkflow.updateMany({
+          where: {
+            id: task.workflowId,
+            status: { in: [...RECOVERABLE_WORKFLOW_STATUSES] },
+          },
+          data:
+            task.workflow.status === "RUNNING"
+              ? { status: "RUNNING" }
+              : { status: "RUNNING", completedAt: null, errorMessage: null },
+        });
+        if (swapped.count === 0) throw new WorkflowNotRecoverableError();
         return true;
+      }).catch((error: unknown) => {
+        if (error instanceof WorkflowNotRecoverableError) return false;
+        throw error;
       });
       if (!moved) continue;
 

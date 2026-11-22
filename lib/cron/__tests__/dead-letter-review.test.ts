@@ -63,6 +63,11 @@ vi.mock("@/lib/prisma", () => {
     },
   };
   const agentWorkflow = {
+    updateMany: async (args: { where?: Row; data: Row }) => {
+      const hit = db.workflows.filter((w) => matches(w, args.where));
+      for (const w of hit) Object.assign(w, args.data);
+      return { count: hit.length };
+    },
     update: async (args: { where: { id: string }; data: Row }) => {
       const wf = db.workflows.find((w) => w.id === args.where.id);
       if (!wf) throw new Error("workflow not found");
