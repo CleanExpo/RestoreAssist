@@ -149,3 +149,26 @@ describe("buildGantt bar geometry", () => {
     expect(t5.leftPct! + t5.widthPct!).toBeCloseTo(100, 5);
   });
 });
+
+describe("buildGantt review findings (RA-8107 discovery sweep)", () => {
+  const now = "2026-03-06T10:00:00+10:00";
+
+  it("shows dates newly recorded on a task that had none as a change", () => {
+    const p: GanttRevision = { revision: "p", createdAt: "2026-03-01T00:00:00+10:00", tasks: [{ id: "x", label: "X", start: null, end: null }] };
+    const c: GanttRevision = { revision: "c", createdAt: "2026-03-02T00:00:00+10:00", tasks: [{ id: "x", label: "X", start: "2026-03-04", end: "2026-03-05" }] };
+    const g = buildGantt({ plan: p, current: c, now, timeZone: TZ });
+    expect(g.rows[0].change).toBe("dates-added");
+  });
+
+  it("requires the clock to be an instant with an offset, not a date or a rolled-over date", () => {
+    for (const bad of ["2026-03-02", "2026-03-02T10:00:00", "2026-02-30T10:00:00+10:00"]) {
+      expect(() => buildGantt({ plan, current, now: bad, timeZone: TZ })).toThrow(/offset/i);
+    }
+  });
+
+  it("treats an impossible task date as no date", () => {
+    const c: GanttRevision = { ...current, tasks: [{ id: "t2", label: "Drying", start: "2026-02-30T09:00:00+10:00", end: "2026-03-09" }] };
+    const g = buildGantt({ plan, current: c, now, timeZone: TZ });
+    expect(g.rows.find((r) => r.id === "t2")!.dateState).toBe("no-date");
+  });
+});

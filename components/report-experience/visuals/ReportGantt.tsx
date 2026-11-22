@@ -13,6 +13,7 @@ const CHANGE_TEXT: Record<GanttChange, string> = {
   added: "Added since the plan",
   removed: "Removed from the plan",
   "dates-removed": "Dates removed",
+  "dates-added": "Dates newly recorded",
 };
 const STATUS_TEXT = { planned: "Planned", "in-progress": "In progress", complete: "Complete", blocked: "Blocked" } as const;
 

@@ -7,7 +7,7 @@
  * shown side by side with the gap stated, so a reader is never shown an
  * implied comparison the evidence cannot support.
  */
-import { formatInstant, toLocalDate } from "./time";
+import { formatInstant, isInstant, parseInstant } from "./time";
 
 export type ComparisonSource = "inspection-photo" | "client-upload" | "unknown";
 
@@ -31,6 +31,7 @@ export type ComparisonProblem =
   | "before-source-unknown"
   | "after-source-unknown"
   | "rooms-differ-or-missing"
+  | "stage-labels-wrong"
   | "after-not-later-than-before";
 
 export type ComparisonPlan = Readonly<{
@@ -39,6 +40,7 @@ export type ComparisonPlan = Readonly<{
   labels: Readonly<{ before: string; after: string }>;
 }>;
 
+const KNOWN_SOURCES: readonly ComparisonSource[] = ["inspection-photo", "client-upload"];
 const STAGE_LABEL = { before: "Before", during: "During", after: "After" } as const;
 const SOURCE_LABEL: Record<ComparisonSource, string> = {
   "inspection-photo": "inspection photo",
@@ -47,12 +49,13 @@ const SOURCE_LABEL: Record<ComparisonSource, string> = {
 };
 
 function hasTime(frame: ComparisonFrame, timeZone: string): boolean {
-  return typeof frame.capturedAt === "string" && !/^\d{4}-\d{2}-\d{2}$/.test(frame.capturedAt) && toLocalDate(frame.capturedAt, timeZone) !== null;
+  void timeZone;
+  return isInstant(frame.capturedAt);
 }
 
 function label(frame: ComparisonFrame, timeZone: string): string {
   const when = hasTime(frame, timeZone) ? `captured ${formatInstant(frame.capturedAt as string, timeZone)}` : "capture time not recorded";
-  return `${STAGE_LABEL[frame.stage]}, ${when}, ${SOURCE_LABEL[frame.source]}`;
+  return `${STAGE_LABEL[frame.stage] ?? "Stage not recorded"}, ${when}, ${SOURCE_LABEL[frame.source] ?? SOURCE_LABEL.unknown}`;
 }
 
 export function planComparison(before: ComparisonFrame, after: ComparisonFrame, timeZone: string): ComparisonPlan {
@@ -70,10 +73,13 @@ export function planComparison(before: ComparisonFrame, after: ComparisonFrame, 
     }
     if (!frame.alt || !frame.alt.trim()) problems.push(`${name}-alt-text-missing` as ComparisonProblem);
     if (!hasTime(frame, timeZone)) problems.push(`${name}-capture-time-missing` as ComparisonProblem);
-    if (frame.source === "unknown") problems.push(`${name}-source-unknown` as ComparisonProblem);
+    if (!KNOWN_SOURCES.includes(frame.source as ComparisonSource)) problems.push(`${name}-source-unknown` as ComparisonProblem);
   }
-  if (!before.roomId || !after.roomId || before.roomId !== after.roomId) problems.push("rooms-differ-or-missing");
-  if (hasTime(before, timeZone) && hasTime(after, timeZone) && Date.parse(after.capturedAt as string) <= Date.parse(before.capturedAt as string)) {
+  const roomA = typeof before.roomId === "string" ? before.roomId.trim() : "";
+  const roomB = typeof after.roomId === "string" ? after.roomId.trim() : "";
+  if (!roomA || !roomB || roomA !== roomB) problems.push("rooms-differ-or-missing");
+  if (before.stage !== "before" || after.stage !== "after") problems.push("stage-labels-wrong");
+  if (hasTime(before, timeZone) && hasTime(after, timeZone) && (parseInstant(after.capturedAt) as number) <= (parseInstant(before.capturedAt) as number)) {
     problems.push("after-not-later-than-before");
   }
 

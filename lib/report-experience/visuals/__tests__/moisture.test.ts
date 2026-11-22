@@ -174,8 +174,44 @@ describe("buildMoistureSeries stall flag", () => {
 describe("buildMoistureSeries table alternative", () => {
   it("gives every reading with its local date, room and unit", () => {
     const s = buildMoistureSeries([r("a", "kitchen", "2026-03-02T09:00:00+10:00", 30)], opts)[0];
-    expect(s.table).toEqual([
-      { id: "a", localDate: "2026-03-02", observedAt: "2026-03-02T09:00:00+10:00", value: 30, conflict: false },
-    ]);
+    expect(s.table).toHaveLength(1);
+    expect(s.table[0]).toMatchObject({ id: "a", localDate: "2026-03-02", observedAt: "2026-03-02T09:00:00+10:00", value: 30, conflict: false });
+    // The visible text carries the recorded time, so two readings on one day are told apart in print.
+    expect(s.table[0].observedLocal).toMatch(/9:00/);
+  });
+});
+
+describe("buildMoistureSeries review findings (RA-8107 discovery sweep)", () => {
+  it("a later unresolved conflict revokes a dry claim", () => {
+    const s = buildMoistureSeries(
+      [
+        r("a", "kitchen", "2026-03-02T09:00:00+10:00", 15),
+        r("b", "kitchen", "2026-03-03T09:00:00+10:00", 14),
+        r("c", "kitchen", "2026-03-03T09:00:00+10:00", 28),
+      ],
+      opts,
+    )[0];
+    expect(s.dry).toEqual({ state: "no-date", reason: "unresolved-conflict", target: 16 });
+  });
+
+  it("an earlier conflict does not block a later dry reading", () => {
+    const s = buildMoistureSeries(
+      [
+        r("a", "kitchen", "2026-03-02T09:00:00+10:00", 30),
+        r("b", "kitchen", "2026-03-02T09:00:00+10:00", 20),
+        r("c", "kitchen", "2026-03-03T09:00:00+10:00", 15),
+      ],
+      opts,
+    )[0];
+    expect(s.dry).toMatchObject({ state: "evidenced", readingId: "c" });
+  });
+
+  it("rejects a negative reading", () => {
+    expect(() => buildMoistureSeries([r("a", "kitchen", "2026-03-02T09:00:00+10:00", -1)], opts)).toThrow(/non-negative/);
+  });
+
+  it("rejects an impossible calendar date that Date.parse would roll over", () => {
+    expect(() => buildMoistureSeries([r("a", "kitchen", "2026-02-30T09:00:00+10:00", 10)], opts)).toThrow(/offset/i);
+    expect(() => buildMoistureSeries([r("a", "kitchen", "2026-03-02T25:00:00+10:00", 10)], opts)).toThrow(/offset/i);
   });
 });

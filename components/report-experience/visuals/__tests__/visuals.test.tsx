@@ -98,6 +98,19 @@ describe("static markup (what the PDF and a no-JavaScript reader get)", () => {
     expect(html).toContain("has no dry target");
   });
 
+  it("moisture table shows the recorded time so two same-day readings can be told apart", () => {
+    const two = buildMoistureSeries(
+      [
+        { id: "m1", roomId: "kitchen", observedAt: "2026-03-02T09:00:00+10:00", value: 30, unit: "WME" },
+        { id: "m2", roomId: "kitchen", observedAt: "2026-03-02T17:00:00+10:00", value: 28, unit: "WME" },
+      ],
+      { timeZone: TZ, targets: { WME: 16 }, roomLabels: { kitchen: "Kitchen" } },
+    );
+    const html = renderToStaticMarkup(<MoistureTrends series={two} />);
+    expect(html).toMatch(/9:00/);
+    expect(html).toMatch(/5:00/);
+  });
+
   it("moisture trend with no readings states there is nothing to show", () => {
     expect(renderToStaticMarkup(<MoistureTrends series={[]} />)).toContain("no dry date can be shown");
   });

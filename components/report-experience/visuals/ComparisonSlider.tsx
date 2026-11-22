@@ -14,6 +14,7 @@ const PROBLEM_TEXT: Record<ComparisonProblem, string> = {
   "before-source-unknown": "The source of the before photo is not recorded.",
   "after-source-unknown": "The source of the after photo is not recorded.",
   "rooms-differ-or-missing": "The photos are not both recorded against the same room.",
+  "stage-labels-wrong": "The frames are not labelled before (first) and after (second).",
   "after-not-later-than-before": "The after photo is not dated later than the before photo.",
 };
 

@@ -68,3 +68,30 @@ describe("planComparison provenance gate", () => {
     expect(plan.problems).toContain("before-alt-text-missing");
   });
 });
+
+describe("planComparison review findings (RA-8107 discovery sweep)", () => {
+  it("treats a whitespace-only room as not recorded", () => {
+    const plan = planComparison(frame({ roomId: " " }), after({ roomId: " " }), TZ);
+    expect(plan.mode).toBe("side-by-side");
+    expect(plan.problems).toContain("rooms-differ-or-missing");
+  });
+
+  it("rejects a source outside the recorded values (undefined, empty or unexpected)", () => {
+    for (const source of [undefined, "", "scan"] as unknown as ComparisonFrame["source"][]) {
+      const plan = planComparison(frame({ source }), after(), TZ);
+      expect(plan.mode).toBe("side-by-side");
+      expect(plan.problems).toContain("before-source-unknown");
+    }
+  });
+
+  it("rejects reversed or wrong stage labels", () => {
+    const plan = planComparison(frame({ stage: "after" }), after({ stage: "before" }), TZ);
+    expect(plan.mode).toBe("side-by-side");
+    expect(plan.problems).toContain("stage-labels-wrong");
+  });
+
+  it("rejects an impossible capture date", () => {
+    const plan = planComparison(frame({ capturedAt: "2026-02-30T09:14:00+10:00" }), after(), TZ);
+    expect(plan.problems).toContain("before-capture-time-missing");
+  });
+});

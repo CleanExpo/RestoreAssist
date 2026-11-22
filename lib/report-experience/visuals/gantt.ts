@@ -6,7 +6,7 @@
  * (no offset) or reversed date has no bar and says so; a task removed from the
  * current revision stays visible so a slip cannot be hidden by deleting it.
  */
-import { addDays, assertTimeZone, dayNumber, formatLocalDate, toLocalDate } from "./time";
+import { addDays, assertTimeZone, dayNumber, formatLocalDate, isInstant, toLocalDate } from "./time";
 
 export type GanttStatus = "planned" | "in-progress" | "complete" | "blocked";
 
@@ -34,7 +34,8 @@ export type GanttChange =
   | "moved-and-resized"
   | "added"
   | "removed"
-  | "dates-removed";
+  | "dates-removed"
+  | "dates-added";
 
 export type GanttDateProblem = "start-or-end-missing-or-invalid" | "end-before-start";
 
@@ -99,6 +100,7 @@ function classify(plan: GanttBar | null, current: GanttBar | null, inPlan: boole
   if (!inPlan && inCurrent) return "added";
   if (inPlan && !inCurrent) return "removed";
   if (plan && !current) return "dates-removed";
+  if (!plan && current) return "dates-added";
   if (!plan || !current) return "unchanged";
   const shift = dayNumber(current.start) - dayNumber(plan.start);
   const delta = current.days - plan.days;
@@ -119,8 +121,8 @@ export function buildGantt(input: {
   timeZone: string;
 }): GanttModel {
   assertTimeZone(input.timeZone);
-  const today = toLocalDate(input.now, input.timeZone);
-  if (!today) throw new Error("Gantt needs a clock time with an offset");
+  if (!isInstant(input.now)) throw new Error("Gantt needs a clock time with an offset");
+  const today = toLocalDate(input.now, input.timeZone)!;
   const planTasks = indexTasks(input.plan);
   const currentTasks = indexTasks(input.current);
 

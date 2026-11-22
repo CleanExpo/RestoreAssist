@@ -8,7 +8,6 @@
  */
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
-const HAS_OFFSET = /(?:Z|[+-]\d{2}:?\d{2})$/i;
 const MS_PER_DAY = 86_400_000;
 
 /** Throws RangeError for an unknown zone, so a typo never silently becomes UTC. */
@@ -25,14 +24,34 @@ function validDateOnly(value: string): string | null {
   return real ? value : null;
 }
 
+const INSTANT = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/i;
+
+/**
+ * Epoch milliseconds of a real calendar instant that carries an offset, else
+ * null. Date.parse alone is not enough: it rolls 30 Feb over to 2 Mar, which
+ * would turn an impossible recorded date into a usable one.
+ */
+export function parseInstant(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const m = INSTANT.exec(value);
+  if (!m || validDateOnly(m[1]) === null) return null;
+  const [h, min, sec] = [Number(m[2]), Number(m[3]), m[4] === undefined ? 0 : Number(m[4])];
+  if (h > 23 || min > 59 || sec > 59) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+export function isInstant(value: unknown): value is string {
+  return parseInstant(value) !== null;
+}
+
 /** Calendar date (YYYY-MM-DD) of an instant, or a date-only value, in `timeZone`. */
 export function toLocalDate(value: unknown, timeZone: string): string | null {
   if (typeof value !== "string") return null;
   const dateOnly = validDateOnly(value);
   if (dateOnly) return dateOnly;
-  if (!HAS_OFFSET.test(value)) return null;
-  const ms = Date.parse(value);
-  if (!Number.isFinite(ms)) return null;
+  const ms = parseInstant(value);
+  if (ms === null) return null;
   // en-CA formats as YYYY-MM-DD.
   return new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -64,8 +83,8 @@ export function formatLocalDate(localDate: string): string {
 
 /** Human date and time with the zone name, for provenance labels. */
 export function formatInstant(iso: string, timeZone: string): string {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms) || !HAS_OFFSET.test(iso)) return "time not recorded";
+  const ms = parseInstant(iso);
+  if (ms === null) return "time not recorded";
   return new Intl.DateTimeFormat("en-AU", {
     timeZone,
     day: "numeric",

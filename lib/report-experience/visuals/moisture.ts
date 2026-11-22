@@ -6,7 +6,7 @@
  * and it never states a dry date unless a stored reading at or below a stated
  * target is the evidence. Anything it cannot show safely it says it cannot.
  */
-import { addDays, assertTimeZone, dayNumber, toLocalDate } from "./time";
+import { addDays, assertTimeZone, dayNumber, formatInstant, isInstant, toLocalDate } from "./time";
 
 export type MoistureUnit = "WME" | "RH_PERCENT" | "G_PER_KG" | "CELSIUS";
 
@@ -25,6 +25,8 @@ export type MoistureTableRow = Readonly<{
   id: string;
   localDate: string;
   observedAt: string;
+  /** Recorded date, time and zone as the report zone shows it. */
+  observedLocal: string;
   value: number;
   /** Two different values were stored for the same instant; neither is plotted. */
   conflict: boolean;
@@ -32,7 +34,7 @@ export type MoistureTableRow = Readonly<{
 
 export type DryEvidence =
   | Readonly<{ state: "evidenced"; date: string; readingId: string; target: number }>
-  | Readonly<{ state: "no-date"; reason: "above-target" | "no-target" | "no-readings"; target: number | null }>
+  | Readonly<{ state: "no-date"; reason: "above-target" | "no-target" | "no-readings" | "unresolved-conflict"; target: number | null }>
   | Readonly<{ state: "not-applicable" }>;
 
 export type MoistureSeries = Readonly<{
@@ -65,12 +67,21 @@ function validTarget(value: number | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function dryEvidence(unit: MoistureUnit, points: readonly MoisturePoint[], rawTarget: number | undefined): DryEvidence {
+function dryEvidence(
+  unit: MoistureUnit,
+  points: readonly MoisturePoint[],
+  rawTarget: number | undefined,
+  latestConflictMs: number | null,
+): DryEvidence {
   if (!DRY_GOAL_UNITS.includes(unit)) return { state: "not-applicable" };
   const target = validTarget(rawTarget);
   if (target === null) return { state: "no-date", reason: "no-target", target: null };
   if (points.length === 0) return { state: "no-date", reason: "no-readings", target };
   const latest = points[points.length - 1];
+  // A later instant with two different stored values is unresolved: it may be above target.
+  if (latestConflictMs !== null && latestConflictMs > Date.parse(latest.observedAt)) {
+    return { state: "no-date", reason: "unresolved-conflict", target };
+  }
   if (latest.value > target) return { state: "no-date", reason: "above-target", target };
   // First reading of the final unbroken run at or below target.
   let first = points.length - 1;
@@ -92,8 +103,8 @@ export function buildMoistureSeries(readings: readonly MoistureInputReading[], o
   assertTimeZone(options.timeZone);
   const groups = new Map<string, MoistureInputReading[]>();
   for (const reading of readings) {
-    if (!Number.isFinite(reading.value)) throw new Error(`Reading ${reading.id} has no finite value`);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(reading.observedAt) || toLocalDate(reading.observedAt, options.timeZone) === null) {
+    if (!Number.isFinite(reading.value) || reading.value < 0) throw new Error(`Reading ${reading.id} has no valid non-negative value`);
+    if (!isInstant(reading.observedAt)) {
       throw new Error(`Reading ${reading.id} needs a time with an offset`);
     }
     const key = `${reading.roomId}\u0000${reading.unit}`;
@@ -121,6 +132,7 @@ export function buildMoistureSeries(readings: readonly MoistureInputReading[], o
     const points: MoisturePoint[] = [];
     const table: MoistureTableRow[] = [];
     const conflicts: { observedAt: string; values: number[] }[] = [];
+    let latestConflictMs: number | null = null;
     const days = new Set<string>();
     let repeatsCollapsed = 0;
     for (const bucket of byInstant.values()) {
@@ -129,13 +141,16 @@ export function buildMoistureSeries(readings: readonly MoistureInputReading[], o
       const distinct = new Set(bucket.map((b) => b.value));
       if (distinct.size > 1) {
         conflicts.push({ observedAt: bucket[0].observedAt, values: bucket.map((b) => b.value) });
-        for (const b of bucket) table.push({ id: b.id, localDate, observedAt: b.observedAt, value: b.value, conflict: true });
+        latestConflictMs = Math.max(latestConflictMs ?? -Infinity, Date.parse(bucket[0].observedAt));
+        for (const b of bucket) {
+          table.push({ id: b.id, localDate, observedAt: b.observedAt, observedLocal: formatInstant(b.observedAt, options.timeZone), value: b.value, conflict: true });
+        }
         continue;
       }
       repeatsCollapsed += bucket.length - 1;
       const kept = bucket[0];
       points.push({ id: kept.id, observedAt: kept.observedAt, localDate, value: kept.value });
-      table.push({ id: kept.id, localDate, observedAt: kept.observedAt, value: kept.value, conflict: false });
+      table.push({ id: kept.id, localDate, observedAt: kept.observedAt, observedLocal: formatInstant(kept.observedAt, options.timeZone), value: kept.value, conflict: false });
     }
 
     const ordered = [...days].sort();
@@ -157,7 +172,7 @@ export function buildMoistureSeries(readings: readonly MoistureInputReading[], o
       missingDays,
       repeatsCollapsed,
       conflicts,
-      dry: dryEvidence(unit, points, options.targets[unit]),
+      dry: dryEvidence(unit, points, options.targets[unit], latestConflictMs),
       stall: isStalled(unit, points, options.targets[unit]),
     });
   }

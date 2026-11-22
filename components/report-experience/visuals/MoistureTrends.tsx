@@ -21,6 +21,8 @@ function dryText(dry: DryEvidence, unit: MoistureUnit): { text: string; tone: "g
         text:
           dry.reason === "above-target"
             ? `No dry date can be stated: the latest reading is above the ${dry.target} ${label} target.`
+            : dry.reason === "unresolved-conflict"
+              ? "No dry date can be stated: a later time has two different stored values that are not resolved."
             : dry.reason === "no-target"
               ? "No dry target is recorded for this reading type, so no dry date can be stated."
               : "No usable reading is recorded, so no dry date can be stated.",
@@ -132,7 +134,7 @@ export function MoistureTrends({ series }: { series: readonly MoistureSeries[] }
                 <tbody>
                   {s.table.map((row) => (
                     <tr key={row.id}>
-                      <th scope="row"><time dateTime={row.observedAt}>{formatLocalDate(row.localDate)}</time></th>
+                      <th scope="row"><time dateTime={row.observedAt}>{row.observedLocal}</time></th>
                       <td>{row.value} {label}</td>
                       <td>{row.conflict ? "Conflicting value for the same time" : ""}</td>
                     </tr>
