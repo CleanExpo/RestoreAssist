@@ -24,6 +24,7 @@ import {
   useRef,
 } from "react";
 import toast from "react-hot-toast";
+import ThirdPartyReportReader from "@/components/third-party-report/ThirdPartyReportReader";
 import { readIfCurrent } from "@/lib/nir-draft-save";
 import {
   CONDITION_GRADES,
@@ -2176,7 +2177,22 @@ const NIRClaimAssessmentPanel = forwardRef<
                   />
                 )}
                 {selectedType === "MOULD" && (
-                  <MouldForm data={formData} onChange={handleFieldChange} />
+                  <>
+                    <MouldForm data={formData} onChange={handleFieldChange} />
+                    <ThirdPartyReportReader
+                      inspectionId={inspectionId}
+                      onApplied={(applied) => {
+                        for (const [field, value] of Object.entries(applied)) {
+                          handleFieldChange(
+                            field,
+                            field === "samplingDate"
+                              ? `${value}T00:00:00.000Z`
+                              : value,
+                          );
+                        }
+                      }}
+                    />
+                  </>
                 )}
                 {selectedType === "STORM" && (
                   <StormForm data={formData} onChange={handleFieldChange} />
