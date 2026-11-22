@@ -69,3 +69,22 @@ export const packOutItemSchema = z.object({
 });
 
 export type PackOutItemInput = z.infer<typeof packOutItemSchema>;
+
+/**
+ * PATCH /api/inspections/[id]/contents-pack-out/[itemId] — RA-8537.
+ * Photos only: the before photo is often taken at pack-out and the after
+ * photo days later, once the item is restored. Strict, so this body can never
+ * change a value, a decision or a description. `null` clears a photo.
+ */
+export const packOutItemPhotosSchema = z
+  .object({
+    beforePhotoUrl: z.string().url().nullable().optional(),
+    afterPhotoUrl: z.string().url().nullable().optional(),
+  })
+  .strict()
+  .refine(
+    (v) => v.beforePhotoUrl !== undefined || v.afterPhotoUrl !== undefined,
+    { message: "Send beforePhotoUrl or afterPhotoUrl" },
+  );
+
+export type PackOutItemPhotosInput = z.infer<typeof packOutItemPhotosSchema>;

@@ -212,6 +212,9 @@ async function checkDryingChange(inspectionId: string): Promise<void> {
           surfaceType: true,
           moistureLevel: true,
           recordedAt: true,
+          isBaseline: true,
+          unit: true,
+          invalidatedAt: true,
         },
         // Newest first, so the bound can only ever drop the oldest readings.
         orderBy: { recordedAt: "desc" },

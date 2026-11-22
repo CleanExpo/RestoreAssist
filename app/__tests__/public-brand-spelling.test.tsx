@@ -6,7 +6,12 @@
  * registered, not the product.
  *
  * Scope: the public marketing pages and the components and copy they render.
- * Signed-in screens and emails are tracked separately on the issue.
+ *
+ * RA-8524 widens it to every source file under app/, components/, lib/ and
+ * hooks/: signed-in screens, transactional emails, report PDFs and the Margot
+ * chatbot prompt. Email copyright lines ("© <year> Restore Assist. All rights
+ * reserved.") name the rights holder, so they are treated as legal lines and
+ * wait on the same founder decision as the entity lines above.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -42,10 +47,14 @@ const PUBLIC_FILES = ["lib/pricing.ts"];
 
 const SOURCE = /\.(tsx?|jsx?|mdx?)$/;
 
+/** RA-8524: everything the product renders, sends or prompts with. */
+const PRODUCT_DIRS = ["app", "components", "lib", "hooks"];
+
 /** Two-word uses that name the registered business, not the product. */
 function isLegalEntityUse(prev: string, line: string): boolean {
   if (/Restore Assist by Unite-Group Nexus Pty Ltd/.test(line)) return true;
   if (/trading\s+as Restore Assist\b/.test(line)) return true;
+  if (/(©|&copy;).*Restore Assist\. All rights reserved\./.test(line)) return true;
   return /trading\s*$/.test(prev) && /^\s*as Restore Assist\b/.test(line);
 }
 
@@ -75,6 +84,10 @@ describe("public brand spelling (RA-8403)", () => {
     expect(findTwoWordBrand("Restore Assist by Unite-Group Nexus Pty Ltd")).toEqual([]);
     expect(findTwoWordBrand("operated by X, trading\n  as Restore Assist (we)")).toEqual([]);
     expect(findTwoWordBrand("RestoreAssist")).toEqual([]);
+    expect(
+      findTwoWordBrand("&copy; 2026 Restore Assist. All rights reserved."),
+    ).toEqual([]);
+    expect(findTwoWordBrand("This is an automated email from Restore Assist.")).toEqual([1]);
   });
 
   it("public pages spell the product RestoreAssist", () => {
@@ -84,6 +97,21 @@ describe("public brand spelling (RA-8403)", () => {
     ];
     // Positive control: the walk really reaches the public pages.
     expect(files.length).toBeGreaterThan(20);
+    const offenders = files.flatMap((f) =>
+      findTwoWordBrand(fs.readFileSync(f, "utf8")).map(
+        (n) => `${path.relative(ROOT, f)}:${n}`,
+      ),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("signed-in screens, emails, PDFs and prompts spell RestoreAssist (RA-8524)", () => {
+    const files = PRODUCT_DIRS.flatMap((d) => walk(path.join(ROOT, d)));
+    // Positive control: the walk reaches the email, PDF and chatbot sources.
+    const rel = files.map((f) => path.relative(ROOT, f));
+    expect(rel).toContain("lib/email.ts");
+    expect(rel).toContain("lib/generate-authority-form-pdf.ts");
+    expect(rel).toContain(path.join("app", "api", "chatbot", "route.ts"));
     const offenders = files.flatMap((f) =>
       findTwoWordBrand(fs.readFileSync(f, "utf8")).map(
         (n) => `${path.relative(ROOT, f)}:${n}`,

@@ -6,11 +6,12 @@
  * Plots moisture readings as a multi-day drying curve per location/material.
  * X-axis: Day 1, Day 2, Day 3 … (relative to first reading per location)
  * Y-axis: Moisture level (%)
- * Reference line: IICRC S500 dry threshold for each material type
+ * Reference line: the starting guide value for the most common material
+ * (not a standard; the job's reference reading is the real goal, RA-8508)
  *
  * Each location-material pair becomes its own series.
  * Lines are coloured:
- *   green  — latest reading is at or below dry standard
+ *   green  — latest reading is at or below the guide value
  *   amber  — latest reading is in drying range (between dry and wet threshold)
  *   red    — latest reading exceeds wet threshold
  *
@@ -47,6 +48,7 @@ import {
   getDryStandard,
   getMoistureStatus,
   STATUS_COLORS,
+  MOISTURE_GUIDE_LABEL,
 } from "@/lib/iicrc-dry-standards";
 import {
   computeTargetCurve,
@@ -58,7 +60,7 @@ import {
 export interface DryingMoistureReading {
   id: string;
   location: string;
-  surfaceType: string; // matches material keys in IICRC_DRY_STANDARDS
+  surfaceType: string; // matches material keys in MOISTURE_GUIDE_VALUES
   moistureLevel: number;
   depth: string;
   recordedAt: string;
@@ -72,7 +74,7 @@ interface DryingProgressChartProps {
   /**
    * Optional target-curve parameters. When provided, a dashed target curve
    * is overlaid and a projected completion badge is shown.
-   * Per ANSI/IICRC S500:2021 §12.2.2.
+   * Drying-rate model; its end point is the guide value, not a standard.
    */
   targetCurveParams?: {
     materialType: string;
@@ -91,7 +93,7 @@ function seriesKey(location: string, surfaceType: string) {
   return `${location} (${surfaceType})`;
 }
 
-/** Map surfaceType string → IICRC material key */
+/** Map surfaceType string → guide material key */
 function toMaterial(surfaceType: string): string {
   const s = surfaceType.toLowerCase();
   if (s.includes("timber") || s.includes("hardwood") || s.includes("wood"))
@@ -320,7 +322,7 @@ export default function DryingProgressChart({
     "other";
   const primaryStd = getDryStandard(primaryMaterial);
 
-  // ── Target curve computation (S500:2021 §12.2.2) ─────────────────
+  // ── Target curve computation (drying-rate model) ─────────────────
   // Use the highest initial reading across all series as the curve starting point
   const maxInitialMC = Math.max(...readings.map((r) => r.moistureLevel));
   const targetCurve: TargetCurveResult | null = targetCurveParams
@@ -404,7 +406,7 @@ export default function DryingProgressChart({
           </span>
         )}
 
-        {/* Projected completion badge — S500:2021 §12.2.2 */}
+        {/* Projected completion badge */}
         {targetCurve && targetCurve.projectedCompletionDay > 0 && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-brand-navy/10 text-brand-navy dark:bg-brand-gold/10 dark:text-brand-gold border border-brand-navy/20 dark:border-brand-gold/30">
             <Calendar size={12} />
@@ -441,14 +443,14 @@ export default function DryingProgressChart({
               Drying Progress Curve
             </h4>
             <p className="text-xs text-neutral-600 dark:text-slate-500 mt-0.5">
-              ANSI/IICRC S500:2021 §12.2.2 — moisture % per location over drying
-              period
+              Moisture % per location over the drying period
               {targetCurve && " · dashed = target curve"}
             </p>
           </div>
           <div className="text-right text-xs text-neutral-600 dark:text-slate-500 flex-shrink-0">
             <p className="font-medium">{primaryStd.label}</p>
-            <p>Target ≤{primaryStd.dryThreshold}%</p>
+            <p>Guide ≤{primaryStd.dryThreshold}%</p>
+            <p>{MOISTURE_GUIDE_LABEL}</p>
           </div>
         </div>
 
@@ -489,14 +491,14 @@ export default function DryingProgressChart({
               stroke={CHART_CHROME.reference}
               strokeDasharray="6 3"
               label={{
-                value: `Dry target ≤${primaryStd.dryThreshold}%`,
+                value: `Guide ≤${primaryStd.dryThreshold}%`,
                 position: "insideTopRight",
                 fontSize: 10,
                 fill: CHART_CHROME.reference,
               }}
             />
 
-            {/* Target curve overlay — dashed navy line (S500:2021 §12.2.2) */}
+            {/* Target curve overlay — dashed navy line */}
             {targetCurve && (
               <>
                 {/* Gap shading under the target curve (neutral, faint) */}
@@ -517,7 +519,7 @@ export default function DryingProgressChart({
                 <Line
                   type="monotone"
                   dataKey="__target"
-                  name="Target curve (S500:2021 §12.2.2)"
+                  name="Target curve (guide end point)"
                   stroke={CHART_CHROME.ink}
                   strokeWidth={2}
                   strokeDasharray="8 4"

@@ -822,7 +822,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
       <DashboardListPageHeader
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Integrations"
-        description="Connect accounting, CRM, field tools, and AI providers to Restore Assist."
+        description="Connect accounting, CRM, field tools, and AI providers to RestoreAssist."
         icon={<Network className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({
           omitHref: "/dashboard/integrations",

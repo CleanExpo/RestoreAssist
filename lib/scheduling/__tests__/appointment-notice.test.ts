@@ -71,8 +71,10 @@ vi.mock("@/lib/app-url", () => ({
 }));
 
 import {
+  appointmentCancelEmailKey,
   appointmentNoticeEmailKey,
   notifyTechnicianOfBooking,
+  notifyTechnicianOfCancellation,
 } from "../appointment-notice";
 
 const ADDRESS = "14 Harbour Street, Wollongong NSW 2500";
@@ -304,5 +306,135 @@ describe("notifyTechnicianOfBooking", () => {
       notifyTechnicianOfBooking({ appointmentId: "appt-1" }),
     ).resolves.toBeUndefined();
     expect(mockReportError).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("notifyTechnicianOfCancellation (RA-8525)", () => {
+  /** Book first, for real, so the ledger holds the booking email's row. */
+  async function bookThenCancel(): Promise<void> {
+    await notifyTechnicianOfBooking({ appointmentId: "appt-1" });
+    mockSend.mockClear();
+    mockNotificationCreate.mockClear();
+    mockAppointmentFindUnique.mockResolvedValue(
+      appointmentRow({ status: "CANCELLED" }),
+    );
+  }
+
+  function parsedEvent(ics: string) {
+    const root = new ICAL.Component(ICAL.parse(ics));
+    for (const vtz of root.getAllSubcomponents("vtimezone")) {
+      ICAL.TimezoneService.register(vtz);
+    }
+    return {
+      method: root.getFirstPropertyValue("method"),
+      vevent: root.getFirstSubcomponent("vevent")!,
+    };
+  }
+
+  it("emails a cancellation for the same calendar entry, with a higher SEQUENCE", async () => {
+    await notifyTechnicianOfBooking({ appointmentId: "appt-1" });
+    const bookedIcs = attachedIcs(sentEmail());
+    const booked = parsedEvent(bookedIcs);
+    mockSend.mockClear();
+    mockAppointmentFindUnique.mockResolvedValue(
+      appointmentRow({ status: "CANCELLED" }),
+    );
+
+    await notifyTechnicianOfCancellation({ appointmentId: "appt-1" });
+    const email = sentEmail();
+    expect(email.to).toBe("tech@example.test");
+    expect(email.idempotencyKey).toBe(appointmentCancelEmailKey("appt-1"));
+    expect(email.subject).toBe("Site visit cancelled: job NIR-2026-01-0042");
+
+    const cancel = parsedEvent(attachedIcs(email));
+    expect(cancel.method).toBe("CANCEL");
+    expect(cancel.vevent.getFirstPropertyValue("status")).toBe("CANCELLED");
+    expect(cancel.vevent.getFirstPropertyValue("uid")).toBe(
+      booked.vevent.getFirstPropertyValue("uid"),
+    );
+    expect(Number(cancel.vevent.getFirstPropertyValue("sequence"))).toBeGreaterThan(
+      Number(booked.vevent.getFirstPropertyValue("sequence")),
+    );
+    const event = new ICAL.Event(cancel.vevent);
+    expect(event.startDate.toString()).toBe("2026-01-15T09:00:00");
+  });
+
+  it("gives the technician one in-app notice linking to the job", async () => {
+    await bookThenCancel();
+    await notifyTechnicianOfCancellation({ appointmentId: "appt-1" });
+    expect(mockNotificationCreate).toHaveBeenCalledTimes(1);
+    const { data } = mockNotificationCreate.mock.calls[0][0];
+    expect(data.userId).toBe("tech-1");
+    expect(data.title).toBe("Site visit cancelled");
+    expect(data.link).toBe("/dashboard/inspections/insp-1");
+  });
+
+  it("reads through a fixed select and carries no address, insured details or note", async () => {
+    await bookThenCancel();
+    await notifyTechnicianOfCancellation({ appointmentId: "appt-1" });
+    const { select } = mockAppointmentFindUnique.mock.calls.at(-1)![0];
+    expect(select.inspection.select).toEqual({ id: true, inspectionNumber: true });
+    expect(JSON.stringify(select)).not.toMatch(/address|client|insured|phone|notes/i);
+    const email = sentEmail();
+    const everything = [
+      email.subject,
+      email.html,
+      email.text,
+      attachedIcs(email),
+      JSON.stringify(mockNotificationCreate.mock.calls),
+    ].join("\n");
+    for (const secret of [ADDRESS, "Harbour Street", INSURED, "0400 111 222", "key under the mat"]) {
+      expect(everything).not.toContain(secret);
+    }
+  });
+
+  it("a second call sends no second cancellation", async () => {
+    await bookThenCancel();
+    await notifyTechnicianOfCancellation({ appointmentId: "appt-1" });
+    await notifyTechnicianOfCancellation({ appointmentId: "appt-1" });
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(ledger.get(appointmentCancelEmailKey("appt-1"))?.status).toBe("SENT");
+  });
+
+  it("sends no cancellation email when the booking email never went out", async () => {
+    mockAppointmentFindUnique.mockResolvedValue(
+      appointmentRow({ status: "CANCELLED" }),
+    );
+    await notifyTechnicianOfCancellation({ appointmentId: "appt-1" });
+    expect(mockSend).not.toHaveBeenCalled();
+    // The in-app notice still tells them.
+    expect(mockNotificationCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends no cancellation email when the provider refused the booking email", async () => {
+    await bookThenCancel();
+    const key = appointmentNoticeEmailKey("appt-1");
+    ledger.set(key, { ...ledger.get(key), status: "FAILED" });
+    await notifyTechnicianOfCancellation({ appointmentId: "appt-1" });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing for a booking that is not cancelled, or one that is gone", async () => {
+    await notifyTechnicianOfBooking({ appointmentId: "appt-1" });
+    mockSend.mockClear();
+    mockNotificationCreate.mockClear();
+    mockAppointmentFindUnique.mockResolvedValueOnce(appointmentRow());
+    await notifyTechnicianOfCancellation({ appointmentId: "appt-1" });
+    mockAppointmentFindUnique.mockResolvedValueOnce(null);
+    await notifyTechnicianOfCancellation({ appointmentId: "appt-1" });
+    expect(mockNotificationCreate).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("never throws: a failed send is reported without the recipient address", async () => {
+    await bookThenCancel();
+    mockSend.mockRejectedValue(new Error("provider down"));
+    await expect(
+      notifyTechnicianOfCancellation({ appointmentId: "appt-1" }),
+    ).resolves.toBeUndefined();
+    expect(mockReportError).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(mockReportError.mock.calls[0][1])).not.toContain(
+      "tech@example.test",
+    );
   });
 });

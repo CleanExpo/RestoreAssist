@@ -5,6 +5,8 @@
  * transition, and it carries the submittedAt that CAS wrote, which is the
  * key the delivery ledger uses to send the email at most once. A retry that
  * loses the CAS, or a submit a gate refuses, tells nobody.
+ *
+ * RA-8525: the notice starts inside the after() callback, never before it.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -17,6 +19,10 @@ vi.mock("@/lib/voice/fire-smoke/server", () => ({
     claim(db),
 }));
 const mockAfter = vi.fn();
+/** Run every task the route handed to after(), as Next.js does post-response. */
+async function runAfterTasks(): Promise<void> {
+  for (const [task] of mockAfter.mock.calls) await (task as () => unknown)();
+}
 vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/server")>()),
   after: (task: () => unknown) => mockAfter(task),
@@ -169,6 +175,7 @@ describe("submit route — RA-8503 office notice", () => {
     const { POST } = await import("../route");
     const res = await POST(submit(), params);
     expect(res.status).toBe(200);
+    await runAfterTasks();
 
     expect(mockNotice).toHaveBeenCalledTimes(1);
     const arg = mockNotice.mock.calls[0][0] as {
@@ -192,6 +199,7 @@ describe("submit route — RA-8503 office notice", () => {
     mockInspectionFindUnique.mockResolvedValue({ ...inspection, status: "SUBMITTED" });
     const retry = await POST(submit(), params);
     await expectRefused(retry, 409, /already submitted/);
+    await runAfterTasks();
 
     expect(mockNotice).toHaveBeenCalledTimes(1);
   });
@@ -205,6 +213,7 @@ describe("submit route — RA-8503 office notice", () => {
     const { POST } = await import("../route");
     const res = await POST(submit(), params);
     await expectRefused(res, 400, /critical fields missing/);
+    expect(mockAfter).not.toHaveBeenCalled();
     expect(mockNotice).not.toHaveBeenCalled();
     expect(mockInspectionUpdateMany).not.toHaveBeenCalled();
   });
@@ -236,6 +245,29 @@ describe("submit route — RA-8503 office notice", () => {
     const { POST } = await import("../route");
     const res = await POST(submit(), params);
     expect(res.status).toBe(200);
+    await runAfterTasks();
+    expect(mockNotice).toHaveBeenCalledTimes(1);
+  });
+
+  it("RA-8525: does not start the notice until after() runs it", async () => {
+    const { POST } = await import("../route");
+    expect((await POST(submit(), params)).status).toBe(200);
+
+    // The response is back and after() holds the task, but nothing has been
+    // sent: the notice starts only when Next.js runs the callback.
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(mockNotice).not.toHaveBeenCalled();
+
+    await runAfterTasks();
+    expect(mockNotice).toHaveBeenCalledTimes(1);
+  });
+
+  it("RA-8525: outside a request scope the notice still goes once", async () => {
+    mockAfter.mockImplementationOnce(() => {
+      throw new Error("after() was called outside a request scope");
+    });
+    const { POST } = await import("../route");
+    expect((await POST(submit(), params)).status).toBe(200);
     expect(mockNotice).toHaveBeenCalledTimes(1);
   });
 });

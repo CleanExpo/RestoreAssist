@@ -7,8 +7,14 @@
  * POST /api/inspections/[id]/contents-pack-out
  *   Creates a new pack-out item. Stamps Inspection.claimType = CONTENTS.
  *
+ * PATCH  /api/inspections/[id]/contents-pack-out/[itemId]
+ *   Sets or clears an item's before / after photo (see [itemId]/route.ts).
+ *
  * DELETE /api/inspections/[id]/contents-pack-out/[itemId]
  *   Removes a specific item (see [itemId]/route.ts).
+ *
+ * RA-8537: an item's photo URLs must name a photo already uploaded to this
+ * job through /photos; GET re-signs them so private-bucket photos display.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -23,6 +29,10 @@ import {
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolvePackOutPhotos,
+  signPackOutItemPhotos,
+} from "@/lib/contents/pack-out-item-photos";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 // RA-8533: the schema lives in lib/contents so the Contents form builds its
@@ -55,11 +65,13 @@ export async function GET(
       );
     }
 
-    const items = await prisma.contentsPackOutItem.findMany({
+    const stored = await prisma.contentsPackOutItem.findMany({
       where: { inspectionId: id },
       orderBy: { createdAt: "asc" },
       take: 500,
     });
+    // RA-8537: stored photo URLs on a private bucket do not load unsigned.
+    const items = await Promise.all(stored.map(signPackOutItemPhotos));
 
     const totalReplacementValueAud = items.reduce(
       (sum, item) =>
@@ -136,6 +148,19 @@ export async function POST(
 
       const data = parsed.data;
 
+      // RA-8537: a photo must be one already uploaded to this job.
+      const photos = await resolvePackOutPhotos(id, {
+        beforePhotoUrl: data.beforePhotoUrl,
+        afterPhotoUrl: data.afterPhotoUrl,
+      });
+      if (!photos.ok) {
+        return apiError(req, {
+          code: "VALIDATION",
+          message: `${photos.field} is not a photo on this job. Upload it to the job's photos first.`,
+          status: 400,
+        });
+      }
+
       const record = await writeWithinInspectionScope(
         tenancy.data.inspectionManyWhere,
         // Stamp Inspection.claimType = CONTENTS; this scoped update is also the
@@ -157,8 +182,8 @@ export async function POST(
               restorationCostEstimate: data.restorationCostEstimate ?? null,
               packOutDecision: data.packOutDecision ?? null,
               packOutTag: data.packOutTag ?? null,
-              beforePhotoUrl: data.beforePhotoUrl ?? null,
-              afterPhotoUrl: data.afterPhotoUrl ?? null,
+              beforePhotoUrl: photos.data.beforePhotoUrl ?? null,
+              afterPhotoUrl: photos.data.afterPhotoUrl ?? null,
               claimType: data.claimType ?? null,
             },
           }),
@@ -174,7 +199,9 @@ export async function POST(
         });
       }
 
-      return NextResponse.json(record, { status: 201 });
+      return NextResponse.json(await signPackOutItemPhotos(record), {
+        status: 201,
+      });
     } catch (err) {
       return fromException(req, err, { stage: "contents-pack-out:create" });
     }

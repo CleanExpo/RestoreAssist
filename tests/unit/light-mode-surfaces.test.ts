@@ -237,6 +237,77 @@ describe("light-mode surfaces (RA-8305, RA-8383)", () => {
     expect(findSameToneTextOnFill(`a = "dark bg-slate-900 text-slate-900";`)).toEqual([]);
   });
 
+  it("judges every template combination, the four named limits of RA-8487", () => {
+    // (1) A branch holding only a size class does not hide the static text colour.
+    expect(
+      findSameToneTextOnFill("a = `bg-white text-white ${big ? \"text-lg\" : \"text-sm\"}`;"),
+    ).toEqual(["1:text-white on bg-white"]);
+    // ...and an image utility is not a fill that replaces the static one.
+    expect(
+      findSameToneTextOnFill("a = `bg-white ${on ? \"bg-cover text-white\" : \"\"}`;"),
+    ).toEqual(["1:text-white on bg-white"]);
+    // (2) Nested backtick branches are read.
+    expect(
+      findSameToneTextOnFill("a = `bg-white ${on ? `text-white` : `text-black`}`;"),
+    ).toEqual(["1:text-white on bg-white"]);
+    expect(
+      findSameToneTextOnFill("a = `p-2 ${on ? `bg-slate-900 ${b ? \"text-black\" : \"\"}` : \"\"}`;"),
+    ).toEqual(["1:text-black on bg-slate-900"]);
+    // (3) A static pair is not reported when every branch replaces the fill.
+    expect(
+      findSameToneTextOnFill(
+        "a = `bg-white text-white ${on ? \"bg-brand-cta\" : \"bg-brand-navy\"}`;",
+      ),
+    ).toEqual([]);
+    expect(
+      findSameToneTextOnFill("a = `bg-white text-white ${on ? \"bg-brand-cta\" : \"\"}`;"),
+    ).toEqual(["1:text-white on bg-white"]);
+    // (4) Classes from separate ${} blocks combine.
+    expect(
+      findSameToneTextOnFill(
+        "a = `p-2 ${on ? \"bg-white\" : \"bg-brand-cta\"} ${b ? \"text-white\" : \"\"}`;",
+      ),
+    ).toEqual(["1:text-white on bg-white"]);
+    // && renders its right side or nothing.
+    expect(findSameToneTextOnFill("a = `bg-white ${on && \"text-white\"}`;")).toEqual([
+      "1:text-white on bg-white",
+    ]);
+  });
+
+  it("resolves same-file consts and lookup tables, and reports what it cannot judge", () => {
+    expect(
+      findSameToneTextOnFill('const T = "text-white";\na = `bg-white ${T}`;'),
+    ).toEqual(["2:text-white on bg-white"]);
+    expect(
+      findSameToneTextOnFill(
+        'const C = { a: { bar: "bg-white" }, b: { bar: "bg-brand-cta" } };\na = `${C[k].bar} text-white`;',
+      ),
+    ).toEqual(["2:text-white on bg-white"]);
+    expect(
+      findSameToneTextOnFill(
+        'const C = { a: { bar: "bg-blue-500" }, b: { bar: "bg-brand-cta" } };\na = `${C[k].bar} text-white`;',
+      ),
+    ).toEqual([]);
+    // An interpolation that is not a listable class string, next to a toned
+    // static class, is a finding: it no longer passes silently.
+    expect(findSameToneTextOnFill("a = `bg-white ${pick(k)}`;")).toEqual([
+      "1:cannot judge ${pick(k)} with bg-white",
+    ]);
+    expect(findSameToneTextOnFill("a = `p-2 ${props.className}`;")).toEqual([]);
+    // Strings inside the unjudged call are still judged on their own.
+    expect(
+      findSameToneTextOnFill('a = `bg-white ${pick("bg-black text-black")}`;'),
+    ).toEqual([
+      '1:cannot judge ${pick("bg-black text-black")} with bg-white',
+      "1:text-black on bg-black",
+    ]);
+    // Too many combinations is reported, not skipped.
+    const many = Array.from({ length: 9 }, (_, i) => `\${c${i} ? "p-${i}" : "m-${i}"}`).join(" ");
+    expect(findSameToneTextOnFill(`a = \`bg-white ${many}\`;`)).toEqual([
+      "1:cannot judge more than 256 combinations with bg-white",
+    ]);
+  });
+
   it.each([...DASHBOARD_FILES, ...SHARED_SURFACES])(
     "%s has no text the same tone as its own fill",
     (file) => {

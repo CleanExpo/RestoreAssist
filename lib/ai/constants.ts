@@ -41,7 +41,7 @@ MANDATORY REPORTING REQUIREMENTS (aligned to IICRC S500:2021):
    - Water category determination → cite S500:2021 §3
    - Damage class determination → cite S500:2021 §7.1
    - Moisture measurement methodology → cite S500:2021 §8
-   - Drying goals → cite S500:2021 §12
+   - Drying goals → state the job's reference reading from unaffected like material; never attribute moisture goal numbers to a standard
    - Equipment selection → cite S500:2021 §14
    - Psychrometric assessment → cite S500:2021 §6
 

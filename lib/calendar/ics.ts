@@ -15,6 +15,9 @@
  * - Lines end in CRLF and fold at 75 octets without splitting a character.
  *   TEXT values are escaped, so a typed title cannot add a property.
  * - The UID is stable per booking, so a later CANCEL can replace the event.
+ * - RA-8525: a cancelled booking is the same UID with METHOD:CANCEL,
+ *   STATUS:CANCELLED and a higher SEQUENCE, so the calendar that holds the
+ *   event removes it (or marks it cancelled) instead of adding a second one.
  */
 import { wallClockAt } from "@/lib/calendar/zoned-time";
 
@@ -30,6 +33,8 @@ export interface IcsEventInput {
   /** When the file was made (DTSTAMP). */
   dtstamp: Date;
   sequence?: number;
+  /** RA-8525: write a cancellation (METHOD:CANCEL, STATUS:CANCELLED). */
+  cancelled?: boolean;
 }
 
 type Observance = {
@@ -281,7 +286,7 @@ export function buildIcsEvent(input: IcsEventInput): string {
     "VERSION:2.0",
     "PRODID:-//RestoreAssist//Site visit//EN",
     "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
+    input.cancelled ? "METHOD:CANCEL" : "METHOD:PUBLISH",
   ];
   if (observances) {
     lines.push("BEGIN:VTIMEZONE", `TZID:${input.timeZone}`);
@@ -316,7 +321,7 @@ export function buildIcsEvent(input: IcsEventInput): string {
   if (input.url) lines.push(`URL:${uriValue(input.url)}`);
   lines.push(
     `SEQUENCE:${input.sequence ?? 0}`,
-    "STATUS:CONFIRMED",
+    input.cancelled ? "STATUS:CANCELLED" : "STATUS:CONFIRMED",
     "TRANSP:OPAQUE",
     "END:VEVENT",
     "END:VCALENDAR",

@@ -58,6 +58,23 @@ export function isReadyOAuthCandidate(row: IntegrationIdentityInput, expectedPro
   return getOAuthReadiness({ ...row, hasOAuthCredentials: true }, expectedProvider).ready;
 }
 
+/**
+ * RA-8446: which of these rows hold stored OAuth credentials, tested in SQL so
+ * token material is never read. Pair with getOAuthReadiness's
+ * hasOAuthCredentials when a caller reads identity metadata only.
+ */
+export async function credentialPresentIds(
+  db: Pick<PrismaClient, "integration">,
+  ids: readonly string[],
+): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await db.integration.findMany({
+    where: { id: { in: [...ids] }, ...OAUTH_CREDENTIAL_PRESENT_WHERE },
+    select: { id: true },
+  });
+  return new Set(rows.map(row => row.id));
+}
+
 export const OAUTH_IDENTITY_SELECT = {
   id: true, userId: true, workspaceId: true, provider: true, name: true,
   icon: true, config: true, status: true, tenantId: true, realmId: true,

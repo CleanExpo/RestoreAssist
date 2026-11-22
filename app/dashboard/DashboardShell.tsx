@@ -669,7 +669,7 @@ export default function DashboardShell({
                         : "text-neutral-900 dark:text-slate-50",
                     )}
                   >
-                    Restore Assist
+                    RestoreAssist
                   </span>
                   <span
                     className={cn(

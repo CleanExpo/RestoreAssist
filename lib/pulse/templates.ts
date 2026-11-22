@@ -28,7 +28,7 @@ export interface RenderedPulseEmail {
   text: string;
 }
 
-const BRAND_NAME = "Restore Assist";
+const BRAND_NAME = "RestoreAssist";
 
 function unsubscribeFooterHtml(unsubscribeUrl?: string): string {
   if (!unsubscribeUrl) return "";
