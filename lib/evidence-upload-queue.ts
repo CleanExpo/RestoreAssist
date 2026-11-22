@@ -75,6 +75,13 @@ export interface EvidenceQueueEntry {
   readbackStatus?: number;
   /** Server row id from a successful POST — used to verify before re-POST (RA-7862 B15). */
   serverPhotoId?: string;
+  /**
+   * RA-7877: when the first POST that could have reached the server was started.
+   * A lost answer (network error, 5xx) leaves no other trace, so past the
+   * server's Idempotency-Key lifetime this is what makes the drain verify on the
+   * listing instead of repeating the POST.
+   */
+  postAttemptedAt?: string;
   /** Direct photo POST retry: keep the original request's byte/field shape. */
   directRetry?: boolean;
   /** Exact hash field from the first direct request, if it included one. */
@@ -442,6 +449,30 @@ async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
         }
       }
 
+      // RA-7877 — the first POST may have created the photo even though its
+      // answer was lost. Past the server's key lifetime a repeat would insert a
+      // second photo, so verify on the listing first; proven absent falls through.
+      if (!entry.readbackPending && !entry.serverPhotoId) {
+        if (entry.postAttemptedAt === undefined) {
+          entry.postAttemptedAt = new Date().toISOString();
+          await putEntry(db, entry);
+        } else {
+          const first = Date.parse(entry.postAttemptedAt);
+          if (!Number.isFinite(first) || Date.now() - first > POST_KEY_WINDOW_MS) {
+            const verify = await tryClearQueuedPhotoViaListing(db, entry);
+            if (verify.kind === "cleared") {
+              uploaded++;
+              continue;
+            }
+            if (verify.kind === "offline") break;
+            if (verify.kind === "unverified") {
+              await incrementRetry(db, entry, verify.readbackStatus, "readback");
+              continue;
+            }
+          }
+        }
+      }
+
       const form = new FormData();
       form.append(
         "file",
@@ -586,6 +617,18 @@ function removeEntry(db: IDBDatabase, id: string): Promise<void> {
     const req = tx.objectStore(STORE).delete(id);
     req.onerror = () => reject(req.error);
     tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
+  });
+}
+
+/** Mirrors the server's Idempotency-Key lifetime (lib/idempotency.ts TTL_MS). */
+const POST_KEY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function putEntry(db: IDBDatabase, entry: EvidenceQueueEntry): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const req = tx.objectStore(STORE).put(entry);
+    tx.oncomplete = () => resolve();
+    req.onerror = () => reject(req.error);
   });
 }
 

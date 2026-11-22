@@ -15,18 +15,30 @@ vi.mock("@/lib/image-compression", () => ({
 const A = { userId: "user-a", organizationId: "org-a", workspaceId: null, workspaceOwnerId: null };
 let uninstall: () => void;
 let creates = 0;
+let photoPosts = 0;
+let listingStatus = 200;
 const fetchMock = vi.fn();
 
 beforeEach(() => {
   vi.resetModules();
   uninstall = installFakeIndexedDB();
   creates = 0;
+  photoPosts = 0;
+  listingStatus = 200;
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url === "/api/auth/offline-context") return new Response(JSON.stringify({ owner: A }));
     if (url === "/api/inspections" && init?.method === "POST") {
       creates++;
       return new Response(JSON.stringify({ inspection: { id: "inspection-1" } }), { status: 201 });
+    }
+    if (typeof url === "string" && url.endsWith("/photos")) {
+      if (init?.method === "POST") {
+        photoPosts++;
+        // The first answer is always lost: the request may or may not have been processed.
+        throw new TypeError("Failed to fetch");
+      }
+      return new Response(JSON.stringify({ photos: [] }), { status: listingStatus });
     }
     return new Response("{}", { status: 404 });
   });
@@ -101,5 +113,41 @@ describe("offline claim photo hand-over", () => {
     expect(ids).toHaveLength(2);
     expect(ids).toContain(`claim-photo-${claim.clientUuid}`);
     expect(await queue.listQueuedClaims()).toEqual([]);
+  });
+});
+
+describe("evidence queue: a photo POST whose answer was lost (RA-7877 round 2)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  async function lostFirstAnswer() {
+    const { evidence } = await setup();
+    await evidence.queueEvidenceUpload({ id: "photo-key-12345", inspectionId: "inspection-1", blob: photo(), filename: "wall.jpg", mimeType: "image/jpeg" });
+    await evidence.drainEvidenceQueue();
+    expect(photoPosts).toBe(1);
+    return evidence;
+  }
+
+  it("repeats the POST under the same key while the server still recognises the key", async () => {
+    const evidence = await lostFirstAnswer();
+    await evidence.drainEvidenceQueue();
+    expect(photoPosts).toBe(2);
+  });
+
+  it("does not repeat the POST after the key lifetime when the listing cannot prove the photo absent", async () => {
+    const evidence = await lostFirstAnswer();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 25 * 60 * 60 * 1000);
+    listingStatus = 503;
+    await evidence.drainEvidenceQueue();
+    expect(photoPosts).toBe(1);
+    expect(await evidence.getQueuedEvidenceForInspection("inspection-1")).toHaveLength(1);
+  });
+
+  it("repeats the POST after the key lifetime only when the listing proves the photo absent", async () => {
+    const evidence = await lostFirstAnswer();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 25 * 60 * 60 * 1000);
+    await evidence.drainEvidenceQueue();
+    expect(photoPosts).toBe(2);
   });
 });

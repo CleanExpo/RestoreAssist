@@ -1,12 +1,17 @@
 "use client";
 
 import { OFFLINE_OWNER_HEADER, parseOfflineOwner, sameOfflineOwner, type OfflineOwner } from "./ownership";
-import { forgetDeviceIdentity, rememberDeviceIdentity } from "./device-identity";
+import { forgetDeviceIdentity, loadDeviceIdentity, rememberDeviceIdentity } from "./device-identity";
 export type { OfflineOwner } from "./ownership";
 
 export const OFFLINE_CONTEXT_EVENT = "restoreassist-offline-context";
 const INVALIDATE_KEY = "restoreassist-offline-context-invalidated";
 let sessionUserId: string | null = null;
+// Who the page's session says is signed in, whether or not that has been verified.
+// clearOfflineContext() clears sessionUserId, so a FAILED verification would
+// otherwise make the page forget that a different account is signed in
+// (RA-7877). Only setOfflineSession() and endOfflineSession() change this.
+let declaredUserId: string | null = null;
 let context: OfflineOwner | null = null;
 let generation = 0;
 let pending: Promise<OfflineOwner | null> | null = null;
@@ -37,11 +42,13 @@ export function clearOfflineContext(broadcast = true) {
  * refresh that fails offline must not strand a technician with no signal.
  */
 export function endOfflineSession() {
+  declaredUserId = null;
   clearOfflineContext();
   void forgetDeviceIdentity();
 }
 
 export function setOfflineSession(userId: string | null) {
+  declaredUserId = userId;
   if (sessionUserId === userId) return;
   clearOfflineContext(sessionUserId !== null);
   sessionUserId = userId;
@@ -57,6 +64,27 @@ export function listenForOfflineInvalidation(): () => void {
 
 export function getOfflineOwner(): OfflineOwner | null {
   return context && context.userId === sessionUserId ? context : null;
+}
+
+/**
+ * Who may START or LIST offline capture on this page right now. The one owner of
+ * that rule (RA-7877):
+ *   - a verified owner, else
+ *   - the device copy, but never against a session this page already knows is
+ *     someone else. A different account that is signed in but not yet verified
+ *     (a failed or slow check) gets nothing, not the previous account's data.
+ * A read that was overtaken by a wipe returns null (see loadDeviceIdentity).
+ */
+export async function resolveOfflineActor(): Promise<OfflineOwner | null> {
+  const verified = getOfflineOwner();
+  if (verified) return verified;
+  const known = declaredUserId;
+  const stored = (await loadDeviceIdentity())?.owner ?? null;
+  if (!stored) return null;
+  if (known !== null && stored.userId !== known) return null;
+  // The session may have changed while the copy was being read.
+  if (declaredUserId !== known) return null;
+  return stored;
 }
 
 export function requireOfflineOwner(): OfflineOwner {
@@ -123,20 +151,29 @@ export async function offlineReplayOptions(owner: OfflineOwner | undefined): Pro
 
 /**
  * `beforeSend` runs after the account is verified and just before the request.
- * `onRefused` runs when the server answered 401, 403 or "paused" at the gate,
- * which is a definite "not processed": a caller that marked the send as
- * attempted can undo that mark, so a claim that was never created is never
- * held back as "might have been created" (RA-7877).
+ * `onNotSent` runs on EVERY exit where the request was definitely not processed
+ * after `beforeSend` ran: the account changed or the call was cancelled before
+ * fetch was invoked, or the gate answered 401, 403 or "paused". A caller that
+ * marked the send as attempted undoes the mark there, so a claim that was never
+ * created is never held back as "might have been created". Once fetch has been
+ * invoked, a lost answer or a late account change is uncertain and keeps the
+ * mark (RA-7877).
  */
-export async function fetchOfflineReplay(owner: OfflineOwner | undefined, url: string, init: RequestInit, beforeSend?: () => Promise<void>, onRefused?: () => Promise<void>): Promise<Response | null> {
+export async function fetchOfflineReplay(owner: OfflineOwner | undefined, url: string, init: RequestInit, beforeSend?: () => Promise<void>, onNotSent?: () => Promise<void>): Promise<Response | null> {
   if (!url.startsWith("/api/") || /[\\\u0000-\u0020]/.test(url) || url.includes("://")) return null;
   const options = await offlineReplayOptions(owner);
   if (!options) return null;
+  let invoked = false;
+  const notSent = () => onNotSent?.().catch(() => undefined);
   try {
     await beforeSend?.();
-    if (!ownsOfflineEntry({ owner })) return null;
+    if (!ownsOfflineEntry({ owner }) || options.signal.aborted) {
+      await notSent();
+      return null;
+    }
     const headers = new Headers(init.headers);
     for (const [name, value] of Object.entries(options.headers)) headers.set(name, value);
+    invoked = true;
     const response = await fetch(url, { ...init, credentials: "same-origin", headers, signal: options.signal });
     if (!ownsOfflineEntry({ owner })) return null;
     if (response.status === 401 || response.status === 403 || response.headers?.get("x-restoreassist-offline-paused") === "1") {
@@ -145,11 +182,17 @@ export async function fetchOfflineReplay(owner: OfflineOwner | undefined, url: s
       // any page can ask again (RA-7877).
       if (response.status === 401) void forgetDeviceIdentity();
       clearOfflineContext();
-      await onRefused?.().catch(() => undefined);
+      await notSent();
       return null;
     }
     return response;
   } catch (error) {
+    if (!invoked) {
+      // beforeSend itself failed or was cancelled: nothing was sent.
+      await notSent();
+      if (options.signal.aborted || !ownsOfflineEntry({ owner })) return null;
+      throw error;
+    }
     if (options.signal.aborted || !ownsOfflineEntry({ owner })) return null;
     throw error;
   }

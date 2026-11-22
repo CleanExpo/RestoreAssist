@@ -10,7 +10,7 @@ import { runInNewContext } from "node:vm";
 import { describe, expect, it, vi } from "vitest";
 
 const ORIGIN = "https://synthetic.example.test";
-const OFFLINE_HTML = `<!DOCTYPE html><html><head>
+const OFFLINE_HTML = `<!DOCTYPE html><html><head data-offline-shell="ra-offline-shell-v1">
 <link rel="stylesheet" href="/_next/static/chunks/app.css"/>
 <script src="/_next/static/chunks/main.js" async=""></script>
 <script src="/_next/static/chunks/offline-page.js" async=""></script>
@@ -111,6 +111,29 @@ describe("service worker caches the /offline page's JavaScript on install", () =
     await expect(sw.runInstall()).rejects.toThrow();
     expect(sw.stores.get("nir-v2.3-app")?.has("/offline") ?? false).toBe(false);
     expect(sw.stores.get("nir-v2.2-app")?.has("/offline")).toBe(true);
+  });
+
+  it("fails the install when /offline answers 200 with a page that is not the offline shell (gateway, login or error page)", async () => {
+    const sw = install(
+      (path) => (path === "/offline" ? html('<html><script src="/_next/static/chunks/login.js"></script>Sign in</html>') : network(path)),
+      (stores) => {
+        stores.set("nir-v2.2-app", new Map([["/offline", html(OFFLINE_HTML)]]));
+      },
+    );
+    await expect(sw.runInstall()).rejects.toThrow(/offline shell/);
+    expect(sw.stores.get("nir-v2.2-app")?.has("/offline")).toBe(true);
+  });
+
+  it("fails the install when the shell names no JavaScript at all", async () => {
+    const sw = install((path) =>
+      path === "/offline" ? html('<html data-offline-shell="ra-offline-shell-v1"><link rel="stylesheet" href="/_next/static/chunks/app.css"/></html>') : network(path),
+    );
+    await expect(sw.runInstall()).rejects.toThrow(/JavaScript/);
+  });
+
+  it("serves a shell that carries the marker the worker requires", () => {
+    expect(readFileSync("app/offline/page.tsx", "utf8")).toContain('data-offline-shell="ra-offline-shell-v1"');
+    expect(readFileSync("public/sw.js", "utf8")).toContain("data-offline-shell=\"ra-offline-shell-v1\"");
   });
 
   it("uses a new cache version, so devices drop the old shell without these files", () => {

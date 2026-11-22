@@ -30,9 +30,9 @@ import {
   fetchOfflineReplay,
   getOfflineOwner,
   ownsOfflineEntry,
+  resolveOfflineActor,
   withOfflineDrainLock,
 } from "./account-boundary";
-import { loadDeviceIdentity } from "./device-identity";
 import { storeOperation, type StoreSpec } from "./idb-store";
 import { parseOfflineOwner, sameOfflineOwner, type OfflineOwner } from "./ownership";
 import { notifySyncQueueChanged } from "./sync-status-event";
@@ -108,9 +108,12 @@ export async function countUnsentClaims(): Promise<number> {
 
 /** Claims this account may see. Another account's claims are never returned. */
 export async function listOwnClaims(): Promise<OfflineClaim[]> {
-  const owner = getOfflineOwner() ?? (await loadDeviceIdentity())?.owner ?? null;
+  const owner = await resolveOfflineActor();
   if (!owner) return [];
-  return (await listQueuedClaims()).filter((c) => sameOfflineOwner(parseOfflineOwner(c.owner), owner));
+  const rows = await listQueuedClaims();
+  // The account may have changed while the rows were being read.
+  if (!sameOfflineOwner(await resolveOfflineActor(), owner)) return [];
+  return rows.filter((c) => sameOfflineOwner(parseOfflineOwner(c.owner), owner));
 }
 
 function clean(value: string | undefined, max: number): string {
@@ -123,7 +126,7 @@ function clean(value: string | undefined, max: number): string {
  * write has committed.
  */
 export async function captureOfflineClaim(input: CaptureInput): Promise<OfflineClaim> {
-  const owner = getOfflineOwner() ?? (await loadDeviceIdentity())?.owner ?? null;
+  const owner = await resolveOfflineActor();
   if (!owner) {
     throw new Error("Sign in while online first. Offline capture opens only for an account that signed in on this device recently.");
   }
@@ -146,6 +149,11 @@ export async function captureOfflineClaim(input: CaptureInput): Promise<OfflineC
 
   if ((await listOwnClaims()).length >= MAX_QUEUED_CLAIMS) {
     throw new Error("This device is holding 50 unsent claims. Reconnect to send them before starting another.");
+  }
+  // The account can change during the awaits above. Never save one account's
+  // details under another: re-resolve just before the write.
+  if (!sameOfflineOwner(await resolveOfflineActor(), owner)) {
+    throw new Error("The signed-in account changed. Your entries are still on the form; try again once your account is verified.");
   }
 
   const claim: OfflineClaim = {
@@ -216,8 +224,9 @@ async function createOnServer(claim: OfflineClaim, now: number): Promise<Step> {
           await put(current);
         }
       },
-      // The gate refused it (signed out, or paused): it was not processed, so
-      // the claim is not "possibly created" and must not be held for review.
+      // Definitely not processed (refused at the gate, or the account changed or
+      // the call was cancelled before the request was made): the claim is not
+      // "possibly created" and must not be held for review.
       async () => {
         current = { ...current, postAttemptedAt: undefined };
         await put(current);
@@ -226,7 +235,7 @@ async function createOnServer(claim: OfflineClaim, now: number): Promise<Step> {
   } catch {
     response = null;
   }
-  if (!response) return { stop: current }; // offline, refused or account changed
+  if (!response) return { stop: current }; // offline, not sent, or account changed
   if (response.status === 201 || response.status === 200) {
     const body = await response.json().catch(() => null);
     const id = typeof body?.inspection?.id === "string" ? body.inspection.id : null;

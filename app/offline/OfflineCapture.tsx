@@ -9,8 +9,8 @@
  * verified again (lib/offline/claim-capture-queue.ts).
  */
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { OFFLINE_CONTEXT_EVENT } from "@/lib/offline/account-boundary";
-import { confirmDeviceIdentityOnline, loadDeviceIdentity } from "@/lib/offline/device-identity";
+import { OFFLINE_CONTEXT_EVENT, resolveOfflineActor } from "@/lib/offline/account-boundary";
+import { confirmDeviceIdentityOnline } from "@/lib/offline/device-identity";
 import {
   captureOfflineClaim,
   listOwnClaims,
@@ -31,12 +31,21 @@ export function OfflineCapture() {
   const [formKey, setFormKey] = useState(0);
   // A double tap fires twice before React re-renders; each save is a new claim.
   const saving = useRef(false);
+  // Only the newest refresh may change what is shown: an older answer that
+  // arrives after a sign-out or an account switch is dropped.
+  const latest = useRef(0);
 
   const refresh = useCallback(async () => {
+    const run = ++latest.current;
+    // Whoever the previous answer was for, it is not shown while this one is pending.
+    setQueued([]);
     await confirmDeviceIdentityOnline();
-    const identity = await loadDeviceIdentity();
-    setGate(identity ? "open" : "closed");
-    setQueued(identity ? await listOwnClaims().catch(() => []) : []);
+    const owner = await resolveOfflineActor();
+    if (run !== latest.current) return;
+    const claims = owner ? await listOwnClaims().catch(() => []) : [];
+    if (run !== latest.current) return;
+    setGate(owner ? "open" : "closed");
+    setQueued(claims);
   }, []);
 
   useEffect(() => {

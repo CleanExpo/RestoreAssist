@@ -247,6 +247,111 @@ describe("device identity ordering (a slow answer must not undo a sign-out)", ()
   });
 });
 
+describe("a different account that is signed in but not yet verified (RA-7877 round 2)", () => {
+  async function unverifiedB() {
+    await signInOnline(A);
+    await queue.captureOfflineClaim({ propertyAddress: "1 A Street", propertyPostcode: "4000", notes: "A's private notes" });
+    // The page now knows the session is B, but B's check fails.
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 503 }));
+    boundary.setOfflineSession(B.userId);
+    await boundary.refreshOfflineOwner();
+  }
+
+  it("shows B none of A's claims, even though A's device copy is still valid", async () => {
+    await unverifiedB();
+    expect(await queue.listOwnClaims()).toEqual([]);
+    expect(await boundary.resolveOfflineActor()).toBeNull();
+  });
+
+  it("refuses to save B's entries under A, and saves nothing", async () => {
+    await unverifiedB();
+    await expect(queue.captureOfflineClaim({ propertyAddress: "9 B Street", propertyPostcode: "3000" })).rejects.toThrow(/Sign in/);
+    expect(await queue.listQueuedClaims()).toHaveLength(1);
+  });
+
+  it("still lets the SAME account start a claim when its check cannot run (the offline cold start)", async () => {
+    await signInOnline(A);
+    boundary.clearOfflineContext();
+    boundary.setOfflineSession(A.userId);
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    await boundary.refreshOfflineOwner();
+    expect(await boundary.resolveOfflineActor()).toEqual(A);
+    await expect(queue.captureOfflineClaim({ propertyAddress: "2 A Street", propertyPostcode: "4000" })).resolves.toBeTruthy();
+  });
+});
+
+describe("a read overtaken by a wipe", () => {
+  it("returns nothing when sign-out happens while the stored identity is being read", async () => {
+    await signInOnline(A);
+    await coldStart();
+    const read = identity.loadDeviceIdentity();
+    boundary.endOfflineSession();
+    expect(await read).toBeNull();
+  });
+});
+
+describe("a send cancelled before the request was made (RA-7877 round 2)", () => {
+  it("calls onNotSent, and makes no request, when the account changes during beforeSend", async () => {
+    await signInOnline(A);
+    let notSent = 0;
+    const result = await boundary.fetchOfflineReplay(
+      A,
+      "/api/inspections",
+      { method: "POST" },
+      async () => { boundary.endOfflineSession(); },
+      async () => { notSent++; },
+    );
+    expect(result).toBeNull();
+    expect(notSent).toBe(1);
+    expect(createdBodies).toHaveLength(0);
+  });
+
+  it("keeps the attempt mark of a claim when the account changes after the request was made", async () => {
+    await signInOnline(A);
+    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === "/api/auth/offline-context") return new Response(JSON.stringify({ owner: A }), { status: 200 });
+      if (url === "/api/inspections" && init?.method === "POST") boundary.endOfflineSession(); // the answer arrives after sign-out
+      return new Response(JSON.stringify({ inspection: { id: "inspection-1" } }), { status: 201 });
+    });
+    await queue.drainOfflineClaims();
+    const [held] = await queue.listQueuedClaims();
+    expect(held.postAttemptedAt).toBeDefined();
+    expect(held.serverInspectionId).toBeUndefined();
+  });
+
+  it("clears the attempt mark of a claim when sign-out lands between the mark and the request", async () => {
+    vi.resetModules();
+    let armed = false;
+    vi.doMock("@/lib/offline/idb-store", async () => {
+      const real = await vi.importActual<typeof import("@/lib/offline/idb-store")>("@/lib/offline/idb-store");
+      return {
+        ...real,
+        storeOperation: (...args: Parameters<typeof real.storeOperation>) => {
+          const done = real.storeOperation(...args);
+          if (armed && args[1] === "readwrite" && args[0].store === "claims") {
+            armed = false;
+            // The attempt mark has just been written: sign out before the request is made.
+            return done.then((value) => { boundary.endOfflineSession(); return value; });
+          }
+          return done;
+        },
+      };
+    });
+    boundary = await import("@/lib/offline/account-boundary");
+    identity = await import("@/lib/offline/device-identity");
+    queue = await import("@/lib/offline/claim-capture-queue");
+    await signInOnline(A);
+    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    armed = true;
+    await queue.drainOfflineClaims();
+    expect(createdBodies).toHaveLength(0);
+    const [held] = await queue.listQueuedClaims();
+    expect(held.postAttemptedAt).toBeUndefined();
+    vi.doUnmock("@/lib/offline/idb-store");
+  });
+});
+
 describe("capturing a claim offline", () => {
   it("refuses, and saves nothing, with no verified account and no device identity", async () => {
     await expect(queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toThrow(/Sign in/);

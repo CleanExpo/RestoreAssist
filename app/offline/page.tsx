@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function OfflinePage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-10">
+    <div data-offline-shell="ra-offline-shell-v1" className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-10">
       <div className="flex w-full flex-col items-center text-center max-w-md">
         <h1 className="text-2xl font-bold text-white mb-2">You are offline</h1>
         <p className="text-slate-400 mb-4">

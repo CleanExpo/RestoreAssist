@@ -61,6 +61,8 @@ const IS_LOCAL_DEV =
  * Keep this list small — only the inspection workflow entry points.
  */
 const PRECACHE_URLS = ["/", "/offline"];
+// Present in the /offline page's markup (app/offline/page.tsx); install requires it.
+const OFFLINE_SHELL_MARKER = 'data-offline-shell="ra-offline-shell-v1"';
 
 // ─── LOCAL DEV: self-destruct ─────────────────────────────────────────────────
 // A leftover SW from a prior session cache-firsts /_next/static and serves
@@ -252,11 +254,17 @@ async function precacheOfflineShellAssets() {
   const shell = await appCache.match("/offline");
   if (!shell) throw new Error("The offline page could not be cached");
   const html = await shell.clone().text();
+  // A 200 page that is not the offline shell (a gateway, a login or an error page)
+  // must never replace a working one.
+  if (!html.includes(OFFLINE_SHELL_MARKER)) throw new Error("The cached /offline is not the offline shell");
   const found = new Set(
     (html.match(/\/_next\/static\/[^"'\s\\<>)]+/g) || []).map((path) =>
       path.replace(/&amp;/g, "&"),
     ),
   );
+  if (![...found].some((path) => /\.js(\?|$)/.test(path))) {
+    throw new Error("The offline shell names no JavaScript to cache");
+  }
   const cache = await caches.open(CACHE_STATIC);
   const results = await Promise.allSettled(
     [...found].map(async (path) => {

@@ -92,12 +92,15 @@ export function forgetDeviceIdentity(): Promise<void> {
 /** Returns the usable copy, or null. An expired or malformed copy is removed. */
 export async function loadDeviceIdentity(now = Date.now()): Promise<DeviceIdentity | null> {
   if (typeof indexedDB === "undefined") return null;
+  const askedUnder = epoch;
   let stored: unknown;
   try {
     stored = await inOrder(() => storeOperation(SPEC, "readonly", (s) => s.get(KEY)));
   } catch {
     return null;
   }
+  // A wipe came while this was being read: the row it saw is no longer the truth.
+  if (askedUnder !== epoch) return null;
   const usable = usableDeviceIdentity(stored, now);
   if (!usable && stored !== undefined) await forgetDeviceIdentity();
   return usable;
