@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  createAttemptKey,
+  settleCreateAttempt,
+  type CreateAttempt,
+} from "@/lib/form-templates/create-attempt-key";
 import type { FormCategory, FormType } from "@prisma/client";
 
 // RA-7957: these must be the schema's FormType and FormCategory values; the
@@ -33,6 +38,7 @@ const CATEGORIES = [
 export default function NewFormTemplatePage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const createAttempt = useRef<CreateAttempt | null>(null);
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -49,19 +55,25 @@ export default function NewFormTemplatePage() {
     }
     setIsSubmitting(true);
     try {
+      const body = JSON.stringify({
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        formType: form.formType,
+        category: form.category,
+        requiresSignatures: form.requiresSignatures,
+        formSchema: JSON.stringify({ sections: [], fields: [] }),
+        status: "DRAFT",
+      });
+      // RA-8543: one key per attempt, reused if this attempt is retried.
       const response = await fetch("/api/form-templates", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          description: form.description.trim() || null,
-          formType: form.formType,
-          category: form.category,
-          requiresSignatures: form.requiresSignatures,
-          formSchema: JSON.stringify({ sections: [], fields: [] }),
-          status: "DRAFT",
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": createAttemptKey(createAttempt, body),
+        },
+        body,
       });
+      settleCreateAttempt(createAttempt, response.status);
 
       if (!response.ok) {
         const data: unknown = await response.json().catch(() => null);

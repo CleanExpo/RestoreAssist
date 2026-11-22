@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { isConfirmedEmpty } from "@/lib/client/load-state";
+import {
+  createAttemptKey,
+  settleCreateAttempt,
+  type CreateAttempt,
+} from "@/lib/form-templates/create-attempt-key";
 import {
   Plus,
   Search,
@@ -147,6 +152,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
   const [form, setForm] = useState<CreateFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const createAttempt = useRef<CreateAttempt | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -161,16 +167,22 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
     setSaving(true);
     setError(null);
     try {
+      const body = JSON.stringify({
+        name: form.name.trim(),
+        formType: form.formType,
+        category: form.category || "CUSTOM",
+        description: form.description.trim() || undefined,
+      });
+      // RA-8543: one key per attempt, reused if this attempt is retried.
       const res = await fetch("/api/form-templates", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          formType: form.formType,
-          category: form.category || "CUSTOM",
-          description: form.description.trim() || undefined,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": createAttemptKey(createAttempt, body),
+        },
+        body,
       });
+      settleCreateAttempt(createAttempt, res.status);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(apiErrorMessage(data) ?? `Server error ${res.status}`);

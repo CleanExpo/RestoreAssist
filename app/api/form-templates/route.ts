@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_FORM_TEMPLATES } from "@/lib/form-templates-defaults";
 import { apiError, fromException } from "@/lib/api-errors";
+import { withIdempotency } from "@/lib/idempotency";
 import { canManageFormTemplates } from "@/lib/form-templates/can-manage";
 
 const EMPTY_FORM_SCHEMA = JSON.stringify({ sections: [], fields: [] });
@@ -36,7 +37,9 @@ const createTemplateBody = z
   })
   .strict();
 
-// GET - List active form templates for current user. Auto-seeds default templates if user has none.
+// GET - List active form templates for current user. Auto-seeds default
+// templates when an owner or manager has none (RA-8543: a technician's list is
+// read only, so it lists what they can see and never seeds).
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -64,8 +67,12 @@ export async function GET(request: NextRequest) {
       take: 200, // CLAUDE.md rule 4
     });
 
-    // Auto-seed default templates for this user if they have none
-    if (templates.length === 0) {
+    // Auto-seed default templates for this user if they have none. Seeding
+    // creates templates, so it takes the same owner-or-manager gate as create.
+    if (
+      templates.length === 0 &&
+      (await canManageFormTemplates(session.user.id))
+    ) {
       const userId = session.user.id;
       for (const t of DEFAULT_FORM_TEMPLATES) {
         const existing = await prisma.formTemplate.findFirst({
@@ -114,7 +121,10 @@ export async function GET(request: NextRequest) {
 
 // POST - Create a template owned by the signed-in user (RA-7957).
 // Only ADMIN or MANAGER, with the role re-read from the database.
+// RA-8543: an Idempotency-Key header makes a double submit or a retry after a
+// lost reply return the first reply instead of creating a second template.
 export async function POST(request: NextRequest) {
+  let userId: string;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -124,7 +134,7 @@ export async function POST(request: NextRequest) {
         status: 401,
       });
     }
-    const userId = session.user.id;
+    userId = session.user.id;
 
     if (!(await canManageFormTemplates(userId))) {
       return apiError(request, {
@@ -133,50 +143,56 @@ export async function POST(request: NextRequest) {
         status: 403,
       });
     }
-
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: "Request body must be valid JSON",
-        status: 400,
-      });
-    }
-    const parsed = createTemplateBody.safeParse(body);
-    if (!parsed.success) {
-      return apiError(request, {
-        code: "VALIDATION",
-        message: parsed.error.issues[0]?.message ?? "Invalid template",
-        status: 400,
-      });
-    }
-
-    const { description, ...fields } = parsed.data;
-    const template = await prisma.formTemplate.create({
-      data: {
-        ...fields,
-        description: description || null,
-        userId,
-        createdBy: userId,
-        isSystemTemplate: false,
-        isActive: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        formType: true,
-        category: true,
-        status: true,
-        formSchema: true,
-        requiresSignatures: true,
-        isActive: true,
-      },
-    });
-    return NextResponse.json({ template }, { status: 201 });
   } catch (error) {
     return fromException(request, error, { stage: "create" });
   }
+
+  return withIdempotency(request, `form-templates:create:${userId}`, async (rawBody) => {
+    try {
+      let body: unknown;
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Request body must be valid JSON",
+          status: 400,
+        });
+      }
+      const parsed = createTemplateBody.safeParse(body);
+      if (!parsed.success) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: parsed.error.issues[0]?.message ?? "Invalid template",
+          status: 400,
+        });
+      }
+
+      const { description, ...fields } = parsed.data;
+      const template = await prisma.formTemplate.create({
+        data: {
+          ...fields,
+          description: description || null,
+          userId,
+          createdBy: userId,
+          isSystemTemplate: false,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          formType: true,
+          category: true,
+          status: true,
+          formSchema: true,
+          requiresSignatures: true,
+          isActive: true,
+        },
+      });
+      return NextResponse.json({ template }, { status: 201 });
+    } catch (error) {
+      return fromException(request, error, { stage: "create" });
+    }
+  });
 }

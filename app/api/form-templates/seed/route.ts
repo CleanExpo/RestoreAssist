@@ -4,10 +4,13 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_FORM_TEMPLATES } from "@/lib/form-templates-defaults";
 import { apiError, fromException } from "@/lib/api-errors";
+import { canManageFormTemplates } from "@/lib/form-templates/can-manage";
 
 /**
  * POST - Create default form templates for the current user.
  * Idempotent: skips templates that already exist by name for this user.
+ * RA-8543: only ADMIN or MANAGER, the same gate as create (role re-read from
+ * the database, never the session).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +24,15 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
+
+    if (!(await canManageFormTemplates(userId))) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Only an owner or manager can add the default form templates",
+        status: 403,
+      });
+    }
+
     let created = 0;
 
     for (const t of DEFAULT_FORM_TEMPLATES) {
