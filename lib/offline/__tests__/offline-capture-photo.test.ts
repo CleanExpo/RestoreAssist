@@ -49,6 +49,16 @@ async function setup() {
     evidence: await import("@/lib/evidence-upload-queue"),
   };
 }
+async function putClaim(row: Record<string, unknown>) {
+  const db = await new Promise<IDBDatabase>((resolve) => {
+    const open = indexedDB.open("ra-offline-claims", 1);
+    open.onsuccess = () => resolve(open.result);
+  });
+  await new Promise<void>((resolve) => {
+    const req = db.transaction("claims", "readwrite").objectStore("claims").put(row);
+    req.onsuccess = () => resolve();
+  });
+}
 const photo = () => new File([new Uint8Array([1, 2, 3])], "wall.jpg", { type: "image/jpeg" });
 
 describe("offline claim photo hand-over", () => {
@@ -62,22 +72,34 @@ describe("offline claim photo hand-over", () => {
     expect(await evidence.getQueuedEvidenceForInspection("inspection-1")).toHaveLength(1);
   });
 
+  it("gives the photo a stable id, which is also its upload Idempotency-Key", async () => {
+    const { queue, evidence } = await setup();
+    const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    await queue.drainOfflineClaims();
+    const entries = await evidence.getQueuedEvidenceForInspection("inspection-1");
+    expect(entries.map((entry) => entry.id)).toEqual([`claim-photo-${claim.clientUuid}`]);
+  });
+
   it("does not queue the photo again when an earlier attempt already handed it over but died before marking the claim", async () => {
     const { queue, evidence } = await setup();
     const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
-    // The crashed attempt: the job was created and the photo is already in the evidence queue.
-    await evidence.queueEvidenceUpload({ inspectionId: "inspection-1", blob: photo(), filename: "wall.jpg", mimeType: "image/jpeg" });
-    const db = await new Promise<IDBDatabase>((resolve) => {
-      const open = indexedDB.open("ra-offline-claims", 1);
-      open.onsuccess = () => resolve(open.result);
-    });
-    await new Promise<void>((resolve) => {
-      const req = db.transaction("claims", "readwrite").objectStore("claims").put({ ...claim, serverInspectionId: "inspection-1", postAttemptedAt: new Date().toISOString() });
-      req.onsuccess = () => resolve();
-    });
+    // The crashed attempt: the job was created and the photo is already in the evidence queue under its stable id.
+    await evidence.queueEvidenceUpload({ id: `claim-photo-${claim.clientUuid}`, inspectionId: "inspection-1", blob: photo(), filename: "wall.jpg", mimeType: "image/jpeg" });
+    await putClaim({ ...claim, serverInspectionId: "inspection-1", postAttemptedAt: new Date().toISOString(), photoAttemptedAt: new Date().toISOString() });
     await queue.drainOfflineClaims();
     expect(creates).toBe(0);
     expect(await evidence.getQueuedEvidenceForInspection("inspection-1")).toHaveLength(1);
+    expect(await queue.listQueuedClaims()).toEqual([]);
+  });
+
+  it("still hands the claim's photo over when a different photo is already queued for the same inspection", async () => {
+    const { queue, evidence } = await setup();
+    const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    await evidence.queueEvidenceUpload({ inspectionId: "inspection-1", blob: photo(), filename: "other-tab.jpg", mimeType: "image/jpeg" });
+    await queue.drainOfflineClaims();
+    const ids = (await evidence.getQueuedEvidenceForInspection("inspection-1")).map((entry) => entry.id);
+    expect(ids).toHaveLength(2);
+    expect(ids).toContain(`claim-photo-${claim.clientUuid}`);
     expect(await queue.listQueuedClaims()).toEqual([]);
   });
 });

@@ -16,9 +16,15 @@
  *     and refuses a mismatch; an entry whose owner is not the verified one is
  *     skipped, never sent, never shown, never deleted
  *   - no duplicates: the server inspection id is stored the moment it is known
- *     and a created claim is never POSTed again; an attempt that might have
- *     succeeded is not re-POSTed once the server's idempotency window has passed
+ *     and a created claim is never POSTed again; the photo has a stable id that
+ *     is also its upload Idempotency-Key
  *   - no loss: a refused or failing claim stays on the device with its reason
+ *
+ * One owner for "might this have been sent already?": attemptState(). A send is
+ * marked in the same place it becomes possible (just before the request, after
+ * the account has been verified), never earlier, so a claim that was never sent
+ * is never held back. An attempt older than the server's idempotency window, or
+ * one whose time cannot be read, is held for review instead of repeated.
  */
 import {
   fetchOfflineReplay,
@@ -27,12 +33,11 @@ import {
   withOfflineDrainLock,
 } from "./account-boundary";
 import { loadDeviceIdentity } from "./device-identity";
+import { storeOperation, type StoreSpec } from "./idb-store";
 import { parseOfflineOwner, sameOfflineOwner, type OfflineOwner } from "./ownership";
 import { notifySyncQueueChanged } from "./sync-status-event";
 
-const DB_NAME = "ra-offline-claims";
-const DB_VERSION = 1;
-const STORE = "claims";
+const SPEC: StoreSpec = { db: "ra-offline-claims", version: 1, store: "claims", keyPath: "clientUuid" };
 export const CLAIM_DRAIN_LOCK_NAME = "ra-offline-claims-drain";
 
 /** Mirrors the server's Idempotency-Key lifetime (lib/idempotency.ts TTL_MS). */
@@ -56,10 +61,12 @@ export interface OfflineClaim {
   state: OfflineClaimState;
   retryCount: number;
   lastStatus?: number;
-  /** Set before the first POST, so an uncertain send is never repeated blindly. */
+  /** Set just before the first POST that can reach the server. */
   postAttemptedAt?: string;
   /** Set as soon as the server confirms; the claim is never POSTed again. */
   serverInspectionId?: string;
+  /** Set just before the photo is handed to the evidence queue. */
+  photoAttemptedAt?: string;
   /** Set once the photo is in the evidence queue; it is never handed over twice. */
   photoHandedOver?: boolean;
 }
@@ -72,34 +79,19 @@ export interface CaptureInput {
   photoName?: string;
 }
 
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: "clientUuid" });
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
+export type AttemptState = "never" | "recent" | "stale" | "invalid";
 
-async function withStore<T>(mode: IDBTransactionMode, work: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  const db = await openDb();
-  try {
-    return await new Promise<T>((resolve, reject) => {
-      const request = work(db.transaction(STORE, mode).objectStore(STORE));
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  } finally {
-    db.close?.();
-  }
+/** Pure: has this send possibly happened, and can the server still recognise a repeat? */
+export function attemptState(attemptedAt: unknown, now: number): AttemptState {
+  if (attemptedAt === undefined) return "never";
+  const at = typeof attemptedAt === "string" ? Date.parse(attemptedAt) : Number.NaN;
+  if (!Number.isFinite(at) || at > now + 60_000) return "invalid";
+  return now - at > CLAIM_IDEMPOTENCY_WINDOW_MS ? "stale" : "recent";
 }
 
 export async function listQueuedClaims(): Promise<OfflineClaim[]> {
   if (typeof indexedDB === "undefined") return [];
-  return withStore("readonly", (s) => s.getAll() as IDBRequest<OfflineClaim[]>);
+  return storeOperation(SPEC, "readonly", (s) => s.getAll() as IDBRequest<OfflineClaim[]>);
 }
 
 /**
@@ -127,7 +119,8 @@ function clean(value: string | undefined, max: number): string {
 
 /**
  * Save a claim on this device. Needs a verified session OR an unexpired device
- * identity; otherwise it refuses and saves nothing.
+ * identity; otherwise it refuses and saves nothing. Resolves only after the
+ * write has committed.
  */
 export async function captureOfflineClaim(input: CaptureInput): Promise<OfflineClaim> {
   const owner = getOfflineOwner() ?? (await loadDeviceIdentity())?.owner ?? null;
@@ -166,44 +159,46 @@ export async function captureOfflineClaim(input: CaptureInput): Promise<OfflineC
     state: "queued",
     retryCount: 0,
   };
-  await withStore("readwrite", (s) => s.add(claim));
+  await storeOperation(SPEC, "readwrite", (s) => s.add(claim));
   notifySyncQueueChanged();
   return claim;
 }
 
 async function put(claim: OfflineClaim): Promise<void> {
-  await withStore("readwrite", (s) => s.put(claim));
+  await storeOperation(SPEC, "readwrite", (s) => s.put(claim));
   notifySyncQueueChanged();
 }
 
 async function remove(clientUuid: string): Promise<void> {
-  await withStore("readwrite", (s) => s.delete(clientUuid));
+  await storeOperation(SPEC, "readwrite", (s) => s.delete(clientUuid));
   notifySyncQueueChanged();
 }
 
-function idempotencyKey(claim: OfflineClaim): string {
-  return `offline-claim-${claim.clientUuid}`;
+const idempotencyKey = (claim: OfflineClaim) => `offline-claim-${claim.clientUuid}`;
+/** Stable: it is the evidence queue entry id and the photo's Idempotency-Key. */
+const photoId = (claim: OfflineClaim) => `claim-photo-${claim.clientUuid}`;
+
+async function hold(claim: OfflineClaim): Promise<OfflineClaim> {
+  const held: OfflineClaim = { ...claim, state: "needs_review" };
+  await put(held);
+  return held;
 }
 
-async function sendOne(claim: OfflineClaim, now: number): Promise<OfflineClaim | null> {
-  let current = claim;
+type Step = { next: OfflineClaim } | { stop: OfflineClaim };
 
-  if (!current.serverInspectionId) {
-    const attemptedAt = current.postAttemptedAt ? Date.parse(current.postAttemptedAt) : null;
-    if (attemptedAt !== null && now - attemptedAt > CLAIM_IDEMPOTENCY_WINDOW_MS) {
-      // The first send may have created the job; the server can no longer
-      // recognise a repeat. Keep it for a person rather than risk a duplicate.
-      const held: OfflineClaim = { ...current, state: "needs_review" };
-      await put(held);
-      return held;
-    }
-    if (attemptedAt === null) {
-      current = { ...current, postAttemptedAt: new Date(now).toISOString() };
-      await put(current);
-    }
-    let response: Response | null;
-    try {
-      response = await fetchOfflineReplay(current.owner, "/api/inspections", {
+async function createOnServer(claim: OfflineClaim, now: number): Promise<Step> {
+  // Held, not repeated: this send may have created the job and the server can no
+  // longer recognise a repeat (or the record of when it was sent is unreadable).
+  const before = attemptState(claim.postAttemptedAt, now);
+  if (before === "stale" || before === "invalid") return { stop: await hold(claim) };
+
+  let current = claim;
+  let response: Response | null;
+  try {
+    response = await fetchOfflineReplay(
+      current.owner,
+      "/api/inspections",
+      {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey(current) },
         // No inspectionDate on purpose: it is never invented.
@@ -212,59 +207,90 @@ async function sendOne(claim: OfflineClaim, now: number): Promise<OfflineClaim |
           propertyPostcode: current.propertyPostcode,
           ...(current.notes ? { lossDescription: current.notes } : {}),
         }),
-      });
-    } catch {
-      response = null;
-    }
-    if (!response) {
-      // Offline, paused, or the account changed: nothing was sent or refused.
-      return current;
-    }
-    if (response.status === 201 || response.status === 200) {
-      const body = await response.json().catch(() => null);
-      const id = typeof body?.inspection?.id === "string" ? body.inspection.id : null;
-      if (!id) {
-        const held = { ...current, retryCount: current.retryCount + 1, lastStatus: response.status };
-        await put(held);
-        return held;
-      }
-      current = { ...current, serverInspectionId: id, lastStatus: response.status, state: "queued" };
-      await put(current);
-    } else if (response.status >= 400 && response.status < 500 && response.status !== 408 && response.status !== 409 && response.status !== 429) {
-      const failed: OfflineClaim = { ...current, state: "failed", lastStatus: response.status, retryCount: current.retryCount + 1 };
-      await put(failed);
-      return failed;
-    } else {
-      const retry = { ...current, retryCount: current.retryCount + 1, lastStatus: response.status };
-      await put(retry);
-      return retry;
-    }
+      },
+      // Runs after the account was verified and just before the request, so a
+      // refused or unverifiable send never starts the clock.
+      async () => {
+        if (attemptState(current.postAttemptedAt, now) === "never") {
+          current = { ...current, postAttemptedAt: new Date(now).toISOString() };
+          await put(current);
+        }
+      },
+      // The gate refused it (signed out, or paused): it was not processed, so
+      // the claim is not "possibly created" and must not be held for review.
+      async () => {
+        current = { ...current, postAttemptedAt: undefined };
+        await put(current);
+      },
+    );
+  } catch {
+    response = null;
   }
-
-  if (current.photo && !current.photoHandedOver) {
-    const evidence = await import("@/lib/evidence-upload-queue");
-    try {
-      // The inspection is new, so evidence already queued for it can only be
-      // this claim's photo from an attempt that stopped before it was marked.
-      const already = await evidence.getQueuedEvidenceForInspection(current.serverInspectionId!);
-      if (already.length === 0) {
-        await evidence.queueEvidenceUpload({
-          inspectionId: current.serverInspectionId!,
-          blob: current.photo.blob,
-          filename: current.photo.filename,
-          mimeType: current.photo.mimeType,
-          capturedAtUtc: current.capturedAt,
-        });
-      }
-      // The evidence queue now holds the bytes; do not keep a second copy.
-      current = { ...current, photoHandedOver: true, photo: undefined };
-      await put(current);
-    } catch {
-      // The job exists; the photo stays here and is handed over next time.
-      const retry = { ...current, retryCount: current.retryCount + 1 };
-      await put(retry);
-      return retry;
+  if (!response) return { stop: current }; // offline, refused or account changed
+  if (response.status === 201 || response.status === 200) {
+    const body = await response.json().catch(() => null);
+    const id = typeof body?.inspection?.id === "string" ? body.inspection.id : null;
+    if (!id) {
+      const unreadable = { ...current, retryCount: current.retryCount + 1, lastStatus: response.status };
+      await put(unreadable);
+      return { stop: unreadable };
     }
+    current = { ...current, serverInspectionId: id, lastStatus: response.status, state: "queued" };
+    await put(current);
+    return { next: current };
+  }
+  const permanent = response.status >= 400 && response.status < 500 && ![408, 409, 429].includes(response.status);
+  const failed: OfflineClaim = permanent
+    ? { ...current, state: "failed", lastStatus: response.status, retryCount: current.retryCount + 1 }
+    : { ...current, lastStatus: response.status, retryCount: current.retryCount + 1 };
+  await put(failed);
+  return { stop: failed };
+}
+
+async function handPhotoToEvidenceQueue(claim: OfflineClaim, now: number): Promise<Step> {
+  const before = attemptState(claim.photoAttemptedAt, now);
+  if (before === "stale" || before === "invalid") return { stop: await hold(claim) };
+  let current = claim;
+  if (before === "never") {
+    current = { ...current, photoAttemptedAt: new Date(now).toISOString() };
+    await put(current);
+  }
+  try {
+    const evidence = await import("@/lib/evidence-upload-queue");
+    // Stable id = stable Idempotency-Key. Already queued: no second entry.
+    // Already uploaded before a crash: the same key replays, never a new photo.
+    await evidence.queueEvidenceUpload({
+      id: photoId(current),
+      inspectionId: current.serverInspectionId!,
+      blob: current.photo!.blob,
+      filename: current.photo!.filename,
+      mimeType: current.photo!.mimeType,
+      capturedAtUtc: current.capturedAt,
+    });
+  } catch {
+    // Definitely not queued: the photo waits here and is handed over next time,
+    // so the "attempted" mark is cleared and cannot strand it.
+    const retry: OfflineClaim = { ...current, photoAttemptedAt: undefined, retryCount: current.retryCount + 1 };
+    await put(retry);
+    return { stop: retry };
+  }
+  // The evidence queue now holds the bytes; do not keep a second copy.
+  current = { ...current, photoHandedOver: true, photo: undefined };
+  await put(current);
+  return { next: current };
+}
+
+async function sendOne(claim: OfflineClaim, now: number): Promise<OfflineClaim | null> {
+  let current = claim;
+  if (!current.serverInspectionId) {
+    const step = await createOnServer(current, now);
+    if ("stop" in step) return step.stop;
+    current = step.next;
+  }
+  if (current.photo && !current.photoHandedOver) {
+    const step = await handPhotoToEvidenceQueue(current, now);
+    if ("stop" in step) return step.stop;
+    current = step.next;
   }
   await remove(current.clientUuid);
   return null;

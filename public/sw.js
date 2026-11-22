@@ -100,6 +100,10 @@ if (IS_LOCAL_DEV) {
           // Use individual add() calls so a 404 on one page doesn't break the whole install
           Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url))),
         )
+        // RA-7877: the offline page and the files it runs from are the one
+        // thing a no-signal cold start cannot do without. If this version cannot
+        // hold all of them, the install FAILS, so the previous worker and its
+        // working caches stay in place instead of being pruned on activate.
         .then(() => precacheOfflineShellAssets())
         .then(() => {
           // Take control immediately — don't wait for existing tabs to close
@@ -237,31 +241,34 @@ function isCacheableAsset(request, response) {
 /**
  * RA-7877: caching /offline's HTML alone is not enough. Its capture form is
  * JavaScript, and a cold start with no signal has no network to fetch the
- * /_next/static chunks from. Read the cached /offline HTML, find every static
- * file it names and cache each one through the same validity check the fetch
- * handler uses. A failure here never blocks the service worker install.
+ * /_next/static chunks from. Read this version's cached /offline HTML, find
+ * every static file it names and cache each one through the same validity check
+ * the fetch handler uses. Anything missing rejects, which fails the install.
  */
 async function precacheOfflineShellAssets() {
-  try {
-    const shell = await caches.match("/offline");
-    if (!shell) return;
-    const html = await shell.clone().text();
-    const found = new Set(
-      (html.match(/\/_next\/static\/[^"'\s\\<>)]+/g) || []).map((path) =>
-        path.replace(/&amp;/g, "&"),
-      ),
-    );
-    const cache = await caches.open(CACHE_STATIC);
-    await Promise.allSettled(
-      [...found].map(async (path) => {
-        const request = new Request(new URL(path, self.location.origin).href);
-        if (await cache.match(request)) return;
-        const response = await fetch(request);
-        if (isCacheableAsset(request, response)) await cache.put(request, response);
-      }),
-    );
-  } catch {
-    // The shell still installs; the assets are cached on first online use.
+  // Read only THIS version's caches. A page left in an older cache must never
+  // stand in for the new one: the old caches are deleted on activate.
+  const appCache = await caches.open(CACHE_APP);
+  const shell = await appCache.match("/offline");
+  if (!shell) throw new Error("The offline page could not be cached");
+  const html = await shell.clone().text();
+  const found = new Set(
+    (html.match(/\/_next\/static\/[^"'\s\\<>)]+/g) || []).map((path) =>
+      path.replace(/&amp;/g, "&"),
+    ),
+  );
+  const cache = await caches.open(CACHE_STATIC);
+  const results = await Promise.allSettled(
+    [...found].map(async (path) => {
+      const request = new Request(new URL(path, self.location.origin).href);
+      if (await cache.match(request)) return;
+      const response = await fetch(request);
+      if (!isCacheableAsset(request, response)) throw new Error("Not cacheable: " + path);
+      await cache.put(request, response);
+    }),
+  );
+  if (results.some((result) => result.status === "rejected")) {
+    throw new Error("The offline page's files could not all be cached");
   }
 }
 

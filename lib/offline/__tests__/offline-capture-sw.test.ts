@@ -19,9 +19,10 @@ const js = (body = "JS") => new Response(body, { headers: { "Content-Type": "app
 const css = () => new Response("body{}", { headers: { "Content-Type": "text/css" } });
 const html = (body: string) => new Response(body, { headers: { "Content-Type": "text/html" } });
 
-function install(network: (path: string) => Response | Promise<Response>) {
+function install(network: (path: string) => Response | Promise<Response>, seed?: (stores: Map<string, Map<string, Response>>) => void) {
   const listeners = new Map<string, (event: { waitUntil: (p: Promise<unknown>) => void }) => void>();
   const stores = new Map<string, Map<string, Response>>();
+  seed?.(stores);
   const keyOf = (r: string | { url: string }) => new URL(typeof r === "string" ? r : r.url, ORIGIN).pathname + new URL(typeof r === "string" ? r : r.url, ORIGIN).search;
   const open = async (name: string) => {
     if (!stores.has(name)) stores.set(name, new Map());
@@ -66,7 +67,6 @@ const network = (path: string) => {
   if (path === "/") return html("<html>home</html>");
   if (path === "/offline") return html(OFFLINE_HTML);
   if (path.endsWith(".css")) return css();
-  if (path === "/_next/static/chunks/offline-page.js") return new Response("not found", { status: 404 });
   return js(path);
 };
 
@@ -77,29 +77,40 @@ describe("service worker caches the /offline page's JavaScript on install", () =
     const cached = [...(sw.stores.get("nir-v2.3-static")?.keys() ?? [])].sort();
     expect(cached).toContain("/_next/static/chunks/app.css");
     expect(cached).toContain("/_next/static/chunks/main.js");
+    expect(cached).toContain("/_next/static/chunks/offline-page.js");
     expect(cached).toContain("/_next/static/chunks/flight.js");
-  });
-
-  it("does not cache a failed asset and still installs the shell", async () => {
-    const sw = install(network);
-    await sw.runInstall();
-    const cached = [...(sw.stores.get("nir-v2.3-static")?.keys() ?? [])];
-    expect(cached).not.toContain("/_next/static/chunks/offline-page.js");
     expect(sw.stores.get("nir-v2.3-app")?.has("/offline")).toBe(true);
   });
 
-  it("does not cache an HTML gateway page served at a chunk URL", async () => {
+  it("fails the install when a file the offline page needs cannot be cached, and does not cache it", async () => {
+    const sw = install((path) =>
+      path === "/_next/static/chunks/offline-page.js" ? new Response("not found", { status: 404 }) : network(path),
+    );
+    await expect(sw.runInstall()).rejects.toThrow();
+    expect([...(sw.stores.get("nir-v2.3-static")?.keys() ?? [])]).not.toContain("/_next/static/chunks/offline-page.js");
+  });
+
+  it("fails the install, and caches nothing, when an HTML gateway page is served at a chunk URL", async () => {
     const sw = install((path) => (path.endsWith("main.js") ? html("login") : network(path)));
-    await sw.runInstall();
+    await expect(sw.runInstall()).rejects.toThrow();
     expect([...(sw.stores.get("nir-v2.3-static")?.keys() ?? [])]).not.toContain("/_next/static/chunks/main.js");
   });
 
-  it("installs even when /offline cannot be fetched at all", async () => {
-    const sw = install((path) => {
-      if (path === "/offline") throw new Error("Synthetic network failure");
-      return network(path);
-    });
-    await expect(sw.runInstall()).resolves.toBeUndefined();
+  it("fails the install when /offline cannot be fetched, even though an older version holds a working copy", async () => {
+    // An upgrade must never replace a working offline shell with none: the old
+    // caches are pruned on activate, so a version without its own copy must not activate.
+    const sw = install(
+      (path) => {
+        if (path === "/offline") throw new Error("Synthetic network failure");
+        return network(path);
+      },
+      (stores) => {
+        stores.set("nir-v2.2-app", new Map([["/offline", html(OFFLINE_HTML)]]));
+      },
+    );
+    await expect(sw.runInstall()).rejects.toThrow();
+    expect(sw.stores.get("nir-v2.3-app")?.has("/offline") ?? false).toBe(false);
+    expect(sw.stores.get("nir-v2.2-app")?.has("/offline")).toBe(true);
   });
 
   it("uses a new cache version, so devices drop the old shell without these files", () => {

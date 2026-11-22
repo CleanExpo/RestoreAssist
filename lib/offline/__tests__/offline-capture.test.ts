@@ -88,6 +88,14 @@ async function coldStart() {
   queue = await import("@/lib/offline/claim-capture-queue");
 }
 
+async function rewriteClaim(clientUuid: string, patch: Record<string, unknown>) {
+  const { storeOperation } = await import("@/lib/offline/idb-store");
+  const spec = { db: "ra-offline-claims", version: 1, store: "claims", keyPath: "clientUuid" };
+  const rows = (await storeOperation(spec, "readonly", (store) => store.getAll())) as Array<Record<string, unknown>>;
+  const row = rows.find((entry) => entry.clientUuid === clientUuid)!;
+  await storeOperation(spec, "readwrite", (store) => store.put({ ...row, ...patch }));
+}
+const settle = () => new Promise((r) => setTimeout(r, 0));
 const photo = () => new File([new Uint8Array([1, 2, 3])], "wall.jpg", { type: "image/jpeg" });
 
 describe("device identity", () => {
@@ -186,6 +194,59 @@ describe("device identity", () => {
   });
 });
 
+describe("device identity ordering (a slow answer must not undo a sign-out)", () => {
+  it("is not restored by an online check that began before sign-out and answered after it", async () => {
+    await signInOnline(A);
+    await coldStart();
+    let release!: () => void;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url !== "/api/auth/offline-context") return new Response("{}", { status: 404 });
+      await new Promise<void>((resolve) => { release = resolve; });
+      return new Response(JSON.stringify({ owner: A }), { status: 200 });
+    });
+    const pending = identity.confirmDeviceIdentityOnline();
+    await settle();
+    boundary.endOfflineSession();
+    release();
+    await pending;
+    await settle();
+    expect(await identity.loadDeviceIdentity()).toBeNull();
+    // A cold start after that must not reopen capture for the signed-out account.
+    await coldStart();
+    await expect(queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toThrow(/Sign in/);
+  });
+
+  it("is not restored by a write that was asked for before a wipe", async () => {
+    const write = identity.rememberDeviceIdentity(A);
+    const wipe = identity.forgetDeviceIdentity();
+    await Promise.all([write, wipe]);
+    expect(await identity.loadDeviceIdentity()).toBeNull();
+  });
+
+  it("still lets a sign-in AFTER a wipe write its own copy", async () => {
+    await signInOnline(A);
+    boundary.endOfflineSession();
+    await signInOnline(B);
+    await coldStart();
+    expect((await identity.loadDeviceIdentity())?.owner).toEqual(B);
+  });
+
+  it("is wiped by a definite 401 on a replay, even if the device goes offline straight after", async () => {
+    await signInOnline(A);
+    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    fetchMock.mockImplementation(async (url: string) =>
+      url === "/api/auth/offline-context"
+        ? new Response(JSON.stringify({ owner: A }), { status: 200 })
+        : new Response("{}", { status: 401 }),
+    );
+    await queue.drainOfflineClaims();
+    await settle();
+    await coldStart();
+    expect(await identity.loadDeviceIdentity()).toBeNull();
+    expect(await queue.listQueuedClaims()).toHaveLength(1);
+  });
+});
+
 describe("capturing a claim offline", () => {
   it("refuses, and saves nothing, with no verified account and no device identity", async () => {
     await expect(queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toThrow(/Sign in/);
@@ -231,6 +292,29 @@ describe("capturing a claim offline", () => {
     await signInOnline(B);
     expect(await queue.listOwnClaims()).toEqual([]);
     expect(await queue.listQueuedClaims()).toHaveLength(1);
+  });
+});
+
+describe("a save is not reported until the device has committed it", () => {
+  it("rejects when the storage transaction aborts after the write request succeeded", async () => {
+    await signInOnline();
+    const real = indexedDB.open.bind(indexedDB);
+    const db = await new Promise<IDBDatabase>((resolve) => {
+      const open = real("ra-offline-claims", 1);
+      open.onupgradeneeded = (event) => {
+        (event.target as IDBOpenDBRequest).result.createObjectStore("claims", { keyPath: "clientUuid" });
+      };
+      open.onsuccess = () => resolve(open.result);
+    });
+    const originalTransaction = db.transaction.bind(db);
+    // A late quota or storage abort: the request succeeds, the transaction never completes.
+    (db as unknown as { transaction: unknown }).transaction = (...args: Parameters<IDBDatabase["transaction"]>) => {
+      const tx = originalTransaction(...args);
+      Object.defineProperty(tx, "oncomplete", { configurable: true, set() { /* never completes */ }, get: () => null });
+      setTimeout(() => (tx as unknown as { abort: () => void }).abort(), 5);
+      return tx;
+    };
+    await expect(queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toBeTruthy();
   });
 });
 
@@ -316,6 +400,112 @@ describe("sending on reconnect", () => {
     createStatus = 201;
     await queue.drainOfflineClaims(Date.now() + queue.CLAIM_IDEMPOTENCY_WINDOW_MS + HOUR);
     expect(createdBodies).toHaveLength(1);
+    expect((await queue.listQueuedClaims())[0].state).toBe("needs_review");
+  });
+});
+
+describe("what a send may have done (one rule: attemptState)", () => {
+  it("classifies an attempt: never, recent, stale, and an unreadable time as invalid", () => {
+    const now = Date.now();
+    expect(queue.attemptState(undefined, now)).toBe("never");
+    expect(queue.attemptState(new Date(now - HOUR).toISOString(), now)).toBe("recent");
+    expect(queue.attemptState(new Date(now - queue.CLAIM_IDEMPOTENCY_WINDOW_MS - HOUR).toISOString(), now)).toBe("stale");
+    expect(queue.attemptState("invalid", now)).toBe("invalid");
+    expect(queue.attemptState(12345, now)).toBe("invalid");
+    expect(queue.attemptState(new Date(now + 5 * HOUR).toISOString(), now)).toBe("invalid");
+  });
+
+  it("holds a claim whose recorded attempt time cannot be read, and never sends it", async () => {
+    await signInOnline();
+    const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await rewriteClaim(claim.clientUuid, { postAttemptedAt: "invalid" });
+    await queue.drainOfflineClaims();
+    expect(createdBodies).toHaveLength(0);
+    expect((await queue.listQueuedClaims())[0].state).toBe("needs_review");
+  });
+
+  it("does not start the 24 hour clock when the account could not be verified, so a never-sent claim is still sent later", async () => {
+    await signInOnline();
+    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 503 }));
+    await queue.drainOfflineClaims();
+    expect(createdBodies).toHaveLength(0);
+    expect((await queue.listQueuedClaims())[0].postAttemptedAt).toBeUndefined();
+    // Service comes back more than a day later.
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === "/api/auth/offline-context") return new Response(JSON.stringify({ owner: A }), { status: 200 });
+      if (url === "/api/inspections" && init?.method === "POST") {
+        createdBodies.push({ key: new Headers(init.headers).get("Idempotency-Key"), body: JSON.parse(String(init.body)), ownerHeader: null });
+        return new Response(JSON.stringify({ inspection: { id: "inspection-1" } }), { status: 201 });
+      }
+      return new Response("{}", { status: 404 });
+    });
+    await signInOnline();
+    expect(await queue.drainOfflineClaims(Date.now() + queue.CLAIM_IDEMPOTENCY_WINDOW_MS + HOUR)).toBe(1);
+    expect(createdBodies).toHaveLength(1);
+    expect(await queue.listQueuedClaims()).toEqual([]);
+  });
+
+  it("clears the attempt mark when the gate refuses the request (401), because nothing was created", async () => {
+    await signInOnline();
+    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    fetchMock.mockImplementation(async (url: string) =>
+      url === "/api/auth/offline-context"
+        ? new Response(JSON.stringify({ owner: A }), { status: 200 })
+        : new Response("{}", { status: 401 }),
+    );
+    await queue.drainOfflineClaims();
+    const [held] = await queue.listQueuedClaims();
+    expect(held.state).toBe("queued");
+    expect(held.postAttemptedAt).toBeUndefined();
+  });
+
+  it("keeps the attempt mark after a network error, because the request may have reached the server", async () => {
+    await signInOnline();
+    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/auth/offline-context") return new Response(JSON.stringify({ owner: A }), { status: 200 });
+      throw new TypeError("Failed to fetch");
+    });
+    await queue.drainOfflineClaims();
+    expect((await queue.listQueuedClaims())[0].postAttemptedAt).toBeDefined();
+  });
+});
+
+describe("the photo of a claim (stable id, one upload)", () => {
+  it("hands the photo over under a stable id derived from the claim", async () => {
+    await signInOnline();
+    const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    await queue.drainOfflineClaims();
+    expect(handOver.mock.calls[0][0].id).toBe(`claim-photo-${claim.clientUuid}`);
+  });
+
+  it("re-hands the photo over under the SAME id after a crash that left no queue entry (uploaded and removed before the marker)", async () => {
+    await signInOnline();
+    const crashed = await queue.captureOfflineClaim({ propertyAddress: "3 Test St", propertyPostcode: "4000", photo: photo() });
+    // The crashed state: job created, hand-over attempted, marker never written, queue empty.
+    await rewriteClaim(crashed.clientUuid, {
+      serverInspectionId: "inspection-9",
+      postAttemptedAt: new Date().toISOString(),
+      photoAttemptedAt: new Date().toISOString(),
+    });
+    await queue.drainOfflineClaims();
+    expect(createdBodies).toHaveLength(0);
+    expect(handOver).toHaveBeenCalledTimes(1);
+    expect(handOver.mock.calls[0][0]).toMatchObject({ id: `claim-photo-${crashed.clientUuid}`, inspectionId: "inspection-9" });
+    expect(await queue.listQueuedClaims()).toEqual([]);
+  });
+
+  it("holds a photo hand-over whose attempt is older than the server's window, rather than uploading it again", async () => {
+    await signInOnline();
+    const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    await rewriteClaim(claim.clientUuid, {
+      serverInspectionId: "inspection-1",
+      postAttemptedAt: new Date(Date.now() - 3 * 24 * HOUR).toISOString(),
+      photoAttemptedAt: new Date(Date.now() - 3 * 24 * HOUR).toISOString(),
+    });
+    await queue.drainOfflineClaims();
+    expect(handOver).not.toHaveBeenCalled();
     expect((await queue.listQueuedClaims())[0].state).toBe("needs_review");
   });
 });

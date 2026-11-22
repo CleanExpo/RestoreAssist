@@ -168,12 +168,22 @@ export async function queueEvidenceUpload(input: {
   /** Same key as an uncertain direct POST, to make replay idempotent. */
   directRetryKey?: string;
   directCocoaSha256?: string;
+  /**
+   * RA-7877: a caller-chosen stable entry id, which is also the photo POST's
+   * Idempotency-Key. Queuing the same id again does nothing (the entry may be
+   * waiting) and, if it already uploaded, replays under the same key rather than
+   * a new random one, so an interrupted hand-over cannot upload the photo twice.
+   */
+  id?: string;
 }): Promise<string> {
   const owner = requireOfflineOwner();
   const db = await openDatabase();
 
   if (input.directRetryKey && !/^[\x21-\x7e]{8,255}$/.test(input.directRetryKey)) {
     throw new Error("Invalid photo retry key");
+  }
+  if (input.id !== undefined && !/^[\x21-\x7e]{8,255}$/.test(input.id)) {
+    throw new Error("Invalid photo id");
   }
   const compressed = input.directRetryKey
     ? { blob: input.blob, originalSize: input.blob.size, compressedSize: input.blob.size, format: input.mimeType, skipped: true }
@@ -186,7 +196,7 @@ export async function queueEvidenceUpload(input: {
   if (!ownsOfflineEntry({ owner })) throw new Error("Offline account changed; photo was not overwritten");
   const entry: EvidenceQueueEntry = {
     owner,
-    id: input.directRetryKey ?? generateId(),
+    id: input.directRetryKey ?? input.id ?? generateId(),
     inspectionId: input.inspectionId,
     blob: compressed.blob,
     filename: compressed.skipped
@@ -222,6 +232,8 @@ export async function queueEvidenceUpload(input: {
     read.onsuccess = () => {
       if (!ownsOfflineEntry({ owner })) return refuse("Offline account changed; photo was not overwritten");
       const entries = read.result;
+      // A stable id already queued: nothing to add, and nothing to refuse.
+      if (input.id !== undefined && entries.some((row) => row.id === input.id)) return;
       const active = entries.filter((row) => sameOfflineOwner(row.owner, owner) && row.retryCount < MAX_RETRY_COUNT).length;
       if (active >= MAX_QUEUE_SIZE) return refuse(`Evidence queue full (${MAX_QUEUE_SIZE}) — sync pending uploads before capturing more`);
       const storedBytes = entries.reduce((total, row) => total + (row.blob?.size ?? 0), 0);

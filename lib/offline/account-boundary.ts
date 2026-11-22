@@ -121,7 +121,14 @@ export async function offlineReplayOptions(owner: OfflineOwner | undefined): Pro
   return { headers: { [OFFLINE_OWNER_HEADER]: encodeURIComponent(JSON.stringify(owner)) }, signal: controller.signal };
 }
 
-export async function fetchOfflineReplay(owner: OfflineOwner | undefined, url: string, init: RequestInit, beforeSend?: () => Promise<void>): Promise<Response | null> {
+/**
+ * `beforeSend` runs after the account is verified and just before the request.
+ * `onRefused` runs when the server answered 401, 403 or "paused" at the gate,
+ * which is a definite "not processed": a caller that marked the send as
+ * attempted can undo that mark, so a claim that was never created is never
+ * held back as "might have been created" (RA-7877).
+ */
+export async function fetchOfflineReplay(owner: OfflineOwner | undefined, url: string, init: RequestInit, beforeSend?: () => Promise<void>, onRefused?: () => Promise<void>): Promise<Response | null> {
   if (!url.startsWith("/api/") || /[\\\u0000-\u0020]/.test(url) || url.includes("://")) return null;
   const options = await offlineReplayOptions(owner);
   if (!options) return null;
@@ -133,7 +140,12 @@ export async function fetchOfflineReplay(owner: OfflineOwner | undefined, url: s
     const response = await fetch(url, { ...init, credentials: "same-origin", headers, signal: options.signal });
     if (!ownsOfflineEntry({ owner })) return null;
     if (response.status === 401 || response.status === 403 || response.headers?.get("x-restoreassist-offline-paused") === "1") {
+      // A 401 is definite: no signed-in session. The device copy that opens
+      // offline capture goes with it, even if the device drops offline before
+      // any page can ask again (RA-7877).
+      if (response.status === 401) void forgetDeviceIdentity();
       clearOfflineContext();
+      await onRefused?.().catch(() => undefined);
       return null;
     }
     return response;
