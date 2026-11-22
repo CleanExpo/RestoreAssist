@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { QuickMoistureEntry } from "@/components/mobile/QuickMoistureEntry";
 import { MobileNav } from "@/components/mobile/MobileNav";
 import { Badge } from "@/components/ui/badge";
+import { SiteVisitPanel } from "@/components/inspection/SiteVisitPanel";
 import {
   moistureReadingsRequired,
   type IicrcClaimType,
@@ -76,7 +77,9 @@ const STATUS_LABEL: Record<string, string> = {
   CLOSED: "Closed",
 };
 
-type TabId = "readings" | "checklist";
+// RA-8498: "visit" is the site visit record (arrival, departure, who was on
+// site, front photo, equipment); every claim type has it.
+type TabId = "visit" | "readings" | "checklist";
 
 export default function FieldModePage({ params }: PageProps) {
   const { id: inspectionId } = use(params);
@@ -149,9 +152,11 @@ export default function FieldModePage({ params }: PageProps) {
         // water job, whose default tab is readings.
         if (loadedFor.current !== inspectionId) {
           setTab(
-            needsMoisture && window.location.hash !== "#checklist"
-              ? "readings"
-              : "checklist",
+            window.location.hash === "#visit"
+              ? "visit"
+              : needsMoisture && window.location.hash !== "#checklist"
+                ? "readings"
+                : "checklist",
           );
         }
         loadedFor.current = inspectionId;
@@ -180,6 +185,7 @@ export default function FieldModePage({ params }: PageProps) {
   useEffect(() => {
     const onHash = () => {
       if (window.location.hash === "#checklist") setTab("checklist");
+      if (window.location.hash === "#visit") setTab("visit");
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -237,8 +243,8 @@ export default function FieldModePage({ params }: PageProps) {
   }
 
   const tabs: TabId[] = waterClaim
-    ? ["readings", "checklist"]
-    : ["checklist"];
+    ? ["visit", "readings", "checklist"]
+    : ["visit", "checklist"];
 
   return (
     <div className="min-h-screen bg-brand-cloud dark:bg-brand-canvas text-brand-navy dark:text-white pb-20">
@@ -366,7 +372,11 @@ export default function FieldModePage({ params }: PageProps) {
                   : "text-brand-slate dark:text-white/40 hover:text-brand-slate dark:hover:text-white/60",
               )}
             >
-              {t === "readings" ? (
+              {t === "visit" ? (
+                <span className="flex items-center justify-center gap-1.5">
+                  Visit
+                </span>
+              ) : t === "readings" ? (
                 <span className="flex items-center justify-center gap-1.5">
                   <Droplets className="h-4 w-4" />
                   Moisture
@@ -390,6 +400,8 @@ export default function FieldModePage({ params }: PageProps) {
 
       {/* Tab content */}
       <div className="px-4 py-4">
+        {tab === "visit" && <SiteVisitPanel inspectionId={inspectionId} />}
+
         {tab === "readings" && waterClaim && (
           <div className="space-y-6">
             <QuickMoistureEntry

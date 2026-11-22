@@ -309,6 +309,9 @@ export const INSPECTION_LINKS: Readonly<Record<string, LinkUse>> = {
   australianComplianceRecord: ["finding", "one"],
   // RA-8495: the organisation that issued the job number.
   jobNumberOrganization: ["other", "one"],
+  // RA-8498: site visit records (arrival, departure, who was on site, front
+  // photo, equipment). The report does not show them yet (DRC S11, RA-8504).
+  siteVisits: ["other", "many"],
 };
 
 function isEvidence(use: FieldUse): use is EvidenceKind {

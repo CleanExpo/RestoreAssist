@@ -80,6 +80,10 @@ const GATED: Record<string, string[]> = {
   "sketches/promote-homeowner/route.ts": ["POST"],
   "sketches/underlay/route.ts": ["POST"],
   "storm-damage/route.ts": ["POST"],
+  // RA-8498 (DRC S5): the site visit record is field data the technician records on site.
+  "visits/route.ts": ["POST"],
+  "visits/[visitId]/route.ts": ["PATCH"],
+  "visits/[visitId]/submit/route.ts": ["POST"],
   "voice/observation/route.ts": ["POST"],
   "voice/session/route.ts": ["POST"],
   "water-damage-classification/route.ts": ["POST"],
