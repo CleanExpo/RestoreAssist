@@ -157,7 +157,7 @@ function buildReport(args: {
     body:
       `Inspection of ${args.propertyAddress} recorded ` +
       `${args.iicrcClassification} mould contamination (the condition ` +
-      `entered by the assessor) across ` +
+      `entered for this assessment, not derived by this report) across ` +
       `${args.affectedAreaM2.toFixed(1)} m². IICRC S520:2024 §3, an ` +
       `industry standard, guides remediation by condition: ` +
       `Condition 2 (settled spores / traces of amplification) requires ` +
@@ -216,18 +216,19 @@ function buildReport(args: {
   });
 
   sections.push({
-    heading: "Clearance criteria",
+    heading: "Post-remediation verification",
     body:
       `Clearance is decided by an independent qualified assessor (for ` +
       `example, an occupational hygienist or Indoor Environmental ` +
-      `Professional), not by this report. Post-remediation verification ` +
-      `(PRV) as described in S520 §13 covers: ` +
+      `Professional), not by this report, and this report sets no ` +
+      `clearance criteria. Matters that assessor may consider, as ` +
+      `described in S520 §13: ` +
       `(1) visible inspection — no mould growth, water staining, or ` +
       `excessive dust; (2) moisture content of remaining materials at ` +
       `or below the IICRC dry-standard for the material type; (3) ` +
       `airborne spore counts comparable to the outdoor baseline taken ` +
       `at the start of the work. Recommend the independent assessment ` +
-      `in every case, and especially where the assessor recorded ` +
+      `in every case, and especially where the recorded condition is ` +
       `Condition 3 or occupants are immunocompromised.`,
     citations: [cite("§13"), cite("§13.4"), cite("§13.5")],
   });

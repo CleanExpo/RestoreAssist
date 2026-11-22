@@ -312,7 +312,7 @@ export async function POST(
     };
     const effectiveSystemPrompt = isMultiClaim
       ? getMultiClaimPrompt(effectiveClaimTypes, promptOptions)
-      : getClaimTypePrompt(claimType as ClaimType, promptOptions);
+      : getClaimTypePrompt(effectiveClaimTypes[0] as ClaimType, promptOptions);
 
     // ============================================================
     // RA-6971 (BYOK, P1) — resolve the workspace's own Anthropic key and pass

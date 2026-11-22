@@ -80,6 +80,19 @@ const MOULD_MULTI_COMBOS: string[][] = [
   ["storm", "mould"],
 ];
 
+/**
+ * Allow-list, not deny-list: every prompt line that names "Condition 1/2/3"
+ * must tie it to the recorded condition. A new phrasing that hands the model
+ * a condition to apply fails here even if no banned pattern matches it.
+ */
+function unrecordedConditionLines(text: string): string[] {
+  return text
+    .split("\n")
+    .filter((line) => /\bCondition\s*[123]\b/.test(line))
+    .filter((line) => !/\brecorded\b/i.test(line))
+    .map((line) => line.trim().slice(0, 160));
+}
+
 function bannedHits(text: string): string[] {
   return PROMPT_BANNED.filter(({ re }) => re.test(text)).map(({ id, re }) => {
     const m = text.match(re);
@@ -108,6 +121,20 @@ describe("RA-8540 mould prompts — the model never assigns condition or clearan
     const prompt = getClaimTypePrompt("mould");
     expect(prompt).toContain(MOULD_ASSESSOR_ONLY_HEADING);
     expect(bannedHits(prompt)).toEqual([]);
+    expect(unrecordedConditionLines(prompt)).toEqual([]);
+  });
+
+  it("the allow-list rejects a condition line that is not tied to the record (positive control)", () => {
+    expect(
+      unrecordedConditionLines(
+        "Air scrubbers mandatory (Cat 2/3 water or Condition 3 mould).",
+      ),
+    ).toHaveLength(1);
+    expect(
+      unrecordedConditionLines(
+        "Air scrubbers mandatory where the recorded mould condition is Condition 3.",
+      ),
+    ).toEqual([]);
   });
 
   it.each(MOULD_MULTI_COMBOS.map((c) => [c.join("+"), c] as const))(
@@ -116,34 +143,37 @@ describe("RA-8540 mould prompts — the model never assigns condition or clearan
       const prompt = getMultiClaimPrompt(combo);
       expect(prompt).toContain(MOULD_ASSESSOR_ONLY_HEADING);
       expect(bannedHits(prompt)).toEqual([]);
+      expect(unrecordedConditionLines(prompt)).toEqual([]);
     },
   );
 
   it.each(ALL_CLAIM_TYPES)(
     "the %s prompt carries no condition or clearance assignment instruction",
     (claimType) => {
-      expect(bannedHits(getClaimTypePrompt(claimType))).toEqual([]);
+      const prompt = getClaimTypePrompt(claimType);
+      expect(bannedHits(prompt)).toEqual([]);
+      expect(unrecordedConditionLines(prompt)).toEqual([]);
     },
   );
 
   it("states 'none recorded' when no assessor condition is supplied", () => {
     const prompt = getClaimTypePrompt("mould");
-    expect(prompt).toMatch(/Assessor-recorded mould condition for this job: none recorded/);
+    expect(prompt).toMatch(/Recorded mould condition for this job: none recorded/);
     expect(prompt).toMatch(/refer to a qualified assessor/i);
   });
 
-  it("passes through only the assessor-recorded condition, attributed to the assessor", () => {
+  it("passes through only the recorded condition, attributed to the job's record", () => {
     const single = getClaimTypePrompt("mould", {
       recordedMouldCondition: "CONDITION_3",
     });
     expect(single).toMatch(
-      /Assessor-recorded mould condition for this job: Condition 3, as recorded by the assessor/,
+      /Recorded mould condition for this job: Condition 3, as recorded on this job's mould assessment form/,
     );
     const multi = getMultiClaimPrompt(["water_damage", "mould"], {
       recordedMouldCondition: "CONDITION_2",
     });
     expect(multi).toMatch(
-      /Assessor-recorded mould condition for this job: Condition 2, as recorded by the assessor/,
+      /Recorded mould condition for this job: Condition 2, as recorded on this job's mould assessment form/,
     );
   });
 
@@ -200,6 +230,12 @@ const SURFACE_BANNED: ReadonlyArray<{ id: string; re: RegExp }> = [
   { id: "clearance-criteria-condition", re: /Clearance criteri(a|on)\s*:\s*Condition/i },
   { id: "classify-condition", re: /\bclassify\s+Condition\s*[123]/i },
   { id: "clearance-is-met", re: /clearance is met when/i },
+  // Condition 1 as the clearance test, printed by software.
+  { id: "condition-1-as-clearance", re: /returns? the area to Condition 1/i },
+  // A condition printed for keyword-detected mould, as if assessed.
+  { id: "printed-inferred-condition", re: /S520 Condition 3 \(active growth\)/i },
+  // Provenance the code cannot prove: any assigned team member can write the form.
+  { id: "assessor-provenance", re: /(entered|recorded) by the assessor/i },
 ];
 
 interface Hit {
@@ -243,6 +279,11 @@ describe("RA-8540 mould product copy — no over-reach", () => {
       "clearance-criteria-condition": "Clearance criteria: Condition 1 restored.",
       "classify-condition": "classify Condition 2 mould risk",
       "clearance-is-met": "clearance is met when the indoor mycoflora normalises",
+      "condition-1-as-clearance":
+        "Air movers MUST NOT run until post-remediation verification returns the area to Condition 1 (IICRC S520).",
+      "printed-inferred-condition":
+        "S520 Condition 3 (active growth): fit-tested RPE required (AS/NZS 1715)",
+      "assessor-provenance": "Condition 3, as recorded by the assessor on this job.",
     };
     for (const { id, re } of SURFACE_BANNED) {
       expect(re.test(samples[id]), id).toBe(true);
@@ -273,7 +314,7 @@ describe("RA-8540 mould product copy — no over-reach", () => {
     const mould = WORKFLOW_TEMPLATES.MOULD;
     const text = JSON.stringify(mould);
     expect(text).not.toMatch(/Stachybotrys|toxic mould|black mould/i);
-    expect(text).not.toMatch(/\b\d+\s*(sqm|m²|m2)\b/i);
+    expect(text).not.toMatch(/\b\d+\s*(sqm|m²|m2)/i);
     expect(mould.riskEscalationTriggers.join(" ")).toMatch(/qualified assessor/i);
   });
 });

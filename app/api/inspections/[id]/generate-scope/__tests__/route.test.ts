@@ -203,6 +203,23 @@ describe("POST /api/inspections/[id]/generate-scope", () => {
     await response.text();
   });
 
+  // A single entry in claimTypes is the claim type. It used to be ignored, so
+  // claimTypes=["mould"] silently got the water prompt and no mould rules.
+  it("uses a single claimTypes entry as the claim type", async () => {
+    generateScopeStream.mockResolvedValueOnce({ ok: true, data: emptyStream() });
+
+    const response = await POST(postRequest({ claimTypes: ["mould"] }), {
+      params: Promise.resolve({ id: "inspection_1" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(getClaimTypePrompt).toHaveBeenCalledWith(
+      "mould",
+      expect.objectContaining({ recordedMouldCondition: null }),
+    );
+    await response.text();
+  });
+
   it("passes no mould condition when no assessor has recorded one", async () => {
     generateScopeStream.mockResolvedValueOnce({ ok: true, data: emptyStream() });
 

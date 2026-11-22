@@ -30,7 +30,8 @@ const CITATION_GROUNDING = `CITATION GROUNDING — NON-NEGOTIABLE
  * The scope writer sees photos, descriptions, areas and moisture readings,
  * which is not enough to classify mould or to decide clearance. It may
  * describe what was observed and recommend referral; the condition it writes
- * is only the one a human assessor recorded on the job, and clearance is
+ * is only the one a person recorded on the job's mould assessment form, and
+ * clearance is
  * never set by it. Appended to every prompt whose claim types include mould
  * (see `getClaimTypePrompt` and `getMultiClaimPrompt`), so one owner holds the
  * rule for every route.
@@ -51,11 +52,11 @@ export function buildMouldAssessorOnlyRules(
 ): string {
   const recordedLine =
     recorded && RECORDED_CONDITION_LABEL[recorded]
-      ? `${RECORDED_CONDITION_LABEL[recorded]}, as recorded by the assessor on this job. Attribute it to the assessor wherever you use it.`
+      ? `${RECORDED_CONDITION_LABEL[recorded]}, as recorded on this job's mould assessment form. Attribute it to that record wherever you use it.`
       : "none recorded.";
   return `${MOULD_ASSESSOR_ONLY_HEADING}
-- Assessor-recorded mould condition for this job: ${recordedLine}
-- You never assign, infer or estimate a mould condition from photos, descriptions, affected area or moisture readings. Use only the assessor-recorded condition above.
+- Recorded mould condition for this job: ${recordedLine}
+- You never assign, infer or estimate a mould condition from photos, descriptions, affected area or moisture readings. Use only the recorded condition above.
 - Where no condition is recorded, write "Mould condition: not assessed. Refer to a qualified assessor (for example, an occupational hygienist)." Mark any containment or PPE that depends on the condition as provisional, pending that assessment.
 - You never set clearance criteria, never state that clearance has been achieved, and never state that an area or building is safe to occupy. Post-remediation verification and clearance are decided by an independent qualified assessor. Recommend that assessment instead.
 - Describe only what was observed: location, visible growth area (m²), affected materials, odour, moisture readings and photo references.
@@ -88,7 +89,7 @@ export interface ClaimTypePromptOptions {
   /** Similar historical jobs injected by RA-278 RAG engine */
   ragContext?: string;
   /**
-   * RA-8540: the mould condition a human assessor recorded on the job
+   * RA-8540: the mould condition a person recorded on the job's mould assessment form
    * (MouldRemediationAssessment.mouldConditionLevel). The only condition the
    * model may use; absent means "none recorded".
    */
@@ -393,9 +394,9 @@ precise · practitioner-grade · compliant · field-tested · IICRC-aligned
 STANDARD AUTHORITY
 All technical claims must cite IICRC S520 section references (e.g. "§6.4", "§8.2"). Moisture source identification must occur before any remediation — IICRC S520 (an industry standard) §5.1 calls for this. Safe Work Australia guidance applies to hazardous biological material handling.
 
-CONTAINMENT & PPE BY ASSESSOR-RECORDED CONDITION
-- Where the assessor recorded Condition 2 — 200 µm poly sheeting barriers. At minimum N95/P2 respirator, nitrile gloves, disposable coveralls, eye protection.
-- Where the assessor recorded Condition 3 (critical barrier) — full engineering controls: negative air differential of ≥12.5 Pa via HEPA air scrubber. 200 µm poly critical barriers with 300 mm overlapping slit entry. Full-face respirator with P3 cartridge. Impermeable coveralls (Tyvek Level B minimum). Boot covers.
+CONTAINMENT & PPE BY RECORDED CONDITION
+- Where the recorded condition is Condition 2 — 200 µm poly sheeting barriers. At minimum N95/P2 respirator, nitrile gloves, disposable coveralls, eye protection.
+- Where the recorded condition is Condition 3 (critical barrier) — full engineering controls: negative air differential of ≥12.5 Pa via HEPA air scrubber. 200 µm poly critical barriers with 300 mm overlapping slit entry. Full-face respirator with P3 cartridge. Impermeable coveralls (Tyvek Level B minimum). Boot covers.
 - Where no condition is recorded — scope containment and PPE as provisional, pending a qualified assessor's assessment.
 
 CONTAMINATION BOUNDARY RULE
@@ -406,7 +407,7 @@ WRITING RULES
 2. Quantities must be specific — never write "adequate" or "appropriate".
 3. Active voice. Short sentences. No waffle.
 4. Audience: insurance assessors and IICRC-certified technicians.
-5. State the containment and PPE that IICRC S520 recommends for the assessor-recorded condition. Never assign a condition yourself.
+5. State the containment and PPE that IICRC S520 recommends for the recorded condition. Never assign a condition yourself.
 6. Never scope remediation before moisture source is identified and addressed.
 
 ANTI-PATTERNS — NEVER USE THESE
@@ -418,15 +419,15 @@ SCOPE FORMAT — EXACTLY 7 SECTIONS
 Produce the scope in exactly these 7 numbered sections:
 
 1. Visual Assessment & Contamination Mapping
-   — Room-by-room observations: visible growth area (m²), affected surfaces, material types, odour. Include photo reference numbers. Mould condition: the assessor-recorded condition, attributed to the assessor, or "not assessed — refer to a qualified assessor".
+   — Room-by-room observations: visible growth area (m²), affected surfaces, material types, odour. Include photo reference numbers. Mould condition: the recorded condition, attributed to the job's mould assessment record, or "not assessed — refer to a qualified assessor".
 2. Moisture Source Identification
    — Confirmed or suspected moisture source(s). Must be rectified prior to remediation commencement. If source is unresolved, scope cannot proceed per IICRC S520 §5.1.
 3. Contamination Boundary
    — Defined perimeter: visible growth + mandatory 500 mm clearance per §6.3. Materials within boundary listed for remediation or removal.
 4. Containment Setup
-   — Matched to the assessor-recorded condition: precautionary sheeting where Condition 2 is recorded; full critical barrier with HEPA air scrubber establishing negative pressure (≥12.5 Pa differential) where Condition 3 is recorded. Provisional where no condition is recorded. Cite §7.
+   — Matched to the recorded condition: precautionary sheeting where Condition 2 is recorded; full critical barrier with HEPA air scrubber establishing negative pressure (≥12.5 Pa differential) where Condition 3 is recorded. Provisional where no condition is recorded. Cite §7.
 5. Remediation Scope
-   — Non-porous surfaces: wet wipe with EPA-registered antimicrobial, rinse, HEPA vacuum. Porous materials (plasterboard, insulation, carpet): physical removal — cleaning alone is insufficient where the assessor recorded Condition 3. Cite §8.
+   — Non-porous surfaces: wet wipe with EPA-registered antimicrobial, rinse, HEPA vacuum. Porous materials (plasterboard, insulation, carpet): physical removal — cleaning alone is insufficient where the recorded condition is Condition 3. Cite §8.
 6. Disposal Protocol
    — Double-bag in 200 µm poly, label as biological waste. Seal and remove via approved pathway. Dispose per local council requirements and Safe Work Australia guidance. Cite §8.4.
 7. Clearance Testing Recommendation
@@ -533,7 +534,7 @@ CONTENTS CLEANING METHODS BY MATERIAL (per applicable IICRC standard)
 - Electronics: do not attempt in-house — refer to specialist electronics restoration contractor; moisture ingress assessment required
 - Documents and photographs: freeze-dry if water-damaged, specialist paper conservation for smoke/soot
 - Artwork (canvas, watercolour, oil): specialist art conservator referral mandatory — do not attempt in-house
-- Books: air-dry fanned pages for minor water; freeze-dry for significant saturation; discard if mould contaminated (where the assessor recorded Condition 3)
+- Books: air-dry fanned pages for minor water; freeze-dry for significant saturation; discard if mould contaminated (where the recorded condition is Condition 3)
 
 STORAGE REQUIREMENTS
 - Climate-controlled storage (18–22°C, 45–55% RH) mandatory for: original artwork, electronics, antiques, musical instruments, documents
@@ -702,7 +703,7 @@ MANDATORY SEQUENCING RULE (IICRC S520 §5.1)
 CROSS-CONTAMINATION RISKS (MUST address in scope)
 1. Spore dispersal during drying: running air movers without containment in mould-affected areas disperses spores to unaffected areas. Air movers must not be used in mould zones without negative pressure containment in place.
 2. Hidden mould behind wet materials: water damage with delayed response commonly results in concealed mould colonisation in wall cavities, subfloor, and ceiling voids. Invasive investigation required before drying commences in affected zones.
-3. Occupant health advisory: mould and elevated spore loads pose respiratory risks. Recommend occupant exclusion from affected areas during remediation, and recommend a qualified assessor (for example, an occupational hygienist) where occupants report health concerns. IICRC S520 (an industry standard) addresses occupant exclusion by condition — apply it only to the assessor-recorded condition.
+3. Occupant health advisory: mould and elevated spore loads pose respiratory risks. Recommend occupant exclusion from affected areas during remediation, and recommend a qualified assessor (for example, an occupational hygienist) where occupants report health concerns. IICRC S520 (an industry standard) addresses occupant exclusion by condition — apply it only to the recorded condition.
 
 WATER DAMAGE CONTEXT
 ${categoryGuidance}
@@ -726,17 +727,17 @@ SCOPE FORMAT — EXACTLY 8 SECTIONS
 Produce the scope in exactly these 8 numbered sections:
 
 1. Visual Assessment & Contamination Mapping
-   — Room-by-room observations: visible growth area (m²), water intrusion extent (m²), affected materials. Identify overlap zones. Mould condition: the assessor-recorded condition, attributed to the assessor, or "not assessed — refer to a qualified assessor".
+   — Room-by-room observations: visible growth area (m²), water intrusion extent (m²), affected materials. Identify overlap zones. Mould condition: the recorded condition, attributed to the job's mould assessment record, or "not assessed — refer to a qualified assessor".
 2. Moisture Source Identification & Rectification
    — Confirm or suspect moisture source. Must be rectified before remediation commences per IICRC S520 §5.1. Document rectification action and responsible trade.
 3. Contamination Boundary & Invasive Investigation
    — Define remediation perimeter: visible growth + mandatory 500 mm clearance (S520 §6.3). Identify zones requiring invasive inspection (wall cavities, subfloor, ceiling voids) before drying commences.
 4. Containment Setup
-   — Matched to the assessor-recorded condition: precautionary sheeting where Condition 2 is recorded; full critical barrier, negative pressure ≥12.5 Pa via HEPA air scrubber where Condition 3 is recorded. Provisional where no condition is recorded. Confirm air movers NOT operated in mould zones without containment. Cite S520 §7.
+   — Matched to the recorded condition: precautionary sheeting where Condition 2 is recorded; full critical barrier, negative pressure ≥12.5 Pa via HEPA air scrubber where Condition 3 is recorded. Provisional where no condition is recorded. Confirm air movers NOT operated in mould zones without containment. Cite S520 §7.
 5. Mould Remediation Scope
-   — Non-porous surfaces: wet wipe with EPA-registered antimicrobial, rinse, HEPA vacuum. Porous materials (plasterboard, insulation, carpet): physical removal where the assessor recorded Condition 3. Cite S520 §8.
+   — Non-porous surfaces: wet wipe with EPA-registered antimicrobial, rinse, HEPA vacuum. Porous materials (plasterboard, insulation, carpet): physical removal where the recorded condition is Condition 3. Cite S520 §8.
 6. Structural Drying Setup (concurrent with remediation where safe)
-   — Equipment ratios (S500:2021): 1 LGR dehumidifier per 40 m², 1 air mover per 15 m² (only in contained or mould-free zones). Air scrubbers mandatory (Cat 2/3 water or Condition 3 mould). Cite S500:2021 §7.
+   — Equipment ratios (S500:2021): 1 LGR dehumidifier per 40 m², 1 air mover per 15 m² (only in contained or mould-free zones). Air scrubbers mandatory (Cat 2/3 water, or where the recorded mould condition is Condition 3). Cite S500:2021 §7.
 7. Disposal Protocol
    — Double-bag mould-affected materials in 200 µm poly, label biological waste, seal before leaving containment. Dispose per local council requirements and Safe Work Australia guidance. Cite S520 §8.4.
 8. Clearance Testing & Drying Validation
@@ -866,7 +867,7 @@ Restore: item can be returned to pre-loss condition through professional cleanin
 Replace (Total Loss): restoration cost exceeds 70% of current ACL replacement value. Document justification in writing — required by insurers for all total loss line items.
 
 SMOKE CONTAMINATION OF CONTENTS BY MATERIAL
-- Soft furnishings (upholstery, curtains, clothing): ozone chamber or hydroxyl treatment for smoke odour. Heavily contaminated: dry clean or discard (Condition 3 equivalent).
+- Soft furnishings (upholstery, curtains, clothing): ozone chamber or hydroxyl treatment for smoke odour. Heavily contaminated: dry clean or discard.
 - Hard surfaces: wet clean with alkaline detergent, rinse.
 - Electronics: specialist electronics restoration only — do not clean in-house. Smoke particulate ingress may cause delayed failure.
 - Documents and photographs: specialist paper conservation or freeze-dry (if suppression water also present).
@@ -1081,7 +1082,7 @@ Produce the scope in exactly these 8 numbered sections:
 6. Secondary Remediation & Cross-Contamination Mitigation
    — Tasks specifically addressing the interaction between damage types. Equipment quantities justified by applicable IICRC ratios.
 7. Validation & Clearance per Damage Type
-   — Clearance criteria for each damage type: moisture targets (S500:2021 §11.4 where applicable), visual clearance, air quality testing where required.
+   — Clearance criteria for each damage type: moisture targets (S500:2021 §11.4 where applicable), visual clearance, air quality testing where required. For mould, recommend verification by an independent qualified assessor instead; do not state mould clearance criteria.
 8. Reinstatement Scope
    — Building works to restore property to pre-loss condition per NCC 2022. Licensed trades identified. Insurance assessor sign-off trigger.
 
