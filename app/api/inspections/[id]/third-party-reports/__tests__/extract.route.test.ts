@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 const m = vi.hoisted(() => ({
   getServerSession: vi.fn(),
   assertWrite: vi.fn(),
+  assertSpender: vi.fn(),
   requireActiveSubscription: vi.fn(),
   applyRateLimit: vi.fn(),
   checkWorkspaceBudget: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   resolveInspectionWrite: m.assertWrite,
+  assertFinancialWriter: m.assertSpender,
 }));
 vi.mock("@/lib/env", () => ({ readEnv: () => "test-secret-for-proposals" }));
 vi.mock("@/lib/billing/subscription-gate", () => ({
@@ -94,6 +96,7 @@ beforeEach(() => {
     ok: true,
     data: { childInspectionFilter: undefined },
   });
+  m.assertSpender.mockResolvedValue({ ok: true, data: { id: "u1", role: "MANAGER" } });
   m.requireActiveSubscription.mockResolvedValue(null);
   m.applyRateLimit.mockResolvedValue(null);
   m.checkWorkspaceBudget.mockResolvedValue({ ok: true });
@@ -125,6 +128,19 @@ describe("POST third-party-reports/extract", () => {
     const tenancy = await import("@/lib/auth/assert-tenancy");
     expect(tenancy.resolveInspectionWrite).toBe(m.assertWrite);
     expect(Object.keys(tenancy)).not.toContain("assertInspectionAssignedWrite");
+  });
+
+  it("403 for an ordinary workspace member (role USER): no reach check, no AI call", async () => {
+    m.assertSpender.mockResolvedValue({
+      ok: false,
+      status: 403,
+      reason: "Only an owner or manager can do this",
+    });
+    const res = await POST(req(PDF), ctx);
+    expect(res.status).toBe(403);
+    expect(m.assertWrite).not.toHaveBeenCalled();
+    expect(m.resolveKey).not.toHaveBeenCalled();
+    expect(m.extractLabReport).not.toHaveBeenCalled();
   });
 
   it("401 without a session, before any work", async () => {
@@ -235,6 +251,19 @@ describe("POST third-party-reports/extract", () => {
         outputTokens: 80,
         estimatedCostUsd: 0.01,
       }),
+    );
+  });
+
+  it("charges the bounded estimate for an API_ERROR that returned no usage, but not for a refusal that did no work", async () => {
+    m.extractLabReport.mockResolvedValue({ ok: false, reason: "API_ERROR" });
+    await POST(req(PDF), ctx);
+    expect(m.logAiUsage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ success: false, estimatedCostUsd: 0.05 }),
+    );
+    m.extractLabReport.mockResolvedValue({ ok: false, reason: "KEY_INVALID" });
+    await POST(req(PDF), ctx);
+    expect(m.logAiUsage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ success: false, estimatedCostUsd: 0 }),
     );
   });
 

@@ -74,11 +74,12 @@ test("a failed read writes nothing, and a dismissed or forged review writes noth
   });
   expect(notPdf.status()).toBe(400);
 
-  // 2. A real PDF with no AI key on the workspace fails closed (no model call).
+  // 2. The signed-in user has role USER, which may not spend the workspace's AI
+  //    key: the read is refused with 403 before any key lookup or model call.
   const read = await request.post(`${base}/extract`, {
     multipart: { file: { name: "lab.pdf", mimeType: "application/pdf", buffer: await realPdf() } },
   });
-  expect([402, 429, 502, 503, 504]).toContain(read.status());
+  expect(read.status()).toBe(403);
   expect(await assessment(request, id)).toBeNull();
 
   // 3. A token the server did not sign is refused.

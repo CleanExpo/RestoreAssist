@@ -5,7 +5,7 @@
  * Request: multipart/form-data with a `file` field (PDF, max 20 MB).
  * Response: { proposal: { proposalToken, fileName, sha256, document, facts, gaps, rejectedCount } }
  *
- * Owner and manager reach only (D-028: AI-key spend). This route never writes job data. The technician reviews each fact and the
+ * Spend authority is ADMIN or MANAGER (assertFinancialWriter, D-028: AI-key spend) plus write reach to the job. This route never writes job data. The technician reviews each fact and the
  * sibling /confirm route writes only what they accept. The PDF is not stored
  * in this slice (follow-up: private storage and a virus-scan decision).
  */
@@ -14,7 +14,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
+import {
+  assertFinancialWriter,
+  resolveInspectionWrite,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { applyRateLimit } from "@/lib/rate-limiter";
@@ -48,6 +51,15 @@ const MAX_REQUEST_BYTES = MAX_PDF_BYTES + 1024 * 1024;
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
+// The provider refused the call before doing any work (bad key, throttled,
+// overloaded): nothing was billed. Anything else may have been.
+const NO_SPEND_REASONS: readonly ExtractLabReason[] = [
+  "KEY_MISSING",
+  "KEY_INVALID",
+  "RATE_LIMITED",
+  "MODEL_OVERLOADED",
+];
+
 const REASON_STATUS: Record<ExtractLabReason, number> = {
   KEY_MISSING: 402,
   KEY_INVALID: 402,
@@ -75,8 +87,20 @@ export async function POST(
     const { id: inspectionId } = await params;
 
     // D-028: spending the workspace's AI key at a technician's request is a
-    // cost decision the founder has not made, so reading a report is the
-    // owner's and managers' reach. Confirming facts (a field write) is not.
+    // cost decision the founder has not made. assertFinancialWriter is the
+    // repo's one "may spend the business's credits" rule (ADMIN or MANAGER,
+    // role re-read from the database), so an ordinary workspace member is
+    // refused here. Confirming facts (a field write) is not spend and admits
+    // the assigned technician.
+    const spender = await assertFinancialWriter(session);
+    if (!spender.ok) {
+      return NextResponse.json(
+        { error: spender.reason },
+        { status: spender.status },
+      );
+    }
+    // Reach to the job is the product's write reach, the same the confirm
+    // route re-checks before it writes.
     const tenancy = await resolveInspectionWrite(session, inspectionId);
     if (!tenancy.ok) {
       return NextResponse.json(
@@ -200,8 +224,9 @@ export async function POST(
       // unusable. Charge the usage it reported, or the bounded estimate when
       // none came back (a timeout), so the daily ceiling sees the spend.
       const billed = usageFromFailure(result.cause);
-      const mayHaveBeenBilled =
-        result.reason === "PARSE_FAILED" || result.reason === "TIMEOUT";
+      // Allow-list of reasons that prove the provider did no billable work;
+      // every other reason, including any added later, is charged.
+      const provedNoSpend = NO_SPEND_REASONS.includes(result.reason);
       logAiUsage({
         workspaceId,
         provider: "ANTHROPIC",
@@ -216,9 +241,9 @@ export async function POST(
               billed.inputTokens,
               billed.outputTokens,
             )
-          : mayHaveBeenBilled
-            ? READ_COST_ESTIMATE_USD
-            : 0,
+          : provedNoSpend
+            ? 0
+            : READ_COST_ESTIMATE_USD,
         latencyMs: Date.now() - callStart,
         success: false,
         errorType: result.reason,
