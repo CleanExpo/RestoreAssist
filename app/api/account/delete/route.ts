@@ -32,6 +32,7 @@ import { validateCsrf } from "@/lib/csrf";
 import { extractRequestContext } from "@/lib/security-audit";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { lockOpenWorkflowsOfUser } from "@/lib/agents/workflow-lock";
 import {
   assertNoSignedFormCascade,
   SignedFormCascadeError,
@@ -224,15 +225,10 @@ export async function POST(request: NextRequest) {
         // RA-8000: a paused agent workflow must not outlive its owner waiting
         // for an approval nobody can give. The 90-day cleanup reaps these.
         const closedAt = new Date();
-        const openWorkflows = await tx.agentWorkflow.findMany({
-          where: {
-            userId: user.id,
-            status: { notIn: ["COMPLETED", "FAILED", "PARTIALLY_FAILED", "CANCELLED"] },
-          },
-          select: { id: true },
-        });
-        if (openWorkflows.length > 0) {
-          const ids = openWorkflows.map((w) => w.id);
+        // Locked as they are read, so a workflow that another writer finishes
+        // meanwhile is left as that writer set it.
+        const ids = await lockOpenWorkflowsOfUser(tx, user.id);
+        if (ids.length > 0) {
           await tx.agentTask.updateMany({
             where: {
               workflowId: { in: ids },

@@ -25,6 +25,7 @@ import { classifyError } from "./error-handler";
 import { PlatformKeyRefusedError } from "./ai-bridge";
 import { logAgentEvent } from "./logger";
 import { refreshWorkflowProgress } from "./state-manager";
+import { lockWorkflowRow } from "./workflow-lock";
 import {
   DB_NOW,
   DEFAULT_RETRY_AFTER_MS,
@@ -263,6 +264,7 @@ export async function executeTask(
     // No more retries — mark as failed and skip its dependents in one transaction
     const finalStatus = attempts >= maxRetries ? "DEAD_LETTER" : "FAILED";
     const failed = await prisma.$transaction(async (tx) => {
+      await lockWorkflowRow(tx, workflowId);
       const result = await tx.agentTask.updateMany({
         where: { id: task.id, status: "RUNNING", leaseOwner },
         data: {

@@ -85,11 +85,9 @@ const prismaMock = vi.hoisted(() => {
     voiceCopilotSession: { updateMany: ReturnType<typeof vi.fn> };
     securityEvent: { create: ReturnType<typeof vi.fn> };
     authorityFormInstance: { findMany: ReturnType<typeof vi.fn> };
-    agentWorkflow: {
-      findMany: ReturnType<typeof vi.fn>;
-      updateMany: ReturnType<typeof vi.fn>;
-    };
+    agentWorkflow: { updateMany: ReturnType<typeof vi.fn> };
     agentTask: { updateMany: ReturnType<typeof vi.fn> };
+    $queryRaw: ReturnType<typeof vi.fn>;
     $transaction: ReturnType<typeof vi.fn>;
   } = {
     user: { findUnique: vi.fn(), delete: vi.fn(), updateMany: vi.fn() },
@@ -103,9 +101,11 @@ const prismaMock = vi.hoisted(() => {
     voiceCopilotSession: { updateMany: vi.fn() },
     securityEvent: { create: vi.fn() },
     authorityFormInstance: { findMany: vi.fn(async () => []) },
-    // RA-8000: open agent workflows are cancelled before the user is deleted.
-    agentWorkflow: { findMany: vi.fn(async () => []), updateMany: vi.fn() },
+    // RA-8000: open agent workflows are locked (raw query) and cancelled
+    // before the user is deleted.
+    agentWorkflow: { updateMany: vi.fn() },
     agentTask: { updateMany: vi.fn() },
+    $queryRaw: vi.fn(async () => []),
     // Interactive transaction: run the callback with the same delegate set as
     // the transactional client so tx.* calls are observable on the mock.
     $transaction: vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(mock)),

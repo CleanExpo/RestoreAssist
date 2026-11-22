@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { logAgentEvent } from "@/lib/agents";
 import { unskipUpstreamFailed } from "@/lib/agents/lease";
+import { lockWorkflowRow } from "@/lib/agents/workflow-lock";
 import type { CronJobResult } from "./runner";
 
 const BATCH_SIZE = 20;
@@ -61,6 +62,7 @@ export async function reviewDeadLetterTasks(
       // workflow in one transaction, so a resumed workflow cannot complete
       // with steps missing.
       const moved = await prisma.$transaction(async (tx) => {
+        await lockWorkflowRow(tx, task.workflowId);
         const result = await tx.agentTask.updateMany({
           where: { id: task.id, status: "DEAD_LETTER" },
           data: {

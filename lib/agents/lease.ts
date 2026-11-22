@@ -18,6 +18,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PG_POOL_CONNECTION_TIMEOUT_MS } from "@/lib/prisma-pool-config";
 import { refreshWorkflowProgress } from "./state-manager";
+import { lockWorkflowRows } from "./workflow-lock";
 
 type Db = Prisma.TransactionClient;
 
@@ -266,6 +267,19 @@ export async function sweepExpiredLeases(
 
   return prisma.$transaction(
     async (tx) => {
+      // RA-8000: lock every workflow the sweep is about to touch before any
+      // task row is read or written, in id order, so the cascade and progress
+      // refresh below read committed task state. The candidate list is read
+      // first; a workflow whose lease expired in the gap is locked below,
+      // before its own refresh.
+      const candidates = await tx.$queryRaw<Array<{ workflowId: string }>>`
+        SELECT DISTINCT t."workflowId" AS "workflowId"
+        FROM "AgentTask" t
+        JOIN "AgentWorkflow" w ON w.id = t."workflowId"
+        WHERE ${predicate}`;
+      const locked = new Set(candidates.map((c) => c.workflowId));
+      await lockWorkflowRows(tx, locked);
+
       // `o` is the same row before the update, for the previous lease values.
       const rows = await tx.$queryRaw<SweptRow[]>`
         UPDATE "AgentTask" t
@@ -286,9 +300,15 @@ export async function sweepExpiredLeases(
 
       const failedWorkflows = new Set<string>();
       for (const row of rows) {
+        if (row.status === "DEAD_LETTER") failedWorkflows.add(row.workflowId);
+      }
+      await lockWorkflowRows(
+        tx,
+        [...failedWorkflows].filter((id) => !locked.has(id)),
+      );
+      for (const row of rows) {
         if (row.status === "DEAD_LETTER") {
           await skipDependentsOfFailedTask(tx, row.workflowId, row.id);
-          failedWorkflows.add(row.workflowId);
         }
       }
       for (const workflowId of failedWorkflows) {

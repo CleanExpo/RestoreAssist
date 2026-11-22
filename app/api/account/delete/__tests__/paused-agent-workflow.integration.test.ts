@@ -99,4 +99,51 @@ describe.skipIf(!HAS_DB)("account deletion and paused agent workflows (RA-8000)"
     expect((await prisma.agentWorkflow.findUniqueOrThrow({ where: { id: ids.done } })).status).toBe("COMPLETED");
     expect((await prisma.agentTask.findUniqueOrThrow({ where: { id: ids.doneTask } })).status).toBe("COMPLETED");
   });
+
+  it("a workflow that finished while the deletion waited keeps its status (mutant: read the open workflows before the lock)", async () => {
+    const user = await prisma.user.create({
+      data: { email: `${S}-race@test.local`, role: "USER" },
+    });
+    try {
+      const racing = await workflowWith(user.id, "PAUSED", ["AWAITING_APPROVAL"]);
+      let release!: () => void;
+      let held!: () => void;
+      const heldPromise = new Promise<void>((r) => (held = r));
+      const releasePromise = new Promise<void>((r) => (release = r));
+      // Another writer holds the workflow lock and finishes the workflow.
+      const holder = prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT id FROM "AgentWorkflow" WHERE id = ${racing.id} FOR UPDATE`;
+          await tx.agentTask.update({ where: { id: racing.taskIds[0] }, data: { status: "COMPLETED" } });
+          await tx.agentWorkflow.update({ where: { id: racing.id }, data: { status: "COMPLETED" } });
+          held();
+          await releasePromise;
+        },
+        { timeout: 20_000 },
+      );
+      await heldPromise;
+      getServerSession.mockResolvedValue({ user: { id: user.id } });
+      const deleting = POST(
+        new NextRequest("http://localhost/api/account/delete", {
+          method: "POST",
+          body: JSON.stringify({ confirmation: "DELETE MY ACCOUNT" }),
+          headers: {
+            "content-type": "application/json",
+            host: "localhost",
+            origin: "http://localhost",
+            "idempotency-key": `${S}-${Math.random().toString(36).slice(2)}`,
+          },
+        }),
+      );
+      await new Promise((r) => setTimeout(r, 800));
+      release();
+      await holder;
+      expect((await deleting).status).toBe(200);
+      expect((await prisma.agentWorkflow.findUniqueOrThrow({ where: { id: racing.id } })).status).toBe("COMPLETED");
+      expect((await prisma.agentTask.findUniqueOrThrow({ where: { id: racing.taskIds[0] } })).status).toBe("COMPLETED");
+    } finally {
+      await prisma.idempotencyRecord.deleteMany({ where: { scope: user.id } }).catch(() => {});
+      await prisma.user.deleteMany({ where: { id: user.id } }).catch(() => {});
+    }
+  });
 });
