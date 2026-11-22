@@ -45,6 +45,7 @@ export async function loadClaimContext(
       moistureLevel: true,
       isBaseline: true,
       isMonitoringPoint: true,
+      invalidatedAt: true,
       recordedAt: true,
       createdAt: true,
     },
