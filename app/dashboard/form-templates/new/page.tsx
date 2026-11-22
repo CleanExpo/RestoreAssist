@@ -6,28 +6,29 @@ import Link from "next/link";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import type { FormCategory, FormType } from "@prisma/client";
 
+// RA-7957: these must be the schema's FormType and FormCategory values; the
+// create route rejects anything else.
 const FORM_TYPES = [
-  { value: "INITIAL_ASSESSMENT", label: "Initial Assessment" },
-  { value: "MOISTURE_MAPPING", label: "Moisture Mapping" },
-  { value: "EQUIPMENT_LOG", label: "Equipment Log" },
-  { value: "DAILY_MONITORING", label: "Daily Monitoring" },
-  { value: "FINAL_INSPECTION", label: "Final Inspection" },
-  { value: "SCOPE_OF_WORKS", label: "Scope of Works" },
-  { value: "PHOTO_LOG", label: "Photo Log" },
-  { value: "CLIENT_COMMUNICATION", label: "Client Communication" },
+  { value: "WORK_ORDER", label: "Work Order" },
+  { value: "AUTHORITY_TO_COMMENCE", label: "Authority to Commence" },
+  { value: "JSA", label: "JSA" },
+  { value: "SDS", label: "SDS" },
+  { value: "SWIMS", label: "SWIMS" },
+  { value: "SITE_INDUCTION", label: "Site Induction" },
   { value: "CUSTOM", label: "Custom" },
-];
+] satisfies { value: FormType; label: string }[];
 
 const CATEGORIES = [
-  { value: "ASSESSMENT", label: "Assessment" },
-  { value: "MONITORING", label: "Monitoring" },
-  { value: "REPORTING", label: "Reporting" },
+  { value: "SAFETY", label: "Safety" },
   { value: "COMPLIANCE", label: "Compliance" },
-  { value: "EQUIPMENT", label: "Equipment" },
-  { value: "COMMUNICATION", label: "Communication" },
-  { value: "OTHER", label: "Other" },
-];
+  { value: "CLIENT_INTAKE", label: "Client Intake" },
+  { value: "JOB_DOCUMENTATION", label: "Job Documentation" },
+  { value: "INSURANCE", label: "Insurance" },
+  { value: "QUALITY_CONTROL", label: "Quality Control" },
+  { value: "CUSTOM", label: "Custom" },
+] satisfies { value: FormCategory; label: string }[];
 
 export default function NewFormTemplatePage() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function NewFormTemplatePage() {
     name: "",
     description: "",
     formType: "CUSTOM",
-    category: "OTHER",
+    category: "CUSTOM",
     requiresSignatures: false,
   });
 
@@ -63,7 +64,7 @@ export default function NewFormTemplatePage() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
+        const data: unknown = await response.json().catch(() => null);
         throw new Error(apiErrorMessage(data) || "Failed to create template");
       }
 

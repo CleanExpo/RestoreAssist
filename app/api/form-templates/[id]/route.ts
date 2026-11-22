@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { FormType } from "@prisma/client";
+import { canManageFormTemplates } from "@/lib/form-templates/can-manage";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -116,6 +118,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
 
+    // RA-7957: same gate as create and archive.
+    if (!(await canManageFormTemplates(session.user.id))) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Only an owner or manager can change form templates",
+        status: 403,
+      });
+    }
+
     const { id } = await params;
 
     // Only the owner can update (not system templates)
@@ -170,6 +181,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
 
+    if (
+      formType !== undefined &&
+      !(Object.values(FormType) as unknown[]).includes(formType)
+    ) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "formType is not a known form type",
+        status: 400,
+      });
+    }
+
     const updated = await prisma.formTemplate.update({
       where: { id, userId: session.user.id, isActive: true },
       data: {
@@ -191,5 +213,52 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ template: updated });
   } catch (error) {
     return fromException(request, error, { stage: "patch" });
+  }
+}
+
+// DELETE - Archive an active, non-system template owned by this user (RA-7957).
+// Archive, never hard-delete: form submissions, interview sessions and versions
+// keep the template they were made from. Only ADMIN or MANAGER.
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
+    }
+
+    if (!(await canManageFormTemplates(session.user.id))) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Only an owner or manager can remove form templates",
+        status: 403,
+      });
+    }
+
+    const { id } = await params;
+    // Ownership, system and active checks sit on the write itself, so another
+    // user's template (any business) matches nothing and is a 404.
+    const result = await prisma.formTemplate.updateMany({
+      where: {
+        id,
+        userId: session.user.id,
+        isSystemTemplate: false,
+        isActive: true,
+      },
+      data: { isActive: false, status: "ARCHIVED" },
+    });
+    if (result.count === 0) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Template not found or not removable",
+        status: 404,
+      });
+    }
+    return NextResponse.json({ success: true, archived: true });
+  } catch (error) {
+    return fromException(request, error, { stage: "archive" });
   }
 }

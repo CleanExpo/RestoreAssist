@@ -1,0 +1,10 @@
+{
+  "schema": "done/1",
+  "work_id": "w_6fb3f9ff22ad",
+  "contract_digest": "946861bc6abbac596ff06c010f5171d79f9771b7208f2e387aedb8fbfa0c0319",
+  "baseline_head": "863c634fcdecad6bbf2bc2ca86cc4b82a2d7b89a",
+  "identity_key": "fix/ra-7957-form-template-create-20261122@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-7957-form-template-create",
+  "locked_at_utc": "2026-11-22T00:07:07Z",
+  "criteria_count": 3,
+  "recipe_pins": {}
+}
