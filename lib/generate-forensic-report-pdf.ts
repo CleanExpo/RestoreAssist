@@ -22,6 +22,11 @@ import {
 import { standardDesignation } from "./nir-standards-mapping";
 import { isSafePublicHttpsUrl } from "./security/safe-external-url";
 import { extractWaterCategory } from "@/lib/reports/extract-report-data";
+import {
+  buildForensicMoistureRows,
+  MOISTURE_NOT_RECORDED,
+  type ForensicMoistureRow,
+} from "@/lib/reports/forensic-moisture-rows";
 
 interface BusinessInfo {
   businessName?: string | null;
@@ -47,7 +52,7 @@ interface PdfColors {
 }
 
 interface MoistureDataResult {
-  readings: any[];
+  readings: ForensicMoistureRow[];
 }
 
 interface PsychrometricDataResult {
@@ -1088,7 +1093,7 @@ async function renderPage3(
     // Moisture Rows
     moistureData.readings
       .slice(0, 5)
-      .forEach((reading: any, index: number) => {
+      .forEach((reading: ForensicMoistureRow, index: number) => {
         if (yPosition < 500) return;
 
         const rowHeight = 25;
@@ -1104,7 +1109,7 @@ async function renderPage3(
         }
 
         colX = margin + 5;
-        page.drawText(sanitizeTextForPDF(reading.location || "N/A"), {
+        page.drawText(sanitizeTextForPDF(reading.location), {
           x: colX,
           y: yPosition - 15,
           size: 9,
@@ -1114,7 +1119,7 @@ async function renderPage3(
         });
         colX += moistureColWidths.location;
 
-        page.drawText(sanitizeTextForPDF(reading.material || "N/A"), {
+        page.drawText(sanitizeTextForPDF(reading.material), {
           x: colX,
           y: yPosition - 15,
           size: 9,
@@ -1124,7 +1129,7 @@ async function renderPage3(
         });
         colX += moistureColWidths.material;
 
-        page.drawText(sanitizeTextForPDF(String(reading.reading || "N/A")), {
+        page.drawText(sanitizeTextForPDF(reading.reading), {
           x: colX,
           y: yPosition - 15,
           size: 9,
@@ -1134,34 +1139,60 @@ async function renderPage3(
         });
         colX += moistureColWidths.reading;
 
+        page.drawText(sanitizeTextForPDF(reading.dryStandard), {
+          x: colX,
+          y: yPosition - 15,
+          size: 9,
+          font: helvetica,
+          color: colors.black,
+          maxWidth: moistureColWidths.dryStandard - 10,
+        });
+        colX += moistureColWidths.dryStandard;
+
+        // RA-8547: print the saved status only; never default to DRY.
+        const statusColor =
+          reading.status === "WET"
+            ? colors.red
+            : reading.status === "DRY"
+              ? colors.green
+              : colors.black;
         page.drawText(
-          sanitizeTextForPDF(String(reading.dryStandard || "12%")),
+          sanitizeTextForPDF(reading.status ?? MOISTURE_NOT_RECORDED),
           {
             x: colX,
             y: yPosition - 15,
             size: 9,
-            font: helvetica,
-            color: colors.black,
-            maxWidth: moistureColWidths.dryStandard - 10,
+            font: helveticaBold,
+            color: statusColor,
+            maxWidth: moistureColWidths.status - 10,
           },
         );
-        colX += moistureColWidths.dryStandard;
-
-        const statusColor =
-          reading.status === "WET" ? colors.red : colors.green;
-        page.drawText(sanitizeTextForPDF(reading.status || "DRY"), {
-          x: colX,
-          y: yPosition - 15,
-          size: 9,
-          font: helveticaBold,
-          color: statusColor,
-          maxWidth: moistureColWidths.status - 10,
-        });
 
         yPosition -= rowHeight + 2;
       });
 
     yPosition -= 20;
+  } else {
+    // RA-8547: say so plainly — no placeholder row and no DRY/WET verdict.
+    page.drawText("3. Material Moisture Readings", {
+      x: margin,
+      y: yPosition,
+      size: 14,
+      font: helveticaBold,
+      color: colors.darkBlue,
+    });
+    yPosition -= 20;
+    page.drawText(
+      sanitizeTextForPDF("No moisture readings were recorded for this job."),
+      {
+        x: margin,
+        y: yPosition,
+        size: 10,
+        font: helvetica,
+        color: colors.black,
+      },
+    );
+    yPosition -= 30;
   }
 
   // Psychrometric Data
@@ -2158,80 +2189,15 @@ function buildScopeItems(
  * Build moisture data from report
  */
 function buildMoistureData(data: ReportData): MoistureDataResult {
-  const { report, tier2, scopeAreas } = data;
-
-  let moistureReadings: any[] = [];
-
-  // Parse moisture readings from report
-  if (report.moistureReadings) {
-    try {
-      const parsed =
-        typeof report.moistureReadings === "string"
-          ? JSON.parse(report.moistureReadings)
-          : report.moistureReadings;
-      if (Array.isArray(parsed)) {
-        moistureReadings = parsed;
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  // Extract from tier2 if available
-  if (
-    tier2?.T2_Q1_moistureReadings &&
-    Array.isArray(tier2.T2_Q1_moistureReadings)
-  ) {
-    moistureReadings = (tier2.T2_Q1_moistureReadings as JsonRecord[]).map(
-      (reading: any) => ({
-        location: reading.location || reading.room || "Location",
-        material: reading.material || "Various",
-        reading:
-          reading.reading || reading.moistureContent || reading.wme || "N/A",
-        dryStandard: reading.dryStandard || reading.benchmark || "12%",
-        status:
-          reading.status ||
-          (parseFloat(
-            String(reading.reading ?? reading.moistureContent ?? "0"),
-          ) > 20
-            ? "WET"
-            : "DRY"),
-      }),
-    );
-  }
-
-  // Extract from scopeAreas if available
-  if (scopeAreas && scopeAreas.length > 0 && moistureReadings.length === 0) {
-    scopeAreas.forEach((area: any) => {
-      if (area.moisture || area.moistureReading) {
-        moistureReadings.push({
-          location: area.name || "Area",
-          material: Array.isArray(area.materials)
-            ? area.materials.join(", ")
-            : area.materials || "Various",
-          reading: `${area.moisture || area.moistureReading}%`,
-          dryStandard: "12%",
-          status:
-            (area.moisture || area.moistureReading || 0) > 20 ? "WET" : "DRY",
-        });
-      }
-    });
-  }
-
-  // Default if no data
-  if (moistureReadings.length === 0) {
-    moistureReadings = [
-      {
-        location: "Sample Location",
-        material: "Various",
-        reading: "N/A",
-        dryStandard: "12%",
-        status: "DRY",
-      },
-    ];
-  }
-
-  return { readings: moistureReadings };
+  const { report, tier2 } = data;
+  // RA-8547: rows come only from saved readings — no placeholder row, no
+  // scope-area rows, no fixed dry standard, no derived WET/DRY.
+  return {
+    readings: buildForensicMoistureRows({
+      moistureReadings: report.moistureReadings,
+      tier2Readings: tier2?.T2_Q1_moistureReadings,
+    }),
+  };
 }
 
 /**
