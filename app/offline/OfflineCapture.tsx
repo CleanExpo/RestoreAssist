@@ -113,7 +113,7 @@ export function OfflineCapture() {
         Saved on this device. It is created once when you are back online and signed in.
       </p>
 
-      <form key={formKey} onSubmit={onSubmit} className="mt-4 space-y-3">
+      <form key={formKey} method="post" onSubmit={onSubmit} className="mt-4 space-y-3">
         <label className="block text-sm text-slate-300">
           Property address
           <input name="address" required maxLength={300} autoComplete="street-address" className={field} />
