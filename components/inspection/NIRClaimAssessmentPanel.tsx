@@ -564,7 +564,10 @@ function MouldForm({
 }) {
   return (
     <>
-      <FieldRow label="Condition Level" hint="IICRC S520:2024 Condition 1–3">
+      <FieldRow
+        label="Condition Level"
+        hint="Assessor entry only (IICRC S520:2024 Condition 1–3)"
+      >
         <Select
           value={(data.mouldConditionLevel as string) || ""}
           onChange={(v) => onChange("mouldConditionLevel", v || null)}
@@ -590,14 +593,14 @@ function MouldForm({
           onChange={(v) => onChange("visibleGrowthObserved", v)}
         />
       </FieldRow>
-      <FieldRow label="Spore Type">
+      <FieldRow label="Spore Type (laboratory result)">
         <Select
           value={(data.sporeType as string) || ""}
           onChange={(v) => onChange("sporeType", v || null)}
           options={[
             { value: "CLADOSPORIUM", label: "Cladosporium" },
             { value: "ASPERGILLUS", label: "Aspergillus / Penicillium" },
-            { value: "STACHYBOTRYS", label: "Stachybotrys (Black Mould)" },
+            { value: "STACHYBOTRYS", label: "Stachybotrys" },
             { value: "ALTERNARIA", label: "Alternaria" },
             { value: "OTHER", label: "Other / Mixed" },
           ]}
