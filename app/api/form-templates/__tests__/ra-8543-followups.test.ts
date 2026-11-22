@@ -105,7 +105,7 @@ function signIn(userId: string, role: Role) {
   h.userFindUnique.mockResolvedValue({ role });
 }
 
-function matches(row: Row, where: Record<string, unknown>) {
+function matches(row: Row, where: Record<string, unknown>): boolean {
   return Object.entries(where).every(([key, value]) => {
     if (key === "OR") return (value as Record<string, unknown>[]).some((w) => matches(row, w));
     return row[key as keyof Row] === value;
