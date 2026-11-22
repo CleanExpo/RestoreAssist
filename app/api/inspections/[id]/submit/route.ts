@@ -397,17 +397,22 @@ export async function POST(
         // CAS reaches here, so a retry or a lost race tells nobody; the email
         // is also claimed once in the delivery ledger. At most once, never
         // blocks the response, and after() keeps the work alive past it.
-        const officeNotice = notifyOfficeOfSubmittedVisit({
-          inspectionId: id,
-          submittedAt,
-          submitterName: session.user.name ?? null,
-        }).catch((err) =>
-          console.error("[office-notice] submit notice failed:", err),
-        );
+        // RA-8525: the notice starts INSIDE the after() callback, as the
+        // booking notice does (RA-8497), never as a promise already running.
+        const submitterName = session.user.name ?? null;
+        const runOfficeNotice = () =>
+          notifyOfficeOfSubmittedVisit({
+            inspectionId: id,
+            submittedAt,
+            submitterName,
+          }).catch((err) =>
+            console.error("[office-notice] submit notice failed:", err),
+          );
         try {
-          after(() => officeNotice);
+          after(runOfficeNotice);
         } catch {
-          // Outside a request scope there is nothing to extend.
+          // Outside a request scope after() throws; send without it.
+          void runOfficeNotice();
         }
       }
       if (submitGuard.count === 0) {
