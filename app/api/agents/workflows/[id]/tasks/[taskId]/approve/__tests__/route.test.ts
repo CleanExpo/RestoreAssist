@@ -14,6 +14,7 @@ vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: async () => null }));
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { syncToDatabase } from "@/lib/agents";
 import { POST } from "../route";
 import { POST as resumePOST } from "../../../../resume/route";
 import { POST as executePOST } from "../../../../execute/route";
@@ -86,6 +87,7 @@ function approve(
 
 describe.skipIf(!HAS_DB)("RA-8000 approve route", () => {
   beforeAll(async () => {
+    await syncToDatabase();
     seed = await seedTenancy();
   });
   afterAll(async () => {

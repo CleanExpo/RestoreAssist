@@ -14,6 +14,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { syncToDatabase } from "@/lib/agents";
 import { POST } from "../route";
 
 const HAS_DB = !!process.env.DATABASE_URL;
@@ -50,6 +51,7 @@ async function workflowWith(
 
 describe.skipIf(!HAS_DB)("account deletion and paused agent workflows (RA-8000)", () => {
   beforeAll(async () => {
+    await syncToDatabase();
     const user = await prisma.user.create({
       data: { email: `${S}-u@test.local`, role: "USER" },
     });

@@ -14,6 +14,7 @@ vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: async () => null }));
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { syncToDatabase } from "@/lib/agents";
 import { GET } from "../route";
 import { cleanupTenancy, seedTenancy, type SeededTenancy } from "./agent-route-fixtures";
 
@@ -40,6 +41,7 @@ async function pausedFor(userId: string, requestedAt: Date) {
 
 describe.skipIf(!HAS_DB)("GET /api/agents/workflows paused count (RA-8000)", () => {
   beforeAll(async () => {
+    await syncToDatabase();
     seed = await seedTenancy();
   });
   afterAll(async () => {
