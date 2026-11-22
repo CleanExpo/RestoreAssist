@@ -97,13 +97,18 @@ export async function extendLease(
 
 /**
  * Mark every transitive PENDING dependent of `failedTaskId` SKIPPED with
- * errorCode UPSTREAM_FAILED. Run it in the transaction that moved the task to
- * DEAD_LETTER or FAILED.
+ * errorCode UPSTREAM_FAILED (RA-8000: or the caller's `reason`; approval
+ * rejection passes its own code so the un-skip below never resets it). Run it
+ * in the transaction that moved the task to DEAD_LETTER, FAILED or CANCELLED.
  */
 export async function skipDependentsOfFailedTask(
   db: Db,
   workflowId: string,
   failedTaskId: string,
+  reason: { code: string; message: string } = {
+    code: UPSTREAM_FAILED_CODE,
+    message: `Skipped: upstream task ${failedTaskId} failed`,
+  },
 ): Promise<number> {
   const tasks = await db.agentTask.findMany({
     where: { workflowId },
@@ -130,8 +135,8 @@ export async function skipDependentsOfFailedTask(
     where: { AND: [{ id: { in: toSkip } }, { workflowId, status: "PENDING" }] },
     data: {
       status: "SKIPPED",
-      errorCode: UPSTREAM_FAILED_CODE,
-      errorMessage: `Skipped: upstream task ${failedTaskId} failed`,
+      errorCode: reason.code,
+      errorMessage: reason.message,
     },
   });
   return result.count;

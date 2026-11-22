@@ -46,6 +46,9 @@ export const quickAssessmentWorkflow: WorkflowDefinition = {
       parallelGroup: 1,
       dependsOn: ["report-analysis"],
       optional: false,
+      // RA-8000: the contractor confirms the analysis before the damage is
+      // classified. Rollback R0 is to remove this one line.
+      requiresApproval: true,
       inputMapping: (ctx) => ({
         userId: ctx.userId,
         reportId: ctx.reportId,

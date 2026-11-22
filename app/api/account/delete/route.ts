@@ -221,6 +221,30 @@ export async function POST(request: NextRequest) {
         // The reassignment above should leave none; this refuses (and rolls
         // back) if a signed form would still be reached.
         await assertNoSignedFormCascade(tx, { userId: user.id });
+        // RA-8000: a paused agent workflow must not outlive its owner waiting
+        // for an approval nobody can give. The 90-day cleanup reaps these.
+        const closedAt = new Date();
+        const openWorkflows = await tx.agentWorkflow.findMany({
+          where: {
+            userId: user.id,
+            status: { notIn: ["COMPLETED", "FAILED", "PARTIALLY_FAILED", "CANCELLED"] },
+          },
+          select: { id: true },
+        });
+        if (openWorkflows.length > 0) {
+          const ids = openWorkflows.map((w) => w.id);
+          await tx.agentTask.updateMany({
+            where: {
+              workflowId: { in: ids },
+              status: { in: ["AWAITING_APPROVAL", "PENDING", "READY"] },
+            },
+            data: { status: "CANCELLED" },
+          });
+          await tx.agentWorkflow.updateMany({
+            where: { id: { in: ids } },
+            data: { status: "CANCELLED", completedAt: closedAt },
+          });
+        }
         await tx.user.delete({ where: { id: user.id } });
       });
 

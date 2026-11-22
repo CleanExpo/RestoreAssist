@@ -78,6 +78,10 @@ export interface TaskSpec {
   maxRetries?: number;
   dependsOn?: string[];
   input?: Record<string, unknown>;
+  /** RA-8000 */
+  requiresApproval?: boolean;
+  approvedAt?: Date | null;
+  approvalRequestedAt?: Date | null;
 }
 
 /** Create a workflow and its tasks; returns task ids by key. */
@@ -113,6 +117,9 @@ export async function makeWorkflow(
         status: spec.status ?? "READY",
         attempts: spec.attempts ?? 0,
         maxRetries: spec.maxRetries ?? 3,
+        requiresApproval: spec.requiresApproval ?? false,
+        approvedAt: spec.approvedAt ?? null,
+        approvalRequestedAt: spec.approvalRequestedAt ?? null,
       },
     });
     ids[spec.key] = row.id;

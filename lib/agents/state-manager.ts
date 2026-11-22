@@ -9,6 +9,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma, WorkflowStatus } from "@prisma/client";
 import type { WorkflowContext, TaskOutput } from "./types";
+import { logAgentEvent } from "./logger";
 
 // Task claims and every write after a claim live in executor.ts / lease.ts
 // (RA-7999): they are guarded by the claim's lease token, not by status alone.
@@ -35,36 +36,94 @@ export async function transitionWorkflow(
 
 /**
  * Scan all PENDING tasks in a workflow and promote those whose
- * dependencies are fully COMPLETED to READY status.
+ * dependencies are fully COMPLETED. A task whose own row says
+ * `requiresApproval` goes to AWAITING_APPROVAL instead of READY (RA-8000), and
+ * the workflow moves to PAUSED in the same transaction with a compare-and-swap:
+ * if that matches nothing (a cancel landed mid-flight) the transaction aborts
+ * and the promotion is undone.
  * Returns the number of tasks promoted.
  */
 export async function markTasksReady(workflowId: string): Promise<number> {
-  const tasks = await prisma.agentTask.findMany({
-    where: { workflowId },
-    select: { id: true, status: true, dependsOnTaskIds: true },
-  });
+  try {
+    const promotedForApproval: string[] = [];
+    const promoted = await prisma.$transaction(async (tx) => {
+      const tasks = await tx.agentTask.findMany({
+        where: { workflowId },
+        select: {
+          id: true,
+          status: true,
+          dependsOnTaskIds: true,
+          requiresApproval: true,
+        },
+      });
 
-  const completedIds = new Set(
-    tasks.filter((t) => t.status === "COMPLETED").map((t) => t.id),
-  );
+      const completedIds = new Set(
+        tasks.filter((t) => t.status === "COMPLETED").map((t) => t.id),
+      );
 
-  const toPromote = tasks.filter(
-    (t) =>
-      t.status === "PENDING" &&
-      t.dependsOnTaskIds.every((depId) => completedIds.has(depId)),
-  );
+      const toPromote = tasks.filter(
+        (t) =>
+          t.status === "PENDING" &&
+          t.dependsOnTaskIds.every((depId) => completedIds.has(depId)),
+      );
+      if (toPromote.length === 0) return 0;
 
-  if (toPromote.length === 0) return 0;
+      const plain = toPromote.filter((t) => !t.requiresApproval);
+      const gated = toPromote.filter((t) => t.requiresApproval);
+      let count = 0;
 
-  const result = await prisma.agentTask.updateMany({
-    where: {
-      id: { in: toPromote.map((t) => t.id) },
-      status: "PENDING",
-    },
-    data: { status: "READY" },
-  });
+      if (plain.length > 0) {
+        const result = await tx.agentTask.updateMany({
+          where: { id: { in: plain.map((t) => t.id) }, status: "PENDING" },
+          data: { status: "READY" },
+        });
+        count += result.count;
+      }
 
-  return result.count;
+      if (gated.length > 0) {
+        const result = await tx.agentTask.updateMany({
+          where: { id: { in: gated.map((t) => t.id) }, status: "PENDING" },
+          data: {
+            status: "AWAITING_APPROVAL",
+            approvalRequestedAt: new Date(),
+          },
+        });
+        if (result.count > 0) {
+          const paused = await tx.agentWorkflow.updateMany({
+            where: { id: workflowId, status: { in: ["RUNNING", "PAUSED"] } },
+            data: { status: "PAUSED" },
+          });
+          if (paused.count === 0) throw new WorkflowNotPausableError(workflowId);
+          promotedForApproval.push(...gated.map((t) => t.id));
+        }
+        count += result.count;
+      }
+
+      return count;
+    });
+
+    for (const taskId of promotedForApproval) {
+      await logAgentEvent(taskId, "info", "Task is awaiting approval", {
+        workflowId,
+      });
+    }
+    return promoted;
+  } catch (err) {
+    if (err instanceof WorkflowNotPausableError) {
+      console.warn("[agent-approval] promotion undone: workflow not running", {
+        workflowId,
+      });
+      return 0;
+    }
+    throw err;
+  }
+}
+
+class WorkflowNotPausableError extends Error {
+  constructor(workflowId: string) {
+    super(`Workflow ${workflowId} cannot be paused for approval`);
+    this.name = "WorkflowNotPausableError";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +184,10 @@ export async function buildContext(
 /**
  * Recalculate and persist workflow counters (completedTasks, failedTasks)
  * and determine if the workflow has reached a terminal state.
+ *
+ * RA-8000: the status write is a compare-and-swap on PENDING or RUNNING, so a
+ * CANCELLED, PAUSED or already-terminal workflow is never overwritten, and
+ * COMPLETED is never computed while any task is cancelled.
  */
 export async function refreshWorkflowProgress(
   workflowId: string,
@@ -151,7 +214,9 @@ export async function refreshWorkflowProgress(
   const finished = completed + failed + skipped + cancelled;
 
   let newStatus: WorkflowStatus;
-  if (finished === total && failed === 0) {
+  if (finished === total && cancelled > 0) {
+    newStatus = "CANCELLED";
+  } else if (finished === total && failed === 0) {
     newStatus = "COMPLETED";
   } else if (finished === total && failed > 0 && completed > 0) {
     newStatus = "PARTIALLY_FAILED";
@@ -161,28 +226,29 @@ export async function refreshWorkflowProgress(
     newStatus = "RUNNING";
   }
 
-  const updateData: Record<string, unknown> = {
-    totalTasks: total,
-    completedTasks: completed,
-    failedTasks: failed,
-  };
-
-  if (
-    newStatus === "COMPLETED" ||
-    newStatus === "FAILED" ||
-    newStatus === "PARTIALLY_FAILED"
-  ) {
-    updateData.completedAt = new Date();
-    updateData.status = newStatus;
-  }
-
-  await db.agentWorkflow.update({
+  await db.agentWorkflow.updateMany({
     where: { id: workflowId },
-    data: updateData as any,
+    data: { totalTasks: total, completedTasks: completed, failedTasks: failed },
   });
 
+  let status: WorkflowStatus = newStatus;
+  if (newStatus !== "RUNNING") {
+    const written = await db.agentWorkflow.updateMany({
+      where: { id: workflowId, status: { in: ["PENDING", "RUNNING"] } },
+      data: { status: newStatus, completedAt: new Date() },
+    });
+    if (written.count === 0) {
+      // Lost the swap: report what the workflow actually is.
+      const current = await db.agentWorkflow.findUnique({
+        where: { id: workflowId },
+        select: { status: true },
+      });
+      if (current) status = current.status;
+    }
+  }
+
   return {
-    status: newStatus,
+    status,
     totalTasks: total,
     completedTasks: completed,
     failedTasks: failed,
