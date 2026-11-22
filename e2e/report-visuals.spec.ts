@@ -1,7 +1,7 @@
 /**
  * RA-8107: report visuals (Gantt, moisture trends, hazards, before/after) in a real
- * browser on the synthetic demonstration page. The page 404s off localhost and is not
- * tagged @smoke, so it never runs against production.
+ * browser on the synthetic demonstration page. The page answers only when the test-helper switch
+ * (ALLOW_TEST_HELPERS=true) is on, and is not tagged @smoke, so it never runs against production.
  *
  * Proves: the critical danger and every table alternative are in the page without
  * interaction, nothing slides sideways at phone, tablet or desktop width, motion is off
@@ -46,11 +46,6 @@ for (const width of WIDTHS) {
     });
   });
 }
-
-test("the page does not answer to a non-local host name", async ({ request }) => {
-  const res = await request.get(ROUTE, { headers: { host: "example.test" }, failOnStatusCode: false });
-  expect(res.status()).toBe(404);
-});
 
 test.describe("motion and slider", () => {
   test.use({ viewport: { width: 1440, height: 900 } });

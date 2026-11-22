@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { testHelpersBlocked } from "@/app/api/test/_helpers";
 import { notFound } from "next/navigation";
 import { ComparisonSlider } from "@/components/report-experience/visuals/ComparisonSlider";
 import { HazardCards } from "@/components/report-experience/visuals/HazardCards";
@@ -19,15 +19,14 @@ export const dynamic = "force-dynamic";
 const TZ = "Australia/Brisbane";
 
 /**
- * RA-8107: local-host-only demonstration of the report visuals on
+ * RA-8107: test-helper-gated demonstration of the report visuals on
  * synthetic data. No claim, person, address or measurement here is real, and
  * the images are stand-ins, not inspection photographs.
  */
-export default async function ReportVisualsDemoPage() {
-  // No process-environment read (RA-7784): the page answers only to a local host name.
-  // It shows synthetic data only, so a forged Host header on a deployed site exposes nothing.
-  const host = ((await headers()).get("host") ?? "").split(":")[0];
-  if (host !== "localhost" && host !== "127.0.0.1") notFound();
+export default function ReportVisualsDemoPage() {
+  // Same two-key switch as the test sign-in route: off unless ALLOW_TEST_HELPERS=true, and
+  // still off on a production deploy. No new process-environment read lives here.
+  if (testHelpersBlocked()) notFound();
 
   const gantt = buildGantt({
     timeZone: TZ,
