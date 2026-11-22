@@ -230,7 +230,7 @@ export function dryingGoalAchievedEmail(data: DryingGoalAchievedData): string {
     <p style="margin:0 0 4px;font-size:13px;color:#64748b;">${badge("Drying Complete", "#10b981")}</p>
     <h1 style="margin:12px 0 0;font-size:20px;font-weight:700;color:#1C2E47;">Drying Goal Achieved</h1>
     <p style="margin:12px 0 24px;font-size:15px;color:#475569;">
-      All moisture readings are within IICRC S500 target thresholds. The drying goal has been certified as achieved.
+      All moisture readings are at or below their drying goal. The drying goal has been certified as achieved.
     </p>
     ${infoTable(
       infoRow("Inspection #", data.inspectionNumber) +

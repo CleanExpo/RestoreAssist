@@ -1,42 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  createAttemptKey,
+  settleCreateAttempt,
+  type CreateAttempt,
+} from "@/lib/form-templates/create-attempt-key";
+import type { FormCategory, FormType } from "@prisma/client";
 
+// RA-7957: these must be the schema's FormType and FormCategory values; the
+// create route rejects anything else.
 const FORM_TYPES = [
-  { value: "INITIAL_ASSESSMENT", label: "Initial Assessment" },
-  { value: "MOISTURE_MAPPING", label: "Moisture Mapping" },
-  { value: "EQUIPMENT_LOG", label: "Equipment Log" },
-  { value: "DAILY_MONITORING", label: "Daily Monitoring" },
-  { value: "FINAL_INSPECTION", label: "Final Inspection" },
-  { value: "SCOPE_OF_WORKS", label: "Scope of Works" },
-  { value: "PHOTO_LOG", label: "Photo Log" },
-  { value: "CLIENT_COMMUNICATION", label: "Client Communication" },
+  { value: "WORK_ORDER", label: "Work Order" },
+  { value: "AUTHORITY_TO_COMMENCE", label: "Authority to Commence" },
+  { value: "JSA", label: "JSA" },
+  { value: "SDS", label: "SDS" },
+  { value: "SWIMS", label: "SWIMS" },
+  { value: "SITE_INDUCTION", label: "Site Induction" },
   { value: "CUSTOM", label: "Custom" },
-];
+] satisfies { value: FormType; label: string }[];
 
 const CATEGORIES = [
-  { value: "ASSESSMENT", label: "Assessment" },
-  { value: "MONITORING", label: "Monitoring" },
-  { value: "REPORTING", label: "Reporting" },
+  { value: "SAFETY", label: "Safety" },
   { value: "COMPLIANCE", label: "Compliance" },
-  { value: "EQUIPMENT", label: "Equipment" },
-  { value: "COMMUNICATION", label: "Communication" },
-  { value: "OTHER", label: "Other" },
-];
+  { value: "CLIENT_INTAKE", label: "Client Intake" },
+  { value: "JOB_DOCUMENTATION", label: "Job Documentation" },
+  { value: "INSURANCE", label: "Insurance" },
+  { value: "QUALITY_CONTROL", label: "Quality Control" },
+  { value: "CUSTOM", label: "Custom" },
+] satisfies { value: FormCategory; label: string }[];
 
 export default function NewFormTemplatePage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const createAttempt = useRef<CreateAttempt | null>(null);
   const [form, setForm] = useState({
     name: "",
     description: "",
     formType: "CUSTOM",
-    category: "OTHER",
+    category: "CUSTOM",
     requiresSignatures: false,
   });
 
@@ -48,22 +55,28 @@ export default function NewFormTemplatePage() {
     }
     setIsSubmitting(true);
     try {
+      const body = JSON.stringify({
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        formType: form.formType,
+        category: form.category,
+        requiresSignatures: form.requiresSignatures,
+        formSchema: JSON.stringify({ sections: [], fields: [] }),
+        status: "DRAFT",
+      });
+      // RA-8543: one key per attempt, reused if this attempt is retried.
       const response = await fetch("/api/form-templates", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          description: form.description.trim() || null,
-          formType: form.formType,
-          category: form.category,
-          requiresSignatures: form.requiresSignatures,
-          formSchema: JSON.stringify({ sections: [], fields: [] }),
-          status: "DRAFT",
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": createAttemptKey(createAttempt, body),
+        },
+        body,
       });
+      settleCreateAttempt(createAttempt, response.status);
 
       if (!response.ok) {
-        const data = await response.json();
+        const data: unknown = await response.json().catch(() => null);
         throw new Error(apiErrorMessage(data) || "Failed to create template");
       }
 

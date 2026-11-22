@@ -52,6 +52,7 @@ import {
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ContentsItemPhoto } from "./ContentsItemPhoto";
 import { isNrpgEnabled } from "@/lib/flags/one-crm-flags";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -844,6 +845,8 @@ type ContentsItemDraft = {
   packOutDecision: string;
   packOutTag: string;
   replacementValueAud: string;
+  /** RA-8537: a verified photo URL from the job's photo upload, or "". */
+  beforePhotoUrl: string;
 };
 
 const EMPTY_CONTENTS_DRAFT: ContentsItemDraft = {
@@ -857,6 +860,7 @@ const EMPTY_CONTENTS_DRAFT: ContentsItemDraft = {
   packOutDecision: "",
   packOutTag: "",
   replacementValueAud: "",
+  beforePhotoUrl: "",
 };
 
 /** Builds the POST body: only schema fields, blanks omitted, numbers parsed. */
@@ -877,6 +881,7 @@ function buildContentsPackOutBody(draft: ContentsItemDraft): PackOutItemInput {
       draft.packOutDecision,
     ) as PackOutItemInput["packOutDecision"],
     packOutTag: text(draft.packOutTag),
+    beforePhotoUrl: text(draft.beforePhotoUrl),
   };
   const age = parseInt(draft.ageYears, 10);
   if (Number.isFinite(age) && age >= 0) body.ageYears = age;
@@ -888,8 +893,10 @@ function buildContentsPackOutBody(draft: ContentsItemDraft): PackOutItemInput {
 }
 
 function ContentsNewItemForm({
+  inspectionId,
   onAdd,
 }: {
+  inspectionId: string;
   onAdd: (item: PackOutItemInput) => Promise<boolean>;
 }) {
   const [form, setForm] = useState<ContentsItemDraft>(EMPTY_CONTENTS_DRAFT);
@@ -994,6 +1001,16 @@ function ContentsNewItemForm({
           />
         </div>
       </div>
+      <ContentsItemPhoto
+        inspectionId={inspectionId}
+        stage="before"
+        itemDescription={form.itemDescription}
+        url={form.beforePhotoUrl || null}
+        onChange={(url) => {
+          handleChange("beforePhotoUrl", url ?? "");
+          return true;
+        }}
+      />
       <button
         type="button"
         onClick={handleAdd}
@@ -1988,6 +2005,44 @@ const NIRClaimAssessmentPanel = forwardRef<
     }
   };
 
+  // ── Contents item photos (RA-8537) ──────────────────────────────────────────
+
+  const handleContentItemPhoto = async (
+    itemId: string,
+    field: "beforePhotoUrl" | "afterPhotoUrl",
+    url: string | null,
+  ): Promise<boolean> => {
+    try {
+      const res = await fetch(
+        `/api/inspections/${inspectionId}/contents-pack-out/${encodeURIComponent(itemId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [field]: url }),
+        },
+      );
+      if (!res.ok) {
+        toast.error(
+          res.status === 403
+            ? "Only the job owner or a manager can change contents items"
+            : res.status === 404
+              ? "This item is no longer on the job"
+              : "Could not save the photo on this item",
+        );
+        return false;
+      }
+      const updated = await res.json();
+      setContentItems((prev) =>
+        prev.map((item) => (item.id === itemId ? updated : item)),
+      );
+      toast.success(url ? "Photo added to item" : "Photo removed");
+      return true;
+    } catch {
+      toast.error("Network error");
+      return false;
+    }
+  };
+
   // ── Gate labels ────────────────────────────────────────────────────────────
 
   const GATE_LABELS: Record<string, string> = {
@@ -2133,54 +2188,89 @@ const NIRClaimAssessmentPanel = forwardRef<
                         {contentItems.map((item, i) => (
                           <div
                             key={(item.id as string) || i}
-                            className="flex items-center justify-between px-3 py-2 rounded-lg bg-neutral-50 dark:bg-slate-800/60 text-sm"
+                            className="px-3 py-2 rounded-lg bg-neutral-50 dark:bg-slate-800/60 text-sm space-y-2"
                           >
-                            <div>
-                              <span className="font-medium text-neutral-700 dark:text-slate-200">
-                                {item.itemDescription as string}
-                              </span>
-                              {(item.make != null || item.model != null) && (
-                                <span className="ml-2 text-xs text-neutral-600 dark:text-neutral-400">
-                                  {[item.make, item.model]
-                                    .filter((v) => v != null && v !== "")
-                                    .join(" ")}
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="font-medium text-neutral-700 dark:text-slate-200">
+                                  {item.itemDescription as string}
                                 </span>
-                              )}
-                              {item.conditionPostLoss != null && (
-                                <span className="ml-2 text-xs text-neutral-600 dark:text-neutral-400">
-                                  after loss:{" "}
-                                  {CONDITION_GRADE_LABELS[
-                                    item.conditionPostLoss as ConditionGrade
-                                  ] ?? String(item.conditionPostLoss)}
-                                </span>
-                              )}
+                                {(item.make != null || item.model != null) && (
+                                  <span className="ml-2 text-xs text-neutral-600 dark:text-neutral-400">
+                                    {[item.make, item.model]
+                                      .filter((v) => v != null && v !== "")
+                                      .join(" ")}
+                                  </span>
+                                )}
+                                {item.conditionPostLoss != null && (
+                                  <span className="ml-2 text-xs text-neutral-600 dark:text-neutral-400">
+                                    after loss:{" "}
+                                    {CONDITION_GRADE_LABELS[
+                                      item.conditionPostLoss as ConditionGrade
+                                    ] ?? String(item.conditionPostLoss)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-neutral-500">
+                                {item.packOutDecision != null && (
+                                  <span
+                                    className={cn(
+                                      "px-2 py-0.5 rounded-full font-medium",
+                                      item.packOutDecision === "TOTAL_LOSS"
+                                        ? "bg-destructive-subtle text-destructive-subtle-foreground"
+                                        : item.packOutDecision === "PACK_OUT"
+                                          ? "bg-warning-subtle text-warning-subtle-foreground"
+                                          : "bg-success-subtle text-success-subtle-foreground",
+                                    )}
+                                  >
+                                    {PACK_OUT_DECISION_LABELS[
+                                      item.packOutDecision as PackOutDecision
+                                    ] ?? String(item.packOutDecision)}
+                                  </span>
+                                )}
+                                {item.replacementValueAud != null && (
+                                  <span>
+                                    $
+                                    {Number(
+                                      item.replacementValueAud,
+                                    ).toLocaleString("en-AU")}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3 text-xs text-neutral-500">
-                              {item.packOutDecision != null && (
-                                <span
-                                  className={cn(
-                                    "px-2 py-0.5 rounded-full font-medium",
-                                    item.packOutDecision === "TOTAL_LOSS"
-                                      ? "bg-destructive-subtle text-destructive-subtle-foreground"
-                                      : item.packOutDecision === "PACK_OUT"
-                                        ? "bg-warning-subtle text-warning-subtle-foreground"
-                                        : "bg-success-subtle text-success-subtle-foreground",
-                                  )}
-                                >
-                                  {PACK_OUT_DECISION_LABELS[
-                                    item.packOutDecision as PackOutDecision
-                                  ] ?? String(item.packOutDecision)}
-                                </span>
-                              )}
-                              {item.replacementValueAud != null && (
-                                <span>
-                                  $
-                                  {Number(
-                                    item.replacementValueAud,
-                                  ).toLocaleString("en-AU")}
-                                </span>
-                              )}
-                            </div>
+                            {typeof item.id === "string" && (
+                              <div className="flex flex-wrap gap-4">
+                                {(["before", "after"] as const).map((stage) => {
+                                  const field =
+                                    stage === "before"
+                                      ? "beforePhotoUrl"
+                                      : "afterPhotoUrl";
+                                  const current = item[field];
+                                  return (
+                                    <ContentsItemPhoto
+                                      key={stage}
+                                      inspectionId={inspectionId}
+                                      stage={stage}
+                                      itemDescription={String(
+                                        item.itemDescription ?? "",
+                                      )}
+                                      url={
+                                        typeof current === "string" && current
+                                          ? current
+                                          : null
+                                      }
+                                      onChange={(url) =>
+                                        handleContentItemPhoto(
+                                          item.id as string,
+                                          field,
+                                          url,
+                                        )
+                                      }
+                                    />
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -2189,7 +2279,10 @@ const NIRClaimAssessmentPanel = forwardRef<
                         No contents items yet.
                       </p>
                     )}
-                    <ContentsNewItemForm onAdd={handleAddContentItem} />
+                    <ContentsNewItemForm
+                      inspectionId={inspectionId}
+                      onAdd={handleAddContentItem}
+                    />
                   </div>
                 )}
                 {selectedType === "BIOHAZARD" && (

@@ -11,6 +11,10 @@ import { prisma } from "@/lib/prisma";
 import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { getStorageProvider } from "@/lib/storage";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  frontPhotoInUseMessage,
+  visitsUsingFrontPhoto,
+} from "@/lib/site-visits/front-photo-guard";
 import { z } from "zod";
 
 const patchSchema = z.object({
@@ -182,6 +186,19 @@ export async function DELETE(
         code: "NOT_FOUND",
         message: "Photo not found",
         status: 404,
+      });
+    }
+
+    // RA-8498: a visit's front-of-property photo stays until the visit names
+    // another. The NO ACTION key refuses it as well (fromException answers a
+    // racing delete 409); this says so in words first and deletes nothing.
+    const usedBy = await visitsUsingFrontPhoto(prisma, id, { id: photoId });
+    if (usedBy.length > 0) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: frontPhotoInUseMessage(usedBy),
+        status: 409,
+        stage: "front-photo-in-use",
       });
     }
 
