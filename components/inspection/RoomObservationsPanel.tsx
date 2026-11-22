@@ -164,6 +164,7 @@ export function RoomObservationsPanel({
       ) : null}
 
       <form
+        method="post"
         className="grid gap-3 sm:grid-cols-2"
         onSubmit={(e) => {
           e.preventDefault();

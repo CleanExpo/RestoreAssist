@@ -298,6 +298,8 @@ export const INSPECTION_LINKS: Readonly<Record<string, LinkUse>> = {
   jobAppointments: ["other", "many"],
   waterDamageClassification: ["finding", "one"],
   psychrometricReadings: ["moisture-reading", "many"],
+  // RA-7694: per-room odour, visible growth and staining; printed in Section 6C.
+  roomObservations: ["finding", "many"],
   circuitAssessments: ["finding", "many"],
   fireSmokeDamageAssessment: ["finding", "one"],
   mouldRemediationAssessment: ["finding", "one"],
