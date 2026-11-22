@@ -218,7 +218,7 @@ export default function BlogArticle({ article }: { article: Article }) {
               className={`text-lg font-semibold mb-4 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
               style={{ fontFamily: HEADING_FONT }}
             >
-              Put IICRC S500 compliance on autopilot
+              Put IICRC S500-aligned reporting on autopilot
             </p>
             <p
               className={`text-sm mb-6 leading-relaxed ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}

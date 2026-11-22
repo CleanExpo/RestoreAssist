@@ -15,7 +15,16 @@
  * scripts/ci/lib/corpus-hygiene.mjs and its entry).
  *
  * A finding is a line that reads the script argument (index 1 of the process
- * arguments) within a short window of `import.meta`, `.endsWith(` or `.test(`.
+ * arguments) where any of these holds:
+ *   - a decider sits within a short window of it: `import.meta`, `.pathname`,
+ *     `__filename`, `require.main`, or a `.endsWith(`, `.startsWith(`,
+ *     `.includes(` or `.test(` call;
+ *   - the line itself compares (`===`, `!==`, `==`, `!=`), which catches
+ *     `basename(<arg>) === "gate.mjs"` and `<arg> === selfPath` (RA-8484);
+ *   - the line binds the argument, or something derived from it such as its
+ *     basename, to a name, and a later use of that name meets either rule
+ *     above, however far away (RA-8484: `const entry = <arg>` then, many lines
+ *     on, `entry.endsWith(...)` or `self === entry`).
  * Whole-line `//` comments and block comments are ignored, so prose describing
  * the fault does not trip it; code never escapes that way.
  *
@@ -32,7 +41,17 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 const SCRIPT_ARG = /\bargv\s*(?:\?\.)?\s*\[\s*1\s*\]/;
-const DECIDERS = [/\bimport\.meta\b/, /\.endsWith\s*\(/, /\.test\s*\(/];
+const DECIDERS = [
+  /\bimport\.meta\b/,
+  /\.(?:endsWith|startsWith|includes|test)\s*\(/,
+  /\.pathname\b/,
+  /\b__filename\b/,
+  /\brequire\.main\b/,
+];
+// A comparison on the line itself. `=>` and plain assignment do not match.
+const COMPARES = /[!=]==?/;
+// `const entry = ...`, `let entry = ...`: the name the argument is bound to.
+const BINDING = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=(?!=)/;
 const WINDOW = 3; // lines either side: guards span up to four lines here
 const EXT = /\.(?:mjs|cjs|js|ts|mts|cts|tsx)$/;
 const SKIP_DIRS = new Set(["node_modules"]);
@@ -55,11 +74,22 @@ export function scanText(text) {
   const lines = stripComments(text).split("\n");
   const raw = text.split("\n");
   const out = [];
+  const decides = (i) => {
+    if (COMPARES.test(lines[i])) return true;
+    const window = lines.slice(Math.max(0, i - WINDOW), i + WINDOW + 1).join("\n");
+    return DECIDERS.some((re) => re.test(window));
+  };
+  const aliasDecides = (name, from) => {
+    const use = new RegExp(`(?<![\\w$.])${name.replace(/\$/g, "\\$")}(?![\\w$])`);
+    for (let j = from + 1; j < lines.length; j++) {
+      if (use.test(lines[j]) && decides(j)) return true;
+    }
+    return false;
+  };
   lines.forEach((line, i) => {
     if (!SCRIPT_ARG.test(line)) return;
-    const lo = Math.max(0, i - WINDOW);
-    const window = lines.slice(lo, i + WINDOW + 1).join("\n");
-    if (DECIDERS.some((re) => re.test(window))) {
+    const bound = BINDING.exec(line)?.[1];
+    if (decides(i) || (bound && aliasDecides(bound, i))) {
       out.push({ line: i + 1, text: raw[i].trim().slice(0, 140) });
     }
   });

@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* RA-8524: help articles, legal pages and chat answers render inside prose
+   classes. Without the plugin those classes compile to nothing and headings,
+   lists and code run together as plain text.
+   tests/unit/compiled-css-typography.test.ts fails if it is dropped. */
+@plugin "@tailwindcss/typography";
+
 /* RA-8464: Tailwind compiles every class-like string it finds in the project,
    including test fixtures and design notes that quote old palettes. Those
    folders never render, so keep them out of the stylesheet. Without this the
@@ -218,7 +224,11 @@
 @theme inline {
   /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
   --font-sans: "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  /* RA-8524: next/font/local registers Geist Mono under a hashed family
+     name, so the literal "Geist Mono" never matches and code fell through to
+     the browser's serif default (seen in help article inline code). The
+     generic fallbacks keep code monospaced either way. */
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Brand palette B, "Paper and cobalt" (Phill, 19/11/2026: "B Paper";
      design audit 18/11/2026, RA-8467). Replaced palette A (Harbour). The

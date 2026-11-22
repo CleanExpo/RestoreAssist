@@ -79,37 +79,37 @@ const WORKFLOW_STATUS_CONFIG: Record<
 > = {
   PENDING: {
     label: "Pending",
-    className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
     icon: Clock,
   },
   RUNNING: {
     label: "Running",
-    className: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    className: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
     icon: Loader2,
   },
   PAUSED: {
     label: "Paused",
-    className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
     icon: Clock,
   },
   COMPLETED: {
     label: "Completed",
-    className: "bg-green-500/10 text-green-600 dark:text-green-400",
+    className: "bg-green-500/10 text-green-700 dark:text-green-400",
     icon: CheckCircle,
   },
   FAILED: {
     label: "Failed",
-    className: "bg-red-500/10 text-red-600 dark:text-red-400",
+    className: "bg-red-500/10 text-red-700 dark:text-red-400",
     icon: XCircle,
   },
   PARTIALLY_FAILED: {
     label: "Partial Fail",
-    className: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+    className: "bg-orange-500/10 text-orange-700 dark:text-orange-400",
     icon: AlertCircle,
   },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-neutral-500/10 text-neutral-500 dark:text-neutral-400",
+    className: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400",
     icon: XCircle,
   },
 };
@@ -120,28 +120,28 @@ const TASK_STATUS_CONFIG: Record<
 > = {
   PENDING: {
     label: "Pending",
-    className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
   },
-  READY: { label: "Ready", className: "bg-blue-500/10 text-blue-500" },
+  READY: { label: "Ready", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
   RUNNING: {
     label: "Running",
-    className: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    className: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
   },
   COMPLETED: {
     label: "Completed",
-    className: "bg-green-500/10 text-green-600 dark:text-green-400",
+    className: "bg-green-500/10 text-green-700 dark:text-green-400",
   },
   FAILED: {
     label: "Failed",
-    className: "bg-red-500/10 text-red-600 dark:text-red-400",
+    className: "bg-red-500/10 text-red-700 dark:text-red-400",
   },
   SKIPPED: {
     label: "Skipped",
-    className: "bg-neutral-500/10 text-neutral-500",
+    className: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400",
   },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-neutral-500/10 text-neutral-500",
+    className: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400",
   },
   DEAD_LETTER: {
     label: "Dead Letter",

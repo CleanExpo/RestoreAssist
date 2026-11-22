@@ -295,7 +295,7 @@ Generate a visual-centric report matching the RestoreAssist dashboard style. Use
 
 ## Header Section
 
-**Restore Assist** | **Water Damage Restoration Overview**
+**RestoreAssist** | **Water Damage Restoration Overview**
 
 **Job Ref:** ${report.claimReferenceNumber || report.reportNumber || "INS-2025-001234"}
 **Date:** ${new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "numeric" })}

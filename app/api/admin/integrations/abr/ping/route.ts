@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb, verifyPlatformSupportOperator } from "@/lib/admin-auth";
 import { lookupAbn } from "@/lib/integrations/abr/client";
 import { fromException } from "@/lib/api-errors";
+import { readEnv } from "@/lib/env";
 
 /** GET /api/admin/integrations/abr/ping — staff-only ABR configuration check. */
 export async function GET(request: NextRequest) {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     const operator = verifyPlatformSupportOperator(auth);
     if (operator.response) return operator.response;
 
-    if (!process.env.ABR_API_GUID?.trim()) {
+    if (!readEnv("ABR_API_GUID")?.trim()) {
       return NextResponse.json({
         ok: false,
         reason: "CONFIG_ERROR",

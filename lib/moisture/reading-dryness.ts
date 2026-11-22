@@ -78,6 +78,15 @@ export function assessReadingDryness(reading: ReadingInput): ReadingDryness {
     };
   }
 
+  if (material.dryStandardMc === null) {
+    // RA-8510: no guide row for this material, so no fixed value to compare
+    // against. Only a reference reading can say whether it is dry.
+    return {
+      status: "unknown",
+      reason: `no guide value for "${material.name}" — take a reference reading`,
+    };
+  }
+
   const evaluation = evaluateDrying({
     currentMc: reading.moistureLevel,
     targetMc: material.dryStandardMc,

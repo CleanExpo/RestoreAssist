@@ -517,7 +517,7 @@ export default function RestorationInspectionReportViewer({
     // Hazards assessment
     if (data.hazards.biologicalMouldDetected) {
       summaryParts.push(
-        `Biological mould growth has been detected${data.hazards.biologicalMouldCategory ? `, categorised as ${data.hazards.biologicalMouldCategory}` : ""}, requiring compliance with IICRC S520 (Mould Remediation) standards and appropriate containment protocols.`,
+        `Biological mould growth has been detected${data.hazards.biologicalMouldCategory ? `, categorised as ${data.hazards.biologicalMouldCategory}` : ""}, so remediation should be planned with reference to IICRC S520 (Mould Remediation), with appropriate containment.`,
       );
     }
 
@@ -544,7 +544,7 @@ export default function RestorationInspectionReportViewer({
         0,
       );
       summaryParts.push(
-        `Remediation equipment has been deployed, including ${totalEquipment} unit${totalEquipment > 1 ? "s" : ""} of specialised drying equipment, in compliance with IICRC S500 equipment placement and operational guidelines.`,
+        `Remediation equipment has been deployed, including ${totalEquipment} unit${totalEquipment > 1 ? "s" : ""} of specialised drying equipment, placed with reference to IICRC S500.`,
       );
     }
 

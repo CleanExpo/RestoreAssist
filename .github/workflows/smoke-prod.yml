@@ -46,8 +46,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 12
-    # issues: write is for the last step only, which opens the outage issue.
-    # Scoped to this job so the provenance and reject jobs stay read-only.
+    # issues: write is for the last two steps only, which close and open the
+    # outage issue. Scoped to this job so the provenance and reject jobs stay
+    # read-only.
     permissions:
       contents: read
       issues: write
@@ -68,8 +69,28 @@ jobs:
         env:
           HUSKY: "0"
 
+      # RA-8054 -- the red runs on 12/11 were runner DNS failures inside this
+      # download, not production faults, and each one opened the outage issue.
+      # Three attempts with a growing pause ride out a transient resolver or
+      # CDN blip. A failure that survives all three still fails the run.
       - name: Install Playwright browsers
-        run: npx --no-install playwright install --with-deps chromium
+        run: |
+          attempts=3
+          backoff="${INSTALL_BACKOFF_SECONDS:-15}"
+          attempt=1
+          while :; do
+            if npx --no-install playwright install --with-deps chromium; then
+              exit 0
+            fi
+            if [ "$attempt" -ge "$attempts" ]; then
+              echo "::error::Playwright browser install failed after $attempts attempts."
+              exit 1
+            fi
+            delay=$((backoff * attempt))
+            echo "::warning::Playwright browser install failed (attempt $attempt of $attempts); retrying in ${delay}s."
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
 
       - name: Bind smoke target to canonical production
         env:
@@ -170,12 +191,38 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
+      # RA-8054 -- the other half of "one issue per outage". Without this the
+      # issue stayed open after production recovered, so the open step below
+      # skipped and the NEXT outage opened nothing. It finds issues the same
+      # way the open step does (open, labelled smoke-prod-red) and runs only
+      # when every earlier step passed, so a deliberate daily stale red never
+      # closes a real outage issue.
+      - name: Close the open smoke-prod issue once smoke is green
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          numbers=$(gh issue list --label smoke-prod-red --state open --limit 20 --json number --jq '.[].number')
+          if [ -z "$numbers" ]; then
+            echo "No open smoke-prod-red issue; nothing to close."
+            exit 0
+          fi
+          for n in $numbers; do
+            gh issue close "$n" --reason completed \
+              --comment "Production smoke is green again: $RUN_URL
+
+          Closed automatically. The next red run opens a fresh issue."
+            echo "Closed smoke-prod-red issue #$n."
+          done
+
       # RA-7648 — a red production smoke has to reach a person. GitHub's
       # failure email alone was ignored because the daily run is red on
       # purpose. This opens ONE issue labelled smoke-prod-red per outage: while
       # one is open, later red runs add nothing, so an outage does not open 96
-      # issues a day. Close the issue once production is green again; the next
-      # outage opens a fresh one.
+      # issues a day. The step above closes it on the next green run; the next
+      # outage then opens a fresh one.
       #
       # The daily 22:23 UTC run (and a manual run) fails on purpose when
       # production is stale or cannot say which build it is: exit 3 or 4 from
@@ -207,4 +254,4 @@ jobs:
             --label smoke-prod-red \
             --body "The production smoke check against https://restoreassist.app failed. Run: $RUN_URL
 
-          While this issue is open, later red runs will not open another one. Close it once production smoke is green again, so the next outage opens a fresh issue."
+          While this issue is open, later red runs will not open another one. The next green run closes it automatically, so the next outage opens a fresh issue."

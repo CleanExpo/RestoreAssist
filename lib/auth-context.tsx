@@ -28,33 +28,33 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // fixtures intentionally shipped in source; they gate no real data or system.
 // Hardcoded-password scanner findings here are false positives — no rotation required.
 const DEMO_USERS = {
-  "demo@Restore Assist.com": {
+  "demo@restoreassist.app": {
     password: "demo123",
     user: {
       id: "1",
-      email: "demo@Restore Assist.com",
+      email: "demo@restoreassist.app",
       name: "Michael Chen",
       company: "Advanced Property Restoration",
       role: "admin" as const,
       avatar: "MC",
     },
   },
-  "tech@Restore Assist.com": {
+  "tech@restoreassist.app": {
     password: "demo123",
     user: {
       id: "2",
-      email: "tech@Restore Assist.com",
+      email: "tech@restoreassist.app",
       name: "Emma Richardson",
       company: "Restore Pro QLD",
       role: "technician" as const,
       avatar: "ER",
     },
   },
-  "manager@Restore Assist.com": {
+  "manager@restoreassist.app": {
     password: "demo123",
     user: {
       id: "3",
-      email: "manager@Restore Assist.com",
+      email: "manager@restoreassist.app",
       name: "David Patel",
       company: "Impact Restoration Services",
       role: "manager" as const,
@@ -70,13 +70,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Check if user is logged in on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("Restore Assist_user");
+    const storedUser = localStorage.getItem("restoreassist_user");
     if (storedUser) {
       try {
         setUser(JSON.parse(storedUser));
       } catch (error) {
         console.error("[v0] Failed to parse stored user:", error);
-        localStorage.removeItem("Restore Assist_user");
+        localStorage.removeItem("restoreassist_user");
       }
     }
     setIsLoading(false);
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(demoUser.user);
       localStorage.setItem(
-        "Restore Assist_user",
+        "restoreassist_user",
         JSON.stringify(demoUser.user),
       );
       // Use window.location for more reliable redirect
@@ -111,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("Restore Assist_user");
+    localStorage.removeItem("restoreassist_user");
     // Use window.location for more reliable redirect
     window.location.href = "/login";
   };

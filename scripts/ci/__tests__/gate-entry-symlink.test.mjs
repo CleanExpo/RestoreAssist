@@ -144,11 +144,38 @@ const RECIPES = {
       match: /production smoke target must be exactly/,
     },
   ],
+  "scripts/ci/check-corpus-hygiene.mjs": [
+    { name: "usage: no --dir is exit 2", code: 2, match: /usage: check-corpus-hygiene\.mjs --dir/ },
+    {
+      name: "hit: a planted charge-out rate under --strict is exit 1",
+      args: ["--dir", "staging", "--strict"],
+      setup: (cwd) => write(cwd, "staging/rates.md", "Technician charge-out is $440/hr on site.\n"),
+      code: 1,
+      match: /staging\/rates\.md:1/,
+    },
+  ],
   "scripts/ci/check-migration-ledger-parity.mjs": [
     {
       name: "usage: no target origin is could-not-check (2), not a pass",
       code: 2,
       match: /FAIL \(could not check\).*a target origin is required/,
+    },
+  ],
+  "scripts/ci/check-migration-merge-gate.mjs": [
+    {
+      name: "usage: no --base is could-not-check (2), not a pass",
+      code: 2,
+      match: /\[migration-merge-gate\] FAIL \(could not check\): --base is required/,
+    },
+    {
+      // The scratch directory is not a git repository, so the refs cannot be
+      // read. That must fail closed before any request, never read as "no
+      // migration added".
+      name: "unreadable git refs are could-not-check (2), not a pass",
+      args: ["--base", "main", "--head", "HEAD", "--origin", "https://restoreassist.app"],
+      env: { GIT_CEILING_DIRECTORIES: "/" },
+      code: 2,
+      match: /\[migration-merge-gate\] FAIL \(could not check\): fatal: not a git repository/,
     },
   ],
   "scripts/ci/check-migration-preresolve.mjs": [
@@ -167,6 +194,15 @@ const RECIPES = {
       setup: (cwd) => write(cwd, "scripts/x.mjs", "if (import.meta.url === `file://${process.argv" + "[1]}`) main();\n"),
       code: 1,
       match: /scripts\/x\.mjs:1 /,
+    },
+  ],
+  "scripts/ci/check-process-env-baseline.mjs": [
+    {
+      // Baselined paths resolve against the working directory, so an empty
+      // tree makes every committed entry stale: main ran and refused.
+      name: "a tree with none of the baselined files fails on stale entries",
+      code: 1,
+      match: /check:process-env-baseline FAILED[\s\S]*: baselined but the file no longer exists; remove it/,
     },
   ],
   "scripts/ci/check-release-bootstrap.mjs": [

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 import { loadClaimContext } from "@/lib/margot/claim-context";
-import { evaluateWaterDamageCompleteness } from "@/lib/completeness/water-damage-pack";
+import { evaluateCompletenessForClaimType } from "@/lib/completeness/claim-type-pack";
 
 /** GET — V1 Phase 4 claim context + completeness pack for an inspection. */
 export async function GET(
@@ -56,7 +56,7 @@ export async function GET(
       },
     });
 
-    const pack = evaluateWaterDamageCompleteness({
+    const pack = evaluateCompletenessForClaimType(context.claimType, {
       hasClient: Boolean(inspection?.clientId),
       hasCategoryClass: Boolean(wdc?.waterCategory && wdc?.damageClass),
       hasIncidentDate: Boolean(inspection?.report?.incidentDate),

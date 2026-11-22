@@ -22,9 +22,12 @@ const BLOCKER_META: Record<
     label: "Water category and class",
     action: "Classify",
   },
+  // RA-8337: no inspection tab has a date-of-loss field yet (that needs the
+  // column in RA-8332), so this blocker opens the job rather than claiming a
+  // tab that cannot fix it.
   loss_date: {
     label: "Date of loss",
-    action: "Set loss date",
+    action: "Open job",
   },
   baseline: {
     label: "Baseline moisture",
@@ -51,7 +54,9 @@ export function completenessBlockerHref(
     case "s500":
       return `${base}?tab=classification`;
     case "loss_date":
-      return `${base}?tab=insurer`;
+      // RA-8337: the insurer tab has no date field. Until RA-8332 adds one,
+      // there is nowhere on the job to set it, so open the job itself.
+      return base;
     case "baseline":
     case "monitoring":
       return `${base}?tab=moisture`;
@@ -60,6 +65,15 @@ export function completenessBlockerHref(
     default:
       return base;
   }
+}
+
+/**
+ * False when no screen on the job can clear this blocker yet, so the UI
+ * should show the label without a fix link. Only date of loss today
+ * (waits on RA-8332).
+ */
+export function completenessBlockerHasFix(blockerId: string): boolean {
+  return blockerId !== "loss_date";
 }
 
 export function completenessBlockerLabel(blockerId: string): string {

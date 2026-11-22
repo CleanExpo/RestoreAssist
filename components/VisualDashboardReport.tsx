@@ -106,7 +106,7 @@ export default function VisualDashboardReport({
 
     // Provide defaults for missing required fields
     const safeHeader = {
-      title: header?.title || "Restore Assist",
+      title: header?.title || "RestoreAssist",
       subtitle: header?.subtitle || "Inspection Report",
       claimRef: header?.claimRef || "N/A",
       location: header?.location || "",

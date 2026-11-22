@@ -150,6 +150,13 @@ import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchEvidenceLayer } from "./SketchEvidenceLayer";
 import { SketchDamageMarkerLayer } from "./SketchDamageMarkerLayer";
+import { SketchInvestigationLayer } from "./SketchInvestigationLayer";
+import { ChromeScanLine } from "@/components/brand/chrome-icons";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
+import {
+  buildInvestigationOverlay,
+  type SketchViewMode,
+} from "@/lib/sketch/investigation-overlay";
 import {
   IDENTITY_OVERLAY_VIEWPORT,
   overlayViewportFromVpt,
@@ -545,6 +552,8 @@ export function SketchEditorV2({
   // RA-6844 [A5]: grid + right-angle snap for the draw tools. On by default so
   // walls square up and land on the grid; toggled off for freeform tracing.
   const [snapEnabled, setSnapEnabled] = useState(true);
+  // RA-8372: read-only source / pathway / receptor view over the plan.
+  const [viewMode, setViewMode] = useState<SketchViewMode>("plan");
   const [selectedObj, setSelectedObj] = useState<SelectedObject | null>(null);
   const selectedObjRef = useRef<SelectedObject | null>(null);
   selectedObjRef.current = selectedObj;
@@ -2293,6 +2302,27 @@ export function SketchEditorV2({
     [activeIdx],
   );
 
+  const investigationOverlay = useMemo(
+    () =>
+      viewMode === "investigation" && activeFloor
+        ? buildInvestigationOverlay({
+            moisturePins: activeFloor.moisturePins,
+            damageMarkers: activeFloor.damageMarkers,
+            evidencePins: activeFloor.evidencePins,
+            width: viewport.width,
+            height: viewport.height,
+            resolveRoomLabel: resolveDamageMarkerRoom,
+          })
+        : null,
+    [
+      viewMode,
+      activeFloor,
+      viewport.width,
+      viewport.height,
+      resolveDamageMarkerRoom,
+    ],
+  );
+
   const persistEvidencePin = useCallback(
     async (
       coords: {
@@ -2677,12 +2707,30 @@ export function SketchEditorV2({
     [activeIdx, floorsData, height, inspectionId, uid, width],
   );
 
+  // RA-8396: the red X on an evidence pin used to delete it in one click.
+  const evidenceRemoveConfirm = useConfirmDialog();
+  const askEvidenceRemove = evidenceRemoveConfirm.ask;
+
   const handleEvidenceRemove = useCallback(
     async (id: string) => {
       const sketchId = floorsData[activeIdx]?.floor.id;
       const pinsBefore = floorsData[activeIdx]?.evidencePins ?? [];
       const removedIndex = pinsBefore.findIndex((p) => p.id === id);
       const removed = removedIndex >= 0 ? pinsBefore[removedIndex] : undefined;
+      // Ask before anything changes: Cancel leaves the pin and sends no request.
+      const caption = removed?.caption?.trim();
+      const pinName = caption
+        ? `“${caption}”`
+        : removed?.roomName
+          ? `the photo pin in ${removed.roomName}`
+          : "this photo pin";
+      const ok = await askEvidenceRemove({
+        title: "Remove evidence pin?",
+        description: `Removing ${pinName} takes it off the floor plan, and the link between that photo and this spot on the plan is lost. The photo stays in the job's photo list, but you would need to pin it again.`,
+        confirmLabel: "Remove pin",
+        destructive: true,
+      });
+      if (!ok) return;
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx
@@ -2735,7 +2783,7 @@ export function SketchEditorV2({
         restore(`Photo pin not deleted (${res.status}). It is still on the report.`);
       }
     },
-    [activeIdx, floorsData, inspectionId, uid],
+    [activeIdx, askEvidenceRemove, floorsData, inspectionId, uid],
   );
 
   // ── Scale calibration ───────────────────────────────────
@@ -3407,6 +3455,7 @@ export function SketchEditorV2({
         className,
       )}
     >
+      <evidenceRemoveConfirm.Mount />
       {/* RA-8056 — a save refused because the floor changed elsewhere. */}
       {revisionConflictLabels.length > 0 && (
         <div
@@ -3477,6 +3526,32 @@ export function SketchEditorV2({
             >
               <Magnet size={13} />
               Snap
+            </button>
+          )}
+
+          {/* RA-8372: investigation view toggle (read-only, derived) */}
+          {!guided && (
+            <button
+              type="button"
+              data-testid="sketch-view-mode-toggle"
+              onClick={() =>
+                setViewMode((m) => (m === "plan" ? "investigation" : "plan"))
+              }
+              aria-pressed={viewMode === "investigation"}
+              title={
+                viewMode === "investigation"
+                  ? "Back to the room plan"
+                  : "Show source, pathway and receptor evidence on the plan"
+              }
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors border",
+                viewMode === "investigation"
+                  ? "text-brand-harbour-200 border-brand-harbour-400 bg-brand-harbour-500/15"
+                  : "text-white/50 border-white/10 hover:text-white hover:bg-white/5",
+              )}
+            >
+              <ChromeScanLine size={13} />
+              Investigation
             </button>
           )}
 
@@ -3931,6 +4006,13 @@ export function SketchEditorV2({
                   onPlaceExisting={handleExistingEvidencePlace}
                   onMove={handleEvidenceMove}
                   onRemove={handleEvidenceRemove}
+                />
+              )}
+
+              {idx === activeIdx && investigationOverlay && (
+                <SketchInvestigationLayer
+                  overlay={investigationOverlay}
+                  overlayViewport={overlayVpt}
                 />
               )}
 

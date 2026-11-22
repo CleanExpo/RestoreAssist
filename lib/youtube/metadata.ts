@@ -81,7 +81,7 @@ export function generateYouTubeMetadata(params: {
   descriptionParts.push("📋 About RestoreAssist");
   descriptionParts.push(
     "RestoreAssist is the all-in-one platform built for Australian restoration professionals. " +
-      "AI-powered scope generation, IICRC S500/S520/S700 compliance, one-click export to Xero " +
+      "AI-powered scope generation, reports aligned to IICRC S500/S520/S700, one-click export to Xero " +
       "and Ascora, and professional PDF reports — all in one system.",
   );
 

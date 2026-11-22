@@ -1351,7 +1351,7 @@ export default function IICRCReportBuilder({
               <div className="flex items-center gap-2 mb-4">
                 <CheckCircle className="text-success" size={24} />
                 <h3 className="text-xl font-medium text-success">
-                  IICRC S500 Compliance Review
+                  IICRC S500 Alignment Review
                 </h3>
               </div>
               <p className="text-success">

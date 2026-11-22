@@ -52,8 +52,12 @@ export async function GET(
         status: true,
         report: { select: { id: true, status: true } },
         affectedAreas: { select: { id: true, roomZoneId: true } },
+        // RA-8476: a voided reading stays on the job for audit, but the
+        // client must not see it.
         moistureReadings: {
+          // RA-8476: a voided reading never reaches the portal.
           // RA-8508: baselines set the drying goal.
+          where: { invalidatedAt: null },
           select: {
             location: true,
             surfaceType: true,

@@ -47,7 +47,7 @@ export function SoftwareApplicationSchema() {
   const schema = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Restore Assist",
+    name: "RestoreAssist",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     offers: {

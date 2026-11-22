@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  formTextEditRefusal,
+  noSignedSignatureWhere,
+  statusMoveRefusal,
+} from "@/lib/authority-forms/signed-record-guard";
 
 /**
  * GET /api/authority-forms/:id
@@ -102,6 +107,7 @@ export async function PUT(
             assignedAdminId: true,
           },
         },
+        signatures: { select: { signedAt: true }, take: 100 },
       },
     });
 
@@ -126,18 +132,52 @@ export async function PUT(
       });
     }
 
-    // Update form
-    const updateData: any = {};
+    // RA-8400: a signed form is a closed legal record. Once anyone has
+    // signed, neither the wording nor the status can change here (cancelling
+    // a partly signed form is an open founder question), and the body may
+    // only request an allowed status move (never PARTIALLY_SIGNED or
+    // COMPLETED).
+    const signedRefusal = formTextEditRefusal(existingForm);
+    if (signedRefusal) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: signedRefusal,
+        status: 409,
+      });
+    }
+    const updateData: {
+      authorityDescription?: string;
+      status?: "CANCELLED";
+    } = {};
     if (body.authorityDescription !== undefined) {
+      if (typeof body.authorityDescription !== "string") {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "authorityDescription must be a string",
+          status: 400,
+        });
+      }
       updateData.authorityDescription = body.authorityDescription;
     }
     if (body.status !== undefined) {
+      const refusal = statusMoveRefusal(existingForm.status, body.status);
+      if (refusal) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: refusal,
+          status: 409,
+        });
+      }
       updateData.status = body.status;
     }
 
-    const updatedForm = await prisma.authorityFormInstance.update({
+    // The same rules sit in the write itself: if a signature or status change
+    // lands between the read above and this write, nothing is written.
+    const writeResult = await prisma.authorityFormInstance.updateMany({
       where: {
         id,
+        status: existingForm.status,
+        ...noSignedSignatureWhere(),
         report: {
           OR: [
             { userId: session.user.id },
@@ -147,9 +187,21 @@ export async function PUT(
         },
       },
       data: updateData,
+    });
+
+    if (writeResult.count === 0) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "This form changed while you were editing it; reload and try again",
+        status: 409,
+      });
+    }
+
+    const updatedForm = await prisma.authorityFormInstance.findUnique({
+      where: { id },
       include: {
         template: true,
-        signatures: true,
+        signatures: { take: 100 },
       },
     });
 
@@ -191,6 +243,7 @@ export async function DELETE(
             assignedAdminId: true,
           },
         },
+        signatures: { select: { signedAt: true }, take: 100 },
       },
     });
 
@@ -215,10 +268,23 @@ export async function DELETE(
       });
     }
 
-    // Delete form (signatures will be cascade deleted)
-    await prisma.authorityFormInstance.delete({
+    // RA-8400: deleting a signed form would cascade-delete the signatures, so
+    // a signed form is a closed legal record here too.
+    const signedRefusal = formTextEditRefusal(existingForm);
+    if (signedRefusal) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: signedRefusal,
+        status: 409,
+      });
+    }
+
+    // Delete form (signatures will be cascade deleted). The unsigned rule sits
+    // in the write itself, so a signature that lands after the read blocks it.
+    const deleted = await prisma.authorityFormInstance.deleteMany({
       where: {
         id,
+        ...noSignedSignatureWhere(),
         report: {
           OR: [
             { userId: session.user.id },
@@ -228,6 +294,14 @@ export async function DELETE(
         },
       },
     });
+
+    if (deleted.count === 0) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "This form changed while you were deleting it; reload and try again",
+        status: 409,
+      });
+    }
 
     return NextResponse.json({ message: "Form deleted successfully" });
   } catch (error) {

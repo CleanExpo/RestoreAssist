@@ -32,6 +32,34 @@ function tenancyError(
   return apiError(request, { code, message: tenancy.reason, status: tenancy.status });
 }
 
+/**
+ * RA-8407 item 3: read the JSON body inside the handler's error handling.
+ * `request.json()` used to sit outside the try block, so a malformed body (or
+ * the literal `null`) escaped as an unformatted server error instead of a 400
+ * the client can act on. Returns null when the body is not a JSON object.
+ */
+async function readJsonObject(
+  request: NextRequest,
+): Promise<Record<string, unknown> | null> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return null;
+  }
+  return body !== null && typeof body === "object" && !Array.isArray(body)
+    ? (body as Record<string, unknown>)
+    : null;
+}
+
+function invalidBody(request: NextRequest) {
+  return apiError(request, {
+    code: "VALIDATION",
+    message: "Request body must be a JSON object",
+    status: 400,
+  });
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -100,13 +128,15 @@ export async function POST(
   }
 
   const { id: inspectionId } = await params;
-  const body = await request.json();
-  const { jobType, experienceLevel = "APPRENTICE" } = body as {
-    jobType: string;
-    experienceLevel?: string;
-  };
 
   try {
+    const body = await readJsonObject(request);
+    if (body === null) return invalidBody(request);
+    const { jobType, experienceLevel = "APPRENTICE" } = body as {
+      jobType: string;
+      experienceLevel?: string;
+    };
+
     // RA-7721: starting the workflow fixes the job type for everyone (one row
     // per job), so it is a write: the owner's reach or the assigned technician.
     const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
@@ -198,26 +228,28 @@ export async function PATCH(
   }
 
   const { id: inspectionId } = await params;
-  const body = await request.json();
-  const { status, skipReason: _skipReason, skipNotes: _skipNotes } = body as {
-    status: "IN_PROGRESS" | "COMPLETED" | "SKIPPED" | "BLOCKED";
-    skipReason?: string;
-    skipNotes?: string;
-  };
-  // RA-8388 review round 2. Prisma ignores a filter whose value is
-  // `undefined`, so without a `stepId` the scoped `updateMany` below matched
-  // every step of the workflow. One step is named, in text, or nothing is
-  // written.
-  const stepId = requiredIdentifier(bodyField(body, "stepId"));
-  if (stepId === null) {
-    return apiError(request, {
-      code: "VALIDATION",
-      message: "stepId is required",
-      status: 400,
-    });
-  }
 
   try {
+    const body = await readJsonObject(request);
+    if (body === null) return invalidBody(request);
+    const { status, skipReason: _skipReason, skipNotes: _skipNotes } = body as {
+      status: "IN_PROGRESS" | "COMPLETED" | "SKIPPED" | "BLOCKED";
+      skipReason?: string;
+      skipNotes?: string;
+    };
+    // RA-8388 review round 2. Prisma ignores a filter whose value is
+    // `undefined`, so without a `stepId` the scoped `updateMany` below matched
+    // every step of the workflow. One step is named, in text, or nothing is
+    // written.
+    const stepId = requiredIdentifier(bodyField(body, "stepId"));
+    if (stepId === null) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "stepId is required",
+        status: 400,
+      });
+    }
+
     // RA-7721: the owner's reach or the assigned technician.
     const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
     if (!tenancy.ok) return tenancyError(request, tenancy);

@@ -191,7 +191,9 @@ model User {
   inspections             Inspection[]
   jobAppointmentsCreated  JobAppointment[]      @relation("JobAppointmentCreator")
   jobAppointmentsAssigned JobAppointment[]      @relation("JobAppointmentAssignee")
-  chatMessages            ChatMessage[]
+  siteVisitsStarted       SiteVisit[]           @relation("SiteVisitTechnician")
+  siteVisitsSubmitted     SiteVisit[]           @relation("SiteVisitSubmitter")
+  chatMessages           ChatMessage[]
   usageEvents             UsageEvent[]          @relation("usageEvents")
   emailConnection         EmailConnection?
   scheduledEmails         ScheduledEmail[]
@@ -2362,6 +2364,7 @@ model Inspection {
   claimProgress   ClaimProgress?
   authorisations  Authorisation[]
   jobAppointments JobAppointment[]
+  siteVisits      SiteVisit[]
 
   // RA-261 NIR phase 1 — re-modelled here per issue #963.
   // Tables existed on prod (via repair hotfix #960) but had no Prisma models.
@@ -3661,6 +3664,8 @@ model InspectionPhoto {
   mobileLocalId String?
   metadata      Json?         @default("{}")
   evidencePins  EvidencePin[]
+  // RA-8498: visits that use this photo as their front-of-property photo.
+  frontPhotoOfVisits SiteVisit[] @relation("SiteVisitFrontPhoto")
 
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -8903,6 +8908,59 @@ model InsurerProfile {
 
   @@index([slug])
   @@index([isActive])
+}
+
+/// RA-8498 (DRC S5) — who the technician met on site at a visit. A category,
+/// never a name.
+enum SiteVisitPresence {
+  OWNER
+  TENANT
+  CLIENT_SUPERVISOR
+  NO_ONE
+}
+
+/// RA-8498 (DRC S5) — what happened to the drying equipment at the end of a visit.
+enum SiteVisitEquipmentOutcome {
+  NONE_ON_SITE
+  ALL_LEFT
+  SOME_REMOVED
+  ALL_REMOVED
+}
+
+/// RA-8498 (DRC S5) — one record per attendance at the property: the first
+/// attendance and every re-attendance. A JobAppointment is the booking (the
+/// plan); a SiteVisit is what happened on site. Once `submittedAt` is set the
+/// row is read-only. `lib/site-visits/visit-gate.ts` owns the rule for which
+/// items must be recorded before a visit can be submitted.
+model SiteVisit {
+  id               String                     @id @default(cuid())
+  inspectionId     String
+  inspection       Inspection                 @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  /// 1 for the first attendance, then 2, 3 ... per job.
+  visitNumber      Int
+  /// The user who started the visit on site.
+  technicianId     String?
+  technician       User?                      @relation("SiteVisitTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
+  arrivedAt        DateTime?
+  departedAt       DateTime?
+  metOnSite        SiteVisitPresence?
+  /// An InspectionPhoto of this same job. NoAction: a photo in use as a
+  /// visit's front photo cannot be deleted on its own (the delete routes
+  /// refuse first); deleting the whole job still cascades both rows.
+  frontPhotoId     String?
+  frontPhoto       InspectionPhoto?           @relation("SiteVisitFrontPhoto", fields: [frontPhotoId], references: [id], onDelete: NoAction)
+  equipmentOutcome SiteVisitEquipmentOutcome?
+  equipmentNote    String?
+  submittedAt      DateTime?
+  submittedById    String?
+  submittedBy      User?                      @relation("SiteVisitSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  @@unique([inspectionId, visitNumber])
+  @@index([frontPhotoId])
+  @@index([technicianId])
+  @@index([submittedById])
 }
 
 /// V1 Phase 5 — minimum scheduling model (P5-1)

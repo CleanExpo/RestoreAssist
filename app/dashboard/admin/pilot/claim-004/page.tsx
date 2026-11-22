@@ -515,7 +515,7 @@ export default function Claim004AdjusterSessionPage() {
                 onClick={handleSubmit}
                 disabled={submitting}
                 size="sm"
-                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
+                className="bg-brand-cta hover:bg-brand-cta-hover text-white"
               >
                 {submitting ? (
                   <>
@@ -589,7 +589,7 @@ export default function Claim004AdjusterSessionPage() {
                 onClick={handleBatchSubmit}
                 disabled={submitting || !batchJson.trim()}
                 size="sm"
-                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
+                className="bg-brand-cta hover:bg-brand-cta-hover text-white"
               >
                 {submitting ? (
                   <>
@@ -639,7 +639,7 @@ export default function Claim004AdjusterSessionPage() {
                 {note}. Check the{" "}
                 <a
                   href="/dashboard/admin/pilot"
-                  className="text-brand-harbour-500 hover:underline"
+                  className="text-brand-harbour-600 dark:text-brand-harbour-400 hover:underline"
                 >
                   readiness dashboard
                 </a>{" "}

@@ -55,6 +55,7 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 
 import { GET, POST } from "../route";
+import { expectRefused } from "@/tests/helpers/expect-refused";
 import { countableEvidence } from "@/lib/evidence/countable-evidence";
 
 const INSPECTION_ID = "insp_1";
@@ -382,5 +383,51 @@ describe("GET /api/inspections/[id]/insurer-profile", () => {
     expect(response.status).toBe(404);
     const body = await response.json();
     expect(body.error.code).toBe("NOT_FOUND");
+  });
+});
+
+// RA-8407 item 3: `claimRef` was trimmed without checking it was text, so a
+// number, object or array threw inside the handler and came back as a 500.
+describe("POST /api/inspections/[id]/insurer-profile — claimRef must be text", () => {
+  it.each([
+    ["a number", 12345],
+    ["an object", { ref: "CLM-1" }],
+    ["an array", ["CLM-1"]],
+    ["a boolean", true],
+  ])("refuses claimRef as %s with 400 and writes nothing", async (_label, claimRef) => {
+    const response = await POST(
+      postRequest({ insurerId: "IAG", claimRef }),
+      params,
+    );
+    await expectRefused(response, 400, /claimRef must be text/);
+    expect(inspectionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("still stores a text claimRef, trimmed", async () => {
+    const response = await POST(
+      postRequest({ insurerId: "IAG", claimRef: "  CLM-42  " }),
+      params,
+    );
+    expect(response.status).toBe(200);
+    expect(inspectionUpdateMany).toHaveBeenCalledWith({
+      where: { id: INSPECTION_ID, userId: "user_1" },
+      data: {
+        insurerTemplateId: "IAG",
+        insurerProfileId: "profile_iag",
+        claimNumber: "CLM-42",
+      },
+    });
+  });
+
+  it("treats a null claimRef as no claim reference", async () => {
+    const response = await POST(
+      postRequest({ insurerId: "IAG", claimRef: null }),
+      params,
+    );
+    expect(response.status).toBe(200);
+    expect(inspectionUpdateMany).toHaveBeenCalledWith({
+      where: { id: INSPECTION_ID, userId: "user_1" },
+      data: { insurerTemplateId: "IAG", insurerProfileId: "profile_iag" },
+    });
   });
 });

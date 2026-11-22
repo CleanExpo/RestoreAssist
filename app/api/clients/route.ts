@@ -220,8 +220,15 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-8535: matched without case, as matchClientForReport and the Zoho
+      // mirror already do, so the same person cannot be added twice under a
+      // different capitalisation. The email is stored as typed.
       const existingClient = await prisma.client.findFirst({
-        where: { email, userId },
+        where: {
+          userId,
+          email: { equals: email, mode: "insensitive" },
+        },
+        select: { id: true },
       });
 
       if (existingClient) {

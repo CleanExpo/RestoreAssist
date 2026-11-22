@@ -150,7 +150,7 @@ function ForgotPasswordForm() {
             className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-brand-harbour-400 to-blue-400 bg-clip-text text-transparent mb-2"
             style={{ fontFamily: "Titillium Web, sans-serif" }}
           >
-            Restore Assist
+            RestoreAssist
           </motion.h1>
           <p className="text-slate-400">
             {step === "email"

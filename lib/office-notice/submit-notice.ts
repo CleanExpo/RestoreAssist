@@ -28,7 +28,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { createNotificationForUsers } from "@/lib/notifications";
+import { tryCreateNotificationForUsers } from "@/lib/notifications";
 import {
   deliverEmailOnce,
   EmailDeliveryPending,
@@ -38,6 +38,8 @@ import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { getAppUrl } from "@/lib/app-url";
 import { getResourceTenant } from "@/lib/organization-credits";
 import { reportError } from "@/lib/observability";
+import { parseEmail } from "@/lib/validation/email";
+import { decodeSanitizedEntities } from "@/lib/sanitize";
 
 export const SUBMIT_NOTICE_EMAIL_KIND = "INSPECTION_SUBMITTED_OFFICE";
 
@@ -61,16 +63,18 @@ export type SubmitNoticeOutcome =
   | "inspection_missing"
   | "no_tenant"
   | "no_recipient"
+  /** RA-8516: the in-app notification was not written; see `email`. */
+  | "in_app_failed"
   | "failed";
 
-// Values saved before RA-8503 were never validated, so check at send time.
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function usableEmail(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length <= 254 && EMAIL_PATTERN.test(trimmed)
-    ? trimmed
-    : null;
+/**
+ * A trimmed, valid single address, or null. Values saved before RA-8503 were
+ * never validated, so this is checked at send time too. The same check
+ * (parseEmail) guards the profile and setup saves. Also used by the RA-8497
+ * booking notice.
+ */
+export function usableEmail(value: string | null | undefined): string | null {
+  return parseEmail(value);
 }
 
 function logOutcome(
@@ -216,8 +220,11 @@ export async function notifyOfficeOfSubmittedVisit(
     }
     const org = await resolveTenantOrganization(tenant, inspection.createdAt);
 
+    // RA-8516: technicianName is stored through sanitizeString, which
+    // entity-encodes it ("O'Brien" is stored as "O&#x27;Brien"). Decode it
+    // once here so the email escapes it exactly once, at render.
     const technicianName =
-      inspection.technicianName?.trim() ||
+      decodeSanitizedEntities(inspection.technicianName ?? "").trim() ||
       input.submitterName?.trim() ||
       "A technician";
     const content: SubmitNoticeContent = {
@@ -228,6 +235,14 @@ export async function notifyOfficeOfSubmittedVisit(
 
     // In-app: the tenant's owner, plus the organisation's ADMIN and MANAGER
     // users when the job belongs to an organisation.
+    //
+    // RA-8516 assumption, pinned by a test: a job created by an ADMIN who is
+    // a member of someone else's organisation (not its owner) resolves to
+    // that ADMIN alone, because getResourceTenant treats every ADMIN as their
+    // own tenant, so only they are told. That creator is not reachable today:
+    // invites and role changes only grant MANAGER or USER
+    // (app/api/team/invites, app/api/team/members/[id]). Revisit this if a
+    // member can ever be made ADMIN.
     const recipientIds = new Set<string>([tenant.ownerId]);
     if (org) {
       const staff = await prisma.user.findMany({
@@ -236,12 +251,29 @@ export async function notifyOfficeOfSubmittedVisit(
       });
       for (const user of staff) recipientIds.add(user.id);
     }
-    await createNotificationForUsers([...recipientIds], {
+    const inApp = await tryCreateNotificationForUsers([...recipientIds], {
       title: "Job complete: report ready to send",
       message: `${technicianName} submitted job ${content.jobNumber}.`,
       type: "SUCCESS",
       link: `/dashboard/inspections/${inspection.id}`,
     });
+    const inAppDetail = {
+      inAppTargeted: recipientIds.size,
+      inAppWritten: inApp.ok ? inApp.written : 0,
+    };
+    if (!inApp.ok) {
+      // The submit already landed; report the lost in-app notice and still
+      // try the email, which is the only other channel.
+      reportError(inApp.error, {
+        route: "/api/inspections/[id]/submit",
+        stage: "office-notice-in-app",
+        inspectionId: inspection.id,
+      });
+    }
+    // RA-8516: never log "sent" when nothing was written in-app.
+    const emailOutcome = (
+      outcome: "sent" | "replayed" | "no_recipient",
+    ): SubmitNoticeOutcome => (inApp.ok ? outcome : "in_app_failed");
 
     const ownerEmail = org
       ? org.owner?.email
@@ -253,8 +285,9 @@ export async function notifyOfficeOfSubmittedVisit(
         )?.email;
     const recipient = usableEmail(org?.email) ?? usableEmail(ownerEmail);
     if (!recipient) {
-      logOutcome(inspection.id, "no_recipient", {
-        inAppTargeted: recipientIds.size,
+      logOutcome(inspection.id, emailOutcome("no_recipient"), {
+        email: "no_recipient",
+        ...inAppDetail,
       });
       return;
     }
@@ -282,9 +315,11 @@ export async function notifyOfficeOfSubmittedVisit(
           }),
         ),
     });
-    logOutcome(inspection.id, delivery.replayed ? "replayed" : "sent", {
+    const emailResult = delivery.replayed ? "replayed" : "sent";
+    logOutcome(inspection.id, emailOutcome(emailResult), {
+      email: emailResult,
       ledgerKey: key,
-      inAppTargeted: recipientIds.size,
+      ...inAppDetail,
     });
   } catch (error) {
     const ledgerState =

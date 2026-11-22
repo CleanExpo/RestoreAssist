@@ -46,7 +46,10 @@ shared corpus — stop and move it to a live injection instead. Job-value *media
 aggregate context are lower-risk; charge-out *rates* are the hard deny. Run with
 `--strict` to fail the ingest. The staging dir is the operator's ingest tree
 (default `~/iicrc-source/.staging`); there is no committed corpus sample in
-the repo, so this CLI is not a PR gate.
+the repo. The PR Quality Gates workflow runs the CLI with `--strict` against the
+clean fixture `scripts/ci/fixtures/corpus-hygiene/clean/` (RA-7790), which proves
+the gate runs and fails on a planted rate. It does not scan a real staging tree.
+Symlinked folders inside the staging tree are not followed.
 
 ## The pre-ingest gate — before you POST to /api/cron/ingest-standards
 

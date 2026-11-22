@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getAppUrl } from "@/lib/app-url";
 import {
@@ -19,6 +19,10 @@ type RouteContext = { params: Promise<{ id: string }> };
  *
  * The services come from the business owner's contractor profile: the
  * workspace owner when the job belongs to a workspace, else the job's owner.
+ *
+ * RA-8531: opened with the D-023 read reach (`assertInspectionReadable`), not
+ * the write gate, so a colleague in the job owner's organisation can read it.
+ * Another organisation still gets the same opaque 404 as a missing job.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
@@ -27,7 +31,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
     const { id } = await context.params;
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await assertInspectionReadable(session, id);
     if (!tenancy.ok) {
       return NextResponse.json({ error: tenancy.reason }, { status: tenancy.status });
     }

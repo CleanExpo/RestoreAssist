@@ -4,6 +4,11 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  reportHoldsNoSignedFormWhere,
+  reportsHoldingSignedForms,
+  SignedFormCascadeError,
+} from "@/lib/authority-forms/signed-record-guard";
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -62,13 +67,48 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    // Delete all reports
-    await prisma.report.deleteMany({
-      where: {
-        id: { in: ids },
-        userId: session.user.id,
-      },
+    // RA-8526: deleting a report cascades into its authority forms and their
+    // signatures. Refuse the whole batch when any report holds a signed form,
+    // and carry the same rule in the delete so a late signature still blocks.
+    const held = await reportsHoldingSignedForms(prisma, {
+      id: { in: ids },
+      userId: session.user.id,
     });
+    if (held.length > 0) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: `${held.length} of the selected reports hold a signed authority form and cannot be deleted. A signed authority form is the client's legal consent. Nothing was deleted`,
+        status: 409,
+        context: { blockedReportIds: held },
+      });
+    }
+
+    const deleted = await prisma.$transaction(async (tx) => {
+      const result = await tx.report.deleteMany({
+        where: {
+          id: { in: ids },
+          userId: session.user.id,
+          ...reportHoldsNoSignedFormWhere(),
+        },
+      });
+      // All or nothing: a signature that landed after the check above leaves
+      // a report behind, so roll the batch back rather than delete part of it.
+      if (result.count !== ids.length) {
+        throw new SignedFormCascadeError([]);
+      }
+      return result;
+    }).catch((err: unknown) => {
+      if (err instanceof SignedFormCascadeError) return null;
+      throw err;
+    });
+    if (!deleted) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message:
+          "One of the selected reports now holds a signed authority form, so nothing was deleted",
+        status: 409,
+      });
+    }
 
     return NextResponse.json({
       message: `${ids.length} reports deleted successfully`,

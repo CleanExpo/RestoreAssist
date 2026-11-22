@@ -89,6 +89,8 @@ vi.mock("@/lib/prisma", () => {
         return { count: before - photos.length };
       },
     },
+    // RA-8498: no site visit uses the photo (front-photo-delete.test.ts covers the refusal).
+    siteVisit: { findMany: async () => [] },
     auditLog: { create: state.auditCreate },
   });
 

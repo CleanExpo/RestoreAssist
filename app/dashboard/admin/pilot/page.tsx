@@ -41,6 +41,7 @@ import { PilotReadinessCommandCentre } from "@/components/admin/PilotReadinessCo
 import { cn } from "@/lib/utils";
 import type { PilotCommandCentreSnapshot } from "@/lib/pilot-readiness-command-centre";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import type { EvidenceClaim as RegisterEvidenceClaim } from "@/lib/nir-evidence-architecture";
 
 // ── Types (mirrors nir-pilot-measurement.ts + readiness API response) ──────────
 
@@ -53,12 +54,14 @@ interface ClaimEvaluation {
   observationsNeeded: number;
 }
 
-interface EvidenceClaim {
-  id: string;
-  title: string;
-  status: string;
-  hypothesis: string;
-}
+/**
+ * The readiness API returns the register's EvidenceClaim
+ * (lib/nir-evidence-architecture.ts). `hypothesis` is an object there
+ * (RA-8477); older payloads carried a plain string, so both are accepted.
+ */
+type EvidenceClaim = Omit<RegisterEvidenceClaim, "hypothesis"> & {
+  hypothesis?: RegisterEvidenceClaim["hypothesis"] | string | null;
+};
 
 interface ClaimCriteria {
   claimId: string;
@@ -145,6 +148,51 @@ function ProgressBar({
   );
 }
 
+/** Text of a hypothesis field, or null when it is missing or not a string. */
+function fieldText(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function ClaimHypothesis({
+  hypothesis,
+}: {
+  hypothesis: EvidenceClaim["hypothesis"];
+}) {
+  if (!hypothesis) return null;
+  if (typeof hypothesis === "string") {
+    return (
+      <p className="text-xs text-neutral-500 dark:text-slate-400 leading-relaxed">
+        {hypothesis}
+      </p>
+    );
+  }
+  if (typeof hypothesis !== "object") return null;
+
+  const rows = [
+    { label: "Success criteria", value: fieldText(hypothesis.successCriteria) },
+    {
+      label: "Measurement method",
+      value: fieldText(hypothesis.measurementMethod),
+    },
+    { label: "Sample size", value: fieldText(hypothesis.sampleSize) },
+    { label: "Phase", value: fieldText(hypothesis.measurementPhase) },
+  ].filter((row): row is { label: string; value: string } => row.value !== null);
+  if (rows.length === 0) return null;
+
+  return (
+    <dl className="space-y-1.5 text-xs leading-relaxed">
+      {rows.map((row) => (
+        <div key={row.label}>
+          <dt className="font-medium text-neutral-600 dark:text-slate-300">
+            {row.label}
+          </dt>
+          <dd className="text-neutral-500 dark:text-slate-400">{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function ClaimCard({ result }: { result: ClaimReadinessResult }) {
   const {
     claim,
@@ -208,7 +256,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
                 ) : null}
               </div>
               <CardTitle className="text-sm font-semibold text-neutral-800 dark:text-slate-200 mt-0.5">
-                {claim.title}
+                {claim.claim}
               </CardTitle>
             </div>
           </div>
@@ -222,10 +270,8 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Hypothesis */}
-        <p className="text-xs text-neutral-500 dark:text-slate-400 leading-relaxed">
-          {claim.hypothesis}
-        </p>
+        {/* Hypothesis (RA-8477: an object in the register, not text) */}
+        <ClaimHypothesis hypothesis={claim.hypothesis} />
 
         {/* Observation progress */}
         <div className="space-y-2.5">

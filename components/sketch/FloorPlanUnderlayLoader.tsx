@@ -10,6 +10,10 @@
 
 import { apiErrorMessage } from "@/lib/api-error-message";
 import {
+  isFinalCheckoutAnswer,
+  parseCheckoutReply,
+} from "@/lib/billing/checkout-return";
+import {
   useState,
   useRef,
   useCallback,
@@ -145,6 +149,7 @@ export function FloorPlanUnderlayLoader({
   const [upgradeRequired, setUpgradeRequired] = useState(false);
   // RA-6922: true while the subscription checkout session is being created.
   const [upgrading, setUpgrading] = useState(false);
+  const upgradeKeyRef = useRef<string | null>(null);
   // RA-6848 [C2] / RA-6849 [C3]: the operator must affirm the client holds the
   // rights + the import complies with the source's terms before any imported
   // plan is applied. Reset per selected plan (below).
@@ -363,16 +368,34 @@ export function FloorPlanUnderlayLoader({
 
   // RA-6922: start the recurring Floor Plan Underlay add-on checkout and
   // redirect to Stripe. Mirrors app/dashboard/pricing/page.tsx's redirect flow.
+  // RA-8272: one Idempotency-Key per purchase, kept until a readable reply
+  // names an outcome, so a retried press replays the first checkout.
   const handleUpgrade = useCallback(async () => {
     setUpgrading(true);
     setError(null);
+    const kept = upgradeKeyRef.current;
+    const key = kept ?? globalThis.crypto.randomUUID();
+    upgradeKeyRef.current = key;
     try {
       const res = await fetch("/api/addons/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": key },
         body: JSON.stringify({ addonKey: FLOORPLAN_UNDERLAY_SKU }),
       });
       const json = await res.json().catch(() => null);
+      if (
+        isFinalCheckoutAnswer(
+          res.status,
+          json,
+          parseCheckoutReply(res.status, json),
+          {
+            unresolved: kept !== null,
+            replayed: res.headers?.get?.("Idempotent-Replayed") === "true",
+          },
+        )
+      ) {
+        upgradeKeyRef.current = null;
+      }
       if (res.ok && json?.url) {
         window.location.href = json.url as string;
         return;

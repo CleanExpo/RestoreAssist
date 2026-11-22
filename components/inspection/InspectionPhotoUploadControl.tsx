@@ -4,6 +4,9 @@ import { useRef, useState } from "react";
 import { PhotoUploadError, prepareInspectionPhoto, uploadInspectionPhoto } from "@/lib/inspection-photo-upload";
 import { queueEvidenceUpload } from "@/lib/evidence-upload-queue";
 
+/** How many photos upload at once when several are picked (RA-8534). */
+export const PHOTO_UPLOAD_CONCURRENCY = 3;
+
 type PendingPhoto = { key: string; file: File; prepared: boolean; error: string | null };
 
 /** Shares truthful upload/readback and in-page retry across both photo screens. */
@@ -63,7 +66,19 @@ export function InspectionPhotoUploadControl({
     busyRef.current = true;
     setBusy(true);
     try {
-      for (const entry of entries) await attempt(entry);
+      // A small pool: up to PHOTO_UPLOAD_CONCURRENCY photos in flight. attempt()
+      // records its own failure against that photo and never throws, so one
+      // failed photo does not stop the rest.
+      let next = 0;
+      const worker = async () => {
+        while (next < entries.length) {
+          const entry = entries[next++];
+          await attempt(entry);
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(PHOTO_UPLOAD_CONCURRENCY, entries.length) }, worker),
+      );
     } finally {
       busyRef.current = false;
       setBusy(false);

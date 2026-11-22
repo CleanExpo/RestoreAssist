@@ -7,19 +7,21 @@ import { Metadata } from "next";
 import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
-  title: "IICRC S500:2021 Compliant Restoration Reports | RestoreAssist",
+  // RA-7665: alignment, not certification. ANSI/IICRC S500:2021 is the IICRC
+  // publication; AS-IICRC S500:2025 is its Australian adoption.
+  title: "Restoration Reports Aligned to IICRC S500:2021 | RestoreAssist",
   description:
-    "How RestoreAssist maps to IICRC S500:2021 — the Australian standard for professional water damage restoration. Field-by-field compliance reference for Australian restoration contractors — written so the documentation you produce stands up when an assessor reviews it.",
+    "How RestoreAssist maps to ANSI/IICRC S500:2021, adopted in Australia as AS-IICRC S500:2025. A field-by-field reference for Australian restoration contractors, written so the documentation you produce stands up when an assessor reviews it.",
   keywords: [
-    "IICRC S500 2021 compliance",
+    "IICRC S500 2021 alignment",
     "water damage restoration Australia",
-    "S500 compliant reports",
+    "S500 aligned reports",
     "restoration software IICRC",
     "insurance restoration documentation",
     "ANSI/IICRC S500",
   ],
   openGraph: {
-    title: "IICRC S500:2021 Compliance in RestoreAssist",
+    title: "IICRC S500:2021 Alignment in RestoreAssist",
     description:
       "Field-by-field mapping of IICRC S500:2021 requirements to RestoreAssist features. For Australian restoration contractors.",
     type: "website",
