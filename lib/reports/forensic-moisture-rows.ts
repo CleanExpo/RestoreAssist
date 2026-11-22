@@ -103,3 +103,21 @@ export function buildForensicMoistureRows(
     .map(toRow)
     .filter((row): row is ForensicMoistureRow => row !== null);
 }
+
+/**
+ * RA-8547 follow-up — the forensic PDF's moisture table has a fixed space on
+ * page 3, so it shows at most this many rows. Any further saved reading must
+ * be declared, never dropped silently.
+ */
+export const FORENSIC_MOISTURE_TABLE_MAX_ROWS = 5;
+
+/**
+ * Plain note for saved readings the table could not show. `null` when every
+ * reading was shown.
+ */
+export function moistureRowsNotShownNote(notShown: number): string | null {
+  if (!Number.isInteger(notShown) || notShown <= 0) return null;
+  return notShown === 1
+    ? "1 further saved moisture reading is not shown in this table."
+    : `${notShown} further saved moisture readings are not shown in this table.`;
+}
