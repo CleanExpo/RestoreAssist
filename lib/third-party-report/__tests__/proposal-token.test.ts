@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/env", () => ({ readEnv: () => "test-secret-for-proposals" }));
@@ -41,5 +42,24 @@ describe("proposal token", () => {
     expect(verifyProposal(t, { ...who, inspectionId: "insp_2" })).toEqual({ ok: false, reason: "wrong_job" });
     expect(verifyProposal(t, { ...who, userId: "u2" })).toEqual({ ok: false, reason: "wrong_user" });
     expect(verifyProposal(t, { ...who, now: Date.now() + 3_600_000 })).toEqual({ ok: false, reason: "expired" });
+  });
+
+  it("a proposal signed for one tenant's user fails for another tenant's user on the same job", () => {
+    const t = signProposal(payload({ userId: "tenant_a_user" }));
+    expect(verifyProposal(t, { ...who, userId: "tenant_b_user" })).toEqual({ ok: false, reason: "wrong_user" });
+  });
+
+  it("uses a derived key: a token MACed with the raw secret (as a session token would be) is rejected", () => {
+    const body = Buffer.from(JSON.stringify(payload()), "utf8").toString("base64url");
+    const rawMac = createHmac("sha256", "test-secret-for-proposals").update(body).digest("base64url");
+    expect(verifyProposal(`${body}.${rawMac}`, who)).toEqual({ ok: false, reason: "bad_signature" });
+  });
+
+  it("binds the upload hash: changing the SHA-256 after signing breaks the signature", () => {
+    const [body, sig] = signProposal(payload()).split(".");
+    const forged = JSON.parse(Buffer.from(body!, "base64url").toString());
+    forged.sha256 = "b".repeat(64);
+    const bad = `${Buffer.from(JSON.stringify(forged)).toString("base64url")}.${sig}`;
+    expect(verifyProposal(bad, who)).toEqual({ ok: false, reason: "bad_signature" });
   });
 });

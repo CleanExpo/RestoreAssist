@@ -6,7 +6,10 @@
  * it is asked to write are the ones that were read from that report, for that
  * job and user, recently. A client cannot invent a "from page 4 of the lab
  * report" fact and have it audited as if it were one. Signed with a key
- * derived from NEXTAUTH_SECRET under its own label; no new secret.
+ * derived from NEXTAUTH_SECRET under its own label (HMAC(secret, label), never
+ * the raw secret, so it cannot be valid as or forgeable from a session token);
+ * the payload binds user, inspection (which fixes the tenant), report SHA-256
+ * and an expiry; the route re-checks tenancy on confirm. No new secret.
  */
 
 import { createHmac, timingSafeEqual } from "node:crypto";
