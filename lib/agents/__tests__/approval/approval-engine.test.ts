@@ -601,6 +601,56 @@ describe.skipIf(!process.env.DATABASE_URL)("RA-8000 approval engine", () => {
       expect((await task(wf.ids.gated)).status).toBe("AWAITING_APPROVAL");
     });
 
+    it("approving one task while another poll is promoting a second gated task (uncommitted) leaves the workflow PAUSED (mutant: count without the workflow lock)", async () => {
+      const wf = await makeWorkflow(
+        [
+          { key: "root", agentSlug: slugA, status: "COMPLETED" },
+          {
+            key: "first",
+            agentSlug: slugA,
+            status: "AWAITING_APPROVAL",
+            requiresApproval: true,
+            approvalRequestedAt: new Date(),
+          },
+          {
+            key: "second",
+            agentSlug: slugA,
+            status: "PENDING",
+            dependsOn: ["root"],
+            requiresApproval: true,
+          },
+        ],
+        { status: "PAUSED" },
+      );
+      const gate = deferred<void>();
+      const entered = deferred<void>();
+      // What markTasksReady does for the second task, held open before commit.
+      const promoting = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "AgentWorkflow" WHERE id = ${wf.workflowId} FOR UPDATE`;
+        await tx.agentTask.update({
+          where: { id: wf.ids.second },
+          data: { status: "AWAITING_APPROVAL", approvalRequestedAt: new Date() },
+        });
+        await tx.agentWorkflow.update({ where: { id: wf.workflowId }, data: { status: "PAUSED" } });
+        entered.resolve();
+        await gate.promise;
+      });
+      await entered.promise;
+      const deciding = decideApproval({
+        userId: USER_ID,
+        workflowId: wf.workflowId,
+        taskId: wf.ids.first,
+        decision: "approve",
+      });
+      await new Promise((r) => setTimeout(r, 400));
+      gate.resolve();
+      await promoting;
+      const result = await deciding;
+      expect(result.ok).toBe(true);
+      expect((await task(wf.ids.second)).status).toBe("AWAITING_APPROVAL");
+      expect((await workflow(wf.workflowId)).status).toBe("PAUSED");
+    });
+
     it("the sweep leaves a PAUSED workflow's RUNNING task alone; the same row is reclaimed while RUNNING (positive control)", async () => {
       const { sweepExpiredLeases } = await import("@/lib/agents");
       const { expireLease } = await import("../durable/fixtures");

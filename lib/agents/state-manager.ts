@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma, WorkflowStatus } from "@prisma/client";
 import type { WorkflowContext, TaskOutput } from "./types";
 import { logAgentEvent } from "./logger";
+import { lockWorkflowRow } from "./workflow-lock";
 
 // Task claims and every write after a claim live in executor.ts / lease.ts
 // (RA-7999): they are guarded by the claim's lease token, not by status alone.
@@ -47,6 +48,7 @@ export async function markTasksReady(workflowId: string): Promise<number> {
   try {
     const promotedForApproval: string[] = [];
     const promoted = await prisma.$transaction(async (tx) => {
+      await lockWorkflowRow(tx, workflowId);
       const tasks = await tx.agentTask.findMany({
         where: { workflowId },
         select: {

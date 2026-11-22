@@ -14,6 +14,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { skipDependentsOfFailedTask } from "./lease";
+import { lockWorkflowRow } from "./workflow-lock";
 
 export const REJECTED_BY_USER_CODE = "REJECTED_BY_USER";
 
@@ -111,6 +112,10 @@ export async function decideApproval(
       if (moved.count === 0) return null;
 
       await hooks.afterTaskUpdate?.();
+
+      // Serialise with markTasksReady: the count below must see a gated task
+      // that another poll has promoted and not yet committed.
+      await lockWorkflowRow(tx, workflowId);
 
       let workflowStatus: string;
       if (decision === "approve") {
