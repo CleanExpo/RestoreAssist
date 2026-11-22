@@ -6,6 +6,14 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { FormType } from "@prisma/client";
 import { canManageFormTemplates } from "@/lib/form-templates/can-manage";
 
+function notEditable(request: NextRequest) {
+  return apiError(request, {
+    code: "NOT_FOUND",
+    message: "Template not found or not editable",
+    status: 404,
+  });
+}
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -129,21 +137,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
 
-    // Only the owner can update (not system templates)
+    // Only the owner can update. RA-8543: an inactive template is found too,
+    // so the list's Active switch can turn it back on; it takes no other edit
+    // until it is active again (checked once the body is read).
     const existing = await prisma.formTemplate.findFirst({
       where: {
         id,
         userId: session.user.id,
-        isActive: true,
       },
+      select: { id: true, isActive: true, isSystemTemplate: true, status: true },
     });
 
     if (!existing) {
-      return apiError(request, {
-        code: "NOT_FOUND",
-        message: "Template not found or not editable",
-        status: 404,
-      });
+      return notEditable(request);
     }
 
     let rawBody: unknown;
@@ -163,7 +169,30 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         status: 400,
       });
     }
-    const { name, description, formType } = rawBody as Record<string, any>;
+    const { name, description, formType, isActive } = rawBody as Record<
+      string,
+      any
+    >;
+
+    if (isActive !== undefined && typeof isActive !== "boolean") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "isActive must be true or false",
+        status: 400,
+      });
+    }
+    // An inactive template may only be switched back on; a system template is
+    // never switched off or on here (archive refuses it for the same reason).
+    if (!existing.isActive && isActive !== true) {
+      return notEditable(request);
+    }
+    if (isActive !== undefined && existing.isSystemTemplate) {
+      return notEditable(request);
+    }
+    // A template archived from the list comes back as a draft, so it is not
+    // left active with an ARCHIVED status.
+    const reactivatingArchived =
+      isActive === true && !existing.isActive && existing.status === "ARCHIVED";
 
     // Validate required fields
     if (name !== undefined && typeof name !== "string") {
@@ -193,19 +222,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const updated = await prisma.formTemplate.update({
-      where: { id, userId: session.user.id, isActive: true },
+      where: { id, userId: session.user.id, isActive: existing.isActive },
       data: {
         ...(name !== undefined ? { name: name.trim() } : {}),
         ...(description !== undefined
           ? { description: description || null }
           : {}),
         ...(formType !== undefined ? { formType } : {}),
+        ...(isActive !== undefined ? { isActive } : {}),
+        ...(reactivatingArchived ? { status: "DRAFT" as const } : {}),
       },
       select: {
         id: true,
         name: true,
         description: true,
         formType: true,
+        status: true,
+        isActive: true,
         updatedAt: true,
       },
     });
