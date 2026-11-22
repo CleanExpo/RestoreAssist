@@ -31,8 +31,9 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
-  assertInspectionAssignedWrite: m.assertWrite,
+  resolveInspectionWrite: m.assertWrite,
 }));
+vi.mock("@/lib/env", () => ({ readEnv: () => "test-secret-for-proposals" }));
 vi.mock("@/lib/billing/subscription-gate", () => ({
   requireActiveSubscription: m.requireActiveSubscription,
 }));
@@ -105,12 +106,19 @@ describe("POST third-party-reports/extract", () => {
     expect(res.status).toBe(200);
     const { proposal } = await res.json();
     expect(proposal.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(proposal.proposalToken).toMatch(/^[\w-]+\.[\w-]+$/);
     expect(proposal.facts[0]).toMatchObject({ status: "conflicts", pageRef: 1, jobValue: "Other Lab" });
     expect(proposal.facts[1]).toMatchObject({ status: "new", pageRef: 2 });
     expect(proposal.gaps.length).toBeGreaterThan(0);
     expect(proposal.rejectedCount).toBe(1);
     expect(m.writes).not.toHaveBeenCalled();
     expect(m.logAiUsage).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+  });
+
+  it("uses the owner and manager reach, not the assigned technician's (D-028: AI-key spend)", async () => {
+    const tenancy = await import("@/lib/auth/assert-tenancy");
+    expect(tenancy.resolveInspectionWrite).toBe(m.assertWrite);
+    expect(Object.keys(tenancy)).not.toContain("assertInspectionAssignedWrite");
   });
 
   it("401 without a session, before any work", async () => {

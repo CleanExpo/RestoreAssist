@@ -30,6 +30,7 @@ interface ProposedFact {
 }
 
 interface Proposal {
+  proposalToken: string;
   fileName: string;
   sha256: string;
   document: { title: string | null; author: string | null; reportDate: string | null };
@@ -39,6 +40,11 @@ interface Proposal {
 }
 
 type Decision = "accept" | "edit" | "dismiss" | "undecided";
+interface WireDecision {
+  index: number;
+  action: "accept" | "edit" | "dismiss";
+  value?: string;
+}
 
 const STATUS_LABEL: Record<Status, string> = {
   agrees: "Agrees with the job",
@@ -114,6 +120,21 @@ export default function ThirdPartyReportReader({
     }
   }
 
+  /** Only one value per field can be saved, so choosing one fact for a field
+   *  clears an earlier choice of another fact for the same field. */
+  function choose(i: number, decision: Decision) {
+    if (!proposal) return;
+    const next = { ...decisions, [i]: decision };
+    if (decision === "accept" || decision === "edit") {
+      proposal.facts.forEach((f, j) => {
+        if (j !== i && f.field === proposal.facts[i]!.field) {
+          if (next[j] === "accept" || next[j] === "edit") next[j] = "undecided";
+        }
+      });
+    }
+    setDecisions(next);
+  }
+
   const accepted = proposal
     ? proposal.facts.filter((_, i) => decisions[i] === "accept" || decisions[i] === "edit")
     : [];
@@ -122,16 +143,16 @@ export default function ThirdPartyReportReader({
     if (!proposal) return;
     setError(null);
     setPhase("saving");
+    // The facts, pages and report hash live in the signed token. The screen
+    // only says which fact it means and what the technician decided.
     const body = {
-      sha256: proposal.sha256,
-      fileName: proposal.fileName,
-      author: proposal.document.author,
-      reportDate: proposal.document.reportDate,
-      decisions: proposal.facts.flatMap((f, i) => {
+      proposalToken: proposal.proposalToken,
+      decisions: proposal.facts.flatMap<WireDecision>((f, i) => {
         const d = decisions[i];
         if (d !== "accept" && d !== "edit" && d !== "dismiss") return [];
-        const value = d === "edit" ? (edits[i] ?? String(f.value)) : f.value;
-        return [{ field: f.field, value, pageRef: f.pageRef, quote: f.quote, action: d }];
+        return d === "edit"
+          ? [{ index: i, action: d, value: edits[i] ?? String(f.value) }]
+          : [{ index: i, action: d }];
       }),
     };
     try {
@@ -141,22 +162,32 @@ export default function ThirdPartyReportReader({
         body: JSON.stringify(body),
       });
       if (!res.ok) {
+        let detail: string | null = null;
+        if (res.status === 400) {
+          try {
+            const err = (await res.json()) as { error?: { message?: unknown } };
+            if (typeof err.error?.message === "string") detail = err.error.message;
+          } catch {
+            detail = null;
+          }
+        }
         setError(
           res.status === 400
-            ? "One of the values is not valid. Check your edits. Nothing was saved."
+            ? `${detail ?? "One of the values is not valid."} Nothing was saved.`
             : readErrorMessage(res.status),
         );
         setPhase("review");
         return;
       }
-      const json = (await res.json()) as { written: number; dismissed: number };
+      const json = (await res.json()) as {
+        written: number;
+        dismissed: number;
+        applied: Partial<Record<LabField, string | number>>;
+      };
       setSummary(`${json.written} fact(s) saved to the job. ${json.dismissed} dismissed.`);
       setPhase("done");
-      const applied: Partial<Record<LabField, string | number>> = {};
-      for (const dec of body.decisions) {
-        if (dec.action !== "dismiss") applied[dec.field] = dec.value;
-      }
-      onApplied?.(applied);
+      // The values the server actually wrote, typed as stored.
+      onApplied?.(json.applied);
     } catch {
       setError(readErrorMessage(0));
       setPhase("review");
@@ -264,7 +295,7 @@ export default function ThirdPartyReportReader({
                       size="sm"
                       variant={d === "accept" ? "default" : "outline"}
                       aria-pressed={d === "accept"}
-                      onClick={() => setDecisions({ ...decisions, [i]: "accept" })}
+                      onClick={() => choose(i, "accept")}
                     >
                       Accept
                     </Button>
@@ -273,7 +304,7 @@ export default function ThirdPartyReportReader({
                       size="sm"
                       variant={d === "edit" ? "default" : "outline"}
                       aria-pressed={d === "edit"}
-                      onClick={() => setDecisions({ ...decisions, [i]: "edit" })}
+                      onClick={() => choose(i, "edit")}
                     >
                       Edit
                     </Button>

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ThirdPartyReportReader, { readErrorMessage } from "../ThirdPartyReportReader";
 
 const proposal = {
+  proposalToken: "signed.token-value-123456",
   fileName: "lab.pdf",
   sha256: "a".repeat(64),
   document: { title: "Lab", author: "Acme", reportDate: "2026-09-12" },
@@ -12,6 +13,7 @@ const proposal = {
     { field: "labName", value: "Acme", pageRef: 1, quote: "Acme Lab", status: "agrees", jobValue: "Acme" },
     { field: "sporeCountPreRemediation", value: 5000, pageRef: 4, quote: "5000 spores/m3", status: "conflicts", jobValue: "4000" },
     { field: "sporeType", value: "Aspergillus", pageRef: 3, quote: "Aspergillus", status: "new", jobValue: null },
+    { field: "sporeCountPreRemediation", value: 7000, pageRef: 5, quote: "7000 spores/m3", status: "conflicts", jobValue: "4000" },
   ],
   gaps: [{ code: "NO_OUTDOOR_BASELINE", message: "No outdoor baseline." }],
   rejectedCount: 2,
@@ -42,12 +44,12 @@ describe("ThirdPartyReportReader", () => {
     fetchMock.mockResolvedValueOnce(json({ proposal }));
     render(<ThirdPartyReportReader inspectionId="insp_1" />);
     await upload();
-    await waitFor(() => expect(screen.getAllByTestId("third-party-report-fact")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("third-party-report-fact")).toHaveLength(4));
     expect(screen.getByText("Page 4 of lab.pdf")).toBeInTheDocument();
     expect(screen.getByText("Agrees with the job")).toBeInTheDocument();
-    expect(screen.getByText("Conflicts with the job")).toBeInTheDocument();
+    expect(screen.getAllByText("Conflicts with the job")).toHaveLength(2);
     expect(screen.getByText("New to the job")).toBeInTheDocument();
-    expect(screen.getByText(/The job currently has: 4000/)).toBeInTheDocument();
+    expect(screen.getAllByText(/The job currently has: 4000/)).toHaveLength(2);
     expect(screen.getByText(/No outdoor baseline/)).toBeInTheDocument();
     expect(screen.getByText(/2 item\(s\) in the read were withheld/)).toBeInTheDocument();
     // only the extract call so far; nothing saved
@@ -66,7 +68,7 @@ describe("ThirdPartyReportReader", () => {
   it("posts only accepted and edited facts, plus the dismissed one, and reports the applied values", async () => {
     fetchMock
       .mockResolvedValueOnce(json({ proposal }))
-      .mockResolvedValueOnce(json({ written: 2, dismissed: 1 }));
+      .mockResolvedValueOnce(json({ written: 2, dismissed: 1, applied: { labName: "Acme", sporeCountPreRemediation: 5200 } }));
     const onApplied = vi.fn();
     render(<ThirdPartyReportReader inspectionId="insp_1" onApplied={onApplied} />);
     await upload();
@@ -83,19 +85,39 @@ describe("ThirdPartyReportReader", () => {
     const [url, init] = fetchMock.mock.calls[1]!;
     expect(url).toContain("/third-party-reports/confirm");
     const body = JSON.parse(init.body);
-    expect(body.sha256).toBe(proposal.sha256);
-    expect(body.decisions.map((d: { field: string; action: string; value: unknown }) => [d.field, d.action, d.value])).toEqual([
-      ["labName", "accept", "Acme"],
-      ["sporeCountPreRemediation", "edit", "5200"],
-      ["sporeType", "dismiss", "Aspergillus"],
+    // the screen sends the signed token and positions, never the facts or hash
+    expect(body.proposalToken).toBe(proposal.proposalToken);
+    expect(body.sha256).toBeUndefined();
+    expect(body.decisions).toEqual([
+      { index: 0, action: "accept" },
+      { index: 1, action: "edit", value: "5200" },
+      { index: 2, action: "dismiss" },
     ]);
-    expect(onApplied).toHaveBeenCalledWith({ labName: "Acme", sporeCountPreRemediation: "5200" });
+    // the host gets the values the server wrote, typed as stored
+    expect(onApplied).toHaveBeenCalledWith({ labName: "Acme", sporeCountPreRemediation: 5200 });
+  });
+
+  it("choosing a second sample for the same field clears the first choice", async () => {
+    fetchMock.mockResolvedValueOnce(json({ proposal }));
+    render(<ThirdPartyReportReader inspectionId="insp_1" />);
+    await upload();
+    const facts = await screen.findAllByTestId("third-party-report-fact");
+    const accept = (i: number) =>
+      fireEvent.click(Array.from(facts[i]!.querySelectorAll("button")).find((b) => b.textContent === "Accept")!);
+    accept(1);
+    expect(screen.getByRole("button", { name: /Save 1 accepted/ })).toBeEnabled();
+    accept(3);
+    expect(screen.getByRole("button", { name: /Save 1 accepted/ })).toBeEnabled();
+    const pressed = (i: number) =>
+      Array.from(facts[i]!.querySelectorAll("button")).find((b) => b.textContent === "Accept")!.getAttribute("aria-pressed");
+    expect(pressed(1)).toBe("false");
+    expect(pressed(3)).toBe("true");
   });
 
   it("an undecided fact is not sent at all", async () => {
     fetchMock
       .mockResolvedValueOnce(json({ proposal }))
-      .mockResolvedValueOnce(json({ written: 1, dismissed: 0 }));
+      .mockResolvedValueOnce(json({ written: 1, dismissed: 0, applied: { labName: "Acme" } }));
     render(<ThirdPartyReportReader inspectionId="insp_1" />);
     await upload();
     const facts = await screen.findAllByTestId("third-party-report-fact");
@@ -145,14 +167,14 @@ describe("ThirdPartyReportReader", () => {
   it("keeps the review open with an error when saving fails", async () => {
     fetchMock
       .mockResolvedValueOnce(json({ proposal }))
-      .mockResolvedValueOnce(json({ error: "x" }, 400));
+      .mockResolvedValueOnce(json({ error: { code: "VALIDATION", message: "Choose one value for Spore count (before remediation). The report gives more than one." } }, 400));
     render(<ThirdPartyReportReader inspectionId="insp_1" />);
     await upload();
     const facts = await screen.findAllByTestId("third-party-report-fact");
     fireEvent.click(Array.from(facts[0]!.querySelectorAll("button")).find((b) => b.textContent === "Accept")!);
     fireEvent.click(screen.getByRole("button", { name: /Save 1 accepted/ }));
-    expect(await screen.findByTestId("third-party-report-error")).toHaveTextContent(/Nothing was saved/);
-    expect(screen.getAllByTestId("third-party-report-fact")).toHaveLength(3);
+    expect(await screen.findByTestId("third-party-report-error")).toHaveTextContent(/Choose one value.*Nothing was saved/);
+    expect(screen.getAllByTestId("third-party-report-fact")).toHaveLength(4);
   });
 
   it("readErrorMessage never exposes server text", () => {

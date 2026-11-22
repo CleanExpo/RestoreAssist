@@ -7,12 +7,12 @@
  * evidence that anything is cleared or safe: a gap is only "this report does
  * not state it".
  *
- * IICRC references go through standardCite() (rule 14). No standard text is
- * quoted: the standards library has no human-written clause entries yet, so a
- * gap says "check manually" instead of guessing a clause.
+ * No IICRC or Australian Standards clause is cited here: the standards library
+ * has no human-written entry for laboratory sampling, so a gap says "check
+ * manually" instead of guessing a clause. When an entry exists, cite it through
+ * standardCite() (rule 14), never by a typed edition.
  */
 
-import { standardCite } from "@/lib/nir-standards-mapping";
 import type { ExtractedFact, LabField } from "./schema";
 
 export type FactStatus = "agrees" | "conflicts" | "new";
@@ -83,7 +83,7 @@ export function compareFacts(
   if (hasIndoorCount && !has("outdoorBaselineCount")) {
     gaps.push({
       code: "NO_OUTDOOR_BASELINE",
-      message: `This report gives an indoor spore count but no outdoor baseline sample. See ${standardCite("S520")} for the sampling context. ${NOT_COVERED}`,
+      message: `This report gives an indoor spore count but no outdoor baseline sample. ${NOT_COVERED}`,
     });
   }
   if (!has("samplingDate")) {

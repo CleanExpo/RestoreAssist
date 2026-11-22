@@ -53,6 +53,7 @@ crm-health.spec.ts                       workflow:sketch-e2e.yml
 dashboard-connected-journey.spec.ts      workflow:sketch-e2e.yml
 dr-nrpg-inbound-job.spec.ts              workflow:sketch-e2e.yml
 floorplan-upload-ai.spec.ts              workflow:sketch-e2e.yml
+third-party-report.spec.ts               workflow:sketch-e2e.yml
 first-tradie-flow.spec.ts                a1
 health-migrations.spec.ts                workflow:sketch-e2e.yml
 health.spec.ts                           workflow:sketch-e2e.yml

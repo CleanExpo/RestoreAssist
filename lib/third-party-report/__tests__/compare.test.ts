@@ -39,11 +39,12 @@ describe("compareFacts", () => {
     expect(out.facts[0]?.status).toBe("new");
   });
 
-  it("reports a missing outdoor baseline as a gap, citing the edition via standardCite", () => {
+  it("reports a missing outdoor baseline as a gap and cites no clause the library does not hold", () => {
     const out = compareFacts([fact("sporeCountPreRemediation", 900)], null);
     const gap = out.gaps.find((g) => g.code === "NO_OUTDOOR_BASELINE");
-    expect(gap?.message).toMatch(/S520:\d{4}/);
+    expect(gap?.message).toMatch(/Not covered by the standards library/);
     expect(gap?.message).toMatch(/Check manually/);
+    expect(gap?.message).not.toMatch(/S\d{3}|IICRC|AS\/NZS/);
   });
 
   it("an outdoor citation never satisfies the indoor count, nor the reverse", () => {

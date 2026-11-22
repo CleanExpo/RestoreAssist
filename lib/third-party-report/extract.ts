@@ -8,6 +8,7 @@
  */
 
 import { createHash } from "node:crypto";
+import Anthropic from "@anthropic-ai/sdk";
 import { callAnthropic } from "@/lib/services/ai/anthropic-gateway";
 import type { AnthropicReason } from "@/lib/services/ai/anthropic-gateway";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
@@ -43,9 +44,16 @@ Rules:
 const USER_INSTRUCTIONS =
   "Extract the allowed facts from the attached PDF and return only the JSON object.";
 
-/** Best-effort page count from the PDF page objects. 0 means unknown. */
+/**
+ * Page count from the PDF page objects, or 0 (unknown). A PDF that packs its
+ * objects into compressed streams hides its page objects, so a count taken
+ * from the visible text would be too low and would drop valid page references;
+ * those files report unknown.
+ */
 export function estimatePdfPageCount(buffer: Buffer): number {
-  const matches = buffer.toString("latin1").match(/\/Type\s*\/Page(?![a-zA-Z])/g);
+  const text = buffer.toString("latin1");
+  if (/\/ObjStm/.test(text)) return 0;
+  const matches = text.match(/\/Type\s*\/Page(?![a-zA-Z])/g);
   return matches ? matches.length : 0;
 }
 
@@ -107,10 +115,9 @@ export async function extractLabReport(args: {
   });
 
   if (!result.ok) {
-    const cause = result.cause as { name?: string } | undefined;
     if (
       result.reason === "API_ERROR" &&
-      cause?.name === "APIConnectionTimeoutError"
+      result.cause instanceof Anthropic.APIConnectionTimeoutError
     ) {
       return fail("TIMEOUT", { detail: "The model read timed out" });
     }

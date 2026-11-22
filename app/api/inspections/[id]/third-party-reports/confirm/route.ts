@@ -2,14 +2,17 @@
  * POST /api/inspections/[id]/third-party-reports/confirm
  * RA-7687 slice 1 - write ONLY the facts the technician accepted or edited.
  *
- * Body: { sha256, fileName, author?, reportDate?, decisions: [{ field, value,
- *   pageRef, quote, action: "accept" | "edit" | "dismiss" }] }
+ * Body: { proposalToken, decisions: [{ index, action: "accept" | "edit" |
+ *   "dismiss", value? }] }
  *
- * A dismissed fact is never written. The write is one transaction that is
- * gated by the caller's inspection scope, and it leaves one AuditLog row
- * naming the document (SHA-256), each fact's page and what it replaced.
- * Whatever is written lands in the lab-result columns of the existing mould
- * assessment, never in a clearance or condition field.
+ * The facts, pages and report hash come from the signed proposal the extract
+ * route issued for this job and user, never from the client, so the audit row
+ * cannot name a page or document the AI did not read. The client only decides:
+ * `value` is read only for "edit". A dismissed fact is never written. The write
+ * is one transaction gated by the caller's inspection scope and leaves one
+ * AuditLog row naming the document (SHA-256), each fact's page and what it
+ * replaced. Writes land in the lab-result columns of the existing mould
+ * assessment through an allow-list, never in a condition or clearance field.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -22,12 +25,13 @@ import {
 import { apiError, fromException } from "@/lib/api-errors";
 import {
   confirmBodySchema,
-  containsUnsupportedClaim,
+  LAB_FIELD_LABELS,
   normaliseFactValue,
   type LabField,
 } from "@/lib/third-party-report/schema";
+import { verifyProposal } from "@/lib/third-party-report/proposal-token";
 
-const MAX_BODY_BYTES = 64 * 1024;
+const MAX_BODY_BYTES = 128 * 1024;
 
 export async function POST(
   request: NextRequest,
@@ -80,49 +84,75 @@ export async function POST(
     }
     const body = parsed.data;
 
-    // Validate every decided value before anything is written. One bad value
+    const proposal = verifyProposal(body.proposalToken, {
+      inspectionId,
+      userId,
+    });
+    if (!proposal.ok) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          proposal.reason === "expired"
+            ? "This report read has expired. Read the report again."
+            : "This report read is not valid for this job. Read the report again.",
+        status: 400,
+      });
+    }
+    const { facts, sha256, fileName, document } = proposal.payload;
+
+    // Validate every decision before anything is written. One bad decision
     // refuses the whole request, so a half-applied review cannot happen.
     const accepted = new Map<
       LabField,
       { value: string | number; pageRef: number; edited: boolean }
     >();
+    const decidedIndexes = new Set<number>();
     let dismissed = 0;
     for (const d of body.decisions) {
+      const fact = facts[d.index];
+      if (!fact || decidedIndexes.has(d.index)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "A decision does not match a fact in this report read",
+          status: 400,
+        });
+      }
+      decidedIndexes.add(d.index);
       if (d.action === "dismiss") {
         dismissed++;
         continue;
       }
-      const value = normaliseFactValue(d.field, d.value);
-      if (
-        value === null ||
-        (typeof value === "string" && containsUnsupportedClaim(value))
-      ) {
+      const value =
+        d.action === "edit" ? normaliseFactValue(fact.field, d.value ?? "") : fact.value;
+      if (value === null) {
         return apiError(request, {
           code: "VALIDATION",
-          message: `Value for ${d.field} is not valid`,
+          message: `The edited value for ${LAB_FIELD_LABELS[fact.field]} is not valid`,
           status: 400,
         });
       }
-      if (accepted.has(d.field)) {
+      if (accepted.has(fact.field)) {
         return apiError(request, {
           code: "VALIDATION",
-          message: `More than one value for ${d.field}`,
+          message: `Choose one value for ${LAB_FIELD_LABELS[fact.field]}. The report gives more than one.`,
           status: 400,
         });
       }
-      accepted.set(d.field, {
+      accepted.set(fact.field, {
         value,
-        pageRef: d.pageRef,
+        pageRef: fact.pageRef,
         edited: d.action === "edit",
       });
     }
 
     if (accepted.size === 0) {
-      return NextResponse.json({ written: 0, dismissed });
+      return NextResponse.json({ written: 0, dismissed, applied: {} });
     }
 
+    const applied: Partial<Record<LabField, string | number>> = {};
     const data: Record<string, string | number | Date> = {};
     for (const [field, { value }] of accepted) {
+      applied[field] = value;
       data[field] =
         field === "samplingDate"
           ? new Date(`${value}T00:00:00.000Z`)
@@ -163,10 +193,10 @@ export async function POST(
             changes: JSON.stringify({
               source: {
                 kind: "third_party_report",
-                fileName: body.fileName,
-                sha256: body.sha256,
-                author: body.author ?? null,
-                reportDate: body.reportDate ?? null,
+                fileName,
+                sha256,
+                author: document.author,
+                reportDate: document.reportDate,
               },
               facts: [...accepted].map(([field, v]) => ({
                 field,
@@ -176,9 +206,7 @@ export async function POST(
               dismissed,
             }),
             previousValue: JSON.stringify(previous),
-            newValue: JSON.stringify(Object.fromEntries(
-              [...accepted].map(([field, v]) => [field, v.value]),
-            )),
+            newValue: JSON.stringify(applied),
           },
         });
         return record;
@@ -193,7 +221,7 @@ export async function POST(
         status: 404,
       });
     }
-    return NextResponse.json({ written: accepted.size, dismissed });
+    return NextResponse.json({ written: accepted.size, dismissed, applied });
   } catch (err) {
     return fromException(request, err, {
       stage: "third-party-reports:confirm",

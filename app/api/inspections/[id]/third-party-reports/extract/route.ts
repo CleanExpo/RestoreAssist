@@ -3,9 +3,9 @@
  * RA-7687 slice 1 - read a third-party laboratory PDF and PROPOSE facts.
  *
  * Request: multipart/form-data with a `file` field (PDF, max 20 MB).
- * Response: { proposal: { fileName, sha256, document, facts, gaps, rejectedCount } }
+ * Response: { proposal: { proposalToken, fileName, sha256, document, facts, gaps, rejectedCount } }
  *
- * This route never writes job data. The technician reviews each fact and the
+ * Owner and manager reach only (D-028: AI-key spend). This route never writes job data. The technician reviews each fact and the
  * sibling /confirm route writes only what they accept. The PDF is not stored
  * in this slice (follow-up: private storage and a virus-scan decision).
  */
@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
+import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { applyRateLimit } from "@/lib/rate-limiter";
@@ -35,6 +35,10 @@ import {
   type ExtractLabReason,
 } from "@/lib/third-party-report/extract";
 import { compareFacts } from "@/lib/third-party-report/compare";
+import {
+  PROPOSAL_TTL_MS,
+  signProposal,
+} from "@/lib/third-party-report/proposal-token";
 
 // A document block of a few pages costs well under this; used for the
 // pre-call workspace budget check only. Actual cost is logged after the call.
@@ -69,7 +73,10 @@ export async function POST(
     const userId = session.user.id;
     const { id: inspectionId } = await params;
 
-    const tenancy = await assertInspectionAssignedWrite(session, inspectionId);
+    // D-028: spending the workspace's AI key at a technician's request is a
+    // cost decision the founder has not made, so reading a report is the
+    // owner's and managers' reach. Confirming facts (a field write) is not.
+    const tenancy = await resolveInspectionWrite(session, inspectionId);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },
@@ -228,10 +235,23 @@ export async function POST(
     });
     const { facts, gaps } = compareFacts(result.data.facts, job);
 
+    const fileName = file.name.slice(0, 255);
+    const sha256 = sha256Hex(pdf);
+    const proposalToken = signProposal({
+      inspectionId,
+      userId,
+      sha256,
+      fileName,
+      document: result.data.document,
+      facts: result.data.facts,
+      exp: Date.now() + PROPOSAL_TTL_MS,
+    });
+
     return NextResponse.json({
       proposal: {
-        fileName: file.name.slice(0, 255),
-        sha256: sha256Hex(pdf),
+        proposalToken,
+        fileName,
+        sha256,
         document: result.data.document,
         facts,
         gaps,

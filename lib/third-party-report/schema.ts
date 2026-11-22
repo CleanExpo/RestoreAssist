@@ -1,11 +1,15 @@
 /**
  * RA-7687 slice 1 - third-party laboratory report reader: the checked shapes.
  *
- * The uploaded PDF is untrusted data. The model may only return the facts
- * below, each with the page it came from and a short verbatim quote. Anything
- * else (unknown field, no page, instruction text, a clinical or clearance
- * claim) is dropped before the technician ever sees it. Nothing here writes to
- * the job: the confirm route is the only writer.
+ * The uploaded PDF is untrusted data. The guarantee is structural, not a list
+ * of banned words:
+ *   - the model may only propose the allow-listed fields below, each with a
+ *     page number and a quote;
+ *   - every value is held to a tight type, character set and length for its
+ *     field, so free prose cannot be carried into a job column;
+ *   - the quote is display-only: it is shown as text, never written anywhere;
+ *   - nothing reaches the job until the technician confirms it, and the
+ *     fields cannot express a condition, clearance or health conclusion.
  */
 
 import { z } from "zod";
@@ -39,39 +43,66 @@ export const LAB_FIELD_LABELS: Record<LabField, string> = {
   sporeCountPostRemediation: "Spore count (after remediation)",
 };
 
-const MAX_TEXT = 200;
 const MAX_QUOTE = 300;
 const MAX_FACTS = 40;
+const MAX_COUNT = 1e9;
 
-/** Text that is a health, clinical or clearance claim, or an instruction aimed
- *  at the reader. The report states what it measured; it never decides these. */
-const UNSUPPORTED_CLAIM =
-  /\b(cleared?|clearance|safe (?:to|for) (?:occupy|occupation|re-?enter|reoccup)|fit for occupancy|pathogen[- ]free|mould[- ]free|diagnos\w*|medical|clinical|health (?:risk|hazard|effect)|ignore (?:all |any |the )?(?:previous|prior|above)|disregard|system prompt|you (?:must|are now)|assistant:)/i;
-
-export function containsUnsupportedClaim(text: string): boolean {
-  return UNSUPPORTED_CLAIM.test(text);
-}
+/** Allowed characters per text field: names and codes, never sentences with
+ *  markup, braces or line breaks. */
+const TEXT_RULES: Record<
+  "labName" | "labReportReference" | "sporeType",
+  RegExp
+> = {
+  labName: /^[A-Za-z0-9][A-Za-z0-9 .,&'()\-/]{1,79}$/,
+  labReportReference: /^[A-Za-z0-9][A-Za-z0-9 ._\-/#]{0,39}$/,
+  sporeType: /^[A-Za-z][A-Za-z .,()\-/]{1,59}$/,
+};
+const LABEL_TEXT = /^[A-Za-z0-9][A-Za-z0-9 .,&'()\-/:]{0,99}$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const pageRef = z.number().int().min(1).max(5000);
 
-const textValue = z.string().trim().min(1).max(MAX_TEXT);
+/** Quote shown beside a fact. Control characters are removed; it is never stored. */
+export function cleanQuote(quote: string): string {
+  return quote.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, MAX_QUOTE);
+}
+
+/** Validates one value against its field. Returns null when it is not usable. */
+export function normaliseFactValue(
+  field: LabField,
+  value: string | number,
+): string | number | null {
+  if (NUMERIC_LAB_FIELDS.includes(field)) {
+    if (typeof value === "string" && value.trim() === "") return null;
+    const n = typeof value === "number" ? value : Number(value.trim());
+    return Number.isFinite(n) && n >= 0 && n <= MAX_COUNT ? n : null;
+  }
+  const text = String(value).trim();
+  if (field === "samplingDate") {
+    if (!ISO_DATE.test(text)) return null;
+    const d = new Date(`${text}T00:00:00.000Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === text
+      ? text
+      : null;
+  }
+  return TEXT_RULES[field as keyof typeof TEXT_RULES].test(text) ? text : null;
+}
 
 const rawFact = z
   .object({
     field: z.enum(LAB_FIELDS),
-    value: z.union([z.string(), z.number()]),
+    value: z.union([z.string().max(400), z.number()]),
     pageRef,
-    quote: z.string().trim().min(1).max(MAX_QUOTE),
+    quote: z.string().min(1).max(2000),
   })
   .strict();
-
-export type RawFact = z.infer<typeof rawFact>;
 
 export interface ExtractedFact {
   field: LabField;
   /** Text for text fields, ISO date (YYYY-MM-DD) for samplingDate, number for counts. */
   value: string | number;
   pageRef: number;
+  /** Display-only. Never written to the job. */
   quote: string;
 }
 
@@ -88,44 +119,17 @@ export interface ParsedExtraction {
   rejectedCount: number;
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Validates one value against its field. Returns null when it is not usable. */
-export function normaliseFactValue(
-  field: LabField,
-  value: string | number,
-): string | number | null {
-  if (NUMERIC_LAB_FIELDS.includes(field)) {
-    const n = typeof value === "number" ? value : Number(String(value).trim());
-    return Number.isFinite(n) && n >= 0 ? n : null;
-  }
-  const text = String(value).trim();
-  if (text.length === 0 || text.length > MAX_TEXT) return null;
-  if (field === "samplingDate") {
-    if (!ISO_DATE.test(text)) return null;
-    const d = new Date(`${text}T00:00:00.000Z`);
-    if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== text) {
-      return null;
-    }
-  }
-  return text;
-}
-
-const documentSchema = z
-  .object({
-    title: textValue.nullable().optional(),
-    author: textValue.nullable().optional(),
-    reportDate: z.string().regex(ISO_DATE).nullable().optional(),
-  })
-  .strict();
+const labelOrNull = (v: unknown): string | null =>
+  typeof v === "string" && LABEL_TEXT.test(v.trim()) ? v.trim() : null;
 
 /**
  * Strict parse of the model's reply. No repair of malformed JSON: a reply that
  * is not exactly the agreed shape is a failed read, not a guess. Returns null
  * for an unusable reply.
  *
- * @param pageCount best-effort page count of the PDF, or 0 when unknown; a
- *   page reference beyond it cannot have come from the document.
+ * @param pageCount page count of the PDF when it can be trusted, else 0
+ *   (unknown). A page reference beyond a known count cannot have come from the
+ *   document.
  */
 export function parseExtraction(
   text: string,
@@ -144,7 +148,14 @@ export function parseExtraction(
   }
   const envelope = z
     .object({
-      document: documentSchema.optional(),
+      document: z
+        .object({
+          title: z.string().nullable().optional(),
+          author: z.string().nullable().optional(),
+          reportDate: z.string().nullable().optional(),
+        })
+        .strict()
+        .optional(),
       facts: z.array(z.unknown()).max(MAX_FACTS),
     })
     .strict()
@@ -161,49 +172,49 @@ export function parseExtraction(
     }
     const { field, value, pageRef: page, quote } = parsed.data;
     const normalised = normaliseFactValue(field, value);
-    const unsupported =
-      containsUnsupportedClaim(quote) ||
-      (typeof value === "string" && containsUnsupportedClaim(value));
+    const cleaned = cleanQuote(quote);
     const beyondDocument = pageCount > 0 && page > pageCount;
-    if (normalised === null || unsupported || beyondDocument) {
+    if (normalised === null || cleaned === "" || beyondDocument) {
       rejectedCount++;
       continue;
     }
-    facts.push({ field, value: normalised, pageRef: page, quote });
+    facts.push({ field, value: normalised, pageRef: page, quote: cleaned });
   }
 
   const doc = envelope.data.document;
-  const safe = (v: string | null | undefined) =>
-    v && !containsUnsupportedClaim(v) ? v : null;
+  const reportDate =
+    typeof doc?.reportDate === "string" &&
+    normaliseFactValue("samplingDate", doc.reportDate) !== null
+      ? doc.reportDate
+      : null;
   return {
     document: {
-      title: safe(doc?.title),
-      author: safe(doc?.author),
-      reportDate: doc?.reportDate ?? null,
+      title: labelOrNull(doc?.title),
+      author: labelOrNull(doc?.author),
+      reportDate,
     },
     facts,
     rejectedCount,
   };
 }
 
-/** What the confirm route accepts: only decided facts, strictly typed. */
-export const decisionSchema = z
-  .object({
-    field: z.enum(LAB_FIELDS),
-    value: z.union([z.string(), z.number()]),
-    pageRef,
-    quote: z.string().trim().max(MAX_QUOTE),
-    action: z.enum(["accept", "edit", "dismiss"]),
-  })
-  .strict();
-
+/** What the confirm route accepts. Values come from the signed proposal; the
+ *  client names a fact by position and decides, and may only supply a value
+ *  when it edits. */
 export const confirmBodySchema = z
   .object({
-    sha256: z.string().regex(/^[a-f0-9]{64}$/),
-    fileName: z.string().trim().min(1).max(255),
-    author: z.string().trim().max(MAX_TEXT).nullable().optional(),
-    reportDate: z.string().regex(ISO_DATE).nullable().optional(),
-    decisions: z.array(decisionSchema).max(MAX_FACTS),
+    proposalToken: z.string().min(20).max(120_000),
+    decisions: z
+      .array(
+        z
+          .object({
+            index: z.number().int().min(0).max(MAX_FACTS - 1),
+            action: z.enum(["accept", "edit", "dismiss"]),
+            value: z.union([z.string().max(400), z.number()]).optional(),
+          })
+          .strict(),
+      )
+      .max(MAX_FACTS),
   })
   .strict();
 

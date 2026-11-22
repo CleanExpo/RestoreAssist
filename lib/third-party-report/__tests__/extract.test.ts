@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { callAnthropic } = vi.hoisted(() => ({ callAnthropic: vi.fn() }));
 vi.mock("@/lib/services/ai/anthropic-gateway", () => ({ callAnthropic }));
 
+import Anthropic from "@anthropic-ai/sdk";
 import {
   checkPdfBytes,
   estimatePdfPageCount,
@@ -85,11 +86,21 @@ describe("extractLabReport", () => {
     expect(out).toMatchObject({ ok: false, reason: "MODEL_OVERLOADED" });
   });
 
+  it("a plain API error with the generic name is not mistaken for a timeout", async () => {
+    callAnthropic.mockResolvedValue({
+      ok: false,
+      reason: "API_ERROR",
+      cause: new Error("boom"),
+    });
+    const out = await extractLabReport({ apiKey: "k", pdf });
+    expect(out).toMatchObject({ ok: false, reason: "API_ERROR" });
+  });
+
   it("reports a slow AI call as TIMEOUT, and bounds the wait", async () => {
     callAnthropic.mockResolvedValue({
       ok: false,
       reason: "API_ERROR",
-      cause: { name: "APIConnectionTimeoutError" },
+      cause: new Anthropic.APIConnectionTimeoutError(),
     });
     const out = await extractLabReport({ apiKey: "k", pdf, timeoutMs: 5 });
     expect(out).toMatchObject({ ok: false, reason: "TIMEOUT" });
@@ -100,6 +111,10 @@ describe("extractLabReport", () => {
 describe("pdf helpers", () => {
   it("counts pages and ignores the /Pages tree object", () => {
     expect(estimatePdfPageCount(pdf)).toBe(2);
+  });
+  it("reports an unknown count for a PDF with compressed object streams", () => {
+    const packed = Buffer.concat([pdf, Buffer.from("\n/Type /ObjStm\n")]);
+    expect(estimatePdfPageCount(packed)).toBe(0);
   });
   it("hashes the exact bytes", () => {
     expect(sha256Hex(Buffer.from("abc"))).toBe(
