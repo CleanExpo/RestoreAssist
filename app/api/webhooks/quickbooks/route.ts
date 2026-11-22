@@ -7,6 +7,9 @@ import {
 } from "@/lib/webhook-idempotency";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
 import { apiError } from "@/lib/api-errors";
+import { OAUTH_READY_STATUSES } from "@/lib/integrations/identity";
+import { resolveReadyWebhookIntegration, MAX_WEBHOOK_CANDIDATES } from "@/lib/integrations/webhook-binding";
+import { credentialPresentIds, OAUTH_IDENTITY_SELECT } from "@/lib/services/integrations/select-oauth";
 
 /**
  * POST /api/webhooks/quickbooks - Receive webhook events from QuickBooks
@@ -86,21 +89,28 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Find the integration for this realm
-      const integration = await prisma.integration.findFirst({
-        where: {
-          provider: "QUICKBOOKS",
-          realmId: realmId,
-          status: "CONNECTED",
-        },
+      // RA-8446: bind to the one connection for this realm that the
+      // readiness owner calls ready. An event whose only match is not ready
+      // is not stored (decision in lib/integrations/webhook-binding.ts).
+      const binding = await resolveReadyWebhookIntegration({
+        provider: "QUICKBOOKS",
+        rows: await prisma.integration.findMany({
+          where: { provider: "QUICKBOOKS", realmId, status: { in: [...OAUTH_READY_STATUSES] } },
+          select: OAUTH_IDENTITY_SELECT,
+          orderBy: { id: "asc" },
+          take: MAX_WEBHOOK_CANDIDATES + 1,
+        }),
+        matches: row => row.realmId === realmId,
+        credentialPresentIds: ids => credentialPresentIds(prisma, ids),
       });
 
-      if (!integration) {
+      if (!binding.ok) {
         console.warn(
-          `[QuickBooks Webhook] No active integration found for realm ${realmId}`,
+          `[QuickBooks Webhook] Events not queued for realm ${realmId}: ${binding.reason}${binding.reason === "NOT_READY" ? ` (${binding.detail})` : ""}`,
         );
         continue;
       }
+      const integration = binding.data;
 
       // Process each data change notification
       const dataChangeEvents = notification.dataChangeEvent?.entities || [];

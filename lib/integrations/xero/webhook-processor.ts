@@ -15,7 +15,8 @@
 
 import { createHmac, timingSafeEqual } from "crypto";
 import type { Integration } from "@prisma/client";
-import { isOAuthIntegration } from "@/lib/integrations/identity";
+import { isReadyOAuthCandidate, OAUTH_CREDENTIAL_PRESENT_WHERE } from "@/lib/services/integrations/select-oauth";
+import { MAX_WEBHOOK_CANDIDATES, resolveReadyWebhookIntegration, type NotReadyReason } from "@/lib/integrations/webhook-binding";
 import { reclaimStaleWebhookEvents } from "@/lib/jobs/webhook-reclaim";
 import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
@@ -40,33 +41,43 @@ export const XERO_WEBHOOK_INTEGRATION_SELECT = {
   status: true,
 } as const;
 
-export const MAX_XERO_WEBHOOK_TENANT_CANDIDATES = 100;
+export const MAX_XERO_WEBHOOK_TENANT_CANDIDATES = MAX_WEBHOOK_CANDIDATES;
+
+/**
+ * The queued event's tenant is still this connection's, and the readiness
+ * owner calls it ready. Only for a row read under OAUTH_CREDENTIAL_PRESENT_WHERE.
+ */
+function isReadyForTenant(integration: XeroWebhookIntegration, tenantId: unknown): boolean {
+  return typeof tenantId === "string" && tenantId.trim().length > 0 &&
+    integration.tenantId === tenantId && isReadyOAuthCandidate(integration, "XERO");
+}
 
 type XeroWebhookIntegration = Pick<Integration, keyof typeof XERO_WEBHOOK_INTEGRATION_SELECT>;
 export type XeroWebhookBindingResult =
   | { ok: true; data: XeroWebhookIntegration }
-  | { ok: false; reason: "UNKNOWN_TENANT" | "AMBIGUOUS_TENANT" };
+  | { ok: false; reason: "UNKNOWN_TENANT" | "AMBIGUOUS_TENANT" }
+  | { ok: false; reason: "NOT_READY"; detail: NotReadyReason };
 
-function matchesTenant(integration: XeroWebhookIntegration, tenantId: unknown): boolean {
-  return typeof tenantId === "string" && tenantId.trim().length > 0 &&
-    integration.tenantId === tenantId && integration.status === "CONNECTED" &&
-    isOAuthIntegration(integration, "XERO");
-}
-
-/** Resolve one event's tenant without choosing an arbitrary local account. */
+/**
+ * Resolve one event's tenant without choosing an arbitrary local account.
+ * RA-8446: the connection must be one getOAuthReadiness calls ready, not one
+ * whose raw status is CONNECTED. See lib/integrations/webhook-binding.ts for
+ * what happens to an event whose only match is not ready.
+ */
 export async function resolveXeroWebhookBinding(
   tenantId: string,
   findCandidates: (tenantId: string) => Promise<XeroWebhookIntegration[]>,
+  findCredentialPresentIds: (ids: string[]) => Promise<Set<string>>,
 ): Promise<XeroWebhookBindingResult> {
-  const rows = await findCandidates(tenantId);
-  // A capped query must not hide another legitimate owner after its last row.
-  if (rows.length > MAX_XERO_WEBHOOK_TENANT_CANDIDATES) {
-    return { ok: false, reason: "AMBIGUOUS_TENANT" };
-  }
-  const candidates = rows.filter(row => matchesTenant(row, tenantId));
-  if (candidates.length === 0) return { ok: false, reason: "UNKNOWN_TENANT" };
-  if (candidates.length !== 1) return { ok: false, reason: "AMBIGUOUS_TENANT" };
-  return { ok: true, data: candidates[0] };
+  if (typeof tenantId !== "string" || !tenantId.trim()) return { ok: false, reason: "UNKNOWN_TENANT" };
+  const result = await resolveReadyWebhookIntegration({
+    provider: "XERO",
+    rows: await findCandidates(tenantId),
+    matches: row => row.tenantId === tenantId,
+    credentialPresentIds: findCredentialPresentIds,
+  });
+  if (result.ok || result.reason === "NOT_READY") return result;
+  return { ok: false, reason: result.reason === "AMBIGUOUS" ? "AMBIGUOUS_TENANT" : "UNKNOWN_TENANT" };
 }
 
 function invoiceScope(integration: XeroWebhookIntegration, externalInvoiceId: string) {
@@ -166,11 +177,13 @@ export async function processXeroWebhookBatch(
       const eventType = event.eventType; // normalised in webhook route
       // The queued event may predate a disconnect, tenant change, or identity
       // correction. Re-read its binding immediately before dispatch, without tokens.
+      // RA-8446: stored credentials are tested in SQL (no token read), so a
+      // row without them is not found; the owner decides the rest.
       const integration = await prisma.integration.findUnique({
-        where: { id: event.integrationId },
+        where: { id: event.integrationId, accessToken: OAUTH_CREDENTIAL_PRESENT_WHERE.accessToken },
         select: XERO_WEBHOOK_INTEGRATION_SELECT,
       });
-      if (!integration || !matchesTenant(integration, payload?.tenantId)) {
+      if (!integration || !isReadyForTenant(integration, payload?.tenantId)) {
         throw new Error("Xero webhook tenant/integration binding is no longer valid");
       }
 
