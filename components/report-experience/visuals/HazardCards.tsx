@@ -1,4 +1,4 @@
-import { TriangleAlert } from "lucide-react";
+import { RAIcon } from "@/components/brand/RAIcon";
 import type { HazardModel } from "@/lib/report-experience/visuals/hazards";
 import styles from "./visuals.module.css";
 
@@ -17,7 +17,7 @@ export function HazardCards({ model, floorPlan }: { model: HazardModel; floorPla
 
       {model.criticalAlert ? (
         <div className={styles.alert} role="alert" data-testid="critical-alert">
-          <TriangleAlert aria-hidden="true" size={18} style={{ verticalAlign: "text-bottom", marginRight: 6 }} />
+          <RAIcon name="critical" size={18} decorative />{" "}
           CRITICAL DANGER: {model.criticalAlert.count} unresolved critical {model.criticalAlert.count === 1 ? "hazard" : "hazards"}. Do not start work in the affected area until the action below is complete.
           <p>{model.criticalAlert.titles.join("; ")}</p>
         </div>
@@ -52,7 +52,7 @@ export function HazardCards({ model, floorPlan }: { model: HazardModel; floorPla
               <li key={card.id} className={styles.hazard} data-severity={card.severity} data-verification={card.verification}>
                 <div className={styles.hazardHead}>
                   <span className={styles.hazardNumber} aria-hidden="true">{card.number}</span>
-                  {card.severity === "critical" ? <TriangleAlert aria-hidden="true" size={16} /> : null}
+                  {card.severity === "critical" ? <RAIcon name="critical" size={16} decorative /> : null}
                   <span>Hazard {card.number}: {card.title}</span>
                 </div>
                 <p><strong>{card.severityLabel}.</strong> {VERIFICATION_TEXT[card.verification]}.</p>
