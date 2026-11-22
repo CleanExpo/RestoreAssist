@@ -46,7 +46,9 @@
 // Bumped: private documents are no longer cached; retire old account HTML.
 // Keep this namespace for MIME recovery: validate/repair only the requested
 // asset entry below, preserving usable cached assets and offline documents.
-const NIR_VERSION = "nir-v2.2";
+// RA-7877: the install step now also caches the /_next/static files the
+// /offline page needs, so a cold start with no signal can run its JavaScript.
+const NIR_VERSION = "nir-v2.3";
 const CACHE_APP = `${NIR_VERSION}-app`;
 const CACHE_STATIC = `${NIR_VERSION}-static`;
 const ALL_CACHES = [CACHE_APP, CACHE_STATIC];
@@ -98,6 +100,7 @@ if (IS_LOCAL_DEV) {
           // Use individual add() calls so a 404 on one page doesn't break the whole install
           Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url))),
         )
+        .then(() => precacheOfflineShellAssets())
         .then(() => {
           // Take control immediately — don't wait for existing tabs to close
           self.skipWaiting();
@@ -229,6 +232,37 @@ function isCacheableAsset(request, response) {
   }
   if (path.endsWith(".css")) return type === "text/css";
   return true;
+}
+
+/**
+ * RA-7877: caching /offline's HTML alone is not enough. Its capture form is
+ * JavaScript, and a cold start with no signal has no network to fetch the
+ * /_next/static chunks from. Read the cached /offline HTML, find every static
+ * file it names and cache each one through the same validity check the fetch
+ * handler uses. A failure here never blocks the service worker install.
+ */
+async function precacheOfflineShellAssets() {
+  try {
+    const shell = await caches.match("/offline");
+    if (!shell) return;
+    const html = await shell.clone().text();
+    const found = new Set(
+      (html.match(/\/_next\/static\/[^"'\s\\<>)]+/g) || []).map((path) =>
+        path.replace(/&amp;/g, "&"),
+      ),
+    );
+    const cache = await caches.open(CACHE_STATIC);
+    await Promise.allSettled(
+      [...found].map(async (path) => {
+        const request = new Request(new URL(path, self.location.origin).href);
+        if (await cache.match(request)) return;
+        const response = await fetch(request);
+        if (isCacheableAsset(request, response)) await cache.put(request, response);
+      }),
+    );
+  } catch {
+    // The shell still installs; the assets are cached on first online use.
+  }
 }
 
 async function privateDocumentWithOfflineFallback(request) {

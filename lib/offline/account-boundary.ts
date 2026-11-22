@@ -1,6 +1,7 @@
 "use client";
 
 import { OFFLINE_OWNER_HEADER, parseOfflineOwner, sameOfflineOwner, type OfflineOwner } from "./ownership";
+import { forgetDeviceIdentity, rememberDeviceIdentity } from "./device-identity";
 export type { OfflineOwner } from "./ownership";
 
 export const OFFLINE_CONTEXT_EVENT = "restoreassist-offline-context";
@@ -27,6 +28,17 @@ export function clearOfflineContext(broadcast = true) {
     try { localStorage.setItem(INVALIDATE_KEY, `${Date.now()}:${Math.random()}`); } catch { /* storage can be disabled */ }
   }
   changed();
+}
+
+/**
+ * Sign-out or sign-in as someone else: forget this tab's context AND the device
+ * copy that lets a cold start open offline (RA-7877). clearOfflineContext alone
+ * must not wipe it: the provider calls that on every session refresh, and a
+ * refresh that fails offline must not strand a technician with no signal.
+ */
+export function endOfflineSession() {
+  clearOfflineContext();
+  void forgetDeviceIdentity();
 }
 
 export function setOfflineSession(userId: string | null) {
@@ -57,7 +69,11 @@ export function ownsOfflineEntry(entry: { owner?: OfflineOwner | null }): boolea
   return sameOfflineOwner(parseOfflineOwner(entry.owner), getOfflineOwner());
 }
 
-/** Never restore identity from storage or assign an owner to legacy rows. */
+/**
+ * Never restore identity from storage or assign an owner to legacy rows.
+ * (The device copy in device-identity.ts only lets the offline page START a
+ * capture; it is never loaded into `context`, so no replay can use it.)
+ */
 export async function refreshOfflineOwner(): Promise<OfflineOwner | null> {
   if (!sessionUserId || typeof navigator === "undefined" || !navigator.onLine) return null;
   if (pending) return pending;
@@ -69,7 +85,14 @@ export async function refreshOfflineOwner(): Promise<OfflineOwner | null> {
       if (generation !== started) return null;
       const owner = response.ok ? parseOfflineOwner((await response.json()).owner) : null;
       if (generation !== started) return null;
-      if (!owner || owner.userId !== userId) { clearOfflineContext(); return null; }
+      if (!owner || owner.userId !== userId) {
+        // Only a definite answer ends the device copy: the server says this is
+        // not a signed-in session (401), or it names someone else. A 5xx or a
+        // malformed reply proves nothing about who is signed in.
+        if (response.status === 401 || (owner && owner.userId !== userId)) void forgetDeviceIdentity();
+        clearOfflineContext();
+        return null;
+      }
       if (context && !sameOfflineOwner(context, owner)) {
         // Refresh this tab's scope without cancelling another tab's verified
         // session. Every replay still rechecks its own scope with the server.
@@ -78,6 +101,7 @@ export async function refreshOfflineOwner(): Promise<OfflineOwner | null> {
       }
       const identityChanged = !sameOfflineOwner(context, owner);
       context = Object.freeze(owner);
+      void rememberDeviceIdentity(owner);
       if (identityChanged) changed();
       return context;
     } catch {
@@ -126,7 +150,10 @@ export function withOfflineDrainLock(name: string, drain: () => Promise<number>)
   // Without a cross-tab lock, simultaneous tabs can replay a paid transcription.
   // Keep the work pending on older browsers instead of guessing at exclusivity.
   if (!navigator.locks?.request) return Promise.resolve(0);
-  const flight = navigator.locks.request(name, { mode: "exclusive" }, drain)
+  // A real browser calls the callback with the Lock object. Passing `drain`
+  // itself handed that object to drainEvidenceQueueImpl(onlyId), which took it for
+  // an entry id and skipped every queued photo (RA-7877).
+  const flight = navigator.locks.request(name, { mode: "exclusive" }, () => drain())
     .finally(() => { flights.delete(name); });
   flights.set(name, flight);
   return flight;

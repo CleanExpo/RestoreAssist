@@ -147,6 +147,7 @@
     "build:help-index": "tsx scripts/build-help-index.ts",
     "prebuild": "tsx scripts/build-help-index.ts",
     "test:smoke": "playwright test -c config/playwright.config.ts --grep @smoke",
+    "test:e2e:offline": "playwright test -c config/playwright.offline.config.ts",
     "test:smoke:ci": "playwright test -c config/playwright.config.ts --grep @smoke --reporter=line",
     "test:smoke:prod": "node scripts/run-smoke.mjs https://restoreassist.app --no-deps",
     "test:smoke:sandbox": "node scripts/run-smoke.mjs https://restoreassist-sandbox.vercel.app --no-deps",
