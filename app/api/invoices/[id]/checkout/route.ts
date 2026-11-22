@@ -14,6 +14,7 @@ import {
   ONLINE_PAYMENT_REASON_MESSAGES,
   getInvoiceOnlinePayment,
 } from "@/lib/invoices/online-payment-availability";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -27,6 +28,15 @@ export async function POST(
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
     });
   }
   // P1-MNY-00 / P1-MNY-01: off unless INVOICE_ONLINE_PAYMENT_ENABLED is

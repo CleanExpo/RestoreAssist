@@ -10,6 +10,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
 import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { getFromEmail, withEmailTimeout } from "@/lib/email";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 function isEmailConfigError(message: string): boolean {
   const m = message.toLowerCase();
@@ -32,6 +33,15 @@ export async function POST(
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
     });
   }
   const userId = session.user.id;

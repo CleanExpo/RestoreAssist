@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 /**
  * GET: Return profile (business) + optional report data for auto-filling
  * the Restoration Tax Invoice. Query: ?reportId=xxx
@@ -98,13 +99,14 @@ export async function GET(request: NextRequest) {
     dueDate.setDate(dueDate.getDate() + 7);
     const dueDateStr = dueDate.toISOString().slice(0, 10);
 
-    return NextResponse.json({
+    // RA-8494: the seeded report carries its cost estimation; a technician gets it without.
+    return NextResponse.json(await moneySafe(session, {
       profile,
       report,
       suggestedInvoiceNumber,
       defaultInvDate: today,
       defaultDueDate: dueDateStr,
-    });
+    }));
   } catch (error) {
     return fromException(request, error, {
       stage: "restoration-documents/seed:get",

@@ -62,7 +62,8 @@ interface Client {
   createdAt: string;
   updatedAt: string;
   // Dollars invoiced (not drafts or cancelled), across `invoicedCount` invoices.
-  totalRevenue: number;
+  // null for a user who may not see money (RA-8494).
+  totalRevenue: number | null;
   invoicedCount: number;
   lastJob: string;
   reportsCount: number;
@@ -434,27 +435,31 @@ export default function ClientDetailPage() {
                 {client.reportsCount}
               </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-brand-slate dark:text-slate-400">Invoiced</span>
-              <span className="text-2xl font-bold text-success">
-                ${client.totalRevenue.toLocaleString()}
-              </span>
-            </div>
+            {client.totalRevenue != null && (
+              <div className="flex items-center justify-between">
+                <span className="text-brand-slate dark:text-slate-400">Invoiced</span>
+                <span className="text-2xl font-bold text-success">
+                  ${client.totalRevenue.toLocaleString()}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-brand-slate dark:text-slate-400">Last Job</span>
               <span className="text-brand-slate dark:text-slate-300">{client.lastJob}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-brand-slate dark:text-slate-400">Avg. per invoice</span>
-              <span className="text-brand-slate dark:text-slate-300">
-                $
-                {client.invoicedCount > 0
-                  ? Math.round(
-                      client.totalRevenue / client.invoicedCount,
-                    ).toLocaleString()
-                  : "0"}
-              </span>
-            </div>
+            {client.totalRevenue != null && (
+              <div className="flex items-center justify-between">
+                <span className="text-brand-slate dark:text-slate-400">Avg. per invoice</span>
+                <span className="text-brand-slate dark:text-slate-300">
+                  $
+                  {client.invoicedCount > 0
+                    ? Math.round(
+                        client.totalRevenue / client.invoicedCount,
+                      ).toLocaleString()
+                    : "0"}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -620,7 +625,7 @@ export default function ClientDetailPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  {report.totalCost === null ? (
+                  {report.totalCost == null ? (
                     <span className="text-sm text-brand-slate dark:text-slate-400">Unavailable</span>
                   ) : (
                     <span className="text-lg font-bold text-brand-harbour-700 dark:text-brand-harbour-400">

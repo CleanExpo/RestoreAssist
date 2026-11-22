@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth/assert-tenancy";
 import { EXCLUDED_FROM_REVENUE } from "@/lib/invoice-status";
 import { scheduleZohoCustomerPush } from "@/lib/integrations/zoho/queue";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 export async function GET(request: NextRequest) {
   try {
@@ -151,7 +152,8 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      clients: clientsWithStats,
+      // RA-8494: a client's invoiced revenue is money.
+      clients: await moneySafe(session, clientsWithStats),
       pagination: {
         page,
         limit,

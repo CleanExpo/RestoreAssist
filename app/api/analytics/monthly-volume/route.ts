@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 interface MonthlyData {
   month: string;
@@ -202,7 +203,7 @@ export async function GET(request: NextRequest) {
     const ytdReports = ytdData.reduce((sum, m) => sum + m.reports, 0);
     const ytdRevenue = ytdData.reduce((sum, m) => sum + m.revenue, 0);
 
-    return NextResponse.json({
+    return NextResponse.json(await moneySafe(session, {
       monthlyData,
       summary: {
         totalReports,
@@ -227,7 +228,7 @@ export async function GET(request: NextRequest) {
           revenue: ytdRevenue,
         },
       },
-    });
+    }));
   } catch (error) {
     return fromException(request, error, { stage: "load" });
   }

@@ -87,17 +87,20 @@ describe("GET /api/dashboard/home-counts (RA-8146)", () => {
         openReports: 45,
         awaitingPayment: 26,
         clients: 26,
+        mayViewMoney: true,
       });
     },
   );
 
-  it("gives a technician the organisation's work and only their own money", async () => {
+  // RA-8494: unpaid invoices are payment state; a technician gets the work counts only.
+  it("gives a technician the organisation's work and no payment state", async () => {
     const res = await counts("tech-a");
     expect(await res.json()).toEqual({
       activeJobs: 26,
       openReports: 45,
-      awaitingPayment: 1,
+      awaitingPayment: null,
       clients: 1,
+      mayViewMoney: false,
     });
   });
 
@@ -108,6 +111,7 @@ describe("GET /api/dashboard/home-counts (RA-8146)", () => {
       openReports: 1,
       awaitingPayment: 1,
       clients: 1,
+      mayViewMoney: true,
     });
   });
 

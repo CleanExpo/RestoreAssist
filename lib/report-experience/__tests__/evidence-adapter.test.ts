@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// RA-8494: the caller here may see money; the money rule is proven in
+// technician-no-money.test.ts (see lib/auth/__mocks__/redact-money.ts).
+vi.mock("@/lib/auth/redact-money");
+
 /**
  * RA-8104 W1.3: the evidence adapter turns one report's existing rows into the
  * projection the snapshot builder consumes.

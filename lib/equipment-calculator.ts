@@ -95,6 +95,8 @@ export interface EquipmentCalculatorResult {
   /** Circuit counts for each standard AU rating (10 A GPO / 15 A / 20 A). */
   circuitOptions: CircuitRequirement[];
   summary: string;
+  /** The summary without the electricity running cost, for a caller who may not see money (RA-8494). */
+  fieldSummary: string;
   iicrcClassification: string;
 }
 
@@ -381,10 +383,11 @@ export function calculateEquipment(
   const classNum = damageClass.replace("CLASS_", "");
   const catNum = damageCategory.replace("CAT_", "");
   const summaryParts = items.map((e) => `${e.quantity}× ${e.label}`);
-  const summary =
+  const fieldSummary =
     `IICRC S500 Category ${catNum} / Class ${classNum}: ` +
     summaryParts.join(" + ") +
-    ` · ${totalKwhPerDay} kWh/day ≈ $${energyCostPerDay.toFixed(2)}/day electricity`;
+    ` · ${totalKwhPerDay} kWh/day`;
+  const summary = `${fieldSummary} ≈ $${energyCostPerDay.toFixed(2)}/day electricity`;
 
   // Category/Class definitions per S500:2021 §10.4
   const iicrcClassification = `Category ${catNum} (${
@@ -414,6 +417,7 @@ export function calculateEquipment(
     recommendedCircuits,
     circuitOptions,
     summary,
+    fieldSummary,
     iicrcClassification,
   };
 }

@@ -17,6 +17,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { resolveTotalsReach } from "@/lib/auth/assert-tenancy";
 import { INACTIVE_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 import { OUTSTANDING_STATUSES } from "@/lib/invoice-status";
+import { canSeeMoney } from "@/lib/auth/redact-money";
 
 export const dynamic = "force-dynamic";
 
@@ -69,11 +70,16 @@ export async function GET(request: NextRequest) {
         }),
       ]);
 
+    // RA-8494: the unpaid-invoice count is money; a technician gets null and
+    // the capability flag, so the home page leaves the money sections out
+    // instead of showing a load failure.
+    const mayViewMoney = await canSeeMoney(session);
     return NextResponse.json({
       activeJobs,
       openReports,
-      awaitingPayment,
+      awaitingPayment: mayViewMoney ? awaitingPayment : null,
       clients,
+      mayViewMoney,
     });
   } catch (error) {
     return fromException(request, error, { stage: "home-counts:get" });

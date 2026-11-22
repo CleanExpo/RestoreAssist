@@ -33,6 +33,7 @@ import {
 } from "@/lib/scope-narrative-prompts";
 import { getDryStandard, getMoistureStatus } from "@/lib/iicrc-dry-standards";
 import { safeRetrieveSimilarJobs } from "@/lib/ai/rag-context";
+import { canSeeMoney } from "@/lib/auth/redact-money";
 import {
   getClaimTypePrompt,
   getMultiClaimPrompt,
@@ -296,6 +297,7 @@ export async function POST(
       waterClass: parseInt(classification.class, 10) || undefined,
       description: lossSourceDescription ?? inspection.propertyAddress,
       suburb: inspection.propertyAddress.split(",").slice(-2, -1)[0]?.trim(),
+      withPrices: await canSeeMoney(session),
     });
     // Build claim-type-aware system prompt, injecting RAG context when available
     const promptOptions = {

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -12,6 +13,15 @@ export async function GET(request: NextRequest) {
       message: "Unauthorized",
       status: 401,
     });
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
+    });
+  }
 
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
@@ -59,6 +69,15 @@ export async function PATCH(request: NextRequest) {
       message: "Unauthorized",
       status: 401,
     });
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
+    });
+  }
 
   try {
     const body = await request.json();
