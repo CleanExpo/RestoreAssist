@@ -350,6 +350,7 @@ export async function POST(
         moistureReadings: number;
         hazards: number;
         jobMoistureReadings: number;
+        scopeItems: number;
       };
     }> = [];
     // RA-7656: a failed read is not "no rooms"; the guard below fails closed.
@@ -375,6 +376,8 @@ export async function POST(
                 moistureReadings: true,
                 hazards: true,
                 jobMoistureReadings: true,
+                // RA-8538: a room holding scope items is in use too.
+                scopeItems: true,
               },
             },
           },
@@ -904,7 +907,7 @@ export async function POST(
           }
           // A room missing from the incoming canvas is only safe to delete when
           // nothing was captured in it. Deleting one that holds evidence would
-          // SetNull the room link on those pins/readings/hazards and silently lose
+          // SetNull the room link on those pins/readings/hazards/scope items and silently lose
           // which room they came from — see partitionStaleRooms.
           // RA-7656: when the stored drawing was kept, no room left the canvas.
           const staleRooms = skipEmptyOverwrite

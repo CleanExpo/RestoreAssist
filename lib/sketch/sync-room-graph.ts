@@ -86,6 +86,11 @@ export interface StaleRoom {
     moistureReadings: number;
     hazards: number;
     jobMoistureReadings?: number;
+    /**
+     * RA-8538: priced scope lines placed in this room. Optional so callers
+     * that predate the count still type-check; a missing count is read as 0.
+     */
+    scopeItems?: number;
   };
 }
 
@@ -94,8 +99,8 @@ export interface StaleRoom {
  *
  * WHY THIS IS NOT JUST A DELETE
  * -----------------------------
- * `EvidencePin`, `SketchMoistureReading`, `Hazard` and job
- * `MoistureReading` all reference `SketchRoom` with `onDelete: SetNull`. Deleting a room therefore does not
+ * `EvidencePin`, `SketchMoistureReading`, `Hazard`, job `MoistureReading`
+ * and `ScopeItem` all reference `SketchRoom` with `onDelete: SetNull`. Deleting a room therefore does not
  * fail and does not cascade -- it silently blanks the room link on evidence
  * that was already captured. The reading survives; the answer to "which room
  * was this taken in" does not.
@@ -104,6 +109,9 @@ export interface StaleRoom {
  * `resolveFabricObjectId` falls back to hashing an object's array index,
  * position and size when it has no `data.id`. Moving or resizing such a room
  * mints a new id, which made the original row look stale.
+ *
+ * Scope items count too (RA-8538). They are priced lines, so a blanked room
+ * link changes how the report groups them without anyone choosing that.
  *
  * So: a room carrying no evidence is safe to delete. A room carrying evidence
  * is retained and marked detached, keeping the link intact.
@@ -120,7 +128,8 @@ export function partitionStaleRooms(stale: StaleRoom[]): {
       (room._count?.evidencePins ?? 0) +
       (room._count?.moistureReadings ?? 0) +
       (room._count?.hazards ?? 0) +
-      (room._count?.jobMoistureReadings ?? 0);
+      (room._count?.jobMoistureReadings ?? 0) +
+      (room._count?.scopeItems ?? 0);
     if (dependents > 0) {
       detachableIds.push(room.id);
     } else {
