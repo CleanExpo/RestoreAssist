@@ -117,7 +117,8 @@ describe("POST room-observations", () => {
     );
     expect(res.status).toBe(201);
     const query = p.$queryRaw.mock.calls[0][0] as { sql: string; values: unknown[] };
-    expect(query.sql).toMatch(/FOR SHARE OF sr/);
+    // Every table the membership predicate reads is locked, not only the room.
+    expect(query.sql).toMatch(/FOR SHARE OF sr, cs/);
     expect(query.sql).toMatch(/"detachedAt" IS NULL/);
     expect(query.sql).toMatch(/cs\."inspectionId"/);
     expect(query.values).toEqual(["room1", "i1"]);

@@ -152,9 +152,10 @@ export async function POST(
     const input = checked.data;
 
     // D-028: re-check the caller's reach inside the write. A linked room is
-    // looked up INSIDE the same transaction and held with FOR SHARE until it
-    // commits, so it cannot be deleted, detached or moved to another job
-    // between the check and the insert. Its name is the label; a label sent
+    // looked up INSIDE the same transaction and every row the membership test
+    // reads (the room AND its sketch, which carries the job) is held with FOR
+    // SHARE until it commits, so neither can be deleted, detached or moved to
+    // another job between the check and the insert. Its name is the label; a label sent
     // with a room id is ignored, so a record never names a different room than
     // the one it links to.
     let created;
@@ -172,7 +173,7 @@ export async function POST(
               WHERE sr."id" = ${input.sketchRoomId}
                 AND sr."detachedAt" IS NULL
                 AND cs."inspectionId" = ${id}
-              FOR SHARE OF sr
+              FOR SHARE OF sr, cs
             `);
             if (rooms.length === 0) throw new RoomNotOnJob();
             roomLabel = rooms[0].name;
