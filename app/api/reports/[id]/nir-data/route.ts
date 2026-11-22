@@ -19,6 +19,44 @@ const ALLOWED_PHOTO_TYPES: readonly ImageMediaType[] = [
   "image/webp",
 ];
 
+type StoredNirData = {
+  moistureReadings: unknown[];
+  affectedAreas: unknown[];
+  scopeItems: unknown[];
+  photos: any[];
+};
+
+/**
+ * Parse Report.moistureReadings into the NIR shape. Unparseable text yields empty arrays; an older
+ * bare array of readings (written by POST /api/reports) is kept as moistureReadings so a later
+ * photo upload does not erase it.
+ */
+function parseStoredNirData(raw: string | null): StoredNirData {
+  const empty: StoredNirData = {
+    moistureReadings: [],
+    affectedAreas: [],
+    scopeItems: [],
+    photos: [],
+  };
+  if (!raw) return empty;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return empty;
+  }
+  if (Array.isArray(parsed)) return { ...empty, moistureReadings: parsed };
+  if (!parsed || typeof parsed !== "object") return empty;
+  const stored = parsed as Record<string, unknown>;
+  const asArray = (value: unknown) => (Array.isArray(value) ? value : []);
+  return {
+    moistureReadings: asArray(stored.moistureReadings),
+    affectedAreas: asArray(stored.affectedAreas),
+    scopeItems: asArray(stored.scopeItems),
+    photos: asArray(stored.photos),
+  };
+}
+
 // GET - Fetch NIR data from report
 export async function GET(
   request: NextRequest,
@@ -120,10 +158,12 @@ export async function POST(
     const affectedAreasJson = formData.get("affectedAreas") as string;
     const scopeItemsJson = formData.get("scopeItems") as string;
 
-    // Parse + validate each JSON blob — guards against prototype pollution and DoS via unbounded arrays
-    let moistureReadings: unknown[] = [];
-    let affectedAreas: unknown[] = [];
-    let scopeItems: unknown[] = [];
+    // Parse + validate each JSON blob — guards against prototype pollution and DoS via unbounded arrays.
+    // A field left out of the body stays undefined, so the stored value is kept rather than erased
+    // (Tier3Questions posts photos only).
+    let moistureReadings: unknown[] | undefined;
+    let affectedAreas: unknown[] | undefined;
+    let scopeItems: unknown[] | undefined;
     try {
       if (moistureReadingsJson) {
         const parsed = JSON.parse(moistureReadingsJson);
@@ -294,36 +334,23 @@ export async function POST(
       }
     }
 
-    // Get existing NIR data to preserve existing photos
-    let existingNirData = {
-      moistureReadings: [],
-      affectedAreas: [],
-      scopeItems: [],
-      photos: [],
-    };
-
-    if (report.moistureReadings) {
-      try {
-        existingNirData = JSON.parse(report.moistureReadings);
-      } catch {
-        // If parsing fails, use empty structure
-      }
-    }
+    // Read the stored NIR data so a partial post merges into it instead of overwriting it.
+    const existingNirData = parseStoredNirData(report.moistureReadings);
 
     // Merge new photos with existing photos (avoid duplicates)
     const existingPhotoUrls = new Set(
-      existingNirData.photos?.map((p: any) => p.url) || [],
+      existingNirData.photos.map((p: any) => p?.url),
     );
     const newPhotos = uploadedPhotos.filter(
       (p) => !existingPhotoUrls.has(p.url),
     );
-    const allPhotos = [...(existingNirData.photos || []), ...newPhotos];
+    const allPhotos = [...existingNirData.photos, ...newPhotos];
 
-    // Save NIR data to report as JSON
+    // Save NIR data to report as JSON: fields the body sent replace the stored ones, the rest are kept.
     const nirData = {
-      moistureReadings: moistureReadings || [],
-      affectedAreas: affectedAreas || [],
-      scopeItems: scopeItems || [],
+      moistureReadings: moistureReadings ?? existingNirData.moistureReadings,
+      affectedAreas: affectedAreas ?? existingNirData.affectedAreas,
+      scopeItems: scopeItems ?? existingNirData.scopeItems,
       photos: allPhotos, // Include both existing and new photos
     };
 
@@ -353,9 +380,9 @@ export async function POST(
     return NextResponse.json({
       success: true,
       nirData: {
-        moistureReadings: moistureReadings.length,
-        affectedAreas: affectedAreas.length,
-        scopeItems: scopeItems.length,
+        moistureReadings: nirData.moistureReadings.length,
+        affectedAreas: nirData.affectedAreas.length,
+        scopeItems: nirData.scopeItems.length,
         photos: allPhotos.length,
         photoUrls: allPhotos.map((p: any) => p.url), // Include URLs in response for debugging
       },
