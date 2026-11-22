@@ -71,21 +71,24 @@ function dryEvidence(
   unit: MoistureUnit,
   points: readonly MoisturePoint[],
   rawTarget: number | undefined,
-  latestConflictMs: number | null,
+  conflictTimes: readonly number[],
 ): DryEvidence {
   if (!DRY_GOAL_UNITS.includes(unit)) return { state: "not-applicable" };
   const target = validTarget(rawTarget);
   if (target === null) return { state: "no-date", reason: "no-target", target: null };
   if (points.length === 0) return { state: "no-date", reason: "no-readings", target };
   const latest = points[points.length - 1];
-  // A later instant with two different stored values is unresolved: it may be above target.
-  if (latestConflictMs !== null && latestConflictMs > Date.parse(latest.observedAt)) {
+  // First reading of the final unbroken run at or below target (the latest reading when it is above).
+  let first = points.length - 1;
+  if (latest.value <= target) {
+    while (first > 0 && points[first - 1].value <= target) first--;
+  }
+  // An instant with two different stored values after that reading is unresolved: it may be above target.
+  const since = Date.parse(points[first].observedAt);
+  if (conflictTimes.some((ms) => ms > since)) {
     return { state: "no-date", reason: "unresolved-conflict", target };
   }
   if (latest.value > target) return { state: "no-date", reason: "above-target", target };
-  // First reading of the final unbroken run at or below target.
-  let first = points.length - 1;
-  while (first > 0 && points[first - 1].value <= target) first--;
   return { state: "evidenced", date: points[first].localDate, readingId: points[first].id, target };
 }
 
@@ -132,7 +135,7 @@ export function buildMoistureSeries(readings: readonly MoistureInputReading[], o
     const points: MoisturePoint[] = [];
     const table: MoistureTableRow[] = [];
     const conflicts: { observedAt: string; values: number[] }[] = [];
-    let latestConflictMs: number | null = null;
+    const conflictTimes: number[] = [];
     const days = new Set<string>();
     let repeatsCollapsed = 0;
     for (const bucket of byInstant.values()) {
@@ -141,7 +144,7 @@ export function buildMoistureSeries(readings: readonly MoistureInputReading[], o
       const distinct = new Set(bucket.map((b) => b.value));
       if (distinct.size > 1) {
         conflicts.push({ observedAt: bucket[0].observedAt, values: bucket.map((b) => b.value) });
-        latestConflictMs = Math.max(latestConflictMs ?? -Infinity, Date.parse(bucket[0].observedAt));
+        conflictTimes.push(Date.parse(bucket[0].observedAt));
         for (const b of bucket) {
           table.push({ id: b.id, localDate, observedAt: b.observedAt, observedLocal: formatInstant(b.observedAt, options.timeZone), value: b.value, conflict: true });
         }
@@ -172,7 +175,7 @@ export function buildMoistureSeries(readings: readonly MoistureInputReading[], o
       missingDays,
       repeatsCollapsed,
       conflicts,
-      dry: dryEvidence(unit, points, options.targets[unit], latestConflictMs),
+      dry: dryEvidence(unit, points, options.targets[unit], conflictTimes),
       stall: isStalled(unit, points, options.targets[unit]),
     });
   }

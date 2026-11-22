@@ -194,6 +194,19 @@ describe("buildMoistureSeries review findings (RA-8107 discovery sweep)", () => 
     expect(s.dry).toEqual({ state: "no-date", reason: "unresolved-conflict", target: 16 });
   });
 
+  it("RA-8556: a conflict between the first below-target reading and the latest one withholds the dry claim", () => {
+    const s = buildMoistureSeries(
+      [
+        r("a", "kitchen", "2026-03-02T09:00:00+10:00", 15),
+        r("b", "kitchen", "2026-03-03T09:00:00+10:00", 14),
+        r("c", "kitchen", "2026-03-03T09:00:00+10:00", 28),
+        r("d", "kitchen", "2026-03-04T09:00:00+10:00", 13),
+      ],
+      opts,
+    )[0];
+    expect(s.dry).toEqual({ state: "no-date", reason: "unresolved-conflict", target: 16 });
+  });
+
   it("an earlier conflict does not block a later dry reading", () => {
     const s = buildMoistureSeries(
       [
