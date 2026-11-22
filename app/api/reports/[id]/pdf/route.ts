@@ -138,6 +138,23 @@ export async function GET(
                 iepAssessmentRequired: true,
               },
             },
+            // RA-7694: Section 6C (room observations). Bounded read.
+            roomObservations: {
+              orderBy: { observedAt: "asc" },
+              take: 500,
+              select: {
+                roomLabel: true,
+                kind: true,
+                basis: true,
+                odourDescriptor: true,
+                odourIntensity: true,
+                odourPattern: true,
+                areaM2: true,
+                surface: true,
+                detail: true,
+                observedAt: true,
+              },
+            },
             // The folders genuine photo uploads use (photoOwnerFolders).
             userId: true,
             workspaceId: true,
@@ -267,6 +284,7 @@ export async function GET(
         : null,
       claimType: report.inspection?.claimType ?? null,
       mouldAssessment: report.inspection?.mouldRemediationAssessment ?? null,
+      roomObservations: report.inspection?.roomObservations ?? [],
     };
 
     // Brand the report with the contractor's own firm identity (logo + accent
