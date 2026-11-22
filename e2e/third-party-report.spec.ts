@@ -6,6 +6,7 @@
  * would have produced is signed here with the same key the server uses, which
  * is what the confirm route is built to trust and nothing else.
  */
+import { PDFDocument } from "pdf-lib";
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { AUTH_FILE } from "./auth-paths";
 import { signProposal } from "../lib/third-party-report/proposal-token";
@@ -13,7 +14,11 @@ import { signProposal } from "../lib/third-party-report/proposal-token";
 test.use({ storageState: AUTH_FILE });
 
 const SHA = "c".repeat(64);
-const PDF = Buffer.from("%PDF-1.4\n" + "x".repeat(300) + "\n%%EOF");
+async function realPdf(): Promise<Buffer> {
+  const doc = await PDFDocument.create();
+  doc.addPage();
+  return Buffer.from(await doc.save());
+}
 
 async function createInspection(request: APIRequestContext): Promise<string> {
   const res = await request.post("/api/inspections", {
@@ -71,7 +76,7 @@ test("a failed read writes nothing, and a dismissed or forged review writes noth
 
   // 2. A real PDF with no AI key on the workspace fails closed (no model call).
   const read = await request.post(`${base}/extract`, {
-    multipart: { file: { name: "lab.pdf", mimeType: "application/pdf", buffer: PDF } },
+    multipart: { file: { name: "lab.pdf", mimeType: "application/pdf", buffer: await realPdf() } },
   });
   expect([402, 429, 502, 503, 504]).toContain(read.status());
   expect(await assessment(request, id)).toBeNull();

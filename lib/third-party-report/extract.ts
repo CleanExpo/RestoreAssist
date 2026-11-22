@@ -9,6 +9,7 @@
 
 import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
+import { PDFDocument } from "pdf-lib";
 import { callAnthropic } from "@/lib/services/ai/anthropic-gateway";
 import type { AnthropicReason } from "@/lib/services/ai/anthropic-gateway";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
@@ -45,16 +46,22 @@ const USER_INSTRUCTIONS =
   "Extract the allowed facts from the attached PDF and return only the JSON object.";
 
 /**
- * Page count from the PDF page objects, or 0 (unknown). A PDF that packs its
- * objects into compressed streams hides its page objects, so a count taken
- * from the visible text would be too low and would drop valid page references;
- * those files report unknown.
+ * Page count from a real PDF parser (pdf-lib), or 0 when the file cannot be
+ * parsed (unknown). A text match on the raw bytes can be inflated by a comment
+ * or an embedded string, so none is used. Unknown means a page reference is
+ * shown but cannot be checked against the document.
  */
-export function estimatePdfPageCount(buffer: Buffer): number {
-  const text = buffer.toString("latin1");
-  if (/\/ObjStm/.test(text)) return 0;
-  const matches = text.match(/\/Type\s*\/Page(?![a-zA-Z])/g);
-  return matches ? matches.length : 0;
+export async function getPdfPageCount(buffer: Buffer): Promise<number> {
+  try {
+    const doc = await PDFDocument.load(buffer, {
+      ignoreEncryption: true,
+      updateMetadata: false,
+      throwOnInvalidObject: true,
+    });
+    return doc.getPageCount();
+  } catch {
+    return 0;
+  }
 }
 
 export function sha256Hex(buffer: Buffer): string {
@@ -75,14 +82,30 @@ export function checkPdfBytes(
   return { ok: true };
 }
 
+export interface ReadUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
 export interface ExtractLabReportResult extends ParsedExtraction {
-  usage: { inputTokens: number; outputTokens: number };
+  usage: ReadUsage;
+}
+
+/** A read that reached the provider but returned an unusable reply was still
+ *  billed; its usage rides on the failure so the caller can charge it. */
+export function usageFromFailure(cause: unknown): ReadUsage | null {
+  const u = (cause as { usage?: ReadUsage } | null | undefined)?.usage;
+  return u && Number.isFinite(u.inputTokens) && Number.isFinite(u.outputTokens)
+    ? u
+    : null;
 }
 
 export async function extractLabReport(args: {
   apiKey: string;
   pdf: Buffer;
   timeoutMs?: number;
+  /** From getPdfPageCount; the route refuses a file whose count is unknown. */
+  pageCount: number;
 }): Promise<ServiceResult<ExtractLabReportResult, ExtractLabReason>> {
   const result = await callAnthropic({
     userId: "system",
@@ -124,21 +147,23 @@ export async function extractLabReport(args: {
     return result;
   }
 
+  const usage: ReadUsage = {
+    inputTokens: result.data.usage?.input_tokens ?? 0,
+    outputTokens: result.data.usage?.output_tokens ?? 0,
+  };
   const first = result.data.content?.[0];
   if (!first || first.type !== "text") {
-    return fail("PARSE_FAILED", { detail: "Model returned no text block" });
+    return fail("PARSE_FAILED", {
+      detail: "Model returned no text block",
+      cause: { usage },
+    });
   }
-  const parsed = parseExtraction(first.text, estimatePdfPageCount(args.pdf));
+  const parsed = parseExtraction(first.text, args.pageCount);
   if (!parsed) {
     return fail("PARSE_FAILED", {
       detail: "Model reply did not match the agreed schema",
+      cause: { usage },
     });
   }
-  return ok({
-    ...parsed,
-    usage: {
-      inputTokens: result.data.usage?.input_tokens ?? 0,
-      outputTokens: result.data.usage?.output_tokens ?? 0,
-    },
-  });
+  return ok({ ...parsed, usage });
 }

@@ -19,19 +19,20 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";
-import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { logAiUsage, estimateCostUsd } from "@/lib/usage/log-usage";
 import {
-  resolveWorkspaceAiKey,
-  NoWorkspaceKeyError,
-} from "@/lib/ai/resolve-workspace-ai-key";
+  resolveAgentAiKey,
+  PlatformKeyRefusedError,
+} from "@/lib/agents/ai-bridge";
 import { formDataFromBytes, readBoundedBody } from "@/lib/media/bounded-body";
 import {
   checkPdfBytes,
   extractLabReport,
+  getPdfPageCount,
   LAB_EXTRACT_MODEL,
   MAX_PDF_BYTES,
   sha256Hex,
+  usageFromFailure,
   type ExtractLabReason,
 } from "@/lib/third-party-report/extract";
 import { compareFacts } from "@/lib/third-party-report/compare";
@@ -133,40 +134,61 @@ export async function POST(
       });
     }
 
-    // Workspace daily AI budget (own key, own ceiling).
-    const workspace = await getWorkspaceForUser(userId);
-    if (workspace) {
-      const budget = await checkWorkspaceBudget({
-        workspaceId: workspace.id,
-        estimatedCostUsd: READ_COST_ESTIMATE_USD,
+    // Page references are only shown against a count a real PDF parser
+    // verified, so a file it cannot parse is refused before any spend.
+    const pageCount = await getPdfPageCount(pdf);
+    if (pageCount < 1) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "This PDF could not be read. Upload the original report PDF.",
+        status: 400,
       });
-      if (!budget.ok) {
-        return NextResponse.json(
-          {
-            error: budget.error,
-            remainingUsd: budget.remainingUsd,
-            budgetUsd: budget.budgetUsd,
-          },
-          { status: 429 },
-        );
-      }
     }
 
-    // RA-6921 - the workspace's own key; never the platform key.
-    let apiKey: string;
+    // RA-8001 - the workspace's own key and never the funded-trial platform
+    // key, through the one shared resolver and refusal rule. The workspace that
+    // owns that key is the one whose budget is checked and whose usage is
+    // logged, so a manager in several workspaces cannot charge the wrong one
+    // and the budget check cannot be skipped.
+    let resolved: Awaited<ReturnType<typeof resolveAgentAiKey>>;
     try {
-      apiKey = (await resolveWorkspaceAiKey(userId, "ANTHROPIC")).apiKey;
+      resolved = await resolveAgentAiKey(userId, "byok-only");
     } catch (err) {
-      if (!(err instanceof NoWorkspaceKeyError)) throw err;
+      if (!(err instanceof PlatformKeyRefusedError)) throw err;
+      return apiError(request, {
+        code: "PAYMENT_REQUIRED",
+        message:
+          "Reading a report runs on your own Anthropic API key. Add it in Workspace Settings, AI Providers.",
+        status: 402,
+      });
+    }
+    if (!resolved.workspaceId) {
       return apiError(request, {
         code: "PAYMENT_REQUIRED",
         message: "AI service unavailable",
         status: 402,
       });
     }
+    const workspaceId = resolved.workspaceId;
+    const apiKey = resolved.apiKey;
+
+    const budget = await checkWorkspaceBudget({
+      workspaceId,
+      estimatedCostUsd: READ_COST_ESTIMATE_USD,
+    });
+    if (!budget.ok) {
+      return NextResponse.json(
+        {
+          error: budget.error,
+          remainingUsd: budget.remainingUsd,
+          budgetUsd: budget.budgetUsd,
+        },
+        { status: 429 },
+      );
+    }
 
     const callStart = Date.now();
-    const result = await extractLabReport({ apiKey, pdf });
+    const result = await extractLabReport({ apiKey, pdf, pageCount });
 
     if (!result.ok) {
       console.error("[ThirdPartyReportExtract]", {
@@ -174,21 +196,34 @@ export async function POST(
         inspectionId,
         reason: result.reason,
       });
-      if (workspace) {
-        logAiUsage({
-          workspaceId: workspace.id,
-          provider: "ANTHROPIC",
-          model: LAB_EXTRACT_MODEL,
-          taskType: "third_party_report_extract",
-          inputTokens: 0,
-          outputTokens: 0,
-          estimatedCostUsd: 0,
-          latencyMs: Date.now() - callStart,
-          success: false,
-          errorType: result.reason,
-          metadata: { inspectionId },
-        });
-      }
+      // A read that reached the provider is billed even when its reply is
+      // unusable. Charge the usage it reported, or the bounded estimate when
+      // none came back (a timeout), so the daily ceiling sees the spend.
+      const billed = usageFromFailure(result.cause);
+      const mayHaveBeenBilled =
+        result.reason === "PARSE_FAILED" || result.reason === "TIMEOUT";
+      logAiUsage({
+        workspaceId,
+        provider: "ANTHROPIC",
+        model: LAB_EXTRACT_MODEL,
+        taskType: "third_party_report_extract",
+        inputTokens: billed?.inputTokens ?? 0,
+        outputTokens: billed?.outputTokens ?? 0,
+        estimatedCostUsd: billed
+          ? estimateCostUsd(
+              "ANTHROPIC",
+              LAB_EXTRACT_MODEL,
+              billed.inputTokens,
+              billed.outputTokens,
+            )
+          : mayHaveBeenBilled
+            ? READ_COST_ESTIMATE_USD
+            : 0,
+        latencyMs: Date.now() - callStart,
+        success: false,
+        errorType: result.reason,
+        metadata: { inspectionId },
+      });
       const headers: Record<string, string> =
         result.retryAfterMs != null
           ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
@@ -200,25 +235,23 @@ export async function POST(
     }
 
     const { inputTokens, outputTokens } = result.data.usage;
-    if (workspace) {
-      logAiUsage({
-        workspaceId: workspace.id,
-        provider: "ANTHROPIC",
-        model: LAB_EXTRACT_MODEL,
-        taskType: "third_party_report_extract",
+    logAiUsage({
+      workspaceId,
+      provider: "ANTHROPIC",
+      model: LAB_EXTRACT_MODEL,
+      taskType: "third_party_report_extract",
+      inputTokens,
+      outputTokens,
+      estimatedCostUsd: estimateCostUsd(
+        "ANTHROPIC",
+        LAB_EXTRACT_MODEL,
         inputTokens,
         outputTokens,
-        estimatedCostUsd: estimateCostUsd(
-          "ANTHROPIC",
-          LAB_EXTRACT_MODEL,
-          inputTokens,
-          outputTokens,
-        ),
-        latencyMs: Date.now() - callStart,
-        success: true,
-        metadata: { inspectionId },
-      });
-    }
+      ),
+      latencyMs: Date.now() - callStart,
+      success: true,
+      metadata: { inspectionId },
+    });
 
     // Read-only comparison with what the job holds today.
     const job = await prisma.mouldRemediationAssessment.findFirst({

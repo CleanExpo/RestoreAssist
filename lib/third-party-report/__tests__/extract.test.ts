@@ -1,24 +1,26 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { callAnthropic } = vi.hoisted(() => ({ callAnthropic: vi.fn() }));
 vi.mock("@/lib/services/ai/anthropic-gateway", () => ({ callAnthropic }));
 
 import Anthropic from "@anthropic-ai/sdk";
+import { PDFDocument } from "pdf-lib";
 import {
   checkPdfBytes,
-  estimatePdfPageCount,
+  getPdfPageCount,
+  usageFromFailure,
   extractLabReport,
   LAB_EXTRACT_SYSTEM_PROMPT,
   sha256Hex,
 } from "../extract";
 
-const pdf = Buffer.from(
-  "%PDF-1.4\n" +
-    "1 0 obj << /Type /Page >> endobj\n2 0 obj << /Type /Page >> endobj\n" +
-    "3 0 obj << /Type /Pages >> endobj\n" +
-    "x".repeat(200) +
-    "\n%%EOF",
-);
+let pdf: Buffer;
+beforeAll(async () => {
+  const doc = await PDFDocument.create();
+  doc.addPage();
+  doc.addPage();
+  pdf = Buffer.from(await doc.save());
+});
 
 const reply = (text: string) => ({
   ok: true,
@@ -33,7 +35,7 @@ describe("extractLabReport", () => {
 
   it("sends the PDF as a document block with no tools and no standards text", async () => {
     callAnthropic.mockResolvedValue(reply('{"facts":[]}'));
-    await extractLabReport({ apiKey: "k", pdf });
+    await extractLabReport({ apiKey: "k", pageCount: 2, pdf });
     const call = callAnthropic.mock.calls[0]![0];
     expect(call.request.tools).toBeUndefined();
     expect(call.request.messages[0].content[0].type).toBe("document");
@@ -50,7 +52,7 @@ describe("extractLabReport", () => {
         }),
       ),
     );
-    const out = await extractLabReport({ apiKey: "k", pdf });
+    const out = await extractLabReport({ apiKey: "k", pageCount: 2, pdf });
     expect(out.ok && out.data.facts).toHaveLength(1);
     expect(out.ok && out.data.usage).toEqual({ inputTokens: 100, outputTokens: 20 });
   });
@@ -63,26 +65,26 @@ describe("extractLabReport", () => {
         }),
       ),
     );
-    const out = await extractLabReport({ apiKey: "k", pdf });
+    const out = await extractLabReport({ apiKey: "k", pageCount: 2, pdf });
     expect(out.ok && out.data.facts).toEqual([]);
     expect(out.ok && out.data.rejectedCount).toBe(1);
   });
 
   it("fails closed when the model returns prose", async () => {
     callAnthropic.mockResolvedValue(reply("Sure! The lab is Acme."));
-    const out = await extractLabReport({ apiKey: "k", pdf });
+    const out = await extractLabReport({ apiKey: "k", pageCount: 2, pdf });
     expect(out).toMatchObject({ ok: false, reason: "PARSE_FAILED" });
   });
 
   it("fails closed on an empty reply", async () => {
     callAnthropic.mockResolvedValue({ ok: true, data: { content: [] } });
-    const out = await extractLabReport({ apiKey: "k", pdf });
+    const out = await extractLabReport({ apiKey: "k", pageCount: 2, pdf });
     expect(out).toMatchObject({ ok: false, reason: "PARSE_FAILED" });
   });
 
   it("passes a failed AI call through with its reason", async () => {
     callAnthropic.mockResolvedValue({ ok: false, reason: "MODEL_OVERLOADED" });
-    const out = await extractLabReport({ apiKey: "k", pdf });
+    const out = await extractLabReport({ apiKey: "k", pageCount: 2, pdf });
     expect(out).toMatchObject({ ok: false, reason: "MODEL_OVERLOADED" });
   });
 
@@ -92,7 +94,7 @@ describe("extractLabReport", () => {
       reason: "API_ERROR",
       cause: new Error("boom"),
     });
-    const out = await extractLabReport({ apiKey: "k", pdf });
+    const out = await extractLabReport({ apiKey: "k", pageCount: 2, pdf });
     expect(out).toMatchObject({ ok: false, reason: "API_ERROR" });
   });
 
@@ -102,19 +104,35 @@ describe("extractLabReport", () => {
       reason: "API_ERROR",
       cause: new Anthropic.APIConnectionTimeoutError(),
     });
-    const out = await extractLabReport({ apiKey: "k", pdf, timeoutMs: 5 });
+    const out = await extractLabReport({ apiKey: "k", pageCount: 2, pdf, timeoutMs: 5 });
     expect(out).toMatchObject({ ok: false, reason: "TIMEOUT" });
     expect(callAnthropic.mock.calls[0]![0].requestOptions.timeout).toBe(5);
   });
 });
 
 describe("pdf helpers", () => {
-  it("counts pages and ignores the /Pages tree object", () => {
-    expect(estimatePdfPageCount(pdf)).toBe(2);
+  it("counts the pages of a real PDF", async () => {
+    expect(await getPdfPageCount(pdf)).toBe(2);
   });
-  it("reports an unknown count for a PDF with compressed object streams", () => {
-    const packed = Buffer.concat([pdf, Buffer.from("\n/Type /ObjStm\n")]);
-    expect(estimatePdfPageCount(packed)).toBe(0);
+  it("is not inflated by a page marker inside a comment or string", async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage();
+    const one = Buffer.from(await doc.save());
+    const tricked = Buffer.concat([one, Buffer.from("\n% /Type /Page\n% /Type /Page\n")]);
+    expect(await getPdfPageCount(tricked)).toBe(1);
+  });
+  it("reports unknown (0) for bytes that are not a parseable PDF", async () => {
+    expect(await getPdfPageCount(Buffer.from("%PDF-1.4\n" + "x".repeat(200)))).toBe(0);
+  });
+  it("carries provider usage on a malformed reply so it can be charged", async () => {
+    callAnthropic.mockResolvedValue(reply("Sure! The lab is Acme."));
+    const out = await extractLabReport({ apiKey: "k", pageCount: 2, pdf });
+    expect(!out.ok && usageFromFailure(out.cause)).toEqual({
+      inputTokens: 100,
+      outputTokens: 20,
+    });
+    expect(usageFromFailure(undefined)).toBeNull();
+    expect(usageFromFailure({ usage: { inputTokens: NaN, outputTokens: 1 } })).toBeNull();
   });
   it("hashes the exact bytes", () => {
     expect(sha256Hex(Buffer.from("abc"))).toBe(

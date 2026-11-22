@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { PDFDocument } from "pdf-lib";
 import { NextRequest } from "next/server";
 
 const m = vi.hoisted(() => ({
@@ -6,7 +7,6 @@ const m = vi.hoisted(() => ({
   assertWrite: vi.fn(),
   requireActiveSubscription: vi.fn(),
   applyRateLimit: vi.fn(),
-  getWorkspaceForUser: vi.fn(),
   checkWorkspaceBudget: vi.fn(),
   resolveKey: vi.fn(),
   logAiUsage: vi.fn(),
@@ -38,9 +38,6 @@ vi.mock("@/lib/billing/subscription-gate", () => ({
   requireActiveSubscription: m.requireActiveSubscription,
 }));
 vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: m.applyRateLimit }));
-vi.mock("@/lib/workspace/provider-connections", () => ({
-  getWorkspaceForUser: m.getWorkspaceForUser,
-}));
 vi.mock("@/lib/ai/budget-guard", () => ({
   checkWorkspaceBudget: m.checkWorkspaceBudget,
 }));
@@ -59,7 +56,13 @@ vi.mock("@/lib/third-party-report/extract", async (orig) => ({
 
 import { POST } from "../extract/route";
 
-const PDF = Buffer.from("%PDF-1.4\n" + "x".repeat(200) + "\n%%EOF");
+let PDF: Buffer;
+beforeAll(async () => {
+  const doc = await PDFDocument.create();
+  doc.addPage();
+  doc.addPage();
+  PDF = Buffer.from(await doc.save());
+});
 
 function req(bytes: Buffer | null, name = "lab.pdf"): NextRequest {
   const form = new FormData();
@@ -93,9 +96,12 @@ beforeEach(() => {
   });
   m.requireActiveSubscription.mockResolvedValue(null);
   m.applyRateLimit.mockResolvedValue(null);
-  m.getWorkspaceForUser.mockResolvedValue({ id: "ws1" });
   m.checkWorkspaceBudget.mockResolvedValue({ ok: true });
-  m.resolveKey.mockResolvedValue({ apiKey: "sk-test" });
+  m.resolveKey.mockResolvedValue({
+    apiKey: "sk-test",
+    workspaceId: "ws1",
+    source: "byok",
+  });
   m.extractLabReport.mockResolvedValue(okRead);
   m.assessmentFindFirst.mockResolvedValue({ labName: "Other Lab" });
 });
@@ -171,6 +177,73 @@ describe("POST third-party-reports/extract", () => {
     const res = await POST(req(PDF), ctx);
     expect(res.status).toBe(402);
     expect(m.extractLabReport).not.toHaveBeenCalled();
+  });
+
+  it("400 and no spend for a PDF that cannot be parsed, so page numbers are never unverified", async () => {
+    const unparseable = Buffer.from("%PDF-1.4\n" + "x".repeat(200) + "\n%%EOF");
+    const res = await POST(req(unparseable), ctx);
+    expect(res.status).toBe(400);
+    expect(m.resolveKey).not.toHaveBeenCalled();
+    expect(m.extractLabReport).not.toHaveBeenCalled();
+  });
+
+  it("402 and no AI call when only the funded-trial platform key would pay", async () => {
+    m.resolveKey.mockResolvedValue({
+      apiKey: "sk-platform",
+      workspaceId: "platform-trial",
+      source: "platform",
+    });
+    const res = await POST(req(PDF), ctx);
+    expect(res.status).toBe(402);
+    expect(m.extractLabReport).not.toHaveBeenCalled();
+    expect(m.checkWorkspaceBudget).not.toHaveBeenCalled();
+  });
+
+  it("checks the budget of, and logs usage to, the workspace that owns the key", async () => {
+    m.resolveKey.mockResolvedValue({
+      apiKey: "sk-test",
+      workspaceId: "wsOwner",
+      source: "byok",
+    });
+    await POST(req(PDF), ctx);
+    expect(m.checkWorkspaceBudget).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: "wsOwner" }),
+    );
+    expect(m.logAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: "wsOwner", success: true }),
+    );
+  });
+
+  it("402 and no AI call when the resolved key names no workspace", async () => {
+    m.resolveKey.mockResolvedValue({ apiKey: "sk-test", workspaceId: "", source: "byok" });
+    const res = await POST(req(PDF), ctx);
+    expect(res.status).toBe(402);
+    expect(m.extractLabReport).not.toHaveBeenCalled();
+  });
+
+  it("charges a malformed reply at the usage the provider reported", async () => {
+    m.extractLabReport.mockResolvedValue({
+      ok: false,
+      reason: "PARSE_FAILED",
+      cause: { usage: { inputTokens: 1200, outputTokens: 80 } },
+    });
+    await POST(req(PDF), ctx);
+    expect(m.logAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        inputTokens: 1200,
+        outputTokens: 80,
+        estimatedCostUsd: 0.01,
+      }),
+    );
+  });
+
+  it("charges the bounded estimate when a read may have been billed with no usage returned", async () => {
+    m.extractLabReport.mockResolvedValue({ ok: false, reason: "TIMEOUT" });
+    await POST(req(PDF), ctx);
+    expect(m.logAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, estimatedCostUsd: 0.05 }),
+    );
   });
 
   it.each([
