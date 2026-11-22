@@ -188,5 +188,51 @@ describe("SiteVisitPanel (RA-8498)", () => {
     expect(await screen.findByText(/Refused|Could not load/)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText("Tenant")).not.toBeChecked());
   });
-});
+  // RA-8522 (RA-8498 known limit 1): the photos API returns 500 at a time.
+  // On a larger job the picker follows nextCursor, so an older front of
+  // property photo can be chosen, and it stays listed after the save reloads.
+  it("loads older photos past the first page and keeps them after a save", async () => {
+    const page1 = Array.from({ length: 500 }, (_, i) => ({ id: `ph_${i + 1}`, url: `u${i + 1}`, thumbnailUrl: null }));
+    const page2 = [{ id: "ph_501", url: "u501", thumbnailUrl: null }];
+    const f = stubFetch(
+      () => [openVisit],
+      (url) => {
+        if (url.endsWith("/photos")) return json({ photos: page1, nextCursor: "ph_500" });
+        if (url.endsWith("/photos?cursor=ph_500")) return json({ photos: page2, nextCursor: null });
+        return null;
+      },
+    );
+    render(<SiteVisitPanel inspectionId="i1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Show 500 newest photos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load older photos" }));
+    fireEvent.click(await screen.findByLabelText("Photo 501"));
+    await waitFor(() =>
+      expect(f).toHaveBeenCalledWith(
+        "/api/inspections/i1/visits/v1",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ frontPhotoId: "ph_501" }) }),
+      ),
+    );
+    // The reload after the save fetched the newest page again; ph_501 is still offered.
+    await waitFor(() => expect(f.mock.calls.filter(([u]) => u === "/api/inspections/i1/photos").length).toBeGreaterThan(1));
+    expect(screen.getByLabelText(/^Photo 501/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load older photos" })).not.toBeInTheDocument();
+  });
 
+  it("shows the chosen front photo even when it is older than every page loaded", async () => {
+    stubFetch(
+      () => [
+        {
+          ...openVisit,
+          frontPhotoId: "ph_old",
+          frontPhoto: { id: "ph_old", url: "u_old", thumbnailUrl: null },
+        },
+      ],
+      (url) =>
+        url.endsWith("/photos")
+          ? json({ photos: [{ id: "ph_1", url: "u1", thumbnailUrl: null }], nextCursor: "ph_1" })
+          : null,
+    );
+    render(<SiteVisitPanel inspectionId="i1" />);
+    expect(await screen.findByLabelText("Photo 2 (front of property)")).toBeChecked();
+  });
+});
