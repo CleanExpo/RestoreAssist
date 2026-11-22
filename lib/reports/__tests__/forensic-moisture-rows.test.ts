@@ -6,7 +6,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildForensicMoistureRows,
   MOISTURE_NOT_RECORDED,
+  moistureNotesLines,
   moistureRowsNotShownNote,
+  psychrometricRowsNotShownNote,
 } from "../forensic-moisture-rows";
 
 describe("buildForensicMoistureRows (RA-8547)", () => {
@@ -104,5 +106,40 @@ describe("moistureRowsNotShownNote (RA-8547 follow-up)", () => {
     expect(moistureRowsNotShownNote(3)).toBe(
       "3 further saved moisture readings are not shown in this table.",
     );
+  });
+});
+
+describe("forensic readings helpers (RA-8548)", () => {
+  it("prints a saved unit code as a label, never a derived one", () => {
+    const rows = buildForensicMoistureRows({
+      moistureReadings: [
+        {
+          location: "Hall",
+          surfaceType: "Timber",
+          moistureLevel: 17,
+          unit: "WME",
+        },
+        { location: "Bath", surfaceType: "Tile", moistureLevel: 4 },
+      ],
+    });
+    expect(rows.map((r) => r.reading)).toEqual(["17 WME", "4"]);
+  });
+
+  it("declares psychrometric readings the table could not show", () => {
+    expect(psychrometricRowsNotShownNote(0)).toBeNull();
+    expect(psychrometricRowsNotShownNote(2)).toBe(
+      "2 further saved psychrometric readings are not shown in this table.",
+    );
+  });
+
+  it("keeps every note line that fits and declares a cut", () => {
+    const wrap = (text: string) => text.split(" ");
+    expect(moistureNotesLines(["a b"], wrap, 6)).toEqual(["a", "b"]);
+    expect(moistureNotesLines(["a b c d"], wrap, 3)).toEqual([
+      "a",
+      "b",
+      "The recorded moisture notes continue in the saved tier 2 answer.",
+    ]);
+    expect(moistureNotesLines([], wrap, 3)).toEqual([]);
   });
 });
