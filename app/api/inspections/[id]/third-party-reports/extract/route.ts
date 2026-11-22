@@ -174,9 +174,20 @@ export async function POST(
     // owns that key is the one whose budget is checked and whose usage is
     // logged, so a manager in several workspaces cannot charge the wrong one
     // and the budget check cannot be skipped.
+    const job = await prisma.inspection.findFirst({
+      where: tenancy.data.inspectionWhere,
+      select: { userId: true, workspaceId: true },
+    });
+    if (!job) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
+    }
     let resolved: Awaited<ReturnType<typeof resolveAgentAiKey>>;
     try {
-      resolved = await resolveAgentAiKey(userId, "byok-only");
+      resolved = await resolveAgentAiKey(job.userId, "byok-only");
     } catch (err) {
       if (!(err instanceof PlatformKeyRefusedError)) throw err;
       return apiError(request, {
@@ -193,19 +204,17 @@ export async function POST(
         status: 402,
       });
     }
-    // The key and the cap must belong to the job's own workspace. The
-    // resolver is keyed on the caller, so an admin in two workspaces reading a
-    // job in workspace B would otherwise spend workspace A's key and cap. A job
-    // with no workspace cannot be tied to any key, so it is refused as well.
-    const job = await prisma.inspection.findFirst({
-      where: tenancy.data.inspectionWhere,
-      select: { workspaceId: true },
-    });
-    if (!job?.workspaceId || job.workspaceId !== resolved.workspaceId) {
+    // The key and the cap must belong to the job's own workspace.
+    // Inspection.workspaceId is nullable and no create path writes it, so the
+    // job's business is fixed by its owner: the key is resolved for the JOB
+    // OWNER, never for the caller. An admin in two workspaces reading a job in
+    // workspace B therefore spends B's key and cap, not A's. Where the job does
+    // record a workspace it must be the one that owns the resolved key.
+    if (job.workspaceId && job.workspaceId !== resolved.workspaceId) {
       return apiError(request, {
         code: "FORBIDDEN",
         message:
-          "This job's workspace does not match the AI key available to you.",
+          "This job's workspace does not match the AI key available for it.",
         status: 403,
       });
     }

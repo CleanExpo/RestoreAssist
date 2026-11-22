@@ -104,7 +104,7 @@ beforeEach(() => {
       childInspectionFilter: undefined,
     },
   });
-  m.inspectionFindFirst.mockResolvedValue({ workspaceId: "ws1" });
+  m.inspectionFindFirst.mockResolvedValue({ userId: "u1", workspaceId: null });
   m.assertSpender.mockResolvedValue({ ok: true, data: { id: "u1", role: "MANAGER" } });
   m.requireActiveSubscription.mockResolvedValue(null);
   m.applyRateLimit.mockResolvedValue(null);
@@ -225,7 +225,7 @@ describe("POST third-party-reports/extract", () => {
   });
 
   it("checks the budget of, and logs usage to, the workspace that owns the key and the job", async () => {
-    m.inspectionFindFirst.mockResolvedValue({ workspaceId: "wsOwner" });
+    m.inspectionFindFirst.mockResolvedValue({ userId: "u1", workspaceId: "wsOwner" });
     m.resolveKey.mockResolvedValue({
       apiKey: "sk-test",
       workspaceId: "wsOwner",
@@ -240,9 +240,30 @@ describe("POST third-party-reports/extract", () => {
     );
   });
 
-  it("an admin in two workspaces reading a job in workspace B never spends workspace A's key or cap", async () => {
-    // The caller's resolved key belongs to workspace A; the job is in B.
-    m.inspectionFindFirst.mockResolvedValue({ workspaceId: "wsB" });
+  it("an admin in two workspaces reading a job in workspace B resolves B's key through the job owner and spends B's cap", async () => {
+    m.inspectionFindFirst.mockResolvedValue({ userId: "ownerB", workspaceId: "wsB" });
+    m.resolveKey.mockImplementation(async (id: string) => ({
+      apiKey: id === "ownerB" ? "sk-from-B" : "sk-from-A",
+      workspaceId: id === "ownerB" ? "wsB" : "wsA",
+      source: "byok",
+    }));
+    const res = await POST(req(PDF), ctx);
+    expect(res.status).toBe(200);
+    expect(m.resolveKey).toHaveBeenCalledWith("ownerB", "ANTHROPIC");
+    expect(m.resolveKey).not.toHaveBeenCalledWith("u1", "ANTHROPIC");
+    expect(m.extractLabReport).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "sk-from-B" }),
+    );
+    expect(m.checkWorkspaceBudget).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: "wsB" }),
+    );
+    expect(m.logAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: "wsB" }),
+    );
+  });
+
+  it("refuses with no spend when the job's recorded workspace differs from the workspace that owns the resolved key", async () => {
+    m.inspectionFindFirst.mockResolvedValue({ userId: "ownerB", workspaceId: "wsB" });
     m.resolveKey.mockResolvedValue({
       apiKey: "sk-from-A",
       workspaceId: "wsA",
@@ -256,12 +277,12 @@ describe("POST third-party-reports/extract", () => {
     expect(m.writes).not.toHaveBeenCalled();
   });
 
-  it("refuses with no spend when the job belongs to no workspace, so the key cannot be tied to it", async () => {
-    m.inspectionFindFirst.mockResolvedValue({ workspaceId: null });
+  it("404 and no spend when the job row cannot be read back", async () => {
+    m.inspectionFindFirst.mockResolvedValue(null);
     const res = await POST(req(PDF), ctx);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
+    expect(m.resolveKey).not.toHaveBeenCalled();
     expect(m.extractLabReport).not.toHaveBeenCalled();
-    expect(m.checkWorkspaceBudget).not.toHaveBeenCalled();
   });
 
   it("402 and no AI call when the resolved key names no workspace", async () => {
