@@ -200,6 +200,11 @@ export async function POST(
             specification: true,
           },
         },
+        // RA-8540: the only mould condition the scope writer may use is the
+        // one a human assessor recorded.
+        mouldRemediationAssessment: {
+          select: { mouldConditionLevel: true },
+        },
       },
     });
 
@@ -315,10 +320,12 @@ export async function POST(
       damageCategory: parseInt(classification.category, 10) || undefined,
       damageClass: parseInt(classification.class, 10) || undefined,
       ragContext: ragResult.jobCount > 0 ? ragResult.contextPrompt : undefined,
+      recordedMouldCondition:
+        inspection.mouldRemediationAssessment?.mouldConditionLevel ?? null,
     };
     const effectiveSystemPrompt = isMultiClaim
       ? getMultiClaimPrompt(effectiveClaimTypes, promptOptions)
-      : getClaimTypePrompt(claimType as ClaimType, promptOptions);
+      : getClaimTypePrompt(effectiveClaimTypes[0] as ClaimType, promptOptions);
 
     // ============================================================
     // RA-6971 (BYOK, P1) — resolve the workspace's own Anthropic key and pass

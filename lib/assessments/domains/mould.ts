@@ -155,10 +155,11 @@ function buildReport(args: {
   sections.push({
     heading: "Situation",
     body:
-      `Inspection of ${args.propertyAddress} identified ` +
-      `${args.iicrcClassification} mould contamination across ` +
-      `${args.affectedAreaM2.toFixed(1)} m². Condition assessment per ` +
-      `IICRC S520:2024 §3 sets the regulatory pathway for remediation: ` +
+      `Inspection of ${args.propertyAddress} recorded ` +
+      `${args.iicrcClassification} mould contamination (the condition ` +
+      `entered for this assessment, not derived by this report) across ` +
+      `${args.affectedAreaM2.toFixed(1)} m². IICRC S520:2024 §3, an ` +
+      `industry standard, guides remediation by condition: ` +
       `Condition 2 (settled spores / traces of amplification) requires ` +
       `LIMITED containment; Condition 3 (active fungal growth) requires ` +
       `negative-pressure FULL containment with HEPA filtration whenever ` +
@@ -209,24 +210,27 @@ function buildReport(args: {
       `Expected remediation duration: ${args.days} days for ` +
       `${args.iicrcClassification} contamination over ` +
       `${args.affectedAreaM2.toFixed(1)} m². Actual duration is governed ` +
-      `by post-remediation verification (PRV) — clearance is met when ` +
-      `the indoor mycoflora normalises against an outdoor baseline ` +
-      `(S520 §13.4).`,
+      `by post-remediation verification (PRV), carried out and decided ` +
+      `by an independent qualified assessor (S520 §13.4).`,
     citations: [cite("§13.4")],
   });
 
   sections.push({
-    heading: "Clearance criteria",
+    heading: "Post-remediation verification",
     body:
-      `Post-remediation verification (PRV) per S520 §13: ` +
+      `Clearance is decided by an independent qualified assessor (for ` +
+      `example, an occupational hygienist or Indoor Environmental ` +
+      `Professional), not by this report, and this report sets no ` +
+      `clearance criteria. Matters that assessor may consider, as ` +
+      `described in S520 §13: ` +
       `(1) visible inspection — no mould growth, water staining, or ` +
       `excessive dust; (2) moisture content of remaining materials at ` +
       `or below the drying goal for the material type (the reference ` +
       `reading from unaffected like material in the same building); (3) ` +
       `airborne spore counts comparable to the outdoor baseline taken ` +
-      `at the start of the work. Where the assessment classification ` +
-      `is Condition 3 or where occupants are immunocompromised, an ` +
-      `Indoor Environmental Professional (IEP) should perform clearance.`,
+      `at the start of the work. Recommend the independent assessment ` +
+      `in every case, and especially where the recorded condition is ` +
+      `Condition 3 or occupants are immunocompromised.`,
     citations: [cite("§13"), cite("§13.4"), cite("§13.5")],
   });
 
