@@ -49,9 +49,11 @@ const OTHER = "user_2";
 // exercises the real ownership predicate the route passes, not a hardcoded
 // return value.
 const templates = [
-  { id: "tmpl_own", userId: CALLER, isSystemTemplate: false },
-  { id: "tmpl_system", userId: OTHER, isSystemTemplate: true },
-  { id: "tmpl_foreign", userId: OTHER, isSystemTemplate: false },
+  { id: "tmpl_own", userId: CALLER, isSystemTemplate: false, isActive: true },
+  { id: "tmpl_system", userId: OTHER, isSystemTemplate: true, isActive: true },
+  { id: "tmpl_foreign", userId: OTHER, isSystemTemplate: false, isActive: true },
+  // RA-7957: archived through DELETE /api/form-templates/[id].
+  { id: "tmpl_archived", userId: CALLER, isSystemTemplate: false, isActive: false },
 ];
 
 function makeRequest(body: unknown) {
@@ -79,6 +81,7 @@ beforeEach(() => {
       templates.find(
         (t) =>
           t.id === where.id &&
+          (where.isActive === undefined || where.isActive === t.isActive) &&
           orClauses.some(
             (c) =>
               (c.userId !== undefined && c.userId === t.userId) ||
@@ -123,6 +126,13 @@ describe("POST /api/forms/interview/start — cross-tenant template IDOR", () =>
     expect(json.success).toBe(true);
     expect(json.sessionId).toBe("sess_new");
     expect(interviewSessionCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("RA-7957: 404s and creates no session for the caller's archived template", async () => {
+    const res = await POST(makeRequest({ formTemplateId: "tmpl_archived" }));
+
+    expect(res.status).toBe(404);
+    expect(interviewSessionCreate).not.toHaveBeenCalled();
   });
 
   it("starts a session for a shared system template", async () => {
