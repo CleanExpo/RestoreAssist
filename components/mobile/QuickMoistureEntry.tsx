@@ -13,6 +13,7 @@ import {
   getMoistureStatus,
   STATUS_COLORS,
   getDryStandard,
+  MOISTURE_GUIDE_LABEL,
 } from "@/lib/iicrc-dry-standards";
 import { queueWrite } from "@/lib/nir-sync-queue";
 
@@ -323,8 +324,9 @@ export function QuickMoistureEntry({
       {/* Target range hint */}
       {std && (
         <p className="text-center text-xs text-white/30">
-          Dry target for {MATERIALS.find((m) => m.value === material)?.label}: ≤
-          {std.dryThreshold}%{" · "}S500:2021 §12
+          Guide for {MATERIALS.find((m) => m.value === material)?.label}: ≤
+          {std.dryThreshold}%{" · "}{MOISTURE_GUIDE_LABEL}. Use a reference
+          reading from unaffected like material where you have one.
         </p>
       )}
     </div>

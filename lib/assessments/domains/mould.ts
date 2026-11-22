@@ -225,7 +225,8 @@ function buildReport(args: {
       `described in S520 §13: ` +
       `(1) visible inspection — no mould growth, water staining, or ` +
       `excessive dust; (2) moisture content of remaining materials at ` +
-      `or below the IICRC dry-standard for the material type; (3) ` +
+      `or below the drying goal for the material type (the reference ` +
+      `reading from unaffected like material in the same building); (3) ` +
       `airborne spore counts comparable to the outdoor baseline taken ` +
       `at the start of the work. Recommend the independent assessment ` +
       `in every case, and especially where the recorded condition is ` +

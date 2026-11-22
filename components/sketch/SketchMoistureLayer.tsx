@@ -314,7 +314,7 @@ function PinMarker({
                       : "bg-rose-500/15 text-rose-300",
                   )}
                 >
-                  <span>S500 dry standard ({dry.targetMc}% WME)</span>
+                  <span>Guide ({dry.targetMc}% WME, not a standard)</span>
                   <span className="font-semibold">
                     {dry.dryStandardMet ? "DRY" : "NOT YET DRY"}
                   </span>

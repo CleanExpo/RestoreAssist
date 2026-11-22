@@ -14,9 +14,13 @@ import {
 import { AlertTriangle, TrendingDown, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CHART_CHROME, seriesColour } from "@/lib/charts/palette";
+import { getDryStandard, MOISTURE_GUIDE_LABEL } from "@/lib/iicrc-dry-standards";
 
-/** Default reference line — timber/generic dry threshold */
-const DRY_STANDARD = 19; // IICRC S500 timber dry threshold (most common material)
+/**
+ * Reference line: the timber guide value. A starting guide only, not a
+ * standard (RA-8508); the real goal is the job's reference reading.
+ */
+const GUIDE_MC = getDryStandard("timber").dryThreshold;
 
 interface MoistureReading {
   id: string;
@@ -84,7 +88,7 @@ function getAlerts(readings: MoistureReading[]) {
       latest[r.location] = r;
     }
   }
-  return Object.values(latest).filter((r) => r.moistureLevel > DRY_STANDARD);
+  return Object.values(latest).filter((r) => r.moistureLevel > GUIDE_MC);
 }
 
 function CustomTooltip({ active, payload, label }: any) {
@@ -106,7 +110,7 @@ function CustomTooltip({ active, payload, label }: any) {
           <span
             className={cn(
               "font-semibold",
-              entry.value <= DRY_STANDARD
+              entry.value <= GUIDE_MC
                 ? "text-success"
                 : entry.value <= 25
                   ? "text-amber-700 dark:text-amber-400"
@@ -115,16 +119,16 @@ function CustomTooltip({ active, payload, label }: any) {
           >
             {entry.value}%
           </span>
-          {entry.value <= DRY_STANDARD && (
+          {entry.value <= GUIDE_MC && (
             <CheckCircle2 size={11} className="text-success" />
           )}
-          {entry.value > DRY_STANDARD && (
+          {entry.value > GUIDE_MC && (
             <AlertTriangle size={11} className="text-amber-500" />
           )}
         </div>
       ))}
       <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1 text-slate-600 dark:text-slate-500">
-        <span>Dry standard: ≤{DRY_STANDARD}%</span>
+        <span>Guide: ≤{GUIDE_MC}% ({MOISTURE_GUIDE_LABEL.toLowerCase()})</span>
       </div>
     </div>
   );
@@ -169,7 +173,7 @@ export default function MoistureTrendChart({
     }
   }
   const dryCount = Object.values(latestByLocation).filter(
-    (v) => v <= DRY_STANDARD,
+    (v) => v <= GUIDE_MC,
   ).length;
   const totalLocations = Object.keys(latestByLocation).length;
 
@@ -184,12 +188,12 @@ export default function MoistureTrendChart({
           />
           <div className="text-sm">
             <p className="font-medium text-amber-700 dark:text-amber-400">
-              {alerts.length} location{alerts.length > 1 ? "s" : ""} above dry
-              standard
+              {alerts.length} location{alerts.length > 1 ? "s" : ""} above the
+              guide value
             </p>
             <p className="text-amber-700 dark:text-amber-500 text-xs mt-0.5">
               {alerts.map((a) => a.location).join(", ")} — readings above{" "}
-              {DRY_STANDARD}%
+              {GUIDE_MC}%
             </p>
           </div>
         </div>
@@ -200,8 +204,8 @@ export default function MoistureTrendChart({
             className="text-success"
           />
           <span className="text-success font-medium">
-            All {dryCount}/{totalLocations} locations at or below dry standard (
-            {DRY_STANDARD}%)
+            All {dryCount}/{totalLocations} locations at or below the guide value (
+            {GUIDE_MC}%, {MOISTURE_GUIDE_LABEL.toLowerCase()})
           </span>
         </div>
       )}
@@ -214,12 +218,12 @@ export default function MoistureTrendChart({
               Moisture Trend
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-500">
-              Readings over time · Dry standard ≤{DRY_STANDARD}%
+              Readings over time · Guide ≤{GUIDE_MC}% ({MOISTURE_GUIDE_LABEL.toLowerCase()})
             </p>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-500">
             <TrendingDown size={14} />
-            <span>Goal: below {DRY_STANDARD}%</span>
+            <span>Guide: below {GUIDE_MC}%</span>
           </div>
         </div>
 
@@ -255,11 +259,11 @@ export default function MoistureTrendChart({
             />
             {/* Dry standard reference line */}
             <ReferenceLine
-              y={DRY_STANDARD}
+              y={GUIDE_MC}
               stroke={CHART_CHROME.reference}
               strokeDasharray="5 3"
               label={{
-                value: `Dry ≤${DRY_STANDARD}%`,
+                value: `Guide ≤${GUIDE_MC}%`,
                 position: "insideTopRight",
                 fontSize: 10,
                 fill: CHART_CHROME.reference,
@@ -307,7 +311,7 @@ export default function MoistureTrendChart({
                   <td
                     className={cn(
                       "px-4 py-2.5 text-right font-semibold",
-                      level <= DRY_STANDARD
+                      level <= GUIDE_MC
                         ? "text-success"
                         : level <= 25
                           ? "text-amber-700 dark:text-amber-400"
@@ -317,9 +321,11 @@ export default function MoistureTrendChart({
                     {level}%
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    {level <= DRY_STANDARD ? (
+                    {level <= GUIDE_MC ? (
                       <span className="inline-flex items-center gap-1 text-xs text-success-subtle-foreground bg-success-subtle px-2 py-0.5 rounded-full">
-                        <CheckCircle2 size={11} /> Dry
+                        {/* Guide-relative only: this chart has no reference
+                            readings, so it never calls a location dry (RA-8508). */}
+                        <CheckCircle2 size={11} /> At or below guide
                       </span>
                     ) : level <= 25 ? (
                       <span className="inline-flex items-center gap-1 text-xs text-warning-subtle-foreground bg-warning-subtle px-2 py-0.5 rounded-full">

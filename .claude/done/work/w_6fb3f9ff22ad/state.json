@@ -1,0 +1,51 @@
+{
+  "schema": "done/1",
+  "criterion_evidence": "PROVEN",
+  "verification_status": "PASS",
+  "delivery_status": "NOT_STARTED",
+  "verified_head": "92e5462c441aca4d64312ed064e48e89f3c1720a",
+  "updated_at_utc": "2026-11-22T00:20:02Z",
+  "last_verify": {
+    "head": "92e5462c441aca4d64312ed064e48e89f3c1720a",
+    "at_utc": "2026-11-22T00:20:02Z",
+    "matrix": [
+      {
+        "id": "RA7957-ROUTES",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js app/api/form-templates/__tests__/mutations.test.ts",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 3.0,
+        "output_digest": "a3a73b9aa361e0ef0da6800b30c447b8f7ef94bf1573c3dac44d5a4f34543669",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_6fb3f9ff22ad/92e5462c441a/RA7957-ROUTES-5179b511fe68-a3a73b9aa361e0ef.log",
+        "output_tail": "\":\"ARCHIVED\"} with 400 and writes nothing\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/form-templates\",\"eventId\":\"nsw8qfnf\"}\n\n\u001b[90mstderr\u001b[2m | app/api/form-templates/__tests__/mutations.test.ts\u001b[2m > \u001b[22m\u001b[2mRA-7957 POST /api/form-templates — create\u001b[2m > \u001b[22m\u001b[2mrejects malformed JSON with 400\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/form-templates\",\"eventId\":\"fydyrvm9\"}\n\n\u001b[90mstderr\u001b[2m | app/api/form-templates/__tests__/mutations.test.ts\u001b[2m > \u001b[22m\u001b[2mRA-7957 DELETE /api/form-templates/[id] — archive\u001b[2m > \u001b[22m\u001b[2mrequires a session\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"UNAUTHORIZED\",\"status\":401,\"route\":\"/api/form-templates/owned\",\"eventId\":\"ikvlui6m\"}\n\n\u001b[90mstderr\u001b[2m | app/api/form-templates/__tests__/mutations.test.ts\u001b[2m > \u001b[22m\u001b[2mRA-7957 DELETE /api/form-templates/[id] — archive\u001b[2m > \u001b[22m\u001b[2mrefuses a USER with 403 and changes nothing\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"FORBIDDEN\",\"status\":403,\"route\":\"/api/form-templates/owned\",\"eventId\":\"yj7vfwkb\"}\n\n\u001b[90mstderr\u001b[2m | app/api/form-templates/__tests__/mutations.test.ts\u001b[2m > \u001b[22m\u001b[2mRA-7957 DELETE /api/form-templates/[id] — archive\u001b[2m > \u001b[22m\u001b[2mreturns 404 for foreign and changes nothing\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"NOT_FOUND\",\"status\":404,\"route\":\"/api/form-templates/foreign\",\"eventId\":\"pn17g0lp\"}\n\n\u001b[90mstderr\u001b[2m | app/api/form-templates/__tests__/mutations.test.ts\u001b[2m > \u001b[22m\u001b[2mRA-7957 DELETE /api/form-templates/[id] — archive\u001b[2m > \u001b[22m\u001b[2mreturns 404 for system and changes nothing\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"NOT_FOUND\",\"status\":404,\"route\":\"/api/form-templates/system\",\"eventId\":\"v3pea04v\"}\n\n\u001b[90mstderr\u001b[2m | app/api/form-templates/__tests__/mutations.test.ts\u001b[2m > \u001b[22m\u001b[2mRA-7957 DELETE /api/form-templates/[id] — archive\u001b[2m > \u001b[22m\u001b[2mreturns 404 for inactive and changes nothing\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"NOT_FOUND\",\"status\":404,\"route\":\"/api/form-templates/inactive\",\"eventId\":\"g0bbms60\"}\n\n\u001b[90mstderr\u001b[2m | app/api/form-templates/__tests__/mutations.test.ts\u001b[2m > \u001b[22m\u001b[2mRA-7957 DELETE /api/form-templates/[id] — archive\u001b[2m > \u001b[22m\u001b[2mreturns 404 for missing and changes nothing\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"NOT_FOUND\",\"status\":404,\"route\":\"/api/form-templates/missing\",\"eventId\":\"o63psg11\"}\n\n\u001b[90mstderr\u001b[2m | app/api/form-templates/__tests__/mutations.test.ts\u001b[2m > \u001b[22m\u001b[2mRA-7957 DELETE /api/form-templates/[id] — archive\u001b[2m > \u001b[22m\u001b[2man ADMIN of another business cannot archive this business's template (cross-tenant)\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"NOT_FOUND\",\"status\":404,\"route\":\"/api/form-templates/owned\",\"eventId\":\"oi20oboo\"}\n\n\u001b[90mstderr\u001b[2m | app/api/form-templates/__tests__/mutations.test.ts\u001b[2m > \u001b[22m\u001b[2mRA-7957 PATCH /api/form-templates/[id] — same gate\u001b[2m > \u001b[22m\u001b[2mrefuses a USER with 403 before reading or writing\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"FORBIDDEN\",\"status\":403,\"route\":\"/api/form-templates/owned\",\"eventId\":\"n5dinej8\"}\n\n\u001b[90mstderr\u001b[2m | app/api/form-templates/__tests__/mutations.test.ts\u001b[2m > \u001b[22m\u001b[2mRA-7957 PATCH /api/form-templates/[id] — same gate\u001b[2m > \u001b[22m\u001b[2man ADMIN of another business gets 404 and nothing changes (cross-tenant)\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"NOT_FOUND\",\"status\":404,\"route\":\"/api/form-templates/owned\",\"eventId\":\"7y49ijgd\"}\n\n\u001b[90mstderr\u001b[2m | app/api/form-templates/__tests__/mutations.test.ts\u001b[2m > \u001b[22m\u001b[2mRA-7957 PATCH /api/form-templates/[id] — same gate\u001b[2m > \u001b[22m\u001b[2mrejects a formType outside the schema enum with 400\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/api/form-templates/owned\",\"eventId\":\"1uhotjk9\"}\n\n \u001b[32m✓\u001b[39m app/api/form-templates/__tests__/mutations.test.ts \u001b[2m(\u001b[22m\u001b[2m40 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 107\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m40 passed\u001b[39m\u001b[22m\u001b[90m (40)\u001b[39m\n\u001b[2m   Start at \u001b[22m 10:19:53\n\u001b[2m   Duration \u001b[22m 1.06s\u001b[2m (transform 226ms, setup 282ms, import 447ms, tests 107ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "RA7957-SCREENS",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js app/__tests__/form-template-mutations.test.tsx",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 7.1,
+        "output_digest": "b2340fcbc08b9d6f5e1243dedc4bad30b5eb283be7a99c8b4e457cedfa1bdbdb",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_6fb3f9ff22ad/92e5462c441a/RA7957-SCREENS-d46c84b11df2-b2340fcbc08b9d6f.log",
+        "output_tail": "\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/Mini Mini 2T Storage/worktrees/RestoreAssist/ra-7957-form-template-create\u001b[39m\n\n \u001b[32m✓\u001b[39m app/__tests__/form-template-mutations.test.tsx \u001b[2m(\u001b[22m\u001b[2m7 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 2108\u001b[2mms\u001b[22m\u001b[39m\n     \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m offers only schema enum values, defaulting category to CUSTOM \u001b[33m 482\u001b[2mms\u001b[22m\u001b[39m\n     \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m sends a schema-valid create payload \u001b[33m 345\u001b[2mms\u001b[22m\u001b[39m\n     \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m keeps the row and shows a structured delete failure \u001b[33m 488\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m7 passed\u001b[39m\u001b[22m\u001b[90m (7)\u001b[39m\n\u001b[2m   Start at \u001b[22m 10:19:55\n\u001b[2m   Duration \u001b[22m 5.91s\u001b[2m (transform 449ms, setup 159ms, import 1.22s, tests 2.11s, environment 2.02s)\u001b[22m"
+      },
+      {
+        "id": "RA7957-SCOPE",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "git diff --name-only origin/main...HEAD | grep -v -E '^(app/api/form-templates/route.ts|app/api/form-templates/\\[id\\]/route.ts|app/api/form-templates/__tests__/mutations.test.ts|lib/form-templates/.*|app/dashboard/form-templates/new/page.tsx|app/dashboard/forms/templates/page.tsx|app/__tests__/form-template-mutations.test.tsx|\\.claude/done/.*)$'; test $? -eq 1",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 0.1,
+        "output_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_6fb3f9ff22ad/92e5462c441a/RA7957-SCOPE-d64e2b099ea8-e3b0c44298fc1c14.log",
+        "output_tail": ""
+      }
+    ],
+    "blockers": []
+  }
+}

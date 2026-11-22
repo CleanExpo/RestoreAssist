@@ -301,3 +301,77 @@ describe("buildDryingTimeline", () => {
     expect(serialized).not.toContain("1.5"); // plasterboard dryThreshold
   });
 });
+
+// RA-8508 + RA-8536: each material in a mixed area is judged against its own
+// goal, and that goal is the property's reference reading for that material
+// (unaffected like material) where one was recorded — not the guide value.
+describe("buildDryingTimeline — per-material reference goals (RA-8508 + RA-8536)", () => {
+  const ref = (surfaceType: string, moistureLevel: number) => ({
+    location: "Hallway (unaffected)",
+    surfaceType,
+    moistureLevel,
+    recordedAt: FIVE_DAYS_AGO,
+    isBaseline: true,
+    unit: "%MC",
+    invalidatedAt: null,
+  });
+  const progress = (surfaceType: string, moistureLevel: number, recordedAt: Date) => ({
+    location: "Kitchen",
+    surfaceType,
+    moistureLevel,
+    recordedAt,
+    isBaseline: false,
+    unit: "%MC",
+    invalidatedAt: null,
+  });
+  const areas = [{ id: "area_k", roomZoneId: "Kitchen" }];
+
+  it("is not complete while a material is under the guide value but above its own reference reading", () => {
+    const states = buildDryingTimeline({
+      areas,
+      readings: [
+        ref("timber", 12),
+        ref("plasterboard", 0.8),
+        progress("timber", 30, FIVE_DAYS_AGO),
+        progress("timber", 15, NOW), // under the 19% guide, above the 12% reference
+        progress("plasterboard", 20, FIVE_DAYS_AGO),
+        progress("plasterboard", 0.7, NOW), // at its own reference
+      ],
+      now: NOW,
+    });
+    expect(states).toHaveLength(1);
+    expect(states[0].estimateLabel).not.toBe(DRY_COMPLETE_ESTIMATE_LABEL);
+  });
+
+  it("is complete once every material is at its own reference reading", () => {
+    const states = buildDryingTimeline({
+      areas,
+      readings: [
+        ref("timber", 12),
+        ref("plasterboard", 0.8),
+        progress("timber", 30, FIVE_DAYS_AGO),
+        progress("timber", 11.5, NOW),
+        progress("plasterboard", 20, FIVE_DAYS_AGO),
+        progress("plasterboard", 0.7, NOW),
+      ],
+      now: NOW,
+    });
+    expect(states[0].status).toBe("on-track");
+    expect(states[0].estimateLabel).toBe(DRY_COMPLETE_ESTIMATE_LABEL);
+  });
+
+  it("falls back to the guide value only for the material with no reference", () => {
+    const states = buildDryingTimeline({
+      areas,
+      readings: [
+        ref("timber", 12), // plasterboard has no reference
+        progress("timber", 30, FIVE_DAYS_AGO),
+        progress("timber", 11.5, NOW),
+        progress("plasterboard", 20, FIVE_DAYS_AGO),
+        progress("plasterboard", 1.2, NOW), // at/below the 1.5% guide value
+      ],
+      now: NOW,
+    });
+    expect(states[0].estimateLabel).toBe(DRY_COMPLETE_ESTIMATE_LABEL);
+  });
+});

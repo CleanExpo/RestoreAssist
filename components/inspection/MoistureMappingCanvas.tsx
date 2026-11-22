@@ -19,6 +19,7 @@ import {
   getMoistureStatus,
   STATUS_COLORS,
   getDryStandard,
+  MOISTURE_GUIDE_LABEL,
 } from "@/lib/iicrc-dry-standards";
 import { dryingLocationForReading } from "@/lib/moisture/reading-room-join";
 
@@ -123,9 +124,9 @@ function readingLabel(reading: MoistureReading): string {
 function getMoistureLabel(level: number, material = "other"): string {
   const status = getMoistureStatus(level, material);
   const std = getDryStandard(material);
-  if (status === "dry") return `Dry (≤${std.dryThreshold}%)`;
-  if (status === "drying") return `Drying (≤${std.wetThreshold}%)`;
-  return `Wet (>${std.wetThreshold}%)`;
+  if (status === "dry") return `Dry (guide ≤${std.dryThreshold}%)`;
+  if (status === "drying") return `Drying (guide ≤${std.wetThreshold}%)`;
+  return `Wet (guide >${std.wetThreshold}%)`;
 }
 
 export default function MoistureMappingCanvas({
@@ -507,12 +508,12 @@ export default function MoistureMappingCanvas({
         </button>
       </div>
 
-      {/* IICRC S500 Legend — conditional on mode */}
+      {/* Moisture guide legend (not a standard, RA-8508) — conditional on mode */}
       {sketchMode === "moisture" && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 rounded-lg bg-neutral-50 dark:bg-slate-800/50 border border-neutral-200 dark:border-slate-700/50 text-xs">
           <div className="flex items-center gap-1.5 text-neutral-600 dark:text-slate-400">
             <Info size={11} className="flex-shrink-0" />
-            <span className="font-semibold">IICRC S500</span>
+            <span className="font-semibold">{MOISTURE_GUIDE_LABEL}</span>
           </div>
           {(["dry", "drying", "wet"] as const).map((status) => (
             <span key={status} className="flex items-center gap-1.5">

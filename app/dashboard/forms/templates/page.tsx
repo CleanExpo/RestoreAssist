@@ -380,6 +380,9 @@ export default function FormTemplatesPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // RA-7957: a failed delete is shown, not swallowed. Kept apart from the
+  // load error so it never reads as "templates could not be loaded".
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -455,14 +458,23 @@ export default function FormTemplatesPage() {
 
   async function handleDelete(id: string) {
     setDeletingId(id);
+    setActionError(null);
     try {
       const res = await fetch(`/api/form-templates/${id}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Delete failed");
+      if (!res.ok) {
+        const data: unknown = await res.json().catch(() => null);
+        throw new Error(apiErrorMessage(data) ?? "Could not remove template");
+      }
       setTemplates((prev) => prev.filter((t) => t.id !== id));
-    } catch {
-      // Keep row on failure, clear confirm state
+    } catch (err) {
+      // Keep the row and say why.
+      setActionError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Could not remove template",
+      );
     } finally {
       setDeletingId(null);
       setConfirmDeleteId(null);
@@ -572,6 +584,15 @@ export default function FormTemplatesPage() {
           >
             Retry
           </button>
+        </div>
+      )}
+
+      {actionError && (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive-subtle-foreground/30 bg-destructive-subtle px-4 py-3 text-sm text-destructive-subtle-foreground"
+        >
+          {actionError}
         </div>
       )}
 
