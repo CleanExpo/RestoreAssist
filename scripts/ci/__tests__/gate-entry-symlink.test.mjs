@@ -161,6 +161,23 @@ const RECIPES = {
       match: /FAIL \(could not check\).*a target origin is required/,
     },
   ],
+  "scripts/ci/check-migration-merge-gate.mjs": [
+    {
+      name: "usage: no --base is could-not-check (2), not a pass",
+      code: 2,
+      match: /\[migration-merge-gate\] FAIL \(could not check\): --base is required/,
+    },
+    {
+      // The scratch directory is not a git repository, so the refs cannot be
+      // read. That must fail closed before any request, never read as "no
+      // migration added".
+      name: "unreadable git refs are could-not-check (2), not a pass",
+      args: ["--base", "main", "--head", "HEAD", "--origin", "https://restoreassist.app"],
+      env: { GIT_CEILING_DIRECTORIES: "/" },
+      code: 2,
+      match: /\[migration-merge-gate\] FAIL \(could not check\): fatal: not a git repository/,
+    },
+  ],
   "scripts/ci/check-migration-preresolve.mjs": [
     {
       name: "a tree with nothing to read fails",
