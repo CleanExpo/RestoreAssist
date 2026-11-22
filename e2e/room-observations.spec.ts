@@ -17,7 +17,7 @@ test("a technician records an intermittent musty odour and sees it under the roo
   await expect(panel).toBeVisible();
   await expect(panel.getByTestId("room-observations-empty")).toBeVisible();
 
-  await panel.getByLabel("Room").fill("Bedroom 2");
+  await panel.getByLabel("Room", { exact: true }).fill("Bedroom 2");
   await panel.getByLabel("Smell (for example musty)").fill("musty");
   await panel.getByLabel("Constant or intermittent").selectOption("INTERMITTENT");
   await panel.getByLabel("Intensity").selectOption("2");
