@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { contrast, isColour, overWhite, resolve } from "./support/wcag-contrast";
 
 /**
  * RA-8479. The admin pages used saturated 500/600 steps that read the same in
@@ -26,72 +27,6 @@ const ROOT = process.cwd();
 const ADMIN = join(ROOT, "app", "dashboard", "admin");
 const AA = 4.5;
 
-const themeCss = readFileSync(
-  join(ROOT, "node_modules", "tailwindcss", "theme.css"),
-  "utf8",
-);
-const globalsCss = readFileSync(join(ROOT, "app", "globals.css"), "utf8");
-
-const colours = new Map<string, string>();
-for (const css of [themeCss, globalsCss]) {
-  for (const m of css.matchAll(/--color-([a-z0-9-]+):\s*([^;]+);/g)) {
-    if (!colours.has(m[1])) colours.set(m[1], m[2].trim());
-  }
-}
-
-type Rgb = [number, number, number];
-
-function oklchToRgb(body: string): Rgb {
-  const [lRaw, cRaw, hRaw] = body.trim().split(/\s+/);
-  const L = lRaw.endsWith("%") ? parseFloat(lRaw) / 100 : parseFloat(lRaw);
-  const C = parseFloat(cRaw);
-  const h = (parseFloat(hRaw) * Math.PI) / 180;
-  const a = C * Math.cos(h);
-  const b = C * Math.sin(h);
-  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
-  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
-  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
-  const lin = [
-    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
-  ];
-  return lin.map((v) => {
-    const c = Math.min(1, Math.max(0, v));
-    return c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
-  }) as Rgb;
-}
-
-function resolve(name: string, seen = 0): Rgb {
-  if (name === "white") return [1, 1, 1];
-  if (name === "black") return [0, 0, 0];
-  const value = colours.get(name);
-  if (!value || seen > 5) throw new Error(`--color-${name} is not declared`);
-  const ref = value.match(/^var\(--color-([a-z0-9-]+)\)$/);
-  if (ref) return resolve(ref[1], seen + 1);
-  const ok = value.match(/^oklch\(([^)]+)\)$/);
-  if (ok) return oklchToRgb(ok[1]);
-  const hex = value.match(/^#([0-9a-fA-F]{6})$/);
-  if (hex) {
-    return [0, 2, 4].map((i) => parseInt(hex[1].slice(i, i + 2), 16) / 255) as Rgb;
-  }
-  throw new Error(`cannot read --color-${name}: ${value}`);
-}
-
-function luminance([r, g, b]: Rgb): number {
-  const f = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-}
-
-function contrast(a: Rgb, b: Rgb): number {
-  const [x, y] = [luminance(a), luminance(b)];
-  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-}
-
-function overWhite(c: Rgb, alpha: number): Rgb {
-  return c.map((v) => v * alpha + (1 - alpha)) as Rgb;
-}
-
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
@@ -99,17 +34,6 @@ function walk(dir: string): string[] {
     return p.endsWith(".tsx") ? [p] : [];
   });
 }
-
-/** A literal colour this test can measure; theme variables such as
- * `--color-destructive: var(--destructive)` resolve at runtime and are skipped. */
-const isColour = (name: string) => {
-  try {
-    resolve(name);
-    return true;
-  } catch {
-    return false;
-  }
-};
 
 interface Finding {
   where: string;

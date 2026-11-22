@@ -263,7 +263,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                         <span className="font-semibold text-brand-navy">
                           {row.amount}
                         </span>
-                        <span className="block text-xs text-slate-500">
+                        <span className="block text-xs text-slate-600">
                           {row.cadence}
                         </span>
                       </td>
@@ -279,7 +279,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
               </table>
             </div>
 
-            <p className="mt-5 text-xs leading-relaxed text-slate-500">
+            <p className="mt-5 text-xs leading-relaxed text-slate-600">
               Amounts in {monthly.currency}. Plan pricing includes GST and tax
               invoices are issued monthly. The per-report column is the plan or
               pack price divided by the reports it covers, and it is the
@@ -371,7 +371,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                         <span className="font-semibold text-brand-navy">
                           {formatAud(addon.amount)}
                         </span>
-                        <span className="block text-xs text-slate-500">
+                        <span className="block text-xs text-slate-600">
                           per {addon.interval}
                           {addon.perSeat ? ", per seat" : ""}
                         </span>
@@ -382,7 +382,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
               </table>
             </div>
 
-            <p className="mt-5 text-xs leading-relaxed text-slate-500">
+            <p className="mt-5 text-xs leading-relaxed text-slate-600">
               Amounts in {ADDON_ROWS[0]?.currency ?? monthly.currency},
               GST-inclusive, each billed as its own subscription alongside the
               plan. A per-seat add-on is charged once for every seat you buy,
@@ -481,7 +481,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
 
           <motion.p
             variants={fadeUp}
-            className="mt-6 text-center text-xs leading-relaxed text-slate-500"
+            className="mt-6 text-center text-xs leading-relaxed text-slate-600"
           >
             If a cost is missing from this page, that is a fault we want to
             hear about, not a detail we left out on purpose.
