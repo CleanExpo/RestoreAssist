@@ -39,8 +39,12 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/integrations/xero", () => ({ syncInvoiceToXero: (...a: unknown[]) => syncInvoiceToXero(...a) }));
 vi.mock("@/lib/integrations/quickbooks", () => ({ syncInvoiceToQuickBooks: vi.fn() }));
 vi.mock("@/lib/integrations/myob", () => ({ syncInvoiceToMYOB: vi.fn() }));
+// RA-8494: the caller here is an owner; the money gate is the shared double, and
+// the last test below proves the route still honours it for a technician.
+vi.mock("@/lib/auth/redact-money");
 
 import { POST } from "../route";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 function request() {
   return new NextRequest("http://localhost/api/invoices/inv-1/sync", {
@@ -87,5 +91,18 @@ describe("POST /api/invoices/[id]/sync — readiness owner decides", () => {
     const res = await POST(request(), params);
     expect(res.status).toBe(404);
     expect(syncInvoiceToXero).not.toHaveBeenCalled();
+  });
+
+  it("refuses a caller who may not see money (technician) before any sync", async () => {
+    vi.mocked(assertMoneyViewer).mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      reason: "Forbidden",
+    });
+    integrationFindMany.mockResolvedValue([{ ...xero, status: "CONNECTED", tenantId: "org", tokenExpiresAt: new Date("2099-01-01") }]);
+    const res = await POST(request(), params);
+    expect(res.status).toBe(403);
+    expect(syncInvoiceToXero).not.toHaveBeenCalled();
+    expect(integrationFindMany).not.toHaveBeenCalled();
   });
 });
