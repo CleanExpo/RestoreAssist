@@ -1,0 +1,77 @@
+/* RA-8107 report visuals. Colour comes from the chart tokens only (lib/charts/palette.ts). */
+.panel {
+  border: 1px solid var(--chart-grid);
+  background: var(--chart-surface);
+  color: var(--chart-ink);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 0 0 16px;
+}
+.panel h3 { margin: 0 0 4px; font-size: 1rem; }
+.sub { margin: 0 0 12px; font-size: 0.8125rem; opacity: 0.85; }
+.note { margin: 8px 0 0; font-size: 0.8125rem; }
+.flag { display: block; margin: 8px 0 0; padding: 6px 10px; border-left: 4px solid var(--chart-warning); font-size: 0.8125rem; font-weight: 600; }
+.flagCritical { border-left-color: var(--chart-critical); }
+.flagGood { border-left-color: var(--chart-good); }
+.controls { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; flex-wrap: wrap; }
+.button { border: 1px solid var(--chart-axis); background: transparent; color: inherit; border-radius: 6px; padding: 6px 12px; min-height: 44px; font: inherit; cursor: pointer; }
+.button:focus-visible, .range:focus-visible { outline: 2px solid var(--chart-1); outline-offset: 2px; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; margin-top: 12px; }
+.table caption { text-align: left; font-weight: 600; padding: 4px 0; }
+.table th, .table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--chart-grid); vertical-align: top; }
+.tableWrap { overflow-x: auto; }
+
+/* Gantt */
+.ganttRow { display: grid; grid-template-columns: minmax(96px, 200px) 1fr; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--chart-grid); }
+.ganttLabel { font-size: 0.8125rem; font-weight: 600; }
+.ganttTrack { position: relative; height: 26px; }
+.ganttPlan { position: absolute; top: 2px; height: 22px; border: 2px dashed var(--chart-reference); border-radius: 4px; box-sizing: border-box; }
+.ganttBar { position: absolute; top: 6px; height: 14px; border-radius: 3px; background: var(--chart-1); }
+.ganttBar[data-status="complete"] { background: var(--chart-good); }
+.ganttBar[data-status="blocked"] { background: var(--chart-critical); }
+.ganttBar[data-late="true"] { background: var(--chart-warning); }
+.ganttTag { grid-column: 2; font-size: 0.75rem; }
+[data-motion="on"] .ganttBar { animation: ganttGrow 0.9s ease-out both; transform-origin: left center; }
+@keyframes ganttGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { [data-motion="on"] .ganttBar { animation: none; } }
+@media print { [data-motion="on"] .ganttBar { animation: none; } .controls { display: none; } }
+
+/* Moisture */
+.chart { width: 100%; height: auto; max-width: 560px; display: block; }
+.axisText { font-size: 10px; fill: var(--chart-ink); }
+.gridLine { stroke: var(--chart-grid); stroke-width: 1; }
+.axisLine { stroke: var(--chart-axis); stroke-width: 1; }
+.targetLine { stroke: var(--chart-reference); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.seriesLine { fill: none; stroke: var(--chart-1); stroke-width: 2; }
+.seriesDot { fill: var(--chart-1); stroke: var(--chart-surface); stroke-width: 1.5; }
+
+/* Hazards */
+.alert { border: 2px solid var(--chart-critical); border-left-width: 8px; padding: 12px 16px; margin: 0 0 16px; border-radius: 6px; font-weight: 600; }
+.alert p { margin: 4px 0 0; font-weight: 400; }
+.hazardList { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.hazard { border: 1px solid var(--chart-grid); border-left: 6px solid var(--chart-warning); border-radius: 6px; padding: 8px 12px; }
+.hazard[data-severity="critical"] { border-left-color: var(--chart-critical); border-width: 2px; border-left-width: 8px; border-color: var(--chart-critical); }
+.hazard[data-severity="medium"], .hazard[data-severity="low"] { border-left-color: var(--chart-info); }
+.hazard[data-verification="resolved"] { opacity: 0.8; border-left-color: var(--chart-good); }
+.hazardHead { display: flex; gap: 8px; align-items: center; font-weight: 600; flex-wrap: wrap; }
+.hazardNumber { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 50%; border: 2px solid currentColor; font-size: 0.75rem; }
+.hazard p { margin: 4px 0 0; font-size: 0.8125rem; }
+.planFrame { position: relative; display: inline-block; max-width: 100%; margin: 0 0 12px; }
+.planImage { display: block; max-width: 100%; height: auto; }
+.hotspot { position: absolute; transform: translate(-50%, -50%); width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--chart-critical); background: var(--chart-surface); color: var(--chart-ink); font-weight: 700; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; }
+.hotspot[data-severity="medium"], .hotspot[data-severity="low"] { border-color: var(--chart-info); }
+.hotspot[data-severity="high"], .hotspot[data-severity="not-assessed"] { border-color: var(--chart-warning); }
+
+/* Comparison */
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 0; }
+.frame { margin: 0; }
+.frame img { display: block; width: 100%; height: auto; border-radius: 4px; }
+.frame figcaption { font-size: 0.8125rem; margin-top: 4px; }
+.slider { position: relative; width: 100%; max-width: 720px; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 4px; background: var(--chart-grid); }
+.sliderImage { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sliderRange { width: 100%; max-width: 720px; margin-top: 8px; }
+.range { width: 100%; }
+.screenOnly { display: block; }
+.printOnly { display: none; }
+@media print { .screenOnly { display: none; } .printOnly { display: block; } }
