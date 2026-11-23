@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* RA-8524: help articles, legal pages and chat answers render inside prose
+   classes. Without the plugin those classes compile to nothing and headings,
+   lists and code run together as plain text.
+   tests/unit/compiled-css-typography.test.ts fails if it is dropped. */
+@plugin "@tailwindcss/typography";
+
 /* RA-8464: Tailwind compiles every class-like string it finds in the project,
    including test fixtures and design notes that quote old palettes. Those
    folders never render, so keep them out of the stylesheet. Without this the
@@ -33,6 +39,11 @@
   --accent-foreground: var(--color-brand-navy);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.577 0.245 27.325);
+  /* RA-8364: error text. text-destructive reads this through
+     --text-color-destructive; fills keep --destructive. Red 700: 4.5:1 or
+     better on paper, cream and a bg-destructive/10 tint, where the fill red
+     is only 4.0 to 4.4:1. */
+  --destructive-text: oklch(0.505 0.213 27.518);
   /* Semantic status tokens (DESIGN.md §2 status palette). Reserved for actual
      status — never decorative. Enables text-success / bg-warning / text-info
      so components stop hardcoding text-green-600 / text-amber-500 / text-blue-500. */
@@ -121,6 +132,11 @@
   --warning-foreground: #1c1917;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.577 0.245 27.325);
+  /* RA-8364: error text. text-destructive reads this through
+     --text-color-destructive; fills keep --destructive. Red 700: 4.5:1 or
+     better on paper, cream and a bg-destructive/10 tint, where the fill red
+     is only 4.0 to 4.4:1. */
+  --destructive-text: oklch(0.505 0.213 27.518);
   /* A light island inside dark mode takes the whole light chart block. A
      var() resolves where it is declared, so any alias not redeclared here
      arrives with its dark value. chart-palette.test.ts enforces the match. */
@@ -165,6 +181,10 @@
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
+  /* RA-8364: the fill red above is about 1.7:1 as text on a dark card.
+     Red 400 is 5.4:1 or better on every dark surface; white on the fill
+     stays near 10:1. */
+  --destructive-text: oklch(0.704 0.191 22.216);
   /* Brighter status hues for legibility on the dark canvas. */
   --success: #34d399;
   --success-foreground: #052e2b;
@@ -218,7 +238,11 @@
 @theme inline {
   /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
   --font-sans: "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  /* RA-8524: next/font/local registers Geist Mono under a hashed family
+     name, so the literal "Geist Mono" never matches and code fell through to
+     the browser's serif default (seen in help article inline code). The
+     generic fallbacks keep code monospaced either way. */
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Brand palette B, "Paper and cobalt" (Phill, 19/11/2026: "B Paper";
      design audit 18/11/2026, RA-8467). Replaced palette A (Harbour). The
@@ -330,6 +354,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  /* RA-8364: text-destructive (and hover:, /NN) reads the text token;
+     bg-, border- and ring-destructive keep the fill. Tailwind checks
+     --text-color-* before --color-* for text utilities. */
+  --text-color-destructive: var(--destructive-text);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);

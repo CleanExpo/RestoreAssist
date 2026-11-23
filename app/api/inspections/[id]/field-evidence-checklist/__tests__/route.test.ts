@@ -12,9 +12,14 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionReadable: (...a: unknown[]) => assertInspectionReadable(...a),
 }));
-vi.mock("@/lib/evidence/field-evidence-audit", () => ({
+vi.mock("@/lib/evidence/field-evidence-audit", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/lib/evidence/field-evidence-audit")
+  >()),
   auditInspectionById: (...a: unknown[]) => auditInspectionById(...a),
 }));
+
+import { UnknownJobTypeError } from "@/lib/evidence/field-evidence-audit";
 
 import { GET } from "../route";
 
@@ -82,6 +87,17 @@ describe("GET /api/inspections/[id]/field-evidence-checklist", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error.code).toBe("INTERNAL");
+  });
+
+  // RA-8488: a job with no claim type and no Guided Capture workflow is not a
+  // server fault. Say what is missing instead of "Internal server error".
+  it("409s with a plain reason when the job type is not known yet", async () => {
+    auditInspectionById.mockRejectedValueOnce(new UnknownJobTypeError("insp_1"));
+    const res = await GET(makeRequest(), params);
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.code).toBe("PRECONDITION_FAILED");
+    expect(body.error.message).toMatch(/job type/i);
   });
 
   // RA-8002 slice 1: the before-you-leave action list rides along, additively.

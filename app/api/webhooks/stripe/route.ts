@@ -656,7 +656,7 @@ export async function handleCheckoutCompleted(
       void sendSubscriptionActivatedEmail({
         recipientEmail: user.email,
         recipientName: user.name ?? "there",
-        planName: subscriptionPlan ?? tier ?? "Restore Assist",
+        planName: subscriptionPlan ?? tier ?? "RestoreAssist",
         amount: amountTotal / 100,
         currency: (session.currency ?? "aud").toUpperCase(),
         invoiceUrl:

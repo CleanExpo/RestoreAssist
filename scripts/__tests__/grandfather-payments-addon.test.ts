@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterAll } from "vitest";
-import { grandfatherPaymentsAddon } from "../grandfather-payments-addon";
+import { grandfatherPaymentsAddon } from "../lib/grandfather-payments-addon";
 import { prisma } from "@/lib/prisma";
 
 describe.skipIf(!process.env.DATABASE_URL)("grandfatherPaymentsAddon", () => {

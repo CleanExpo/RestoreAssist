@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
   ArrowRight,
-  CheckCircle,
   Zap,
   Building2,
   KeyRound,
@@ -34,7 +33,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
   const slides = [
     {
       icon: Sparkles,
-      title: "Welcome to Restore Assist!",
+      title: "Welcome to RestoreAssist!",
       description:
         "Your professional forensic restoration reporting platform. Let's get you set up in just 4 quick steps.",
       color: "",

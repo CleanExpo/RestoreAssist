@@ -7,7 +7,7 @@ import {
   readPlaywrightReport,
   summariseA1,
   type SpecOutcome,
-} from "../producers/a1-core-journeys";
+} from "../producers/lib/a1-core-journeys";
 
 /**
  * A1 producer unit tests.

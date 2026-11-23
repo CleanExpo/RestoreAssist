@@ -80,7 +80,7 @@ export function BeforeAfterSection() {
             variants={fadeUp}
             className="rounded-2xl border border-slate-200/90 bg-white/70 p-7 sm:p-8"
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
               Before
             </p>
             <h3

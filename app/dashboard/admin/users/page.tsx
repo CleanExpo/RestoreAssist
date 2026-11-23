@@ -51,17 +51,17 @@ const roleBadgeConfig: Record<UserRole, { label: string; className: string }> =
     ADMIN: {
       label: "Admin",
       className:
-        "bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800",
+        "bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
     },
     MANAGER: {
       label: "Manager",
       className:
-        "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800",
+        "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800",
     },
     USER: {
       label: "User",
       className:
-        "bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700",
+        "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700",
     },
   };
 
@@ -227,7 +227,7 @@ export default function AdminUsersPage() {
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Shield className="h-12 w-12 text-neutral-400" />
+        <Shield className="h-12 w-12 text-brand-slate dark:text-neutral-400" />
         <p className="text-neutral-600 dark:text-neutral-400">
           Admin access required
         </p>
@@ -267,7 +267,7 @@ export default function AdminUsersPage() {
             </p>
           </div>
         </div>
-        <Badge className="gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+        <Badge className="gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400">
           <Shield className="h-3 w-3" />
           Admin Only
         </Badge>
@@ -289,7 +289,7 @@ export default function AdminUsersPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-slate dark:text-neutral-400" />
           <Input
             placeholder="Search by name or email…"
             value={search}
@@ -331,7 +331,7 @@ export default function AdminUsersPage() {
             </div>
           ) : users.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-neutral-500">
-              <Users className="h-10 w-10 text-neutral-300 dark:text-neutral-600" />
+              <Users className="h-10 w-10 text-brand-slate dark:text-neutral-600" />
               <p className="text-sm">No users found</p>
               {(search || roleFilter !== "ALL") && (
                 <Button
@@ -374,7 +374,7 @@ export default function AdminUsersPage() {
                   >
                     <TableCell className="pl-6 font-medium text-neutral-900 dark:text-white">
                       {user.name ?? (
-                        <span className="text-neutral-400 italic">No name</span>
+                        <span className="text-brand-slate dark:text-neutral-400 italic">No name</span>
                       )}
                     </TableCell>
                     <TableCell className="text-neutral-600 dark:text-neutral-400 text-sm">

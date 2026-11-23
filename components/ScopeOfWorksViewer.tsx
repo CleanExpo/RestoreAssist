@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   FileText,
   Loader2,
@@ -40,11 +40,6 @@ export default function ScopeOfWorksViewer({
   // RA-7625: jurisdiction resolved on the server by generation's own rule.
   const law = jurisdictionLawLabels(report?.lawJurisdiction);
 
-  useEffect(() => {
-    fetchReport();
-    fetchBusinessInfo();
-  }, [reportId]);
-
   const fetchBusinessInfo = async () => {
     try {
       const response = await fetch("/api/user/profile");
@@ -64,7 +59,7 @@ export default function ScopeOfWorksViewer({
     }
   };
 
-  const fetchReport = async (skipDocumentUpdate = false) => {
+  const fetchReport = useCallback(async (skipDocumentUpdate = false) => {
     setLoading(true);
     try {
       const response = await fetch(`/api/reports/${reportId}`, {
@@ -91,17 +86,22 @@ export default function ScopeOfWorksViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to load report");
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportId]);
+
+  useEffect(() => {
+    fetchReport();
+    fetchBusinessInfo();
+  }, [reportId, fetchReport]);
 
   const handleGenerateScope = async () => {
     setGenerating(true);
@@ -155,12 +155,12 @@ export default function ScopeOfWorksViewer({
             return;
           }
           errorMessage = apiErrorMessage(error) ?? errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to generate scope of works");
     } finally {
       setGenerating(false);

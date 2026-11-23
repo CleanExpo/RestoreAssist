@@ -8,8 +8,6 @@ import {
   Building2,
   AlertTriangle,
   Square,
-  Printer,
-  Download,
   FileText,
   MapPin,
   Thermometer,
@@ -17,7 +15,6 @@ import {
   Shield,
   Image as ImageIcon,
   User,
-  Clock,
   CheckCircle,
 } from "lucide-react";
 import {
@@ -109,7 +106,7 @@ export default function VisualDashboardReport({
 
     // Provide defaults for missing required fields
     const safeHeader = {
-      title: header?.title || "Restore Assist",
+      title: header?.title || "RestoreAssist",
       subtitle: header?.subtitle || "Inspection Report",
       claimRef: header?.claimRef || "N/A",
       location: header?.location || "",

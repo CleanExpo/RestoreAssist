@@ -317,7 +317,7 @@ export default function Claim003ReInspectionPage() {
           className={cn(
             "text-xs font-medium px-3 py-1.5 rounded-lg transition-all",
             !batchMode
-              ? "bg-neutral-900 dark:bg-slate-200 text-white dark:text-slate-900"
+              ? "bg-brand-navy dark:bg-slate-200 text-white dark:text-slate-900"
               : "text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800",
           )}
         >
@@ -332,7 +332,7 @@ export default function Claim003ReInspectionPage() {
           className={cn(
             "text-xs font-medium px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5",
             batchMode
-              ? "bg-neutral-900 dark:bg-slate-200 text-white dark:text-slate-900"
+              ? "bg-brand-navy dark:bg-slate-200 text-white dark:text-slate-900"
               : "text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800",
           )}
         >
@@ -364,7 +364,7 @@ export default function Claim003ReInspectionPage() {
               ].map((h, i) => (
                 <div
                   key={i}
-                  className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-slate-500"
+                  className="text-[10px] font-semibold uppercase tracking-wider text-brand-slate dark:text-slate-500"
                 >
                   {h}
                 </div>
@@ -383,7 +383,7 @@ export default function Claim003ReInspectionPage() {
                   value={entry.claimRef}
                   onChange={(e) => updateEntry(idx, "claimRef", e.target.value)}
                   placeholder="e.g. GW-2026-009144"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-brand-slate dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Re-inspection required */}
                 <select
@@ -402,13 +402,13 @@ export default function Claim003ReInspectionPage() {
                   value={entry.notes}
                   onChange={(e) => updateEntry(idx, "notes", e.target.value)}
                   placeholder="Optional context"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-brand-slate dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Remove */}
                 <button
                   onClick={() => removeEntry(idx)}
                   disabled={entries.length === 1}
-                  className="w-7 h-7 rounded flex items-center justify-center text-neutral-300 dark:text-slate-600 hover:text-destructive dark:hover:text-destructive disabled:opacity-30 transition-colors"
+                  className="w-7 h-7 rounded flex items-center justify-center text-brand-slate dark:text-slate-600 hover:text-destructive dark:hover:text-destructive disabled:opacity-30 transition-colors"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -437,7 +437,7 @@ export default function Claim003ReInspectionPage() {
 
             {/* Submit */}
             <div className="flex items-center justify-between pt-1">
-              <p className="text-xs text-neutral-400 dark:text-slate-500">
+              <p className="text-xs text-brand-slate dark:text-slate-500">
                 {entries.length} row{entries.length !== 1 ? "s" : ""} · control
                 group
               </p>
@@ -445,7 +445,7 @@ export default function Claim003ReInspectionPage() {
                 onClick={handleSubmit}
                 disabled={submitting}
                 size="sm"
-                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
+                className="bg-brand-cta hover:bg-brand-cta-hover text-white"
               >
                 {submitting ? (
                   <>
@@ -475,8 +475,8 @@ export default function Claim003ReInspectionPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg bg-neutral-900 dark:bg-slate-950 p-4 overflow-x-auto">
-              <pre className="text-[11px] text-slate-300 font-mono leading-relaxed whitespace-pre">{`[
+            <div className="rounded-lg bg-white dark:bg-slate-950 p-4 overflow-x-auto">
+              <pre className="text-[11px] text-brand-slate dark:text-slate-300 font-mono leading-relaxed whitespace-pre">{`[
   {
     "reInspectionRequired": 1,       // 1 = re-inspection was needed
     "claimRef": "GW-2026-009144",    // optional
@@ -494,7 +494,7 @@ export default function Claim003ReInspectionPage() {
               onChange={(e) => setBatchJson(e.target.value)}
               placeholder="Paste JSON array here..."
               rows={10}
-              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40 resize-y"
+              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-brand-slate dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40 resize-y"
             />
 
             {batchErrors.length > 0 && (
@@ -508,14 +508,14 @@ export default function Claim003ReInspectionPage() {
             )}
 
             <div className="flex items-center justify-between">
-              <p className="text-xs text-neutral-400 dark:text-slate-500">
+              <p className="text-xs text-brand-slate dark:text-slate-500">
                 Records submitted one-by-one to preserve partial success.
               </p>
               <Button
                 onClick={handleBatchSubmit}
                 disabled={submitting || !batchJson.trim()}
                 size="sm"
-                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
+                className="bg-brand-cta hover:bg-brand-cta-hover text-white"
               >
                 {submitting ? (
                   <>
@@ -549,7 +549,7 @@ export default function Claim003ReInspectionPage() {
             <div className="h-1.5 w-full bg-emerald-100 dark:bg-emerald-900/30 rounded-full overflow-hidden">
               <div className="h-full rounded-full bg-emerald-400 w-full" />
             </div>
-            <p className="text-[10px] text-neutral-400 dark:text-slate-500">
+            <p className="text-[10px] text-brand-slate dark:text-slate-500">
               Recorded automatically on each inspection submit.
             </p>
           </div>
@@ -561,11 +561,11 @@ export default function Claim003ReInspectionPage() {
             <div className="h-1.5 w-full bg-neutral-100 dark:bg-slate-800 rounded-full overflow-hidden">
               <div className="h-full rounded-full bg-violet-400 w-0" />
             </div>
-            <p className="text-[10px] text-neutral-400 dark:text-slate-500">
+            <p className="text-[10px] text-brand-slate dark:text-slate-500">
               Enter using this form. Check the{" "}
               <a
                 href="/dashboard/admin/pilot"
-                className="text-brand-harbour-500 hover:underline"
+                className="text-brand-harbour-600 dark:text-brand-harbour-400 hover:underline"
               >
                 readiness dashboard
               </a>{" "}

@@ -105,10 +105,12 @@ export async function POST(request: NextRequest) {
       // RA-1711 — verify template ownership (not just existence) so a
       // user cannot submit a FormSubmission against another tenant's
       // private template. System templates are shared across tenants.
+      // RA-7957: an archived template (isActive false) takes no new submissions.
       const template = await prisma.formTemplate.findFirst({
         where: {
           id: templateId,
           OR: [{ userId }, { isSystemTemplate: true }],
+          isActive: true,
         },
       });
 

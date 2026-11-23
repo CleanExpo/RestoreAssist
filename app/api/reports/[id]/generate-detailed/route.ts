@@ -6,6 +6,11 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  buildDetailedMoistureTable,
+  DETAILED_MOISTURE_COLUMNS,
+  detailedMoistureCells,
+} from "@/lib/reports/detailed-moisture-rows";
 
 export async function POST(
   request: NextRequest,
@@ -94,7 +99,7 @@ export async function POST(
               : null,
           };
         }
-      } catch (err) {
+      } catch {
         // No scope found - continue without it
       }
 
@@ -131,35 +136,9 @@ export async function POST(
               : null,
           };
         }
-      } catch (err) {
+      } catch {
         // No estimate found - continue without it
       }
-
-      // Parse ALL JSON fields from report
-      const parsedReport = {
-        ...report,
-        psychrometricReadings: report.psychrometricReadings
-          ? JSON.parse(report.psychrometricReadings)
-          : null,
-        moistureReadings: report.moistureReadings
-          ? JSON.parse(report.moistureReadings)
-          : null,
-        propertyCover: report.propertyCover
-          ? JSON.parse(report.propertyCover)
-          : null,
-        contentsCover: report.contentsCover
-          ? JSON.parse(report.contentsCover)
-          : null,
-        liabilityCover: report.liabilityCover
-          ? JSON.parse(report.liabilityCover)
-          : null,
-        businessInterruption: report.businessInterruption
-          ? JSON.parse(report.businessInterruption)
-          : null,
-        additionalCover: report.additionalCover
-          ? JSON.parse(report.additionalCover)
-          : null,
-      };
 
       // Create PDF
       const pdfDoc = await PDFDocument.create();
@@ -245,7 +224,7 @@ export async function POST(
             } else {
               currentLine = testLine;
             }
-          } catch (e) {
+          } catch {
             // If encoding fails, try to sanitize further
             const sanitizedWord = sanitizeText(word);
             if (sanitizedWord) {
@@ -263,7 +242,7 @@ export async function POST(
       };
 
       // Helper function to draw text with line wrapping
-      const drawWrappedText = (
+      const _drawWrappedText = (
         text: string,
         x: number,
         y: number,
@@ -646,108 +625,94 @@ export async function POST(
       });
       yPosition -= 25;
 
-      // Table header - improved styling
-      const tableHeaderY = yPosition;
-      page.drawRectangle({
-        x: 50,
-        y: tableHeaderY - 18,
-        width: width - 100,
-        height: 22,
-        color: headerBlue,
+      // RA-8548 follow-up: rows come only from saved readings, through the
+      // shared reader. No rows from scope data, no padding rows, and no
+      // benchmark or percentage that no saved record supports.
+      const moistureTable = buildDetailedMoistureTable({
+        moistureReadings: report.moistureReadings,
+        tier2: report.tier2Responses,
+        scope,
       });
 
-      const tableCols = [
-        { label: "ROOMS", width: 130 },
-        { label: "RH %", width: 60 },
-        { label: "Air Temp C", width: 80 },
-        { label: "WME %", width: 80 },
-        { label: "Area Tested", width: 150 },
-        { label: "Bench Mark", width: 80 },
-      ];
-
-      let colX = 55;
-      tableCols.forEach((col) => {
-        page.drawText(col.label, {
-          x: colX + 5,
-          y: tableHeaderY - 7,
+      if (moistureTable.emptyMessage) {
+        page.drawText(sanitizeText(moistureTable.emptyMessage), {
+          x: 55,
+          y: yPosition,
           size: 10,
-          font: boldFont,
-          color: white,
+          font: font,
+          color: darkColor,
         });
-        colX += col.width;
-      });
-
-      yPosition -= 35;
-
-      // Table rows - use actual moisture readings or create from scope data
-      let moistureReadings: any[] = [];
-      if (
-        parsedReport.moistureReadings &&
-        Array.isArray(parsedReport.moistureReadings) &&
-        parsedReport.moistureReadings.length > 0
-      ) {
-        moistureReadings = parsedReport.moistureReadings;
-      } else if (scope?.siteVariables) {
-        // Create moisture readings from scope data
-        moistureReadings = [
-          {
-            room:
-              scope.siteVariables.structure ||
-              "Residential - Single Family Home",
-            rh: "",
-            airTemp: "",
-            wme: "100%",
-            areaTested:
-              scope.siteVariables.materials ||
-              "Gypsum board walls, carpet, hardwood flooring, concrete subfloor",
-            benchmark: "N/A",
-          },
-          {
-            room: "Downstairs lounge room",
-            rh: "",
-            airTemp: "",
-            wme: "15-17%",
-            areaTested: "Ceiling",
-            benchmark: "14%",
-          },
-        ];
+        yPosition -= 18;
       }
 
-      // Add at least 10 rows (empty rows if needed)
-      for (let i = 0; i < Math.max(10, moistureReadings.length); i++) {
-        checkPageBreak(20);
-
-        const reading = moistureReadings[i] || {};
-        colX = 55;
-        const values = [
-          reading.room || reading.location || "",
-          reading.rh || reading.relativeHumidity || "",
-          reading.airTemp || reading.temperature || "",
-          reading.wme || reading.moistureContent || "",
-          reading.areaTested || reading.area || "",
-          reading.benchmark || reading.benchMark || "",
-        ];
-
-        values.forEach((value, idx) => {
-          const valueText = String(value || "");
-          const sanitizedValue = sanitizeText(valueText);
-          const maxWidth = tableCols[idx].width - 10; // Padding to prevent overlap
-          const lines = wrapText(sanitizedValue, maxWidth, 9);
-          let valueY = yPosition;
-          for (let i = 0; i < lines.length; i++) {
-            if (i > 0) valueY -= 10; // Prevent overlap
-            page.drawText(sanitizeText(lines[i]), {
-              x: colX + 5, // Padding from left
-              y: valueY,
-              size: 9,
-              font: font,
-              color: darkColor,
-            });
-          }
-          colX += tableCols[idx].width;
+      let colX = 55;
+      if (moistureTable.rows.length > 0) {
+        const tableHeaderY = yPosition;
+        page.drawRectangle({
+          x: 50,
+          y: tableHeaderY - 18,
+          width: width - 100,
+          height: 22,
+          color: headerBlue,
         });
 
-        yPosition -= 18;
+        colX = 55;
+        DETAILED_MOISTURE_COLUMNS.forEach((col) => {
+          page.drawText(col.label, {
+            x: colX + 5,
+            y: tableHeaderY - 7,
+            size: 10,
+            font: boldFont,
+            color: white,
+          });
+          colX += col.width;
+        });
+
+        yPosition -= 35;
+
+        for (const row of moistureTable.rows) {
+          const cellLines = detailedMoistureCells(row).map((value, idx) =>
+            wrapText(
+              sanitizeText(value),
+              DETAILED_MOISTURE_COLUMNS[idx].width - 10,
+              9,
+            ),
+          );
+          const rowLines = Math.max(1, ...cellLines.map((l) => l.length));
+          checkPageBreak(rowLines * 10 + 10);
+
+          colX = 55;
+          cellLines.forEach((lines, idx) => {
+            let valueY = yPosition;
+            for (const line of lines) {
+              page.drawText(sanitizeText(line), {
+                x: colX + 5,
+                y: valueY,
+                size: 9,
+                font: font,
+                color: darkColor,
+              });
+              valueY -= 10;
+            }
+            colX += DETAILED_MOISTURE_COLUMNS[idx].width;
+          });
+
+          yPosition -= 8 + rowLines * 10;
+        }
+      }
+
+      for (const note of moistureTable.notes) {
+        for (const line of wrapText(sanitizeText(note), width - 110, 9)) {
+          checkPageBreak(20);
+          page.drawText(sanitizeText(line), {
+            x: 55,
+            y: yPosition,
+            size: 9,
+            font: font,
+            color: darkColor,
+          });
+          yPosition -= 12;
+        }
       }
 
       yPosition -= 20;
@@ -1205,12 +1170,12 @@ export async function POST(
 }
 
 // Generate comprehensive assessment report from expert perspective
-function generateComprehensiveAssessment(
+function _generateComprehensiveAssessment(
   report: any,
   scope: any,
   estimate: any,
   formatDate: (date: any) => string,
-  formatTime: (date: any) => string,
+  _formatTime: (date: any) => string,
 ): string {
   let assessment = "PROFESSIONAL ASSESSMENT AND RECOMMENDATIONS\n\n";
 

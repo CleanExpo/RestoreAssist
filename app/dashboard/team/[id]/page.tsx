@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -131,11 +131,22 @@ export default function TeamMemberDetailPage({
 
   const isAdmin = session?.user?.role === "ADMIN";
 
-  useEffect(() => {
-    fetchMember();
-  }, [id]);
+  const fetchInspections = useCallback(async () => {
+    try {
+      setLoadingInspections(true);
+      const res = await fetch(`/api/inspections?limit=10`);
+      if (res.ok) {
+        const data = await res.json();
+        setInspections(data.inspections || []);
+      }
+    } catch (err) {
+      console.error("Error fetching inspections:", err);
+    } finally {
+      setLoadingInspections(false);
+    }
+  }, []);
 
-  const fetchMember = async () => {
+  const fetchMember = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/team/members");
@@ -162,22 +173,11 @@ export default function TeamMemberDetailPage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, fetchInspections]);
 
-  const fetchInspections = async () => {
-    try {
-      setLoadingInspections(true);
-      const res = await fetch(`/api/inspections?limit=10`);
-      if (res.ok) {
-        const data = await res.json();
-        setInspections(data.inspections || []);
-      }
-    } catch (err) {
-      console.error("Error fetching inspections:", err);
-    } finally {
-      setLoadingInspections(false);
-    }
-  };
+  useEffect(() => {
+    fetchMember();
+  }, [fetchMember]);
 
   const handleSaveEdit = async () => {
     if (!member) return;

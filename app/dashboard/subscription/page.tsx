@@ -1,10 +1,10 @@
 "use client";
 
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { standardCite } from "@/lib/nir-standards-mapping";
 import { useState, useEffect } from "react";
 import {
   Check,
-  X,
   Calendar,
   CreditCard,
   Download,
@@ -55,7 +55,7 @@ interface ActiveAddon {
 function SubscriptionPageContent() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
-  const [canceling, setCanceling] = useState(false);
+  const [canceling, _setCanceling] = useState(false);
   // RA-1252: status-aware hero copy when there's no Stripe subscription
   const [userStatus, setUserStatus] = useState<{
     subscriptionStatus?: string;
@@ -818,10 +818,11 @@ function SubscriptionPageContent() {
                 <div className="text-center p-4 bg-white dark:bg-slate-800/30 rounded-lg">
                   <Shield className="w-6 h-6 text-brand-harbour-700 dark:text-brand-harbour-400 mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-brand-navy dark:text-white mb-2">
-                    Cites IICRC S500:2021
+                    Aligned to IICRC {standardCite("S500")}
                   </h4>
                   <p className="text-brand-slate dark:text-slate-400 text-sm">
-                    Reports are structured on, and cite, IICRC S500:2021 section numbers
+                    Reports are structured on, and cite, IICRC S500 section
+                    numbers
                   </p>
                 </div>
                 <div className="text-center p-4 bg-white dark:bg-slate-800/30 rounded-lg">

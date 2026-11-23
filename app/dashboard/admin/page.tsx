@@ -127,10 +127,10 @@ export default function AdminDashboardPage() {
     status: "healthy" | "degraded" | "down" | "unknown",
   ) => {
     const variants = {
-      healthy: "bg-green-500/10 text-green-600 dark:text-green-400",
-      degraded: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-      down: "bg-red-500/10 text-red-600 dark:text-red-400",
-      unknown: "bg-neutral-500/10 text-neutral-600 dark:text-neutral-400",
+      healthy: "bg-green-500/10 text-green-700 dark:text-green-400",
+      degraded: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+      down: "bg-red-500/10 text-red-700 dark:text-red-400",
+      unknown: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400",
     };
     const icons = {
       healthy: CheckCircle,
@@ -158,7 +158,7 @@ export default function AdminDashboardPage() {
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Shield className="h-12 w-12 text-neutral-400" />
+        <Shield className="h-12 w-12 text-brand-slate dark:text-neutral-400" />
         <p className="text-neutral-600 dark:text-neutral-400">
           Admin access required
         </p>
@@ -172,14 +172,14 @@ export default function AdminDashboardPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Admin Dashboard"
         description="System overview, health checks, and workspace administration."
-        icon={<Shield className="h-7 w-7 text-brand-harbour-400" aria-hidden />}
+        icon={<Shield className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         primaryAction={
           <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
             disabled={refreshing}
-            className="gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10"
+            className="gap-2 border-brand-mist dark:border-white/20 bg-brand-navy/5 dark:bg-white/5 text-brand-navy dark:text-white hover:bg-brand-cream dark:hover:bg-white/10"
           >
             <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
             Refresh
@@ -364,7 +364,7 @@ export default function AdminDashboardPage() {
                   {stats?.totalReports ?? "-"}
                 </p>
                 <p className="text-sm text-neutral-500">Total Reports</p>
-                <p className="text-xs text-brand-harbour-500">
+                <p className="text-xs text-brand-harbour-600 dark:text-brand-harbour-400">
                   {stats?.reportsThisMonth ?? 0} this month
                 </p>
               </div>

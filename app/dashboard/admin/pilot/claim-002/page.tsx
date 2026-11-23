@@ -27,7 +27,6 @@ import {
   Plus,
   Loader2,
   CheckCircle2,
-  AlertTriangle,
   Upload,
   Trash2,
   Info,
@@ -333,7 +332,7 @@ export default function Claim002CostEntryPage() {
           className={cn(
             "text-xs font-medium px-3 py-1.5 rounded-lg transition-all",
             !batchMode
-              ? "bg-neutral-900 dark:bg-slate-200 text-white dark:text-slate-900"
+              ? "bg-brand-navy dark:bg-slate-200 text-white dark:text-slate-900"
               : "text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800",
           )}
         >
@@ -348,7 +347,7 @@ export default function Claim002CostEntryPage() {
           className={cn(
             "text-xs font-medium px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5",
             batchMode
-              ? "bg-neutral-900 dark:bg-slate-200 text-white dark:text-slate-900"
+              ? "bg-brand-navy dark:bg-slate-200 text-white dark:text-slate-900"
               : "text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800",
           )}
         >
@@ -373,7 +372,7 @@ export default function Claim002CostEntryPage() {
                 (h, i) => (
                   <div
                     key={i}
-                    className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-slate-500"
+                    className="text-[10px] font-semibold uppercase tracking-wider text-brand-slate dark:text-slate-500"
                   >
                     {h}
                   </div>
@@ -397,7 +396,7 @@ export default function Claim002CostEntryPage() {
                     updateEntry(idx, "totalCostAUD", e.target.value)
                   }
                   placeholder="e.g. 18500.00"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-brand-slate dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Group */}
                 <select
@@ -414,13 +413,13 @@ export default function Claim002CostEntryPage() {
                   value={entry.notes}
                   onChange={(e) => updateEntry(idx, "notes", e.target.value)}
                   placeholder="e.g. GW-2026-009144"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-brand-slate dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
                 />
                 {/* Remove */}
                 <button
                   onClick={() => removeEntry(idx)}
                   disabled={entries.length === 1}
-                  className="w-7 h-7 rounded flex items-center justify-center text-neutral-300 dark:text-slate-600 hover:text-destructive dark:hover:text-destructive disabled:opacity-30 transition-colors"
+                  className="w-7 h-7 rounded flex items-center justify-center text-brand-slate dark:text-slate-600 hover:text-destructive dark:hover:text-destructive disabled:opacity-30 transition-colors"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -449,14 +448,14 @@ export default function Claim002CostEntryPage() {
 
             {/* Submit */}
             <div className="flex items-center justify-between pt-1">
-              <p className="text-xs text-neutral-400 dark:text-slate-500">
+              <p className="text-xs text-brand-slate dark:text-slate-500">
                 {entries.length} row{entries.length !== 1 ? "s" : ""} to submit
               </p>
               <Button
                 onClick={handleSubmit}
                 disabled={submitting}
                 size="sm"
-                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
+                className="bg-brand-cta hover:bg-brand-cta-hover text-white"
               >
                 {submitting ? (
                   <>
@@ -488,8 +487,8 @@ export default function Claim002CostEntryPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Schema example */}
-            <div className="rounded-lg bg-neutral-900 dark:bg-slate-950 p-4 overflow-x-auto">
-              <pre className="text-[11px] text-slate-300 font-mono leading-relaxed whitespace-pre">{`[
+            <div className="rounded-lg bg-white dark:bg-slate-950 p-4 overflow-x-auto">
+              <pre className="text-[11px] text-brand-slate dark:text-slate-300 font-mono leading-relaxed whitespace-pre">{`[
   {
     "group": "nir",
     "totalCostAUD": 18500.00,
@@ -510,7 +509,7 @@ export default function Claim002CostEntryPage() {
               onChange={(e) => setBatchJson(e.target.value)}
               placeholder="Paste JSON array here..."
               rows={10}
-              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40 resize-y"
+              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-brand-slate dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40 resize-y"
             />
 
             {/* Batch errors */}
@@ -526,14 +525,14 @@ export default function Claim002CostEntryPage() {
 
             {/* Submit */}
             <div className="flex items-center justify-between">
-              <p className="text-xs text-neutral-400 dark:text-slate-500">
+              <p className="text-xs text-brand-slate dark:text-slate-500">
                 Records are submitted one-by-one to preserve partial success.
               </p>
               <Button
                 onClick={handleBatchSubmit}
                 disabled={submitting || !batchJson.trim()}
                 size="sm"
-                className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white"
+                className="bg-brand-cta hover:bg-brand-cta-hover text-white"
               >
                 {submitting ? (
                   <>
@@ -569,11 +568,11 @@ export default function Claim002CostEntryPage() {
               <div className="h-1.5 w-full bg-neutral-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div className={cn("h-full rounded-full w-0", colour)} />
               </div>
-              <p className="text-[10px] text-neutral-400 dark:text-slate-500">
+              <p className="text-[10px] text-brand-slate dark:text-slate-500">
                 Check the{" "}
                 <a
                   href="/dashboard/admin/pilot"
-                  className="text-brand-harbour-500 hover:underline"
+                  className="text-brand-harbour-600 dark:text-brand-harbour-400 hover:underline"
                 >
                   readiness dashboard
                 </a>{" "}

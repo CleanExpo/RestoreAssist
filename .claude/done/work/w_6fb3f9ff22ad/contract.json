@@ -1,0 +1,33 @@
+{
+  "schema": "done/1",
+  "work_id": "w_6fb3f9ff22ad",
+  "version": 1,
+  "supersedes": null,
+  "goal": "RA-7957: form templates can be created (POST /api/form-templates) and archived (DELETE /api/form-templates/[id]) by ADMIN or MANAGER only, role re-read from the database, owner-scoped with no cross-tenant reach; PATCH gets the same gate; create screen sends schema-valid enums; delete failures are shown",
+  "created_at_utc": "2026-11-22T00:07:02Z",
+  "identity_key": "fix/ra-7957-form-template-create-20261122@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-7957-form-template-create",
+  "baseline_observed": {
+    "head": "863c634fcdecad6bbf2bc2ca86cc4b82a2d7b89a",
+    "branch": "fix/ra-7957-form-template-create-20261122",
+    "dirty_count": 0
+  },
+  "criteria": [
+    {
+      "id": "RA7957-ROUTES",
+      "text": "Route tests pass: create 201 for ADMIN/MANAGER; 403 for USER (and for a stale ADMIN session whose DB role is USER) with no write; body carrying userId/workspaceId/createdBy/isSystemTemplate refused 400; invalid input 400; DELETE and PATCH of another user's template 404 with nothing changed; DELETE archives, never hard-deletes",
+      "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js app/api/form-templates/__tests__/mutations.test.ts",
+      "timeout": 300
+    },
+    {
+      "id": "RA7957-SCREENS",
+      "text": "Screen tests pass: the new-template screen offers only FormType/FormCategory enum values with default category CUSTOM and sends a schema-valid payload; the list shows a delete failure and keeps the row",
+      "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js app/__tests__/form-template-mutations.test.tsx",
+      "timeout": 300
+    },
+    {
+      "id": "RA7957-SCOPE",
+      "text": "Only the two form-template routes, a role helper under lib/form-templates/, the two screens, their tests and this work item's Done files change against origin/main",
+      "recipe": "git diff --name-only origin/main...HEAD | grep -v -E '^(app/api/form-templates/route.ts|app/api/form-templates/\\[id\\]/route.ts|app/api/form-templates/__tests__/mutations.test.ts|lib/form-templates/.*|app/dashboard/form-templates/new/page.tsx|app/dashboard/forms/templates/page.tsx|app/__tests__/form-template-mutations.test.tsx|\\.claude/done/.*)$'; test $? -eq 1"
+    }
+  ]
+}

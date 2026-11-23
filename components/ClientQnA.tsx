@@ -57,7 +57,7 @@ export default function ClientQnA({
         },
       ]);
     }
-  }, []);
+  }, [messages.length]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;

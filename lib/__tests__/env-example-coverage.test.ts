@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import ts from "typescript";
+import { ENV_NAMES } from "../env";
 
 /**
  * RA-7477: every env name read on a runtime path must appear in .env.example.
@@ -1085,6 +1086,20 @@ function classifiedPaths(): Set<string> {
 
 const scanCache = new Map<string, ScanResult>();
 
+/**
+ * RA-7784: lib/env.ts reads `process.env[name]` by a typed key. Its reads are
+ * every name it declares in ENV_SCHEMA, not a shape this scanner resolves, so
+ * it is accounted from the schema. `npm run check:env-schema` holds the
+ * schema and .env.example to the same names in both directions.
+ */
+const SCHEMA_READER_REL = "lib/env.ts";
+
+function schemaReaderResult(): ScanResult {
+  const sites = new Map<string, string>();
+  for (const name of ENV_NAMES) sites.set(name, `${SCHEMA_READER_REL} (ENV_SCHEMA)`);
+  return { names: [...ENV_NAMES], unresolved: [], sites };
+}
+
 function scanRoot(rootName: string): ScanResult {
   const cached = scanCache.get(rootName);
   if (cached) return cached;
@@ -1093,7 +1108,10 @@ function scanRoot(rootName: string): ScanResult {
   const sites = new Map<string, string>();
   for (const file of runtimeFilesForRoot(rootName)) {
     const rel = path.relative(repoRoot, file);
-    const result = scanSourceText(rel, fs.readFileSync(file, "utf8"));
+    const result =
+      rel.split(path.sep).join("/") === SCHEMA_READER_REL
+        ? schemaReaderResult()
+        : scanSourceText(rel, fs.readFileSync(file, "utf8"));
     for (const name of result.names) {
       names.add(name);
       if (!sites.has(name) && result.sites.has(name)) {

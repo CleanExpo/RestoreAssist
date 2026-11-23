@@ -155,24 +155,20 @@ export function buildSimpleNavItems(options?: {
     items.splice(at === -1 ? items.length : at, 0, FIELD_ADDONS_NAV_ITEM);
   }
   if (options?.isManager) {
-    for (const extra of MANAGER_NAV_HREFS) {
-      if (!items.some((i) => i.href === extra.href)) {
-        items.push({
-          icon: extra.href.includes("inbox") ? Inbox : CalendarDays,
-          label: extra.label,
-          href: extra.href,
-        });
-      }
-    }
-    const inbox = MANAGER_NAV_HREFS[0];
-    const withoutOverview = items.filter((i) => i.href !== "/dashboard");
+    // RA-8523: the manager destinations go in once, at the top. They used to
+    // be appended here and then prepended again, so the sidebar listed the
+    // Completeness inbox twice and React warned about a duplicate key.
+    const managerHrefs = new Set<string>(MANAGER_NAV_HREFS.map((i) => i.href));
+    const rest = items.filter(
+      (i) => i.href !== "/dashboard" && !managerHrefs.has(i.href),
+    );
     return [
-      {
+      ...MANAGER_NAV_HREFS.map((i) => ({
         icon: Inbox,
-        label: inbox.label,
-        href: inbox.href,
-      },
-      ...withoutOverview,
+        label: i.label,
+        href: i.href,
+      })),
+      ...rest,
       {
         icon: LayoutDashboard,
         label: "Workspace summary",

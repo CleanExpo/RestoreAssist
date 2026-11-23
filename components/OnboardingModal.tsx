@@ -1,18 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   X,
   CheckCircle,
-  Circle,
   ArrowRight,
-  Crown,
   Key,
   Settings,
   AlertCircle,
-  User,
-  FileText,
   Sparkles,
   Zap,
 } from "lucide-react";
@@ -68,13 +64,13 @@ export default function OnboardingModal({
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Latest-value ref so the fetch effect fires only when isOpen changes.
+  const onCompleteRef = useRef(onComplete);
   useEffect(() => {
-    if (isOpen) {
-      fetchOnboardingStatus();
-    }
-  }, [isOpen]);
+    onCompleteRef.current = onComplete;
+  });
 
-  const fetchOnboardingStatus = async () => {
+  const fetchOnboardingStatus = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch("/api/onboarding/status");
@@ -83,8 +79,8 @@ export default function OnboardingModal({
         setStatus(data);
 
         // If all steps are complete, call onComplete
-        if (data.isComplete && onComplete) {
-          onComplete();
+        if (data.isComplete && onCompleteRef.current) {
+          onCompleteRef.current();
         }
       }
     } catch (error) {
@@ -92,7 +88,13 @@ export default function OnboardingModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchOnboardingStatus();
+    }
+  }, [isOpen, fetchOnboardingStatus]);
 
   const handleStepAction = (step: string) => {
     if (status?.steps[step as keyof typeof status.steps]) {

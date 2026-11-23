@@ -63,13 +63,13 @@ export function buildCostEstimationData(data: {
   const {
     report,
     tier1,
-    tier2,
+    tier2: _tier2,
     tier3,
     pricingConfig,
     stateInfo,
     scopeData,
     equipmentSelection,
-    psychrometricAssessment,
+    psychrometricAssessment: _psychrometricAssessment,
     scopeAreas = [],
     gstTreatment,
   } = data;
@@ -79,7 +79,7 @@ export function buildCostEstimationData(data: {
     tier3?.T3_Q1_timelineRequirements || "No specific deadline";
   const isEmergency = timelineRequirements.includes("ASAP");
   const dryingPreferences = tier3?.T3_Q2_dryingPreferences || "Balanced";
-  const isSpeedPriority = dryingPreferences.includes("Speed priority");
+  const _isSpeedPriority = dryingPreferences.includes("Speed priority");
 
   const materials = tier1?.T1_Q6_materialsAffected || [];
   const hasYellowTongue = materials.some((m: string) =>
@@ -122,8 +122,8 @@ export function buildCostEstimationData(data: {
 
   // Calculate equipment quantities from actual selections
   let airMoversQty = 0;
-  let dehumidifiersQty = 0;
-  let afdQty = 0;
+  let _dehumidifiersQty = 0;
+  let _afdQty = 0;
 
   storedEquipmentLines.forEach((line) => {
     if (line.groupId.startsWith("airmover-")) {
@@ -132,9 +132,9 @@ export function buildCostEstimationData(data: {
       line.groupId.startsWith("lgr-") ||
       line.groupId.startsWith("desiccant-")
     ) {
-      dehumidifiersQty += line.quantity;
+      _dehumidifiersQty += line.quantity;
     } else if (line.groupId.includes("afd")) {
-      afdQty += line.quantity;
+      _afdQty += line.quantity;
     }
   });
 

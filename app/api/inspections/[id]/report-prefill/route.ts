@@ -56,6 +56,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       where: { id },
       select: {
         inspectionNumber: true,
+        jobNumber: true,
         propertyAddress: true,
         propertyPostcode: true,
         propertyCountry: true,

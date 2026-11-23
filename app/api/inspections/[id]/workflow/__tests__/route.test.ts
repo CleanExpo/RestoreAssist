@@ -40,7 +40,8 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { prisma } from "@/lib/prisma";
-import { GET, PATCH } from "../route";
+import { GET, PATCH, POST } from "../route";
+import { expectRefused } from "@/tests/helpers/expect-refused";
 import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
 import { countableEvidence } from "@/lib/evidence/countable-evidence";
 
@@ -178,4 +179,34 @@ describe("GET /api/inspections/[id]/workflow — evidence that counts", () => {
       countableEvidence({ inspectionId: "insp_1" }),
     );
   });
+});
+
+// RA-8407 item 3: `request.json()` sat outside the try block, so a malformed
+// body escaped the handler as an unformatted server error (the promise
+// rejected) instead of a 400 the client can act on.
+describe("workflow routes: a body that is not a JSON object is a 400", () => {
+  function raw(method: "POST" | "PATCH", body: string) {
+    const request = new NextRequest(
+      "http://localhost/api/inspections/insp_1/workflow",
+      { method, headers: { "content-type": "application/json" }, body },
+    );
+    const ctx = { params: Promise.resolve({ id: "insp_1" }) };
+    return method === "POST" ? POST(request, ctx) : PATCH(request, ctx);
+  }
+
+  for (const method of ["POST", "PATCH"] as const) {
+    for (const [name, body] of [
+      ["malformed JSON", "{"],
+      ["an empty body", ""],
+      ["the literal null", "null"],
+      ["an array", "[]"],
+    ] as Array<[string, string]>) {
+      it(`${method} answers ${name} with 400 and writes nothing`, async () => {
+        const res = await raw(method, body);
+        await expectRefused(res, 400, /Request body must be a JSON object/);
+        expect(p.workflowStep.updateMany).not.toHaveBeenCalled();
+        expect(p.inspectionWorkflow.update).not.toHaveBeenCalled();
+      });
+    }
+  }
 });

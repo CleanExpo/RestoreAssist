@@ -102,7 +102,7 @@ export default function FinalCTASection() {
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
             <CheckCircle size={20} className="text-success" />
-            <span className="text-slate-300 font-medium">Cites IICRC S500:2021</span>
+            <span className="text-slate-300 font-medium">IICRC S500 Aligned</span>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
             <CheckCircle size={20} className="text-success" />

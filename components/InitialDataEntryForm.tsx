@@ -42,7 +42,6 @@ import {
   Minus,
   Phone,
   Plus,
-  Sparkles,
   Thermometer,
   User,
   UserCog,
@@ -241,7 +240,7 @@ export default function InitialDataEntryForm({
   // Review and Report Type Selection State
   const [showReview, setShowReview] = useState(false);
   const [showReportTypeSelection, setShowReportTypeSelection] = useState(false);
-  const [selectedReportType, setSelectedReportType] = useState<
+  const [_selectedReportType, setSelectedReportType] = useState<
     "basic" | "enhanced" | "optimised" | null
   >(null);
 
@@ -595,7 +594,7 @@ export default function InitialDataEntryForm({
             setPricingConfig(config);
           }
         }
-      } catch (error) {
+      } catch {
         // Error fetching pricing config
       }
     };
@@ -612,7 +611,7 @@ export default function InitialDataEntryForm({
           setQuickFillCredits(data.creditsRemaining);
           setHasUnlimitedQuickFill(data.hasUnlimited || false);
         }
-      } catch (error) {
+      } catch {
         // Error fetching credits
       }
     };
@@ -636,7 +635,7 @@ export default function InitialDataEntryForm({
               setSelectedAssigneeId(data.assignees[0].id);
             }
           }
-        } catch (error) {
+        } catch {
           // Error fetching assignees
         } finally {
           setLoadingAssignees(false);
@@ -768,7 +767,7 @@ export default function InitialDataEntryForm({
             setDurationDays(savedDays);
           }
         }
-      } catch (error) {
+      } catch {
         // Error loading report data
       }
     };
@@ -1229,7 +1228,7 @@ export default function InitialDataEntryForm({
     return total;
   }, 0);
 
-  const totalAirflow = equipmentSelections.reduce((total, sel) => {
+  const _totalAirflow = equipmentSelections.reduce((total, sel) => {
     // Only count air movers toward "air movement" target (exclude AFD units which also have airflow).
     if (!sel.groupId.startsWith("airmover-")) return total;
     const group = getEquipmentGroupById(sel.groupId);
@@ -1250,7 +1249,7 @@ export default function InitialDataEntryForm({
   }, 0);
 
   // Equipment Helper Functions
-  const handleAddArea = () => {
+  const _handleAddArea = () => {
     if (!newArea.name.trim()) {
       toast.error("Please enter an area name");
       return;
@@ -1270,7 +1269,7 @@ export default function InitialDataEntryForm({
     toast.success("Area added");
   };
 
-  const handleRemoveArea = (id: string) => {
+  const _handleRemoveArea = (id: string) => {
     setAreas(areas.filter((a) => a.id !== id));
     toast.success("Area removed");
   };
@@ -1398,7 +1397,7 @@ export default function InitialDataEntryForm({
         const error = await response.json();
         toast.error(error.error || "Failed to update report type");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update report type");
     } finally {
       setLoading(false);
@@ -1650,7 +1649,7 @@ export default function InitialDataEntryForm({
         }
         toast.error(message);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to save data");
     } finally {
       creatingReportRef.current = false;
@@ -2611,7 +2610,7 @@ export default function InitialDataEntryForm({
             toast.error(error.error || "Failed to use Quick Fill credit");
           }
         }
-      } catch (error) {
+      } catch {
         toast.error("Failed to check Quick Fill credits");
       } finally {
         setLoadingCredits(false);
@@ -2623,7 +2622,7 @@ export default function InitialDataEntryForm({
   };
 
   // Prevent modal from opening if user has no credits (extra safeguard)
-  const handleModalOpenChange = (open: boolean) => {
+  const _handleModalOpenChange = (open: boolean) => {
     if (
       open &&
       !hasUnlimitedQuickFill &&

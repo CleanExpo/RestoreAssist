@@ -3,8 +3,14 @@
  *
  * Workspace-scoped daily ceiling for AI spend. Sums today's
  * AiUsageLog.estimatedCostUsd (records written by lib/usage/log-usage.ts
- * after every successful AI call) and rejects requests that would tip
- * the workspace over its budget.
+ * after every AI call) and rejects requests that would tip the workspace
+ * over its budget.
+ *
+ * Failed calls count too (RA-8573). A call that fails after the provider has
+ * charged for it (a reply that could not be parsed, an empty read) is logged
+ * with success=false and its token cost. Summing only successful rows let
+ * repeated failed reads run past the cap. A failure that cost nothing is
+ * logged at $0, so counting every row adds nothing for it.
  *
  * Without this, one bad workflow loop in a pilot org = $500/day bleed
  * across the AI surface (Vision import, forensic PDF, synopsis,
@@ -124,7 +130,7 @@ export async function checkWorkspaceBudget(
       where: {
         workspaceId: args.workspaceId,
         createdAt: { gte: startOfDay },
-        success: true,
+        // No `success` filter: a charged failure spends the cap (RA-8573).
       },
     });
     spentTodayUsd = aggregate._sum.estimatedCostUsd ?? 0;

@@ -165,6 +165,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # RA-7784: lib/env.ts is the only reader of process.env. The Lint step
+      # above fails a NEW direct reader; this step fails when .env.example and
+      # lib/env.ts ENV_SCHEMA disagree in either direction, and when a file on
+      # config/process-env-baseline.json no longer reads env (the baseline
+      # only shrinks). Names only; no env value is read or printed.
+      - name: Env schema and process-env baseline
+        run: npm run check:env-schema && npm run check:process-env-baseline
+
       - name: Accessibility ratchet
         run: npm run check:a11y
 
@@ -191,6 +199,15 @@ jobs:
       - name: Lucide guard
         run: npm run check:no-lucide
 
+      # argv main-module guard (RA-7785). Fails, with file and line, if any
+      # script under scripts/ decides whether to run by comparing its module URL
+      # or a filename suffix against the process's script argument. Through a
+      # symlink such a gate skips main() and exits 0 having checked nothing.
+      # Known group 2 helpers sit in scripts/argv-guard-baseline.json, which only shrinks.
+      # Use a thin entry over a lib/ module that always runs main() instead.
+      - name: argv main-module guard
+        run: npm run check:no-argv-guard
+
       # Spec-docs layout guard (PR #1968 lesson). A clean merge of main silently
       # relocated the canonical master spec into docs/root-archive/ via git
       # rename detection. Fails if a CANONICAL-status doc sits in the archive,
@@ -215,6 +232,14 @@ jobs:
       # them. See .claude/skills/data-source-ssot/SKILL.md.
       - name: Data-source SSOT gate
         run: npm run check:ssot
+
+      # Corpus-hygiene gate (RA-7790). Fails if a charge-out rate ($440/hr,
+      # 120 per day) sits in the committed clean fixture, or if the scan finds
+      # no .txt/.md files (exit 2). The real staging tree is the operator's
+      # ingest folder and is not committed; ingest itself runs scanText. Do not
+      # drop --strict. See .claude/skills/rag-corpus-hygiene/SKILL.md.
+      - name: Corpus-hygiene gate
+        run: node scripts/ci/check-corpus-hygiene.mjs --dir scripts/ci/fixtures/corpus-hygiene/clean --strict
 
       # Standards-citation integrity gate (STORM #7 / RA-6934). Fails on stale
       # IICRC editions (source literals + scripts/data/*.json corpus) and on

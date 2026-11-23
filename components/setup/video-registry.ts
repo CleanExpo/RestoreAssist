@@ -266,7 +266,7 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
   "remotion-compliance-checklists": {
     cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543296/restoreassist/videos/remotion/compliance-checklists.mp4",
     localPath: "/videos/remotion/compliance-checklists.mp4",
-    title: "IICRC S500 compliance checklists",
+    title: "IICRC S500 alignment checklists",
     durationSec: 32,
   },
   "remotion-analytics-overview": {
@@ -530,7 +530,7 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
   "remotion-tutorial-compliance": {
     cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780551957/restoreassist/videos/remotion/tutorial-compliance.mp4",
     localPath: "/videos/remotion/tutorial-compliance.mp4",
-    title: "IICRC Compliance",
+    title: "IICRC Standards",
     durationSec: 40,
     category: "compliance",
   },

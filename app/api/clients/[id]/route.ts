@@ -10,6 +10,7 @@ import {
   brandPrimaryColorSchema,
 } from "@/lib/clients/brand";
 import {
+  resolveClientReach,
   resolveInvoiceReach,
   resolveReportFinancialReach,
 } from "@/lib/auth/assert-tenancy";
@@ -40,11 +41,20 @@ export async function GET(
 
     const { id } = await params;
 
+    // RA-8535: the same reach as the client list (D-023), so anyone who sees a
+    // client in the list can open it, and nobody else can. Merged with `AND`
+    // so the reach clause cannot be overwritten.
+    const reach = await resolveClientReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+
     const client = await prisma.client.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
+      where: { AND: [{ id }, reach.data] },
       include: {
         reports: {
           select: {
@@ -227,10 +237,12 @@ export async function PUT(
     }
 
     // Check if email is being changed and if it conflicts with another client
+    // RA-8535: compared without case, so "Jo@X.com" and "jo@x.com" are one
+    // person. The stored value is whatever this request sends.
     if (email !== existingClient.email) {
       const emailConflict = await prisma.client.findFirst({
         where: {
-          email,
+          email: { equals: email, mode: "insensitive" },
           userId: session.user.id,
           id: { not: id },
         },

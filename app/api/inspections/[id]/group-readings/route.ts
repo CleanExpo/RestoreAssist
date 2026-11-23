@@ -47,7 +47,8 @@ type GroupResponse = {
 };
 
 // Moisture %MC threshold above which a reading is "elevated" for summary badge.
-// 16%MC aligns with IICRC S500:2021 drying-goal guidance for gypsum/timber.
+// 16%MC is a starting guide value for gypsum/timber, not a standard threshold:
+// no IICRC source for the number is cited (RA-8508 / RA-8511).
 const ELEVATED_THRESHOLD = 16;
 
 export async function POST(
@@ -290,7 +291,6 @@ export async function PATCH(
     const result = await prisma.$transaction(async (tx) => {
       let updated = 0;
       for (const op of ops) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const r = await (tx.moistureReading.updateMany as any)({
           where: {
             id: { in: op.ids },
@@ -305,7 +305,6 @@ export async function PATCH(
       }
       let cleared = 0;
       if (body.clearUnlisted) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const r = await (tx.moistureReading.updateMany as any)({
           where: {
             inspectionId,

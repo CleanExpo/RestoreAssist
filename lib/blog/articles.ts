@@ -65,8 +65,10 @@ const PUBLISH_ISO = "2026-07-09";
 
 export const ARTICLES: Article[] = [
   {
-    slug: "understanding-iicrc-s500-compliance",
-    title: "Understanding IICRC S500 Compliance",
+    // The slug is a published URL and stays; the title and keywords do not
+    // claim compliance (RA-7665).
+    slug: "understanding-iicrc-s500-compliance", // iicrc-wording-ignore
+    title: "Understanding IICRC S500: A Plain-English Guide",
     excerpt:
       "A plain-English guide to the water categories, drying classes, moisture thresholds and documentation duties that ANSI/IICRC S500-2021 puts on every restoration job.",
     category: "Compliance",
@@ -78,7 +80,7 @@ export const ARTICLES: Article[] = [
     description:
       "A practical guide to ANSI/IICRC S500-2021 for Australian water damage restorers: water categories, drying classes, moisture and humidity targets, and the documentation the standard requires.",
     keywords: [
-      "IICRC S500 compliance",
+      "IICRC S500 guide",
       "ANSI/IICRC S500-2021",
       "water damage categories",
       "water damage classes",

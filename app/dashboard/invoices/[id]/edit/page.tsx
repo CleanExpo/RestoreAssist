@@ -75,7 +75,7 @@ export default function EditInvoicePage({
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [loadingClients, setLoadingClients] = useState(false);
+  const [_loadingClients, setLoadingClients] = useState(false);
   const [defaultGstRate, setDefaultGstRate] = useState<number>(
     DEFAULT_GST_TREATMENT.ratePercent,
   );
@@ -216,7 +216,7 @@ export default function EditInvoicePage({
             "Payment is due within 30 days from the date of this invoice. Late payments may incur additional charges.",
         );
         setFooter(inv.footer || "Thank you for your business!");
-      } catch (e) {
+      } catch {
         setFetchError("Failed to load invoice");
       } finally {
         setFetching(false);

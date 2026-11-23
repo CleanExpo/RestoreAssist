@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -39,8 +39,10 @@ interface Review {
 }
 
 export default function ContractorReviewsPage() {
-  const { data: session, status } = useSession();
+  const { data: _session, status } = useSession();
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const confirm = useConfirmDialog();
 
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -57,7 +59,7 @@ export default function ContractorReviewsPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/login");
+      routerRef.current.push("/login");
     } else if (status === "authenticated") {
       fetchReviews();
     }
@@ -136,7 +138,7 @@ export default function ContractorReviewsPage() {
           text: apiErrorMessage(data) || "Failed to submit response",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to submit response" });
     } finally {
       setSubmitting(false);
@@ -182,7 +184,7 @@ export default function ContractorReviewsPage() {
           text: apiErrorMessage(data) || "Failed to submit dispute",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to submit dispute" });
     } finally {
       setSubmitting(false);

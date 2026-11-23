@@ -5,16 +5,11 @@ import { motion } from "framer-motion";
 import {
   Shield,
   Building,
-  DollarSign,
-  AlertTriangle,
   CheckCircle,
   Info,
   FileText,
-  Users,
   Clock,
-  TrendingUp,
   Home,
-  Briefcase,
 } from "lucide-react";
 
 interface InsuranceInformationProps {

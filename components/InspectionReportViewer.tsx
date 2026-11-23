@@ -10,7 +10,7 @@ import {
   Printer,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer";
@@ -34,7 +34,7 @@ export default function InspectionReportViewer({
   reportId,
   onReportGenerated,
 }: InspectionReportViewerProps) {
-  const router = useRouter();
+  const _router = useRouter();
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
@@ -46,10 +46,6 @@ export default function InspectionReportViewer({
   const [visualData, setVisualData] = useState<any>(null);
   const [structuredReportData, setStructuredReportData] = useState<any>(null);
   const [isBasicReport, setIsBasicReport] = useState(false);
-
-  useEffect(() => {
-    fetchReport();
-  }, [reportId]);
 
   // Preprocess report content to ensure proper markdown heading formatting
   const preprocessReportContent = (content: string): string => {
@@ -102,7 +98,7 @@ export default function InspectionReportViewer({
     return processed;
   };
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/reports/${reportId}`);
@@ -154,7 +150,7 @@ export default function InspectionReportViewer({
               } else {
                 throw new Error("Not structured data");
               }
-            } catch (e) {
+            } catch {
               // It's text/markdown content
               const processedContent = preprocessReportContent(
                 data.detailedReport,
@@ -173,17 +169,21 @@ export default function InspectionReportViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to load report");
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportId]);
+
+  useEffect(() => {
+    fetchReport();
+  }, [fetchReport]);
 
   const handleGenerateReport = async (
     reportType: "basic" | "enhanced" = "enhanced",
@@ -244,7 +244,7 @@ export default function InspectionReportViewer({
               } else {
                 throw new Error("Not structured data");
               }
-            } catch (e) {
+            } catch {
               // It's text/markdown content
               const processedContent = preprocessReportContent(
                 data.report.detailedReport,
@@ -273,12 +273,12 @@ export default function InspectionReportViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to generate report");
     } finally {
       setGenerating(false);
@@ -320,12 +320,12 @@ export default function InspectionReportViewer({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success("Inspection Report PDF downloaded");
-    } catch (error) {
+    } catch {
       toast.error("Failed to download PDF");
     }
   };
 
-  const handleSave = async () => {
+  const _handleSave = async () => {
     if (!reportContent) {
       toast.error("No report content to save");
       return;
@@ -347,7 +347,7 @@ export default function InspectionReportViewer({
       } else {
         toast.error("Failed to save report");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to save report");
     }
   };

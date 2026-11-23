@@ -17,12 +17,12 @@ import {
 import { prisma } from "@/lib/prisma";
 import { encrypt } from "@/lib/credential-vault";
 import { readXeroBinding, readReadyXeroBinding, updateXeroBinding, type XeroBindingExpectation, type XeroBinding, sameXeroGrant } from "@/lib/services/xero/binding";
-import { isOAuthIntegration } from "../identity";
+import { getOAuthReadiness, isOAuthIntegration } from "../identity";
 import { isXeroTimeoutError } from "./upstream-errors";
+import { XERO_REQUEST_TIMEOUT_MS } from "./request-timeout";
 
 /** Modest page size so each Xero call finishes inside the 15s AbortSignal budget. */
 const XERO_PAGE_SIZE = 100;
-const XERO_REQUEST_TIMEOUT_MS = 15_000;
 
 /**
  * High-volume Xero orgs reject `where` on Contacts/Invoices (Error 9191919).
@@ -385,7 +385,8 @@ export class XeroClient extends BaseIntegrationClient {
   private async currentSyncBinding(): Promise<XeroBinding> {
     if (!this.binding) throw new Error("Xero sync has no validated binding");
     const current = await readXeroBinding(this.integrationId);
-    if (!current.ok || !sameXeroGrant(this.binding, current.data) || !["CONNECTED", "SYNCING", "ERROR"].includes(current.data.status)) {
+    // RA-8446: mid-sync readiness is getOAuthReadiness's answer, not a status list.
+    if (!current.ok || !sameXeroGrant(this.binding, current.data) || !getOAuthReadiness(current.data, "XERO").ready) {
       throw new Error("Xero connection binding changed during sync");
     }
     return current.data;

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { evaluatePrScope } from "../check-pr-scope.mjs";
+import { evaluatePrScope } from "../lib/check-pr-scope.mjs";
 
 const ROOT = process.cwd();
 

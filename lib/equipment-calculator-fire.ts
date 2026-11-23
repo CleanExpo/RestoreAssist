@@ -167,7 +167,7 @@ function buildItem(
 // ─── Core calculator ──────────────────────────────────────────────────────────
 
 /**
- * Calculate the equipment list, citing IICRC S700, for a fire/smoke damage job.
+ * Calculate the equipment list, aligned to IICRC S700, for a fire/smoke damage job.
  * Occupancy state determines ozone vs hydroxyl selection (S700:2025 §9.4.2).
  */
 export function calculateFireEquipment(

@@ -330,7 +330,7 @@ export function SetupShell({
       title: 'Your first report',
       required: false,
       complete: false,
-      description: 'Everything is in place — turn a job into a report that cites IICRC S500:2021.',
+      description: 'Everything is in place — turn a job into a report aligned to IICRC S500.',
       content: (
         <div className="overflow-hidden rounded-2xl border border-brand-navy/10 bg-white shadow-sm">
           <div className="bg-linear-to-br from-brand-navy to-brand-deep px-6 py-8 text-center text-white sm:px-10">

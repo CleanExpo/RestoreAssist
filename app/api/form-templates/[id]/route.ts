@@ -3,6 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { FormType } from "@prisma/client";
+import { canManageFormTemplates } from "@/lib/form-templates/can-manage";
+
+function notEditable(request: NextRequest) {
+  return apiError(request, {
+    code: "NOT_FOUND",
+    message: "Template not found or not editable",
+    status: 404,
+  });
+}
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -116,23 +126,30 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
 
+    // RA-7957: same gate as create and archive.
+    if (!(await canManageFormTemplates(session.user.id))) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Only an owner or manager can change form templates",
+        status: 403,
+      });
+    }
+
     const { id } = await params;
 
-    // Only the owner can update (not system templates)
+    // Only the owner can update. RA-8543: an inactive template is found too,
+    // so the list's Active switch can turn it back on; it takes no other edit
+    // until it is active again (checked once the body is read).
     const existing = await prisma.formTemplate.findFirst({
       where: {
         id,
         userId: session.user.id,
-        isActive: true,
       },
+      select: { id: true, isActive: true, isSystemTemplate: true, status: true },
     });
 
     if (!existing) {
-      return apiError(request, {
-        code: "NOT_FOUND",
-        message: "Template not found or not editable",
-        status: 404,
-      });
+      return notEditable(request);
     }
 
     let rawBody: unknown;
@@ -152,7 +169,30 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         status: 400,
       });
     }
-    const { name, description, formType } = rawBody as Record<string, any>;
+    const { name, description, formType, isActive } = rawBody as Record<
+      string,
+      any
+    >;
+
+    if (isActive !== undefined && typeof isActive !== "boolean") {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "isActive must be true or false",
+        status: 400,
+      });
+    }
+    // An inactive template may only be switched back on; a system template is
+    // never switched off or on here (archive refuses it for the same reason).
+    if (!existing.isActive && isActive !== true) {
+      return notEditable(request);
+    }
+    if (isActive !== undefined && existing.isSystemTemplate) {
+      return notEditable(request);
+    }
+    // A template archived from the list comes back as a draft, so it is not
+    // left active with an ARCHIVED status.
+    const reactivatingArchived =
+      isActive === true && !existing.isActive && existing.status === "ARCHIVED";
 
     // Validate required fields
     if (name !== undefined && typeof name !== "string") {
@@ -170,20 +210,35 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
 
+    if (
+      formType !== undefined &&
+      !(Object.values(FormType) as unknown[]).includes(formType)
+    ) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "formType is not a known form type",
+        status: 400,
+      });
+    }
+
     const updated = await prisma.formTemplate.update({
-      where: { id, userId: session.user.id, isActive: true },
+      where: { id, userId: session.user.id, isActive: existing.isActive },
       data: {
         ...(name !== undefined ? { name: name.trim() } : {}),
         ...(description !== undefined
           ? { description: description || null }
           : {}),
         ...(formType !== undefined ? { formType } : {}),
+        ...(isActive !== undefined ? { isActive } : {}),
+        ...(reactivatingArchived ? { status: "DRAFT" as const } : {}),
       },
       select: {
         id: true,
         name: true,
         description: true,
         formType: true,
+        status: true,
+        isActive: true,
         updatedAt: true,
       },
     });
@@ -191,5 +246,52 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ template: updated });
   } catch (error) {
     return fromException(request, error, { stage: "patch" });
+  }
+}
+
+// DELETE - Archive an active, non-system template owned by this user (RA-7957).
+// Archive, never hard-delete: form submissions, interview sessions and versions
+// keep the template they were made from. Only ADMIN or MANAGER.
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
+    }
+
+    if (!(await canManageFormTemplates(session.user.id))) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Only an owner or manager can remove form templates",
+        status: 403,
+      });
+    }
+
+    const { id } = await params;
+    // Ownership, system and active checks sit on the write itself, so another
+    // user's template (any business) matches nothing and is a 404.
+    const result = await prisma.formTemplate.updateMany({
+      where: {
+        id,
+        userId: session.user.id,
+        isSystemTemplate: false,
+        isActive: true,
+      },
+      data: { isActive: false, status: "ARCHIVED" },
+    });
+    if (result.count === 0) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Template not found or not removable",
+        status: 404,
+      });
+    }
+    return NextResponse.json({ success: true, archived: true });
+  } catch (error) {
+    return fromException(request, error, { stage: "archive" });
   }
 }

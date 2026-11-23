@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  * being reconciled. This regressed the old generic processor's behaviour of
  * retrying transient failures up to 5x with backoff.
  *
- * Bounded to 5 attempts via retryCount (see retryFailedEvents) so a
+ * Bounded by WEBHOOK_MAX_RETRIES via retryCount (see retryFailedEvents) so a
  * permanently-broken event does not retry forever.
  *
  * Runs every 30 minutes (vercel.json) so a Xero event reset here is picked
@@ -26,7 +26,9 @@ export async function GET(request: NextRequest) {
   if (authError) return authError;
 
   const result = await runCronJob("retry-failed-webhooks", async () => {
-    const count = await retryFailedEvents({ maxRetries: 5 });
+    // RA-8481 — retryFailedEvents defaults to WEBHOOK_MAX_RETRIES, the one
+    // bound shared with the reclaim and the drains; do not pass another.
+    const count = await retryFailedEvents();
     return { itemsProcessed: count };
   });
 

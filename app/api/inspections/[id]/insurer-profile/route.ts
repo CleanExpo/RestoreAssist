@@ -180,6 +180,24 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         });
       }
 
+      // RA-8407 item 3: `claimRef` is used as text below (`.trim()`, the
+      // file-name template). A number, object or array used to throw there
+      // and come back as a server error; it is refused as a 400 instead.
+      // Absent, null or empty still means "no claim reference".
+      const claimRefRaw: unknown = (body as { claimRef?: unknown }).claimRef;
+      if (
+        claimRefRaw !== undefined &&
+        claimRefRaw !== null &&
+        typeof claimRefRaw !== "string"
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "claimRef must be text",
+          status: 400,
+        });
+      }
+      const claimRef = claimRefRaw?.trim() ? claimRefRaw.trim() : undefined;
+
       const insurerId = body.insurerId as InsurerId;
 
       const inspection = await loadOwnedInspection(inspectionId, userId);
@@ -229,8 +247,8 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         submittedEvidence,
       );
 
-      const formattedClaimRef = body.claimRef
-        ? formatClaimReference(insurerId, body.claimRef, new Date(), "REPORT")
+      const formattedClaimRef = claimRef
+        ? formatClaimReference(insurerId, claimRef, new Date(), "REPORT")
         : undefined;
 
       const dbProfile = await prisma.insurerProfile.findFirst({
@@ -243,9 +261,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         data: {
           insurerTemplateId: insurerId,
           insurerProfileId: dbProfile?.id ?? null,
-          ...(body.claimRef
+          ...(claimRef
             ? {
-                claimNumber: sanitizeString(body.claimRef.trim(), 120),
+                claimNumber: sanitizeString(claimRef, 120),
               }
             : {}),
         },

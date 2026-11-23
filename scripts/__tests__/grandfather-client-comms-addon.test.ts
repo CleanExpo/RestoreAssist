@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterAll } from "vitest";
-import { grandfatherClientCommsAddon } from "../grandfather-client-comms-addon";
+import { grandfatherClientCommsAddon } from "../lib/grandfather-client-comms-addon";
 import { prisma } from "@/lib/prisma";
 
 describe.skipIf(!process.env.DATABASE_URL)("grandfatherClientCommsAddon", () => {

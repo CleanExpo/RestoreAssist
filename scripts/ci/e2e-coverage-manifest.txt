@@ -57,6 +57,7 @@ first-tradie-flow.spec.ts                a1
 health-migrations.spec.ts                workflow:sketch-e2e.yml
 health.spec.ts                           workflow:sketch-e2e.yml
 help/article-detail.spec.ts              workflow:sketch-e2e.yml
+home-hero-margot-phone.spec.ts           smoke
 help/dropdown-open.spec.ts               workflow:sketch-e2e.yml
 help/public-mirror.spec.ts               workflow:sketch-e2e.yml
 help/report-honesty.spec.ts              workflow:sketch-e2e.yml
@@ -80,6 +81,7 @@ pilot-workflow.spec.ts                   smoke
 portal-recovery-help.spec.ts             unrun:RA-7551 public portal walk at 1280x720, merged without a runner; not tagged @smoke and no workflow names it. Candidate for smoke (public /portal/* only, read-only)
 portal-unknown-token.spec.ts             smoke
 procurement.spec.ts                      workflow:sketch-e2e.yml
+public-phone-overflow.spec.ts            smoke
 security.spec.ts                         workflow:sketch-e2e.yml
 setup-abr-unreachable.spec.ts            workflow:sketch-e2e.yml
 setup-happy-path.spec.ts                 a1

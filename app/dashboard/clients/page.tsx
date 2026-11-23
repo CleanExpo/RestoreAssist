@@ -132,7 +132,6 @@ export default function ClientsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
-  const [duplicating, setDuplicating] = useState<string | null>(null);
   const clientsRequest = useRef<{ promise: Promise<boolean>; controller: AbortController } | null>(null);
 
   // RA-1215 — shared form instance for Add + Edit modals so validation
@@ -380,33 +379,23 @@ export default function ClientsPage() {
     setShowDeleteModal(true);
   };
 
-  // Duplicate client function
-  const duplicateClient = async (clientId: string) => {
-    try {
-      setDuplicating(clientId);
-      const response = await fetch(`/api/clients/${clientId}/duplicate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const newClient = await response.json();
-        setClients([newClient, ...clients]);
-        toast.success("Client duplicated successfully");
-      } else {
-        toast.error("Failed to duplicate client");
-      }
-    } catch (error) {
-      console.error("Error duplicating client:", error);
-      toast.error("Failed to duplicate client");
-    } finally {
-      setDuplicating(null);
-    }
+  // RA-8535: a copy is a new client, and every client needs its own email
+  // (one owner cannot hold two clients with the same email). Open the add
+  // form with the details copied and the email left for the user to enter.
+  const duplicateClient = (client: Client) => {
+    form.reset({
+      name: `${client.name} (Copy)`,
+      email: "",
+      phone: client.phone || "",
+      address: client.address || "",
+      company: client.company || "",
+      contactPerson: client.contactPerson || "",
+      notes: client.notes || "",
+      status: client.status,
+    });
+    setShowAddModal(true);
   };
 
-  // Bulk delete functions
   const handleBulkDelete = async () => {
     if (selectedClients.length === 0) return;
 
@@ -972,16 +961,11 @@ export default function ClientsPage() {
                               <Edit size={16} />
                             </button>
                             <button
-                              onClick={() => duplicateClient(client.id)}
-                              disabled={duplicating === client.id}
-                              className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                              onClick={() => duplicateClient(client)}
+                              className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors"
                               title="Duplicate"
                             >
-                              {duplicating === client.id ? (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-harbour-500"></div>
-                              ) : (
-                                <Copy size={16} />
-                              )}
+                              <Copy size={16} />
                             </button>
                             <button
                               onClick={() => openDeleteModal(client)}

@@ -220,7 +220,7 @@ export default function IICRCComplianceHelper({
           className="text-xl font-medium text-white"
           style={{ fontFamily: "Titillium Web, sans-serif" }}
         >
-          IICRC S500 Compliance Helper
+          IICRC S500 Alignment Helper
         </h3>
       </div>
 

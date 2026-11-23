@@ -14,7 +14,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  IICRC_DRY_STANDARDS,
+  MOISTURE_GUIDE_HINT,
+  MOISTURE_GUIDE_LABEL,
+  MOISTURE_GUIDE_VALUES,
   METER_TYPES,
   getDryStandard,
   getMoistureStatus,
@@ -320,7 +322,7 @@ export function MoistureReadingEntryForm({
             onChange={(e) => setMaterial(e.target.value)}
             className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-brand-harbour-500"
           >
-            {IICRC_DRY_STANDARDS.map((s) => (
+            {MOISTURE_GUIDE_VALUES.map((s) => (
               <option key={s.material} value={s.material}>
                 {s.label}
               </option>
@@ -362,7 +364,7 @@ export function MoistureReadingEntryForm({
             className="mt-0.5 rounded border-slate-300"
           />
           <span>
-            Baseline (unaffected reference area — excluded from drying-goal pass/fail)
+            Reference reading (unaffected like material in this building) — becomes the drying goal for this material
           </span>
         </label>
         <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
@@ -512,12 +514,12 @@ export function MoistureReadingEntryForm({
         </div>
       </div>
 
-      {/* IICRC dry standard info */}
+      {/* Guide values: shown only as a starting hint (RA-8508) */}
       <div className="flex items-start gap-2 p-3 bg-info-subtle rounded-lg text-xs text-info-subtle-foreground">
         <Info size={13} className="flex-shrink-0 mt-0.5" />
         <div>
           <span className="font-semibold">
-            IICRC S500 dry standard for {std.label}:{" "}
+            {MOISTURE_GUIDE_LABEL} for {std.label}:{" "}
           </span>
           ≤{std.dryThreshold}% = Dry · ≤{std.wetThreshold}% = Drying · &gt;
           {std.wetThreshold}% = Wet
@@ -526,6 +528,7 @@ export function MoistureReadingEntryForm({
               {std.notes}
             </span>
           )}
+          <span className="block mt-0.5">{MOISTURE_GUIDE_HINT}</span>
         </div>
       </div>
 

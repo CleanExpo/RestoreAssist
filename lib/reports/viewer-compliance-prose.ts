@@ -64,24 +64,24 @@ export function viewerComplianceStandards(
 
 export function viewerOpeningStatement(jurisdiction: ViewerJurisdiction): string {
   if (jurisdiction === "NZ") {
-    return `This professional restoration inspection report has been prepared in accordance with IICRC S500 (Water Damage Restoration) standards and the ${HSWA_2015}, regulated by ${WORKSAFE_NZ}.`;
+    return `This professional restoration inspection report has been prepared with reference to IICRC S500 (Water Damage Restoration) and the ${HSWA_2015}, regulated by ${WORKSAFE_NZ}.`;
   }
   if (jurisdiction === "AU") {
-    return `This professional restoration inspection report has been prepared in accordance with IICRC S500 (Water Damage Restoration) standards and relevant Australian regulations including the ${NCC} and ${WHS_ACT_2011}.`;
+    return `This professional restoration inspection report has been prepared with reference to IICRC S500 (Water Damage Restoration) and relevant Australian regulations including the ${NCC} and ${WHS_ACT_2011}.`;
   }
-  return "This professional restoration inspection report has been prepared in accordance with IICRC S500 (Water Damage Restoration) standards.";
+  return "This professional restoration inspection report has been prepared with reference to IICRC S500 (Water Damage Restoration).";
 }
 
 export function viewerClosingCompliance(
   jurisdiction: ViewerJurisdiction,
 ): string {
   if (jurisdiction === "NZ") {
-    return `All remediation procedures will be conducted following IICRC S500 standards, the ${HSWA_2015}, and AS/NZS 3000 electrical safety standards where applicable.`;
+    return `All remediation procedures are planned with reference to IICRC S500, the ${HSWA_2015}, and AS/NZS 3000 electrical safety standards where applicable.`;
   }
   if (jurisdiction === "AU") {
-    return `All remediation procedures will be conducted following IICRC S500 standards, National Construction Code requirements, ${WHS_ACT_2011}, and AS/NZS 3000 electrical safety standards where applicable.`;
+    return `All remediation procedures are planned with reference to IICRC S500, National Construction Code requirements, ${WHS_ACT_2011}, and AS/NZS 3000 electrical safety standards where applicable.`;
   }
-  return "All remediation procedures will be conducted following IICRC S500 standards and AS/NZS 3000 electrical safety standards where applicable.";
+  return "All remediation procedures are planned with reference to IICRC S500 and AS/NZS 3000 electrical safety standards where applicable.";
 }
 
 export function viewerCostStandardsPhrase(

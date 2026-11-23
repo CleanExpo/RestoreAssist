@@ -31,7 +31,7 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: (...a: unknown[]) => mockGetWorkspaceForUser(...a),
 }));
 
-import { grandfatherServiceCrmAddon } from "../backfill-grandfather-service-crm-addon";
+import { grandfatherServiceCrmAddon } from "../lib/backfill-grandfather-service-crm-addon";
 
 beforeEach(() => {
   vi.clearAllMocks();

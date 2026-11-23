@@ -10,7 +10,6 @@ import {
   Clipboard,
   ArrowRight,
 } from "lucide-react";
-import { parseSearchQuery } from "@/lib/search-utils";
 
 interface SearchResult {
   id: string;
@@ -60,6 +59,14 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     }
   }, [isOpen]);
 
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    setQuery("");
+    setResults([]);
+    setSelectedIndex(0);
+    onClose?.();
+  }, [onClose]);
+
   // Close on escape
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -70,15 +77,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
 
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [isOpen]);
-
-  const handleClose = () => {
-    setIsOpen(false);
-    setQuery("");
-    setResults([]);
-    setSelectedIndex(0);
-    onClose?.();
-  };
+  }, [isOpen, handleClose]);
 
   const performSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim() || searchQuery.length < 2) {
@@ -202,8 +201,15 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
               className="max-h-96 overflow-y-auto divide-y divide-slate-200"
             >
               {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin" />
+                <div
+                  role="status"
+                  className="flex items-center justify-center py-12"
+                >
+                  <div
+                    aria-hidden="true"
+                    className="w-6 h-6 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin"
+                  />
+                  <span className="sr-only">Searching</span>
                 </div>
               ) : results.length > 0 ? (
                 results.map((result, index) => (

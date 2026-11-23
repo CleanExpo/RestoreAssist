@@ -46,6 +46,9 @@ describe("partitionStaleRooms", () => {
     ["a moisture reading", { moistureReadings: 1 }],
     ["a job moisture reading", { jobMoistureReadings: 1 }],
     ["a hazard", { hazards: 1 }],
+    // RA-8538: ScopeItem.sketchRoomId is SetNull too, and scope items are
+    // priced lines grouped by room in the report.
+    ["a scope item", { scopeItems: 1 }],
     ["several of each", { evidencePins: 3, moistureReadings: 9, hazards: 2 }],
   ])("never deletes a stale room holding %s", (_label, counts) => {
     const { deletableIds, detachableIds } = partitionStaleRooms([

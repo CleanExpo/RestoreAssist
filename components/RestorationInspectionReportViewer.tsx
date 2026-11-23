@@ -6,7 +6,6 @@ import {
   Calendar,
   CheckCircle,
   ClipboardCheck,
-  DollarSign,
   Droplet,
   FileText,
   HardHat,
@@ -321,8 +320,8 @@ const LEAD_ERA_QUALIFIER =
 export default function RestorationInspectionReportViewer({
   data,
 }: RestorationInspectionReportViewerProps) {
-  const [detailedAnalysis, setDetailedAnalysis] = useState<any>(null);
-  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+  const [_detailedAnalysis, _setDetailedAnalysis] = useState<any>(null);
+  const [_loadingAnalysis, _setLoadingAnalysis] = useState(false);
   const jurisdiction = viewerJurisdiction({
     state: data.compliance?.state ?? data.property?.state,
     workSafetyAuthority: data.compliance?.workSafetyAuthority,
@@ -518,7 +517,7 @@ export default function RestorationInspectionReportViewer({
     // Hazards assessment
     if (data.hazards.biologicalMouldDetected) {
       summaryParts.push(
-        `Biological mould growth has been detected${data.hazards.biologicalMouldCategory ? `, categorised as ${data.hazards.biologicalMouldCategory}` : ""}. IICRC S520 (Mould Remediation) is the reference standard for assessment, containment and remediation.`,
+        `Biological mould growth has been detected${data.hazards.biologicalMouldCategory ? `, categorised as ${data.hazards.biologicalMouldCategory}` : ""}, so remediation should be planned with reference to IICRC S520 (Mould Remediation), with appropriate containment.`,
       );
     }
 
@@ -1980,8 +1979,8 @@ export default function RestorationInspectionReportViewer({
                           </p>
                         )}
                         <p className="text-sm print:text-xs text-slate-600 mt-1">
-                          <strong>Reference standard:</strong> IICRC S520 (Mould
-                          Remediation). Appropriate containment
+                          <strong>Compliance:</strong> IICRC S520 (Mould
+                          Remediation) standards apply. Appropriate containment
                           and remediation protocols required.
                         </p>
                       </div>
@@ -2410,7 +2409,6 @@ export default function RestorationInspectionReportViewer({
                       key={i}
                       className="border border-slate-200 rounded-lg overflow-hidden"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={floor.imageUrl!}
                         alt={floor.floorLabel ?? `Floor ${floor.floorNumber}`}

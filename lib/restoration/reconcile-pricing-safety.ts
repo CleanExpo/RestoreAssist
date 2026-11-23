@@ -131,7 +131,7 @@ export function reconcilePricingSafety(input: {
   if (mouldActive && airMoverQty > 0) {
     advisories.push({
       severity: "critical",
-      text: `${airMoverQty} air mover(s) are in the equipment selection on a job with active mould. Air movers MUST NOT run until post-remediation verification returns the area to Condition 1 (IICRC S520). Price them to Phase 2 (post-clearance) only; Phase 1 is dehumidifiers + AFD/HEPA under containment.`,
+      text: `${airMoverQty} air mover(s) are in the equipment selection on a job with active mould. Air movers MUST NOT run until an independent qualified assessor's post-remediation verification is recorded (IICRC S520). Price them to Phase 2 (post-clearance) only; Phase 1 is dehumidifiers + AFD/HEPA under containment.`,
     });
   }
 

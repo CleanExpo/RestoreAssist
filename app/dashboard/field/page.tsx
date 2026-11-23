@@ -56,6 +56,10 @@ import {
   simpleDashboardHeroShine,
 } from "@/lib/dashboard/simple-dashboard-theme";
 import { formatAttendanceDateEnAu } from "@/lib/inspections/format-attendance-date";
+import {
+  ACTIVE_INSPECTION_STATUSES,
+  isActiveInspectionStatus,
+} from "@/lib/inspections/active-status";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -68,16 +72,6 @@ const STATUS_COLOR: Record<string, string> = {
   IN_BILLING: "text-brand-bronze dark:text-brand-gold",
   COMPLETED: "text-success",
 };
-
-const ACTIVE_STATUSES = [
-  "DRAFT",
-  "SUBMITTED",
-  "PROCESSING",
-  "CLASSIFIED",
-  "SCOPED",
-  "ESTIMATED",
-  "IN_BILLING",
-];
 
 function formatInspectionDate(dateStr: string | null): string {
   if (!dateStr) return "Attendance unknown";
@@ -146,7 +140,6 @@ export default function FieldDashboardPage() {
       })
       .catch(() => {});
     return () => cleanup?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadInspections(): Promise<RefreshResult> {
@@ -180,7 +173,7 @@ export default function FieldDashboardPage() {
     try {
       const res = await fetchOfflineReplay(
         requestOwner,
-        `/api/inspections?status=${ACTIVE_STATUSES.join(",")}&assignee=me&limit=100`,
+        `/api/inspections?status=${ACTIVE_INSPECTION_STATUSES.join(",")}&assignee=me&limit=100`,
         { cache: "no-store" },
       );
       if (!res) {
@@ -314,11 +307,10 @@ export default function FieldDashboardPage() {
 
   useEffect(() => {
     loadInspections();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeJobs = inspections.filter((i) =>
-    ACTIVE_STATUSES.includes(i.status),
+    isActiveInspectionStatus(i.status),
   );
   const nextJob = activeJobs[0];
   const statusText = statusLine(loading, loadError, activeJobs.length);

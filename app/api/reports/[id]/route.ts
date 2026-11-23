@@ -1,3 +1,8 @@
+import {
+  reportHoldsNoSignedFormWhere,
+  reportsHoldingSignedForms,
+  SIGNED_FORM_CASCADE_REFUSAL,
+} from "@/lib/authority-forms/signed-record-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -73,6 +78,8 @@ export async function GET(
             id: true,
             propertyCountry: true,
             propertyPostcode: true,
+            // RA-8282: the PDF button names the standard for this claim type.
+            claimType: true,
             client: { select: { email: true } },
           },
         },
@@ -511,9 +518,32 @@ export async function DELETE(
       });
     }
 
-    await prisma.report.delete({
-      where: { id, userId: session.user.id },
+    // RA-8526: deleting a report cascades into its authority forms and their
+    // signatures. A report that holds a signed form is refused here, and the
+    // same rule sits in the delete itself, so a signature that lands after
+    // this read still blocks it.
+    const held = await reportsHoldingSignedForms(prisma, {
+      id,
+      userId: session.user.id,
     });
+    if (held.length > 0) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: SIGNED_FORM_CASCADE_REFUSAL,
+        status: 409,
+      });
+    }
+
+    const deleted = await prisma.report.deleteMany({
+      where: { id, userId: session.user.id, ...reportHoldsNoSignedFormWhere() },
+    });
+    if (deleted.count === 0) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: SIGNED_FORM_CASCADE_REFUSAL,
+        status: 409,
+      });
+    }
 
     return NextResponse.json({ message: "Report deleted successfully" });
   } catch (error) {

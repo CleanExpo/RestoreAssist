@@ -17,6 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { MeterPhotoCapture } from "@/components/inspection/MeterPhotoCapture";
 
 // ── Types (mirrors API response) ─────────────────────────────────────────────
 
@@ -136,6 +137,8 @@ export default function MonitoringPage({
   const [report, setReport] = useState<MonitoringReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // RA-8229: bumped when a meter photo is accepted, so the log reloads.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -158,7 +161,7 @@ export default function MonitoringPage({
       }
     }
     void load();
-  }, [id]);
+  }, [id, reloadKey]);
 
   if (loading) {
     return (
@@ -274,6 +277,25 @@ export default function MonitoringPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Photo-to-reading (RA-8229) ── */}
+      {/* A photo of the moisture meter becomes a recorded reading on this job,
+          confirmed by the technician before it is saved, right beside the
+          drying log it feeds. */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-neutral-700 dark:text-slate-200">
+            Add a reading from a meter photo
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MeterPhotoCapture
+            inspectionId={id}
+            mode="moisture"
+            onReadingAccepted={() => setReloadKey((key) => key + 1)}
+          />
+        </CardContent>
+      </Card>
 
       {/* ── Empty state ── */}
       {!hasReadings && (

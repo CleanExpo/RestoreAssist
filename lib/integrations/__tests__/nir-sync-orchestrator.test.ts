@@ -84,15 +84,18 @@ describe("NIR specific integration tenant boundary", () => {
   it.each(["workspace-a", null])("fan-out stays inside the source report workspace %s including exact null", async workspaceId => {
     reportFindFirst.mockResolvedValue({ id: "report-1", userId: "owner-user", workspaceId });
     const records = [
-      { id: "allowed", userId: "owner-user", workspaceId, provider: "XERO", name: "Xero", status: "CONNECTED" },
-      { id: "foreign", userId: "owner-user", workspaceId: "workspace-b", provider: "XERO", name: "Xero", status: "CONNECTED" },
+      { id: "allowed", userId: "owner-user", workspaceId, provider: "XERO", name: "Xero", status: "CONNECTED", tenantId: "org-a" },
+      { id: "foreign", userId: "owner-user", workspaceId: "workspace-b", provider: "XERO", name: "Xero", status: "CONNECTED", tenantId: "org-b" },
     ];
     findMany.mockImplementation(async ({ where }) => records.filter(row => row.userId === where.userId && (!Object.hasOwn(where, "workspaceId") || row.workspaceId === where.workspaceId)));
     findFirst.mockImplementation(async ({ where }) => records.find(row => row.id === where.id && row.userId === where.userId && (!Object.hasOwn(where, "workspaceId") || row.workspaceId === where.workspaceId)) ?? null);
     syncXero.mockResolvedValue({ xeroInvoiceId: "synthetic-invoice", xeroInvoiceNumber: "SYN-1" });
     const result = await syncNIRToAllConnectedIntegrations("owner-user", payload);
     expect(result.map(row => row.integrationId)).toEqual(["allowed"]);
-    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "owner-user", workspaceId, status: "CONNECTED" } }));
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {
+      userId: "owner-user", workspaceId,
+      status: { in: ["CONNECTED", "SYNCING", "ERROR"] }, accessToken: { not: null, notIn: [""] },
+    } }));
     expect(syncXero).toHaveBeenCalledExactlyOnceWith("allowed", payload);
   });
 
@@ -109,5 +112,48 @@ describe("NIR specific integration tenant boundary", () => {
     expect(await syncNIRToSpecificIntegration("wrong-owner", "synthetic-id", payload)).toMatchObject({ status: "error" });
     expect(reportFindFirst).toHaveBeenCalledWith({ where: { id: "report-1", userId: "wrong-owner" }, select: { id: true, userId: true, workspaceId: true } });
     expect(findMany).not.toHaveBeenCalled(); expect(findFirst).not.toHaveBeenCalled(); expect(syncXero).not.toHaveBeenCalled();
+  });
+
+  // RA-8446: the readiness owner (getOAuthReadiness), not status === CONNECTED, decides.
+  describe("readiness comes from the owner", () => {
+    function rowsAre(records: Array<Record<string, unknown>>, credentialIds = records.map(r => r.id)) {
+      findMany.mockResolvedValue(records);
+      findFirst.mockImplementation(async ({ where }) => {
+        const row = records.find(r => r.id === where.id);
+        if (!row) return null;
+        if (Object.hasOwn(where, "accessToken")) return credentialIds.includes(row.id) ? { id: row.id } : null;
+        return row;
+      });
+      syncXero.mockResolvedValue({ xeroInvoiceId: "synthetic-invoice", xeroInvoiceNumber: "SYN-1" });
+    }
+
+    it("skips a CONNECTED Xero row with no organisation", async () => {
+      rowsAre([{ id: "no-org", provider: "XERO", name: "Xero", status: "CONNECTED", tenantId: null }]);
+      expect(await syncNIRToAllConnectedIntegrations("owner-user", payload)).toEqual([]);
+      await expect(syncNIRToSpecificIntegration("owner-user", "no-org", payload, "XERO"))
+        .resolves.toMatchObject({ status: "skipped", error: "Not ready: ORGANISATION_REQUIRED" });
+      expect(syncXero).not.toHaveBeenCalled();
+    });
+
+    it("syncs a SYNCING Xero row the owner calls ready", async () => {
+      rowsAre([{ id: "busy", provider: "XERO", name: "Xero", status: "SYNCING", tenantId: "org-a" }]);
+      const result = await syncNIRToAllConnectedIntegrations("owner-user", payload);
+      expect(result).toMatchObject([{ integrationId: "busy", status: "success" }]);
+      expect(syncXero).toHaveBeenCalledExactlyOnceWith("busy", payload);
+    });
+
+    it("skips an explicit row with no stored credentials", async () => {
+      rowsAre([{ id: "no-token", provider: "XERO", name: "Xero", status: "CONNECTED", tenantId: "org-a" }], []);
+      await expect(syncNIRToSpecificIntegration("owner-user", "no-token", payload, "XERO"))
+        .resolves.toMatchObject({ status: "skipped", error: "Not ready: CREDENTIALS_REQUIRED" });
+      expect(syncXero).not.toHaveBeenCalled();
+    });
+
+    it("skips a DISCONNECTED row", async () => {
+      rowsAre([{ id: "gone", provider: "XERO", name: "Xero", status: "DISCONNECTED", tenantId: "org-a" }]);
+      await expect(syncNIRToSpecificIntegration("owner-user", "gone", payload, "XERO"))
+        .resolves.toMatchObject({ status: "skipped", error: "Not ready: DISCONNECTED" });
+      expect(syncXero).not.toHaveBeenCalled();
+    });
   });
 });

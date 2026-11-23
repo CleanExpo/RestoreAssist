@@ -17,7 +17,7 @@ const phoneScreens: PhoneScreen[] = [
     description: "Comprehensive damage assessment and documentation",
     features: [
       "AI-powered damage analysis",
-      "IICRC S500 citations",
+      "Aligned to IICRC S500",
       "Multi-hazard support",
       "Photo & data capture",
     ],

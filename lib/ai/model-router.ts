@@ -16,14 +16,11 @@
 import type {
   VisionInput,
   AllowedModel,
-  S500StructuredOutput,
 } from "./byok-client";
 import {
   byokDispatch,
-  parseS500Output,
   S500_VISION_SYSTEM_PROMPT,
 } from "./byok-client";
-import type { RestoreAssistAiResponse } from "./restoreassist-ai-client";
 import {
   restoreAssistAiDispatch,
   isRestoreAssistAiHealthy,
@@ -49,7 +46,7 @@ export type AiTaskType =
   | "translation" // Multi-language support
   | "close_summary" // SP-A: client-facing close-summary draft
   // Premium tasks → BYOK
-  | "s500_report" // Full S500:2021 compliance report generation
+  | "s500_report" // Full report generation aligned to S500:2021
   | "contents_manifest" // AI-drafted contents manifest from photos
   | "complex_damage_assessment" // Multi-room, multi-category damage analysis
   | "expert_analysis" // Complex reasoning about restoration strategy
@@ -186,7 +183,7 @@ export async function routeAiRequest(
   }
 
   // Route directly to BYOK for premium tasks
-  const start = Date.now();
+  const _start = Date.now();
   const byokResponse = await byokDispatch({
     model: config.byokModel,
     apiKey: config.byokApiKey,
@@ -243,7 +240,7 @@ export async function classifyEvidence(
 }
 
 /**
- * Generate S500:2021 compliance report (premium task → BYOK).
+ * Generate a report aligned to S500:2021 (premium task → BYOK).
  */
 export async function generateS500Report(
   inspectionData: string,

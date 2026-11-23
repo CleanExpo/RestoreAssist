@@ -42,7 +42,7 @@ export interface EvaluatorScores {
   accuracy: EvaluatorDimension;
   /** Completeness — all required sections present */
   completeness: EvaluatorDimension;
-  /** How closely the output follows IICRC S500 */
+  /** Alignment with IICRC S500 (a review score, not a certification) */
   compliance: EvaluatorDimension;
   /** Clarity and professional language */
   clarity: EvaluatorDimension;

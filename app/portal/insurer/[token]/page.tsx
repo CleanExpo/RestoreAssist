@@ -1,6 +1,9 @@
 import { verifyReportReaderToken } from "@/lib/report-share/access";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
+import {
+  reportAlignedStandard,
+  standardCite,
+} from "@/lib/nir-standards-mapping";
 import { readEquipmentDeploymentLog } from "@/lib/reports/stored-equipment-pricing";
 
 interface PageProps {
@@ -35,6 +38,8 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           businessABN: true,
         },
       },
+      // RA-8282: the claim type decides which standard the portal names.
+      inspection: { select: { claimType: true } },
     },
   });
 
@@ -66,6 +71,14 @@ export default async function InsurerPortalPage({ params }: PageProps) {
     : null;
 
   const pdfUrl = `/api/reports/${report.id}/pdf?token=${token}`;
+
+  // RA-7665 / RA-8282: name the standard the report is aligned to for its
+  // claim type, as a reference. Never "compliant".
+  const alignedStd = reportAlignedStandard(
+    report.inspection?.claimType,
+    report.hazardType,
+  );
+  const alignedCite = alignedStd ? `IICRC ${standardCite(alignedStd)}` : null;
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -108,7 +121,9 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
-                Inspection Report (cites ANSI/IICRC S500:2021)
+                {alignedCite
+                  ? `Inspection report aligned to ${alignedCite}`
+                  : "Inspection report"}
               </p>
               <h1 className="text-xl font-bold text-slate-900">
                 {report.reportNumber ??
@@ -373,8 +388,9 @@ export default async function InsurerPortalPage({ params }: PageProps) {
               Full PDF Report Available
             </p>
             <p className="text-xs text-slate-400 mt-0.5">
-              Download the complete report (cites IICRC S500:2021) for your
-              records.
+              {alignedCite
+                ? `Download the complete report, aligned to ${alignedCite}, for your records.`
+                : "Download the complete report for your records."}
             </p>
           </div>
           <a

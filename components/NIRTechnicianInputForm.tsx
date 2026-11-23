@@ -1,16 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Thermometer,
   Droplets,
   MapPin,
   Camera,
   CheckCircle,
-  AlertCircle,
   Plus,
   X,
-  Save,
   ArrowRight,
   Loader2,
   Sparkles,
@@ -18,11 +16,9 @@ import {
   Trash2,
   Pencil,
   Upload,
-  FileImage,
   Map,
   Shield,
   Zap,
-  Eye,
   Locate,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -49,7 +45,7 @@ import {
   sidecarPart,
   type DraftSavePart,
 } from "@/lib/nir-draft-save";
-import { trackDraftSave } from "@/lib/offline/draft-save-status";
+import { clearActiveDraft, setActiveDraft, trackDraftSave } from "@/lib/offline/draft-save-status";
 import {
   calculateClassificationPreview as computeClassificationPreview,
   manualClassificationPayload,
@@ -68,6 +64,7 @@ import {
   scheduleFollowUpReminder,
 } from "@/lib/capacitor";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
+import { pickReferenceReadings } from "@/lib/iicrc-dry-standards";
 import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion";
 import ClaimTypePicker from "@/components/inspection/ClaimTypePicker";
 import NIRClaimAssessmentPanel, {
@@ -98,6 +95,14 @@ import {
 
 interface NIRTechnicianInputFormProps {
   reportId?: string;
+  /**
+   * RA-8334: an inspection this form already created, carried in the page URL
+   * so a reload, dropped connection or app switch reopens the same draft.
+   * While it is set the form never creates a second inspection.
+   */
+  draftInspectionId?: string;
+  /** RA-8334: called once the form knows its saved inspection id. */
+  onInspectionCreated?: (inspectionId: string) => void;
   /** Pre-fill form from guided interview (e.g. interviewData from URL) */
   initialData?: Record<string, unknown>;
   onComplete?: (inspectionId: string) => void;
@@ -209,6 +214,8 @@ const WATER_CLASSES = [
 
 export default function NIRTechnicianInputForm({
   reportId,
+  draftInspectionId,
+  onInspectionCreated,
   initialData,
   onComplete,
   onCancel,
@@ -219,6 +226,14 @@ export default function NIRTechnicianInputForm({
   const [inspectionId, setInspectionId] = useState<string | null>(null);
   const [creatingInspection, setCreatingInspection] = useState(false);
   const inspectionIdRef = useRef<string | null>(null);
+  // RA-8358: names this form to the sync badge until the inspection exists.
+  const [draftFormKey] = useState(
+    () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+  );
+  useEffect(() => {
+    setActiveDraft({ inspectionId: inspectionId ?? draftInspectionId ?? null, formKey: draftFormKey });
+  }, [inspectionId, draftInspectionId, draftFormKey]);
+  useEffect(() => () => clearActiveDraft(draftFormKey), [draftFormKey]);
   const makeSafeChecklistRef = useRef<MakeSafeChecklistHandle | null>(null);
   const claimAssessmentRef = useRef<NIRClaimAssessmentPanelHandle | null>(null);
   const inspectionCreationRef = useRef<{
@@ -229,6 +244,12 @@ export default function NIRTechnicianInputForm({
   const legacyUnresolvedKeyRef = useRef<string | null>(null);
   const [creationRecovery, setCreationRecovery] = useState<"idle" | "checking" | "retryable" | "legacy_missing" | "unresolved">("idle");
   const [recoveryCheck, setRecoveryCheck] = useState(0);
+  // RA-8334: why a draft named in the URL could not be reopened; null otherwise.
+  const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
+  const onInspectionCreatedRef = useRef(onInspectionCreated);
+  useEffect(() => {
+    onInspectionCreatedRef.current = onInspectionCreated;
+  });
   const clientIdForCreation = typeof initialData?.clientId === "string" ? initialData.clientId : null;
   const legacyAttemptStorageKey = `ra.nir-inspection-attempt:${reportId ?? "standalone"}:${clientIdForCreation ?? "unlinked"}`;
   const attemptStorageKey = session?.user?.id
@@ -292,6 +313,7 @@ export default function NIRTechnicianInputForm({
           setTechnicianName(typeof saved.technicianName === "string" ? saved.technicianName : "");
           inspectionIdRef.current = saved.id;
           setInspectionId(saved.id);
+          onInspectionCreatedRef.current?.(saved.id);
           try { sessionStorage.removeItem(attemptStorageKey); } catch { /* saved ID is verified */ }
           try {
             if (sessionStorage.getItem(legacyAttemptStorageKey) === key) sessionStorage.removeItem(legacyAttemptStorageKey);
@@ -384,8 +406,32 @@ export default function NIRTechnicianInputForm({
       // Loaded with the reading so the classification preview can match a
       // linked reading to its room, as submit does (RA-7610).
       sketchRoom?: { id: string; name: string } | null;
+      // RA-8509: selected by the job API so the map can pick valid reference
+      // readings. A reading added in this form has neither (no unit means a
+      // moisture-content reading; not invalidated).
+      unit?: string | null;
+      invalidatedAt?: string | null;
+      recordedAt?: string | null;
+      createdAt?: string | null;
     }>
   >([]);
+  // RA-8509: the job's reference readings, so the map colours each reading
+  // against its own material's reference and uses the guide only without one.
+  const moistureReferences = useMemo(
+    () =>
+      pickReferenceReadings(
+        moistureReadings.map((r) => ({
+          surfaceType: r.surfaceType,
+          moistureLevel: r.moistureLevel,
+          isBaseline: r.isBaseline,
+          unit: r.unit,
+          invalidatedAt: r.invalidatedAt,
+          recordedAt: r.recordedAt,
+          createdAt: r.createdAt,
+        })),
+      ),
+    [moistureReadings],
+  );
   // B23: the reading and environmental rows this form loaded or has saved.
   // Draft save deletes only these, so a reading captured on another screen
   // after the form opened is never erased.
@@ -737,12 +783,6 @@ export default function NIRTechnicianInputForm({
     // choice is made with the Category / Class selectors below.
   }, [initialData]);
 
-  // Initialize inspection if reportId provided
-  useEffect(() => {
-    if (reportId && !inspectionId) {
-      initializeInspection();
-    }
-  }, [reportId]);
 
   // Fetch Quick Fill credits on mount
   useEffect(() => {
@@ -763,17 +803,45 @@ export default function NIRTechnicianInputForm({
   }, []);
 
   const initializeInspection = async () => {
-    if (!reportId) return;
+    if (!reportId && !draftInspectionId) return;
 
     setLoading(true);
+    setDraftLoadError(null);
     try {
-      const response = await fetch(`/api/inspections?reportId=${reportId}`, {
-        method: "GET",
-      });
+      // RA-8334: a draft id from the URL is the inspection this form already
+      // created; reopen exactly that one rather than looking up by report.
+      const response = draftInspectionId
+        ? await fetch(`/api/inspections/${encodeURIComponent(draftInspectionId)}`, {
+            method: "GET",
+            cache: "no-store",
+          })
+        : await fetch(`/api/inspections?reportId=${reportId}`, {
+            method: "GET",
+          });
 
+      if (draftInspectionId && !response.ok) {
+        setDraftLoadError(
+          "This saved draft could not be reopened. Check your inspections list before starting another.",
+        );
+      }
       if (response.ok) {
         const data = await response.json();
-        if (data.inspection) {
+        if (
+          draftInspectionId &&
+          (!data.inspection || data.inspection.id !== draftInspectionId)
+        ) {
+          setDraftLoadError(
+            "This saved draft could not be reopened. Check your inspections list before starting another.",
+          );
+        } else if (
+          draftInspectionId &&
+          typeof data.inspection.status === "string" &&
+          data.inspection.status !== "DRAFT"
+        ) {
+          setDraftLoadError(
+            "This inspection has already been submitted. Open it from your inspections list.",
+          );
+        } else if (data.inspection) {
           inspectionIdRef.current = data.inspection.id;
           setInspectionId(data.inspection.id);
           // Load existing data
@@ -887,10 +955,29 @@ export default function NIRTechnicianInputForm({
       }
     } catch (error) {
       console.warn("Failed to load inspection data", error);
+      if (draftInspectionId) {
+        setDraftLoadError(
+          "This saved draft could not be reopened. Check your connection, then reload.",
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Initialize inspection if reportId provided
+  // Latest-value ref: initialise only when reportId changes, but always with
+  // the current inspectionId / initializer closure.
+  const initInspectionRef = useRef({ inspectionId, initializeInspection });
+  useEffect(() => {
+    initInspectionRef.current = { inspectionId, initializeInspection };
+  });
+  useEffect(() => {
+    const latest = initInspectionRef.current;
+    if ((reportId || draftInspectionId) && !latest.inspectionId) {
+      latest.initializeInspection();
+    }
+  }, [reportId, draftInspectionId]);
 
   const linkedAreaConflict = linkedReadingsAreaConflict(moistureReadings, affectedAreas);
   const unlinkedAreaAmbiguity = unlinkedReadingsAreaAmbiguity(moistureReadings, affectedAreas);
@@ -1012,7 +1099,7 @@ export default function NIRTechnicianInputForm({
     return errors;
   };
 
-  const validateForm = (options?: { forSubmit?: boolean }): boolean => {
+  const _validateForm = (options?: { forSubmit?: boolean }): boolean => {
     const errors = collectValidationErrors(options);
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1512,6 +1599,12 @@ export default function NIRTechnicianInputForm({
     // one creation request and continue against the same saved inspection.
     const knownId = inspectionIdRef.current || inspectionId;
     if (knownId) return Promise.resolve(knownId);
+    // RA-8334: this page already names a saved draft. Until it has reopened,
+    // creating would split the job across two inspections.
+    if (draftInspectionId) {
+      if (showToast) toast.error(draftLoadError ?? "The saved draft is still loading.");
+      return Promise.resolve(null);
+    }
     const pending = inspectionCreationRef.current;
     if (pending?.inFlight) return pending.inFlight;
     if (!attemptStorageKey) {
@@ -1599,6 +1692,7 @@ export default function NIRTechnicianInputForm({
           }
           inspectionIdRef.current = savedId;
           setInspectionId(savedId);
+          onInspectionCreatedRef.current?.(savedId);
           inspectionCreationRef.current = null;
           setCreationRecovery("idle");
           try { sessionStorage.removeItem(attemptStorageKey); } catch { /* saved ID is verified */ }
@@ -2404,7 +2498,9 @@ export default function NIRTechnicianInputForm({
                 moistureLevel: r.moistureLevel,
                 depth: r.depth,
                 notes: null,
+                unit: r.unit,
               }))}
+              references={moistureReferences}
               initialPoints={moistureMapPoints}
               initialBackgroundImage={floorPlanImageUrl}
               readonly={true}
@@ -2556,7 +2652,7 @@ export default function NIRTechnicianInputForm({
                     );
                   }
                 }
-              } catch (error) {
+              } catch {
                 toast.error("Failed to check Quick Fill credits");
               } finally {
                 setLoadingCredits(false);
@@ -2608,6 +2704,11 @@ export default function NIRTechnicianInputForm({
         error={validationErrors.claimType}
         disabled={!!inspectionId || creatingInspection}
       />
+      {draftLoadError && !inspectionId && (
+        <div role="alert" className="rounded-lg border border-amber-400 p-3 text-sm">
+          <p>{draftLoadError}</p>
+        </div>
+      )}
       {creationRecovery !== "idle" && !inspectionId && (
         <div role="alert" className="rounded-lg border border-amber-400 p-3 text-sm">
           <p>{creationRecovery === "checking"
@@ -3227,7 +3328,9 @@ export default function NIRTechnicianInputForm({
               moistureLevel: r.moistureLevel,
               depth: r.depth,
               notes: null,
+              unit: r.unit,
             }))}
+            references={moistureReferences}
             initialPoints={moistureMapPoints}
             initialBackgroundImage={floorPlanImageUrl}
             onPointsChange={(points) => {
@@ -4452,7 +4555,11 @@ export default function NIRTechnicianInputForm({
                 inspectionId || (await ensureInspectionExists(false));
 
               if (!currentInspectionId) {
-                toast.error("Failed to create inspection. Please try again.");
+                toast.error(
+                  draftInspectionId
+                    ? (draftLoadError ?? "The saved draft is still loading.")
+                    : "Failed to create inspection. Please try again.",
+                );
                 setSaving(false);
                 return false;
               }
@@ -4523,7 +4630,12 @@ export default function NIRTechnicianInputForm({
             } finally {
               setSaving(false);
             }
-          })}
+          }, () => ({
+            // RA-8358: report under the inspection this save was for, read
+            // after the attempt so a save that created it uses the new id.
+            inspectionId: inspectionIdRef.current ?? inspectionId ?? draftInspectionId ?? null,
+            formKey: draftFormKey,
+          }), session?.user?.id ?? null)}
           disabled={
             saving || deletingPhotoId !== null || !propertyAddress.trim() || !propertyPostcode.trim()
           }

@@ -53,7 +53,7 @@ const SUGGESTED_QUESTIONS = [
   "How do I create a new inspection report?",
   "What is the difference between Scope of Works and Cost Estimation?",
   "How do I upload a PDF inspection report?",
-  "What standards does Restore Assist use for compliance?",
+  "What standards does RestoreAssist use for compliance?",
   "How do I configure equipment pricing?",
   "Can you explain the 8-step workflow?",
   "How do I generate a Scope of Works document?",
@@ -128,7 +128,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [_isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   // Voice state
   const [isListening, setIsListening] = useState(false);
@@ -146,7 +146,7 @@ export default function Chatbot() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
 
-  const userName = session?.user?.name || "there";
+  const _userName = session?.user?.name || "there";
 
   // Close language menu on outside click
   useEffect(() => {

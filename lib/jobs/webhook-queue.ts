@@ -1,8 +1,11 @@
 import {
-  processPendingWebhookEvents,
   processWebhookEvent,
 } from "@/lib/integrations/webhook-processor";
 import { prisma } from "@/lib/prisma";
+import {
+  reclaimStaleWebhookEvents,
+  WEBHOOK_MAX_RETRIES,
+} from "@/lib/jobs/webhook-reclaim";
 
 /**
  * Webhook Queue System
@@ -84,17 +87,9 @@ export async function processWebhookQueue(
     `[Webhook Queue] Starting processing (batch: ${batchSize}, concurrent: ${maxConcurrent})`,
   );
 
-  // Recover events stuck in PROCESSING for > 10 minutes (server crash / Vercel timeout)
-  const staleThreshold = new Date(Date.now() - 10 * 60 * 1000);
-  const recovered = await prisma.webhookEvent.updateMany({
-    where: { status: "PROCESSING", updatedAt: { lt: staleThreshold } },
-    data: { status: "PENDING" },
-  });
-  if (recovered.count > 0) {
-    console.log(
-      `[Webhook Queue] Recovered ${recovered.count} stale PROCESSING events → PENDING`,
-    );
-  }
+  // RA-8426 — the stale-claim rule has one owner, shared with the scheduled
+  // drains (sync-xero-payments, sync-qbo-myob-payments).
+  await reclaimStaleWebhookEvents();
 
   // RA-1303 — time-based backoff on retries. Without this, an event that
   // fails once is immediately re-picked on the next cron tick; if the
@@ -109,12 +104,11 @@ export async function processWebhookQueue(
   // Uses updatedAt as the proxy for "last touched" — updated on any
   // status transition, so PENDING after a FAILED→PENDING reset carries
   // the reset time.
-  const MAX_RETRIES = 5;
   const now = Date.now();
   const pendingCandidates = await prisma.webhookEvent.findMany({
     where: {
       status: "PENDING",
-      retryCount: { lt: MAX_RETRIES },
+      retryCount: { lt: WEBHOOK_MAX_RETRIES },
     },
     orderBy: { createdAt: "asc" },
     take: batchSize * 2, // over-fetch so we still have work after time filter
@@ -189,7 +183,14 @@ export async function retryFailedEvents(
     maxRetries?: number;
   } = {},
 ): Promise<number> {
-  const { eventIds, olderThan, limit = 100, maxRetries = 5 } = options;
+  // RA-8481 — the same bound the reclaim and the drains use, so a row the
+  // reclaim marked FAILED at the limit is never put back to PENDING here.
+  const {
+    eventIds,
+    olderThan,
+    limit: _limit = 100,
+    maxRetries = WEBHOOK_MAX_RETRIES,
+  } = options;
 
   const where: any = {
     status: "FAILED",

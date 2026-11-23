@@ -7,10 +7,17 @@ import {
 } from "@/lib/webhook-idempotency";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
 import { apiError } from "@/lib/api-errors";
+import { MAX_WEBHOOK_CANDIDATES } from "@/lib/integrations/webhook-binding";
+import {
+  isReadyOAuthCandidate,
+  OAUTH_IDENTITY_SELECT,
+  OAUTH_READY_PREFILTER_WHERE,
+} from "@/lib/services/integrations/select-oauth";
 
 /**
- * RA-6968 — resolve which CONNECTED SERVICEM8 integration a webhook event
- * belongs to.
+ * RA-6968 — resolve which SERVICEM8 integration a webhook event belongs to.
+ * RA-8446: "connected" below means the readiness owner (getOAuthReadiness)
+ * calls the connection ready, not that its raw status is CONNECTED.
  *
  * ServiceM8 does not include an account/tenant id on webhook entries — every
  * object it sends (Job, Client, JobContact, GeoActivity) is scoped to
@@ -25,15 +32,36 @@ import { apiError } from "@/lib/api-errors";
  *
  * Resolution order:
  *   1. Match a candidate company_uuid against ExternalClient rows scoped to
- *      CONNECTED SERVICEM8 integrations. Exactly one distinct integration
+ *      ready SERVICEM8 integrations. Exactly one distinct integration
  *      match wins.
  *   2. If there's no match (e.g. the very first event for a brand-new
  *      customer, or an entry type with no company_uuid) AND exactly one
- *      SERVICEM8 integration is CONNECTED, use it — there is no other
+ *      SERVICEM8 integration is ready, use it — there is no other
  *      integration this could possibly be misattributed to.
  *   3. Anything else (zero connected integrations, or an ambiguous /
  *      multi-integration match) is unresolvable — reject rather than guess.
  */
+/**
+ * RA-8446: the SERVICEM8 connections the readiness owner calls ready, among
+ * `ids` when given. SQL narrows to the owner's statuses and stored credentials
+ * (OAUTH_READY_PREFILTER_WHERE); isReadyOAuthCandidate gives the verdict.
+ * Null means the bounded read overflowed, which is never resolved by guessing.
+ */
+async function readyServiceM8Integrations(ids?: string[]): Promise<{ id: string }[] | null> {
+  const rows = await prisma.integration.findMany({
+    where: {
+      provider: "SERVICEM8",
+      ...OAUTH_READY_PREFILTER_WHERE,
+      ...(ids ? { id: { in: ids } } : {}),
+    },
+    select: OAUTH_IDENTITY_SELECT,
+    orderBy: { id: "asc" },
+    take: MAX_WEBHOOK_CANDIDATES + 1,
+  });
+  if (rows.length > MAX_WEBHOOK_CANDIDATES) return null;
+  return rows.filter(row => isReadyOAuthCandidate(row, "SERVICEM8"));
+}
+
 async function resolveServiceM8Integration(
   service: string,
   entries: Record<string, unknown>[],
@@ -53,7 +81,7 @@ async function resolveServiceM8Integration(
     const matches = await prisma.externalClient.findMany({
       where: {
         externalId: { in: Array.from(candidateCompanyUuids) },
-        integration: { provider: "SERVICEM8", status: "CONNECTED" },
+        integration: { provider: "SERVICEM8", ...OAUTH_READY_PREFILTER_WHERE },
       },
       select: { integrationId: true },
       distinct: ["integrationId"],
@@ -61,7 +89,10 @@ async function resolveServiceM8Integration(
     });
 
     if (matches.length === 1) {
-      return { id: matches[0].integrationId };
+      // The event names this connection; it is used only if the owner calls
+      // it ready, and is never swapped for another connection.
+      const ready = await readyServiceM8Integrations([matches[0].integrationId]);
+      return ready?.length === 1 ? { id: ready[0].id } : null;
     }
     if (matches.length > 1) {
       // Ambiguous — the same company_uuid resolved to more than one
@@ -72,13 +103,8 @@ async function resolveServiceM8Integration(
     // matches.length === 0 falls through to the single-integration fallback.
   }
 
-  const connected = await prisma.integration.findMany({
-    where: { provider: "SERVICEM8", status: "CONNECTED" },
-    select: { id: true },
-    take: 2,
-  });
-
-  return connected.length === 1 ? { id: connected[0].id } : null;
+  const ready = await readyServiceM8Integrations();
+  return ready?.length === 1 ? { id: ready[0].id } : null;
 }
 
 /**
@@ -167,7 +193,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // RA-6968: resolve the CONNECTED integration this event actually belongs
+    // RA-6968: resolve the ready integration this event actually belongs
     // to, instead of grabbing an arbitrary "first CONNECTED" row (previously
     // cross-tenant misattribution — event data for user A could land on
     // user B's integration once a second ServiceM8 connection existed).
@@ -175,14 +201,14 @@ export async function POST(request: NextRequest) {
     // resolve via the entry's own company_uuid (a Job's linked customer, or
     // a Client entry's own uuid — both are globally unique ServiceM8 ids)
     // against ExternalClient rows we've already synced per integration. If
-    // there's no unambiguous match, fall back to the sole CONNECTED
+    // there's no unambiguous match, fall back to the sole ready
     // integration when exactly one exists (nothing else it could be); any
     // other outcome is rejected rather than guessed.
     const integration = await resolveServiceM8Integration(service, entries);
 
     if (!integration) {
       console.warn(
-        "[ServiceM8 Webhook] Could not resolve a unique CONNECTED integration for this event",
+        "[ServiceM8 Webhook] Could not resolve a unique ready integration for this event",
       );
       return apiError(request, {
         code: "VALIDATION",

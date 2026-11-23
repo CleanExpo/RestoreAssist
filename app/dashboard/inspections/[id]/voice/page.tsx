@@ -83,7 +83,7 @@ function WaterVoiceSession({ inspectionId }: { inspectionId: string }) {
 
   const [mode, setMode] = useState<VoiceCopilotMode>("assisted");
   const [session, setSession] = useState<VoiceSession | null>(null);
-  const [greeting, setGreeting] = useState<string>("");
+  const [_greeting, setGreeting] = useState<string>("");
   const [pendingItems, setPendingItems] = useState<S500CompletionItem[]>([]);
   const [observations, setObservations] = useState<VoiceObservation[]>([]);
   const [isListening, setIsListening] = useState(false);
@@ -127,12 +127,43 @@ function WaterVoiceSession({ inspectionId }: { inspectionId: string }) {
       setGreeting(data.greeting);
       setPendingItems(data.pendingItems);
       speak(data.greeting);
-    } catch (e) {
+    } catch {
       setError("Could not start voice session. Check your connection.");
     } finally {
       setStarting(false);
     }
   }, [inspectionId, mode, speak]);
+
+  // ── Submit observation ──
+  const submitObservation = useCallback(
+    async (sessionId: string, transcript: string) => {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `/api/inspections/${inspectionId}/voice/observation`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId, transcript }),
+          },
+        );
+        if (!res.ok) throw new Error("Failed to submit");
+        const data = await res.json();
+
+        setObservations((prev) => [data.observation, ...prev]);
+        setPendingItems(data.updatedMissingItems);
+
+        if (data.confirmationPrompt) {
+          speak(data.confirmationPrompt);
+        }
+      } catch {
+        speak("Sorry, I didn't catch that. Can you repeat?");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [inspectionId, speak],
+  );
 
   // ── Web Speech API setup ──
   const startListening = useCallback(() => {
@@ -178,42 +209,11 @@ function WaterVoiceSession({ inspectionId }: { inspectionId: string }) {
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [session]);
+  }, [session, submitObservation]);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
   }, []);
-
-  // ── Submit observation ──
-  const submitObservation = useCallback(
-    async (sessionId: string, transcript: string) => {
-      setLoading(true);
-      try {
-        const res = await fetch(
-          `/api/inspections/${inspectionId}/voice/observation`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId, transcript }),
-          },
-        );
-        if (!res.ok) throw new Error("Failed to submit");
-        const data = await res.json();
-
-        setObservations((prev) => [data.observation, ...prev]);
-        setPendingItems(data.updatedMissingItems);
-
-        if (data.confirmationPrompt) {
-          speak(data.confirmationPrompt);
-        }
-      } catch {
-        speak("Sorry, I didn't catch that. Can you repeat?");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [inspectionId, speak],
-  );
 
   // Scroll to top of observation feed on new entry
   useEffect(() => {

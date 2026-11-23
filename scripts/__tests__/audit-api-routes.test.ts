@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auditApiRoute } from "../audit-api-routes";
+import { auditApiRoute } from "../lib/audit-api-routes";
 
 describe("auditApiRoute", () => {
   it("flags non-exempt routes without session auth", () => {

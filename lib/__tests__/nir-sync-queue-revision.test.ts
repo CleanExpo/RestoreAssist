@@ -173,6 +173,37 @@ describe("RA-8056 queued revision", () => {
       },
     ]);
   });
+
+  it("RA-8197: also announces it on the broadcast channel, so an editor in another tab hears it", async () => {
+    vi.resetModules();
+    uninstall = installFakeIndexedDB();
+    const { queue } = await bootQueue(
+      () =>
+        new Response(JSON.stringify({ id: "s_1", revision: SAVED }), {
+          status: 201,
+        }),
+    );
+    await queue.enqueueSketchSave("i1", payload());
+    const otherTab = new BroadcastChannel(queue.SKETCH_SAVE_REPLAYED_CHANNEL);
+    const heard = new Promise<unknown>((resolve) => {
+      otherTab.onmessage = (m) => resolve(m.data);
+    });
+
+    await queue.drainQueue();
+    const detail = await Promise.race([
+      heard,
+      new Promise((resolve) => setTimeout(() => resolve("nothing"), 2000)),
+    ]);
+    otherTab.close();
+
+    expect(detail).toEqual({
+      inspectionId: "i1",
+      floorNumber: 0,
+      editorSessionId: "tab-a",
+      baseRevision: LOADED,
+      revision: SAVED,
+    });
+  });
 });
 
 describe("RA-8056 a live save supersedes the session's own queued saves", () => {

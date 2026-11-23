@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   parseRateInput,
   pricingSaveErrorText,
   rateInputValue,
 } from "@/lib/pricing/rate-input";
-import { DollarSign, Save, RefreshCw, Plus, Trash2, Lock } from "lucide-react";
+import { Save, RefreshCw, Plus, Trash2, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import BillingGate from "@/components/capacitor/BillingGate";
@@ -102,11 +102,6 @@ export default function PricingConfiguration({
     thermalCameraUseCostPerAssessment: 75.0,
   });
 
-  useEffect(() => {
-    fetchPricingConfig();
-    fetchSubscriptionStatus();
-  }, []);
-
   const fetchSubscriptionStatus = async () => {
     try {
       const response = await fetch("/api/user/profile");
@@ -166,6 +161,19 @@ export default function PricingConfiguration({
       setLoading(false);
     }
   };
+
+  // Latest-callback refs: the mount effect must run exactly once, as before.
+  const fetchPricingConfigRef = useRef(fetchPricingConfig);
+  const fetchSubscriptionStatusRef = useRef(fetchSubscriptionStatus);
+  useEffect(() => {
+    fetchPricingConfigRef.current = fetchPricingConfig;
+    fetchSubscriptionStatusRef.current = fetchSubscriptionStatus;
+  });
+
+  useEffect(() => {
+    fetchPricingConfigRef.current();
+    fetchSubscriptionStatusRef.current();
+  }, []);
 
   const handleSave = async () => {
     if (!canEdit) {

@@ -1,7 +1,7 @@
 /**
  * POST /api/inspections/[id]/equipment-calculator
  *
- * Calculate equipment quantities, citing IICRC S500, for a water damage inspection.
+ * Calculate equipment quantities, aligned to IICRC S500, for a water damage inspection.
  * Saves results as ScopeItem records with IICRC justifications (autoDetermined: true).
  *
  * Body: {

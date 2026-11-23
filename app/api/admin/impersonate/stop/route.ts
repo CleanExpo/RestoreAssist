@@ -21,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { apiError, fromException } from "@/lib/api-errors";
+import { readEnv } from "@/lib/env";
 import {
   verifyAdminFromDb,
   verifyPlatformSupportOperator,
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
   if (operator.response) return operator.response;
 
   // RA-1592 — pair with /start: refuse while feature-flag is off.
-  if (process.env.ENABLE_ADMIN_IMPERSONATION !== "true") {
+  if (readEnv("ENABLE_ADMIN_IMPERSONATION") !== "true") {
     return NextResponse.json(
       {
         error: "Admin impersonation is not yet enabled in this environment.",

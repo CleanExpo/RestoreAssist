@@ -154,7 +154,7 @@ export function FAQSection() {
                         className={[
                           FONT_DISPLAY,
                           "mt-0.5 text-[11px] font-bold tabular-nums tracking-[0.14em] transition-colors",
-                          selected ? "text-brand-harbour" : "text-slate-400",
+                          selected ? "text-brand-harbour" : "text-slate-600",
                         ].join(" ")}
                       >
                         {String(i + 1).padStart(2, "0")}
@@ -164,7 +164,7 @@ export function FAQSection() {
                           className={[
                             FONT_DISPLAY,
                             "block text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors",
-                            selected ? "text-brand-harbour" : "text-slate-400",
+                            selected ? "text-brand-harbour" : "text-slate-600",
                           ].join(" ")}
                         >
                           {faq.cat}

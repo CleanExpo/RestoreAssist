@@ -1,7 +1,7 @@
 /**
  * Sprint G: Inspection Intelligence — Evidence Types
  * 17 evidence classes with chain-of-custody metadata
- * Evidence tracking structured on IICRC S500:2021
+ * Evidence tracking aligned to IICRC S500:2021
  */
 
 /** 17 evidence classes covering all restoration inspection documentation */

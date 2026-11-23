@@ -63,7 +63,7 @@ const DOMAIN_FIELDS: Record<AssessmentDomain, Field[]> = {
     {
       kind: "select",
       key: "condition",
-      label: "Condition (S520)",
+      label: "Condition (assessor entry, S520)",
       required: true,
       options: [
         { value: "CONDITION_2", label: "Condition 2 (settled spores)" },

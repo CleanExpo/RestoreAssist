@@ -613,7 +613,7 @@ export default function InvoiceTemplatesPage() {
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               {deleting ? "Deleting…" : "Delete"}
             </AlertDialogAction>

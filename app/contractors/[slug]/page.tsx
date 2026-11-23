@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import {
+  parseServicesOffered,
+  serviceLabels,
+} from "@/lib/crm/service-catalogue";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -102,11 +106,7 @@ export default function ContractorProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchProfile();
-  }, [params.slug, session]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const res = await fetch(`/api/contractors/${params.slug}`);
       if (!res.ok) {
@@ -119,7 +119,12 @@ export default function ContractorProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.slug]);
+
+  useEffect(() => {
+    fetchProfile();
+    // session is a trigger: re-fetch when auth state changes
+  }, [fetchProfile, session]);
 
   if (loading) {
     return (
@@ -154,7 +159,7 @@ export default function ContractorProfilePage() {
     certifications,
     serviceAreas,
     reviews,
-    ratingBreakdown,
+    ratingBreakdown: _ratingBreakdown,
     subRatings,
     requiresAuthForContact,
   } = data;
@@ -281,6 +286,25 @@ export default function ContractorProfilePage() {
                     </span>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* RA-8220: Business Card services */}
+            {serviceLabels(parseServicesOffered(contractor.servicesOffered)).length > 0 && (
+              <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  Services
+                </h2>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {serviceLabels(parseServicesOffered(contractor.servicesOffered)).map((label) => (
+                    <li
+                      key={label}
+                      className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300"
+                    >
+                      {label}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 

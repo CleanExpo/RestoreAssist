@@ -14,6 +14,10 @@ export default function NewInspectionPage() {
   const interviewDataParam = searchParams.get("interviewData");
   const clientIdParam = searchParams.get("clientId");
   const reportIdParam = searchParams.get("reportId");
+  // RA-8334: the inspection this page already created. Kept in the URL so a
+  // reload reopens it and the next Save Draft updates it instead of creating
+  // a second inspection.
+  const draftParam = searchParams.get("draft");
   const [reportPrefill, setReportPrefill] = useState<Record<string, unknown> | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
   const [loadingReport, setLoadingReport] = useState(!!reportIdParam);
@@ -228,6 +232,13 @@ export default function NewInspectionPage() {
         )}
         <NIRTechnicianInputForm
           reportId={reportIdParam ?? undefined}
+          draftInspectionId={draftParam ?? undefined}
+          onInspectionCreated={(inspectionId: string) => {
+            if (draftParam === inspectionId) return;
+            const next = new URLSearchParams(searchParams.toString());
+            next.set("draft", inspectionId);
+            router.replace(`/dashboard/inspections/new?${next.toString()}`, { scroll: false });
+          }}
           initialData={initialData ?? undefined}
           onComplete={(inspectionId: string) => {
             router.push(`/dashboard/inspections/${inspectionId}`);

@@ -350,6 +350,7 @@ export async function POST(
         moistureReadings: number;
         hazards: number;
         jobMoistureReadings: number;
+        scopeItems: number;
       };
     }> = [];
     // RA-7656: a failed read is not "no rooms"; the guard below fails closed.
@@ -375,6 +376,8 @@ export async function POST(
                 moistureReadings: true,
                 hazards: true,
                 jobMoistureReadings: true,
+                // RA-8538: a room holding scope items is in use too.
+                scopeItems: true,
               },
             },
           },
@@ -439,63 +442,6 @@ export async function POST(
             (Array.isArray(existing?.sketchData?.objects) &&
               existing.sketchData.objects.some(isDataLessRoomPolygon)))));
 
-    // Every canonical claim image is rendered from allowlisted geometry on the
-    // server. Underlay pixels are never an input. An active underlay must also
-    // pass explicit technician verification before a canonical render exists.
-    let cleanRenderReceipt:
-      | { storagePath: string; renderSha256: string }
-      | undefined;
-    type CanonicalRenderMeta =
-      | { status: "stored" }
-      | { status: "skipped"; reason: string }
-      | { status: "failed"; reason: string };
-    let canonicalRenderMeta: CanonicalRenderMeta | undefined;
-    if (activeUnderlay) {
-      renderLocator = null;
-    }
-    if (requestCanonicalRender === true && skipEmptyOverwrite) {
-      // RA-7656: the stored drawing was kept, so its render stays too. A render
-      // of the empty blob would replace the report's floor image with a blank.
-      canonicalRenderMeta = {
-        status: "skipped",
-        reason: "The save carried no drawing; the stored floor-plan render was kept.",
-      };
-    } else if (
-      requestCanonicalRender === true &&
-      (!activeUnderlay || underlayVerification?.ok)
-    ) {
-      if (!isSupabaseServerConfigured()) {
-        canonicalRenderMeta = {
-          status: "skipped",
-          reason:
-            "Sketch storage is not configured on this environment; geometry was saved without a server PNG.",
-        };
-        renderLocator = existing?.renderedPngUrl ?? null;
-      } else {
-        try {
-          const { storeVerifiedCleanRender } = await import(
-            "@/lib/sketch/server-clean-render"
-          );
-          const clean = await storeVerifiedCleanRender(
-            id,
-            floorNumber,
-            securedSketchData,
-          );
-          renderLocator = clean.storageLocator;
-          cleanRenderReceipt = clean;
-          canonicalRenderMeta = { status: "stored" };
-        } catch (renderErr) {
-          const reason =
-            renderErr instanceof Error
-              ? renderErr.message
-              : "Canonical render failed";
-          console.error("[sketches] canonical render failed (non-fatal):", renderErr);
-          canonicalRenderMeta = { status: "failed", reason };
-          renderLocator = existing?.renderedPngUrl ?? null;
-        }
-      }
-    }
-
     const { resolveSketchCaptureAdapter } =
       await import("@/lib/sketch/ingest-roomplan");
     const captureAdapter = resolveSketchCaptureAdapter({
@@ -523,10 +469,18 @@ export async function POST(
         }
       }
     } catch (e) {
-      console.error(
-        "[sketches] inspection-wide AI room id load failed (non-fatal):",
-        e,
-      );
+      // RA-8239: without the job's record of AI rooms, a room the Vision
+      // import suggested on another floor would be stored and rendered as
+      // measured on the client's word. Refuse rather than resolve provenance
+      // blind; nothing is written, and the editor queues the save and retries.
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        message:
+          "The job's room history could not be read, so the floor plan was not saved. It will be retried.",
+        status: 503,
+        err: e,
+        stage: "ai-room-history",
+      });
     }
     const byFabric = new Map(
       existingRooms.map(
@@ -603,16 +557,75 @@ export async function POST(
       authoritativeSketchData = nextData;
     }
 
+    // Every canonical claim image is rendered from allowlisted geometry on the
+    // server. Underlay pixels are never an input. RA-8239: it is rendered from
+    // the server-trusted drawing (provenance resolved above), not from the
+    // tags the client posted, so an unconfirmed AI room never reaches it. An active underlay must also
+    // pass explicit technician verification before a canonical render exists.
+    let cleanRenderReceipt:
+      | { storagePath: string; renderSha256: string }
+      | undefined;
+    type CanonicalRenderMeta =
+      | { status: "stored" }
+      | { status: "skipped"; reason: string }
+      | { status: "failed"; reason: string };
+    let canonicalRenderMeta: CanonicalRenderMeta | undefined;
+    if (activeUnderlay) {
+      renderLocator = null;
+    }
+    if (requestCanonicalRender === true && skipEmptyOverwrite) {
+      // RA-7656: the stored drawing was kept, so its render stays too. A render
+      // of the empty blob would replace the report's floor image with a blank.
+      canonicalRenderMeta = {
+        status: "skipped",
+        reason: "The save carried no drawing; the stored floor-plan render was kept.",
+      };
+    } else if (
+      requestCanonicalRender === true &&
+      (!activeUnderlay || underlayVerification?.ok)
+    ) {
+      if (!isSupabaseServerConfigured()) {
+        canonicalRenderMeta = {
+          status: "skipped",
+          reason:
+            "Sketch storage is not configured on this environment; geometry was saved without a server PNG.",
+        };
+        renderLocator = existing?.renderedPngUrl ?? null;
+      } else {
+        try {
+          const { storeVerifiedCleanRender } = await import(
+            "@/lib/sketch/server-clean-render"
+          );
+          const clean = await storeVerifiedCleanRender(
+            id,
+            floorNumber,
+            authoritativeSketchData,
+          );
+          renderLocator = clean.storageLocator;
+          cleanRenderReceipt = clean;
+          canonicalRenderMeta = { status: "stored" };
+        } catch (renderErr) {
+          const reason =
+            renderErr instanceof Error
+              ? renderErr.message
+              : "Canonical render failed";
+          console.error("[sketches] canonical render failed (non-fatal):", renderErr);
+          canonicalRenderMeta = { status: "failed", reason };
+          renderLocator = existing?.renderedPngUrl ?? null;
+        }
+      }
+    }
+
     const sketchDataToPersist = skipEmptyOverwrite
       ? undefined
       : (authoritativeSketchData ?? undefined);
 
     // Verification belongs to the complete save + normalized room graph, not
-    // merely to a floor number. Revoke any previous verification before the
-    // new blob is written; only the successful graph-sync path below may grant
-    // it again. A graph failure therefore fails closed for report export.
-    if (activeUnderlay) {
-      await (prisma as any).sketchUnderlayReference.update({
+    // merely to a floor number. Revoke any previous verification as part of
+    // the write of the new blob; only the successful graph-sync path below may
+    // grant it again. A graph failure therefore fails closed for report export.
+    const revokeUnderlayVerification = (client: any) =>
+      client.sketchUnderlayReference.update({
         where: {
           id: activeUnderlay.id,
           ...(tenancy.data.childInspectionFilter && {
@@ -626,57 +639,95 @@ export async function POST(
           verificationJson: null,
         },
       });
+    // A new floor has no race guard; revoke first, as before.
+    if (activeUnderlay && !existing) {
+      await revokeUnderlayVerification(prisma);
     }
 
     // RA-8056: a save that carried a revision writes only while the row is
     // unchanged since it was read for the check above. Another write landing
-    // in between makes this one change no row (P2025); that is answered as a
-    // conflict below, before any room is synced. Nothing was written, so the
-    // editor keeps its edit and the newer floor stays as it is.
+    // in between makes this one change no row (P2025). Nothing was written,
+    // so the editor keeps its edit and the newer floor stays as it is.
+    // RA-8197: the revoke runs in the same transaction as the guarded write,
+    // so a save that loses the race revokes nothing. A P2025 is a conflict
+    // only when the drawing itself changed: if the caller lost access to the
+    // job it is answered as not found, and if only the row's timestamp moved
+    // (an underlay or other non-drawing write) the write is retried once.
     const guardRevision = !!existing && revision.kind === "at";
     const REVISION_LOST = Symbol("revision-lost");
+    const REACH_LOST = Symbol("reach-lost");
     let lostToRevision: string | null = null;
-    const onFloorWriteError = async (writeErr: unknown) => {
-      if (
-        guardRevision &&
-        (writeErr as { code?: unknown } | null)?.code === "P2025"
-      ) {
-        const current = await (prisma as any).claimSketch.findFirst({
-          where: { id: existing.id },
-          select: { sketchData: true },
-        });
-        if (current) {
-          lostToRevision = floorRevisionOf(current.sketchData);
-          return REVISION_LOST;
-        }
-      }
-      throw writeErr;
+    const floorData = {
+      sketchType,
+      sketchData: sketchDataToPersist,
+      renderedPngUrl: renderLocator,
+      backgroundImageUrl: backgroundImageUrl ?? undefined,
+      backgroundImageOpacity: opacity,
+      backgroundImageScale: bgScale,
+      backgroundImageOffsetX: bgOffsetX,
+      backgroundImageOffsetY: bgOffsetY,
+      moisturePoints: moisturePoints ?? undefined,
+      equipmentPoints: equipmentPoints ?? undefined,
+      country: country ?? undefined,
+      captureAdapter,
     };
-    const sketch = existing
-      ? await (prisma as any).claimSketch.update({
+    const writeExistingFloor = (updatedAt: unknown) => {
+      const update = (client: any) =>
+        client.claimSketch.update({
           // D-028: re-check the caller's reach inside the write itself.
           where: {
             id: existing.id,
-            ...(guardRevision && { updatedAt: existing.updatedAt }),
+            ...(guardRevision && { updatedAt }),
             ...(tenancy.data.childInspectionFilter && {
               inspection: tenancy.data.childInspectionFilter,
             }),
           },
-          data: {
-            sketchType,
-            sketchData: sketchDataToPersist,
-            renderedPngUrl: renderLocator,
-            backgroundImageUrl: backgroundImageUrl ?? undefined,
-            backgroundImageOpacity: opacity,
-            backgroundImageScale: bgScale,
-            backgroundImageOffsetX: bgOffsetX,
-            backgroundImageOffsetY: bgOffsetY,
-            moisturePoints: moisturePoints ?? undefined,
-            equipmentPoints: equipmentPoints ?? undefined,
-            country: country ?? undefined,
-            captureAdapter,
+          data: floorData,
+        });
+      if (!activeUnderlay) return update(prisma);
+      return (prisma as any).$transaction(async (tx: any) => {
+        const written = await update(tx);
+        await revokeUnderlayVerification(tx);
+        return written;
+      });
+    };
+    const writeGuardedFloor = async (
+      updatedAt: unknown,
+      retried: boolean,
+    ): Promise<any> => {
+      try {
+        return await writeExistingFloor(updatedAt);
+      } catch (writeErr) {
+        if (
+          !guardRevision ||
+          (writeErr as { code?: unknown } | null)?.code !== "P2025"
+        ) {
+          throw writeErr;
+        }
+        const current = await (prisma as any).claimSketch.findFirst({
+          where: {
+            id: existing.id,
+            ...(tenancy.data.childInspectionFilter && {
+              inspection: tenancy.data.childInspectionFilter,
+            }),
           },
-        }).catch(onFloorWriteError)
+          select: { sketchData: true, updatedAt: true },
+        });
+        if (!current) return REACH_LOST;
+        const currentRevision = floorRevisionOf(current.sketchData);
+        if (
+          !retried &&
+          currentRevision === storedRevision &&
+          current.updatedAt !== undefined
+        ) {
+          return writeGuardedFloor(current.updatedAt, true);
+        }
+        lostToRevision = currentRevision;
+        return REVISION_LOST;
+      }
+    };
+    const sketch = existing
+      ? await writeGuardedFloor(existing.updatedAt, false)
       : // D-028: a new floor is created inside a write that re-checks the
         // caller's reach, so a reassignment between the check and the
         // write changes 0 rows.
@@ -689,23 +740,12 @@ export async function POST(
                 inspectionId: id,
                 floorNumber,
                 floorLabel,
-                sketchType,
-                sketchData: sketchDataToPersist,
-                renderedPngUrl: renderLocator,
-                backgroundImageUrl: backgroundImageUrl ?? undefined,
-                backgroundImageOpacity: opacity,
-                backgroundImageScale: bgScale,
-                backgroundImageOffsetX: bgOffsetX,
-                backgroundImageOffsetY: bgOffsetY,
-                moisturePoints: moisturePoints ?? undefined,
-                equipmentPoints: equipmentPoints ?? undefined,
-                country: country ?? undefined,
-                captureAdapter,
+                ...floorData,
               },
             }),
         );
     if (sketch === REVISION_LOST) return revisionConflict(lostToRevision);
-    if (!sketch) {
+    if (!sketch || sketch === REACH_LOST) {
       return apiError(request, {
         code: "NOT_FOUND",
         message: "Inspection not found",
@@ -867,7 +907,7 @@ export async function POST(
           }
           // A room missing from the incoming canvas is only safe to delete when
           // nothing was captured in it. Deleting one that holds evidence would
-          // SetNull the room link on those pins/readings/hazards and silently lose
+          // SetNull the room link on those pins/readings/hazards/scope items and silently lose
           // which room they came from — see partitionStaleRooms.
           // RA-7656: when the stored drawing was kept, no room left the canvas.
           const staleRooms = skipEmptyOverwrite
@@ -978,8 +1018,10 @@ export async function POST(
           roomCount: underlayVerification.roomCount,
           pxPerMetre: underlayVerification.pxPerMetre,
           scaleDescription: underlayVerification.scaleDescription,
+          // RA-8239: the drawing that was rendered and stored, so the report's
+          // check of the stored sketchData against this receipt matches.
           sketchSha256: createHash("sha256")
-            .update(stableStringify(securedSketchData))
+            .update(stableStringify(authoritativeSketchData))
             .digest("hex"),
           renderSha256: cleanRenderReceipt?.renderSha256,
           storagePath: cleanRenderReceipt?.storagePath,

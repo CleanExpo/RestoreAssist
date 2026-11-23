@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Plus, Edit, Trash2, Download, Upload, X } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -73,12 +73,13 @@ export default function CostLibrariesPage() {
 
   const currentLibrary = libraries.find((l) => l.id === selectedLibrary);
 
-  // Fetch libraries from API
+  const selectedLibraryRef = useRef(selectedLibrary);
   useEffect(() => {
-    fetchLibraries();
-  }, []);
+    selectedLibraryRef.current = selectedLibrary;
+  }, [selectedLibrary]);
 
-  const fetchLibraries = async () => {
+  // Fetch libraries from API
+  const fetchLibraries = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
@@ -86,7 +87,7 @@ export default function CostLibrariesPage() {
       if (response.ok) {
         const data = await response.json();
         setLibraries(data.libraries);
-        if (data.libraries.length > 0 && !selectedLibrary) {
+        if (data.libraries.length > 0 && !selectedLibraryRef.current) {
           setSelectedLibrary(data.libraries[0].id);
         }
         setLoadError(null);
@@ -101,7 +102,11 @@ export default function CostLibrariesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchLibraries();
+  }, [fetchLibraries]);
 
   const handleAddLibrary = async () => {
     if (!formData.name || !formData.region) {
@@ -570,7 +575,7 @@ export default function CostLibrariesPage() {
                 <div className="p-6 rounded-lg border border-brand-mist dark:border-slate-700/50 bg-white dark:bg-slate-800/30">
                   <h3 className="font-semibold mb-4">Cost Items</h3>
                   <div className="space-y-2">
-                    {currentLibrary.items.map((item, i) => (
+                    {currentLibrary.items.map((item, _i) => (
                       <div
                         key={item.id}
                         className="flex items-center justify-between p-3 rounded-lg bg-brand-cream dark:bg-slate-700/20 border border-slate-600 hover:bg-brand-cream dark:hover:bg-slate-700/40 transition-colors"

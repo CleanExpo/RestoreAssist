@@ -15,7 +15,10 @@ import { readFileSync, readdirSync, statSync } from "fs";
 import { join, resolve } from "path";
 import { describe, expect, it } from "vitest";
 
-import { findUnpairedDarkClasses } from "@/lib/theme/dark-only-classes";
+import {
+  findSameToneTextOnFill,
+  findUnpairedDarkClasses,
+} from "@/lib/theme/dark-only-classes";
 
 const ROOT = resolve(__dirname, "../..");
 
@@ -39,27 +42,10 @@ function tsxUnder(dir: string): string[] {
 }
 
 /**
- * Dashboard files not light-ready yet. This list may only shrink. The admin
- * pages get their light pairs in RA-8383 slice 1b.
+ * Dashboard files not light-ready yet. This list may only shrink, and since
+ * RA-8383 slice 1b it is empty: every dashboard file must be light-ready.
  */
-const LIGHT_PENDING: string[] = [
-  "app/dashboard/admin/ai-lab/page.tsx",
-  "app/dashboard/admin/blocked-customers/page.tsx",
-  "app/dashboard/admin/cron-jobs/page.tsx",
-  "app/dashboard/admin/cron-runs/page.tsx",
-  "app/dashboard/admin/evidence-review/page.tsx",
-  "app/dashboard/admin/live-teacher/page.tsx",
-  "app/dashboard/admin/page.tsx",
-  "app/dashboard/admin/pilot/claim-002/page.tsx",
-  "app/dashboard/admin/pilot/claim-003/page.tsx",
-  "app/dashboard/admin/pilot/claim-004/page.tsx",
-  "app/dashboard/admin/pilot/page.tsx",
-  "app/dashboard/admin/restoration-insights/page.tsx",
-  "app/dashboard/admin/usage/page.tsx",
-  "app/dashboard/admin/users/page.tsx",
-  "app/dashboard/admin/video-analytics/page.tsx",
-  "app/dashboard/admin/workflows/page.tsx",
-];
+const LIGHT_PENDING: string[] = [];
 
 const DASHBOARD_FILES = tsxUnder("app/dashboard");
 const PENDING = new Set(LIGHT_PENDING);
@@ -212,4 +198,120 @@ describe("light-mode surfaces (RA-8305, RA-8383)", () => {
   it.each(SHARED_SURFACES)("%s has no dark-only colour class", (file) => {
     expect(hitsIn(file)).toEqual([]);
   });
+
+  it("flags text the same tone as its own fill, one class string at a time (slice 1b)", () => {
+    // The defect a pairing codemod made: a dark pill relit to bg-white, text left white.
+    expect(
+      findSameToneTextOnFill(`a = "bg-white dark:bg-slate-200 text-white dark:text-slate-900";`),
+    ).toEqual(["1:text-white on bg-white"]);
+    expect(findSameToneTextOnFill(`a = "bg-slate-900 text-brand-navy";`)).toEqual([
+      "1:text-brand-navy on bg-slate-900",
+    ]);
+    // Readable pairs and dark: values are fine.
+    expect(
+      findSameToneTextOnFill(`a = "bg-brand-navy dark:bg-slate-200 text-white dark:text-slate-900";`),
+    ).toEqual([]);
+    // Each ternary branch of a template literal is its own class string.
+    expect(
+      findSameToneTextOnFill(
+        "a = `p-2 ${on ? \"bg-brand-cta text-white\" : \"bg-brand-cream text-brand-slate\"}`;",
+      ),
+    ).toEqual([]);
+    expect(
+      findSameToneTextOnFill("a = `p-2\n ${on ? \"bg-white text-white\" : \"x\"}`;"),
+    ).toEqual(["2:text-white on bg-white"]);
+    // A branch is judged with the template's static classes (CodeRabbit, #2583).
+    expect(
+      findSameToneTextOnFill("a = `bg-white ${on ? \"text-white\" : \"text-black\"}`;"),
+    ).toEqual(["1:text-white on bg-white"]);
+    // Code left inside a string segment is not a static class string.
+    expect(
+      findSameToneTextOnFill("a = `x ${f(\"bg-white\")} <b className=text-white>`;"),
+    ).toEqual([]);
+    // A branch's own fill replaces the static one.
+    expect(
+      findSameToneTextOnFill("a = `bg-white ${on ? \"bg-brand-cta text-white\" : \"text-brand-navy\"}`;"),
+    ).toEqual([]);
+    // A translucent fill shows what is behind it; a bare dark island is dark by design.
+    expect(findSameToneTextOnFill(`a = "bg-white/10 text-white";`)).toEqual([]);
+    expect(findSameToneTextOnFill(`a = "dark bg-slate-900 text-slate-900";`)).toEqual([]);
+  });
+
+  it("judges every template combination, the four named limits of RA-8487", () => {
+    // (1) A branch holding only a size class does not hide the static text colour.
+    expect(
+      findSameToneTextOnFill("a = `bg-white text-white ${big ? \"text-lg\" : \"text-sm\"}`;"),
+    ).toEqual(["1:text-white on bg-white"]);
+    // ...and an image utility is not a fill that replaces the static one.
+    expect(
+      findSameToneTextOnFill("a = `bg-white ${on ? \"bg-cover text-white\" : \"\"}`;"),
+    ).toEqual(["1:text-white on bg-white"]);
+    // (2) Nested backtick branches are read.
+    expect(
+      findSameToneTextOnFill("a = `bg-white ${on ? `text-white` : `text-black`}`;"),
+    ).toEqual(["1:text-white on bg-white"]);
+    expect(
+      findSameToneTextOnFill("a = `p-2 ${on ? `bg-slate-900 ${b ? \"text-black\" : \"\"}` : \"\"}`;"),
+    ).toEqual(["1:text-black on bg-slate-900"]);
+    // (3) A static pair is not reported when every branch replaces the fill.
+    expect(
+      findSameToneTextOnFill(
+        "a = `bg-white text-white ${on ? \"bg-brand-cta\" : \"bg-brand-navy\"}`;",
+      ),
+    ).toEqual([]);
+    expect(
+      findSameToneTextOnFill("a = `bg-white text-white ${on ? \"bg-brand-cta\" : \"\"}`;"),
+    ).toEqual(["1:text-white on bg-white"]);
+    // (4) Classes from separate ${} blocks combine.
+    expect(
+      findSameToneTextOnFill(
+        "a = `p-2 ${on ? \"bg-white\" : \"bg-brand-cta\"} ${b ? \"text-white\" : \"\"}`;",
+      ),
+    ).toEqual(["1:text-white on bg-white"]);
+    // && renders its right side or nothing.
+    expect(findSameToneTextOnFill("a = `bg-white ${on && \"text-white\"}`;")).toEqual([
+      "1:text-white on bg-white",
+    ]);
+  });
+
+  it("resolves same-file consts and lookup tables, and reports what it cannot judge", () => {
+    expect(
+      findSameToneTextOnFill('const T = "text-white";\na = `bg-white ${T}`;'),
+    ).toEqual(["2:text-white on bg-white"]);
+    expect(
+      findSameToneTextOnFill(
+        'const C = { a: { bar: "bg-white" }, b: { bar: "bg-brand-cta" } };\na = `${C[k].bar} text-white`;',
+      ),
+    ).toEqual(["2:text-white on bg-white"]);
+    expect(
+      findSameToneTextOnFill(
+        'const C = { a: { bar: "bg-blue-500" }, b: { bar: "bg-brand-cta" } };\na = `${C[k].bar} text-white`;',
+      ),
+    ).toEqual([]);
+    // An interpolation that is not a listable class string, next to a toned
+    // static class, is a finding: it no longer passes silently.
+    expect(findSameToneTextOnFill("a = `bg-white ${pick(k)}`;")).toEqual([
+      "1:cannot judge ${pick(k)} with bg-white",
+    ]);
+    expect(findSameToneTextOnFill("a = `p-2 ${props.className}`;")).toEqual([]);
+    // Strings inside the unjudged call are still judged on their own.
+    expect(
+      findSameToneTextOnFill('a = `bg-white ${pick("bg-black text-black")}`;'),
+    ).toEqual([
+      '1:cannot judge ${pick("bg-black text-black")} with bg-white',
+      "1:text-black on bg-black",
+    ]);
+    // Too many combinations is reported, not skipped.
+    const many = Array.from({ length: 9 }, (_, i) => `\${c${i} ? "p-${i}" : "m-${i}"}`).join(" ");
+    expect(findSameToneTextOnFill(`a = \`bg-white ${many}\`;`)).toEqual([
+      "1:cannot judge more than 256 combinations with bg-white",
+    ]);
+  });
+
+  it.each([...DASHBOARD_FILES, ...SHARED_SURFACES])(
+    "%s has no text the same tone as its own fill",
+    (file) => {
+      expect(findSameToneTextOnFill(readFileSync(join(ROOT, file), "utf8"))).toEqual([]);
+    },
+  );
 });

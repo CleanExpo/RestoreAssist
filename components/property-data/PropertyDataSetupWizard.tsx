@@ -313,18 +313,20 @@ export function PropertyDataSetupWizard({
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                  Property Data Connected
+                  {testResult === "success"
+                    ? "Property Data Connected"
+                    : "Setup Finished"}
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                  You can now use the "Lookup Property Data" button inside any
-                  inspection to auto-fill property details and floor plans.
+                  {/* RA-7627: no inspection control fetches property data yet, so this screen
+                      must not promise one. */}
+                  The browser extension setup is complete. Property lookup
+                  inside an inspection is not available yet.
                 </p>
               </div>
               <div className="w-full p-3 bg-info-subtle rounded-lg text-xs text-info-subtle-foreground text-left">
-                <strong>Next step:</strong> Open an inspection, enter the
-                property address, then tap "Lookup Property Data". RestoreAssist
-                will pull beds, baths, land size, and any available floor plan
-                image automatically.
+                <strong>For now:</strong> enter the property details in the
+                inspection by hand.
               </div>
             </div>
           )}

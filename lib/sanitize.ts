@@ -31,6 +31,30 @@ export function sanitizeString(
 }
 
 /**
+ * RA-8516: undo the entity encoding sanitizeString applied on the way in,
+ * once, so a value stored as "O&#x27;Brien" reads as "O'Brien" again. Only
+ * the five entities sanitizeString writes (and the "&#039;" spelling
+ * escapeHtml uses) are decoded, in a single pass, so "&amp;lt;" becomes
+ * "&lt;", never "<". Escape the result again at render.
+ */
+const SANITIZED_ENTITY_DECODE: Record<string, string> = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#x27;": "'",
+  "&#039;": "'",
+  "&#39;": "'",
+};
+
+export function decodeSanitizedEntities(input: string): string {
+  return input.replace(
+    /&(?:amp|lt|gt|quot|#x27|#039|#39);/g,
+    (entity) => SANITIZED_ENTITY_DECODE[entity] ?? entity,
+  );
+}
+
+/**
  * Remove NUL bytes (U+0000), which Postgres TEXT/VARCHAR columns reject with
  * "08P01 insufficient data left in message". Unlike sanitizeString, this does
  * NOT strip HTML tags or entity-encode — it preserves the text verbatim, so it

@@ -108,4 +108,37 @@ describe("POST /api/authority-forms/sign/[token]", () => {
     // No completion side-effects fire on a rejected duplicate.
     expect(instanceUpdate).not.toHaveBeenCalled();
   });
+
+  it("RA-8400: refuses to sign a CANCELLED form and leaves its status alone", async () => {
+    sigFindUnique.mockResolvedValueOnce({
+      id: "s_1",
+      instanceId: "f_1",
+      signatoryName: "Margaret",
+      instance: { status: "CANCELLED" },
+    });
+
+    const res = await POST(postReq({ signatureData: "data:image/png;base64,AA" }), ctx());
+    expect(res.status).toBe(409);
+    expect(sigUpdateMany).not.toHaveBeenCalled();
+    expect(instanceUpdate).not.toHaveBeenCalled();
+  });
+
+  it("RA-8400: the signature write itself requires a form that accepts signatures", async () => {
+    // Form was open at the lookup but cancelled before the write: the write's
+    // own status filter matches 0 rows and nothing downstream runs.
+    sigFindUnique.mockResolvedValueOnce({
+      id: "s_1",
+      instanceId: "f_1",
+      signatoryName: "Margaret",
+      instance: { status: "PENDING_SIGNATURES" },
+    });
+    sigUpdateMany.mockResolvedValueOnce({ count: 0 });
+
+    const res = await POST(postReq({ signatureData: "data:image/png;base64,AA" }), ctx());
+    expect(res.status).toBe(400);
+    expect(sigUpdateMany.mock.calls[0][0].where).toMatchObject({
+      instance: { status: { notIn: ["CANCELLED", "COMPLETED"] } },
+    });
+    expect(instanceUpdate).not.toHaveBeenCalled();
+  });
 });

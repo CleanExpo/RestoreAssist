@@ -18,7 +18,7 @@
  *
  * See .claude/skills/rag-corpus-hygiene/SKILL.md.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 // Charge-out RATE signatures — a number bound to a PER-TIME unit. Deliberately
@@ -43,13 +43,31 @@ export function scanText(text) {
   return out;
 }
 
-/** All {file,line,text} rate hits under `dir` (.txt/.md, recursive). */
+/**
+ * All {file,line,text} rate hits under `dir` (.txt/.md, recursive).
+ *
+ * A symlinked folder inside the tree is not followed (RA-7790): a link that
+ * points back up the tree used to recurse until `statSync` threw ELOOP, so the
+ * CLI exited 2 having scanned nothing useful. A symlink to a file is still
+ * scanned. `dir` itself may be a symlink; only links found inside it are
+ * skipped.
+ */
 export function scanDir(dir) {
   const files = [];
   const walk = (d) => {
     for (const name of readdirSync(d)) {
       const p = join(d, name);
-      if (statSync(p).isDirectory()) walk(p);
+      const st = lstatSync(p);
+      if (st.isSymbolicLink()) {
+        let target;
+        try {
+          target = statSync(p);
+        } catch {
+          continue; // dangling or looping link: nothing to scan
+        }
+        if (target.isDirectory()) continue;
+        if (target.isFile() && /\.(txt|md)$/i.test(name)) files.push(p);
+      } else if (st.isDirectory()) walk(p);
       else if (/\.(txt|md)$/i.test(name)) files.push(p);
     }
   };

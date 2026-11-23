@@ -7,12 +7,6 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { extractTextFromPDF } from "./file-extraction";
-import {
-  retrieveRelevantStandards,
-  buildStandardsContextPrompt,
-  RetrievalQuery,
-} from "./standards-retrieval";
 import { performRevolutionaryGapAnalysis } from "./revolutionary-gap-analysis";
 import {
   createCachedSystemPrompt,
@@ -74,7 +68,7 @@ export interface GapAnalysisResult {
  * Perform enhanced gap analysis on a single PDF
  * Uses standards from Google Drive and comprehensive Australian standards
  */
-async function analyzeSinglePDF(
+async function _analyzeSinglePDF(
   file: { id: string; name: string; buffer: Buffer },
   anthropicApiKey: string,
   standardsContext?: string,
@@ -85,7 +79,7 @@ async function analyzeSinglePDF(
   const systemPrompt = `You are a senior water damage restoration consultant who cites IICRC standards by section number, and a compliance expert with 30+ years of experience in Australia. You are performing comprehensive gap analysis on completed claim reports to identify ALL missing elements, compliance gaps, and billable items.
 
 Your analysis must be thorough and identify:
-1. Missing IICRC compliance elements (with specific standard references)
+1. Missing IICRC-aligned elements (with specific standard references)
 2. Missing Australian standards compliance (AS/NZS, NCC, state codes)
 3. Missing OH&S/WHS requirements (Work Health and Safety Act, Safe Work Australia)
 4. Missing scope of works items that should be included
@@ -96,7 +90,7 @@ Your analysis must be thorough and identify:
 
 ${standardsContext ? `\n**RELEVANT STANDARDS FROM IICRC GOOGLE DRIVE:**\n${standardsContext}\n` : ""}
 
-**IICRC S500 Compliance Requirements (ANSI/IICRC S500:2021):**
+**IICRC S500-aligned elements to check (ANSI/IICRC S500:2021):**
 - Water category classification (Category 1, 2, or 3) with source identification
 - Water class determination (Class 1, 2, 3, or 4) with affected area calculations
 - Source of water identification and contamination assessment

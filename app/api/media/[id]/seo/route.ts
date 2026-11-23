@@ -27,6 +27,10 @@ import {
   generateGeoSnippet,
   type SeoAssetInput,
 } from "@/lib/media/seo-output";
+import {
+  alignedStandardForClaimType,
+  standardCite,
+} from "@/lib/nir-standards-mapping";
 
 // ── GET — fetch SEO structured data ───────────────────────────────────────
 
@@ -77,6 +81,8 @@ export async function GET(
             inspectionNumber: true,
             propertyAddress: true,
             propertyPostcode: true,
+            // RA-8282: the fallback description names the claim type's standard.
+            claimType: true,
           },
         },
         tags: { select: { category: true, value: true } },
@@ -311,9 +317,12 @@ function buildSocialMeta(params: {
     : postcode;
 
   const title = `${damageType} — ${location} Inspection`.trim();
+  // RA-7665 / RA-8282: no "water damage" assumption and no compliance claim.
+  // The standard is named only for a claim type that has one, as a reference.
+  const std = alignedStandardForClaimType(asset.inspection?.claimType);
   const description = asset.altText
     ? asset.altText
-    : `Professional water damage restoration documentation${location ? ` in ${location}` : ""}. Inspection photos documented with reference to IICRC S500:2021.`;
+    : `Professional restoration inspection documentation${location ? ` in ${location}` : ""}.${std ? ` Inspection photos recorded on a job aligned to IICRC ${standardCite(std)}.` : ""}`;
 
   return {
     ogTitle: title,

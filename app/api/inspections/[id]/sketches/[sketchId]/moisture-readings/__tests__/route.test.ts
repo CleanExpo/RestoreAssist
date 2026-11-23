@@ -41,6 +41,7 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { POST } from "../route";
+import { getDryStandard } from "@/lib/iicrc-dry-standards";
 
 const mockTenancy = assertInspectionAssignedWrite as unknown as ReturnType<
   typeof vi.fn
@@ -97,7 +98,8 @@ describe("POST moisture-readings", () => {
     expect(res.status).toBe(201);
     const created = p.sketchMoistureReading.create.mock.calls[0][0].data;
     expect(created.dryStandardMet).toBe(false);
-    expect(created.targetMc).toBe(16);
+    // RA-8510: timber framing takes the guide table's softwood value.
+    expect(created.targetMc).toBe(getDryStandard("softwood").dryThreshold);
     expect(created.materialId).toBe("mat_timber");
     expect(created.sketchId).toBe("s1");
   });

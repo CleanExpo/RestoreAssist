@@ -7,7 +7,7 @@
  *   GPT (gpt-5.4, gpt-5.4-mini)                  — OpenAI vision API
  *   Meta (muse-spark-1.3)                        — Meta Model API image understanding
  *
- * All output is structured as analysis results citing IICRC S500:2021 that
+ * All output is structured as analysis results aligned to IICRC S500:2021 that
  * populate inspection evidence fields automatically.
  *
  * RA-393: Phase 0.5 — BYOK Vision Extension
@@ -22,7 +22,6 @@ import {
   META_DEFAULT_CHAT_MODEL,
 } from "@/lib/workspace/provider-connections";
 import {
-  BYOK_ALLOWED_MODELS,
   type AllowedModel,
 } from "@/mobile/constants/byok";
 
@@ -93,7 +92,7 @@ export interface VisionAnalysisRequest {
   userId: string;
 }
 
-/** Structured vision output citing IICRC S500:2021 */
+/** Structured vision output aligned to IICRC S500:2021 */
 export interface S500VisionResult {
   /** Best-fit IICRC S500 damage category (1–3) */
   damageCategory: DamageCategory | null;

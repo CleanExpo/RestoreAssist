@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // Activation re-mints the NextAuth JWT before navigating — the setup gate in
 // proxy.ts reads `setupCompletedAt` off the token, so leaving on a stale one
@@ -28,7 +28,7 @@ const CHECKS_WITH_YELLOW = [
 ];
 
 function mockChecksFetch(rows: any[]) {
-  global.fetch = vi.fn((url: string, init?: any) => {
+  global.fetch = vi.fn((url: string, _init?: any) => {
     if (typeof url === 'string' && url.includes('/api/setup/checks')) {
       return Promise.resolve({
         ok: true,

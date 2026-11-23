@@ -117,7 +117,7 @@ const V1_FEATURES: MobileFeature[] = [
     id: "ai-reports",
     title: "AI report generation",
     description:
-      "Generate scope narratives that cite IICRC standards on-device using the technician's own API key, streamed via SSE.",
+      "Generate IICRC-aligned scope narratives on-device using the technician's own API key, streamed via SSE.",
     status: "done",
     icon: Zap,
   },
@@ -246,7 +246,7 @@ function FeatureStatusBadge({ status }: { status: FeatureStatus }) {
 }
 
 function FeatureRow({ feature }: { feature: MobileFeature }) {
-  const Icon = feature.icon;
+  const _Icon = feature.icon;
   return (
     <div
       className={cn(

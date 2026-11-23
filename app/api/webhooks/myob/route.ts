@@ -6,6 +6,9 @@ import {
   isUniqueConstraintError,
 } from "@/lib/webhook-idempotency";
 import { apiError } from "@/lib/api-errors";
+import { OAUTH_READY_STATUSES } from "@/lib/integrations/identity";
+import { resolveReadyWebhookIntegration, MAX_WEBHOOK_CANDIDATES } from "@/lib/integrations/webhook-binding";
+import { credentialPresentIds, OAUTH_IDENTITY_SELECT } from "@/lib/services/integrations/select-oauth";
 import { isWebhookEventFresh } from "@/lib/integrations/webhook-freshness";
 
 /**
@@ -117,22 +120,39 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Find the integration for this company file
-    const integration = await prisma.integration.findFirst({
-      where: {
-        provider: "MYOB",
-        companyId: companyFileId,
-        status: "CONNECTED",
-      },
+    // RA-8446: bind to the one connection for this company file that the
+    // readiness owner calls ready. MYOB keeps the company file id in tenantId
+    // (lib/integrations/myob/client.ts), which is the organisation the owner
+    // requires; companyId is read too so a legacy row is reported NOT_READY
+    // rather than unknown. An event whose only match is not ready is not
+    // stored (decision in lib/integrations/webhook-binding.ts).
+    const binding = await resolveReadyWebhookIntegration({
+      provider: "MYOB",
+      rows: await prisma.integration.findMany({
+        where: {
+          provider: "MYOB",
+          OR: [{ tenantId: companyFileId }, { companyId: companyFileId }],
+          status: { in: [...OAUTH_READY_STATUSES] },
+        },
+        select: OAUTH_IDENTITY_SELECT,
+        orderBy: { id: "asc" },
+        take: MAX_WEBHOOK_CANDIDATES + 1,
+      }),
+      // A companyId match counts only on a row with no tenantId, which the
+      // owner then refuses; it never binds to a row that names another file.
+      matches: row => row.tenantId === companyFileId ||
+        (!row.tenantId?.trim() && row.companyId === companyFileId),
+      credentialPresentIds: ids => credentialPresentIds(prisma, ids),
     });
 
-    if (!integration) {
+    if (!binding.ok) {
       console.warn(
-        `[MYOB Webhook] No active integration found for company ${companyFileId}`,
+        `[MYOB Webhook] Events not queued for company ${companyFileId}: ${binding.reason}${binding.reason === "NOT_READY" ? ` (${binding.detail})` : ""}`,
       );
       // Return 200 to prevent MYOB from retrying
       return NextResponse.json({ success: true, processed: 0 });
     }
+    const integration = binding.data;
 
     // Queue webhook events for async processing
     const queuedEvents = [];

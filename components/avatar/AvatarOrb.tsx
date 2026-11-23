@@ -64,6 +64,13 @@ const PUBLIC_CHAT_OFFLINE_MESSAGE =
 /** id of the screen-reader hint describing how to reposition the orb. */
 const ORB_MOVE_HINT_ID = "margot-orb-move-hint";
 
+/**
+ * When this matches, the greeting card never opens by itself. Below Tailwind's
+ * `sm` breakpoint (640px) the 224px card covers most of the screen's width,
+ * whatever the pointer type, so a narrow desktop window is treated like a phone.
+ */
+export const GREETING_SUPPRESS_QUERY = "(pointer: coarse), (max-width: 639px)";
+
 const PUBLIC_CHAT_RATE_LIMIT_MESSAGE =
   "I am getting a lot of questions right now. Give me a minute and try again.";
 
@@ -113,15 +120,18 @@ export function AvatarOrb({
     consumeDragSuppression,
   } = useDraggableOrb(size);
 
-  // Touch devices get no unprompted tooltip. The card is 224px wide and the
-  // screen it covers is the signup form, so on a phone the "helpful" greeting
-  // is the obstruction. Tapping Margot still opens her.
-  const [coarsePointer, setCoarsePointer] = useState(false);
+  // Touch devices and phone-width windows get no unprompted tooltip. The card
+  // is 224px wide and sits over whatever the page puts at the bottom of the
+  // screen: the signup form, or the home hero's "See how it works" link at
+  // 390px (RA-8532). On a phone the "helpful" greeting is the obstruction.
+  // Tapping Margot still opens her.
+  const [suppressGreeting, setSuppressGreeting] = useState(false);
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
-    const query = window.matchMedia("(pointer: coarse)");
-    setCoarsePointer(query.matches);
-    const onChange = (e: MediaQueryListEvent) => setCoarsePointer(e.matches);
+    const query = window.matchMedia(GREETING_SUPPRESS_QUERY);
+    setSuppressGreeting(query.matches);
+    const onChange = (e: MediaQueryListEvent) =>
+      setSuppressGreeting(e.matches);
     query.addEventListener?.("change", onChange);
     return () => query.removeEventListener?.("change", onChange);
   }, []);
@@ -135,14 +145,14 @@ export function AvatarOrb({
 
   // Show tooltip briefly on first load (only when chat isn't already open)
   useEffect(() => {
-    if (!entered || isChatOpen || coarsePointer) return;
+    if (!entered || isChatOpen || suppressGreeting) return;
     const t1 = setTimeout(() => setTooltipVisible(true), 800);
     const t2 = setTimeout(() => setTooltipVisible(false), 6000);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [entered, isChatOpen, coarsePointer]);
+  }, [entered, isChatOpen, suppressGreeting]);
 
   // Auto-play greeting if enabled (muted per browser policy)
   useEffect(() => {
@@ -375,7 +385,6 @@ export function AvatarOrb({
             {avatarImageUrl === MARGOT_AVATAR_ORB_PATH ? (
               <MargotAvatar size={size - 8} />
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={avatarImageUrl}
                 alt={`${MARGOT_DISPLAY_NAME} avatar`}

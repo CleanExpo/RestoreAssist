@@ -2,7 +2,7 @@
 // string or comment cannot hide a sink and a boolean use is not reported.
 import { describe, expect, it } from "vitest";
 // @ts-expect-error -- plain ESM script without type declarations
-import { findSinks } from "../check-api-error-sinks.mjs";
+import { findSinks } from "../lib/check-api-error-sinks.mjs";
 
 const kinds = (src: string) => findSinks(src, "x.tsx").map((f: { kind: string }) => f.kind);
 
@@ -55,6 +55,12 @@ describe("check-api-error-sinks guard", () => {
       ["setError(body[`err${'or'}`])", "setError("],
       ['setError(body[(0, "error")])', "setError("],
       ['new globalThis["Error" as const](body.error)', "new Error("],
+      // RA-8363: a receiver on the old logging list is still a body when its
+      // `.error` is read as a value rather than called.
+      ["new Error(logger.error)", "new Error("],
+      ["setError(log.error)", "setError("],
+      ["setError(toast.error)", "setError("],
+      ["const m = `Failed: ${console.error}`", "template literal"],
     ])("%s", (src, kind) => {
       expect(kinds(src)).toEqual([kind]);
     });
@@ -72,7 +78,8 @@ describe("check-api-error-sinks guard", () => {
       "setMsg(body.error && 'Save failed')",
       "new Error(data.error.message)",
       "console.error(body.error)",
-      "setError(toast.error)",
+      "toast.error(body.error)",
+      "logger.error(body.error)",
       "const s = 'setError(body.error)'",
       "// setError(body.error)",
       "setItems((p) => p.filter((i) => i.id !== body.error))",
@@ -88,6 +95,49 @@ describe("check-api-error-sinks guard", () => {
     ])("%s", (src) => {
       expect(kinds(src)).toEqual([]);
     });
+  });
+
+  // RA-8363: a state setter is whatever name useState hands back, not only a
+  // name that starts with `set`.
+  describe("treats every useState setter as a sink, whatever its name", () => {
+    it.each([
+      ["const [e, assignError] = useState('');\nassignError(data.error);", "assignError("],
+      ["const [e, assignError] = useState<string | null>(null);\nassignError(data.error);", "assignError("],
+      ["const [e, assignError] = React.useState('');\nassignError(data.error);", "assignError("],
+      ["const [e, onFail] = useState('');\nonFail(data[\"error\"]);", "onFail("],
+      ["const [e, report] = useState('');\nreport(`x ${data.error}`);", "template literal"],
+      ["const [e, report] = useState('');\n(0, report)(data.error);", "report("],
+      ["const [e, report] = useState('');\n(report)!(data.error);", "report("],
+    ])("%s", (src, kind) => {
+      expect(kinds(src)).toEqual([kind]);
+    });
+
+    it.each([
+      // Not a useState setter: a plain function, or the state value itself.
+      "assignError(data.error)",
+      "const [assignError, setIt] = useState('');\nassignError(data.error);",
+      "const [e, assignError] = useMemo(() => [1, 2], []);\nassignError(data.error);",
+      // The setter is bound in another file; obj.assignError is a different name.
+      "const [e, assignError] = useState('');\nobj.assignError(data.error);",
+      // Routed through the reader.
+      "const [e, assignError] = useState('');\nassignError(apiErrorMessage(data) ?? 'x');",
+    ])("%s", (src) => {
+      expect(kinds(src)).toEqual([]);
+    });
+  });
+
+  it("the three shapes from RA-8363 in one file are each reported", () => {
+    const src = [
+      "const [msg, assignError] = useState<string | null>(null);",
+      "assignError(data.error);",
+      'setError(data["error"]);',
+      "throw new Error(logger.error);",
+    ].join("\n");
+    expect(findSinks(src, "x.tsx").map((f: { line: number; kind: string }) => [f.line, f.kind])).toEqual([
+      [2, "assignError("],
+      [3, "setError("],
+      [4, "new Error("],
+    ]);
   });
 
   it("reports the line of the read", () => {

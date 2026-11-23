@@ -72,6 +72,7 @@ import {
   fieldAddonsTabVisible,
   isAdvancedMode,
   ADMIN_NAV_HREFS,
+  MANAGER_NAV_HREFS,
   platformNavHrefs,
   type ExperienceMode,
   type NavItem,
@@ -349,14 +350,13 @@ export default function DashboardShell({
       label: "Job schedule",
       href: "/dashboard/inspections/schedule",
     },
+    // RA-8523: one source (nav-config MANAGER_NAV_HREFS) for the manager items.
     ...(isManager
-      ? [
-          {
-            icon: Inbox,
-            label: "Completeness inbox",
-            href: "/dashboard/operations/completeness-inbox",
-          },
-        ]
+      ? MANAGER_NAV_HREFS.map((i) => ({
+          icon: Inbox,
+          label: i.label,
+          href: i.href,
+        }))
       : []),
     { icon: Users, label: "Clients", href: "/dashboard/clients" },
     { icon: Receipt, label: "Invoices", href: "/dashboard/invoices" },
@@ -669,7 +669,7 @@ export default function DashboardShell({
                         : "text-neutral-900 dark:text-slate-50",
                     )}
                   >
-                    Restore Assist
+                    RestoreAssist
                   </span>
                   <span
                     className={cn(

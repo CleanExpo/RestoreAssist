@@ -121,7 +121,7 @@ export default function CronJobsPage() {
   const getStatusBadge = (state: JobRunState) => {
     if (state.status === "success") {
       return (
-        <Badge className="gap-1 bg-green-500/10 text-green-600 dark:text-green-400">
+        <Badge className="gap-1 bg-green-500/10 text-green-700 dark:text-green-400">
           <CheckCircle className="h-3 w-3" />
           {state.message ?? "Success"}
         </Badge>
@@ -129,7 +129,7 @@ export default function CronJobsPage() {
     }
     if (state.status === "error") {
       return (
-        <Badge className="gap-1 bg-red-500/10 text-red-600 dark:text-red-400">
+        <Badge className="gap-1 bg-red-500/10 text-red-700 dark:text-red-400">
           <AlertCircle className="h-3 w-3" />
           {state.message ?? "Error"}
         </Badge>
@@ -149,7 +149,7 @@ export default function CronJobsPage() {
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Shield className="h-12 w-12 text-neutral-400" />
+        <Shield className="h-12 w-12 text-brand-slate dark:text-neutral-400" />
         <p className="text-neutral-600 dark:text-neutral-400">
           Admin access required
         </p>
@@ -181,7 +181,7 @@ export default function CronJobsPage() {
             Monitor and manually trigger scheduled background jobs
           </p>
         </div>
-        <Badge className="gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+        <Badge className="gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400">
           <Shield className="h-3 w-3" />
           Admin Only
         </Badge>
@@ -245,7 +245,7 @@ export default function CronJobsPage() {
                       <span className="font-medium text-neutral-900 dark:text-white text-sm">
                         {job.name}
                       </span>
-                      <code className="text-xs text-neutral-400 font-mono hidden sm:inline">
+                      <code className="text-xs text-brand-slate dark:text-neutral-400 font-mono hidden sm:inline">
                         {job.path}
                       </code>
                     </div>
