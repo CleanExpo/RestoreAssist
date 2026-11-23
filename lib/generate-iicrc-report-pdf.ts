@@ -61,6 +61,11 @@ import {
   type StandardKey,
 } from "@/lib/nir-standards-mapping";
 import { readEquipmentDeploymentLog } from "@/lib/reports/stored-equipment-pricing";
+import {
+  type AustralianComplianceReportRecord,
+  complianceAsbestosRows,
+  complianceJobPartyRows,
+} from "@/lib/reports/australian-compliance-report";
 
 /**
  * RA-8508: PDF moisture rows as owner inputs. Rows come from the relational
@@ -109,6 +114,8 @@ export interface IICRCReportData {
   /** RA-7686: the job's claim type and mould sampling record, for Section 6A. */
   claimType?: string | null;
   mouldAssessment?: MouldLabAssessment | null;
+  /** RA-8600: the job's AustralianComplianceRecord (job parties, asbestos). */
+  australianCompliance?: AustralianComplianceReportRecord | null;
   /** RA-7694: per-room odour, visible growth and staining, for Section 6C. */
   roomObservations?: ReportRoomObservation[] | null;
   /** Recorded observations beyond the bounded read, so the report can say so. */
@@ -557,7 +564,23 @@ export async function generateIICRCReportPDF(
   if (bizName) w.kv("Company:", bizName);
   if (abn) w.kv("ABN:", abn);
   if (bizAddress) w.kv("Company Address:", bizAddress);
+  // RA-8600: certification, licence and loss adjuster from the compliance
+  // record; no other table holds them, so nothing here prints twice.
+  for (const [label, value] of complianceJobPartyRows(data.australianCompliance)) {
+    w.kv(label, value);
+  }
   w.gap(8);
+
+  // ── SECTION 1A: Asbestos (RA-8600) ──────────────────────────────────────────
+  // Printed only when the technician recorded an asbestos fact. Informational:
+  // the WHS asbestos gate does not read this record.
+  const asbestosRows = complianceAsbestosRows(data.australianCompliance);
+  if (asbestosRows.length > 0) {
+    w.sectionHeader("SECTION 1A - ASBESTOS (AS RECORDED ON SITE)");
+    w.gap(4);
+    for (const [label, value] of asbestosRows) w.kv(label, value, 170);
+    w.gap(8);
+  }
 
   // ── SECTION 2: Water Damage Classification ───────────────────────────────────
   w.sectionHeader(

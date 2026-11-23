@@ -138,6 +138,24 @@ export async function GET(
                 iepAssessmentRequired: true,
               },
             },
+            // RA-8600: the "Australian Compliance" form's record. Only the
+            // fields the report prints; insurer, claim number, state and year
+            // built here duplicate other tables (RA-8335) and are not read.
+            australianComplianceRecord: {
+              select: {
+                lossAdjusterName: true,
+                lossAdjusterReference: true,
+                technicianCertification: true,
+                technicianLicenseNumber: true,
+                asbestosRiskAcknowledged: true,
+                friableAssessment: true,
+                workHalted: true,
+                licensedAssessorName: true,
+                licensedAssessorLicense: true,
+                removalQuoteAud: true,
+                separateInvoiceRequired: true,
+              },
+            },
             // RA-7694: Section 6C (room observations). Bounded read.
             roomObservations: {
               orderBy: { observedAt: "asc" },
@@ -284,6 +302,7 @@ export async function GET(
         : null,
       claimType: report.inspection?.claimType ?? null,
       mouldAssessment: report.inspection?.mouldRemediationAssessment ?? null,
+      australianCompliance: report.inspection?.australianComplianceRecord ?? null,
       roomObservations: report.inspection?.roomObservations ?? [],
       // Said in the PDF, never silent: how many were beyond the bounded read.
       roomObservationsOmitted: Math.max(
