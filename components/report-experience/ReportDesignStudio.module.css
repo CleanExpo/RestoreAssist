@@ -192,7 +192,7 @@
 @media (max-width: 1050px) { .themeGrid { grid-template-columns: repeat(5,minmax(0,1fr)); } .modules,.report[data-theme="technical-dashboard"] .modules,.report[data-theme="visual-storytelling"] .modules { grid-template-columns: 1fr 1fr; } .report[data-theme="visual-storytelling"] .moduleCard:first-child,.report[data-theme="technical-dashboard"] .moduleCard:first-child { grid-column: 1/-1; } }
 @media (max-width: 750px) {
  .studio { padding: 17px; }
- .studioHead { display: block; } .demoStamp { display: inline-block; margin-top: 15px; }
+ .studioHead { display: block; } .demoStamp { display: inline-block; margin-top: 15px; white-space: normal; max-width: 100%; }
  .themeGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
  .controls { align-items: stretch; }.controlButtons { margin-top: 12px; }
  .report { min-height: 0; font-size: 13px; }

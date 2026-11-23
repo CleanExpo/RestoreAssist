@@ -219,7 +219,8 @@ test.describe("the canary can fail: each fault planted in the live page is caugh
   test("an unlabelled image", async ({ page }) => {
     await open(page);
     expect(await axeFindings(page)).toEqual([]);
-    await page.evaluate(() => { document.body.insertAdjacentHTML("beforeend", '<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">'); });
+    // Plant it inside <main>: axe only scans main and the standards panel, so an image on <body> is outside its reach.
+    await page.evaluate(() => { document.querySelector("main")!.insertAdjacentHTML("beforeend", '<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">'); });
     expect((await axeFindings(page)).some((f) => f.detail.startsWith("image-alt"))).toBe(true);
   });
 
@@ -242,7 +243,12 @@ test.describe("the canary can fail: each fault planted in the live page is caugh
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
     const page = await context.newPage();
     await open(page);
-    await page.getByRole("button", { name: "Preview motion" }).click();
+    // The first click can land before hydration; retry until the page is animating.
+    await expect(async () => {
+      await page.getByRole("button", { name: "Preview motion" }).click();
+      await expect(report(page)).toHaveAttribute("data-animated", "true", { timeout: 1500 });
+    }).toPass({ timeout: 45_000 });
+    await expect(report(page).locator("[class*='ganttMotion']").first()).toBeAttached(); // the probe has a subject
     const running = () => report(page).evaluate((el) => el.getAnimations({ subtree: true }).filter((a) => a.playState === "running" && Number(a.effect?.getComputedTiming().duration ?? 0) > 50).length);
     expect(await running()).toBe(0);
     // Undo the stylesheet's reduce branch for the bar the Gantt animates.
@@ -260,6 +266,7 @@ test.describe("the canary can fail: each fault planted in the live page is caugh
     const read = () => report(page).evaluate((el) => { const s = getComputedStyle(el); return { background: s.backgroundColor, ink: s.color }; });
     expect(findPrintProblems(await read())).toEqual([]);
     await page.addStyleTag({ content: "@media print { #visual-report-content { background: rgb(10, 25, 47) !important; color: rgb(255, 255, 255) !important; } }" });
+    await settled(page); // colours ease in over 200ms; read only once they have landed
     expect(findPrintProblems(await read()).length).toBeGreaterThan(0);
   });
 });
