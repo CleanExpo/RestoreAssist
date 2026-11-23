@@ -15,6 +15,7 @@ import { pinsToMoistureReadingInputs } from "@/lib/sketch/moisture-readings-sync
 import {
   extractRoomGraphNodes,
   partitionStaleRooms,
+  NO_ROOM_DEPENDENTS,
   applyRoomProvenanceToSketchData,
 } from "@/lib/sketch/sync-room-graph";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
@@ -925,9 +926,21 @@ export async function POST(
             : [...partition.detachableIds, ...partition.deletableIds];
 
           if (deletableIds.length && ownerReach) {
-            await db.sketchRoom.deleteMany({
-              where: { id: { in: deletableIds } },
+            // The counts above were read earlier; an evidence item, scope item
+            // or contents item can be filed against the room before this
+            // statement runs, and deleting the room would SetNull its link. So
+            // the delete itself only matches a room that still has no
+            // dependent (RA-8501 review), and any room it spared is detached.
+            const removed = await db.sketchRoom.deleteMany({
+              where: { id: { in: deletableIds }, ...NO_ROOM_DEPENDENTS },
             });
+            if ((removed?.count ?? 0) < deletableIds.length) {
+              // Only a room the delete spared still exists to be stamped.
+              await db.sketchRoom.updateMany({
+                where: { id: { in: deletableIds }, detachedAt: null },
+                data: { detachedAt: new Date() },
+              });
+            }
           }
           if (detachableIds.length) {
             // Only stamp rooms detaching for the first time, so a room that stays

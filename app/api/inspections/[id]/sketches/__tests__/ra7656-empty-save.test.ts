@@ -61,7 +61,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: vi.fn(),
       create: vi.fn(async () => ({ id: "sr_new" })),
       update: vi.fn(async () => ({ id: "sr_existing" })),
-      deleteMany: vi.fn(async () => ({ count: 0 })),
+      deleteMany: vi.fn(async (a?: { where?: { id?: { in?: string[] } } }) => ({ count: a?.where?.id?.in?.length ?? 0 })),
       updateMany: vi.fn(async () => ({ count: 0 })),
     },
     sketchMoistureReading: {
@@ -227,8 +227,8 @@ describe("RA-7656 positive control", () => {
 
     expect(res.status).toBe(201);
     expect(p.sketchRoom.deleteMany).toHaveBeenCalledTimes(1);
-    expect(p.sketchRoom.deleteMany.mock.calls[0][0]).toEqual({
-      where: { id: { in: ["sr_kitchen"] } },
+    expect(p.sketchRoom.deleteMany.mock.calls[0][0]).toMatchObject({
+      where: { id: { in: ["sr_kitchen"] }, evidencePins: { none: {} }, contentsPackOutItems: { none: {} } },
     });
     expect(p.sketchRoom.updateMany).not.toHaveBeenCalled();
     expect(p.sketchRoom.update).toHaveBeenCalledTimes(1);
@@ -470,7 +470,7 @@ describe("RA-7656 user-removed-rooms intent", () => {
     expect(data.renderedPngUrl).toBe(
       "storage://sketch-media/inspections/i1/exports/verified/floor-0-new.png",
     );
-    expect(p.sketchRoom.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["sr_kitchen"] } } });
+    expect(p.sketchRoom.deleteMany).toHaveBeenCalledWith({ where: expect.objectContaining({ id: { in: ["sr_kitchen"] } }) });
     expect(p.sketchRoom.updateMany).toHaveBeenCalledTimes(1);
     expect(p.sketchRoom.updateMany.mock.calls[0][0].where).toEqual({
       id: { in: ["sr_laundry"] },
@@ -499,7 +499,7 @@ describe("RA-7656 user-removed-rooms intent", () => {
 
     expect(res.status).toBe(201);
     expect(p.claimSketch.update.mock.calls[0][0].data.sketchData).toEqual(cleared);
-    expect(p.sketchRoom.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["sr_kitchen"] } } });
+    expect(p.sketchRoom.deleteMany).toHaveBeenCalledWith({ where: expect.objectContaining({ id: { in: ["sr_kitchen"] } }) });
     expect(p.sketchRoom.updateMany.mock.calls[0][0].where).toEqual({
       id: { in: ["sr_laundry"] },
       detachedAt: null,

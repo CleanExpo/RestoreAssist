@@ -78,6 +78,28 @@ function xy(p: Point): { x: number; y: number } {
 
 
 
+/**
+ * Every relation that points at SketchRoom with onDelete: SetNull, so deleting
+ * a room that has any of them silently blanks the room link. The one list the
+ * delete's own `where` reads (NO_ROOM_DEPENDENTS), so a dependent that arrives
+ * between the count read and the delete (RA-8501 review) keeps its room: the
+ * delete matches only a room that still has none, and the survivor is detached.
+ * partitionStaleRooms sums the same relations from counts.
+ */
+export const ROOM_DEPENDENT_RELATIONS = [
+  "evidencePins",
+  "moistureReadings",
+  "hazards",
+  "jobMoistureReadings",
+  "scopeItems",
+  "contentsPackOutItems",
+] as const;
+
+/** Prisma `where` fragment: the room has no dependent of any kind. */
+export const NO_ROOM_DEPENDENTS = Object.fromEntries(
+  ROOM_DEPENDENT_RELATIONS.map((relation) => [relation, { none: {} }]),
+);
+
 /** A room that is no longer present in the incoming canvas. */
 export interface StaleRoom {
   id: string;

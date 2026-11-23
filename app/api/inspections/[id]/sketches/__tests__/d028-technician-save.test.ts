@@ -59,7 +59,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: vi.fn(),
       create: vi.fn(async () => ({ id: "sr_new" })),
       update: vi.fn(async () => ({ id: "sr_existing" })),
-      deleteMany: vi.fn(async () => ({ count: 0 })),
+      deleteMany: vi.fn(async (a?: { where?: { id?: { in?: string[] } } }) => ({ count: a?.where?.id?.in?.length ?? 0 })),
       updateMany: vi.fn(async () => ({ count: 0 })),
     },
     sketchMoistureReading: {
@@ -193,7 +193,7 @@ describe("sketch POST by the assigned technician (D-028)", () => {
     const res = await save();
     expect(res.status).toBe(201);
     expect(p.sketchElement.deleteMany).toHaveBeenCalledWith({ where: { sketchId: "s_1" } });
-    expect(p.sketchRoom.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["sr_stale"] } } });
+    expect(p.sketchRoom.deleteMany).toHaveBeenCalledWith({ where: expect.objectContaining({ id: { in: ["sr_stale"] } }) });
     expect(p.sketchMoistureReading.deleteMany).toHaveBeenCalledWith({
       where: { sketchId: "s_1", source: "pin" },
     });

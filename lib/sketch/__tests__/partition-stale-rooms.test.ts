@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   partitionStaleRooms,
+  ROOM_DEPENDENT_RELATIONS,
   resolveFabricObjectId,
   type StaleRoom,
 } from "../sync-room-graph";
@@ -59,6 +60,19 @@ describe("partitionStaleRooms", () => {
     expect(deletableIds).toEqual([]);
     expect(detachableIds).toEqual(["room-1"]);
   });
+
+  // One list owns the SetNull dependents (the delete's own where reads it too);
+  // a relation added to it but missed by the count sum would be deleted here.
+  it.each(ROOM_DEPENDENT_RELATIONS)(
+    "never deletes a stale room holding a %s dependent",
+    (relation) => {
+      const { deletableIds, detachableIds } = partitionStaleRooms([
+        withCounts("room-1", { [relation]: 1 }),
+      ]);
+      expect(deletableIds).toEqual([]);
+      expect(detachableIds).toEqual(["room-1"]);
+    },
+  );
 
   it("splits a mixed batch, keeping every room that holds evidence", () => {
     const { deletableIds, detachableIds } = partitionStaleRooms([
