@@ -36,7 +36,7 @@ const CLIENT = {
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-02T00:00:00.000Z",
   totalRevenue: 1000,
-  lastJob: null,
+  lastReportAt: null,
   reportsCount: 0,
 };
 

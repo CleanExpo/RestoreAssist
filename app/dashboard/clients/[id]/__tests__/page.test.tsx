@@ -36,7 +36,7 @@ const CLIENT_A = {
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-02T00:00:00.000Z",
   totalRevenue: 1000,
-  lastJob: "Job A",
+  lastReportAt: null,
   reportsCount: 0,
   reports: [],
 };
@@ -293,5 +293,32 @@ describe("ClientDetailPage — race guard on fast client switch (Bug 3)", () => 
     expect(screen.queryByText("INSP-A-001")).not.toBeInTheDocument();
     expect(screen.queryByText("1 Alpha St")).not.toBeInTheDocument();
     expect(screen.getByText("INSP-B-001")).toBeInTheDocument();
+  });
+});
+
+// RA-8384: "Last Job" is formatted on the screen from the ISO moment, never
+// taken as server-built text (which followed the server's default country).
+describe("ClientDetailPage — last job date (RA-8384)", () => {
+  it("shows lastReportAt as dd/mm/yyyy", async () => {
+    vi.stubGlobal(
+      "fetch",
+      routeFetch({
+        client: () => okJson({ ...CLIENT_A, lastReportAt: "2026-11-03T02:00:00.000Z" }),
+      }),
+    );
+    renderPage("client-a");
+    await waitFor(() =>
+      expect(screen.getByText("Alpha Restorations")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Last Job").nextElementSibling).toHaveTextContent("03/11/2026");
+  });
+
+  it("shows Never when the client has no job", async () => {
+    vi.stubGlobal("fetch", routeFetch({}));
+    renderPage("client-a");
+    await waitFor(() =>
+      expect(screen.getByText("Alpha Restorations")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Last Job").nextElementSibling).toHaveTextContent("Never");
   });
 });

@@ -14,7 +14,6 @@ export interface Client {
   createdAt: string;
   updatedAt: string;
   totalRevenue: number;
-  lastJob: string;
   reportsCount: number;
   // RA-1204 — surfaced for the Client Name cell preview: relative "last
   // report" line + "N open" / "No open jobs" badge. Optional so older

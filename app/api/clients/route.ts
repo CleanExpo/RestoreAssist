@@ -142,9 +142,6 @@ export async function GET(request: NextRequest) {
       return {
         ...client,
         totalRevenue: (invoicedMap.get(client.id) ?? 0) / 100,
-        lastJob: lastReportAt
-          ? new Date(lastReportAt).toLocaleDateString()
-          : "Never",
         lastReportAt: lastReportAt ? lastReportAt.toISOString() : null,
         openJobCount: openMap.get(client.id) ?? 0,
         reportsCount: s?._count._all ?? 0,
@@ -272,7 +269,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         ...client,
         totalRevenue: 0,
-        lastJob: "Never",
+        lastReportAt: null,
         reportsCount: 0,
       });
     } catch (error) {

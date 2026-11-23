@@ -65,7 +65,7 @@ interface Client {
   // null for a user who may not see money (RA-8494).
   totalRevenue: number | null;
   invoicedCount: number;
-  lastJob: string;
+  lastReportAt: string | null;
   reportsCount: number;
   reports: Array<{
     id: string;
@@ -445,7 +445,7 @@ export default function ClientDetailPage() {
             )}
             <div className="flex items-center justify-between">
               <span className="text-brand-slate dark:text-slate-400">Last Job</span>
-              <span className="text-brand-slate dark:text-slate-300">{client.lastJob}</span>
+              <span className="text-brand-slate dark:text-slate-300">{client.lastReportAt ? formatDate(client.lastReportAt) : "Never"}</span>
             </div>
             {client.totalRevenue != null && (
               <div className="flex items-center justify-between">

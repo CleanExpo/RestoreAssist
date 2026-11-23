@@ -67,7 +67,7 @@ const listed = {
   status: "ACTIVE",
   reportsCount: 2,
   totalRevenue: 0,
-  lastJob: "Never",
+  lastReportAt: null,
 };
 
 const fetchMock = vi.fn(async (url: string) => {

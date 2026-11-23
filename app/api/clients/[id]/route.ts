@@ -124,7 +124,9 @@ export async function GET(
     ]);
     const costVisible = new Set(reportsWithCost.map((report) => report.id));
 
-    const lastJob =
+    // RA-8384: send the moment, not text. The server does not know the
+    // reader's country or zone; the screen formats it.
+    const lastReportAt =
       client.reports.length > 0 ? client.reports[0].createdAt : null;
 
     // RA-8494: revenue and report costs go only to a caller who may see money.
@@ -136,7 +138,7 @@ export async function GET(
       })),
       totalRevenue: (invoiced._sum.totalIncGST ?? 0) / 100,
       invoicedCount: invoiced._count,
-      lastJob: lastJob ? new Date(lastJob).toLocaleDateString() : "Never",
+      lastReportAt: lastReportAt ? new Date(lastReportAt).toISOString() : null,
       reportsCount: client._count.reports,
     };
     return NextResponse.json(await moneySafe(session, body));

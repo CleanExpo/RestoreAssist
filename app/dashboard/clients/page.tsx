@@ -44,6 +44,7 @@ import type { DataSource } from "@/lib/synced-data/types";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
+import { formatDate } from "@/lib/formatters";
 
 // RA-1204 — Relative-time formatter for the "Last report: 3 days ago"
 // preview under each client name. Uses Intl.RelativeTimeFormat (native,
@@ -710,7 +711,9 @@ export default function ClientsPage() {
                             : `$${client.totalRevenue.toLocaleString()} invoiced`}
                         </span>
                         <span className="text-neutral-500 dark:text-slate-500 truncate">
-                          {client.lastJob || "No jobs yet"}
+                          {client.lastReportAt
+                            ? formatDate(client.lastReportAt)
+                            : "No jobs yet"}
                         </span>
                       </div>
                     </div>
@@ -938,7 +941,9 @@ export default function ClientsPage() {
                             "text-neutral-600 dark:text-slate-400",
                           )}
                         >
-                          {client.lastJob || "—"}
+                          {client.lastReportAt
+                            ? formatDate(client.lastReportAt)
+                            : "—"}
                         </td>
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-2">

@@ -57,7 +57,7 @@ const listed = {
   reportsCount: 2,
   totalRevenue: 1234.5,
   invoicedCount: 3,
-  lastJob: "5 days ago",
+  lastReportAt: null,
 };
 
 let putBody: Record<string, unknown>;
