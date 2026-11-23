@@ -58,11 +58,13 @@ describe("GET /api/reports/[id]/download", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 404 when the session user no longer exists", async () => {
+  // RA-8494: the price gate runs first and fails closed on a missing user row.
+  it("refuses with 403 when the session user no longer exists", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
     userFindUnique.mockResolvedValueOnce(null);
     const res = await GET(req(), ctx);
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
+    expect(reportFindFirst).not.toHaveBeenCalled();
   });
 
   it("returns 402 when the subscription is not active", async () => {
