@@ -5,6 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { NotificationType } from "@prisma/client";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
 import { apiError } from "@/lib/api-errors";
+import {
+  RELEASE_FANOUT_PAGE_SIZE,
+  RELEASE_NOTES_FAILED,
+  RELEASE_NOTES_PENDING,
+  RELEASE_NOTICE_LINK,
+  releaseVersionLabel,
+} from "@/lib/releases/release-state";
 
 function verifySignature(
   payload: string,
@@ -23,24 +30,6 @@ function verifySignature(
     return false;
   }
   return crypto.timingSafeEqual(digestBuf, signatureBuf);
-}
-
-function deriveVersion(commits: Array<{ message: string }>): string {
-  // Bump based on conventional commits: breaking → major, feat → minor, fix → patch
-  // Default: bump patch from package.json version
-  const messages = commits.map((c) => c.message.toLowerCase());
-  const hasMajor = messages.some(
-    (m) => m.includes("breaking") || m.includes("!:"),
-  );
-  const hasMinor = messages.some((m) => m.startsWith("feat"));
-
-  // Read current version from package.json (baked at build time via env or fallback)
-  const current = process.env.npm_package_version || "1.0.0";
-  const [major, minor, patch] = current.split(".").map(Number);
-
-  if (hasMajor) return `${major + 1}.0.0`;
-  if (hasMinor) return `${major}.${minor + 1}.0`;
-  return `${major}.${minor}.${patch + 1}`;
 }
 
 async function generateReleaseNotes(
@@ -180,13 +169,22 @@ export async function POST(req: NextRequest) {
 
   const commits = payload.commits || [];
   const commitSha = payload.after;
-  const version = deriveVersion(commits);
+  if (!commitSha) {
+    return NextResponse.json({ data: "ignored — no commit sha" });
+  }
 
-  // Skip if this version already exists (idempotent)
-  const existing = await prisma.appRelease.findUnique({ where: { version } });
+  // RA-8607: a release is keyed on the pushed commit, not on a version
+  // derived from the constant package.json version. The old version key
+  // could only take three values, so every push after the third was
+  // silently skipped as "already processed".
+  const existing = await prisma.appRelease.findFirst({
+    where: { commitSha },
+    select: { id: true },
+  });
   if (existing) {
     return NextResponse.json({ data: "already processed" });
   }
+  const version = releaseVersionLabel(commits, commitSha);
 
   // Create the release record immediately with placeholder notes so we can
   // return 200 before the AI call (prevents GitHub's 10-second timeout).
@@ -197,7 +195,7 @@ export async function POST(req: NextRequest) {
       data: {
         version,
         title: `Version ${version}`,
-        notes: "Release notes generating…",
+        notes: RELEASE_NOTES_PENDING,
         commitSha,
         githubDeliveryId: deliveryId || null,
       },
@@ -221,35 +219,56 @@ export async function POST(req: NextRequest) {
         data: { title, notes },
       });
 
-      // Fan-out: create a notification for every active user
-      const users = await prisma.user.findMany({
-        where: {
-          OR: [
-            { subscriptionStatus: { in: ["ACTIVE", "TRIAL"] } },
-            { lifetimeAccess: true },
-          ],
-        },
-        select: { id: true },
-        take: 5000,
-      });
+      // Fan-out: a notification for every active user, read in ordered
+      // pages so no user is dropped (RA-8607: the old single read stopped
+      // at 5000 with no order and no signal).
+      let cursor: string | undefined;
+      for (;;) {
+        const users = await prisma.user.findMany({
+          where: {
+            OR: [
+              { subscriptionStatus: { in: ["ACTIVE", "TRIAL"] } },
+              { lifetimeAccess: true },
+            ],
+          },
+          select: { id: true },
+          orderBy: { id: "asc" },
+          take: RELEASE_FANOUT_PAGE_SIZE,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        });
+        if (users.length === 0) break;
 
-      if (users.length > 0) {
         await prisma.notification.createMany({
           data: users.map((u) => ({
             userId: u.id,
             title,
             message: `See what's new in ${version}`,
             type: "INFO" as NotificationType,
-            link: `/dashboard?release=${release.id}`,
+            link: RELEASE_NOTICE_LINK,
           })),
-          skipDuplicates: true,
         });
+
+        if (users.length < RELEASE_FANOUT_PAGE_SIZE) break;
+        cursor = users[users.length - 1].id;
       }
     } catch (err) {
       console.error(
         "[github-webhook] Background release-notes job failed:",
         err,
       );
+      // RA-8607: mark the row failed so it is never shown as ready and is
+      // told apart from a job still running. The unseen route hides it.
+      await prisma.appRelease
+        .update({
+          where: { id: release.id },
+          data: { notes: RELEASE_NOTES_FAILED },
+        })
+        .catch((markErr: unknown) =>
+          console.error(
+            "[github-webhook] Could not mark release notes failed:",
+            markErr,
+          ),
+        );
       await recordWebhookFailure({
         provider: "github",
         externalEventId: deliveryId,
