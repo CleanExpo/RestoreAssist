@@ -57,7 +57,7 @@ const listed = {
   reportsCount: 2,
   totalRevenue: 1234.5,
   invoicedCount: 3,
-  lastReportAt: null,
+  lastReportAt: "2026-10-01T02:00:00.000Z",
 };
 
 let putBody: Record<string, unknown>;
@@ -103,6 +103,6 @@ describe("editing a client on the list (RA-8146)", () => {
       expect(screen.queryAllByText("Harbour Strata Pty Ltd").length).toBeGreaterThan(0),
     );
     expect(screen.queryAllByText(/1,234/).length).toBeGreaterThan(0);
-    expect(screen.queryAllByText("5 days ago").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("01/10/2026").length).toBeGreaterThan(0);
   });
 });
