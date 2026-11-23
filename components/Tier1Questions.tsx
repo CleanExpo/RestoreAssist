@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AlertCircle, Save, ArrowRight, Zap } from "lucide-react";
+import { AlertCircle, Save, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface Tier1QuestionsProps {
@@ -227,33 +227,6 @@ export default function Tier1Questions({
     });
   };
 
-  // Quick Fill for Tier 1 Advanced Questions Only
-  const handleQuickFill = () => {
-    setResponses((prev) => ({
-      ...prev,
-      // Only fill Tier 1 advanced questions, not basic information
-      T1_Q1_propertyType: "Multi-storey residential (2+ storeys)",
-      T1_Q1_propertyTypeOther: "",
-      T1_Q2_constructionYear: "2000-2010",
-      T1_Q3_waterSource: "Burst pipe (clean water — Category 1)",
-      T1_Q3_waterSourceOther: "",
-      T1_Q4_occupancyStatus: "Occupied — no vulnerable persons",
-      T1_Q4_petsPresent: "2 dogs, 1 cat",
-      T1_Q5_roomsAffected:
-        "Master Bedroom: Floor and lower wall sections affected. Ensuite: Floor, vanity cabinet base, and lower wall sections. Hallway: Floor only, minimal wall contact.",
-      T1_Q6_materialsAffected: [
-        "Carpet on concrete slab",
-        "Plasterboard walls",
-        "Insulation in cavities",
-      ],
-      T1_Q6_materialsOther: "",
-      T1_Q7_hazards: ["None identified"],
-      T1_Q7_hazardsOther: "",
-      T1_Q8_waterDuration: "24-48 hours",
-    }));
-    toast.success("Tier 1 advanced questions filled with test data");
-  };
-
   return (
     <div className="space-y-6">
       <div className="p-4 rounded-lg border-2 border-red-500/50 bg-red-50 dark:bg-red-500/10">
@@ -264,14 +237,6 @@ export default function Tier1Questions({
               TIER 1: CRITICAL QUESTIONS
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={handleQuickFill}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
-          >
-            <Zap className="w-4 h-4" />
-            Quick Fill Tier 1
-          </button>
         </div>
         <p className="text-sm text-slate-700 dark:text-slate-300">
           Review and refine the basic information, then answer the advanced

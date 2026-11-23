@@ -6,7 +6,6 @@ import {
   Save,
   ArrowRight,
   SkipForward,
-  Zap,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -196,34 +195,6 @@ export default function Tier2Questions({
     });
   };
 
-  // Quick Fill for Tier 2 Advanced Questions Only
-  const handleQuickFill = () => {
-    setResponses((prev) => ({
-      ...prev,
-      // Only fill Tier 2 advanced questions, not basic information or previous tier data
-      T2_Q1_moistureReadings:
-        "Master Bedroom carpet: 32% MC, Ensuite tile subfloor: 18% MC, Hallway yellow tongue: 22% MC. Thermal imaging confirms moisture migration into wall cavities.",
-      T2_Q2_waterMigrationPattern:
-        "Water emerged from kitchen sink burst pipe, soaked through yellow tongue subfloor, saturated insulation in cavity, dripped through ceiling into two bedrooms below. Wall cavities also saturated on both sides of bathroom wall.",
-      T2_Q3_equipmentDeployed:
-        "12 air movers (800 CFM), 3 LGR dehumidifiers (85L/Day), 2 AFD units. Power consumption: 15 amps total. All equipment on dedicated circuits.",
-      T2_Q4_affectedContents:
-        "Master Bedroom: Queen bed (mattress saturated, requires replacement), wardrobe base (particleboard swollen), carpet throughout. Ensuite: Vanity cabinet (MDF base swollen, doors misaligned), bathroom accessories. Hallway: Minimal contents affected.",
-      T2_Q5_structuralConcerns: [
-        "Wall cavities potentially saturated",
-        "Subfloor accessible for inspection (note condition)",
-      ],
-      T2_Q5_structuralConcernsOther: "",
-      T2_Q6_buildingServicesAffected: [
-        "Outlets/switches in wet areas",
-        "Plumbing — visible leaks or repairs needed",
-      ],
-      T2_Q7_insuranceConsiderations:
-        "Client confirmed sudden burst pipe covered under policy. Contents policy limit $50K, estimated contents damage $35K — within coverage. No exclusions identified.",
-    }));
-    toast.success("Tier 2 advanced questions filled with test data");
-  };
-
   return (
     <div className="space-y-6">
       <div className="p-4 rounded-lg border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-500/10">
@@ -234,14 +205,6 @@ export default function Tier2Questions({
               TIER 2: ENHANCEMENT QUESTIONS
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={handleQuickFill}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
-          >
-            <Zap className="w-4 h-4" />
-            Quick Fill Tier 2
-          </button>
         </div>
         <p className="text-sm text-slate-700 dark:text-slate-300">
           Review and refine additional information, then answer the advanced
