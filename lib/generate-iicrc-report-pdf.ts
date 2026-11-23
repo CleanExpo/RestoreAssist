@@ -16,6 +16,7 @@
  *   6. Psychrometric data (S500 §5)
  *   6A. Sampling & laboratory results (mould jobs only, RA-7686)
  *   6B. Independent verification handoff (mould jobs only, RA-8373)
+ *   6C. Room observations: odour, visible growth, staining (any job, RA-7694)
  *   7. Inspection report narrative
  *   8. Drying goal basis (reference readings; guide values marked, RA-8508)
  *   9. Signed declaration
@@ -26,6 +27,13 @@ import {
   shouldPrintMouldLabResults,
   type MouldLabAssessment,
 } from "@/lib/reports/mould-lab-results";
+import {
+  ROOM_OBSERVATIONS_NOTICE,
+  roomObservationGroups,
+  roomObservationsOmittedNotice,
+  shouldPrintRoomObservations,
+  type ReportRoomObservation,
+} from "@/lib/reports/room-observations";
 import {
   MOISTURE_GUIDE_HINT,
   MOISTURE_GUIDE_LABEL,
@@ -101,6 +109,10 @@ export interface IICRCReportData {
   /** RA-7686: the job's claim type and mould sampling record, for Section 6A. */
   claimType?: string | null;
   mouldAssessment?: MouldLabAssessment | null;
+  /** RA-7694: per-room odour, visible growth and staining, for Section 6C. */
+  roomObservations?: ReportRoomObservation[] | null;
+  /** Recorded observations beyond the bounded read, so the report can say so. */
+  roomObservationsOmitted?: number | null;
   user?: {
     name?: string | null;
     email?: string | null;
@@ -813,6 +825,33 @@ export async function generateIICRCReportPDF(
       }
       w.gap(8);
     }
+  }
+
+  // ── SECTION 6C: Room observations (RA-7694) ─────────────────────────────────
+  // Odour, visible growth and staining per room, on any job type. Printed only
+  // when something was recorded; each line states what it rests on.
+  if (shouldPrintRoomObservations(data.roomObservations)) {
+    w.sectionHeader("SECTION 6C - Room observations");
+    w.gap(4);
+    w.text(ROOM_OBSERVATIONS_NOTICE, {
+      size: 8,
+      color: C_MUTED,
+      maxWidth: COL_W,
+    });
+    w.gap(4);
+    for (const group of roomObservationGroups(data.roomObservations)) {
+      w.ensureSpace(40);
+      w.text(group.room, { size: 10, bold: true, color: C_NAVY, maxWidth: COL_W });
+      for (const [label, value] of group.rows) {
+        w.kv(label, value, 110);
+      }
+      w.gap(4);
+    }
+    const omitted = roomObservationsOmittedNotice(data.roomObservationsOmitted);
+    if (omitted) {
+      w.text(omitted, { size: 8, color: C_MUTED, maxWidth: COL_W });
+    }
+    w.gap(4);
   }
 
   // ── SECTION 7: Inspection Report Narrative ───────────────────────────────────
