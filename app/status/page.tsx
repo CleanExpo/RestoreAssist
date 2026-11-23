@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   title: "System Status · RestoreAssist",
   description:
     "Live status of RestoreAssist platform services — API, database, background jobs.",
+  alternates: { canonical: "/status" },
 };
 
 export const dynamic = "force-dynamic";

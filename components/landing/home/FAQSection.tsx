@@ -47,7 +47,7 @@ const FAQS = [
   {
     cat: "Reports",
     q: "Does RestoreAssist create IICRC S500 reports?",
-    a: "Yes. RestoreAssist helps produce S500:2021-aligned report drafts so writing time drops from hours to minutes. You review, edit, and own the final document — professional judgement stays with the operator on every claim.",
+    a: "Yes. RestoreAssist helps produce S500:2021-aligned report drafts from what you captured. You review, edit, and own the final document — professional judgement stays with the operator on every claim.",
   },
   {
     cat: "Setup",

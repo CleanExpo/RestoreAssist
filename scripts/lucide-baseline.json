@@ -3,7 +3,7 @@
   "total": 357,
   "files": {
     "app/contractors/[slug]/page.tsx": 1,
-    "app/contractors/page.tsx": 1,
+    "app/contractors/ContractorDirectory.tsx": 1,
     "app/dashboard/__tests__/nav-config.test.tsx": 1,
     "app/dashboard/admin/ai-lab/page.tsx": 1,
     "app/dashboard/admin/business/page.tsx": 1,

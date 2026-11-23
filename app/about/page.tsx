@@ -46,7 +46,7 @@ export default function AboutPage() {
     {
       title: "Compliance",
       description:
-        "Ensuring all assessments meet the highest industry standards.",
+        "Report structure aligned with industry standards, and you review every report before it is issued.",
     },
   ];
 
@@ -132,9 +132,9 @@ export default function AboutPage() {
                     '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                 }}
               >
-                Our AI-powered platform turns verified site data into accurate
-                restoration reports, saving time, ensuring compliance, and
-                building trust through evidence-based intelligence.
+                Our AI-powered platform turns the site data you capture into
+                report drafts that you review and own, with the evidence kept
+                alongside the report.
               </p>
             </motion.div>
             <motion.div

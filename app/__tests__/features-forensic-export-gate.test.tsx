@@ -75,10 +75,14 @@ describe("RA-8546 forensic report export copy matches the server gate", () => {
     const gatedRoute = `${route}\nimport { requirePaidBasePlan } from "@/lib/billing/paid-base-plan";\n`;
     expect(forensicListedAsExport(page)).toBe(true);
     expect(copyMatchesGate(page, gatedRoute)).toBe(false);
+    // RA-8542 dropped "enhanced" from this item, so strip whichever wording
+    // is there and prove the strip really changed the page.
     const pageWithoutForensic = page.replace(
-      /enhanced and forensic reports/,
-      "enhanced reports",
+      /(?:enhanced and )?forensic reports,\s*/,
+      "",
     );
+    expect(pageWithoutForensic).not.toBe(page);
+    expect(forensicListedAsExport(pageWithoutForensic)).toBe(false);
     expect(copyMatchesGate(pageWithoutForensic, gatedRoute)).toBe(true);
   });
 });
