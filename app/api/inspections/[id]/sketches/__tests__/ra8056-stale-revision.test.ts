@@ -80,6 +80,8 @@ vi.mock("@/lib/prisma", () => {
   };
   // Array form runs the operations; the interactive form runs the callback on
   // the same client, so a throw inside it stops the operations after it.
+  // RA-8576: the stale-room reconcile takes a row lock first.
+  (client as Record<string, unknown>).$queryRaw = vi.fn(async () => []);
   client.$transaction = vi.fn(async (arg: unknown) =>
     typeof arg === "function"
       ? (arg as (tx: unknown) => unknown)(client)

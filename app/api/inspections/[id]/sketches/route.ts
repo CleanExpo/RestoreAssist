@@ -17,6 +17,8 @@ import {
   partitionStaleRooms,
   applyRoomProvenanceToSketchData,
 } from "@/lib/sketch/sync-room-graph";
+import { confirmEmptyRooms } from "@/lib/sketch/reconcile-stale-rooms";
+import { SKETCH_ROOM_DEPENDENT_COUNT_SELECT } from "@/lib/sketch/room-dependents";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import { isSupabaseServerConfigured } from "@/lib/supabase-server";
 import {
@@ -345,13 +347,7 @@ export async function POST(
       confirmedBy: string | null;
       provenance: string | null;
       detachedAt?: Date | null;
-      _count: {
-        evidencePins: number;
-        moistureReadings: number;
-        hazards: number;
-        jobMoistureReadings: number;
-        scopeItems: number;
-      };
+      _count: Record<string, number | undefined>;
     }> = [];
     // RA-7656: a failed read is not "no rooms"; the guard below fails closed.
     let existingRoomsUnknown = false;
@@ -370,16 +366,8 @@ export async function POST(
             confirmedBy: true,
             provenance: true,
             detachedAt: true,
-            _count: {
-              select: {
-                evidencePins: true,
-                moistureReadings: true,
-                hazards: true,
-                jobMoistureReadings: true,
-                // RA-8538: a room holding scope items is in use too.
-                scopeItems: true,
-              },
-            },
+            // RA-8576: every table that links to a room, read from the schema.
+            _count: { select: SKETCH_ROOM_DEPENDENT_COUNT_SELECT },
           },
           take: 500,
         });
@@ -907,8 +895,8 @@ export async function POST(
           }
           // A room missing from the incoming canvas is only safe to delete when
           // nothing was captured in it. Deleting one that holds evidence would
-          // SetNull the room link on those pins/readings/hazards/scope items and silently lose
-          // which room they came from — see partitionStaleRooms.
+          // SetNull the room link on those rows and silently lose which room
+          // they came from - see partitionStaleRooms.
           // RA-7656: when the stored drawing was kept, no room left the canvas.
           const staleRooms = skipEmptyOverwrite
             ? []
@@ -916,12 +904,18 @@ export async function POST(
                 (r: { fabricObjectId: string }) => !seenFabric.has(r.fabricObjectId),
               );
           const partition = partitionStaleRooms(staleRooms);
-          const deletableIds = partition.deletableIds;
+          // RA-8576: a room that read empty is only a candidate. The owner's
+          // save locks the candidates and recounts before deleting any.
+          const confirmed = ownerReach
+            ? await confirmEmptyRooms(db, partition.deletableIds)
+            : { deletableIds: [], detachableIds: partition.deletableIds };
+          const deletableIds = confirmed.deletableIds;
           // D-028: the technician's save detaches every stale room (as it already
           // does for rooms holding evidence) instead of deleting any.
-          const detachableIds = ownerReach
-            ? partition.detachableIds
-            : [...partition.detachableIds, ...partition.deletableIds];
+          const detachableIds = [
+            ...partition.detachableIds,
+            ...confirmed.detachableIds,
+          ];
 
           if (deletableIds.length && ownerReach) {
             await db.sketchRoom.deleteMany({
