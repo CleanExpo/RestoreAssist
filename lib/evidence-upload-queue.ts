@@ -350,11 +350,23 @@ function queuedEntryHash(entry: EvidenceQueueEntry): string | undefined {
   return entry.directRetry ? entry.directCocoaSha256 : entry.cocoaSha256;
 }
 
-function photoMatchesQueuedEntry(
+/**
+ * RA-7877: only the server's own photo id proves that THIS queued upload is on
+ * the inspection. Identical bytes (same hash) prove only that a photo like it is
+ * there, so a hash match never clears or removes a queued photo; it can only
+ * stop the queue re-uploading (see photoHasQueuedBytes).
+ */
+function photoIsQueuedUpload(
   photo: ListedPhoto,
   entry: EvidenceQueueEntry,
 ): boolean {
-  if (entry.serverPhotoId && photo.id === entry.serverPhotoId) return true;
+  return Boolean(entry.serverPhotoId && photo.id === entry.serverPhotoId);
+}
+
+function photoHasQueuedBytes(
+  photo: ListedPhoto,
+  entry: EvidenceQueueEntry,
+): boolean {
   const hash = queuedEntryHash(entry);
   return Boolean(hash && photo.cocoaSha256 === hash);
 }
@@ -365,7 +377,7 @@ function photoVisibleForQueuedEntry(
 ): boolean {
   const urlOk =
     typeof photo.url === "string" && Boolean(photo.url.trim());
-  return urlOk && photoMatchesQueuedEntry(photo, entry);
+  return urlOk && photoIsQueuedUpload(photo, entry);
 }
 
 /**
@@ -378,11 +390,6 @@ function photoVisibleForQueuedEntry(
 async function tryClearQueuedPhotoViaListing(
   db: IDBDatabase,
   entry: EvidenceQueueEntry,
-  // RA-7877: a match on content alone (same bytes) says a photo like this one is
-  // on the inspection, not that THIS queued upload reached it. A caller that
-  // has no server id for the upload must not let that match delete the only
-  // copy of the queued photo; it stays queued as "unverified".
-  hashOnlyProvesUpload = true,
 ): Promise<
   | { kind: "cleared" }
   | { kind: "offline" }
@@ -399,10 +406,7 @@ async function tryClearQueuedPhotoViaListing(
   const unverified = { kind: "unverified", readbackStatus: readback.status } as const;
   if (!Array.isArray(listing?.photos)) return unverified;
   const photos: ListedPhoto[] = listing.photos;
-  if (
-    photos.some((photo) => photoVisibleForQueuedEntry(photo, entry)) &&
-    (hashOnlyProvesUpload || entry.serverPhotoId)
-  ) {
+  if (photos.some((photo) => photoVisibleForQueuedEntry(photo, entry))) {
     await removeEntry(db, entry.id);
     return { kind: "cleared" };
   }
@@ -411,7 +415,10 @@ async function tryClearQueuedPhotoViaListing(
       (!queuedEntryHash(entry) ||
         photos.some((photo) => !("cocoaSha256" in photo)))) ||
     photos.length >= PHOTO_LISTING_CAP ||
-    photos.some((photo) => photoMatchesQueuedEntry(photo, entry))
+    photos.some(
+      (photo) =>
+        photoIsQueuedUpload(photo, entry) || photoHasQueuedBytes(photo, entry),
+    )
   ) {
     return unverified;
   }
@@ -467,7 +474,7 @@ async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
         } else {
           const first = Date.parse(entry.postAttemptedAt);
           if (!Number.isFinite(first) || Date.now() - first > POST_KEY_WINDOW_MS) {
-            const verify = await tryClearQueuedPhotoViaListing(db, entry, false);
+            const verify = await tryClearQueuedPhotoViaListing(db, entry);
             if (verify.kind === "cleared") {
               uploaded++;
               continue;
@@ -539,10 +546,7 @@ async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
         if (
           !Array.isArray(listing?.photos) ||
           !listing.photos.some((photo: ListedPhoto) =>
-            photoVisibleForQueuedEntry(
-              { ...photo, id: photo.id ?? photoId },
-              { ...entry, serverPhotoId: photoId },
-            ),
+            photoVisibleForQueuedEntry(photo, { ...entry, serverPhotoId: photoId }),
           )
         ) {
           await incrementRetry(db, entry, readback.status, "readback", photoId);

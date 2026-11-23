@@ -80,6 +80,15 @@ async function signInOnline(owner = A) {
   await new Promise((r) => setTimeout(r, 0));
 }
 
+/**
+ * What the offline form does: it is opened for whoever the page resolves at that
+ * moment and saves under that account only (a change since is refused).
+ */
+async function capture(input: Omit<Parameters<Queue["captureOfflineClaim"]>[0], "openedFor">, openedFor?: typeof A) {
+  const opened = openedFor ?? (await boundary.resolveOfflineActor());
+  return queue.captureOfflineClaim({ ...input, openedFor: opened as typeof A });
+}
+
 /** The cold start: nothing verified in memory, only the device copy remains. */
 async function coldStart() {
   vi.resetModules();
@@ -213,7 +222,7 @@ describe("device identity ordering (a slow answer must not undo a sign-out)", ()
     expect(await identity.loadDeviceIdentity()).toBeNull();
     // A cold start after that must not reopen capture for the signed-out account.
     await coldStart();
-    await expect(queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toThrow(/Sign in/);
+    await expect(capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toThrow(/Sign in/);
   });
 
   it("is not restored by a write that was asked for before a wipe", async () => {
@@ -233,7 +242,7 @@ describe("device identity ordering (a slow answer must not undo a sign-out)", ()
 
   it("is wiped by a definite 401 on a replay, even if the device goes offline straight after", async () => {
     await signInOnline(A);
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     fetchMock.mockImplementation(async (url: string) =>
       url === "/api/auth/offline-context"
         ? new Response(JSON.stringify({ owner: A }), { status: 200 })
@@ -250,7 +259,7 @@ describe("device identity ordering (a slow answer must not undo a sign-out)", ()
 describe("a different account that is signed in but not yet verified (RA-7877 round 2)", () => {
   async function unverifiedB() {
     await signInOnline(A);
-    await queue.captureOfflineClaim({ propertyAddress: "1 A Street", propertyPostcode: "4000", notes: "A's private notes" });
+    await capture({ propertyAddress: "1 A Street", propertyPostcode: "4000", notes: "A's private notes" });
     // The page now knows the session is B, but B's check fails.
     fetchMock.mockImplementation(async () => new Response("{}", { status: 503 }));
     boundary.setOfflineSession(B.userId);
@@ -265,7 +274,7 @@ describe("a different account that is signed in but not yet verified (RA-7877 ro
 
   it("refuses to save B's entries under A, and saves nothing", async () => {
     await unverifiedB();
-    await expect(queue.captureOfflineClaim({ propertyAddress: "9 B Street", propertyPostcode: "3000" })).rejects.toThrow(/Sign in/);
+    await expect(capture({ propertyAddress: "9 B Street", propertyPostcode: "3000" })).rejects.toThrow(/Sign in/);
     expect(await queue.listQueuedClaims()).toHaveLength(1);
   });
 
@@ -276,7 +285,22 @@ describe("a different account that is signed in but not yet verified (RA-7877 ro
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
     await boundary.refreshOfflineOwner();
     expect(await boundary.resolveOfflineActor()).toEqual(A);
-    await expect(queue.captureOfflineClaim({ propertyAddress: "2 A Street", propertyPostcode: "4000" })).resolves.toBeTruthy();
+    await expect(capture({ propertyAddress: "2 A Street", propertyPostcode: "4000" })).resolves.toBeTruthy();
+  });
+});
+
+describe("a form opened for one account is never saved under another (RA-7877 round 5)", () => {
+  it("refuses A's typed entries once B is the verified account, and saves nothing", async () => {
+    await signInOnline(A);
+    boundary.endOfflineSession();
+    await signInOnline(B);
+    await expect(capture({ propertyAddress: "1 A Street", propertyPostcode: "4000", notes: "A's private notes" }, A)).rejects.toThrow(/account changed/);
+    expect(await queue.listQueuedClaims()).toEqual([]);
+  });
+
+  it("still saves when the form's account is the current one", async () => {
+    await signInOnline(B);
+    await expect(capture({ propertyAddress: "9 B Street", propertyPostcode: "3000" }, B)).resolves.toBeTruthy();
   });
 });
 
@@ -308,7 +332,7 @@ describe("a send cancelled before the request was made (RA-7877 round 2)", () =>
 
   it("keeps the attempt mark of a claim when the account changes after the request was made", async () => {
     await signInOnline(A);
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url === "/api/auth/offline-context") return new Response(JSON.stringify({ owner: A }), { status: 200 });
       if (url === "/api/inspections" && init?.method === "POST") boundary.endOfflineSession(); // the answer arrives after sign-out
@@ -342,7 +366,7 @@ describe("a send cancelled before the request was made (RA-7877 round 2)", () =>
     identity = await import("@/lib/offline/device-identity");
     queue = await import("@/lib/offline/claim-capture-queue");
     await signInOnline(A);
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     armed = true;
     await queue.drainOfflineClaims();
     expect(createdBodies).toHaveLength(0);
@@ -354,19 +378,19 @@ describe("a send cancelled before the request was made (RA-7877 round 2)", () =>
 
 describe("capturing a claim offline", () => {
   it("refuses, and saves nothing, with no verified account and no device identity", async () => {
-    await expect(queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toThrow(/Sign in/);
+    await expect(capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toThrow(/Sign in/);
     expect(await queue.listQueuedClaims()).toEqual([]);
   });
 
   it("refuses with an expired device identity", async () => {
     await identity.rememberDeviceIdentity(A, Date.now() - identity.DEVICE_IDENTITY_TTL_MS - 1000);
-    await expect(queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toThrow(/Sign in/);
+    await expect(capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toThrow(/Sign in/);
   });
 
   it("saves a claim and photo for the cold-start identity, with a client UUID and no invented date", async () => {
     await signInOnline();
     await coldStart();
-    const claim = await queue.captureOfflineClaim({ propertyAddress: " 1 Test St ", propertyPostcode: "4000", notes: "Burst pipe", photo: photo() });
+    const claim = await capture({ propertyAddress: " 1 Test St ", propertyPostcode: "4000", notes: "Burst pipe", photo: photo() });
     expect(claim.clientUuid).toMatch(/^[0-9a-f-]{36}$/);
     expect(claim.owner).toEqual(A);
     expect(claim.propertyAddress).toBe("1 Test St");
@@ -379,20 +403,20 @@ describe("capturing a claim offline", () => {
     ["no postcode", { propertyAddress: "1 Test St", propertyPostcode: "" }, /postcode/],
   ])("rejects %s", async (_name, input, message) => {
     await signInOnline();
-    await expect(queue.captureOfflineClaim(input)).rejects.toThrow(message);
+    await expect(capture(input)).rejects.toThrow(message);
   });
 
   it("rejects a file that is not an image and an oversize photo", async () => {
     await signInOnline();
     const text = new File(["x"], "a.txt", { type: "text/plain" });
-    await expect(queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: text })).rejects.toThrow(/image/);
+    await expect(capture({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: text })).rejects.toThrow(/image/);
     const big = new File([new Uint8Array(queue.MAX_CLAIM_PHOTO_BYTES + 1)], "big.jpg", { type: "image/jpeg" });
-    await expect(queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: big })).rejects.toThrow(/15 MB/);
+    await expect(capture({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: big })).rejects.toThrow(/15 MB/);
   });
 
   it("never shows another account's claims", async () => {
     await signInOnline(A);
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     boundary.endOfflineSession();
     await signInOnline(B);
     expect(await queue.listOwnClaims()).toEqual([]);
@@ -419,14 +443,14 @@ describe("a save is not reported until the device has committed it", () => {
       setTimeout(() => (tx as unknown as { abort: () => void }).abort(), 5);
       return tx;
     };
-    await expect(queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toBeTruthy();
+    await expect(capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" })).rejects.toBeTruthy();
   });
 });
 
 describe("sending on reconnect", () => {
   it("creates the claim exactly once, scoped to its owner, and never sends a date", async () => {
     await signInOnline();
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", notes: "Burst pipe" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000", notes: "Burst pipe" });
     expect(await queue.drainOfflineClaims()).toBe(1);
     expect(await queue.drainOfflineClaims()).toBe(0);
     expect(createdBodies).toHaveLength(1);
@@ -438,7 +462,7 @@ describe("sending on reconnect", () => {
 
   it("does not send while the device is offline, and keeps the claim", async () => {
     await signInOnline();
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
     expect(await queue.drainOfflineClaims()).toBe(0);
     expect(createdBodies).toHaveLength(0);
@@ -447,7 +471,7 @@ describe("sending on reconnect", () => {
 
   it("never sends one account's claim under another account, and keeps it", async () => {
     await signInOnline(A);
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     boundary.clearOfflineContext();
     await signInOnline(B);
     expect(await queue.drainOfflineClaims()).toBe(0);
@@ -462,7 +486,7 @@ describe("sending on reconnect", () => {
   it("keeps a claim the server refuses, with the reason, and does not retry it", async () => {
     await signInOnline();
     createStatus = 400;
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     await queue.drainOfflineClaims();
     await queue.drainOfflineClaims();
     expect(createdBodies).toHaveLength(1);
@@ -473,7 +497,7 @@ describe("sending on reconnect", () => {
   it("keeps and retries a claim after a server error, with the same idempotency key", async () => {
     await signInOnline();
     createStatus = 503;
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     await queue.drainOfflineClaims();
     createStatus = 201;
     await queue.drainOfflineClaims();
@@ -484,7 +508,7 @@ describe("sending on reconnect", () => {
 
   it("never re-sends a created claim when its photo could not be handed over", async () => {
     await signInOnline();
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
     handOver.mockRejectedValueOnce(new Error("storage full"));
     await queue.drainOfflineClaims();
     expect(createdBodies).toHaveLength(1);
@@ -500,7 +524,7 @@ describe("sending on reconnect", () => {
   it("holds an uncertain send for review once the idempotency window has passed, instead of risking a duplicate", async () => {
     await signInOnline();
     createStatus = 503;
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     await queue.drainOfflineClaims();
     createStatus = 201;
     await queue.drainOfflineClaims(Date.now() + queue.CLAIM_IDEMPOTENCY_WINDOW_MS + HOUR);
@@ -522,7 +546,7 @@ describe("what a send may have done (one rule: attemptState)", () => {
 
   it("holds a claim whose recorded attempt time cannot be read, and never sends it", async () => {
     await signInOnline();
-    const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    const claim = await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     await rewriteClaim(claim.clientUuid, { postAttemptedAt: "invalid" });
     await queue.drainOfflineClaims();
     expect(createdBodies).toHaveLength(0);
@@ -531,7 +555,7 @@ describe("what a send may have done (one rule: attemptState)", () => {
 
   it("does not start the 24 hour clock when the account could not be verified, so a never-sent claim is still sent later", async () => {
     await signInOnline();
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     fetchMock.mockImplementation(async () => new Response("{}", { status: 503 }));
     await queue.drainOfflineClaims();
     expect(createdBodies).toHaveLength(0);
@@ -553,7 +577,7 @@ describe("what a send may have done (one rule: attemptState)", () => {
 
   it("clears the attempt mark when the gate refuses the request (401), because nothing was created", async () => {
     await signInOnline();
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     fetchMock.mockImplementation(async (url: string) =>
       url === "/api/auth/offline-context"
         ? new Response(JSON.stringify({ owner: A }), { status: 200 })
@@ -567,7 +591,7 @@ describe("what a send may have done (one rule: attemptState)", () => {
 
   it("keeps the attempt mark after a network error, because the request may have reached the server", async () => {
     await signInOnline();
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     fetchMock.mockImplementation(async (url: string) => {
       if (url === "/api/auth/offline-context") return new Response(JSON.stringify({ owner: A }), { status: 200 });
       throw new TypeError("Failed to fetch");
@@ -580,14 +604,14 @@ describe("what a send may have done (one rule: attemptState)", () => {
 describe("the photo of a claim (stable id, one upload)", () => {
   it("hands the photo over under a stable id derived from the claim", async () => {
     await signInOnline();
-    const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    const claim = await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
     await queue.drainOfflineClaims();
     expect(handOver.mock.calls[0][0].id).toBe(`claim-photo-${claim.clientUuid}`);
   });
 
   it("re-hands the photo over under the SAME id after a crash that left no queue entry (uploaded and removed before the marker)", async () => {
     await signInOnline();
-    const crashed = await queue.captureOfflineClaim({ propertyAddress: "3 Test St", propertyPostcode: "4000", photo: photo() });
+    const crashed = await capture({ propertyAddress: "3 Test St", propertyPostcode: "4000", photo: photo() });
     // The crashed state: job created, hand-over attempted, marker never written, queue empty.
     await rewriteClaim(crashed.clientUuid, {
       serverInspectionId: "inspection-9",
@@ -603,7 +627,7 @@ describe("the photo of a claim (stable id, one upload)", () => {
 
   it("holds a photo hand-over whose attempt is older than the server's window, rather than uploading it again", async () => {
     await signInOnline();
-    const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    const claim = await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
     await rewriteClaim(claim.clientUuid, {
       serverInspectionId: "inspection-1",
       postAttemptedAt: new Date(Date.now() - 3 * 24 * HOUR).toISOString(),
@@ -619,8 +643,8 @@ describe("signing out with unsent claims", () => {
   it("counts every unsent claim on the device for the sign-out notice, and keeps them", async () => {
     const { unsentClaimsMessage } = await import("@/components/offline/UnsentClaimsNotice");
     await signInOnline(A);
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
-    await queue.captureOfflineClaim({ propertyAddress: "2 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "2 Test St", propertyPostcode: "4000" });
     boundary.endOfflineSession();
     await coldStart();
     expect(await queue.countUnsentClaims()).toBe(2);
@@ -631,8 +655,8 @@ describe("signing out with unsent claims", () => {
 
   it("holds nothing once the server has confirmed every claim: only unsent work rests on the device", async () => {
     await signInOnline(A);
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
-    await queue.captureOfflineClaim({ propertyAddress: "2 Test St", propertyPostcode: "4000" });
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    await capture({ propertyAddress: "2 Test St", propertyPostcode: "4000" });
     expect(await queue.countUnsentClaims()).toBe(2);
     expect(await queue.drainOfflineClaims()).toBe(2);
     expect(await queue.countUnsentClaims()).toBe(0);

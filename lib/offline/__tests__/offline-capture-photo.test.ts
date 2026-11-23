@@ -18,6 +18,7 @@ let creates = 0;
 let photoPosts = 0;
 let listingStatus = 200;
 let listingPhotos: unknown[] = [];
+let photoPostMode: "lost" | "malformed" | "created" = "lost";
 const fetchMock = vi.fn();
 
 beforeEach(() => {
@@ -27,6 +28,7 @@ beforeEach(() => {
   photoPosts = 0;
   listingStatus = 200;
   listingPhotos = [];
+  photoPostMode = "lost";
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url === "/api/auth/offline-context") return new Response(JSON.stringify({ owner: A }));
@@ -37,6 +39,8 @@ beforeEach(() => {
     if (typeof url === "string" && url.endsWith("/photos")) {
       if (init?.method === "POST") {
         photoPosts++;
+        if (photoPostMode === "malformed") return new Response("{}", { status: 200 });
+        if (photoPostMode === "created") return new Response(JSON.stringify({ photo: { id: "photo-q" } }), { status: 201 });
         // The first answer is always lost: the request may or may not have been processed.
         throw new TypeError("Failed to fetch");
       }
@@ -78,7 +82,7 @@ const photo = () => new File([new Uint8Array([1, 2, 3])], "wall.jpg", { type: "i
 describe("offline claim photo hand-over", () => {
   it("queues the photo once and removes the claim, and its bytes, as soon as the server confirms", async () => {
     const { queue, evidence } = await setup();
-    await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    await queue.captureOfflineClaim({ openedFor: A, propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
     await queue.drainOfflineClaims();
     await queue.drainOfflineClaims();
     expect(creates).toBe(1);
@@ -88,7 +92,7 @@ describe("offline claim photo hand-over", () => {
 
   it("gives the photo a stable id, which is also its upload Idempotency-Key", async () => {
     const { queue, evidence } = await setup();
-    const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    const claim = await queue.captureOfflineClaim({ openedFor: A, propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
     await queue.drainOfflineClaims();
     const entries = await evidence.getQueuedEvidenceForInspection("inspection-1");
     expect(entries.map((entry) => entry.id)).toEqual([`claim-photo-${claim.clientUuid}`]);
@@ -96,7 +100,7 @@ describe("offline claim photo hand-over", () => {
 
   it("does not queue the photo again when an earlier attempt already handed it over but died before marking the claim", async () => {
     const { queue, evidence } = await setup();
-    const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    const claim = await queue.captureOfflineClaim({ openedFor: A, propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
     // The crashed attempt: the job was created and the photo is already in the evidence queue under its stable id.
     await evidence.queueEvidenceUpload({ id: `claim-photo-${claim.clientUuid}`, inspectionId: "inspection-1", blob: photo(), filename: "wall.jpg", mimeType: "image/jpeg" });
     await putClaim({ ...claim, serverInspectionId: "inspection-1", postAttemptedAt: new Date().toISOString(), photoAttemptedAt: new Date().toISOString() });
@@ -108,7 +112,7 @@ describe("offline claim photo hand-over", () => {
 
   it("still hands the claim's photo over when a different photo is already queued for the same inspection", async () => {
     const { queue, evidence } = await setup();
-    const claim = await queue.captureOfflineClaim({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
+    const claim = await queue.captureOfflineClaim({ openedFor: A, propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
     await evidence.queueEvidenceUpload({ inspectionId: "inspection-1", blob: photo(), filename: "other-tab.jpg", mimeType: "image/jpeg" });
     await queue.drainOfflineClaims();
     const ids = (await evidence.getQueuedEvidenceForInspection("inspection-1")).map((entry) => entry.id);
@@ -163,5 +167,39 @@ describe("evidence queue: a photo POST whose answer was lost (RA-7877 round 2)",
     vi.setSystemTime(Date.now() + 25 * 60 * 60 * 1000);
     await evidence.drainEvidenceQueue();
     expect(photoPosts).toBe(2);
+  });
+});
+
+describe("evidence queue: only an exact server photo id proves an upload (RA-7877 round 5)", () => {
+  async function queued() {
+    const { evidence } = await setup();
+    await evidence.queueEvidenceUpload({ id: "photo-key-12345", inspectionId: "inspection-1", blob: photo(), filename: "wall.jpg", mimeType: "image/jpeg" });
+    const [entry] = await evidence.getQueuedEvidenceForInspection("inspection-1");
+    return { evidence, hash: entry.cocoaSha256 };
+  }
+
+  it("keeps a queued photo whose upload answer carried no photo id, even if another photo has the same bytes", async () => {
+    const { evidence, hash } = await queued();
+    photoPostMode = "malformed";
+    await evidence.drainEvidenceQueue();
+    listingPhotos = [{ id: "photo-p", url: "https://example.test/p.jpg", cocoaSha256: hash }];
+    await evidence.drainEvidenceQueue();
+    expect((await evidence.getQueuedEvidenceForInspection("inspection-1")).map((e) => e.id)).toEqual(["photo-key-12345"]);
+  });
+
+  it("keeps a queued photo when the listing shows a different photo id with the same bytes", async () => {
+    const { evidence, hash } = await queued();
+    photoPostMode = "created";
+    listingPhotos = [{ id: "photo-p", url: "https://example.test/p.jpg", cocoaSha256: hash }];
+    await evidence.drainEvidenceQueue();
+    expect((await evidence.getQueuedEvidenceForInspection("inspection-1")).map((e) => e.id)).toEqual(["photo-key-12345"]);
+  });
+
+  it("removes the queued photo once the listing shows the exact id the server returned", async () => {
+    const { evidence, hash } = await queued();
+    photoPostMode = "created";
+    listingPhotos = [{ id: "photo-q", url: "https://example.test/q.jpg", cocoaSha256: hash }];
+    await evidence.drainEvidenceQueue();
+    expect(await evidence.getQueuedEvidenceForInspection("inspection-1")).toHaveLength(0);
   });
 });

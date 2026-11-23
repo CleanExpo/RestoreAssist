@@ -72,6 +72,11 @@ export interface OfflineClaim {
 }
 
 export interface CaptureInput {
+  /**
+   * The account the form was opened for. Required: what a person typed belongs
+   * to that account only, and is refused if the page now resolves another one.
+   */
+  openedFor: OfflineOwner;
   propertyAddress: string;
   propertyPostcode: string;
   notes?: string;
@@ -129,6 +134,9 @@ export async function captureOfflineClaim(input: CaptureInput): Promise<OfflineC
   const owner = await resolveOfflineActor();
   if (!owner) {
     throw new Error("Sign in while online first. Offline capture opens only for an account that signed in on this device recently.");
+  }
+  if (!sameOfflineOwner(owner, input.openedFor)) {
+    throw new Error("The signed-in account changed. This form was for another account, so it was not saved.");
   }
   const propertyAddress = clean(input.propertyAddress, 300);
   const propertyPostcode = clean(input.propertyPostcode, 10);

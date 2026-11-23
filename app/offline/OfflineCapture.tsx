@@ -9,7 +9,8 @@
  * verified again (lib/offline/claim-capture-queue.ts).
  */
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { OFFLINE_CONTEXT_EVENT, resolveOfflineActor } from "@/lib/offline/account-boundary";
+import { OFFLINE_CONTEXT_EVENT, resolveOfflineActor, type OfflineOwner } from "@/lib/offline/account-boundary";
+import { sameOfflineOwner } from "@/lib/offline/ownership";
 import { confirmDeviceIdentityOnline } from "@/lib/offline/device-identity";
 import {
   captureOfflineClaim,
@@ -29,6 +30,11 @@ export function OfflineCapture() {
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formKey, setFormKey] = useState(0);
+  // The account this form is for. Typed entries belong to it and to nobody else.
+  const [formOwner, setFormOwner] = useState<OfflineOwner | null>(null);
+  // While who the device is for is being re-checked, the form is not shown.
+  const [rechecking, setRechecking] = useState(false);
+  const formOwnerRef = useRef<OfflineOwner | null>(null);
   // A double tap fires twice before React re-renders; each save is a new claim.
   const saving = useRef(false);
   // Only the newest refresh may change what is shown: an older answer that
@@ -39,13 +45,21 @@ export function OfflineCapture() {
     const run = ++latest.current;
     // Whoever the previous answer was for, it is not shown while this one is pending.
     setQueued([]);
+    setRechecking(true);
     await confirmDeviceIdentityOnline();
     const owner = await resolveOfflineActor();
     if (run !== latest.current) return;
     const claims = owner ? await listOwnClaims().catch(() => []) : [];
     if (run !== latest.current) return;
+    // A different account than the form was opened for: what was typed is gone.
+    if (!owner || !sameOfflineOwner(owner, formOwnerRef.current)) {
+      formOwnerRef.current = owner;
+      setFormOwner(owner);
+      setFormKey((k) => k + 1);
+    }
     setGate(owner ? "open" : "closed");
     setQueued(claims);
+    setRechecking(false);
   }, []);
 
   useEffect(() => {
@@ -65,12 +79,18 @@ export function OfflineCapture() {
     if (saving.current) return;
     saving.current = true;
     const data = new FormData(event.currentTarget);
+    const openedFor = formOwnerRef.current;
+    if (!openedFor) {
+      saving.current = false;
+      return;
+    }
     setBusy(true);
     setError(null);
     setSaved(false);
     try {
       const photo = data.get("photo");
       await captureOfflineClaim({
+        openedFor,
         propertyAddress: String(data.get("address") ?? ""),
         propertyPostcode: String(data.get("postcode") ?? ""),
         notes: String(data.get("notes") ?? ""),
@@ -80,6 +100,9 @@ export function OfflineCapture() {
       setFormKey((k) => k + 1);
       await refresh();
     } catch (err) {
+      // Whatever was typed may belong to another account now: re-check, and
+      // clear the form if so, rather than leave it for a retry.
+      void refresh();
       setError(err instanceof Error ? err.message : "The claim was not saved. Try again.");
     } finally {
       saving.current = false;
@@ -113,7 +136,13 @@ export function OfflineCapture() {
         Saved on this device. It is created once when you are back online and signed in.
       </p>
 
-      <form key={formKey} method="post" onSubmit={onSubmit} className="mt-4 space-y-3">
+      <form
+        key={`${formKey}:${formOwner?.userId ?? ""}`}
+        method="post"
+        onSubmit={onSubmit}
+        hidden={rechecking}
+        className="mt-4 space-y-3"
+      >
         <label className="block text-sm text-slate-300">
           Property address
           <input name="address" required maxLength={300} autoComplete="street-address" className={field} />
