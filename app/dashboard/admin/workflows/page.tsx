@@ -175,7 +175,8 @@ function formatDuration(
 }
 
 function canResume(status: WorkflowStatus): boolean {
-  return ["FAILED", "PARTIALLY_FAILED", "PAUSED"].includes(status);
+  // RA-8000: PAUSED is not resumable; a paused workflow is waiting for approval.
+  return ["FAILED", "PARTIALLY_FAILED"].includes(status);
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -553,6 +554,10 @@ export default function WorkflowMonitorPage() {
   const [expiredLeaseTasks, setExpiredLeaseTasks] = useState<number | null>(
     null,
   );
+  const [pausedApproval, setPausedApproval] = useState<{
+    workflows: number;
+    oldest: string | null;
+  } | null>(null);
   useEffect(() => {
     if (!isAdmin) return;
     fetch("/api/agents/workflows?limit=50")
@@ -561,6 +566,12 @@ export default function WorkflowMonitorPage() {
         setAllWorkflows(d.workflows ?? []);
         setExpiredLeaseTasks(
           typeof d.expiredLeaseTasks === "number" ? d.expiredLeaseTasks : null,
+        );
+        const p = d.pausedAwaitingApproval;
+        setPausedApproval(
+          p && typeof p.workflows === "number"
+            ? { workflows: p.workflows, oldest: p.oldestApprovalRequestedAt ?? null }
+            : null,
         );
       })
       .catch(() => {});
@@ -713,6 +724,20 @@ export default function WorkflowMonitorPage() {
         <span className="font-semibold text-neutral-900 dark:text-white">
           {expiredLeaseTasks ?? "unavailable"}
         </span>
+      </p>
+
+      {/* RA-8000: read-only count of workflows waiting for the owner's approval */}
+      <p
+        className="text-sm text-neutral-500"
+        data-testid="paused-approval-count"
+      >
+        PAUSED awaiting approval:{" "}
+        <span className="font-semibold text-neutral-900 dark:text-white">
+          {pausedApproval?.workflows ?? "unavailable"}
+        </span>
+        {pausedApproval && pausedApproval.workflows > 0 && (
+          <> (oldest waiting since {formatDate(pausedApproval.oldest)})</>
+        )}
       </p>
 
       {/* Filter tabs */}

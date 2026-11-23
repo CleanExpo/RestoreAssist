@@ -8,6 +8,7 @@ import type { ClassifiedError } from "./types";
 import { logAgentEvent } from "./logger";
 import { skipDependentsOfFailedTask } from "./lease";
 import { refreshWorkflowProgress } from "./state-manager";
+import { lockWorkflowRow } from "./workflow-lock";
 import { PlatformKeyRefusedError } from "./ai-bridge";
 import { NoWorkspaceKeyError } from "@/lib/ai/resolve-workspace-ai-key";
 
@@ -133,6 +134,7 @@ export async function moveToDeadLetter(
       select: { workflowId: true },
     });
     if (!task) return false;
+    await lockWorkflowRow(tx, task.workflowId);
     const result = await tx.agentTask.updateMany({
       where: { id: taskId, status: "RUNNING", leaseOwner },
       data: {

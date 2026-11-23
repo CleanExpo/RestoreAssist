@@ -63,6 +63,11 @@ vi.mock("@/lib/prisma", () => {
     },
   };
   const agentWorkflow = {
+    updateMany: async (args: { where?: Row; data: Row }) => {
+      const hit = db.workflows.filter((w) => matches(w, args.where));
+      for (const w of hit) Object.assign(w, args.data);
+      return { count: hit.length };
+    },
     update: async (args: { where: { id: string }; data: Row }) => {
       const wf = db.workflows.find((w) => w.id === args.where.id);
       if (!wf) throw new Error("workflow not found");
@@ -73,6 +78,8 @@ vi.mock("@/lib/prisma", () => {
   const client = {
     agentTask,
     agentWorkflow,
+    // RA-8000: the workflow row lock; the real lock is tested in workflow-lock-order.test.ts.
+    $queryRaw: async () => [],
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(client),
   };
   return { prisma: client };
