@@ -94,3 +94,14 @@ describe("monitoring report drying goal (RA-8508)", () => {
     expect(text).not.toMatch(/IICRC|S500|§/);
   });
 });
+
+describe("monitoring report feeds the drying charts (RA-8590)", () => {
+  it("returns the job's reference readings and each reading's unit", async () => {
+    const r = await report([
+      reading({ id: "b", location: "Hallway", moistureLevel: 12.5, isBaseline: true, unit: "%MC", recordedAt: day("1"), createdAt: day("1") }),
+      reading({ id: "m", moistureLevel: 15, unit: "%MC" }),
+    ]);
+    expect(r.references).toEqual({ timber: 12.5 });
+    expect(r.dailyLogs[r.dailyLogs.length - 1].readings[0].unit).toBe("%MC");
+  });
+});
