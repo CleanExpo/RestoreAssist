@@ -1,0 +1,77 @@
+{
+  "owner": "scripts/ci/check-pr-remainder.mjs (RA-8615). This file is the only list of wording that marks a pull request as partial work. The check and its tests read it; do not copy these patterns anywhere else.",
+  "phrases": [
+    {
+      "id": "slice-n",
+      "pattern": "\\bslice\\s*\\d+\\b",
+      "flags": "i",
+      "example": "RA-8461 slice 1"
+    },
+    {
+      "id": "first-slice",
+      "pattern": "\\b(first|next|later|follow-up|second)\\s+slice\\b",
+      "flags": "i",
+      "example": "the next slice"
+    },
+    {
+      "id": "this-slice",
+      "pattern": "\\bnot\\s+in\\s+this\\s+(slice|change|pr|pull request)\\b",
+      "flags": "i",
+      "example": "is not in this change"
+    },
+    {
+      "id": "part-n-of-m",
+      "pattern": "\\bpart\\s+\\d+\\s+of\\s+\\d+\\b",
+      "flags": "i",
+      "example": "part 1 of 2"
+    },
+    {
+      "id": "part-n",
+      "pattern": "\\bpart\\s+\\d+\\b",
+      "flags": "i",
+      "example": "(part 2)"
+    },
+    {
+      "id": "part-letter",
+      "pattern": "\\b[Pp]art\\s+[A-Z]\\b",
+      "flags": "",
+      "example": "RA-8235 part A"
+    },
+    {
+      "id": "phase-n",
+      "pattern": "\\bphase\\s+\\d+\\b",
+      "flags": "i",
+      "example": "RA-7026 Phase 2"
+    },
+    {
+      "id": "increment-n",
+      "pattern": "\\b(inc|increment)\\.?\\s+\\d+\\b",
+      "flags": "i",
+      "example": "(inc 1)"
+    },
+    {
+      "id": "first-increment",
+      "pattern": "\\bfirst\\s+increment\\b",
+      "flags": "i",
+      "example": "First increment of"
+    },
+    {
+      "id": "remaining-work",
+      "pattern": "\\bremaining\\s+(work|slices?|parts?|steps|items|scope|criteria|phases?)\\b",
+      "flags": "i",
+      "example": "the remaining work"
+    },
+    {
+      "id": "next-pr",
+      "pattern": "\\b(next|follow-up|followup|later|separate)\\s+(pr|pull request)\\b",
+      "flags": "i",
+      "example": "in the next PR"
+    },
+    {
+      "id": "deferred-to",
+      "pattern": "\\bdeferred\\s+to\\b",
+      "flags": "i",
+      "example": "deferred to a later change"
+    }
+  ]
+}

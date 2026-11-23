@@ -50,6 +50,16 @@ owner; do not re-derive the value.
   on push to `main` (about 16 minutes); `/api/health` reports the live
   `deploymentSha`. `deploy-production.yml` is not the release path.
 
+## Partial work names its remainder ticket
+
+A ticket closes when its pull request merges. If the pull request is only part
+of the job (a slice, part 1 of 2, part A, anything "not in this change"),
+create the ticket for the rest **before the first part merges** and put
+`Remainder: RA-<number>` in the pull request body. `pr-remainder.yml` fails a
+pull request that uses partial-work wording without that line; the wording
+list is `scripts/ci/partial-work-phrases.json`. The check cannot see Linear,
+so it does not confirm the remainder ticket exists or is open (RA-8615).
+
 ## Australian and New Zealand English
 
 Product copy, comments and documentation use AU/NZ spelling — `organisation`,

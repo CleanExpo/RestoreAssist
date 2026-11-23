@@ -1,0 +1,46 @@
+name: PR Remainder Ticket
+
+# RA-8615. A pull request whose title or body says it is partial work ("slice 1",
+# "part 1 of 2", "part A", "not in this change" ...) must name the open ticket
+# that owns the rest with a body line `Remainder: RA-<number>`. Four tickets
+# closed as Done on a first-slice merge with the rest unowned.
+#
+# Separate from pr-checks.yml so that editing the body re-runs this check
+# (`edited`) without re-running the whole quality suite. The wording list is
+# scripts/ci/partial-work-phrases.json. No Linear credential, no network call:
+# it does not confirm the remainder ticket exists or is open.
+
+on:
+  pull_request:
+    branches: [main, sandbox]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-remainder-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  remainder:
+    name: Partial work names its remainder ticket
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: ".nvmrc"
+
+      # Title, body and branch are attacker-controlled text: pass them as env,
+      # never interpolate them into the script.
+      - name: Check Remainder line
+        run: node scripts/ci/check-pr-remainder.mjs
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
