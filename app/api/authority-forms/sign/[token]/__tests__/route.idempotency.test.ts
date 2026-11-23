@@ -79,7 +79,7 @@ describe("POST /api/authority-forms/sign/[token]", () => {
 
   it("signs successfully on the first submission (atomic guard on signedAt=null)", async () => {
     sigFindUnique
-      .mockResolvedValueOnce({ id: "s_1", instanceId: "f_1", signatoryName: "Margaret" })
+      .mockResolvedValueOnce({ id: "s_1", instanceId: "f_1", signatoryName: "Margaret", signatureRequestSentAt: new Date() })
       .mockResolvedValueOnce({ id: "s_1", instanceId: "f_1" });
     sigUpdateMany.mockResolvedValueOnce({ count: 1 });
     sigCount.mockResolvedValueOnce(0); // no remaining unsigned → form complete
@@ -98,7 +98,7 @@ describe("POST /api/authority-forms/sign/[token]", () => {
   });
 
   it("rejects a duplicate/concurrent second submission with 400 (idempotent)", async () => {
-    sigFindUnique.mockResolvedValueOnce({ id: "s_1", instanceId: "f_1", signatoryName: "Margaret" });
+    sigFindUnique.mockResolvedValueOnce({ id: "s_1", instanceId: "f_1", signatoryName: "Margaret", signatureRequestSentAt: new Date() });
     sigUpdateMany.mockResolvedValueOnce({ count: 0 }); // already signed — guard matched 0 rows
 
     const res = await POST(postReq({ signatureData: "data:image/png;base64,AA" }), ctx());
@@ -114,6 +114,7 @@ describe("POST /api/authority-forms/sign/[token]", () => {
       id: "s_1",
       instanceId: "f_1",
       signatoryName: "Margaret",
+      signatureRequestSentAt: new Date(),
       instance: { status: "CANCELLED" },
     });
 
@@ -130,6 +131,7 @@ describe("POST /api/authority-forms/sign/[token]", () => {
       id: "s_1",
       instanceId: "f_1",
       signatoryName: "Margaret",
+      signatureRequestSentAt: new Date(),
       instance: { status: "PENDING_SIGNATURES" },
     });
     sigUpdateMany.mockResolvedValueOnce({ count: 0 });

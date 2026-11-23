@@ -13,6 +13,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { escapeHtml, getFromEmail } from "@/lib/email";
 import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
 import { sendTransactionalEmail } from "@/lib/email/send-transactional";
+import { SIGNING_LINK_TTL_DAYS } from "@/lib/authority-forms/signing-link";
 
 /**
  * POST /api/authority-forms/:id/send-signature-request
@@ -211,7 +212,7 @@ export async function POST(
                 Review & Sign Form
               </a>
             </div>
-            <p style="font-size: 13px; color: #6b7280;">This link is unique to you and will expire once signed. If you did not expect this request, please disregard this email.</p>
+            <p style="font-size: 13px; color: #6b7280;">This link is unique to you. It stops working once signed, or ${SIGNING_LINK_TTL_DAYS} days after this email was sent. If you did not expect this request, please disregard this email.</p>
           </div>
         </body>
         </html>

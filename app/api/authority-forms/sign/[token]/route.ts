@@ -7,6 +7,10 @@ import { validateCsrf } from "@/lib/csrf";
 import { notifySignatoryOfSignedCopy } from "@/lib/authority-forms/notify-signatory-copy";
 import { reportError } from "@/lib/observability";
 import {
+  isSigningLinkLive,
+  liveSigningLinkWhere,
+} from "@/lib/authority-forms/signing-link";
+import {
   formAcceptsSignatureWhere,
   formSignatureRefusal,
   unsignedSlotWhere,
@@ -84,6 +88,16 @@ export async function GET(
         },
         { status: 400 },
       );
+    }
+
+    // RA-8589: an unsigned link lapses SIGNING_LINK_TTL_DAYS after it was
+    // sent. Same reply as an unknown token, so an old link reveals nothing.
+    if (!isSigningLinkLive(signature.signatureRequestSentAt)) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Invalid or expired signing link",
+        status: 404,
+      });
     }
 
     const form = signature.instance;
@@ -183,11 +197,13 @@ export async function POST(
         instanceId: true,
         signatoryName: true,
         signatoryEmail: true,
+        signatureRequestSentAt: true,
         instance: { select: { status: true } },
       },
     });
 
-    if (!signature) {
+    // RA-8589: an expired link gets the same reply as an unknown token.
+    if (!signature || !isSigningLinkLive(signature.signatureRequestSentAt)) {
       return apiError(request, {
         code: "NOT_FOUND",
         message: "Invalid or expired signing link",
@@ -222,6 +238,8 @@ export async function POST(
       where: {
         id: signature.id,
         signatureRequestToken: token,
+        // RA-8589: the link must still be live at the moment of the write.
+        ...liveSigningLinkWhere(),
         ...unsignedSlotWhere(),
         // RA-8400: the form status is read inside the same write.
         instance: formAcceptsSignatureWhere(),
