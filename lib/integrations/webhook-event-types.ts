@@ -90,8 +90,22 @@ const PAYMENT_STUB_REASON =
 const UNMAPPED_EMPTY =
   "an operation the route does not map (for example a QuickBooks invoice Merge) is stored with an empty event type; no drain selects it, so prune-webhook-events deletes it unread";
 
+/**
+ * Owner tickets for the open-defect rows. Each must be an OPEN ticket: RA-8427
+ * was closed after slice 1 while still named here as owner of every row
+ * (RA-8614). Whoever closes one of these tickets moves its rows first; the
+ * guard test pins this exact set so a change to it is a deliberate edit.
+ */
+export const OPEN_DEFECT_OWNERS = {
+  /** Reversal handling, refuse-unlisted, skip-on-purpose for Xero, QuickBooks and MYOB. */
+  accounting: "RA-8614",
+  /** ServiceM8 receiver rebuilt for the message ServiceM8 actually sends. */
+  serviceM8: "RA-8073",
+} as const;
+
 function openDefect(provider: WebhookProvider, eventType: string, whatHappens: string): WebhookEventTypeEntry {
-  return { provider, eventType, disposition: { kind: "open-defect", ticket: "RA-8427", whatHappens } };
+  const ticket = provider === "SERVICEM8" ? OPEN_DEFECT_OWNERS.serviceM8 : OPEN_DEFECT_OWNERS.accounting;
+  return { provider, eventType, disposition: { kind: "open-defect", ticket, whatHappens } };
 }
 
 export const WEBHOOK_EVENT_TYPES: readonly WebhookEventTypeEntry[] = [
@@ -156,7 +170,7 @@ export const UNLISTABLE_STORED_VALUES: readonly UnlistableStoredValue[] = [
   {
     provider: "XERO",
     expression: "event.eventType",
-    ticket: "RA-8427",
+    ticket: OPEN_DEFECT_OWNERS.accounting,
     whatHappens:
       "an event the Xero route does not map (for example a deleted payment, or an unknown resource) is stored with Xero's raw type such as DELETE; the Xero drain closes it SKIPPED without reading it",
   },

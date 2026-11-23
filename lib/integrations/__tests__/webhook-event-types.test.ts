@@ -16,6 +16,7 @@ import { PRODUCTION_ENABLED } from "@/lib/cron/production-schedule";
 import {
   DRAIN_ACCEPTS,
   INGEST_ROUTE_DIR,
+  OPEN_DEFECT_OWNERS,
   QBO_MYOB_DRAIN_EVENT_TYPES,
   UNLISTABLE_STORED_VALUES,
   WEBHOOK_EVENT_TYPES,
@@ -633,6 +634,27 @@ describe("webhook event-type registry (RA-8427)", () => {
 
   it("matches what the ingest routes store, and drained types reach a production drain", () => {
     expect(compareWithRegistry(storedByProvider(), WEBHOOK_EVENT_TYPES, PRODUCTION_CRONS)).toEqual([]);
+  });
+
+  it("names only the current open owner tickets, never the closed RA-8427 (RA-8614)", () => {
+    // A unit test cannot read Linear. This pins the owner set, so closing an
+    // owner ticket without moving its rows needs a deliberate edit here; the
+    // check against Linear itself belongs to RA-8615.
+    expect(OPEN_DEFECT_OWNERS).toEqual({ accounting: "RA-8614", serviceM8: "RA-8073" });
+    const owners = new Set<string>(Object.values(OPEN_DEFECT_OWNERS));
+    const named = [
+      ...WEBHOOK_EVENT_TYPES.flatMap((e) =>
+        e.disposition.kind === "open-defect" ? [`${e.provider} "${e.eventType}" -> ${e.disposition.ticket}`] : [],
+      ),
+      ...UNLISTABLE_STORED_VALUES.map((u) => `${u.provider} \`${u.expression}\` -> ${u.ticket}`),
+    ];
+    expect(named.length).toBeGreaterThan(0);
+    expect(named.filter((n) => !owners.has(n.split(" -> ")[1]))).toEqual([]);
+    for (const e of WEBHOOK_EVENT_TYPES) {
+      if (e.disposition.kind !== "open-defect") continue;
+      const want = e.provider === "SERVICEM8" ? OPEN_DEFECT_OWNERS.serviceM8 : OPEN_DEFECT_OWNERS.accounting;
+      expect(`${e.provider} "${e.eventType}" -> ${e.disposition.ticket}`).toBe(`${e.provider} "${e.eventType}" -> ${want}`);
+    }
   });
 
   it("the QuickBooks/MYOB drain selects exactly the registry's list", () => {

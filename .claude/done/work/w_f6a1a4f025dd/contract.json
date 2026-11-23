@@ -1,0 +1,26 @@
+{
+  "schema": "done/1",
+  "work_id": "w_f6a1a4f025dd",
+  "version": 1,
+  "supersedes": null,
+  "goal": "RA-8614 slice 1: every open-defect row and unlistable value in lib/integrations/webhook-event-types.ts names an open owner ticket (RA-8614 for Xero/QuickBooks/MYOB, RA-8073 for ServiceM8), guarded by a test that fails on main",
+  "created_at_utc": "2026-11-23T19:24:33Z",
+  "identity_key": "mesh/phills-mac-mini/ra-8614-e60c83ff@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/mesh-RA-8614-e60c83ff",
+  "baseline_observed": {
+    "head": "e088d9f0a97a8d2d32014d42587bae08c695f0fa",
+    "branch": "mesh/phills-mac-mini/ra-8614-e60c83ff",
+    "dirty_count": 0
+  },
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "Registry test file passes, including the new owner-ticket test",
+      "recipe": "npx vitest run --config config/vitest.config.js lib/integrations/__tests__/webhook-event-types.test.ts"
+    },
+    {
+      "id": "C2",
+      "text": "No row in the registry names the closed ticket RA-8427 as owner",
+      "recipe": "node -e \"const s=require('fs').readFileSync('lib/integrations/webhook-event-types.ts','utf8');process.exit(/ticket: \\\"RA-8427\\\"/.test(s)?1:0)\""
+    }
+  ]
+}
