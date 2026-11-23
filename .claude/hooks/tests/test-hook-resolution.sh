@@ -129,6 +129,16 @@ for cmd in "${COMMANDS[@]}"; do
   record "$name: inert hook in the cwd repo is the one that runs" allow "$(verdict)"
 done
 
+# The reverse: CLAUDE_PROJECT_DIR names ANOTHER repo whose hooks are executable but
+# inert. The repo the tool call runs in must win, or a mismatched project dir
+# silently switches the real guard off (Codex review P1, 23/11/2026).
+for cmd in "${COMMANDS[@]}"; do
+  payload="$(payload_for "$cmd")"; name="$(name_of "$cmd")"
+  [[ -n "$payload" ]] || continue
+  run_cmd "$cmd" "$REPO" "$fake" "$payload"
+  record "$name: CLAUDE_PROJECT_DIR = another repo with an inert hook" deny "$(verdict)"
+done
+
 echo
 echo "== no hook anywhere: fail loudly, never look like a pass =="
 # No hook at CLAUDE_PROJECT_DIR and not inside a repo. Exit 2 is the code Claude
