@@ -2267,6 +2267,8 @@ model Inspection {
   usageEvents        UsageEvent[]        @relation("usageEvents")
   clientMutations    ClientMutation[]
   fieldCaptureEvents FieldCaptureEvent[]
+  // RA-7694: per-room odour, visible growth and staining observations.
+  roomObservations RoomObservation[]
 
   // RA-7493: AI runtime — receipts and suggestions land on the job record
   aiRunnerReceipts AiRunnerReceipt[] @relation("InspectionAiRunnerReceipts")
@@ -3011,6 +3013,58 @@ model MouldRemediationAssessment {
 
   @@index([inspectionId])
   @@index([mouldConditionLevel])
+}
+
+enum RoomObservationKind {
+  ODOUR
+  VISIBLE_GROWTH
+  STAINING
+}
+
+// What the entry rests on. A hypothesis is never printed as an observation.
+enum RoomObservationBasis {
+  OBSERVED
+  MEASURED
+  HYPOTHESISED
+}
+
+enum RoomOdourPattern {
+  CONSTANT
+  INTERMITTENT
+}
+
+// RA-7694: one structured observation in one room, on any job type. Records what
+// the technician saw or smelt: no species, no diagnosis, no condition or
+// clearance. `roomLabel` is a snapshot of the room name when it was recorded, so
+// the report still names the room if the sketch room is later removed
+// (sketchRoomId is SetNull, as on the other room-linked records).
+model RoomObservation {
+  id               String               @id @default(cuid())
+  inspectionId     String
+  inspection       Inspection           @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  sketchRoomId     String?
+  sketchRoom       SketchRoom?          @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
+  roomLabel        String
+  kind             RoomObservationKind
+  basis            RoomObservationBasis @default(OBSERVED)
+  // ODOUR only
+  odourDescriptor  String? // musty, sewage, smoke ... as the technician put it
+  odourIntensity   Int? // 1 faint, 2 moderate, 3 strong
+  odourPattern     RoomOdourPattern?
+  // VISIBLE_GROWTH only: estimated visible area
+  areaM2           Float?
+  // VISIBLE_GROWTH and STAINING: the surface or material it is on
+  surface          String?
+  // Free text description (colour, extent, location in the room)
+  detail           String?              @db.Text
+  source           String               @default("manual") // manual | voice
+  capturedByUserId String?
+  observedAt       DateTime             @default(now()) @db.Timestamptz
+  createdAt        DateTime             @default(now()) @db.Timestamptz
+  updatedAt        DateTime             @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId, observedAt])
+  @@index([sketchRoomId])
 }
 
 model ContentsPackOutItem {
@@ -7272,6 +7326,7 @@ model SketchRoom {
   jobMoistureReadings  MoistureReading[]       @relation("JobMoistureReadings")
   scopeItems           ScopeItem[]             @relation("ScopeItemSketchRoom")
   hazards              Hazard[]
+  roomObservations     RoomObservation[]
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 

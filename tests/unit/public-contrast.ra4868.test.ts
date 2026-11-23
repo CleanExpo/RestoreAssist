@@ -1,14 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
-import {
-  contrast,
-  hexToRgb,
-  isColour,
-  over,
-  resolve,
-  type Rgb,
-} from "./support/wcag-contrast";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
+import { contrast, hexToRgb, over, resolve } from "./support/wcag-contrast";
+import { colourLiterals, scanSource } from "./support/jsx-surface-contrast";
 
 /**
  * RA-4868. axe-core flagged WCAG 1.4.3 colour-contrast failures on /, /pricing
@@ -20,13 +14,14 @@ import {
  * The rule for these pages: muted text is slate-600 (or brand-slate), and
  * white text on the navy band is at least 60% opaque.
  *
- * This test reads every class string in the public landing, pricing and
- * privacy sources and measures each unprefixed `text-{colour}` against the
- * surface it sits on: its own solid `bg-` in the same string when there is
- * one; brand-navy for the colours listed in ON_DARK_BAND, which these pages
- * use only on the navy band; otherwise the darkest light surface these pages
- * use (#F0F3F6). `dark:` and state variants are not measured: the public
- * pages render light whatever the operating system asks for.
+ * RA-8549. This guard used to measure a text colour against brand-navy if the
+ * colour was on a fixed list of "navy-band" colours, and against #F0F3F6
+ * otherwise, so a listed colour on a light surface passed unmeasured. It now
+ * reads the surface from the JSX tree (support/jsx-surface-contrast.ts): the
+ * nearest solid `bg-` on the element or an ancestor, translucent fills
+ * composited, with axe's 3:1 threshold for large text. The two K4 decorative
+ * numerals it used to excuse (ClaimFolioLanding, brand-harbour/20 and /35) are
+ * fixed and no longer excused. Its limits are listed in that file.
  */
 
 const ROOT = process.cwd();
@@ -44,95 +39,37 @@ const SOURCES = [
 const LIGHT_SURFACE = hexToRgb("#F0F3F6");
 const DARK_SURFACE = resolve("brand-navy");
 
-/** Text colours used only on the navy band (lower case, without alpha). */
-const ON_DARK_BAND = new Set([
-  "white",
-  "[#7ba3bd]",
-  "[#8fb2c9]",
-  "[#a8c5d8]",
-  "brand-gold",
-  "brand-gold-hover",
-  "brand-harbour-light",
-]);
-
-/**
- * Named remainders (RA-4868, K4). Large decorative numerals whose design is a
- * pale tint; making them pass changes the look, which is a design decision.
- * `aria-hidden` does not take them out of axe's color-contrast rule: the 144px
- * numeral already carries it and axe still reports it. Each entry must still
- * exist, so a fixed remainder cannot linger here.
- */
-const REMAINDERS = new Set([
-  "components/landing/concepts/claim-folio/ClaimFolioLanding.tsx|text-brand-harbour/20",
-  "components/landing/concepts/claim-folio/ClaimFolioLanding.tsx|text-brand-harbour/35",
-]);
-
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) return name === "__tests__" ? [] : walk(p);
-    return /\.tsx?$/.test(p) && !/\.test\.tsx?$/.test(p) ? [p] : [];
+    return /\.tsx$/.test(p) && !/\.test\.tsx$/.test(p) ? [p] : [];
   });
 }
 
-/** `slate-500`, `brand-harbour/35`, `[#7BA3BD]` -> colour and alpha. */
-function readColour(
-  token: string,
-): { name: string; rgb: Rgb; alpha: number } | null {
-  const m = token.match(/^(\[#[0-9a-fA-F]{6}\]|[a-z][a-z0-9-]*)(?:\/(\d+))?$/);
-  if (!m) return null;
-  const name = m[1].toLowerCase();
-  const alpha = m[2] ? Number(m[2]) / 100 : 1;
-  if (name.startsWith("[")) return { name, rgb: hexToRgb(name.slice(1, -1)), alpha };
-  return isColour(name) ? { name, rgb: resolve(name), alpha } : null;
-}
-
-interface Finding {
-  key: string;
-  where: string;
-  pair: string;
-  ratio: number;
-}
-
-function lineOf(src: string, index: number): number {
-  return src.slice(0, index).split("\n").length;
-}
-
-function scan(): Finding[] {
-  const findings: Finding[] = [];
-  for (const file of SOURCES.flatMap((d) => walk(join(ROOT, d)))) {
-    const src = readFileSync(file, "utf8");
-    const rel = relative(ROOT, file);
-    for (const m of src.matchAll(/"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`/g)) {
-      // A template literal can hold quoted class strings in `${...}` branches;
-      // trim the quotes and braces so those tokens are measured too.
-      const classes = (m[1] ?? m[2] ?? m[3])
-        .split(/\s+/)
-        .map((c) => c.replace(/^["'`{(]+|["'`})]+$/g, ""))
-        .filter(Boolean);
-      const fill = classes
-        .map((c) => c.match(/^bg-(.+)$/)?.[1])
-        .map((c) => (c ? readColour(c) : null))
-        .find((c) => c && c.alpha === 1);
-      for (const cls of classes) {
-        const t = cls.match(/^text-(.+)$/);
-        const text = t ? readColour(t[1]) : null;
-        if (!text) continue;
-        const surface =
-          fill?.rgb ?? (ON_DARK_BAND.has(text.name) ? DARK_SURFACE : LIGHT_SURFACE);
-        const ratio = contrast(over(text.rgb, text.alpha, surface), surface);
-        if (ratio < AA) {
-          findings.push({
-            key: `${rel}|${cls}`,
-            where: `${rel}:${lineOf(src, m.index!)}`,
-            pair: cls,
-            ratio,
-          });
-        }
-      }
-    }
+/** Resolve `./motion` and `@/components/...` so imported class constants are measured. */
+function readImport(rel: string, spec: string) {
+  const base = spec.startsWith("@/")
+    ? join(ROOT, spec.slice(2))
+    : spec.startsWith(".")
+      ? join(ROOT, dirname(rel), spec)
+      : null;
+  if (!base) return null;
+  for (const p of [`${base}.ts`, `${base}.tsx`, join(base, "index.ts")]) {
+    if (existsSync(p))
+      return { rel: relative(ROOT, p), src: readFileSync(p, "utf8") };
   }
-  return findings;
+  return null;
+}
+
+const FILES = SOURCES.flatMap((d) => walk(join(ROOT, d)));
+
+function scanAll() {
+  return FILES.map((file) =>
+    scanSource(readFileSync(file, "utf8"), relative(ROOT, file), {
+      readImport,
+    }),
+  );
 }
 
 describe("RA-4868 public landing, pricing and privacy text meets WCAG AA", () => {
@@ -148,18 +85,31 @@ describe("RA-4868 public landing, pricing and privacy text meets WCAG AA", () =>
   });
 
   it("finds class strings to check", () => {
-    expect(SOURCES.flatMap((d) => walk(join(ROOT, d))).length).toBeGreaterThan(20);
+    expect(FILES.length).toBeGreaterThan(20);
+    const measured = scanAll().reduce((n, r) => n + r.measured, 0);
+    expect(measured).toBeGreaterThan(300);
   });
 
-  it("no text colour is below 4.5:1 except the named K4 remainders", () => {
-    const failures = scan()
-      .filter((f) => !REMAINDERS.has(f.key))
-      .map((f) => `${f.where}  ${f.pair}  ${f.ratio.toFixed(2)}:1`);
+  it("no text colour is below WCAG AA against the surface it sits on", () => {
+    const failures = scanAll()
+      .flatMap((r) => r.findings)
+      .map(
+        (f) =>
+          `${f.key.split("|")[0]}:${f.line}  ${f.cls} on ${f.surface}  ${f.ratio.toFixed(2)}:1 < ${f.required}:1`,
+      );
     expect(failures).toEqual([]);
   });
 
-  it("every named remainder still exists and still fails", () => {
-    const keys = new Set(scan().map((f) => f.key));
-    expect([...REMAINDERS].filter((k) => !keys.has(k))).toEqual([]);
+  it("measures every class string that holds a text colour", () => {
+    // A string the tree walk never places on a surface would pass unmeasured;
+    // this keeps the guard from going quiet on a pattern it cannot read.
+    const used = new Set(scanAll().flatMap((r) => [...r.used]));
+    const unplaced = FILES.flatMap((file) => {
+      const rel = relative(ROOT, file);
+      return colourLiterals(readFileSync(file, "utf8"), rel)
+        .filter((l) => !used.has(l.id))
+        .map((l) => `${rel}:${l.line}  ${l.text}`);
+    });
+    expect(unplaced).toEqual([]);
   });
 });
