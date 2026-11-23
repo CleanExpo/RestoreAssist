@@ -1,13 +1,16 @@
 /**
- * RA-8576 - a failure of the stale-room lock must never be answered as a
- * success. The route treats most room-graph failures as non-fatal (the drawing
- * is already saved), which would silently drop an owner's room removal: the
- * same silent-loss shape the lock exists to prevent.
+ * RA-8576 - a failure of the stale-room lock must not silently drop an owner's
+ * room removal, and must not leave a retry that cannot work. The drawing is
+ * already stored when the room graph syncs, so refusing the save with a 5xx
+ * would invite a retry that the revision check then rejects (409), leaving the
+ * room row behind for good (found by the Codex discovery sweep).
  *
- *  - a transient failure (deadlock, lock timeout) is retried once and the
- *    removal then applies;
- *  - any other failure is refused with a 503 and nothing is deleted or
- *    detached.
+ *  - a transient failure (deadlock, lock timeout) is retried once with the
+ *    lock, and the removal then applies;
+ *  - any other failure, or a second transient one, falls back to DETACHING the
+ *    room: detaching needs no lock and can never blank a room link, so the
+ *    save still succeeds and the room is kept as detached history.
+ *  - the save is never answered with an error after the drawing is stored.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { prisma as scopePrisma } from "@/lib/prisma";
@@ -142,15 +145,32 @@ beforeEach(() => {
 });
 
 describe("RA-8576 failed stale-room lock", () => {
-  it("refuses the save with a 503 and removes nothing when the lock fails", async () => {
+  it("detaches instead of deleting, and still succeeds, when the lock fails", async () => {
     p.$queryRaw.mockRejectedValue(new Error("connection reset"));
 
     const res = await save();
 
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(201);
+    // Not transient: no second lock attempt, straight to the safe fallback.
     expect(p.$queryRaw).toHaveBeenCalledTimes(1);
     expect(p.sketchRoom.deleteMany).not.toHaveBeenCalled();
-    expect(p.sketchRoom.updateMany).not.toHaveBeenCalled();
+    expect(p.sketchRoom.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { in: ["sr_kitchen"] } }),
+        data: expect.objectContaining({ detachedAt: expect.any(Date) }),
+      }),
+    );
+  });
+
+  it("never answers an error once the drawing is stored, so a retry cannot hit a revision conflict", async () => {
+    p.$queryRaw.mockRejectedValue(new Error("connection reset"));
+
+    const res = await save();
+
+    // The drawing was written exactly once and the answer is a success; there
+    // is no 5xx for the editor to queue and replay against a moved revision.
+    expect(p.claimSketch.update).toHaveBeenCalledTimes(1);
+    expect(res.status).toBeLessThan(300);
   });
 
   it("retries once after a deadlock and then applies the removal", async () => {
@@ -167,13 +187,18 @@ describe("RA-8576 failed stale-room lock", () => {
     });
   });
 
-  it("gives up with a 503 when the deadlock repeats", async () => {
+  it("detaches when the deadlock repeats", async () => {
     p.$queryRaw.mockRejectedValue(new Error("deadlock detected"));
 
     const res = await save();
 
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(201);
     expect(p.$queryRaw).toHaveBeenCalledTimes(2);
     expect(p.sketchRoom.deleteMany).not.toHaveBeenCalled();
+    expect(p.sketchRoom.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { in: ["sr_kitchen"] } }),
+      }),
+    );
   });
 });

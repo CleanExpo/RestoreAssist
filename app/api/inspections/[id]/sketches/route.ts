@@ -802,7 +802,7 @@ export async function POST(
       // D-028: the room graph and pin readings are written in one transaction
       // that first re-claims the inspection with the caller's scope, so a
       // reassignment after the sketch save writes none of them.
-      const syncRoomGraph = () => writeWithinInspectionScope(
+      const syncRoomGraph = (detachOnly: boolean) => writeWithinInspectionScope(
         tenancy.data.inspectionManyWhere,
         { updatedAt: new Date() },
         async (tx) => {
@@ -909,7 +909,7 @@ export async function POST(
           const partition = partitionStaleRooms(staleRooms);
           // RA-8576: a room that read empty is only a candidate. The owner's
           // save locks the candidates and recounts before deleting any.
-          const confirmed = ownerReach
+          const confirmed = ownerReach && !detachOnly
             ? await confirmEmptyRooms(db, partition.deletableIds)
             : { deletableIds: [], detachableIds: partition.deletableIds };
           const deletableIds = confirmed.deletableIds;
@@ -1001,24 +1001,26 @@ export async function POST(
       // RA-8576: the room-graph failures below are non-fatal because the drawing
       // is already saved, but a failed lock or recount would silently skip the
       // owner's room removal. That one is retried once when it was transient
-      // (deadlock, lock timeout) and otherwise refused, never answered as a
-      // success. The rooms stay as they were; the next save reconciles them.
+      // (deadlock, lock timeout); after that the sync reruns in detach-only
+      // mode, so the room is kept as detached history rather than deleted.
       let graphSynced: boolean | null | undefined;
+      let detachOnly = false;
       for (let attempt = 0; ; attempt++) {
         try {
-          graphSynced = await syncRoomGraph();
+          graphSynced = await syncRoomGraph(detachOnly);
           break;
         } catch (syncErr) {
           if (!(syncErr instanceof RoomLockError)) throw syncErr;
           if (attempt === 0 && syncErr.transient) continue;
-          return apiError(request, {
-            code: "UPSTREAM_FAILED",
-            message:
-              "The floor's room changes could not be completed, so the room removal was not saved. It will be retried.",
-            status: 503,
-            err: syncErr,
-            stage: "stale-room-lock",
+          // The drawing is already stored, so answering an error here would
+          // queue a replay the revision check rejects (409) and strand the
+          // room row for good. Detaching needs no lock and can never blank a
+          // room link: keep the room as detached history and succeed.
+          console.warn("[sketches] stale-room lock failed; detaching instead of deleting", {
+            inspectionId: id,
+            message: syncErr.message,
           });
+          detachOnly = true;
         }
       }
       if (!graphSynced) {
