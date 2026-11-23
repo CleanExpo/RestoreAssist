@@ -54,6 +54,44 @@ export function ClientPortalLinkButton({
     },
   );
   const canSend = checklist.every((item) => item.ok);
+  const [switchedOff, setSwitchedOff] = useState(false);
+  const hasLiveLink =
+    !switchedOff && Boolean(url || readiness?.portalLinkEmailedAt);
+
+  // RA-8587: a link sent to the wrong person must be stoppable from here.
+  async function switchOff() {
+    const ok = window.confirm(
+      "Switch off this client portal link? The client can no longer open it, and any signing requests already emailed to this client stop working too. You can send a new link afterwards.",
+    );
+    if (!ok) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const res = await fetch(
+        `/api/inspections/${inspectionId}/client-portal-link`,
+        { method: "DELETE" },
+      );
+      const body = await res.json();
+      if (!res.ok) {
+        throw new Error(body?.error?.message ?? "Request failed");
+      }
+      setUrl(null);
+      setSwitchedOff(true);
+      setMessage(
+        body.data.revoked > 0
+          ? "Link switched off. Re-send any signing requests the client still needs. Sending again creates a new link."
+          : "There was no live link to switch off.",
+      );
+    } catch (e) {
+      setMessage(
+        e instanceof Error && e.message !== "Request failed"
+          ? e.message
+          : "Could not switch off the portal link. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function send() {
     setBusy(true);
@@ -68,6 +106,7 @@ export function ClientPortalLinkButton({
         throw new Error(body?.error?.message ?? "Request failed");
       }
       setUrl(body.data.url);
+      setSwitchedOff(false);
       setMessage(
         body.data.emailed
           ? "Email sent. You can copy the link below if needed."
@@ -99,7 +138,8 @@ export function ClientPortalLinkButton({
               dateStyle: "medium",
               timeStyle: "short",
             })}
-            . Sending again refreshes the link expiry.
+            . Sending again to the same address refreshes the link expiry; a
+            changed address gets a new link.
           </p>
         )}
       </div>
@@ -157,6 +197,17 @@ export function ClientPortalLinkButton({
       >
         {busy ? "Sending…" : "Send portal link"}
       </button>
+      {hasLiveLink && (
+        <button
+          type="button"
+          onClick={switchOff}
+          disabled={busy}
+          aria-label="Switch off this link"
+          className="ml-0 sm:ml-3 text-xs font-medium text-red-700 dark:text-red-300 underline-offset-2 hover:underline disabled:opacity-50"
+        >
+          Switch off this link
+        </button>
+      )}
       {!readinessLoading && !canSend && (
         <p className="text-xs text-amber-700 dark:text-amber-300/90">
           Fix the items above before sending — the client won&apos;t receive a

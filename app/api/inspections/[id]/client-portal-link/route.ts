@@ -9,6 +9,8 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { isDemoOrReservedRecipient } from "@/lib/email/reserved-recipient";
 import { sendEmail } from "@/lib/email-send";
 import { getAppUrl } from "@/lib/app-url";
+import { clearClientSigningLinks } from "@/lib/portal/clear-client-signing-links";
+import { portalRecipientHash } from "@/lib/portal/portal-recipient-hash";
 import {
   buildClientPortalInviteEmailHtml,
   clientPortalInviteSubject,
@@ -18,6 +20,32 @@ export const dynamic = "force-dynamic";
 
 function mintToken(): string {
   return randomBytes(32).toString("base64url");
+}
+
+/** The recipient hash on the newest emailed audit row for this client and job, or null. */
+async function lastEmailedRecipientHash(
+  inspectionId: string,
+  clientId: string,
+): Promise<string | null> {
+  const last = await prisma.auditLog.findFirst({
+    where: {
+      inspectionId,
+      action: "CLIENT_PORTAL_LINK_EMAILED",
+      entityType: "Client",
+      entityId: clientId,
+    },
+    orderBy: { timestamp: "desc" },
+    select: { changes: true },
+  });
+  if (!last?.changes) return null;
+  try {
+    const parsed = JSON.parse(last.changes) as { recipientHash?: unknown };
+    return typeof parsed.recipientHash === "string"
+      ? parsed.recipientHash
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(
@@ -93,13 +121,32 @@ export async function POST(
       where: { clientId: client.id, inspectionId: id, revokedAt: null },
       select: { id: true, token: true },
     });
+    const currentHash = portalRecipientHash(client.email);
+    // RA-8587: reuse the live token only when it was last emailed to the
+    // address now on file. A changed or unrecorded address means the old link
+    // may sit with the wrong person, so the token is rotated and the signing
+    // links it disclosed are cleared (RA-7634), in one transaction.
+    const sameRecipient =
+      existing !== null &&
+      (await lastEmailedRecipientHash(id, client.id)) === currentHash;
     let token: string;
-    if (existing) {
+    if (existing && sameRecipient) {
       await prisma.clientPortalAccount.update({
         where: { id: existing.id },
         data: { expiresAt },
       });
       token = existing.token;
+    } else if (existing) {
+      const clientId = client.id;
+      token = await prisma.$transaction(async (tx) => {
+        const rotated = await tx.clientPortalAccount.update({
+          where: { id: existing.id },
+          data: { token: mintToken(), tokenRotatedAt: new Date(), expiresAt },
+          select: { token: true },
+        });
+        await clearClientSigningLinks(tx, clientId);
+        return rotated.token;
+      });
     } else {
       token = (
         await prisma.clientPortalAccount.create({
@@ -144,6 +191,7 @@ export async function POST(
           changes: JSON.stringify({
             channel: "email",
             providerMessageId: messageId,
+            recipientHash: currentHash,
           }),
         },
       });
@@ -157,6 +205,73 @@ export async function POST(
         expiresAt: expiresAt.toISOString(),
       },
     });
+  } catch (e) {
+    return fromException(request, e);
+  }
+}
+
+/**
+ * RA-8587 — DELETE switches off every live portal link for this job.
+ *
+ * Same gate as sending (inspection tenancy), so whoever can send the link can
+ * switch it off, for this inspection only. Revoked rows stay for audit and
+ * `lookupPortalAccount` refuses them. The client's unsigned signing links die
+ * with the portal link (RA-7634). The next "Send portal link" mints a new
+ * token, because the revoked row no longer matches `revokedAt: null`.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Sign in required",
+        status: 401,
+      });
+    }
+    const { id } = await params;
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
+      return apiError(request, {
+        code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
+        message: tenancy.reason ?? "Forbidden",
+        status: tenancy.status,
+      });
+    }
+    const userId = session.user.id;
+
+    const revoked = await prisma.$transaction(async (tx) => {
+      const live = await tx.clientPortalAccount.findMany({
+        where: { inspectionId: id, revokedAt: null },
+        select: { id: true, clientId: true },
+      });
+      if (live.length === 0) return 0;
+      await tx.clientPortalAccount.updateMany({
+        where: { id: { in: live.map((a) => a.id) }, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      for (const clientId of new Set(live.map((a) => a.clientId))) {
+        await clearClientSigningLinks(tx, clientId);
+      }
+      for (const account of live) {
+        await tx.auditLog.create({
+          data: {
+            inspectionId: id,
+            userId,
+            action: "CLIENT_PORTAL_ACCOUNT_REVOKED",
+            entityType: "ClientPortalAccount",
+            entityId: account.id,
+            changes: JSON.stringify({ clientId: account.clientId }),
+          },
+        });
+      }
+      return live.length;
+    });
+
+    return NextResponse.json({ data: { revoked } });
   } catch (e) {
     return fromException(request, e);
   }

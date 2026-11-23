@@ -15,10 +15,18 @@ vi.mock("@/lib/prisma", () => ({
     inspection: { findUnique: vi.fn() },
     clientPortalAccount: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
-    auditLog: { create: vi.fn(async () => ({ id: "audit_1" })) },
+    auditLog: {
+      create: vi.fn(async () => ({ id: "audit_1" })),
+      findFirst: vi.fn(),
+    },
+    authorityFormSignature: { updateMany: vi.fn(async () => ({ count: 0 })) },
+    // The route's transactions run against the same mocked client.
+    $transaction: vi.fn(),
   },
 }));
 
@@ -26,7 +34,8 @@ import { getServerSession } from "next-auth";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { sendEmail } from "@/lib/email-send";
 import { prisma } from "@/lib/prisma";
-import { POST } from "../route";
+import { portalRecipientHash as recipientHash } from "@/lib/portal/portal-recipient-hash";
+import { DELETE, POST } from "../route";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const mTenancy = assertInspectionTenancy as unknown as ReturnType<typeof vi.fn>;
@@ -35,11 +44,22 @@ const p = prisma as unknown as {
   inspection: { findUnique: ReturnType<typeof vi.fn> };
   clientPortalAccount: {
     findFirst: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    updateMany: ReturnType<typeof vi.fn>;
   };
-  auditLog: { create: ReturnType<typeof vi.fn> };
+  auditLog: {
+    create: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+  };
+  authorityFormSignature: { updateMany: ReturnType<typeof vi.fn> };
+  $transaction: ReturnType<typeof vi.fn>;
 };
+
+const emailedAudit = (email: string) => ({
+  changes: JSON.stringify({ channel: "email", recipientHash: recipientHash(email) }),
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -53,7 +73,13 @@ beforeEach(() => {
   });
   p.clientPortalAccount.findFirst.mockResolvedValue(null);
   p.clientPortalAccount.create.mockResolvedValue({ token: "NEWTOK" });
-  p.clientPortalAccount.update.mockResolvedValue({});
+  p.clientPortalAccount.update.mockResolvedValue({ token: "ROTATEDTOK" });
+  p.clientPortalAccount.findMany.mockResolvedValue([]);
+  p.clientPortalAccount.updateMany.mockResolvedValue({ count: 0 });
+  p.auditLog.findFirst.mockResolvedValue(null);
+  p.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+    fn(prisma),
+  );
 });
 
 const req = () =>
@@ -138,13 +164,45 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
     );
   });
 
-  it("reuses an existing active token instead of minting a new one", async () => {
-    p.clientPortalAccount.findFirst.mockResolvedValueOnce({ token: "OLDTOK" });
+  it("reuses the live token when it was last emailed to the same address", async () => {
+    p.clientPortalAccount.findFirst.mockResolvedValueOnce({ id: "a1", token: "OLDTOK" });
+    p.auditLog.findFirst.mockResolvedValueOnce(emailedAudit("Client@X.com "));
     const res = await POST(req(), params);
     expect(p.clientPortalAccount.create).not.toHaveBeenCalled();
     expect((await res.json()).data.url).toBe(
       "https://restoreassist.app/portal/OLDTOK",
     );
+  });
+
+  // RA-8587 AC3: the old link may be with the wrong person.
+  it("rotates the token when the client's email changed since the last send", async () => {
+    p.clientPortalAccount.findFirst.mockResolvedValueOnce({ id: "a1", token: "OLDTOK" });
+    p.auditLog.findFirst.mockResolvedValueOnce(emailedAudit("wrong@person.com"));
+    const res = await POST(req(), params);
+    const url = (await res.json()).data.url;
+    expect(url).not.toContain("OLDTOK");
+    expect(url).toBe("https://restoreassist.app/portal/ROTATEDTOK");
+    expect(p.clientPortalAccount.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "a1" },
+        data: expect.objectContaining({ token: expect.any(String) }),
+      }),
+    );
+    // RA-7634: signing links the old portal link disclosed are cleared too.
+    expect(p.authorityFormSignature.updateMany).toHaveBeenCalled();
+  });
+
+  it("rotates the token when no previous recipient was recorded", async () => {
+    p.clientPortalAccount.findFirst.mockResolvedValueOnce({ id: "a1", token: "OLDTOK" });
+    const res = await POST(req(), params);
+    expect((await res.json()).data.url).not.toContain("OLDTOK");
+  });
+
+  it("records a hash of the recipient address, not the address", async () => {
+    await POST(req(), params);
+    const changes = p.auditLog.create.mock.calls[0][0].data.changes as string;
+    expect(JSON.parse(changes).recipientHash).toBe(recipientHash("client@x.com"));
+    expect(changes).not.toContain("client@x.com");
   });
 
   it("does not claim the client was emailed without a provider receipt", async () => {
@@ -153,5 +211,60 @@ describe("POST /api/inspections/[id]/client-portal-link", () => {
 
     expect(res.status).toBe(200);
     expect((await res.json()).data.emailed).toBe(false);
+  });
+});
+
+// RA-8587 AC1/AC2/AC4: switch-off uses the same gate as send, this job only.
+describe("DELETE /api/inspections/[id]/client-portal-link", () => {
+  const del = () =>
+    new NextRequest("http://localhost/api/inspections/i1/client-portal-link", {
+      method: "DELETE",
+    });
+
+  it("401 without a session", async () => {
+    mSession.mockResolvedValueOnce(null);
+    expect((await DELETE(del(), params)).status).toBe(401);
+    expect(p.clientPortalAccount.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("403 when tenancy fails, and revokes nothing", async () => {
+    mTenancy.mockResolvedValueOnce({ ok: false, status: 403, reason: "no" });
+    expect((await DELETE(del(), params)).status).toBe(403);
+    expect(p.clientPortalAccount.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("revokes only this job's live links and clears their signing links", async () => {
+    p.clientPortalAccount.findMany.mockResolvedValueOnce([
+      { id: "a1", clientId: "c_1" },
+    ]);
+    const res = await DELETE(del(), params);
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.revoked).toBe(1);
+    expect(p.clientPortalAccount.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { inspectionId: "i1", revokedAt: null },
+      }),
+    );
+    expect(p.clientPortalAccount.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ["a1"] }, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      }),
+    );
+    expect(p.authorityFormSignature.updateMany).toHaveBeenCalled();
+    expect(p.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "CLIENT_PORTAL_ACCOUNT_REVOKED",
+          entityId: "a1",
+        }),
+      }),
+    );
+  });
+
+  it("returns revoked 0 when no live link exists", async () => {
+    const res = await DELETE(del(), params);
+    expect((await res.json()).data.revoked).toBe(0);
+    expect(p.clientPortalAccount.updateMany).not.toHaveBeenCalled();
   });
 });
