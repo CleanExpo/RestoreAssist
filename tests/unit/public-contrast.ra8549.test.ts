@@ -43,18 +43,26 @@ function legacyScan(src: string): string[] {
       if (!text) continue;
       const surface =
         fill?.rgb ??
-        (ON_DARK_BAND.has(text.name) ? resolve("brand-navy") : hexToRgb("#F0F3F6"));
-      if (contrast(over(text.rgb, text.alpha, surface), surface) < 4.5) out.push(cls);
+        (ON_DARK_BAND.has(text.name)
+          ? resolve("brand-navy")
+          : hexToRgb("#F0F3F6"));
+      if (contrast(over(text.rgb, text.alpha, surface), surface) < 4.5)
+        out.push(cls);
     }
   }
   return out;
 }
 
 const NAVY_HEX = `#${resolve("brand-navy")
-  .map((v) => Math.round(v * 255).toString(16).padStart(2, "0"))
+  .map((v) =>
+    Math.round(v * 255)
+      .toString(16)
+      .padStart(2, "0"),
+  )
   .join("")}`;
 
-const scan = (src: string) => scanSource(src, "planted.tsx").findings.map((f) => f.cls);
+const scan = (src: string) =>
+  scanSource(src, "planted.tsx").findings.map((f) => f.cls);
 
 /** The two numerals as they were on main, in their real sections. */
 const NUMERALS_BEFORE = `
@@ -86,7 +94,14 @@ const NUMERALS_AFTER = NUMERALS_BEFORE.replace(
 describe("RA-8549 surface-aware public contrast guard", () => {
   it("fails on the two home-page numerals as they were", () => {
     const findings = scanSource(NUMERALS_BEFORE, "planted.tsx").findings;
-    expect(findings.map((f) => [f.cls, f.surface, f.required, Number(f.ratio.toFixed(2))])).toEqual([
+    expect(
+      findings.map((f) => [
+        f.cls,
+        f.surface,
+        f.required,
+        Number(f.ratio.toFixed(2)),
+      ]),
+    ).toEqual([
       // axe-core measured these on / at 1440 and 390 wide: 1.4:1 and 1.92:1.
       ["text-brand-harbour/20", "#f0f3f6", 3, 1.41],
       ["text-brand-harbour/35", "#ffffff", 3, 1.92],
@@ -110,7 +125,9 @@ describe("RA-8549 surface-aware public contrast guard", () => {
     );`;
     expect(legacyScan(src)).toEqual([]);
     const findings = scanSource(src, "planted.tsx").findings;
-    expect(findings.map((f) => [f.cls, f.surface])).toEqual([["text-[#A8C5D8]", "#ffffff"]]);
+    expect(findings.map((f) => [f.cls, f.surface])).toEqual([
+      ["text-[#A8C5D8]", "#ffffff"],
+    ]);
   });
 
   it("catches a new low-contrast element on the navy band; the old list did not", () => {
@@ -170,8 +187,13 @@ describe("RA-8549 surface-aware public contrast guard", () => {
     const src = `const TONE = { a: "text-slate-300", b: "text-brand-navy" } as Record<string, string>;
     export const X = ({ k }: { k: string }) => <p className={TONE[k]}>x</p>;`;
     const { used } = scanSource(src, "planted.tsx");
-    const unplaced = colourLiterals(src, "planted.tsx").filter((l) => !used.has(l.id));
-    expect(unplaced.map((l) => l.text)).toEqual(["text-slate-300", "text-brand-navy"]);
+    const unplaced = colourLiterals(src, "planted.tsx").filter(
+      (l) => !used.has(l.id),
+    );
+    expect(unplaced.map((l) => l.text)).toEqual([
+      "text-slate-300",
+      "text-brand-navy",
+    ]);
   });
 
   it("uses 3:1 only for large text", () => {

@@ -56,7 +56,8 @@ function readImport(rel: string, spec: string) {
       : null;
   if (!base) return null;
   for (const p of [`${base}.ts`, `${base}.tsx`, join(base, "index.ts")]) {
-    if (existsSync(p)) return { rel: relative(ROOT, p), src: readFileSync(p, "utf8") };
+    if (existsSync(p))
+      return { rel: relative(ROOT, p), src: readFileSync(p, "utf8") };
   }
   return null;
 }
@@ -65,7 +66,9 @@ const FILES = SOURCES.flatMap((d) => walk(join(ROOT, d)));
 
 function scanAll() {
   return FILES.map((file) =>
-    scanSource(readFileSync(file, "utf8"), relative(ROOT, file), { readImport }),
+    scanSource(readFileSync(file, "utf8"), relative(ROOT, file), {
+      readImport,
+    }),
   );
 }
 

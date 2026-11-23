@@ -357,7 +357,7 @@ export function ClaimFolioLanding() {
                 className="relative grid items-start gap-6 border-t border-brand-navy/12 py-14 sm:grid-cols-[minmax(0,0.35fr)_minmax(0,0.65fr)] sm:gap-10 lg:py-20"
               >
                 <span
-                  className={`${FONT_DISPLAY} select-none text-[clamp(4.5rem,14vw,9rem)] font-bold leading-[0.8] tracking-[-0.06em] text-brand-harbour/20`}
+                  className={`${FONT_DISPLAY} select-none text-[clamp(4.5rem,14vw,9rem)] font-bold leading-[0.8] tracking-[-0.06em] text-brand-harbour/65`}
                   aria-hidden
                 >
                   {s.step}
@@ -549,7 +549,7 @@ export function ClaimFolioLanding() {
                 className="group grid gap-4 border-t border-brand-navy/10 py-10 transition-colors hover:bg-[#F0F3F6]/80 sm:grid-cols-[4rem_minmax(0,1fr)_minmax(0,1.4fr)] sm:gap-10 sm:px-4"
               >
                 <span
-                  className={`${FONT_DISPLAY} text-2xl font-bold text-brand-harbour/35 transition-colors group-hover:text-brand-harbour`}
+                  className={`${FONT_DISPLAY} text-2xl font-bold text-brand-harbour/65 transition-colors group-hover:text-brand-harbour`}
                 >
                   {String(i + 1).padStart(2, "0")}
                 </span>

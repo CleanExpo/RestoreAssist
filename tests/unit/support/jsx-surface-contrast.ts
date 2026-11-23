@@ -1,5 +1,12 @@
 import ts from "typescript";
-import { contrast, hexToRgb, isColour, over, resolve, type Rgb } from "./wcag-contrast";
+import {
+  contrast,
+  hexToRgb,
+  isColour,
+  over,
+  resolve,
+  type Rgb,
+} from "./wcag-contrast";
 
 /**
  * RA-8549. Measures each `text-{colour}` class in a TSX source against the
@@ -56,13 +63,25 @@ export function readColour(token: string): Colour | null {
   if (!m) return null;
   const name = m[1].toLowerCase();
   const alpha = m[2] ? Number(m[2]) / 100 : 1;
-  if (name.startsWith("[")) return { name, rgb: hexToRgb(name.slice(1, -1)), alpha };
+  if (name.startsWith("["))
+    return { name, rgb: hexToRgb(name.slice(1, -1)), alpha };
   return isColour(name) ? { name, rgb: resolve(name), alpha } : null;
 }
 
 const NAMED_SIZE: Record<string, number> = {
-  xs: 12, sm: 14, base: 16, lg: 18, xl: 20, "2xl": 24, "3xl": 30, "4xl": 36,
-  "5xl": 48, "6xl": 60, "7xl": 72, "8xl": 96, "9xl": 128,
+  xs: 12,
+  sm: 14,
+  base: 16,
+  lg: 18,
+  xl: 20,
+  "2xl": 24,
+  "3xl": 30,
+  "4xl": 36,
+  "5xl": 48,
+  "6xl": 60,
+  "7xl": 72,
+  "8xl": 96,
+  "9xl": 128,
 };
 
 function length(value: string): number | null {
@@ -92,7 +111,13 @@ interface Ctx {
 }
 
 function hex(rgb: Rgb): string {
-  return `#${rgb.map((v) => Math.round(v * 255).toString(16).padStart(2, "0")).join("")}`;
+  return `#${rgb
+    .map((v) =>
+      Math.round(v * 255)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
 }
 
 function splitClasses(text: string): string[] {
@@ -110,12 +135,18 @@ interface Literal {
 
 type Consts = Map<string, Literal>;
 
-function isPlainString(n: ts.Node): n is ts.StringLiteral | ts.NoSubstitutionTemplateLiteral {
+function isPlainString(
+  n: ts.Node,
+): n is ts.StringLiteral | ts.NoSubstitutionTemplateLiteral {
   return ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n);
 }
 
 function unwrap(n: ts.Expression): ts.Expression {
-  while (ts.isAsExpression(n) || ts.isSatisfiesExpression(n) || ts.isParenthesizedExpression(n)) {
+  while (
+    ts.isAsExpression(n) ||
+    ts.isSatisfiesExpression(n) ||
+    ts.isParenthesizedExpression(n)
+  ) {
     n = n.expression;
   }
   return n;
@@ -159,7 +190,10 @@ export function constStrings(sf: ts.SourceFile, rel: string): Consts {
       else if (ts.isObjectLiteralExpression(init)) {
         for (const prop of init.properties) {
           if (!ts.isPropertyAssignment(prop)) continue;
-          const key = ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name) ? prop.name.text : null;
+          const key =
+            ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)
+              ? prop.name.text
+              : null;
           const v = read(prop.initializer);
           if (key && v) out.set(`${d.name.text}.${key}`, v);
         }
@@ -179,7 +213,12 @@ function refName(n: ts.Node): string | null {
 }
 
 /** Class groups in a className expression: one per string literal. */
-function classGroups(expr: ts.Node, consts: Consts, rel: string, used: Set<string>): string[][] {
+function classGroups(
+  expr: ts.Node,
+  consts: Consts,
+  rel: string,
+  used: Set<string>,
+): string[][] {
   const groups: string[][] = [];
   const lookup = (n: ts.Node): string | null => {
     const name = refName(n);
@@ -227,12 +266,24 @@ function hasTextColour(text: string): boolean {
 }
 
 /** Every string literal in `src` that holds a measurable text colour. */
-export function colourLiterals(src: string, rel: string): { id: string; line: number; text: string }[] {
-  const sf = ts.createSourceFile(rel, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+export function colourLiterals(
+  src: string,
+  rel: string,
+): { id: string; line: number; text: string }[] {
+  const sf = ts.createSourceFile(
+    rel,
+    src,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
   const out: { id: string; line: number; text: string }[] = [];
   const visit = (n: ts.Node) => {
     if (
-      (isPlainString(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) &&
+      (isPlainString(n) ||
+        ts.isTemplateHead(n) ||
+        ts.isTemplateMiddle(n) ||
+        ts.isTemplateTail(n)) &&
       hasTextColour(n.text)
     ) {
       out.push({
@@ -268,7 +319,10 @@ export interface ScanOptions {
    * its path and source, so imported class constants resolve. Return null to
    * skip it (packages, unknown aliases).
    */
-  readImport?: (rel: string, specifier: string) => { rel: string; src: string } | null;
+  readImport?: (
+    rel: string,
+    specifier: string,
+  ) => { rel: string; src: string } | null;
 }
 
 export interface ScanResult {
@@ -279,9 +333,19 @@ export interface ScanResult {
   used: Set<string>;
 }
 
-export function scanSource(src: string, rel: string, options: ScanOptions = {}): ScanResult {
+export function scanSource(
+  src: string,
+  rel: string,
+  options: ScanOptions = {},
+): ScanResult {
   const rootSurface = options.rootSurface ?? hexToRgb("#F0F3F6");
-  const sf = ts.createSourceFile(rel, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const sf = ts.createSourceFile(
+    rel,
+    src,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
   const consts = constStrings(sf, rel);
   const used = new Set<string>();
   for (const st of sf.statements) {
@@ -291,7 +355,13 @@ export function scanSource(src: string, rel: string, options: ScanOptions = {}):
     if (!names || !ts.isNamedImports(names)) continue;
     const mod = options.readImport(rel, spec);
     if (!mod) continue;
-    const modSf = ts.createSourceFile(mod.rel, mod.src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const modSf = ts.createSourceFile(
+      mod.rel,
+      mod.src,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX,
+    );
     const exported = constStrings(modSf, mod.rel);
     for (const el of names.elements) {
       const remote = (el.propertyName ?? el.name).text;
@@ -309,12 +379,14 @@ export function scanSource(src: string, rel: string, options: ScanOptions = {}):
   const element = (node: ts.JsxOpeningLikeElement, ctx: Ctx): Ctx => {
     const attr = node.attributes.properties.find(
       (p): p is ts.JsxAttribute =>
-        ts.isJsxAttribute(p) && ts.isIdentifier(p.name) && p.name.text === "className",
+        ts.isJsxAttribute(p) &&
+        ts.isIdentifier(p.name) &&
+        p.name.text === "className",
     );
     const init = attr?.initializer;
     if (!init) return ctx;
     const groups = classGroups(
-      ts.isJsxExpression(init) ? init.expression ?? init : init,
+      ts.isJsxExpression(init) ? (init.expression ?? init) : init,
       consts,
       rel,
       used,
@@ -327,7 +399,8 @@ export function scanSource(src: string, rel: string, options: ScanOptions = {}):
       const s = readSize(c);
       if (s !== null) size = s;
       if (BOLD.has(c)) bold = true;
-      else if (/^font-(thin|extralight|light|normal|medium|semibold)$/.test(c)) bold = false;
+      else if (/^font-(thin|extralight|light|normal|medium|semibold)$/.test(c))
+        bold = false;
     }
     const large = size >= 24 || (bold && size >= 18.66);
     const required = large ? AA_LARGE : AA_NORMAL;
@@ -352,7 +425,14 @@ export function scanSource(src: string, rel: string, options: ScanOptions = {}):
           measured++;
           const ratio = contrast(over(text.rgb, text.alpha, surface), surface);
           if (ratio < required) {
-            findings.push({ key: `${rel}|${cls}`, line, cls, ratio, required, surface: hex(surface) });
+            findings.push({
+              key: `${rel}|${cls}`,
+              line,
+              cls,
+              ratio,
+              required,
+              surface: hex(surface),
+            });
           }
         }
       }
