@@ -39,7 +39,19 @@ vi.mock("next-auth", () => ({
   getServerSession: vi.fn(async () => ({ user: { id: "user-1" } })),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-vi.mock("@/lib/prisma", () => ({ prisma: {} }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    user: {
+      findUnique: async () => ({
+        role: "ADMIN",
+        organizationId: null,
+        organizationLeftAt: null,
+        organizationLeftId: null,
+        organization: null,
+      }),
+    },
+  },
+}));
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: (req: NextRequest, _u: string, fn: (b: string) => unknown) =>
     req.text().then((b) => fn(b)),
