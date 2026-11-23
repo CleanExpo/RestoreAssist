@@ -411,6 +411,71 @@ export function dryingGoalTableRows(
   return rows;
 }
 
+// ── Charts (RA-8509) ─────────────────────────────────────────────────────────
+
+export interface ChartReadingGoal {
+  target: number;
+  basis: DryingGoalBasis;
+  status: MoistureStatus;
+}
+
+/**
+ * Goal and status of one reading on a chart or map. The job's reference
+ * reading for the reading's material wins (`references` comes from
+ * `pickReferenceReadings`). Without one, the guide row for `guideMaterial`
+ * applies, exactly as the chart did before RA-8509. `guideMaterial` defaults
+ * to the reading's surface type; a chart that maps surface types to guide rows
+ * its own way passes its own key.
+ */
+export function chartReadingGoal(
+  reading: { surfaceType: string; moistureLevel: number; unit?: string | null },
+  references: Record<string, number> = {},
+  guideMaterial: string = reading.surfaceType,
+): ChartReadingGoal {
+  const goal = resolveDryingGoal(reading.surfaceType, references, undefined, reading.unit);
+  if (goal.basis === "reference") {
+    return {
+      target: goal.target,
+      basis: "reference",
+      status: getMoistureStatus(reading.moistureLevel, guideMaterial, goal.target),
+    };
+  }
+  return {
+    target: getDryStandard(guideMaterial).dryThreshold,
+    basis: "guide",
+    status: getMoistureStatus(reading.moistureLevel, guideMaterial),
+  };
+}
+
+export interface ChartReferenceLine {
+  /** Surface type as the readings name it (first spelling seen). */
+  material: string;
+  target: number;
+}
+
+/**
+ * The reference lines a chart draws: one per material on the chart that has a
+ * reference reading, in the order the materials first appear. An empty result
+ * means the chart has no reference reading and draws its guide line instead.
+ */
+export function chartReferenceLines(
+  surfaceTypes: Iterable<string>,
+  references: Record<string, number> = {},
+): ChartReferenceLine[] {
+  const lines: ChartReferenceLine[] = [];
+  const seen = new Set<string>();
+  for (const surfaceType of surfaceTypes) {
+    const key = materialKey(surfaceType);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const target = references[key];
+    if (typeof target === "number" && Number.isFinite(target)) {
+      lines.push({ material: surfaceType.trim(), target });
+    }
+  }
+  return lines;
+}
+
 // ── Plain-English wording for messages, certificates and reports ─────────────
 
 /** Says what the goals were measured against, without naming any standard. */
