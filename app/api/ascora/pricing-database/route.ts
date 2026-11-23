@@ -18,17 +18,28 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
+
+/**
+ * RA-8602: every row here is a price (average, median, min, max) and the
+ * acceptance counts feed pricing, so both handlers are owner-or-manager only.
+ * Checked before any query, so a technician learns nothing.
+ */
+async function refuseNonMoneyViewer(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  const gate = await assertMoneyViewer(session);
+  if (gate.ok) return null;
+  return apiError(request, {
+    code: gate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+    message: gate.reason,
+    status: gate.status,
+  });
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return apiError(request, {
-        code: "UNAUTHORIZED",
-        message: "Unauthorized",
-        status: 401,
-      });
-    }
+    const refused = await refuseNonMoneyViewer(request);
+    if (refused) return refused;
 
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q")?.trim();
@@ -100,14 +111,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return apiError(request, {
-        code: "UNAUTHORIZED",
-        message: "Unauthorized",
-        status: 401,
-      });
-    }
+    const refused = await refuseNonMoneyViewer(request);
+    if (refused) return refused;
 
     const parsed = await request.json().catch(() => null);
     const body = (
