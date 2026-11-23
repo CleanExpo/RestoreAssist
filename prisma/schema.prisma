@@ -310,6 +310,9 @@ model User {
   pushTokens              PushToken[]
   clientInvites           ClientInvite[]
 
+  // Mining pilot slice 6: this user's entries in their employer's training register.
+  staffTrainingRecords StaffTrainingRecord[]
+
   @@index([managedById])
   @@index([organizationId])
   @@index([subscriptionTierId])
@@ -1034,10 +1037,41 @@ model Organization {
   // RA-8156: Pulse address withdrawal is organisation-wide, not per staff user.
   pulseAddressOptOuts PulseOrgAddressOptOut[]
 
+  // Mining pilot slice 6: the business's staff training register.
+  staffTrainingRecords StaffTrainingRecord[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
+}
+
+/// Mining pilot slice 6: one training record for one staff member, kept by
+/// their organisation. Owners and managers read and edit every record in the
+/// organisation; a technician reads their own only (lib/training/register-access.ts).
+///
+/// carsiCompletionRef is what the business typed: a carsi.com.au link or a
+/// certificate id. RestoreAssist never calls CARSI and never checks it, so it
+/// is shown as "entered by the business", never as verified (decision D-007).
+model StaffTrainingRecord {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staffUserId       String
+  staffUser         User         @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  course            String
+  provider          String
+  completedOn       DateTime     @db.Date
+  expiresOn         DateTime?    @db.Date
+  evidenceUrl       String?
+  carsiCompletionRef String?
+  recordedByUserId  String?
+  updatedByUserId   String?
+  createdAt         DateTime     @default(now()) @db.Timestamptz
+  updatedAt         DateTime     @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([organizationId, staffUserId])
+  @@index([staffUserId])
 }
 
 /// RA-8156 — durable Pulse consent lock for one address inside one organisation.
