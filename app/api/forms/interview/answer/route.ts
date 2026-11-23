@@ -7,11 +7,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { QuestionType } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { InterviewFlowEngine } from "@/lib/interview";
 import { prisma } from "@/lib/prisma";
+import {
+  findTranscriptQuestion,
+  serialiseAnswerValue,
+} from "@/lib/interview/transcript";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -114,28 +117,53 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Create InterviewResponse record for this answer
-      if (body.questionId) {
-        const question = await prisma.interviewQuestion.findFirst({
-          where: { id: body.questionId, isActive: true },
+      // RA-8594: write the transcript row. Question text and type come from
+      // the code question library (the list the interview screen uses), not
+      // the InterviewQuestion table, which nothing fills. One row per
+      // (session, question): answering again overwrites it.
+      //
+      // An id outside the library gets no row, on purpose: there is no owner
+      // for its text. AI-suggested follow-ups (`ai-suggestion-...` ids) never
+      // reach this route; GuidedInterviewPanel keeps them as local addenda
+      // and passes them to onComplete. The answer is still kept in
+      // `answers` above, and the reply says no transcript row was written.
+      const transcriptQuestion = findTranscriptQuestion(body.questionId);
+      let transcriptRecorded = false;
+      if (transcriptQuestion) {
+        const answerValue = serialiseAnswerValue(answer);
+        const answeredAt = new Date();
+        const existing = await prisma.interviewResponse.findFirst({
+          where: { interviewSessionId: sessionId, questionId: body.questionId },
+          select: { id: true },
         });
-        if (question) {
+        if (existing) {
+          await prisma.interviewResponse.update({
+            where: { id: existing.id },
+            data: {
+              questionText: transcriptQuestion.text,
+              answerValue,
+              answerType: transcriptQuestion.type,
+              answeredAt,
+            },
+          });
+        } else {
           await prisma.interviewResponse.create({
             data: {
               interviewSessionId: sessionId,
               questionId: body.questionId,
-              questionText: question.text,
-              answerValue:
-                typeof answer === "string" ? answer : JSON.stringify(answer),
-              answerType: question.type as unknown as QuestionType,
-              answeredAt: new Date(),
+              questionText: transcriptQuestion.text,
+              answerValue,
+              answerType: transcriptQuestion.type,
+              answeredAt,
             },
           });
         }
+        transcriptRecorded = true;
       }
 
       // Return response with interview progress
       return NextResponse.json({
+        transcriptRecorded,
         success: true,
         sessionId,
         totalAnswered: Object.keys(storedAnswers).length,
@@ -150,7 +178,9 @@ export async function POST(request: NextRequest) {
           interviewSession.totalQuestionsAsked
             ? "COMPLETED"
             : "IN_PROGRESS",
-        message: "Answer recorded successfully",
+        message: transcriptRecorded
+          ? "Answer recorded successfully"
+          : "Answer saved to the session; no transcript row was written because the question is not in the interview question library",
       });
     } catch (error) {
       // RA-786: do not leak error.message to clients

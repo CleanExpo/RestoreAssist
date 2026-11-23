@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { track, isFirstTime } from "@/lib/analytics/track";
 import { apiError, fromException } from "@/lib/api-errors";
+import { mergeTranscriptWithSessionAnswers } from "@/lib/interview/transcript";
 
 // GET - Get single interview session by ID
 export async function GET(
@@ -77,7 +78,19 @@ export async function GET(
       });
     }
 
-    return NextResponse.json({ session: interviewSession });
+    // RA-8594: interviews answered before transcript rows were written keep
+    // their answers only in `answers` JSON. Add those to `responses` so the
+    // detail page, the completed summary and resume all show them.
+    return NextResponse.json({
+      session: {
+        ...interviewSession,
+        responses: mergeTranscriptWithSessionAnswers(
+          interviewSession.responses,
+          interviewSession.answers,
+          interviewSession.updatedAt,
+        ),
+      },
+    });
   } catch (error) {
     // RA-786: do not leak error.message to clients (fromException emits a
     // generic message; detail goes to reportError only).
