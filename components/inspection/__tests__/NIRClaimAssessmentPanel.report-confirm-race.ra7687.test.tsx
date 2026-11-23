@@ -10,6 +10,7 @@ import { createRef } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import NIRClaimAssessmentPanel, {
+  adoptConfirmedLab,
   type NIRClaimAssessmentPanelHandle,
 } from "../NIRClaimAssessmentPanel";
 
@@ -102,5 +103,40 @@ describe("NIRClaimAssessmentPanel: report confirm and Save (RA-7687)", () => {
     act(() => reader.props!.onBusyChange(false));
     await act(() => ref.current!.persistAssessment());
     expect(io.postBodies()).toHaveLength(1);
+  });
+
+  it("a partial confirm adopts every stored lab value, so a Save cannot write back a stale one (kind F)", async () => {
+    const { io, ref } = await mounted();
+    // Another confirm already changed labName to New Lab; this confirm applies
+    // only the pre-remediation count and returns the whole stored lab.
+    const stored = { ...EMPTY_LAB, labName: "New Lab", sporeCountPreRemediation: 10 };
+    act(() => reader.props!.onApplied({ sporeCountPreRemediation: 10 }, stored));
+    await act(() => ref.current!.persistAssessment());
+    const body = io.postBodies()[0];
+    expect(body.expectedLab).toEqual(stored);
+    expect(body.labName).toBe("New Lab");
+    expect(body.sporeCountPreRemediation).toBe(10);
+  });
+
+  it("a Save in the same turn as a confirm sends the confirmed values, not the stale form (kind F)", async () => {
+    const { io, ref } = await mounted();
+    const stored = { ...EMPTY_LAB, labName: "New Lab" };
+    await act(async () => {
+      reader.props!.onApplied({ labName: "New Lab" }, stored);
+      await ref.current!.persistAssessment();
+    });
+    const body = io.postBodies()[0];
+    expect(body.labName).toBe("New Lab");
+    expect(body.expectedLab.labName).toBe("New Lab");
+  });
+
+  it("a stored value that changed under an unsaved edit of the same field adopts nothing and reports a clash (kind F)", () => {
+    const baseline = { ...EMPTY_LAB, labName: "Old Lab" };
+    const form = { labName: "My Edit", other: 1 };
+    const stored = { ...EMPTY_LAB, labName: "New Lab", sporeCountPreRemediation: 10 };
+    const out = adoptConfirmedLab(form, baseline, stored, ["sporeCountPreRemediation"]);
+    expect(out.clash).toBe(true);
+    expect(out.form).toBe(form);
+    expect(out.baseline).toBe(baseline);
   });
 });

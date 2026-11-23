@@ -22,6 +22,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";
+import { getResourceTenant } from "@/lib/organization-credits";
 import { logAiUsage, estimateCostUsd } from "@/lib/usage/log-usage";
 import {
   resolveAgentAiKey,
@@ -176,7 +177,7 @@ export async function POST(
     // and the budget check cannot be skipped.
     const job = await prisma.inspection.findFirst({
       where: tenancy.data.inspectionWhere,
-      select: { userId: true, workspaceId: true },
+      select: { userId: true, workspaceId: true, createdAt: true },
     });
     if (!job) {
       return apiError(request, {
@@ -185,9 +186,22 @@ export async function POST(
         status: 404,
       });
     }
+    // The job's business is the tenant it was created in, which is not the
+    // creator's current organisation when they have since moved. That tenant
+    // is proven from the creator and the job's creation time by the one
+    // resolver every other tenant decision uses. Where it cannot be proven
+    // nothing is looked up, checked, called or logged.
+    const tenant = await getResourceTenant(job.userId, job.createdAt);
+    if (!tenant) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "This job's business could not be confirmed.",
+        status: 403,
+      });
+    }
     let resolved: Awaited<ReturnType<typeof resolveAgentAiKey>>;
     try {
-      resolved = await resolveAgentAiKey(job.userId, "byok-only");
+      resolved = await resolveAgentAiKey(tenant.ownerId, "byok-only");
     } catch (err) {
       if (!(err instanceof PlatformKeyRefusedError)) throw err;
       return apiError(request, {

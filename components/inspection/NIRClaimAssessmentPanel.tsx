@@ -132,6 +132,49 @@ function labValuesOf(
   return out;
 }
 
+/** One comparable form of a lab value: a blank is null, a date is its day. */
+function labComparable(key: string, v: unknown): string | null {
+  if (v === null || v === undefined || v === "") return null;
+  return key === "samplingDate" ? String(v).slice(0, 10) : String(v);
+}
+
+/**
+ * A report confirm returned the lab values now stored. The one place the
+ * outgoing form values and the values a Save names as loaded (`expectedLab`)
+ * are brought together after a confirm: every stored value that changed, or
+ * that this confirm applied, goes into the form and into the baseline at the
+ * same moment, so the two cannot differ. A stored value that changed under an
+ * unsaved local edit of the same field is a clash: nothing is adopted and the
+ * caller tells the user to reload, so the Save is refused by the server and
+ * never overwrites silently.
+ */
+export function adoptConfirmedLab(
+  form: Record<string, unknown>,
+  baseline: Record<string, unknown>,
+  storedLab: Record<string, unknown>,
+  appliedFields: string[],
+): {
+  clash: boolean;
+  form: Record<string, unknown>;
+  baseline: Record<string, unknown>;
+} {
+  const stored = labValuesOf(storedLab);
+  const next = { ...form };
+  for (const key of LAB_FIELDS) {
+    const changed =
+      labComparable(key, stored[key]) !== labComparable(key, baseline[key]);
+    const applied = appliedFields.includes(key);
+    if (!changed && !applied) continue;
+    const edited =
+      labComparable(key, form[key]) !== labComparable(key, baseline[key]);
+    if (changed && !applied && edited) {
+      return { clash: true, form, baseline };
+    }
+    next[key] = stored[key];
+  }
+  return { clash: false, form: next, baseline: stored };
+}
+
 const CLAIM_TYPES: {
   type: NIRClaimType;
   label: string;
@@ -2220,15 +2263,35 @@ const NIRClaimAssessmentPanel = forwardRef<
                         reportConfirmInFlightRef.current = busy;
                       }}
                       onApplied={(applied, storedLab) => {
-                        if (storedLab) loadedLabRef.current = labValuesOf(storedLab);
-                        for (const [field, value] of Object.entries(applied)) {
-                          handleFieldChange(
-                            field,
-                            field === "samplingDate"
-                              ? `${value}T00:00:00.000Z`
-                              : value,
-                          );
+                        if (!storedLab) {
+                          for (const [field, value] of Object.entries(applied)) {
+                            handleFieldChange(
+                              field,
+                              field === "samplingDate"
+                                ? `${value}T00:00:00.000Z`
+                                : value,
+                            );
+                          }
+                          return;
                         }
+                        const adopted = adoptConfirmedLab(
+                          formDataRef.current,
+                          loadedLabRef.current,
+                          storedLab,
+                          Object.keys(applied),
+                        );
+                        if (adopted.clash) {
+                          toast.error(
+                            "Another report changed lab values you have edited here. Reload this assessment before saving.",
+                          );
+                          return;
+                        }
+                        // The form and the values a Save will name as loaded
+                        // change together, in this turn: a Save that runs
+                        // before React renders sends the confirmed values.
+                        formDataRef.current = adopted.form;
+                        loadedLabRef.current = adopted.baseline;
+                        setFormData(adopted.form);
                       }}
                     />
                   </>

@@ -14,6 +14,7 @@ const m = vi.hoisted(() => ({
   extractLabReport: vi.fn(),
   assessmentFindFirst: vi.fn(),
   inspectionFindFirst: vi.fn(),
+  getResourceTenant: vi.fn(),
   writes: vi.fn(),
 }));
 
@@ -39,6 +40,9 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   resolveInspectionWrite: m.assertWrite,
   assertFinancialWriter: m.assertSpender,
+}));
+vi.mock("@/lib/organization-credits", () => ({
+  getResourceTenant: m.getResourceTenant,
 }));
 vi.mock("@/lib/env", () => ({ readEnv: () => "test-secret-for-proposals" }));
 vi.mock("@/lib/billing/subscription-gate", () => ({
@@ -104,7 +108,16 @@ beforeEach(() => {
       childInspectionFilter: undefined,
     },
   });
-  m.inspectionFindFirst.mockResolvedValue({ userId: "u1", workspaceId: null });
+  m.inspectionFindFirst.mockResolvedValue({
+    userId: "u1",
+    workspaceId: null,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+  });
+  // By default the creator is their own tenant (an organisation owner).
+  m.getResourceTenant.mockImplementation(async (creatorId: string) => ({
+    ownerId: creatorId,
+    organizationId: null,
+  }));
   m.assertSpender.mockResolvedValue({ ok: true, data: { id: "u1", role: "MANAGER" } });
   m.requireActiveSubscription.mockResolvedValue(null);
   m.applyRateLimit.mockResolvedValue(null);
@@ -275,6 +288,42 @@ describe("POST third-party-reports/extract", () => {
     expect(m.checkWorkspaceBudget).not.toHaveBeenCalled();
     expect(m.logAiUsage).not.toHaveBeenCalled();
     expect(m.writes).not.toHaveBeenCalled();
+  });
+
+  it("a creator who moved organisation: the key is the tenant the job was created in, never the creator's new organisation (kind G)", async () => {
+    m.inspectionFindFirst.mockResolvedValue({
+      userId: "movedTech",
+      workspaceId: null,
+      createdAt: new Date("2026-02-01T00:00:00Z"),
+    });
+    m.getResourceTenant.mockResolvedValue({ ownerId: "oldOrgOwner", organizationId: "oldOrg" });
+    m.resolveKey.mockImplementation(async (id: string) => ({
+      apiKey: id === "oldOrgOwner" ? "sk-old-org" : "sk-new-org",
+      workspaceId: id === "oldOrgOwner" ? "wsOld" : "wsNew",
+      source: "byok",
+    }));
+    const res = await POST(req(PDF), ctx);
+    expect(m.getResourceTenant).toHaveBeenCalledWith("movedTech", new Date("2026-02-01T00:00:00Z"));
+    expect(m.resolveKey).toHaveBeenCalledWith("oldOrgOwner", "ANTHROPIC");
+    expect(m.resolveKey).not.toHaveBeenCalledWith("movedTech", "ANTHROPIC");
+    expect(res.status).toBe(200);
+    expect(m.extractLabReport).toHaveBeenCalledWith(expect.objectContaining({ apiKey: "sk-old-org" }));
+    expect(m.logAiUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "wsOld" }));
+  });
+
+  it("403 with no key lookup, budget check, AI call or usage log when the job's tenant cannot be proven (kind G)", async () => {
+    m.inspectionFindFirst.mockResolvedValue({
+      userId: "movedTech",
+      workspaceId: null,
+      createdAt: new Date("2026-02-01T00:00:00Z"),
+    });
+    m.getResourceTenant.mockResolvedValue(null);
+    const res = await POST(req(PDF), ctx);
+    expect(res.status).toBe(403);
+    expect(m.resolveKey).not.toHaveBeenCalled();
+    expect(m.checkWorkspaceBudget).not.toHaveBeenCalled();
+    expect(m.extractLabReport).not.toHaveBeenCalled();
+    expect(m.logAiUsage).not.toHaveBeenCalled();
   });
 
   it("404 and no spend when the job row cannot be read back", async () => {
