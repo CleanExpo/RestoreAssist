@@ -16,9 +16,11 @@ import {
   Filter,
 } from "lucide-react";
 import {
-  getMoistureStatus,
+  chartReadingGoal,
   STATUS_COLORS,
   getDryStandard,
+  DRYING_GOAL_BASIS_SHORT,
+  MOISTURE_GUIDE_LABEL,
 } from "@/lib/iicrc-dry-standards";
 import { dryingLocationForReading } from "@/lib/moisture/reading-room-join";
 
@@ -31,6 +33,8 @@ interface MoistureReading {
   notes: string | null;
   sketchRoomId?: string | null;
   sketchRoom?: { id: string; name: string } | null;
+  /** Recorded unit; a reference applies only to a moisture-content reading. */
+  unit?: string | null;
 }
 
 interface MoisturePoint {
@@ -54,6 +58,12 @@ const EMPTY_EQUIPMENT: EquipmentPoint[] = [];
 
 interface MoistureMappingCanvasProps {
   readings: MoistureReading[];
+  /**
+   * The job's reference readings: `pickReferenceReadings(...)` (RA-8509).
+   * A reading is coloured against its material's reference when one exists,
+   * and against the guide only when there is none.
+   */
+  references?: Record<string, number>;
   className?: string;
   initialPoints?: MoisturePoint[];
   initialEquipmentPoints?: EquipmentPoint[];
@@ -111,25 +121,38 @@ function getEquipmentConfig(type: string) {
   return EQUIPMENT_TYPES.find((e) => e.type === type) ?? EQUIPMENT_TYPES[0];
 }
 
-function getMoistureColor(level: number, material = "other"): string {
-  const status = getMoistureStatus(level, material);
-  return STATUS_COLORS[status].dot;
+const NO_REFERENCES: Record<string, number> = {};
+
+function getMoistureColor(
+  reading: Pick<MoistureReading, "surfaceType" | "moistureLevel" | "unit">,
+  references: Record<string, number>,
+): string {
+  return STATUS_COLORS[chartReadingGoal(reading, references).status].dot;
 }
 
 function readingLabel(reading: MoistureReading): string {
   return dryingLocationForReading(reading) ?? reading.location;
 }
 
-function getMoistureLabel(level: number, material = "other"): string {
-  const status = getMoistureStatus(level, material);
-  const std = getDryStandard(material);
-  if (status === "dry") return `Dry (≤${std.dryThreshold}%)`;
-  if (status === "drying") return `Drying (≤${std.wetThreshold}%)`;
-  return `Wet (>${std.wetThreshold}%)`;
+function getMoistureLabel(
+  reading: Pick<MoistureReading, "surfaceType" | "moistureLevel" | "unit">,
+  references: Record<string, number>,
+): string {
+  const goal = chartReadingGoal(reading, references);
+  if (goal.basis === "reference") {
+    if (goal.status === "dry") return `Dry (reference ≤${goal.target}%)`;
+    if (goal.status === "drying") return `Drying (above reference ${goal.target}%)`;
+    return `Wet (above reference ${goal.target}%)`;
+  }
+  const std = getDryStandard(reading.surfaceType);
+  if (goal.status === "dry") return `Dry (guide ≤${std.dryThreshold}%)`;
+  if (goal.status === "drying") return `Drying (guide ≤${std.wetThreshold}%)`;
+  return `Wet (guide >${std.wetThreshold}%)`;
 }
 
 export default function MoistureMappingCanvas({
   readings,
+  references = NO_REFERENCES,
   className,
   initialPoints = EMPTY_POINTS,
   initialEquipmentPoints = EMPTY_EQUIPMENT,
@@ -507,12 +530,16 @@ export default function MoistureMappingCanvas({
         </button>
       </div>
 
-      {/* IICRC S500 Legend — conditional on mode */}
+      {/* Moisture guide legend (not a standard, RA-8508) — conditional on mode */}
       {sketchMode === "moisture" && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 rounded-lg bg-neutral-50 dark:bg-slate-800/50 border border-neutral-200 dark:border-slate-700/50 text-xs">
           <div className="flex items-center gap-1.5 text-neutral-600 dark:text-slate-400">
             <Info size={11} className="flex-shrink-0" />
-            <span className="font-semibold">IICRC S500</span>
+            <span className="font-semibold">
+              {Object.keys(references).length > 0
+                ? DRYING_GOAL_BASIS_SHORT
+                : MOISTURE_GUIDE_LABEL}
+            </span>
           </div>
           {(["dry", "drying", "wet"] as const).map((status) => (
             <span key={status} className="flex items-center gap-1.5">
@@ -633,10 +660,7 @@ export default function MoistureMappingCanvas({
             {/* ── MOISTURE LAYER (shown in moisture + equipment modes) ── */}
             {sketchMode !== "structural" &&
               points.map((point) => {
-                const color = getMoistureColor(
-                  point.reading.moistureLevel,
-                  point.reading.surfaceType,
-                );
+                const color = getMoistureColor(point.reading, references);
                 const isSelected = selectedPoint?.id === point.id;
                 return (
                   <g
@@ -832,18 +856,15 @@ export default function MoistureMappingCanvas({
                       className="px-2 py-0.5 rounded-full text-xs font-bold text-white"
                       style={{
                         backgroundColor: getMoistureColor(
-                          selectedPoint.reading.moistureLevel,
-                          selectedPoint.reading.surfaceType,
+                          selectedPoint.reading,
+                          references,
                         ),
                       }}
                     >
                       {selectedPoint.reading.moistureLevel}%
                     </span>
                     <span className="text-xs text-neutral-500">
-                      {getMoistureLabel(
-                        selectedPoint.reading.moistureLevel,
-                        selectedPoint.reading.surfaceType,
-                      )}
+                      {getMoistureLabel(selectedPoint.reading, references)}
                     </span>
                   </div>
                   <div className="text-xs text-neutral-500">
@@ -905,8 +926,8 @@ export default function MoistureMappingCanvas({
                             className="px-1.5 py-0.5 rounded text-xs font-bold text-white flex-shrink-0"
                             style={{
                               backgroundColor: getMoistureColor(
-                                reading.moistureLevel,
-                                reading.surfaceType,
+                                reading,
+                                references,
                               ),
                             }}
                           >

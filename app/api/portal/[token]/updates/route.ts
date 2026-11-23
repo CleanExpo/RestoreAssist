@@ -55,12 +55,17 @@ export async function GET(
         // RA-8476: a voided reading stays on the job for audit, but the
         // client must not see it.
         moistureReadings: {
+          // RA-8476: a voided reading never reaches the portal.
+          // RA-8508: baselines set the drying goal.
           where: { invalidatedAt: null },
           select: {
             location: true,
             surfaceType: true,
             moistureLevel: true,
             recordedAt: true,
+            isBaseline: true,
+            unit: true,
+            invalidatedAt: true,
           },
         },
       },

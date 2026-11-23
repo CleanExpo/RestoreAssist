@@ -14,12 +14,17 @@
  *
  * A "raw read" is `<ident>.error` or `<ident>["error"]` whose value is used
  * as it is: not followed by a further property access, element access or call
- * (`data.error.message` is a different, typed read), and not on a logging
- * receiver (`console.error`, `toast.error`, ...).
+ * (`data.error.message` is a different, typed read). Calling it
+ * (`console.error(x)`, `toast.error(x)`) is not a read. Reading it as a value
+ * is, whatever the receiver is named: `logger` or `log` can be a parsed reply
+ * as easily as a logger (RA-8363).
  *
  * It is a violation when it sits inside:
  *   1. the arguments of `new Error(...)` (also `new x.Error(...)`)
- *   2. the arguments of a state setter `set[A-Z]...(...)` (also `x.setFoo(...)`)
+ *   2. the arguments of a state setter: a call named `set[A-Z]...(...)` (also
+ *      `x.setFoo(...)`), or a bare call of any name that the same file binds as
+ *      the setter of `const [value, name] = useState(...)` (also
+ *      `React.useState`), so `assignError(body.error)` counts (RA-8363)
  *   3. a `${...}` template-literal interpolation
  * Brackets, `!`, `as`, `satisfies` and `<T>` are looked through everywhere
  * (isTransparent), and every call is named by calleeName.
@@ -33,7 +38,8 @@
  * for coverage):
  *   - a value copied to another name first (`const e = body.error; setError(e)`)
  *     or destructured (`const { error } = body`);
- *   - setters not named `set...`; callees chosen at run time (`f[key](...)`,
+ *   - a setter not named `set...` that is not bound by useState in the same
+ *     file (passed in as a prop, or renamed on the way); callees chosen at run time (`f[key](...)`,
  *     `(a || setError)(...)`, `getSetter()(...)`); indirect calls such as
  *     `setError.call(null, body.error)`;
  *   - `.error` rendered as a JSX child (`{data.error}`), passed to toast or a
@@ -62,8 +68,6 @@ const EXT = /\.(ts|tsx|js|jsx|mjs)$/;
 const SKIP_DIR = new Set(["node_modules", ".next", "__tests__", "__mocks__"]);
 const SKIP_FILE = /\.(test|spec)\.[jt]sx?$|\.d\.ts$/;
 
-// Receivers whose `.error` is a logging method, not an API body.
-const NON_BODY = new Set(["console", "toast", "logger", "log", "Sentry", "sonner"]);
 // Calls whose result cannot be the object passed in.
 const NEUTRAL_CALLS = new Set(["apiErrorMessage", "Boolean"]);
 const COMPARISON = new Set([
@@ -170,23 +174,11 @@ function calleeName(expr, { member }) {
   return member ? staticMemberName(n) : undefined;
 }
 
-/** Leftmost identifier of a.b?.c["d"] chains, or undefined. */
-function rootName(expr) {
-  let n = expr;
-  for (;;) {
-    n = unwrap(n);
-    if (ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n)) n = n.expression;
-    else if (ts.isCallExpression(n)) n = n.expression;
-    else return ts.isIdentifier(n) ? n.text : undefined;
-  }
-}
-
 const isErrorRead = (node) => staticMemberName(node) === "error";
 
 /** The read's value is used as it is (not read further, not called). */
 function isRawRead(node) {
   if (!isErrorRead(node)) return false;
-  if (NON_BODY.has(rootName(node.expression) ?? "")) return false;
   let p = node.parent;
   let child = node;
   while (p && isTransparent(p)) {
@@ -223,8 +215,40 @@ function isSafeStep(parent, child) {
   return false;
 }
 
+/** `useState(...)` or `React.useState(...)`, generics and wrappers looked through. */
+function isUseStateCall(n) {
+  n = unwrap(n);
+  if (!ts.isCallExpression(n)) return false;
+  const callee = unwrap(n.expression);
+  if (ts.isIdentifier(callee)) return callee.text === "useState";
+  return ts.isPropertyAccessExpression(callee) && callee.name.text === "useState";
+}
+
+/**
+ * The names this file binds as useState setters: the second element of
+ * `const [value, setter] = useState(...)`. A setter is a sink whatever it is
+ * called (RA-8363), so `assignError(body.error)` is caught.
+ */
+function useStateSetters(sf) {
+  const names = new Set();
+  const visit = (node) => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      node.initializer &&
+      ts.isArrayBindingPattern(node.name) &&
+      isUseStateCall(node.initializer)
+    ) {
+      const el = node.name.elements[1];
+      if (el && ts.isBindingElement(el) && ts.isIdentifier(el.name)) names.add(el.name.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return names;
+}
+
 /** The sink this node is the argument or interpolation of, if any. */
-function sinkOf(parent, child) {
+function sinkOf(parent, child, setters) {
   if (ts.isNewExpression(parent) && parent.arguments?.includes(child)) {
     if (calleeName(parent.expression, { member: true }) === "Error") return "new Error(";
   }
@@ -233,6 +257,10 @@ function sinkOf(parent, child) {
     // Error(x) without `new` builds the same Error.
     if (name === "Error") return "new Error(";
     if (name && /^set[A-Z]/.test(name)) return `${name}(`;
+    // A bare call of a name this file got from useState. A member call
+    // (`obj.assignError`) is a different binding and is not matched.
+    const bare = calleeName(parent.expression, { member: false });
+    if (bare && setters.has(bare)) return `${bare}(`;
   }
   if (ts.isTemplateSpan(parent) && parent.expression === child) return "template literal";
   return undefined;
@@ -244,12 +272,12 @@ function sinkOf(parent, child) {
  * (`void setError(body.error)` still sets the object). A safe step clears the
  * read only when it comes before any sink.
  */
-function sinkReached(read) {
+function sinkReached(read, setters) {
   let child = read;
   let parent = read.parent;
   while (parent) {
     if (isSafeStep(parent, child)) return undefined;
-    const kind = sinkOf(parent, child);
+    const kind = sinkOf(parent, child, setters);
     if (kind) return kind;
     child = parent;
     parent = parent.parent;
@@ -260,12 +288,13 @@ function sinkReached(read) {
 export function findSinks(src, fileName = "file.tsx") {
   const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, scriptKind(fileName));
   const found = [];
+  const setters = useStateSetters(sf);
   const visit = (node) => {
     if (isRawRead(node)) {
       const start = node.getStart(sf);
       const line = sf.getLineAndCharacterOfPosition(start).line + 1;
       const text = node.getText(sf);
-      const kind = sinkReached(node);
+      const kind = sinkReached(node, setters);
       if (kind) found.push({ kind, index: start, line, text });
     }
     ts.forEachChild(node, visit);

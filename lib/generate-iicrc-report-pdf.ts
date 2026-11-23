@@ -17,7 +17,7 @@
  *   6A. Sampling & laboratory results (mould jobs only, RA-7686)
  *   6B. Independent verification handoff (mould jobs only, RA-8373)
  *   7. Inspection report narrative
- *   8. Drying goals reference (S500 §12.5.7)
+ *   8. Drying goal basis (reference readings; guide values marked, RA-8508)
  *   9. Signed declaration
  */
 
@@ -26,6 +26,14 @@ import {
   shouldPrintMouldLabResults,
   type MouldLabAssessment,
 } from "@/lib/reports/mould-lab-results";
+import {
+  MOISTURE_GUIDE_HINT,
+  MOISTURE_GUIDE_LABEL,
+  dryingGoalTableRows,
+  moistureRowGoal,
+  pickReferenceReadings,
+  type ReferenceCandidate,
+} from "@/lib/iicrc-dry-standards";
 import {
   buildVerificationHandoff,
   verificationHandoffRows,
@@ -45,6 +53,24 @@ import {
   type StandardKey,
 } from "@/lib/nir-standards-mapping";
 import { readEquipmentDeploymentLog } from "@/lib/reports/stored-equipment-pricing";
+
+/**
+ * RA-8508: PDF moisture rows as owner inputs. Rows come from the relational
+ * adapter (lib/reports/pdf-moisture-readings.ts, which carries `unit`) or from
+ * legacy JSON (no unit, no baseline flag, so never a reference).
+ */
+function pdfReferenceCandidates(rows: any[]): ReferenceCandidate[] {
+  return rows.map((r) => ({
+    surfaceType: r.surfaceType ?? r.material ?? r.materialType ?? null,
+    moistureLevel:
+      typeof r.moistureLevel === "number" ? r.moistureLevel : Number.parseFloat(String(r.moistureLevel ?? "")),
+    isBaseline: r.isBaseline === true,
+    unit: typeof r.unit === "string" ? r.unit : null,
+    // Relational rows are queried with invalidatedAt: null; JSON rows carry none.
+    invalidatedAt: null,
+    recordedAt: r.date ?? null,
+  }));
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,9 +130,6 @@ const C_TEXT = rgb(0.1, 0.1, 0.1);
 const C_MUTED = rgb(0.45, 0.45, 0.45);
 const C_LIGHT = rgb(0.94, 0.96, 0.98);
 const C_WHITE = rgb(1, 1, 1);
-const C_GREEN = rgb(0.08, 0.5, 0.08);
-const C_AMBER = rgb(0.7, 0.4, 0.0);
-const C_RED = rgb(0.75, 0.1, 0.1);
 
 const WATER_CATEGORIES: Record<string, string> = {
   "1": "Category 1 — Clean Water (S500:2021 §10.4.1)",
@@ -644,32 +667,28 @@ export async function generateIICRCReportPDF(
     ];
     const mWidths = [100, 90, 65, 65, 65, 68];
     w.tableRow(mCols, mWidths, true);
+    // RA-8508: each row's goal and status come from the owner (the job's
+    // reference reading first, then the guide), the same goal Section 9 prints.
+    const rowReferences = pickReferenceReadings(pdfReferenceCandidates(moistureArr));
     moistureArr.forEach((r: any, i: number) => {
       const val = r.moistureLevel ?? r.value ?? r.reading ?? r.moisture ?? "";
-      const threshold =
-        r.threshold ??
-        (r.material?.toLowerCase().includes("timber") ? "≤18%" : "≤14%");
-      const numVal = parseFloat(String(val));
-      const _statusColor = isNaN(numVal)
-        ? C_MUTED
-        : numVal > 18
-          ? C_RED
-          : numVal > 14
-            ? C_AMBER
-            : C_GREEN;
-      const status = isNaN(numVal)
-        ? "—"
-        : numVal > 18
-          ? "ABOVE GOAL"
-          : numVal > 14
-            ? "MONITORING"
-            : "WITHIN GOAL";
+      const rowGoal = moistureRowGoal(
+        {
+          material: r.material ?? r.materialType,
+          surfaceType: r.surfaceType,
+          moistureLevel: val,
+          isBaseline: r.isBaseline,
+          unit: r.unit,
+        },
+        rowReferences,
+      );
+      const status = rowGoal.status;
       w.tableRow(
         [
           r.location ?? r.room ?? r.roomZoneId ?? "—",
           r.material ?? r.materialType ?? "—",
           val ? `${val}%` : "—",
-          String(threshold),
+          rowGoal.goalText,
           status,
           r.date
             ? fmtDate(r.date)
@@ -684,7 +703,7 @@ export async function generateIICRCReportPDF(
     });
     w.gap(4);
     w.text(
-      "Drying goal: all affected materials must achieve equilibrium moisture content per S500:2021 §12.5.7.",
+      "Drying goal: the reference reading from unaffected like material in the same building where one was recorded, otherwise a guide value (see Section 9).",
       {
         size: 8,
         color: C_MUTED,
@@ -897,26 +916,37 @@ export async function generateIICRCReportPDF(
     w.gap(8);
   }
 
-  // ── SECTION 9: IICRC Drying Goals Reference ──────────────────────────────────
+  // ── SECTION 9: Drying goal basis (RA-8508) ─────────────────────────────────
+  // The goal for each material is the job's reference reading from unaffected
+  // like material. Guide values have no cited source and are labelled as such.
   w.ensureSpace(80);
-  w.sectionHeader("SECTION 9 — IICRC S500:2021 DRYING GOALS REFERENCE (§12.5.7)");
+  w.sectionHeader("SECTION 9 — DRYING GOAL BASIS");
   w.gap(4);
-  const dryingGoals = [
-    ["Hardwood flooring (solid)", "≤12% MC", "§12.5.7"],
-    ["Softwood / structural timber", "≤19% MC", "§12.5.7"],
-    ["Plasterboard (gypsum)", "≤1% MC", "§12.5.7"],
-    ["Concrete (slab, block)", "≤5% MC", "§12.5.7"],
-    ["Relative humidity (interior)", "≤50% RH", "§5"],
-    ["Indoor temperature", "21–27°C", "§5"],
-  ];
-  w.tableRow(
-    ["Material / Condition", "Drying Goal", "S500:2021 Ref."],
-    [170, 120, 100],
-    true,
-  );
-  dryingGoals.forEach(([mat, goal, ref], i) => {
-    w.tableRow([mat, goal, ref], [170, 120, 100], false, i % 2 === 1);
+  // One row per material with a reference reading, plus a guide row for each
+  // monitored material without one (owner: dryingGoalTableRows).
+  const goalRows = dryingGoalTableRows(pdfReferenceCandidates(moistureArr));
+  const anyReference = goalRows.some((g) => g.basis === "reference");
+  w.tableRow(["Material", "Drying goal", "Basis"], [170, 120, 160], true);
+  goalRows.forEach((g, i) => {
+    w.tableRow(
+      [
+        // RA-8517: capitalised as in Section 4 (the owner returns lower-case keys).
+        sanitise(g.material.charAt(0).toUpperCase() + g.material.slice(1)),
+        `≤${g.target}% MC`,
+        g.basis === "reference" ? "Reference reading" : MOISTURE_GUIDE_LABEL,
+      ],
+      [170, 120, 160],
+      false,
+      i % 2 === 1,
+    );
   });
+  w.gap(4);
+  w.text(
+    anyReference
+      ? `Reference readings were taken on unaffected like material in the same building. ${MOISTURE_GUIDE_HINT.replace("Replace it with", "Materials without one use a guide value; replace it with")}`
+      : `No reference reading was recorded. The values above are a starting guide only and are not a published standard. ${MOISTURE_GUIDE_HINT.replace("Replace it with a reference reading", "Replace them with reference readings")}`,
+    { size: 8, color: C_MUTED, maxWidth: COL_W },
+  );
   w.gap(8);
 
   // ── SECTION 10: Signed Declaration ───────────────────────────────────────────

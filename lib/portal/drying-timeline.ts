@@ -12,7 +12,11 @@
  */
 
 import { computeTargetCurve } from "@/lib/drying/target-curve";
-import { getDryStandard } from "@/lib/iicrc-dry-standards";
+import {
+  isProgressReading,
+  pickReferenceReadings,
+  resolveDryingGoal,
+} from "@/lib/iicrc-dry-standards";
 
 const DEFAULT_CATEGORY = "Category 2";
 const DEFAULT_CLASS = "Class 2";
@@ -64,6 +68,11 @@ export interface DryingTimelineReadingInput {
   surfaceType: string;
   moistureLevel: number;
   recordedAt: Date | string;
+  /** RA-8508: a reference reading from unaffected like material (sets the goal). */
+  // Required keys (RA-8508 review): null means not recorded / not invalidated.
+  isBaseline: boolean;
+  unit: string | null;
+  invalidatedAt: Date | string | null;
 }
 
 export interface DryingTimelineAreaInput {
@@ -95,10 +104,12 @@ export function buildDryingTimeline(
   const waterClass = input.targetClass ?? DEFAULT_CLASS;
 
   const states: AreaDryingState[] = [];
+  // Reference readings set the goal; they are not themselves drying progress.
+  const references = pickReferenceReadings(input.readings);
 
   for (const area of input.areas) {
     const areaReadings = input.readings
-      .filter((r) => r.location === area.roomZoneId)
+      .filter((r) => r.location === area.roomZoneId && isProgressReading(r))
       .map((r) => ({ ...r, recordedAt: new Date(r.recordedAt) }))
       .sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
 
@@ -108,7 +119,7 @@ export function buildDryingTimeline(
     // plasterboard wall). Each material is judged on its own latest reading
     // against its own drying goal — never against another material's goal.
     const materials = groupBySurfaceType(areaReadings).map((readings) =>
-      assessMaterial(readings, now, category, waterClass),
+      assessMaterial(readings, references, now, category, waterClass),
     );
 
     // Complete only when every monitored material is at its own goal.
@@ -149,11 +160,18 @@ interface MaterialAssessment {
 
 /**
  * Assess one material's readings (sorted oldest first, all the same
- * surfaceType) against that material's own drying goal — the same
- * getDryStandard() lookup the technician drying-goal check uses per reading.
+ * surfaceType) against that material's own drying goal. RA-8508: the goal is
+ * the property's reference reading for that material where one was recorded,
+ * otherwise the guide value (resolveDryingGoal, the single goal owner).
  */
 function assessMaterial(
-  readings: { surfaceType: string; moistureLevel: number; recordedAt: Date }[],
+  readings: {
+    surfaceType: string;
+    moistureLevel: number;
+    recordedAt: Date;
+    unit: string | null;
+  }[],
+  references: Record<string, number>,
   now: Date,
   category: string,
   waterClass: string,
@@ -177,7 +195,12 @@ function assessMaterial(
   );
   const dayIndex = Math.min(daysElapsed, curve.daily.length - 1);
   const expectedTargetMC = curve.daily[dayIndex].targetMC;
-  const dryThreshold = getDryStandard(materialType).dryThreshold;
+  const dryThreshold = resolveDryingGoal(
+    materialType,
+    references,
+    undefined,
+    latest.unit,
+  ).target;
 
   return {
     isDry: latest.moistureLevel <= dryThreshold,

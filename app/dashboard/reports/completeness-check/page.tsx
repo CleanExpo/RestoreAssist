@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { EmptyState } from "@/components/EmptyState";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { completenessSectionHref } from "@/lib/dashboard/completeness-blocker-links";
 
 interface Report {
   id: string;
@@ -49,6 +50,7 @@ interface Section {
 
 interface CompletenessResult {
   reportId: string;
+  inspectionId: string | null;
   reportTitle: string;
   overallScore: number;
   sections: Section[];
@@ -120,10 +122,10 @@ function ScoreRing({ score }: { score: number }) {
 
 function SectionCard({
   section,
-  reportId,
+  inspectionId,
 }: {
   section: Section;
-  reportId: string;
+  inspectionId: string | null;
 }) {
   const statusConfig = {
     complete: {
@@ -158,8 +160,8 @@ function SectionCard({
         ? "bg-amber-500"
         : "bg-red-500";
 
-  // Build fix links per section
-  const fixLink = getFixLink(section.name, reportId);
+  // RA-8545: fixes live on the linked inspection, via the shared link owner.
+  const fixLink = completenessSectionHref(section.name, inspectionId);
 
   return (
     <Card className="flex flex-col">
@@ -228,25 +230,6 @@ function SectionCard({
       </CardContent>
     </Card>
   );
-}
-
-function getFixLink(sectionName: string, reportId: string): string | null {
-  switch (sectionName) {
-    case "Client Information":
-      return `/dashboard/clients`;
-    case "Inspection Data":
-      return `/dashboard/inspections`;
-    case "IICRC Classification":
-      return `/dashboard/inspections/${reportId}?tab=classification`;
-    case "Scope of Works":
-      return `/dashboard/reports/${reportId}?tab=scope`;
-    case "Cost Estimates":
-      return `/dashboard/reports/${reportId}?tab=costs`;
-    case "Site Photos":
-      return `/dashboard/inspections/${reportId}?tab=photos`;
-    default:
-      return null;
-  }
 }
 
 function SectionSkeleton() {
@@ -475,7 +458,7 @@ export default function CompletenessCheckPage() {
                   <SectionCard
                     key={section.name}
                     section={section}
-                    reportId={result.reportId}
+                    inspectionId={result.inspectionId}
                   />
                 ))}
               </div>

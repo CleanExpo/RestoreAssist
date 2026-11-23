@@ -121,7 +121,7 @@ export function LandingHero() {
             <motion.li
               key={item}
               variants={fadeUpSoft}
-              className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.02em] text-slate-500"
+              className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.02em] text-slate-600"
             >
               <span
                 className="h-1 w-1 shrink-0 rounded-full bg-brand-harbour"

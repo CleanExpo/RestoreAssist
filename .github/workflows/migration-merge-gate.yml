@@ -1,0 +1,83 @@
+name: Migration merge gate
+
+# RA-8529. On 21 Nov 2026 #2611 (RA-8495) merged and deployed to
+# restoreassist.app before its migration was applied, so production ran code
+# that read columns its database did not have. Merging to main deploys
+# production. A note in the PR body did not stop it, and
+# migration-ledger-parity.yml only notices after the merge.
+#
+# This check fails while the PR adds a folder under prisma/migrations/ that
+# production's public /api/health/migrations ledger does not include. It
+# recomputes the ledger fingerprint over the base branch's migration folders
+# plus the ones this PR adds, and requires production to match exactly. A PR
+# that adds no migration passes at once, with no network call.
+#
+# It turns green only after the migration has been applied to production
+# through the owner-approved path (.claude/RULES.md rule 29). Nothing here
+# applies a migration. After the apply, re-run this job ("Re-run failed jobs");
+# a re-run reads the base branch tip and production as they are at that time.
+#
+# Read-only by construction: no secrets, no installs, no database connection,
+# no writes. It only calls the same public route migration-ledger-parity.yml
+# calls.
+#
+# No paths filter on purpose: a required check that a paths filter skips stays
+# "Expected" forever and blocks every other PR.
+#
+# The gate runs from the BASE branch tip, not from the PR, so a PR cannot
+# switch it off by editing the gate script. The PR's tree is only read with
+# git ls-tree. Bootstrap: while the base branch does not have the gate yet
+# (the PR that adds it), the PR's copy of scripts/ci is used once.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-merge-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Migration applied on production
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      # The base branch as it is NOW (a re-run keeps the original event, so the
+      # event's base sha could be stale).
+      - name: Check out the current tip of the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Fetch the PR head commit
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: git fetch --no-tags --depth=1 origin "$HEAD_SHA"
+
+      # Exit 1 = production has not applied a migration this PR adds.
+      # Exit 2 = could not check. Both fail the job.
+      - name: Require production to have this PR's migrations
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PRODUCTION_ORIGIN: https://restoreassist.app
+        run: |
+          base_sha="$(git rev-parse HEAD)"
+          if [ ! -f scripts/ci/check-migration-merge-gate.mjs ]; then
+            echo "::notice::Bootstrap: the base branch has no migration merge gate yet; using this PR's scripts/ci."
+            git checkout "$HEAD_SHA" -- scripts/ci
+          fi
+          echo "Base ${base_sha}, PR head ${HEAD_SHA}"
+          node scripts/ci/check-migration-merge-gate.mjs \
+            --base "$base_sha" --head "$HEAD_SHA" --origin "$PRODUCTION_ORIGIN"

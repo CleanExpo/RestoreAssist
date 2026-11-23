@@ -6,13 +6,15 @@
  * Plots moisture readings as a multi-day drying curve per location/material.
  * X-axis: Day 1, Day 2, Day 3 … (relative to first reading per location)
  * Y-axis: Moisture level (%)
- * Reference line: IICRC S500 dry threshold for each material type
+ * Goal line: the job's reference reading, one line per material on the chart
+ * that has one (RA-8509). Only when there is none, the starting guide value for
+ * the most common material (not a standard, RA-8508).
  *
  * Each location-material pair becomes its own series.
  * Lines are coloured:
- *   green  — latest reading is at or below dry standard
- *   amber  — latest reading is in drying range (between dry and wet threshold)
- *   red    — latest reading exceeds wet threshold
+ *   green  — latest reading is at or below its goal (reference, else guide)
+ *   amber  — latest reading is above its goal but not in the wet band
+ *   red    — latest reading is in the wet band
  *
  * Tooltip shows exact reading, day label, meter type (if available).
  */
@@ -44,9 +46,12 @@ import {
   seriesColour,
 } from "@/lib/charts/palette";
 import {
+  chartReadingGoal,
+  chartReferenceLines,
   getDryStandard,
-  getMoistureStatus,
   STATUS_COLORS,
+  MOISTURE_GUIDE_LABEL,
+  type ChartReadingGoal,
 } from "@/lib/iicrc-dry-standards";
 import {
   computeTargetCurve,
@@ -58,21 +63,25 @@ import {
 export interface DryingMoistureReading {
   id: string;
   location: string;
-  surfaceType: string; // matches material keys in IICRC_DRY_STANDARDS
+  surfaceType: string; // matches material keys in MOISTURE_GUIDE_VALUES
   moistureLevel: number;
   depth: string;
   recordedAt: string;
   meterType?: string;
+  /** Recorded unit; a reference applies only to a moisture-content reading. */
+  unit?: string | null;
 }
 
 interface DryingProgressChartProps {
   readings: DryingMoistureReading[];
+  /** The job's reference readings: `pickReferenceReadings(...)` (RA-8509). */
+  references?: Record<string, number>;
   inspectionStartDate?: string;
   className?: string;
   /**
    * Optional target-curve parameters. When provided, a dashed target curve
    * is overlaid and a projected completion badge is shown.
-   * Per ANSI/IICRC S500:2021 §12.2.2.
+   * Drying-rate model; its end point is the guide value, not a standard.
    */
   targetCurveParams?: {
     materialType: string;
@@ -91,7 +100,7 @@ function seriesKey(location: string, surfaceType: string) {
   return `${location} (${surfaceType})`;
 }
 
-/** Map surfaceType string → IICRC material key */
+/** Map surfaceType string → guide material key */
 function toMaterial(surfaceType: string): string {
   const s = surfaceType.toLowerCase();
   if (s.includes("timber") || s.includes("hardwood") || s.includes("wood"))
@@ -122,6 +131,14 @@ function toMaterial(surfaceType: string): string {
   )
     return "insulation";
   return "other";
+}
+
+/** Goal for a reading: its reference when one exists, else its guide row. */
+function goalFor(
+  r: { surfaceType: string; moistureLevel: number; unit?: string | null },
+  references: Record<string, number>,
+): ChartReadingGoal {
+  return chartReadingGoal(r, references, toMaterial(r.surfaceType));
 }
 
 /** Day label relative to a start date */
@@ -195,11 +212,11 @@ function seriesColor(
   seriesK: string,
   latestMap: Record<string, DryingMoistureReading>,
   index: number,
+  references: Record<string, number>,
 ): string {
   const reading = latestMap[seriesK];
   if (!reading) return seriesColour(index);
-  const material = toMaterial(reading.surfaceType);
-  const status = getMoistureStatus(reading.moistureLevel, material);
+  const { status } = goalFor(reading, references);
   // Status colours: the status table below names each state, so colour is
   // never the only cue.
   if (status === "dry") return CHART_STATUS.good;
@@ -209,7 +226,7 @@ function seriesColor(
 
 // ── Custom Tooltip ────────────────────────────────────────────────
 
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label, latestMap, references }: any) {
   if (!active || !payload?.length) return null;
 
   return (
@@ -222,10 +239,14 @@ function CustomTooltip({ active, payload, label }: any) {
         const match = entry.dataKey.match(/^(.+) \((.+)\)$/);
         const location = match?.[1] ?? entry.dataKey;
         const surfaceType = match?.[2] ?? "";
-        const material = toMaterial(surfaceType);
-        const std = getDryStandard(material);
-        const status = getMoistureStatus(entry.value, material);
-        const colors = STATUS_COLORS[status];
+        const source = (
+          latestMap as Record<string, DryingMoistureReading> | undefined
+        )?.[entry.dataKey];
+        const goal = goalFor(
+          { surfaceType, moistureLevel: entry.value, unit: source?.unit },
+          references ?? {},
+        );
+        const colors = STATUS_COLORS[goal.status];
 
         return (
           <div key={entry.dataKey} className="flex items-start gap-2 py-0.5">
@@ -242,7 +263,8 @@ function CustomTooltip({ active, payload, label }: any) {
                   {entry.value}%
                 </span>
                 <span className="text-neutral-600 dark:text-slate-500">
-                  / target ≤{std.dryThreshold}%
+                  / {goal.basis === "reference" ? "reference" : "guide"} ≤
+                  {goal.target}%
                 </span>
               </div>
             </div>
@@ -255,8 +277,11 @@ function CustomTooltip({ active, payload, label }: any) {
 
 // ── Main Component ────────────────────────────────────────────────
 
+const NO_REFERENCES: Record<string, number> = {};
+
 export default function DryingProgressChart({
   readings,
+  references = NO_REFERENCES,
   inspectionStartDate,
   className,
   targetCurveParams,
@@ -296,16 +321,12 @@ export default function DryingProgressChart({
   const dryCount = series.filter((s) => {
     const r = latestMap[s];
     if (!r) return false;
-    return (
-      getMoistureStatus(r.moistureLevel, toMaterial(r.surfaceType)) === "dry"
-    );
+    return goalFor(r, references).status === "dry";
   }).length;
   const dryingCount = series.filter((s) => {
     const r = latestMap[s];
     if (!r) return false;
-    return (
-      getMoistureStatus(r.moistureLevel, toMaterial(r.surfaceType)) === "drying"
-    );
+    return goalFor(r, references).status === "drying";
   }).length;
   const wetCount = series.length - dryCount - dryingCount;
 
@@ -319,8 +340,14 @@ export default function DryingProgressChart({
     Object.entries(materialCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ??
     "other";
   const primaryStd = getDryStandard(primaryMaterial);
+  // Reference readings win; the guide line is drawn only when there is none.
+  const referenceLines = chartReferenceLines(
+    readings.map((r) => r.surfaceType),
+    references,
+  );
+  const usesReference = referenceLines.length > 0;
 
-  // ── Target curve computation (S500:2021 §12.2.2) ─────────────────
+  // ── Target curve computation (drying-rate model) ─────────────────
   // Use the highest initial reading across all series as the curve starting point
   const maxInitialMC = Math.max(...readings.map((r) => r.moistureLevel));
   const targetCurve: TargetCurveResult | null = targetCurveParams
@@ -404,7 +431,7 @@ export default function DryingProgressChart({
           </span>
         )}
 
-        {/* Projected completion badge — S500:2021 §12.2.2 */}
+        {/* Projected completion badge */}
         {targetCurve && targetCurve.projectedCompletionDay > 0 && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-brand-navy/10 text-brand-navy dark:bg-brand-gold/10 dark:text-brand-gold border border-brand-navy/20 dark:border-brand-gold/30">
             <Calendar size={12} />
@@ -441,15 +468,26 @@ export default function DryingProgressChart({
               Drying Progress Curve
             </h4>
             <p className="text-xs text-neutral-600 dark:text-slate-500 mt-0.5">
-              ANSI/IICRC S500:2021 §12.2.2 — moisture % per location over drying
-              period
+              Moisture % per location over the drying period
               {targetCurve && " · dashed = target curve"}
             </p>
           </div>
-          <div className="text-right text-xs text-neutral-600 dark:text-slate-500 flex-shrink-0">
-            <p className="font-medium">{primaryStd.label}</p>
-            <p>Target ≤{primaryStd.dryThreshold}%</p>
-          </div>
+          {usesReference ? (
+            <div className="text-right text-xs text-neutral-600 dark:text-slate-500 flex-shrink-0">
+              <p className="font-medium">Reference readings</p>
+              {referenceLines.map((l) => (
+                <p key={l.material}>
+                  {l.material} ≤{l.target}%
+                </p>
+              ))}
+            </div>
+          ) : (
+            <div className="text-right text-xs text-neutral-600 dark:text-slate-500 flex-shrink-0">
+              <p className="font-medium">{primaryStd.label}</p>
+              <p>Guide ≤{primaryStd.dryThreshold}%</p>
+              <p>{MOISTURE_GUIDE_LABEL}</p>
+            </div>
+          )}
         </div>
 
         <ResponsiveContainer width="100%" height={280}>
@@ -476,27 +514,48 @@ export default function DryingProgressChart({
               axisLine={false}
               tickFormatter={(v) => `${v}%`}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip
+              content={
+                <CustomTooltip latestMap={latestMap} references={references} />
+              }
+            />
             <Legend
               iconType="circle"
               iconSize={8}
               wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
             />
 
-            {/* Primary material dry threshold reference line */}
-            <ReferenceLine
-              y={primaryStd.dryThreshold}
-              stroke={CHART_CHROME.reference}
-              strokeDasharray="6 3"
-              label={{
-                value: `Dry target ≤${primaryStd.dryThreshold}%`,
-                position: "insideTopRight",
-                fontSize: 10,
-                fill: CHART_CHROME.reference,
-              }}
-            />
+            {/* Goal line: reference readings first, the guide only without one */}
+            {usesReference ? (
+              referenceLines.map((l) => (
+                <ReferenceLine
+                  key={`ref-${l.material}`}
+                  y={l.target}
+                  stroke={CHART_CHROME.reference}
+                  strokeDasharray="6 3"
+                  label={{
+                    value: `Reference ${l.material} ≤${l.target}%`,
+                    position: "insideTopRight",
+                    fontSize: 10,
+                    fill: CHART_CHROME.reference,
+                  }}
+                />
+              ))
+            ) : (
+              <ReferenceLine
+                y={primaryStd.dryThreshold}
+                stroke={CHART_CHROME.reference}
+                strokeDasharray="6 3"
+                label={{
+                  value: `Guide ≤${primaryStd.dryThreshold}%`,
+                  position: "insideTopRight",
+                  fontSize: 10,
+                  fill: CHART_CHROME.reference,
+                }}
+              />
+            )}
 
-            {/* Target curve overlay — dashed navy line (S500:2021 §12.2.2) */}
+            {/* Target curve overlay — dashed navy line */}
             {targetCurve && (
               <>
                 {/* Gap shading under the target curve (neutral, faint) */}
@@ -517,7 +576,7 @@ export default function DryingProgressChart({
                 <Line
                   type="monotone"
                   dataKey="__target"
-                  name="Target curve (S500:2021 §12.2.2)"
+                  name="Target curve (guide end point)"
                   stroke={CHART_CHROME.ink}
                   strokeWidth={2}
                   strokeDasharray="8 4"
@@ -531,7 +590,7 @@ export default function DryingProgressChart({
 
             {/* One solid line per location-material series */}
             {series.map((s, i) => {
-              const color = seriesColor(s, latestMap, i);
+              const color = seriesColor(s, latestMap, i, references);
               return (
                 <Line
                   key={s}
@@ -582,9 +641,9 @@ export default function DryingProgressChart({
               {series.map((s) => {
                 const r = latestMap[s];
                 if (!r) return null;
-                const material = toMaterial(r.surfaceType);
-                const std = getDryStandard(material);
-                const status = getMoistureStatus(r.moistureLevel, material);
+                const std = getDryStandard(toMaterial(r.surfaceType));
+                const goal = goalFor(r, references);
+                const status = goal.status;
                 const colors = STATUS_COLORS[status];
 
                 return (
@@ -607,7 +666,10 @@ export default function DryingProgressChart({
                       {r.moistureLevel}%
                     </td>
                     <td className="px-4 py-2.5 text-right text-neutral-600 dark:text-slate-500 tabular-nums">
-                      ≤{std.dryThreshold}%
+                      ≤{goal.target}%{" "}
+                      <span className="text-[10px]">
+                        ({goal.basis === "reference" ? "reference" : "guide"})
+                      </span>
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <span

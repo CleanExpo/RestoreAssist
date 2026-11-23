@@ -35,6 +35,7 @@ import {
 import { resolveAreaSqm } from "@/lib/units";
 import { parseReadingInput } from "@/lib/forms/parse-reading-input";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
+import { pickReferenceReadings } from "@/lib/iicrc-dry-standards";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { NirPilotSurvey } from "@/components/nir-pilot-survey";
 import { MobileNav } from "@/components/mobile/MobileNav";
@@ -266,6 +267,12 @@ interface Inspection {
     photoUrl: string | null;
     sketchRoomId?: string | null;
     sketchRoom?: { id: string; name: string } | null;
+    // RA-8509: the job API selects these so the map can use reference readings.
+    unit?: string | null;
+    isBaseline?: boolean | null;
+    invalidatedAt?: string | null;
+    recordedAt?: string | null;
+    createdAt?: string | null;
   }[];
   affectedAreas: {
     id: string;
@@ -688,6 +695,24 @@ export default function InspectionDetailPage({
   // Memoised: the canvas re-syncs whenever this array's identity changes.
   const moistureMapPoints = useMemo(
     () => pointsFromReadings(moistureReadings),
+    [moistureReadings],
+  );
+
+  // RA-8509: the job's reference readings, so the map colours each reading
+  // against its own material's reference and uses the guide only without one.
+  const moistureReferences = useMemo(
+    () =>
+      pickReferenceReadings(
+        moistureReadings.map((r) => ({
+          surfaceType: r.surfaceType,
+          moistureLevel: r.moistureLevel,
+          isBaseline: r.isBaseline,
+          unit: r.unit,
+          invalidatedAt: r.invalidatedAt,
+          recordedAt: r.recordedAt,
+          createdAt: r.createdAt,
+        })),
+      ),
     [moistureReadings],
   );
 
@@ -2561,6 +2586,7 @@ export default function InspectionDetailPage({
                     ),
                   );
                 }}
+                references={moistureReferences}
               />
             ) : (
               <div className="text-center py-12 text-neutral-600 dark:text-neutral-400">

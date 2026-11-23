@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { isConfirmedEmpty } from "@/lib/client/load-state";
+import {
+  createAttemptKey,
+  settleCreateAttempt,
+  type CreateAttempt,
+} from "@/lib/form-templates/create-attempt-key";
 import {
   Plus,
   Search,
@@ -147,6 +152,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
   const [form, setForm] = useState<CreateFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const createAttempt = useRef<CreateAttempt | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -161,16 +167,22 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
     setSaving(true);
     setError(null);
     try {
+      const body = JSON.stringify({
+        name: form.name.trim(),
+        formType: form.formType,
+        category: form.category || "CUSTOM",
+        description: form.description.trim() || undefined,
+      });
+      // RA-8543: one key per attempt, reused if this attempt is retried.
       const res = await fetch("/api/form-templates", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          formType: form.formType,
-          category: form.category || "CUSTOM",
-          description: form.description.trim() || undefined,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": createAttemptKey(createAttempt, body),
+        },
+        body,
       });
+      settleCreateAttempt(createAttempt, res.status);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(apiErrorMessage(data) ?? `Server error ${res.status}`);
@@ -380,6 +392,9 @@ export default function FormTemplatesPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // RA-7957: a failed delete is shown, not swallowed. Kept apart from the
+  // load error so it never reads as "templates could not be loaded".
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -455,14 +470,23 @@ export default function FormTemplatesPage() {
 
   async function handleDelete(id: string) {
     setDeletingId(id);
+    setActionError(null);
     try {
       const res = await fetch(`/api/form-templates/${id}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Delete failed");
+      if (!res.ok) {
+        const data: unknown = await res.json().catch(() => null);
+        throw new Error(apiErrorMessage(data) ?? "Could not remove template");
+      }
       setTemplates((prev) => prev.filter((t) => t.id !== id));
-    } catch {
-      // Keep row on failure, clear confirm state
+    } catch (err) {
+      // Keep the row and say why.
+      setActionError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Could not remove template",
+      );
     } finally {
       setDeletingId(null);
       setConfirmDeleteId(null);
@@ -572,6 +596,15 @@ export default function FormTemplatesPage() {
           >
             Retry
           </button>
+        </div>
+      )}
+
+      {actionError && (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive-subtle-foreground/30 bg-destructive-subtle px-4 py-3 text-sm text-destructive-subtle-foreground"
+        >
+          {actionError}
         </div>
       )}
 

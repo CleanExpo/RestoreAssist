@@ -199,7 +199,7 @@ export const DEFAULT_FORM_TEMPLATES = [
             {
               id: "mouldType",
               type: "select",
-              label: "Mould Type",
+              label: "Mould Type (laboratory result only)",
               options: ["Stachybotrys", "Aspergillus", "Penicillium", "Other"],
             },
           ],

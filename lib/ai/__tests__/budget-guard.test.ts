@@ -195,9 +195,134 @@ describe("checkWorkspaceBudget — multi-tenancy", () => {
     expect(aggregate).toHaveBeenCalledTimes(1);
     const call = aggregate.mock.calls[0][0];
     expect(call.where.workspaceId).toBe("ws_alpha");
-    // Tenancy contract: must filter by today's start, must require success.
-    expect(call.where.success).toBe(true);
+    // Tenancy contract: must filter by today's start. It must NOT require
+    // success: a failed call that was charged still spends the cap (RA-8573).
     expect(call.where.createdAt).toBeDefined();
+    expect(call.where).not.toHaveProperty("success");
+  });
+});
+
+describe("checkWorkspaceBudget — charged failures count (RA-8573)", () => {
+  type Row = {
+    workspaceId: string;
+    createdAt: Date;
+    success: boolean;
+    estimatedCostUsd: number;
+  };
+
+  // Evaluate the guard's own `where` against stored rows, so the test checks
+  // what the query selects rather than how it is spelled.
+  function aggregateOver(rows: Row[]) {
+    aggregate.mockImplementationOnce(
+      async (args: {
+        where: {
+          workspaceId: string;
+          createdAt: { gte: Date };
+          success?: boolean;
+        };
+      }) => {
+        const { where } = args;
+        const sum = rows
+          .filter(
+            (r) =>
+              r.workspaceId === where.workspaceId &&
+              r.createdAt >= where.createdAt.gte &&
+              (where.success === undefined || r.success === where.success),
+          )
+          .reduce((acc, r) => acc + r.estimatedCostUsd, 0);
+        return { _sum: { estimatedCostUsd: sum } };
+      },
+    );
+  }
+
+  it("a logged charged failure makes the next call refuse at the cap", async () => {
+    wsFind.mockResolvedValueOnce({ aiDailyBudgetUsd: 5 });
+    aggregateOver([
+      // A read that failed after the provider charged for it.
+      {
+        workspaceId: "ws_1",
+        createdAt: new Date(),
+        success: false,
+        estimatedCostUsd: 4.5,
+      },
+    ]);
+
+    const r = await checkWorkspaceBudget({
+      workspaceId: "ws_1",
+      estimatedCostUsd: 1,
+    });
+
+    expect(r.ok).toBe(false);
+    expect(r.spentTodayUsd).toBeCloseTo(4.5);
+    expect(r.remainingUsd).toBeCloseTo(0.5);
+  });
+
+  it("repeated charged failures cannot run past the cap", async () => {
+    wsFind.mockResolvedValueOnce({ aiDailyBudgetUsd: 5 });
+    const now = new Date();
+    aggregateOver(
+      Array.from({ length: 6 }, () => ({
+        workspaceId: "ws_1",
+        createdAt: now,
+        success: false,
+        estimatedCostUsd: 1,
+      })),
+    );
+
+    const r = await checkWorkspaceBudget({
+      workspaceId: "ws_1",
+      estimatedCostUsd: 0.01,
+    });
+
+    expect(r.ok).toBe(false);
+    expect(r.spentTodayUsd).toBeCloseTo(6);
+    expect(r.remainingUsd).toBe(0);
+  });
+
+  it("a failure logged at zero cost does not reduce the cap", async () => {
+    wsFind.mockResolvedValueOnce({ aiDailyBudgetUsd: 5 });
+    aggregateOver([
+      {
+        workspaceId: "ws_1",
+        createdAt: new Date(),
+        success: false,
+        estimatedCostUsd: 0,
+      },
+      {
+        workspaceId: "ws_1",
+        createdAt: new Date(),
+        success: true,
+        estimatedCostUsd: 2,
+      },
+    ]);
+
+    const r = await checkWorkspaceBudget({
+      workspaceId: "ws_1",
+      estimatedCostUsd: 1,
+    });
+
+    expect(r.ok).toBe(true);
+    expect(r.spentTodayUsd).toBeCloseTo(2);
+  });
+
+  it("another workspace's charged failures do not count", async () => {
+    wsFind.mockResolvedValueOnce({ aiDailyBudgetUsd: 5 });
+    aggregateOver([
+      {
+        workspaceId: "ws_other",
+        createdAt: new Date(),
+        success: false,
+        estimatedCostUsd: 100,
+      },
+    ]);
+
+    const r = await checkWorkspaceBudget({
+      workspaceId: "ws_1",
+      estimatedCostUsd: 1,
+    });
+
+    expect(r.ok).toBe(true);
+    expect(r.spentTodayUsd).toBe(0);
   });
 });
 

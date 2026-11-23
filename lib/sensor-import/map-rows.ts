@@ -323,17 +323,26 @@ function inRange(value: number, range: { min: number; max: number }): boolean {
 
 const AFTER_SIGN_BLOCKERS = /[=(|!*/^]/;
 
-// RA-8474: invisible format characters (Unicode Cf: zero-width space, byte-order
-// mark, joiners, soft hyphen) render as nothing, so a value that starts with
-// them is judged by what follows. Such a value is refused, never stripped.
-const LEADING_FORMAT_CHARS = /^\p{Cf}+/u;
+// RA-8474, RA-8520: a value is judged by its first visible character. The
+// leading run it looks past holds everything a reader cannot see or a later
+// clean-up step may drop: format characters (zero-width space, byte-order mark,
+// joiners, soft hyphen, direction marks), other default-ignorable characters
+// (Hangul fillers, variation selectors), white space and control characters.
+// The value is refused or kept as written, never stripped.
+const LEADING_UNSEEN = /^[\p{Cf}\p{Default_Ignorable_Code_Point}\p{White_Space}\p{Cc}]+/u;
+// A tab, carriage return or any other control character in that run is unsafe
+// by itself. A line feed is the one exception: it is trimmed like other outer
+// white space, so an ordinary value after it is kept.
+const UNSAFE_CONTROL = /(?!\n)\p{Cc}/u;
 
 /** True when a spreadsheet would treat the value as a formula if it were ever exported and opened. */
 function isFormulaLeading(raw: string): boolean {
-  const value = raw.replace(LEADING_FORMAT_CHARS, "");
+  const run = LEADING_UNSEEN.exec(raw)?.[0] ?? "";
+  if (UNSAFE_CONTROL.test(run)) return true;
+  const value = raw.slice(run.length);
   if (value.length === 0) return false;
   const first = value.charAt(0);
-  if (first === "=" || first === "@" || first === "\t" || first === "\r") return true;
+  if (first === "=" || first === "@") return true;
   if (first === "+" || first === "-") {
     const next = value.charAt(1);
     const ordinary = (next >= "0" && next <= "9") || next === " ";

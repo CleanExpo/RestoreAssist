@@ -37,7 +37,7 @@ export function LandingFooter() {
             >
               {BRAND.slogan}
             </p>
-            <p className="mt-2 max-w-xs text-xs leading-relaxed text-slate-500">
+            <p className="mt-2 max-w-xs text-xs leading-relaxed text-slate-600">
               {BRAND.tagline} Designed for restoration companies across
               Australia and New Zealand.
             </p>
@@ -45,7 +45,7 @@ export function LandingFooter() {
 
           {COLUMNS.map((col) => (
             <div key={col.title}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
                 {col.title}
               </p>
               <ul className="mt-5 space-y-3">
@@ -64,7 +64,7 @@ export function LandingFooter() {
           ))}
         </div>
 
-        <div className="mt-14 flex flex-col gap-3 border-t border-slate-200 pt-8 text-xs leading-relaxed text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-14 flex flex-col gap-3 border-t border-slate-200 pt-8 text-xs leading-relaxed text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {new Date().getFullYear()} {BRAND.company.legal}
             {BRAND.company.abn ? ` · ABN ${BRAND.company.abn}` : ""}

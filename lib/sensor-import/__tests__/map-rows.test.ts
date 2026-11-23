@@ -339,7 +339,38 @@ describe("AC-5 numbers and units", () => {
 
 // RA-8474: the last four hide the formula prefix behind invisible format
 // characters (zero-width space, byte-order mark, joiners, soft hyphen).
-const UNSAFE = ['=HYPERLINK("x")', "@x", "\tTabbed", "\rReturned", "-1+cmd|x", "-2*3", "<b>=x", "<b> =x", "<i></i>@x", "\u200B=cmd", "\uFEFF@x", "\u200D\u2060+SUM(A1)", "\u00AD\t=x"];
+const UNSAFE_RA_8474 = ['=HYPERLINK("x")', "@x", "\tTabbed", "\rReturned", "-1+cmd|x", "-2*3", "<b>=x", "<b> =x", "<i></i>@x", "\u200B=cmd", "\uFEFF@x", "\u200D\u2060+SUM(A1)", "\u00AD\t=x"];
+
+// RA-8520: a formula hidden behind a leading run that mixes invisible,
+// default-ignorable, white-space and control characters. Written as escapes so
+// the source file itself carries no invisible characters.
+const INVISIBLE_LEADING_UNSAFE = [
+  "\u200B=cmd", // zero-width space
+  "\u200C\u200D@x", // zero-width non-joiner and joiner
+  "\uFEFF=cmd", // byte-order mark
+  "\u2060=cmd", // word joiner
+  "\u00AD+SUM(A1)", // soft hyphen
+  "\u200E-cmd", // left-to-right mark
+  "\u202E=cmd", // right-to-left override
+  "\u200B\tTabbed", // invisible, then a tab
+  "\u200B\rReturned", // invisible, then a carriage return
+  "\uFEFF\u200B =x", // invisible, then a space
+  "\u200B =x", // invisible, then a space (gap 1)
+  "\u200B\u00A0=x", // invisible, then a no-break space
+  "\u200B\n=x", // invisible, then a line feed
+  "<b>\u200B=x", // markup, then invisible
+  " \u200B =x", // space, invisible, space
+  "\u3164=cmd", // Hangul filler (default-ignorable, not a format character; gap 2)
+  "\uFFA0=cmd", // half-width Hangul filler
+  "\uFE0F=cmd", // variation selector
+  "\uFFF9=cmd", // interlinear annotation anchor (format character, not default-ignorable)
+  "\u0001=cmd", // a control character other than tab or carriage return (gap 3)
+  "\u007F=cmd", // delete (gap 3)
+  "\u200B\u007F=cmd", // invisible, then delete
+  "\u0085=cmd", // next line (a C1 control and white space)
+];
+
+const UNSAFE = [...UNSAFE_RA_8474, ...INVISIBLE_LEADING_UNSAFE];
 
 describe("AC-6 text guard", () => {
   const T = "2026-01-15 09:30";
@@ -385,6 +416,26 @@ describe("AC-6 text guard", () => {
         { line: 2, reason: "text_unsafe", column: 1 },
       ]);
     }
+  });
+
+  it("keeps an ordinary value that starts with an invisible character exactly as written (RA-8520: refuse, never strip)", () => {
+    const rooms = ["​Kitchen", "​ Kitchen", "ㅤ Lounge", "​-1 Basement", "​+ Ensuite"];
+    const result = ok(M_HEADER, rooms.map((room) => mRow(T, { room })), moistureMapping());
+    expect(result.rejected).toEqual([]);
+    expect(result.candidates.map((c) => c.location)).toEqual(rooms);
+  });
+
+  it("refuses a leading control character other than a line feed, even before ordinary text (RA-8520)", () => {
+    for (const room of ["\u0001Kitchen", "\u000BKitchen", "\u000CKitchen", "​\u0002Kitchen"]) {
+      expect(ok(M_HEADER, [mRow(T, { room })], moistureMapping()).rejected).toEqual([
+        { line: 2, reason: "text_unsafe", column: 1 },
+      ]);
+    }
+  });
+
+  it("accepts a leading line feed before ordinary text, as before (RA-8520)", () => {
+    const result = ok(M_HEADER, [mRow(T, { room: "\nKitchen" })], moistureMapping());
+    expect(result.candidates.map((c) => c.location)).toEqual(["Kitchen"]);
   });
 
   it("reports a location that is empty once sanitised", () => {

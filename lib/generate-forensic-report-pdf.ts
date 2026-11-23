@@ -22,6 +22,18 @@ import {
 import { standardDesignation } from "./nir-standards-mapping";
 import { isSafePublicHttpsUrl } from "./security/safe-external-url";
 import { extractWaterCategory } from "@/lib/reports/extract-report-data";
+import {
+  buildForensicReadings,
+  FORENSIC_MOISTURE_TABLE_MAX_ROWS,
+  FORENSIC_PSYCHROMETRIC_TABLE_MAX_ROWS,
+  MOISTURE_NOT_RECORDED,
+  moistureNotesLines,
+  moistureRowsNotShownNote,
+  psychrometricRowsNotShownNote,
+  type ForensicMoistureRow,
+  type ForensicPsychrometricRow,
+} from "@/lib/reports/forensic-moisture-rows";
+import { readSavedReadings } from "@/lib/reports/saved-readings";
 
 interface BusinessInfo {
   businessName?: string | null;
@@ -47,11 +59,13 @@ interface PdfColors {
 }
 
 interface MoistureDataResult {
-  readings: any[];
+  readings: ForensicMoistureRow[];
+  /** RA-8548: tier 2 free-text moisture answers, printed verbatim. */
+  notes: string[];
 }
 
 interface PsychrometricDataResult {
-  readings: any[];
+  readings: ForensicPsychrometricRow[];
 }
 
 /** Raw phase object built inside buildTimelineData before normalization */
@@ -183,9 +197,8 @@ export async function generateForensicReportPDF(
   // Build scope items from data
   const scopeItems = buildScopeItems(data, standardsContext || "");
 
-  // Build moisture and psychrometric data
-  const moistureData = buildMoistureData(data);
-  const psychrometricData = buildPsychrometricData(data);
+  // Build moisture and psychrometric data — RA-8548: one shared reader.
+  const { moistureData, psychrometricData } = buildReadingsData(data);
 
   // Build timeline data from phase dates
   const timelineData = buildTimelineData(
@@ -1006,6 +1019,34 @@ async function renderPage3(
 
   yPosition -= 40;
 
+  // RA-8548: the tier 2 free-text moisture answer is printed, never dropped.
+  const drawMoistureNotes = (heading: string) => {
+    const lines = moistureNotesLines(
+      moistureData.notes,
+      (text) => wrapText(text, width - 2 * margin, helvetica, 9),
+      6,
+    );
+    if (lines.length === 0) return;
+    yPosition -= 12;
+    page.drawText(sanitizeTextForPDF(heading), {
+      x: margin,
+      y: yPosition,
+      size: 9,
+      font: helveticaBold,
+      color: colors.black,
+    });
+    for (const line of lines) {
+      yPosition -= 11;
+      page.drawText(sanitizeTextForPDF(line), {
+        x: margin,
+        y: yPosition,
+        size: 9,
+        font: helvetica,
+        color: colors.black,
+      });
+    }
+  };
+
   // Section 3: Moisture & Psychrometric Data Grids
   if (moistureData?.readings && moistureData.readings.length > 0) {
     page.drawText("3. Material Moisture Readings", {
@@ -1085,11 +1126,14 @@ async function renderPage3(
 
     yPosition = moistureHeaderY - 30;
 
-    // Moisture Rows
-    moistureData.readings
-      .slice(0, 5)
-      .forEach((reading: any, index: number) => {
+    // Moisture Rows — RA-8547 follow-up: count what is drawn so any saved
+    // reading left out is declared below the table, not dropped silently.
+    let moistureRowsShown = 0;
+    moistureData.readings.forEach(
+      (reading: ForensicMoistureRow, index: number) => {
+        if (index >= FORENSIC_MOISTURE_TABLE_MAX_ROWS) return;
         if (yPosition < 500) return;
+        moistureRowsShown += 1;
 
         const rowHeight = 25;
 
@@ -1104,7 +1148,7 @@ async function renderPage3(
         }
 
         colX = margin + 5;
-        page.drawText(sanitizeTextForPDF(reading.location || "N/A"), {
+        page.drawText(sanitizeTextForPDF(reading.location), {
           x: colX,
           y: yPosition - 15,
           size: 9,
@@ -1114,7 +1158,7 @@ async function renderPage3(
         });
         colX += moistureColWidths.location;
 
-        page.drawText(sanitizeTextForPDF(reading.material || "N/A"), {
+        page.drawText(sanitizeTextForPDF(reading.material), {
           x: colX,
           y: yPosition - 15,
           size: 9,
@@ -1124,7 +1168,7 @@ async function renderPage3(
         });
         colX += moistureColWidths.material;
 
-        page.drawText(sanitizeTextForPDF(String(reading.reading || "N/A")), {
+        page.drawText(sanitizeTextForPDF(reading.reading), {
           x: colX,
           y: yPosition - 15,
           size: 9,
@@ -1134,34 +1178,91 @@ async function renderPage3(
         });
         colX += moistureColWidths.reading;
 
+        page.drawText(sanitizeTextForPDF(reading.dryStandard), {
+          x: colX,
+          y: yPosition - 15,
+          size: 9,
+          font: helvetica,
+          color: colors.black,
+          maxWidth: moistureColWidths.dryStandard - 10,
+        });
+        colX += moistureColWidths.dryStandard;
+
+        // RA-8547: print the saved status only; never default to DRY.
+        const statusColor =
+          reading.status === "WET"
+            ? colors.red
+            : reading.status === "DRY"
+              ? colors.green
+              : colors.black;
         page.drawText(
-          sanitizeTextForPDF(String(reading.dryStandard || "12%")),
+          sanitizeTextForPDF(reading.status ?? MOISTURE_NOT_RECORDED),
           {
             x: colX,
             y: yPosition - 15,
             size: 9,
-            font: helvetica,
-            color: colors.black,
-            maxWidth: moistureColWidths.dryStandard - 10,
+            font: helveticaBold,
+            color: statusColor,
+            maxWidth: moistureColWidths.status - 10,
           },
         );
-        colX += moistureColWidths.dryStandard;
-
-        const statusColor =
-          reading.status === "WET" ? colors.red : colors.green;
-        page.drawText(sanitizeTextForPDF(reading.status || "DRY"), {
-          x: colX,
-          y: yPosition - 15,
-          size: 9,
-          font: helveticaBold,
-          color: statusColor,
-          maxWidth: moistureColWidths.status - 10,
-        });
 
         yPosition -= rowHeight + 2;
+      },
+    );
+
+    const notShownNote = moistureRowsNotShownNote(
+      moistureData.readings.length - moistureRowsShown,
+    );
+    if (notShownNote) {
+      yPosition -= 12;
+      page.drawText(sanitizeTextForPDF(notShownNote), {
+        x: margin,
+        y: yPosition,
+        size: 9,
+        font: helvetica,
+        color: colors.black,
       });
+    }
+
+    drawMoistureNotes("Recorded moisture notes (tier 2, as entered):");
 
     yPosition -= 20;
+  } else if (moistureData.notes.length > 0) {
+    // RA-8548: readings were saved as notes only — print them, not "none".
+    page.drawText("3. Material Moisture Readings", {
+      x: margin,
+      y: yPosition,
+      size: 14,
+      font: helveticaBold,
+      color: colors.darkBlue,
+    });
+    yPosition -= 8;
+    drawMoistureNotes(
+      "Moisture readings were recorded as notes only (tier 2, as entered):",
+    );
+    yPosition -= 30;
+  } else {
+    // RA-8547: say so plainly — no placeholder row and no DRY/WET verdict.
+    page.drawText("3. Material Moisture Readings", {
+      x: margin,
+      y: yPosition,
+      size: 14,
+      font: helveticaBold,
+      color: colors.darkBlue,
+    });
+    yPosition -= 20;
+    page.drawText(
+      sanitizeTextForPDF("No moisture readings were recorded for this job."),
+      {
+        x: margin,
+        y: yPosition,
+        size: 10,
+        font: helvetica,
+        color: colors.black,
+      },
+    );
+    yPosition -= 30;
   }
 
   // Psychrometric Data
@@ -1244,10 +1345,14 @@ async function renderPage3(
     yPosition = psychHeaderY - 30;
 
     // Psychrometric Rows
-    psychrometricData.readings
-      .slice(0, 3)
-      .forEach((reading: any, index: number) => {
+    // RA-8548: count what is drawn so any saved reading left out is
+    // declared below the table, not dropped silently.
+    let psychRowsShown = 0;
+    psychrometricData.readings.forEach(
+      (reading: ForensicPsychrometricRow, index: number) => {
+        if (index >= FORENSIC_PSYCHROMETRIC_TABLE_MAX_ROWS) return;
         if (yPosition < 400) return;
+        psychRowsShown += 1;
 
         const rowHeight = 25;
 
@@ -1262,7 +1367,7 @@ async function renderPage3(
         }
 
         colX = margin + 5;
-        page.drawText(sanitizeTextForPDF(reading.location || "Ambient"), {
+        page.drawText(sanitizeTextForPDF(reading.location), {
           x: colX,
           y: yPosition - 15,
           size: 9,
@@ -1272,20 +1377,17 @@ async function renderPage3(
         });
         colX += psychColWidths.location;
 
-        page.drawText(
-          sanitizeTextForPDF(String(reading.temperature || "N/A")),
-          {
-            x: colX,
-            y: yPosition - 15,
-            size: 9,
-            font: helvetica,
-            color: colors.black,
-            maxWidth: psychColWidths.temperature - 10,
-          },
-        );
+        page.drawText(sanitizeTextForPDF(reading.temperature), {
+          x: colX,
+          y: yPosition - 15,
+          size: 9,
+          font: helvetica,
+          color: colors.black,
+          maxWidth: psychColWidths.temperature - 10,
+        });
         colX += psychColWidths.temperature;
 
-        page.drawText(sanitizeTextForPDF(String(reading.humidity || "N/A")), {
+        page.drawText(sanitizeTextForPDF(reading.humidity), {
           x: colX,
           y: yPosition - 15,
           size: 9,
@@ -1295,7 +1397,7 @@ async function renderPage3(
         });
         colX += psychColWidths.humidity;
 
-        page.drawText(sanitizeTextForPDF(String(reading.gpp || "N/A")), {
+        page.drawText(sanitizeTextForPDF(reading.gpp), {
           x: colX,
           y: yPosition - 15,
           size: 9,
@@ -1305,7 +1407,7 @@ async function renderPage3(
         });
         colX += psychColWidths.gpp;
 
-        page.drawText(sanitizeTextForPDF(String(reading.dewPoint || "N/A")), {
+        page.drawText(sanitizeTextForPDF(reading.dewPoint), {
           x: colX,
           y: yPosition - 15,
           size: 9,
@@ -1315,9 +1417,47 @@ async function renderPage3(
         });
 
         yPosition -= rowHeight + 2;
+      },
+    );
+
+    const psychNotShownNote = psychrometricRowsNotShownNote(
+      psychrometricData.readings.length - psychRowsShown,
+    );
+    if (psychNotShownNote) {
+      yPosition -= 12;
+      page.drawText(sanitizeTextForPDF(psychNotShownNote), {
+        x: margin,
+        y: yPosition,
+        size: 9,
+        font: helvetica,
+        color: colors.black,
       });
+    }
 
     yPosition -= 20;
+  } else {
+    // RA-8548: no invented "Ambient N/A" row — say so plainly.
+    page.drawText("4. Psychrometric Data (Atmospheric)", {
+      x: margin,
+      y: yPosition,
+      size: 14,
+      font: helveticaBold,
+      color: colors.darkBlue,
+    });
+    yPosition -= 20;
+    page.drawText(
+      sanitizeTextForPDF(
+        "No psychrometric readings were recorded for this job.",
+      ),
+      {
+        x: margin,
+        y: yPosition,
+        size: 10,
+        font: helvetica,
+        color: colors.black,
+      },
+    );
+    yPosition -= 30;
   }
 
   // Section 5: Project Timeline & Milestones
@@ -1707,7 +1847,13 @@ async function renderPage4(
   },
 ) {
   const { width, height } = page.getSize();
-  const { helvetica, helveticaBold, colors, jobRef, businessInfo: _businessInfo } = options;
+  const {
+    helvetica,
+    helveticaBold,
+    colors,
+    jobRef,
+    businessInfo: _businessInfo,
+  } = options;
   const margin = 50;
   let yPosition = height - 80;
 
@@ -1741,8 +1887,7 @@ async function renderPage4(
 
   yPosition -= 25;
 
-  const authText =
-    "Please sign below to confirm receipt of this report.";
+  const authText = "Please sign below to confirm receipt of this report.";
   const authLines = wrapText(authText, width - 2 * margin, helvetica, 10);
 
   authLines.forEach((line: string) => {
@@ -2104,9 +2249,9 @@ function buildScopeItems(
       const areaJustification =
         waterCategory === "Category 3"
           ? `IICRC S500 requires removal of porous materials (${materials}) contaminated with Category 3 unsanitary water; cleaning is not verifiable. Category 3 contamination poses significant health risks.`
-          : moistureLevel && moistureLevel > 20
-            ? `IICRC S500 requires removal of saturated porous materials (${materials}) where moisture content exceeds dry standard goals. Moisture reading of ${moistureLevel}% indicates saturation requiring removal.`
-            : `IICRC S500 requires appropriate remediation of affected materials (${materials}) based on contamination level and material porosity. Controlled removal and disposal under containment protocols.`;
+          : // RA-8547 follow-up: no saturation/removal finding is derived
+            // from an AI scope area's moisture figure against a fixed number.
+            `IICRC S500 requires appropriate remediation of affected materials (${materials}) based on contamination level and material porosity. Controlled removal and disposal under containment protocols.`;
 
       items.push({
         item: areaName,
@@ -2155,133 +2300,30 @@ function buildScopeItems(
 }
 
 /**
- * Build moisture data from report
+ * Build moisture and psychrometric data from saved readings only.
+ * RA-8547: no placeholder row, no scope-area rows, no fixed dry standard, no
+ * derived WET/DRY. RA-8548: every writer shape is read by the shared reader
+ * (lib/reports/saved-readings.ts); this generator reads no raw reading field.
  */
-function buildMoistureData(data: ReportData): MoistureDataResult {
-  const { report, tier2, scopeAreas } = data;
-
-  let moistureReadings: any[] = [];
-
-  // Parse moisture readings from report
-  if (report.moistureReadings) {
-    try {
-      const parsed =
-        typeof report.moistureReadings === "string"
-          ? JSON.parse(report.moistureReadings)
-          : report.moistureReadings;
-      if (Array.isArray(parsed)) {
-        moistureReadings = parsed;
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  // Extract from tier2 if available
-  if (
-    tier2?.T2_Q1_moistureReadings &&
-    Array.isArray(tier2.T2_Q1_moistureReadings)
-  ) {
-    moistureReadings = (tier2.T2_Q1_moistureReadings as JsonRecord[]).map(
-      (reading: any) => ({
-        location: reading.location || reading.room || "Location",
-        material: reading.material || "Various",
-        reading:
-          reading.reading || reading.moistureContent || reading.wme || "N/A",
-        dryStandard: reading.dryStandard || reading.benchmark || "12%",
-        status:
-          reading.status ||
-          (parseFloat(
-            String(reading.reading ?? reading.moistureContent ?? "0"),
-          ) > 20
-            ? "WET"
-            : "DRY"),
-      }),
-    );
-  }
-
-  // Extract from scopeAreas if available
-  if (scopeAreas && scopeAreas.length > 0 && moistureReadings.length === 0) {
-    scopeAreas.forEach((area: any) => {
-      if (area.moisture || area.moistureReading) {
-        moistureReadings.push({
-          location: area.name || "Area",
-          material: Array.isArray(area.materials)
-            ? area.materials.join(", ")
-            : area.materials || "Various",
-          reading: `${area.moisture || area.moistureReading}%`,
-          dryStandard: "12%",
-          status:
-            (area.moisture || area.moistureReading || 0) > 20 ? "WET" : "DRY",
-        });
-      }
-    });
-  }
-
-  // Default if no data
-  if (moistureReadings.length === 0) {
-    moistureReadings = [
-      {
-        location: "Sample Location",
-        material: "Various",
-        reading: "N/A",
-        dryStandard: "12%",
-        status: "DRY",
-      },
-    ];
-  }
-
-  return { readings: moistureReadings };
-}
-
-/**
- * Build psychrometric data from report
- */
-function buildPsychrometricData(data: ReportData): PsychrometricDataResult {
-  const { report, psychrometricAssessment, tier2: _tier2 } = data;
-
-  let psychrometricReadings: any[] = [];
-
-  // Parse psychrometric readings from report
-  if (report.psychrometricReadings) {
-    try {
-      const parsed =
-        typeof report.psychrometricReadings === "string"
-          ? JSON.parse(report.psychrometricReadings)
-          : report.psychrometricReadings;
-      if (Array.isArray(parsed)) {
-        psychrometricReadings = parsed;
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  // Extract from psychrometricAssessment if available
-  if (psychrometricAssessment) {
-    psychrometricReadings.push({
-      location: "Ambient",
-      temperature: psychrometricAssessment.temperature || "N/A",
-      humidity: psychrometricAssessment.humidity || "N/A",
-      gpp: psychrometricAssessment.gpp || "N/A",
-      dewPoint: psychrometricAssessment.dewPoint || "N/A",
-    });
-  }
-
-  // Default if no data
-  if (psychrometricReadings.length === 0) {
-    psychrometricReadings = [
-      {
-        location: "Ambient",
-        temperature: "N/A",
-        humidity: "N/A",
-        gpp: "N/A",
-        dewPoint: "N/A",
-      },
-    ];
-  }
-
-  return { readings: psychrometricReadings };
+function buildReadingsData(data: ReportData): {
+  moistureData: MoistureDataResult;
+  psychrometricData: PsychrometricDataResult;
+} {
+  const { report, tier2, psychrometricAssessment } = data;
+  const readings = buildForensicReadings({
+    moistureReadings: report.moistureReadings,
+    psychrometricReadings: report.psychrometricReadings,
+    psychrometricAssessment:
+      psychrometricAssessment ?? report.psychrometricAssessment,
+    tier2,
+  });
+  return {
+    moistureData: {
+      readings: readings.moistureRows,
+      notes: readings.moistureNotes,
+    },
+    psychrometricData: { readings: readings.psychrometricRows },
+  };
 }
 
 /**
@@ -2523,8 +2565,14 @@ function buildExpertisePoints(
     points.push("+ OH&S Protocols");
   }
 
-  // Check for scientific assessment methods
-  if (report.psychrometricAssessment || report.moistureReadings) {
+  // Check for scientific assessment methods — RA-8548: only when a reading
+  // was saved, not when a field holds metadata or an empty envelope.
+  const saved = readSavedReadings({
+    moistureReadings: report.moistureReadings,
+    psychrometricReadings: report.psychrometricReadings,
+    psychrometricAssessment: report.psychrometricAssessment,
+  });
+  if (saved.moisture.length > 0 || saved.psychrometric.length > 0) {
     points.push("+ Scientific Assessment & Data Analysis");
   } else {
     points.push("+ Scientific Assessment");
