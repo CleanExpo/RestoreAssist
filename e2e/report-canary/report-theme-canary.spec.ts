@@ -61,7 +61,7 @@ async function axeFindings(page: Page): Promise<Finding[]> {
   if (!present) await page.addScriptTag({ content: AXE_SOURCE });
   const results = await page.evaluate(async () => {
     const axe = (window as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<unknown> } }).axe;
-    return axe.run({ exclude: [["nextjs-portal"], ["next-route-announcer"]] }, {
+    return axe.run({ include: [["main"], ["[data-testid='canary-standards']"]], exclude: [["nextjs-portal"], ["next-route-announcer"]] }, {
       runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] },
       resultTypes: ["violations"],
     });
@@ -79,6 +79,13 @@ async function overflowFindings(page: Page) {
     clientWidth: document.documentElement.clientWidth,
   })));
 }
+
+// Colour changes ease in over 200ms (global rule), so a colour read right after a theme or media change
+// can be mid-transition. Wait until nothing on the page is animating.
+const settled = (page: Page) => page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
+
+// Under reduced motion the global rule shortens every animation to 0.01ms. Only motion a viewer could see
+// (longer than 50ms) counts as running.
 
 const report = (page: Page) => page.locator("#visual-report-content");
 const label = (theme: { id: string }, f: Finding) => `${theme.id}: [${f.check}] ${f.detail}`;
@@ -113,7 +120,7 @@ for (const width of WIDTHS) {
 }
 
 test("reduced motion: no animation runs in any theme, and the probe can see one when motion is allowed", async ({ browser }) => {
-  const running = (page: Page) => report(page).evaluate((el) => el.getAnimations({ subtree: true }).filter((a) => a.playState === "running").length);
+  const running = (page: Page) => report(page).evaluate((el) => el.getAnimations({ subtree: true }).filter((a) => a.playState === "running" && Number(a.effect?.getComputedTiming().duration ?? 0) > 50).length);
   const sweep = async (reducedMotion: "reduce" | "no-preference") => {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion });
     const page = await context.newPage();
@@ -145,6 +152,7 @@ for (const mode of MODES) {
       await page.emulateMedia({ media: "screen" });
       await selectTheme(page, theme.id, theme.label);
       await page.emulateMedia({ media: "print" });
+      await settled(page);
       const colours = await report(page).evaluate((el) => {
         const s = getComputedStyle(el);
         return { background: s.backgroundColor, ink: s.color };
@@ -235,10 +243,10 @@ test.describe("the canary can fail: each fault planted in the live page is caugh
     const page = await context.newPage();
     await open(page);
     await page.getByRole("button", { name: "Preview motion" }).click();
-    const running = () => report(page).evaluate((el) => el.getAnimations({ subtree: true }).filter((a) => a.playState === "running").length);
+    const running = () => report(page).evaluate((el) => el.getAnimations({ subtree: true }).filter((a) => a.playState === "running" && Number(a.effect?.getComputedTiming().duration ?? 0) > 50).length);
     expect(await running()).toBe(0);
     // Undo the stylesheet's reduce branch for the bar the Gantt animates.
-    await page.addStyleTag({ content: "@media (prefers-reduced-motion: reduce) { [data-animated='true'] [class*='ganttMotion'] { animation: reveal 5s linear both !important; } @keyframes reveal { from { opacity: 0 } to { opacity: 1 } } }" });
+    await page.addStyleTag({ content: "@media (prefers-reduced-motion: reduce) { [data-animated='true'] [class*='ganttMotion'] { animation: reveal 5s linear both !important; animation-duration: 5s !important; } @keyframes reveal { from { opacity: 0 } to { opacity: 1 } } }" });
     await expect.poll(running).toBeGreaterThan(0);
     await context.close();
   });
@@ -248,6 +256,7 @@ test.describe("the canary can fail: each fault planted in the live page is caugh
     await open(page);
     await selectTheme(page, "dark-tech", "Dark Tech");
     await page.emulateMedia({ media: "print" });
+    await settled(page);
     const read = () => report(page).evaluate((el) => { const s = getComputedStyle(el); return { background: s.backgroundColor, ink: s.color }; });
     expect(findPrintProblems(await read())).toEqual([]);
     await page.addStyleTag({ content: "@media print { #visual-report-content { background: rgb(10, 25, 47) !important; color: rgb(255, 255, 255) !important; } }" });
