@@ -34,7 +34,25 @@ function mockRegister(data: Record<string, unknown>) {
   return fetchMock;
 }
 
-const base = { records: [], staff: [], canEdit: false, truncated: false, noOrganisation: false };
+const base = { records: [], nextCursor: null, canEdit: false, noOrganisation: false };
+
+type Call = { url: string; init?: RequestInit };
+/** fetch stub answering by URL; records every call. */
+function route(handler: (url: string, init?: RequestInit) => { status?: number; body: unknown }) {
+  const calls: Call[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      const out = handler(url, init);
+      return new Response(JSON.stringify(out.body), {
+        status: out.status ?? 200,
+        headers: { "content-type": "application/json" },
+      });
+    }),
+  );
+  return calls;
+}
 
 beforeEach(() => vi.restoreAllMocks());
 afterEach(() => {
@@ -44,7 +62,7 @@ afterEach(() => {
 
 describe("TrainingRegisterPanel", () => {
   it("a manager sees every record with its staff name and the add, edit and remove controls", async () => {
-    mockRegister({ ...base, canEdit: true, records: [record], staff: [{ id: "tech1", name: "Tech One" }] });
+    mockRegister({ ...base, canEdit: true, records: [record] });
     render(<TrainingRegisterPanel today="2026-11-23" />);
     expect(await screen.findByText("Level 3 Mould Remediation")).toBeInTheDocument();
     expect(screen.getByText(/Tech One/)).toBeInTheDocument();
@@ -55,7 +73,7 @@ describe("TrainingRegisterPanel", () => {
   });
 
   it("the add form opens with every field, and labels the CARSI field as not checked", async () => {
-    mockRegister({ ...base, canEdit: true, staff: [{ id: "tech1", name: "Tech One" }] });
+    mockRegister({ ...base, canEdit: true, staff: [] });
     render(<TrainingRegisterPanel today="2026-11-23" />);
     fireEvent.click(await screen.findByRole("button", { name: "Add training record" }));
     for (const label of [
@@ -122,5 +140,86 @@ describe("TrainingRegisterPanel", () => {
     render(<TrainingRegisterPanel today="2026-11-23" />);
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
     expect(screen.queryByText("No training recorded yet.")).toBeNull();
+  });
+
+  it("every record is reachable: 'Show more records' asks for the next page and adds it", async () => {
+    const calls = route((url) =>
+      url.includes("cursor=")
+        ? { body: { data: { ...base, canEdit: true, records: [{ ...record, id: "rec_2", course: "Second page course" }], nextCursor: null } } }
+        : { body: { data: { ...base, canEdit: true, records: [record], nextCursor: "2026-10-01_rec_1" } } },
+    );
+    render(<TrainingRegisterPanel today="2026-11-23" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Show more records" }));
+    expect(await screen.findByText("Second page course")).toBeInTheDocument();
+    expect(screen.getByText("Level 3 Mould Remediation")).toBeInTheDocument();
+    expect(calls[1].url).toBe("/api/team/training-records?cursor=2026-10-01_rec_1");
+    expect(screen.queryByRole("button", { name: "Show more records" })).toBeNull();
+  });
+
+  it("every staff member is reachable: the picker pages through the staff list", async () => {
+    const calls = route((url) => {
+      if (url.startsWith("/api/team/training-records/staff")) {
+        return url.includes("cursor=")
+          ? { body: { data: { staff: [{ id: "u2", name: "Staff Two" }], nextCursor: null } } }
+          : { body: { data: { staff: [{ id: "u1", name: "Staff One" }], nextCursor: "u1" } } };
+      }
+      return { body: { data: { ...base, canEdit: true } } };
+    });
+    render(<TrainingRegisterPanel today="2026-11-23" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Add training record" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Show more staff" }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === "/api/team/training-records/staff?cursor=u1")).toBe(true),
+    );
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Show more staff" })).toBeNull());
+  });
+
+  it("an edit sends only what changed, with the version it was made against", async () => {
+    const calls = route((_url, init) =>
+      init?.method === "PATCH"
+        ? { body: { data: { record } } }
+        : { body: { data: { ...base, canEdit: true, records: [record] } } },
+    );
+    render(<TrainingRegisterPanel today="2026-11-23" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Evidence link (optional)"), {
+      target: { value: "https://drive.example/new.pdf" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(calls.some((c) => c.init?.method === "PATCH")).toBe(true));
+    const patch = calls.find((c) => c.init?.method === "PATCH")!;
+    expect(JSON.parse(String(patch.init!.body))).toEqual({
+      evidenceUrl: "https://drive.example/new.pdf",
+      expectedUpdatedAt: record.updatedAt,
+    });
+  });
+
+  it("a conflicting edit shows the server's message and reloads the register", async () => {
+    const calls = route((_url, init) =>
+      init?.method === "PATCH"
+        ? { status: 409, body: { error: { message: "Someone else changed this record after you opened it." } } }
+        : { body: { data: { ...base, canEdit: true, records: [record] } } },
+    );
+    render(<TrainingRegisterPanel today="2026-11-23" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Course"), { target: { value: "Changed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText(/Someone else changed this record/)).toBeInTheDocument();
+    await waitFor(() => expect(calls.filter((c) => !c.init?.method).length).toBe(2));
+  });
+
+  it("a removal carries the version it was confirmed against", async () => {
+    const calls = route((_url, init) =>
+      init?.method === "DELETE"
+        ? { body: { data: { deleted: true } } }
+        : { body: { data: { ...base, canEdit: true, records: [record] } } },
+    );
+    render(<TrainingRegisterPanel today="2026-11-23" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove record" }));
+    await waitFor(() => expect(calls.some((c) => c.init?.method === "DELETE")).toBe(true));
+    expect(calls.find((c) => c.init?.method === "DELETE")!.url).toBe(
+      `/api/team/training-records/rec_1?expectedUpdatedAt=${encodeURIComponent(record.updatedAt)}`,
+    );
   });
 });

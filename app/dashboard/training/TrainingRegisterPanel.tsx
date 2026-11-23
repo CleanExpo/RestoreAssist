@@ -41,11 +41,18 @@ import type { TrainingRecordDto } from "@/lib/training/serialise";
 
 interface RegisterData {
   records: TrainingRecordDto[];
-  staff: Array<{ id: string; name: string }>;
+  nextCursor: string | null;
   canEdit: boolean;
-  truncated: boolean;
   noOrganisation: boolean;
 }
+
+interface StaffOption {
+  id: string;
+  name: string;
+}
+
+const RECORDS_URL = "/api/team/training-records";
+const STAFF_URL = "/api/team/training-records/staff";
 
 interface FormState {
   staffUserId: string;
@@ -107,12 +114,18 @@ export function TrainingRegisterPanel({
   const [deleteTarget, setDeleteTarget] = useState<TrainingRecordDto | null>(
     null,
   );
+  // The record being edited, exactly as it was read: the edit sends only the
+  // fields that differ from it, plus its version (lib/training/version.ts).
+  const [editing, setEditing] = useState<TrainingRecordDto | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [staff, setStaff] = useState<StaffOption[]>([]);
+  const [staffCursor, setStaffCursor] = useState<string | null>(null);
+  const [staffQuery, setStaffQuery] = useState("");
+  const [staffError, setStaffError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/team/training-records", {
-        cache: "no-store",
-      });
+      const res = await fetch(RECORDS_URL, { cache: "no-store" });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
         setLoadError(errorMessage(json, "The training register could not be loaded."));
@@ -129,15 +142,66 @@ export function TrainingRegisterPanel({
     void load();
   }, [load]);
 
+  async function loadMore() {
+    if (!data?.nextCursor) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(
+        `${RECORDS_URL}?cursor=${encodeURIComponent(data.nextCursor)}`,
+        { cache: "no-store" },
+      );
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setLoadError(errorMessage(json, "More records could not be loaded."));
+        return;
+      }
+      const next = json.data as RegisterData;
+      setLoadError(null);
+      setData((d) =>
+        d
+          ? { ...d, records: [...d.records, ...next.records], nextCursor: next.nextCursor }
+          : next,
+      );
+    } catch {
+      setLoadError("More records could not be loaded.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function fetchStaff(q: string, cursor: string | null) {
+    const params = new URLSearchParams();
+    if (q.trim()) params.set("q", q.trim());
+    if (cursor) params.set("cursor", cursor);
+    try {
+      const res = await fetch(`${STAFF_URL}?${params.toString()}`, { cache: "no-store" });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setStaffError(errorMessage(json, "Staff could not be loaded."));
+        return;
+      }
+      const page = json.data as { staff: StaffOption[]; nextCursor: string | null };
+      setStaffError(null);
+      setStaff((prev) => (cursor ? [...prev, ...page.staff] : page.staff));
+      setStaffCursor(page.nextCursor);
+    } catch {
+      setStaffError("Staff could not be loaded.");
+    }
+  }
+
   function startAdd() {
     setEditingId(null);
+    setEditing(null);
     setForm(EMPTY_FORM);
     setFormError(null);
     setShowForm(true);
+    setStaffQuery("");
+    void fetchStaff("", null);
   }
 
   function startEdit(r: TrainingRecordDto) {
     setEditingId(r.id);
+    setEditing(r);
     setForm({
       staffUserId: r.staffUserId,
       course: r.course,
@@ -156,22 +220,48 @@ export function TrainingRegisterPanel({
     setSaving(true);
     setFormError(null);
     const { staffUserId, ...fields } = form;
+    let body: Record<string, string>;
+    if (editingId && editing) {
+      const before: Record<string, string> = {
+        course: editing.course,
+        provider: editing.provider,
+        completedOn: editing.completedOn,
+        expiresOn: editing.expiresOn ?? "",
+        evidenceUrl: editing.evidenceUrl ?? "",
+        carsiCompletionRef: editing.carsiCompletionRef ?? "",
+      };
+      const changed = Object.fromEntries(
+        Object.entries(fields).filter(([k, v]) => before[k] !== v),
+      );
+      if (Object.keys(changed).length === 0) {
+        setSaving(false);
+        setShowForm(false);
+        setEditingId(null);
+        setEditing(null);
+        return;
+      }
+      body = { ...changed, expectedUpdatedAt: editing.updatedAt };
+    } else {
+      body = { staffUserId, ...fields };
+    }
     const url = editingId
-      ? `/api/team/training-records/${encodeURIComponent(editingId)}`
-      : "/api/team/training-records";
+      ? `${RECORDS_URL}/${encodeURIComponent(editingId)}`
+      : RECORDS_URL;
     try {
       const res = await fetch(url, {
         method: editingId ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(editingId ? fields : { staffUserId, ...fields }),
+        body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
         setFormError(errorMessage(json, "The record was not saved."));
+        if (res.status === 409) await load();
         return;
       }
       setShowForm(false);
       setEditingId(null);
+      setEditing(null);
       setForm(EMPTY_FORM);
       await load();
     } catch {
@@ -186,12 +276,13 @@ export function TrainingRegisterPanel({
     setDeleteTarget(null);
     if (!target) return;
     const res = await fetch(
-      `/api/team/training-records/${encodeURIComponent(target.id)}`,
+      `${RECORDS_URL}/${encodeURIComponent(target.id)}?expectedUpdatedAt=${encodeURIComponent(target.updatedAt)}`,
       { method: "DELETE" },
     ).catch(() => null);
     if (!res || !res.ok) {
       const json = res ? await res.json().catch(() => null) : null;
       setLoadError(errorMessage(json, "The record was not removed."));
+      if (res?.status === 409) await load();
       return;
     }
     await load();
@@ -248,6 +339,20 @@ export function TrainingRegisterPanel({
         >
           <div className="space-y-1 sm:col-span-2">
             <Label htmlFor="tr-staff">Staff member</Label>
+            {!editingId && (
+              <div className="flex gap-2">
+                <Input
+                  aria-label="Find a staff member"
+                  placeholder="Find by name or email"
+                  value={staffQuery}
+                  maxLength={100}
+                  onChange={(e) => setStaffQuery(e.target.value)}
+                />
+                <Button type="button" variant="outline" onClick={() => void fetchStaff(staffQuery, null)}>
+                  Find
+                </Button>
+              </div>
+            )}
             <Select
               value={form.staffUserId}
               onValueChange={(v) => setForm((f) => ({ ...f, staffUserId: v }))}
@@ -257,13 +362,27 @@ export function TrainingRegisterPanel({
                 <SelectValue placeholder="Choose a staff member" />
               </SelectTrigger>
               <SelectContent>
-                {data.staff.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
+                {editingId && editing && (
+                  <SelectItem value={editing.staffUserId}>{editing.staffName}</SelectItem>
+                )}
+                {!editingId &&
+                  staff.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
+            {!editingId && staffCursor && (
+              <Button type="button" size="sm" variant="outline" onClick={() => void fetchStaff(staffQuery, staffCursor)}>
+                Show more staff
+              </Button>
+            )}
+            {!editingId && staffError && (
+              <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+                {staffError}
+              </p>
+            )}
           </div>
           <div className="space-y-1">
             <Label htmlFor="tr-course">Course</Label>
@@ -301,7 +420,7 @@ export function TrainingRegisterPanel({
             <Button type="submit" disabled={saving || (!editingId && !form.staffUserId)}>
               {saving ? "Saving..." : editingId ? "Save changes" : "Add record"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+            <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); setEditing(null); }}>
               Cancel
             </Button>
           </div>
@@ -383,10 +502,10 @@ export function TrainingRegisterPanel({
         </ul>
       )}
 
-      {data.truncated && (
-        <p className="text-sm text-muted-foreground">
-          Showing the 500 most recent records.
-        </p>
+      {data.nextCursor && (
+        <Button type="button" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>
+          {loadingMore ? "Loading..." : "Show more records"}
+        </Button>
       )}
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>

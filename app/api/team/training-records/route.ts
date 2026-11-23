@@ -18,18 +18,24 @@ import {
   toTrainingRecordDto,
   trainingRecordSelect,
 } from "@/lib/training/serialise";
+import {
+  PAGE_SIZE,
+  recordCursor,
+  recordCursorWhere,
+  recordOrderBy,
+  splitPage,
+} from "@/lib/training/paging";
 
 /**
  * Mining pilot slice 6: the staff training register.
  *
- * GET  lists the records the caller may read (lib/training/register-access.ts).
+ * GET  lists the records the caller may read (lib/training/register-access.ts),
+ *      a page at a time (lib/training/paging.ts; ?cursor= for the next page).
  * POST adds a record for a current member of the caller's organisation; owner
  *      or manager only.
  *
  * Nothing here calls CARSI or opens a stored link.
  */
-
-const LIST_LIMIT = 500;
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,40 +54,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         data: {
           records: [],
-          staff: [],
+          nextCursor: null,
           canEdit: false,
-          truncated: false,
           noOrganisation: true,
         },
       });
     }
 
-    const rows = await prisma.staffTrainingRecord.findMany({
-      where,
-      select: trainingRecordSelect,
-      orderBy: [{ completedOn: "desc" }, { id: "asc" }],
-      take: LIST_LIMIT + 1,
-    });
-    const truncated = rows.length > LIST_LIMIT;
+    const after = recordCursorWhere(
+      request.nextUrl.searchParams.get("cursor"),
+    );
+    if (after === null) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid cursor",
+        status: 400,
+      });
+    }
 
-    const staff = canEditTraining(viewer)
-      ? await prisma.user.findMany({
-          where: staffMemberWhere(viewer),
-          select: { id: true, name: true, email: true },
-          orderBy: [{ name: "asc" }, { id: "asc" }],
-          take: LIST_LIMIT,
-        })
-      : [];
+    // The cursor only narrows the caller's scope; it is ANDed, never ORed, with it.
+    const rows = await prisma.staffTrainingRecord.findMany({
+      where: after ? { AND: [where, after] } : where,
+      select: trainingRecordSelect,
+      orderBy: recordOrderBy,
+      take: PAGE_SIZE + 1,
+    });
+    const { page, nextCursor } = splitPage(rows, recordCursor);
 
     return NextResponse.json({
       data: {
-        records: rows.slice(0, LIST_LIMIT).map(toTrainingRecordDto),
-        staff: staff.map((s) => ({
-          id: s.id,
-          name: s.name || s.email,
-        })),
+        records: page.map(toTrainingRecordDto),
+        nextCursor,
         canEdit: canEditTraining(viewer),
-        truncated,
         noOrganisation: false,
       },
     });

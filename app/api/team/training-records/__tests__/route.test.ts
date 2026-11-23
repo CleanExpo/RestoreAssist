@@ -28,6 +28,7 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { GET, POST } from "../route";
 import { PATCH, DELETE } from "../[id]/route";
+import { GET as GET_STAFF } from "../staff/route";
 
 type Mock = ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
@@ -69,6 +70,16 @@ function req(url: string, method: string, body?: unknown) {
 }
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
+// The version the caller last read (lib/training/version.ts).
+const VER = "2026-11-01T00:00:00.000Z";
+const VERSION_WHERE = {
+  updatedAt: {
+    gte: new Date(VER),
+    lt: new Date(new Date(VER).getTime() + 1),
+  },
+};
+const delUrl = `/x?expectedUpdatedAt=${encodeURIComponent(VER)}`;
+
 const goodBody = {
   staffUserId: "tech1",
   course: "Level 3 Mould Remediation",
@@ -92,8 +103,9 @@ describe("sign-in", () => {
     session.mockResolvedValue(null);
     expect((await GET(req("/api/team/training-records", "GET"))).status).toBe(401);
     expect((await POST(req("/api/team/training-records", "POST", goodBody))).status).toBe(401);
-    expect((await PATCH(req("/x", "PATCH", { course: "a" }), params("rec_1"))).status).toBe(401);
-    expect((await DELETE(req("/x", "DELETE"), params("rec_1"))).status).toBe(401);
+    expect((await PATCH(req("/x", "PATCH", { course: "a", expectedUpdatedAt: VER }), params("rec_1"))).status).toBe(401);
+    expect((await DELETE(req(delUrl, "DELETE"), params("rec_1"))).status).toBe(401);
+    expect((await GET_STAFF(req("/s", "GET"))).status).toBe(401);
     expect(p.staffTrainingRecord.findMany).not.toHaveBeenCalled();
     expect(p.staffTrainingRecord.create).not.toHaveBeenCalled();
     expect(p.staffTrainingRecord.updateMany).not.toHaveBeenCalled();
@@ -105,13 +117,11 @@ describe("GET (reading)", () => {
   it("an owner reads every record in their organisation, and only theirs", async () => {
     signIn("owner1", "ADMIN", "org_a");
     p.staffTrainingRecord.findMany.mockResolvedValue([ROW]);
-    p.user.findMany.mockResolvedValue([{ id: "tech1", name: "Tech One", email: "t@x" }]);
     const res = await GET(req("/api/team/training-records", "GET"));
     expect(res.status).toBe(200);
     expect(p.staffTrainingRecord.findMany.mock.calls[0][0].where).toEqual({
       organizationId: "org_a",
     });
-    expect(p.user.findMany.mock.calls[0][0].where).toEqual({ organizationId: "org_a" });
     const json = await res.json();
     expect(json.data.canEdit).toBe(true);
     expect(json.data.records[0]).toMatchObject({ id: "rec_1", completedOn: "2026-10-01", staffName: "Tech One" });
@@ -125,7 +135,7 @@ describe("GET (reading)", () => {
     });
   });
 
-  it("a technician reads only their own records, in their own organisation, and gets no staff list", async () => {
+  it("a technician reads only their own records, in their own organisation, and reads no staff", async () => {
     signIn("tech1", "USER", "org_a");
     const res = await GET(req("/api/team/training-records", "GET"));
     expect(res.status).toBe(200);
@@ -136,7 +146,7 @@ describe("GET (reading)", () => {
     expect(p.user.findMany).not.toHaveBeenCalled();
     const json = await res.json();
     expect(json.data.canEdit).toBe(false);
-    expect(json.data.staff).toEqual([]);
+    expect(json.data.staff).toBeUndefined();
   });
 
   it("the role comes from the database, not the session (session says ADMIN, database says USER)", async () => {
@@ -163,11 +173,94 @@ describe("GET (reading)", () => {
     expect(json.data.noOrganisation).toBe(false);
   });
 
-  it("the read is bounded", async () => {
+  it("each read is one bounded page", async () => {
     signIn("owner1", "ADMIN", "org_a");
     await GET(req("/api/team/training-records", "GET"));
-    expect(p.staffTrainingRecord.findMany.mock.calls[0][0].take).toBe(501);
-    expect(p.user.findMany.mock.calls[0][0].take).toBe(500);
+    expect(p.staffTrainingRecord.findMany.mock.calls[0][0].take).toBe(101);
+  });
+});
+
+describe("GET paging (every record is reachable)", () => {
+  const rows = (n: number, from = 0) =>
+    Array.from({ length: n }, (_, i) => ({
+      ...ROW,
+      id: `rec_${String(from + i).padStart(4, "0")}`,
+    }));
+
+  it("a full page returns a next cursor, and the next page starts after it", async () => {
+    signIn("owner1", "ADMIN", "org_a");
+    p.staffTrainingRecord.findMany.mockResolvedValueOnce(rows(101));
+    const first = await (await GET(req("/api/team/training-records", "GET"))).json();
+    expect(first.data.records).toHaveLength(100);
+    expect(first.data.nextCursor).toBe("2026-10-01_rec_0099");
+
+    p.staffTrainingRecord.findMany.mockResolvedValueOnce(rows(1, 100));
+    const second = await (
+      await GET(req(`/api/team/training-records?cursor=${first.data.nextCursor}`, "GET"))
+    ).json();
+    expect(second.data.records.map((r: { id: string }) => r.id)).toEqual(["rec_0100"]);
+    expect(second.data.nextCursor).toBeNull();
+    expect(p.staffTrainingRecord.findMany.mock.calls[1][0].where).toEqual({
+      AND: [
+        { organizationId: "org_a" },
+        {
+          OR: [
+            { completedOn: { lt: new Date("2026-10-01T00:00:00.000Z") } },
+            { completedOn: new Date("2026-10-01T00:00:00.000Z"), id: { gt: "rec_0099" } },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("a technician's cursor still carries their own-records filter", async () => {
+    signIn("tech1", "USER", "org_a");
+    await GET(req("/api/team/training-records?cursor=2026-10-01_rec_9", "GET"));
+    expect(p.staffTrainingRecord.findMany.mock.calls[0][0].where.AND[0]).toEqual({
+      organizationId: "org_a",
+      staffUserId: "tech1",
+    });
+  });
+
+  it("a malformed cursor is 400 and nothing is read", async () => {
+    signIn("owner1", "ADMIN", "org_a");
+    const res = await GET(req("/api/team/training-records?cursor=garbage", "GET"));
+    expect(res.status).toBe(400);
+    expect(p.staffTrainingRecord.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /staff (choosing who a record is for)", () => {
+  it("an owner pages through current members of their own organisation only", async () => {
+    signIn("owner1", "ADMIN", "org_a");
+    p.user.findMany.mockResolvedValueOnce(
+      Array.from({ length: 101 }, (_, i) => ({ id: `u${String(i).padStart(4, "0")}`, name: null, email: `u${i}@x` })),
+    );
+    const first = await (await GET_STAFF(req("/s", "GET"))).json();
+    expect(first.data.staff).toHaveLength(100);
+    expect(first.data.nextCursor).toBe("u0099");
+    expect(p.user.findMany.mock.calls[0][0].where).toEqual({ AND: [{ organizationId: "org_a" }] });
+    expect(p.user.findMany.mock.calls[0][0].take).toBe(101);
+
+    p.user.findMany.mockResolvedValueOnce([{ id: "u0100", name: "Last One", email: "l@x" }]);
+    const second = await (await GET_STAFF(req("/s?cursor=u0099&q=last", "GET"))).json();
+    expect(second.data).toEqual({ staff: [{ id: "u0100", name: "Last One" }], nextCursor: null });
+    expect(p.user.findMany.mock.calls[1][0].where.AND.slice(0, 2)).toEqual([
+      { organizationId: "org_a" },
+      { id: { gt: "u0099" } },
+    ]);
+  });
+
+  it("a technician cannot list their colleagues: 403 and no read", async () => {
+    signIn("tech1", "USER", "org_a");
+    expect((await GET_STAFF(req("/s", "GET"))).status).toBe(403);
+    expect(p.user.findMany).not.toHaveBeenCalled();
+  });
+
+  it("a user with no organisation cannot list staff: 403", async () => {
+    signIn("loner", "ADMIN", null);
+    expect((await GET_STAFF(req("/s", "GET"))).status).toBe(403);
+    expect(p.user.findMany).not.toHaveBeenCalled();
   });
 });
 
@@ -253,11 +346,13 @@ describe("POST (adding)", () => {
 describe("PATCH (changing)", () => {
   it("an owner changes a record; every read and the write carry the organisation", async () => {
     signIn("owner1", "ADMIN", "org_a");
-    const res = await PATCH(req("/x", "PATCH", { course: "Renamed" }), params("rec_1"));
+    const res = await PATCH(req("/x", "PATCH", { course: "Renamed", expectedUpdatedAt: VER }), params("rec_1"));
     expect(res.status).toBe(200);
     const scope = { id: "rec_1", organizationId: "org_a" };
     expect(p.staffTrainingRecord.findFirst.mock.calls[0][0].where).toEqual(scope);
-    expect(p.staffTrainingRecord.updateMany.mock.calls[0][0].where).toEqual(scope);
+    expect(p.staffTrainingRecord.updateMany.mock.calls[0][0].where).toEqual({
+      AND: [scope, VERSION_WHERE],
+    });
     expect(p.staffTrainingRecord.updateMany.mock.calls[0][0].data).toMatchObject({
       course: "Renamed",
       updatedByUserId: "owner1",
@@ -267,14 +362,14 @@ describe("PATCH (changing)", () => {
   it("another organisation's record is 404 and nothing is written", async () => {
     signIn("owner1", "ADMIN", "org_a");
     p.staffTrainingRecord.findFirst.mockResolvedValue(null);
-    const res = await PATCH(req("/x", "PATCH", { course: "x" }), params("rec_org_b"));
+    const res = await PATCH(req("/x", "PATCH", { course: "x", expectedUpdatedAt: VER }), params("rec_org_b"));
     expect(res.status).toBe(404);
     expect(p.staffTrainingRecord.updateMany).not.toHaveBeenCalled();
   });
 
   it("a technician cannot change a record, even their own: 403 and no read or write", async () => {
     signIn("tech1", "USER", "org_a");
-    const res = await PATCH(req("/x", "PATCH", { course: "x" }), params("rec_1"));
+    const res = await PATCH(req("/x", "PATCH", { course: "x", expectedUpdatedAt: VER }), params("rec_1"));
     expect(res.status).toBe(403);
     expect(p.staffTrainingRecord.findFirst).not.toHaveBeenCalled();
     expect(p.staffTrainingRecord.updateMany).not.toHaveBeenCalled();
@@ -282,7 +377,10 @@ describe("PATCH (changing)", () => {
 
   it("moving a record to another person or organisation is refused (400)", async () => {
     signIn("owner1", "ADMIN", "org_a");
-    for (const body of [{ staffUserId: "other" }, { organizationId: "org_b" }]) {
+    for (const body of [
+      { staffUserId: "other", expectedUpdatedAt: VER },
+      { organizationId: "org_b", expectedUpdatedAt: VER },
+    ]) {
       expect((await PATCH(req("/x", "PATCH", body), params("rec_1"))).status).toBe(400);
     }
     expect(p.staffTrainingRecord.updateMany).not.toHaveBeenCalled();
@@ -290,43 +388,82 @@ describe("PATCH (changing)", () => {
 
   it("an expiry before the stored completion date is 400", async () => {
     signIn("owner1", "ADMIN", "org_a");
-    const res = await PATCH(req("/x", "PATCH", { expiresOn: "2026-09-01" }), params("rec_1"));
+    const res = await PATCH(req("/x", "PATCH", { expiresOn: "2026-09-01", expectedUpdatedAt: VER }), params("rec_1"));
     expect(res.status).toBe(400);
     expect(p.staffTrainingRecord.updateMany).not.toHaveBeenCalled();
   });
 
   it("an empty change is 400", async () => {
     signIn("owner1", "ADMIN", "org_a");
-    expect((await PATCH(req("/x", "PATCH", {}), params("rec_1"))).status).toBe(400);
+    expect((await PATCH(req("/x", "PATCH", { expectedUpdatedAt: VER }), params("rec_1"))).status).toBe(400);
   });
 
   it("clearing the CARSI reference stores null", async () => {
     signIn("owner1", "ADMIN", "org_a");
-    await PATCH(req("/x", "PATCH", { carsiCompletionRef: "" }), params("rec_1"));
+    await PATCH(req("/x", "PATCH", { carsiCompletionRef: "", expectedUpdatedAt: VER }), params("rec_1"));
     expect(p.staffTrainingRecord.updateMany.mock.calls[0][0].data.carsiCompletionRef).toBeNull();
+  });
+});
+
+describe("PATCH and DELETE never lose someone else's change", () => {
+  it("a change without the version it was made against is 400 and nothing is written", async () => {
+    signIn("owner1", "ADMIN", "org_a");
+    for (const v of [undefined, "", "yesterday", 12345]) {
+      const res = await PATCH(req("/x", "PATCH", { course: "x", expectedUpdatedAt: v }), params("rec_1"));
+      expect(res.status).toBe(400);
+    }
+    expect((await DELETE(req("/x", "DELETE"), params("rec_1"))).status).toBe(400);
+    expect(p.staffTrainingRecord.updateMany).not.toHaveBeenCalled();
+    expect(p.staffTrainingRecord.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("a change made against an old version is 409 (record still there, version moved on)", async () => {
+    signIn("mgr1", "MANAGER", "org_a");
+    p.staffTrainingRecord.updateMany.mockResolvedValue({ count: 0 });
+    const res = await PATCH(req("/x", "PATCH", { provider: "Old", expectedUpdatedAt: VER }), params("rec_1"));
+    expect(res.status).toBe(409);
+  });
+
+  it("a removal made against an old version is 409", async () => {
+    signIn("mgr1", "MANAGER", "org_a");
+    p.staffTrainingRecord.deleteMany.mockResolvedValue({ count: 0 });
+    expect((await DELETE(req(delUrl, "DELETE"), params("rec_1"))).status).toBe(409);
+  });
+
+  it("a write the database's own expiry check refuses (a race on the dates) is 409, not 500", async () => {
+    signIn("owner1", "ADMIN", "org_a");
+    p.staffTrainingRecord.updateMany.mockRejectedValue(
+      new Error('new row for relation "StaffTrainingRecord" violates check constraint "StaffTrainingRecord_expiry_check"'),
+    );
+    const res = await PATCH(req("/x", "PATCH", { expiresOn: "2027-01-01", expectedUpdatedAt: VER }), params("rec_1"));
+    expect(res.status).toBe(409);
   });
 });
 
 describe("DELETE (removing)", () => {
   it("a manager removes a record in their organisation; the delete carries the organisation", async () => {
     signIn("mgr1", "MANAGER", "org_a");
-    const res = await DELETE(req("/x", "DELETE"), params("rec_1"));
+    const res = await DELETE(req(delUrl, "DELETE"), params("rec_1"));
     expect(res.status).toBe(200);
     expect(p.staffTrainingRecord.deleteMany.mock.calls[0][0].where).toEqual({
-      id: "rec_1",
-      organizationId: "org_a",
+      AND: [{ id: "rec_1", organizationId: "org_a" }, VERSION_WHERE],
     });
   });
 
   it("another organisation's record is 404", async () => {
     signIn("mgr1", "MANAGER", "org_a");
     p.staffTrainingRecord.deleteMany.mockResolvedValue({ count: 0 });
-    expect((await DELETE(req("/x", "DELETE"), params("rec_org_b"))).status).toBe(404);
+    p.staffTrainingRecord.findFirst.mockResolvedValue(null);
+    expect((await DELETE(req(delUrl, "DELETE"), params("rec_org_b"))).status).toBe(404);
+    expect(p.staffTrainingRecord.findFirst.mock.calls[0][0].where).toEqual({
+      id: "rec_org_b",
+      organizationId: "org_a",
+    });
   });
 
   it("a technician cannot remove a record: 403 and no delete", async () => {
     signIn("tech1", "USER", "org_a");
-    expect((await DELETE(req("/x", "DELETE"), params("rec_1"))).status).toBe(403);
+    expect((await DELETE(req(delUrl, "DELETE"), params("rec_1"))).status).toBe(403);
     expect(p.staffTrainingRecord.deleteMany).not.toHaveBeenCalled();
   });
 });
