@@ -14,13 +14,21 @@ import {
 import { AlertTriangle, TrendingDown, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CHART_CHROME, seriesColour } from "@/lib/charts/palette";
-import { getDryStandard, MOISTURE_GUIDE_LABEL } from "@/lib/iicrc-dry-standards";
+import {
+  chartReadingGoal,
+  chartReferenceLines,
+  getDryStandard,
+  MOISTURE_GUIDE_LABEL,
+  type ChartReadingGoal,
+} from "@/lib/iicrc-dry-standards";
 
 /**
- * Reference line: the timber guide value. A starting guide only, not a
- * standard (RA-8508); the real goal is the job's reference reading.
+ * Goal line. The job's reference readings win (RA-8509): one line per material
+ * on the chart that has one. Only when there is none does the chart draw the
+ * timber guide value, a starting guide only, not a standard (RA-8508).
  */
-const GUIDE_MC = getDryStandard("timber").dryThreshold;
+const GUIDE_MATERIAL = "timber";
+const GUIDE_MC = getDryStandard(GUIDE_MATERIAL).dryThreshold;
 
 interface MoistureReading {
   id: string;
@@ -28,12 +36,35 @@ interface MoistureReading {
   surfaceType: string;
   moistureLevel: number;
   recordedAt: string;
+  /** Recorded unit; a reference applies only to a moisture-content reading. */
+  unit?: string | null;
 }
 
 interface MoistureTrendChartProps {
   readings: MoistureReading[];
+  /** The job's reference readings: `pickReferenceReadings(...)` (RA-8509). */
+  references?: Record<string, number>;
   className?: string;
 }
+
+function goalFor(
+  r: Pick<MoistureReading, "surfaceType" | "moistureLevel" | "unit">,
+  references: Record<string, number>,
+): ChartReadingGoal {
+  return chartReadingGoal(r, references, GUIDE_MATERIAL);
+}
+
+function goalText(goal: ChartReadingGoal): string {
+  return goal.basis === "reference"
+    ? `reference ≤${goal.target}%`
+    : `guide ≤${goal.target}%`;
+}
+
+const STATUS_TEXT = {
+  dry: "text-success",
+  drying: "text-amber-700 dark:text-amber-400",
+  wet: "text-destructive",
+} as const;
 
 type SeriesData = Record<
   string,
@@ -77,7 +108,10 @@ function buildChartData(readings: MoistureReading[]) {
   };
 }
 
-function getAlerts(readings: MoistureReading[]) {
+function getAlerts(
+  readings: MoistureReading[],
+  references: Record<string, number>,
+) {
   // Latest reading per location — check which are above dry standard
   const latest: Record<string, MoistureReading> = {};
   for (const r of readings) {
@@ -88,17 +122,31 @@ function getAlerts(readings: MoistureReading[]) {
       latest[r.location] = r;
     }
   }
-  return Object.values(latest).filter((r) => r.moistureLevel > GUIDE_MC);
+  return Object.values(latest).filter(
+    (r) => goalFor(r, references).status !== "dry",
+  );
 }
 
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label, readings, references }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 shadow-lg text-xs">
       <p className="font-semibold text-slate-700 dark:text-slate-300 mb-2">
         {label}
       </p>
-      {payload.map((entry: any) => (
+      {payload.map((entry: any) => {
+        const source = (readings as MoistureReading[] | undefined)?.find(
+          (r) => r.location === entry.dataKey,
+        );
+        const goal = goalFor(
+          {
+            surfaceType: source?.surfaceType ?? GUIDE_MATERIAL,
+            moistureLevel: entry.value,
+            unit: source?.unit,
+          },
+          references ?? {},
+        );
+        return (
         <div key={entry.dataKey} className="flex items-center gap-2 py-0.5">
           <div
             className="w-2 h-2 rounded-full flex-shrink-0"
@@ -107,35 +155,51 @@ function CustomTooltip({ active, payload, label }: any) {
           <span className="text-slate-600 dark:text-slate-400">
             {entry.dataKey}:
           </span>
-          <span
-            className={cn(
-              "font-semibold",
-              entry.value <= GUIDE_MC
-                ? "text-success"
-                : entry.value <= 25
-                  ? "text-amber-700 dark:text-amber-400"
-                  : "text-destructive",
-            )}
-          >
+          <span className={cn("font-semibold", STATUS_TEXT[goal.status])}>
             {entry.value}%
           </span>
-          {entry.value <= GUIDE_MC && (
+          <span className="text-slate-500 dark:text-slate-500">
+            ({goalText(goal)})
+          </span>
+          {goal.status === "dry" && (
             <CheckCircle2 size={11} className="text-success" />
           )}
-          {entry.value > GUIDE_MC && (
+          {goal.status !== "dry" && (
             <AlertTriangle size={11} className="text-amber-500" />
           )}
         </div>
-      ))}
-      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1 text-slate-600 dark:text-slate-500">
-        <span>Guide: ≤{GUIDE_MC}% ({MOISTURE_GUIDE_LABEL.toLowerCase()})</span>
-      </div>
+        );
+      })}
+      {goalBasisNote(references ?? {}, readings ?? [])}
     </div>
   );
 }
 
+/** Footer wording: names the guide only when the chart falls back to it. */
+function goalBasisNote(
+  references: Record<string, number>,
+  readings: MoistureReading[],
+) {
+  const lines = chartReferenceLines(
+    readings.map((r) => r.surfaceType),
+    references,
+  );
+  return (
+    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1 text-slate-600 dark:text-slate-500">
+      <span>
+        {lines.length > 0
+          ? "Goal: the job's reference reading for each material"
+          : `Guide: ≤${GUIDE_MC}% (${MOISTURE_GUIDE_LABEL.toLowerCase()})`}
+      </span>
+    </div>
+  );
+}
+
+const NO_REFERENCES: Record<string, number> = {};
+
 export default function MoistureTrendChart({
   readings,
+  references = NO_REFERENCES,
   className,
 }: MoistureTrendChartProps) {
   if (!readings || readings.length === 0) {
@@ -154,28 +218,26 @@ export default function MoistureTrendChart({
   }
 
   const { data, locations } = buildChartData(readings);
-  const alerts = getAlerts(readings);
+  const alerts = getAlerts(readings, references);
+  const referenceLines = chartReferenceLines(
+    readings.map((r) => r.surfaceType),
+    references,
+  );
+  const usesReference = referenceLines.length > 0;
 
-  // Aggregate summary
-  const latestByLocation: Record<string, number> = {};
+  // Aggregate summary: the latest reading per location, judged against its goal
+  const latestByLocation: Record<string, MoistureReading> = {};
   for (const r of readings) {
     const existing = latestByLocation[r.location];
-    if (
-      existing === undefined ||
-      new Date(r.recordedAt) >
-        new Date(
-          readings.find(
-            (x) => x.location === r.location && x.moistureLevel === existing,
-          )?.recordedAt ?? "",
-        )
-    ) {
-      latestByLocation[r.location] = r.moistureLevel;
+    if (!existing || new Date(r.recordedAt) > new Date(existing.recordedAt)) {
+      latestByLocation[r.location] = r;
     }
   }
-  const dryCount = Object.values(latestByLocation).filter(
-    (v) => v <= GUIDE_MC,
-  ).length;
-  const totalLocations = Object.keys(latestByLocation).length;
+  const latestGoals = Object.entries(latestByLocation).map(
+    ([loc, r]) => [loc, r, goalFor(r, references)] as const,
+  );
+  const dryCount = latestGoals.filter(([, , g]) => g.status === "dry").length;
+  const totalLocations = latestGoals.length;
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -188,12 +250,13 @@ export default function MoistureTrendChart({
           />
           <div className="text-sm">
             <p className="font-medium text-amber-700 dark:text-amber-400">
-              {alerts.length} location{alerts.length > 1 ? "s" : ""} above the
-              guide value
+              {alerts.length} location{alerts.length > 1 ? "s" : ""} above{" "}
+              {usesReference ? "their drying goal" : "the guide value"}
             </p>
             <p className="text-amber-700 dark:text-amber-500 text-xs mt-0.5">
-              {alerts.map((a) => a.location).join(", ")} — readings above{" "}
-              {GUIDE_MC}%
+              {alerts
+                .map((a) => `${a.location} (${goalText(goalFor(a, references))})`)
+                .join(", ")}
             </p>
           </div>
         </div>
@@ -204,8 +267,9 @@ export default function MoistureTrendChart({
             className="text-success"
           />
           <span className="text-success font-medium">
-            All {dryCount}/{totalLocations} locations at or below the guide value (
-            {GUIDE_MC}%, {MOISTURE_GUIDE_LABEL.toLowerCase()})
+            {usesReference
+              ? `All ${dryCount}/${totalLocations} locations at or below their drying goal`
+              : `All ${dryCount}/${totalLocations} locations at or below the guide value (${GUIDE_MC}%, ${MOISTURE_GUIDE_LABEL.toLowerCase()})`}
           </span>
         </div>
       )}
@@ -218,12 +282,20 @@ export default function MoistureTrendChart({
               Moisture Trend
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-500">
-              Readings over time · Guide ≤{GUIDE_MC}% ({MOISTURE_GUIDE_LABEL.toLowerCase()})
+              {usesReference
+                ? "Readings over time · Goal: the job's reference readings"
+                : `Readings over time · Guide ≤${GUIDE_MC}% (${MOISTURE_GUIDE_LABEL.toLowerCase()})`}
             </p>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-500">
             <TrendingDown size={14} />
-            <span>Guide: below {GUIDE_MC}%</span>
+            <span>
+              {usesReference
+                ? referenceLines
+                    .map((l) => `${l.material}: reference ≤${l.target}%`)
+                    .join(" · ")
+                : `Guide: below ${GUIDE_MC}%`}
+            </span>
           </div>
         </div>
 
@@ -251,24 +323,45 @@ export default function MoistureTrendChart({
               axisLine={false}
               tickFormatter={(v) => `${v}%`}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip
+              content={
+                <CustomTooltip readings={readings} references={references} />
+              }
+            />
             <Legend
               iconType="circle"
               iconSize={8}
               wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
             />
-            {/* Dry standard reference line */}
-            <ReferenceLine
-              y={GUIDE_MC}
-              stroke={CHART_CHROME.reference}
-              strokeDasharray="5 3"
-              label={{
-                value: `Guide ≤${GUIDE_MC}%`,
-                position: "insideTopRight",
-                fontSize: 10,
-                fill: CHART_CHROME.reference,
-              }}
-            />
+            {/* Goal line: reference readings first, the guide only without one */}
+            {usesReference ? (
+              referenceLines.map((l) => (
+                <ReferenceLine
+                  key={`ref-${l.material}`}
+                  y={l.target}
+                  stroke={CHART_CHROME.reference}
+                  strokeDasharray="5 3"
+                  label={{
+                    value: `Reference ${l.material} ≤${l.target}%`,
+                    position: "insideTopRight",
+                    fontSize: 10,
+                    fill: CHART_CHROME.reference,
+                  }}
+                />
+              ))
+            ) : (
+              <ReferenceLine
+                y={GUIDE_MC}
+                stroke={CHART_CHROME.reference}
+                strokeDasharray="5 3"
+                label={{
+                  value: `Guide ≤${GUIDE_MC}%`,
+                  position: "insideTopRight",
+                  fontSize: 10,
+                  fill: CHART_CHROME.reference,
+                }}
+              />
+            )}
             {locations.map((loc, i) => (
               <Line
                 key={loc}
@@ -303,7 +396,7 @@ export default function MoistureTrendChart({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-              {Object.entries(latestByLocation).map(([loc, level]) => (
+              {latestGoals.map(([loc, r, goal]) => (
                 <tr key={loc} className="bg-white dark:bg-slate-800/20">
                   <td className="px-4 py-2.5 text-slate-900 dark:text-white font-medium">
                     {loc}
@@ -311,23 +404,22 @@ export default function MoistureTrendChart({
                   <td
                     className={cn(
                       "px-4 py-2.5 text-right font-semibold",
-                      level <= GUIDE_MC
-                        ? "text-success"
-                        : level <= 25
-                          ? "text-amber-700 dark:text-amber-400"
-                          : "text-destructive",
+                      STATUS_TEXT[goal.status],
                     )}
                   >
-                    {level}%
+                    {r.moistureLevel}%
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    {level <= GUIDE_MC ? (
+                    {goal.status === "dry" ? (
                       <span className="inline-flex items-center gap-1 text-xs text-success-subtle-foreground bg-success-subtle px-2 py-0.5 rounded-full">
-                        {/* Guide-relative only: this chart has no reference
-                            readings, so it never calls a location dry (RA-8508). */}
-                        <CheckCircle2 size={11} /> At or below guide
+                        {/* Without a reference reading this is guide-relative
+                            only, so it never calls a location dry (RA-8508). */}
+                        <CheckCircle2 size={11} />{" "}
+                        {goal.basis === "reference"
+                          ? "At or below reference"
+                          : "At or below guide"}
                       </span>
-                    ) : level <= 25 ? (
+                    ) : goal.status === "drying" ? (
                       <span className="inline-flex items-center gap-1 text-xs text-warning-subtle-foreground bg-warning-subtle px-2 py-0.5 rounded-full">
                         <AlertTriangle size={11} /> Caution
                       </span>

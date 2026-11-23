@@ -930,7 +930,8 @@ export async function generateIICRCReportPDF(
   goalRows.forEach((g, i) => {
     w.tableRow(
       [
-        sanitise(g.material),
+        // RA-8517: capitalised as in Section 4 (the owner returns lower-case keys).
+        sanitise(g.material.charAt(0).toUpperCase() + g.material.slice(1)),
         `≤${g.target}% MC`,
         g.basis === "reference" ? "Reference reading" : MOISTURE_GUIDE_LABEL,
       ],
@@ -943,7 +944,7 @@ export async function generateIICRCReportPDF(
   w.text(
     anyReference
       ? `Reference readings were taken on unaffected like material in the same building. ${MOISTURE_GUIDE_HINT.replace("Replace it with", "Materials without one use a guide value; replace it with")}`
-      : `No reference reading was recorded. The values above are a starting guide only and are not a published standard. ${MOISTURE_GUIDE_HINT}`,
+      : `No reference reading was recorded. The values above are a starting guide only and are not a published standard. ${MOISTURE_GUIDE_HINT.replace("Replace it with a reference reading", "Replace them with reference readings")}`,
     { size: 8, color: C_MUTED, maxWidth: COL_W },
   );
   w.gap(8);
