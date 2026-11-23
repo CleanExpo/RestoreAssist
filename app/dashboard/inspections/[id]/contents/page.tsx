@@ -192,12 +192,22 @@ export default function ContentsManifestPage() {
   }, [loadDraft]);
 
   async function generateDraft(detailed = false) {
+    // RA-8619: never replace saved rows without the technician agreeing.
+    const savedRows = draft?.items?.length ?? 0;
+    if (
+      savedRows > 0 &&
+      !window.confirm(
+        `Regenerate will replace all ${savedRows} saved rows in this contents list, including any corrections you have saved. This cannot be undone. Replace the saved list?`,
+      )
+    ) {
+      return;
+    }
     setGenerating(true);
     try {
       const res = await fetch(`/api/inspections/${id}/contents-manifest`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ detailed }),
+        body: JSON.stringify({ detailed, replaceExisting: savedRows > 0 }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -228,7 +238,11 @@ export default function ContentsManifestPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: items.map(({ edited: _edited, ...item }) => item),
+          // RA-8619: a row the technician edited here counts as checked on
+          // the AI screen too.
+          items: items.map(({ edited, ...item }) =>
+            edited ? { ...item, technicianVerified: true } : item,
+          ),
         }),
       });
       const json = await res.json().catch(() => ({}));

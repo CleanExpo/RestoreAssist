@@ -14,7 +14,11 @@ import type {
 import { resolveWorkspaceRouterConfig } from "@/lib/ai/workspace-byok-dispatch";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { BYOK_ALLOWED_MODELS } from "@/lib/ai/byok-client";
-import { visionManifestToDraft } from "@/lib/ai/contents-manifest-draft-bridge";
+import {
+  generationNeedsConfirmation,
+  REPLACE_CONFIRMATION_MESSAGE,
+  visionManifestToDraft,
+} from "@/lib/ai/contents-manifest-draft-bridge";
 import { apiError, fromException } from "@/lib/api-errors";
 
 const CONTENTS_MANIFEST_FAILURE_ERROR = "Contents manifest generation failed";
@@ -41,6 +45,8 @@ export async function POST(request: NextRequest) {
     inspectionId: string;
     photos: Array<{ data: string; mediaType: string; label?: string }>;
     model: string;
+    /** RA-8619: technician confirmed replacing a saved list. */
+    replaceExisting?: boolean;
     context?: {
       jobType?: string;
       rooms?: string[];
@@ -114,6 +120,7 @@ export async function POST(request: NextRequest) {
         inspectionWorkflow: {
           select: { jobType: true },
         },
+        contentsManifestDraft: true,
       },
     });
 
@@ -122,6 +129,21 @@ export async function POST(request: NextRequest) {
         code: "NOT_FOUND",
         message: "Inspection not found",
         status: 404,
+      });
+    }
+
+    // RA-8619: never replace saved rows (which may carry technician
+    // corrections) unless the technician confirmed. Checked before any AI call.
+    if (
+      generationNeedsConfirmation(
+        inspection.contentsManifestDraft,
+        body.replaceExisting,
+      )
+    ) {
+      return apiError(request, {
+        code: "CONFLICT",
+        message: REPLACE_CONFIRMATION_MESSAGE,
+        status: 409,
       });
     }
 

@@ -78,3 +78,87 @@ export function visionManifestToDraft(
       "This manifest is AI-assisted and requires review before use in claims. All values are estimates only. Items flagged for review require manual confirmation.",
   };
 }
+
+// RA-8619: one owner for the stored contents list. Both contents screens save
+// through PATCH /api/inspections/[id]/contents-manifest. These helpers are the
+// only mapping between the AI screen's rows and the stored item, and the only
+// rule for when a generator may replace a stored list.
+
+/** Rows in a stored draft. Unreadable stored data counts as one row, so a
+ * generator never silently overwrites data it could not read. */
+export function storedDraftItemCount(stored: string | null | undefined): number {
+  if (!stored) return 0;
+  try {
+    const parsed = JSON.parse(stored) as { items?: unknown };
+    return Array.isArray(parsed?.items) ? parsed.items.length : 1;
+  } catch {
+    return 1;
+  }
+}
+
+export const REPLACE_CONFIRMATION_MESSAGE =
+  "A saved contents list already exists for this inspection. Regenerating replaces every saved row, including technician corrections. Confirm to replace it.";
+
+/** True when generating would drop saved rows the technician has not agreed to lose. */
+export function generationNeedsConfirmation(
+  stored: string | null | undefined,
+  replaceExisting: unknown,
+): boolean {
+  return storedDraftItemCount(stored) > 0 && replaceExisting !== true;
+}
+
+/** Stored item to the AI screen's row. `verified` is only ever the
+ * technician's own mark, never inferred from the AI review flag. */
+export function draftItemToVisionItem(item: DraftItem): VisionItem {
+  return {
+    id: item.id,
+    description: item.description,
+    category: item.category as VisionItem["category"],
+    room: item.roomLocation ?? "Unknown",
+    condition: item.condition as unknown as VisionItem["condition"],
+    restorability:
+      item.restorableStatus === "replace"
+        ? "non_restorable"
+        : item.restorableStatus === "uncertain"
+          ? "questionable"
+          : "restorable",
+    estimatedValueAud: item.estimatedValue ?? 0,
+    quantity: item.count,
+    confidence: (item.confidence ?? 0) / 100,
+    sourcePhotoIndices: [],
+    aiNotes: item.aiNote,
+    verified: item.technicianVerified === true,
+    technicianNotes: item.technicianNote,
+  };
+}
+
+export interface TechnicianRowEdit {
+  description: string;
+  estimatedValueAud: number;
+  quantity: number;
+  technicianNotes?: string;
+}
+
+/** Apply one technician edit to the stored list. Returns null when the row is
+ * not in the stored list, so a caller never sends a list that silently drops it. */
+export function applyTechnicianEdit(
+  items: DraftItem[],
+  itemId: string,
+  edit: TechnicianRowEdit,
+): DraftItem[] | null {
+  if (!items.some((i) => i.id === itemId)) return null;
+  return items.map((item) =>
+    item.id === itemId
+      ? {
+          ...item,
+          description: edit.description,
+          estimatedValue:
+            edit.estimatedValueAud > 0 ? edit.estimatedValueAud : undefined,
+          count: Math.max(1, edit.quantity),
+          technicianNote: edit.technicianNotes,
+          technicianVerified: true,
+          flagForReview: false,
+        }
+      : item,
+  );
+}

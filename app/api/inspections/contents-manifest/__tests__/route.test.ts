@@ -33,7 +33,10 @@ vi.mock("@/lib/ai/workspace-byok-dispatch", () => ({
 vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: (...args: unknown[]) => getWorkspaceForUser(...args),
 }));
-vi.mock("@/lib/ai/contents-manifest-draft-bridge", () => ({
+vi.mock("@/lib/ai/contents-manifest-draft-bridge", async (importActual) => ({
+  ...(await importActual<
+    typeof import("@/lib/ai/contents-manifest-draft-bridge")
+  >()),
   visionManifestToDraft: (manifest: unknown) => ({
     inspectionId: "inspection_1",
     items: [],
@@ -160,6 +163,42 @@ describe("POST /api/inspections/contents-manifest", () => {
     const response = await POST(postRequest());
     expect(response.status).toBe(422);
     expect(generateContentsManifest).not.toHaveBeenCalled();
+  });
+
+  // RA-8619: Regenerate must never drop saved rows without the technician agreeing.
+  describe("when a saved contents list already exists", () => {
+    const savedInspection = {
+      id: "inspection_1",
+      inspectionNumber: "INS-001",
+      propertyAddress: "1 Test St",
+      inspectionWorkflow: { jobType: "water_damage" },
+      contentsManifestDraft: JSON.stringify({
+        items: [{ id: "a", description: "Sofa", estimatedValue: 850 }],
+      }),
+    };
+
+    it("refuses with 409 and makes no AI call or write without replaceExisting", async () => {
+      inspectionFindFirst.mockResolvedValueOnce(savedInspection);
+      const response = await POST(postRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body.error.code).toBe("CONFLICT");
+      expect(body.error.message).toMatch(/replaces every saved row/);
+      expect(resolveWorkspaceRouterConfig).not.toHaveBeenCalled();
+      expect(generateContentsManifest).not.toHaveBeenCalled();
+      expect(inspectionUpdate).not.toHaveBeenCalled();
+      expect(inspectionFindFirst.mock.calls[0][0].select.contentsManifestDraft).toBe(true);
+    });
+
+    it("replaces the list when the technician confirmed (replaceExisting: true)", async () => {
+      inspectionFindFirst.mockResolvedValueOnce(savedInspection);
+      const response = await POST(postRequest({ replaceExisting: true }));
+
+      expect(response.status).toBe(200);
+      expect(generateContentsManifest).toHaveBeenCalledTimes(1);
+      expect(inspectionUpdate).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("does not expose provider exception details in 500 responses", async () => {

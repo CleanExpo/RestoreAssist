@@ -85,11 +85,11 @@ beforeEach(() => {
   });
 });
 
-function post() {
+function post(body: Record<string, unknown> = {}) {
   return POST(
     new NextRequest(
       "http://localhost/api/inspections/inspection_1/contents-manifest",
-      { method: "POST", body: JSON.stringify({}) },
+      { method: "POST", body: JSON.stringify(body) },
     ),
     { params: Promise.resolve({ id: "inspection_1" }) },
   );
@@ -116,6 +116,32 @@ describe("POST /api/inspections/[id]/contents-manifest", () => {
     expect(response.status).toBe(422);
     expect(workspaceRouteAiRequest).not.toHaveBeenCalled();
     expect(inspectionUpdate).not.toHaveBeenCalled();
+  });
+
+  // RA-8619: the /contents Regenerate button must not wipe saved rows unasked.
+  it("refuses with 409 and makes no AI call when a saved list exists and replaceExisting is absent", async () => {
+    inspectionFindFirst.mockResolvedValueOnce({
+      ...productionInspection,
+      contentsManifestDraft: JSON.stringify({ items: [{ id: "a" }] }),
+    });
+
+    const response = await post();
+
+    expect(response.status).toBe(409);
+    expect(workspaceRouteAiRequest).not.toHaveBeenCalled();
+    expect(inspectionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("replaces a saved list when replaceExisting is true", async () => {
+    inspectionFindFirst.mockResolvedValueOnce({
+      ...productionInspection,
+      contentsManifestDraft: JSON.stringify({ items: [{ id: "a" }] }),
+    });
+
+    const response = await post({ replaceExisting: true });
+
+    expect(response.status).toBe(201);
+    expect(workspaceRouteAiRequest).toHaveBeenCalledTimes(1);
   });
 
   it("returns 404 for an inspection the caller does not own", async () => {

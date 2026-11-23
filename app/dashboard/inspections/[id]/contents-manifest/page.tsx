@@ -21,6 +21,19 @@ import {
   Eye,
   Edit3,
 } from "lucide-react";
+import {
+  applyTechnicianEdit,
+  draftItemToVisionItem,
+  type TechnicianRowEdit,
+} from "@/lib/ai/contents-manifest-draft-bridge";
+import type { ContentsManifestItem as DraftItem } from "@/app/api/inspections/[id]/contents-manifest/route";
+
+function apiErrorMessage(json: unknown, fallback: string): string {
+  const err = (json as { error?: unknown } | null)?.error;
+  if (typeof err === "string") return err;
+  const message = (err as { message?: unknown } | undefined)?.message;
+  return typeof message === "string" ? message : fallback;
+}
 
 // ━━━ Types ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -38,6 +51,8 @@ interface ManifestItem {
   aiNotes?: string;
   verified: boolean;
   technicianNotes?: string;
+  /** RA-8619: server save state of the last edit. Absent = matches the server. */
+  saveState?: "saving" | "error";
 }
 
 interface Manifest {
@@ -185,7 +200,7 @@ function ConfidenceBar({ value }: { value: number }) {
 interface ManifestRowProps {
   item: ManifestItem;
   index: number;
-  onUpdate: (id: string, updates: Partial<ManifestItem>) => void;
+  onUpdate: (id: string, edit: TechnicianRowEdit) => void;
 }
 
 function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
@@ -215,7 +230,6 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
       estimatedValueAud: parseFloat(localValue) || 0,
       quantity: parseInt(localQty, 10) || 1,
       technicianNotes: localNotes.trim() || undefined,
-      verified: true,
     });
     setEditing(false);
   };
@@ -237,6 +251,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
         {editing ? (
           <Input
             ref={descRef}
+            aria-label="Description"
             value={localDesc}
             onChange={(e) => setLocalDesc(e.target.value)}
             className="h-8 text-sm"
@@ -251,8 +266,23 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
               <span className="text-xs text-neutral-400 dark:text-slate-500">
                 {categoryLabel}
               </span>
-              {item.verified && (
-                <CheckCircle2 size={12} className="text-success" />
+              {item.verified && !item.saveState && (
+                <CheckCircle2
+                  size={12}
+                  className="text-success"
+                  role="img"
+                  aria-label="Saved and verified"
+                />
+              )}
+              {item.saveState === "saving" && (
+                <span className="text-xs text-neutral-500 dark:text-slate-400">
+                  Saving…
+                </span>
+              )}
+              {item.saveState === "error" && (
+                <span className="text-xs font-medium text-destructive">
+                  Not saved. Edit and save again.
+                </span>
               )}
             </div>
           </div>
@@ -286,6 +316,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
         {editing ? (
           <Input
             type="number"
+            aria-label="Quantity"
             value={localQty}
             onChange={(e) => setLocalQty(e.target.value)}
             className="h-8 w-14 text-sm text-right"
@@ -303,6 +334,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
         {editing ? (
           <Input
             type="number"
+            aria-label="Estimated value"
             value={localValue}
             onChange={(e) => setLocalValue(e.target.value)}
             className="h-8 w-24 text-sm text-right"
@@ -360,7 +392,8 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
             size="sm"
             variant="ghost"
             onClick={() => setEditing(true)}
-            className="h-7 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
+            aria-label={`Edit ${item.description}`}
+            className="h-7 px-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
           >
             <Edit3 size={13} />
           </Button>
@@ -385,6 +418,10 @@ export default function ContentsManifestPage({
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<"room" | "category">("room");
+  // RA-8619: the stored list as the server last confirmed it. Edits are
+  // applied to this and saved through the shared PATCH route, one at a time.
+  const draftItemsRef = useRef<DraftItem[] | null>(null);
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
 
   // Fetch inspection metadata + any durable draft already saved
   const fetchMeta = useCallback(async () => {
@@ -410,43 +447,15 @@ export default function ContentsManifestPage({
       if (draftRes.ok) {
         const draftJson = await draftRes.json();
         const draft = draftJson.data;
+        if (Array.isArray(draft?.items)) {
+          // RA-8619: the stored list is the only copy edits are saved into.
+          draftItemsRef.current = draft.items as DraftItem[];
+        }
         if (draft?.items?.length && !manifest) {
           // Hydrate the vision UI from the durable draft so reload keeps work.
           setManifest({
             inspectionId: id,
-            items: draft.items.map(
-              (item: {
-                id: string;
-                description: string;
-                category: string;
-                roomLocation?: string;
-                condition: string;
-                restorableStatus: string;
-                estimatedValue?: number;
-                count: number;
-                confidence: number;
-                aiNote?: string;
-                flagForReview?: boolean;
-              }) => ({
-                id: item.id,
-                description: item.description,
-                category: item.category,
-                room: item.roomLocation ?? "Unknown",
-                condition: item.condition,
-                restorability:
-                  item.restorableStatus === "replace"
-                    ? "non_restorable"
-                    : item.restorableStatus === "uncertain"
-                      ? "questionable"
-                      : "restorable",
-                estimatedValueAud: item.estimatedValue ?? 0,
-                quantity: item.count,
-                confidence: (item.confidence ?? 0) / 100,
-                sourcePhotoIndices: [],
-                aiNotes: item.aiNote,
-                verified: !item.flagForReview,
-              }),
-            ),
+            items: (draft.items as DraftItem[]).map(draftItemToVisionItem),
             photosAnalysed: draft.imageCount ?? 0,
             totalEstimatedValueAud: (draft.items as { estimatedValue?: number; count: number }[]).reduce(
               (sum, i) => sum + (i.estimatedValue ?? 0) * (i.count || 1),
@@ -475,6 +484,17 @@ export default function ContentsManifestPage({
 
   // Generate manifest from photos (workspace BYOK resolved server-side)
   const handleGenerate = async () => {
+    // RA-8619: never replace saved rows without the technician agreeing.
+    // Cancel returns before any request, so no AI call is made.
+    const savedRows = draftItemsRef.current?.length ?? 0;
+    if (
+      savedRows > 0 &&
+      !window.confirm(
+        `Regenerate will replace all ${savedRows} saved rows in this contents list, including any corrections you have saved. This cannot be undone. Replace the saved list?`,
+      )
+    ) {
+      return;
+    }
     setGenerating(true);
     try {
       const photosRes = await fetch(`/api/inspections/${id}`);
@@ -550,6 +570,7 @@ export default function ContentsManifestPage({
           inspectionId: id,
           photos: encodedPhotos,
           model: byokModel,
+          replaceExisting: savedRows > 0,
           context: {
             jobType: insp.inspectionWorkflow?.jobType,
           },
@@ -558,14 +579,13 @@ export default function ContentsManifestPage({
 
       if (!manifestRes.ok) {
         const err = await manifestRes.json().catch(() => ({}));
-        const message =
-          typeof err.error === "string"
-            ? err.error
-            : err.error?.message ?? "Manifest generation failed";
-        throw new Error(message);
+        throw new Error(apiErrorMessage(err, "Manifest generation failed"));
       }
 
       const result = await manifestRes.json();
+      draftItemsRef.current = Array.isArray(result.draft?.items)
+        ? (result.draft.items as DraftItem[])
+        : null;
       setManifest(result.manifest);
       toast.success(
         result.persisted
@@ -581,22 +601,72 @@ export default function ContentsManifestPage({
     }
   };
 
-  // Update an item in the manifest (client-side editing)
-  const handleUpdateItem = useCallback(
+  const patchRow = useCallback(
     (itemId: string, updates: Partial<ManifestItem>) => {
-      if (!manifest) return;
-      setManifest({
-        ...manifest,
-        items: manifest.items.map((item) =>
+      setManifest((prev) => {
+        if (!prev) return prev;
+        const items = prev.items.map((item) =>
           item.id === itemId ? { ...item, ...updates } : item,
-        ),
-        totalEstimatedValueAud: manifest.items.reduce((sum, item) => {
-          const updated = item.id === itemId ? { ...item, ...updates } : item;
-          return sum + updated.estimatedValueAud * updated.quantity;
-        }, 0),
+        );
+        return {
+          ...prev,
+          items,
+          totalEstimatedValueAud: items.reduce(
+            (sum, item) => sum + item.estimatedValueAud * item.quantity,
+            0,
+          ),
+        };
       });
     },
-    [manifest],
+    [],
+  );
+
+  // RA-8619: save a technician's edit through the shared PATCH route. The
+  // edit stays on screen either way; the row shows as verified only after the
+  // server accepted it. Saves run one at a time so none overwrites another.
+  const handleUpdateItem = useCallback(
+    (itemId: string, edit: TechnicianRowEdit) => {
+      patchRow(itemId, {
+        description: edit.description,
+        estimatedValueAud: edit.estimatedValueAud,
+        quantity: edit.quantity,
+        technicianNotes: edit.technicianNotes,
+        verified: false,
+        saveState: "saving",
+      });
+      saveChainRef.current = saveChainRef.current.then(async () => {
+        const stored = draftItemsRef.current;
+        const next = stored ? applyTechnicianEdit(stored, itemId, edit) : null;
+        let error: string | null = next
+          ? null
+          : "This row is not in the saved contents list. Reload the page and try again.";
+        if (next) {
+          try {
+            const res = await fetch(`/api/inspections/${id}/contents-manifest`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items: next }),
+            });
+            const json = await res.json().catch(() => null);
+            if (res.ok && Array.isArray(json?.data?.items)) {
+              draftItemsRef.current = json.data.items as DraftItem[];
+            } else {
+              error = apiErrorMessage(json, "Could not save this row");
+            }
+          } catch {
+            error = "Could not save this row. Check your connection.";
+          }
+        }
+        if (error) {
+          patchRow(itemId, { saveState: "error", verified: false });
+          toast.error(error);
+        } else {
+          patchRow(itemId, { saveState: undefined, verified: true });
+          toast.success("Row saved");
+        }
+      });
+    },
+    [id, patchRow],
   );
 
   // Export CSV

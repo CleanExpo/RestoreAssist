@@ -26,6 +26,10 @@ import { workspaceRouteAiRequest } from "@/lib/ai/workspace-byok-dispatch";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  generationNeedsConfirmation,
+  REPLACE_CONFIRMATION_MESSAGE,
+} from "@/lib/ai/contents-manifest-draft-bridge";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +45,10 @@ export interface ContentsManifestItem {
   roomLocation?: string;
   flagForReview: boolean; // true if confidence < 70 or high-value
   aiNote?: string; // clarification from AI
+  /** RA-8619: set only when a technician checked or corrected this row. */
+  technicianVerified?: boolean;
+  /** RA-8619: the technician's own note, kept apart from the AI note. */
+  technicianNote?: string;
 }
 
 export interface ContentsManifestDraft {
@@ -228,6 +236,10 @@ export async function PATCH(
             : undefined,
           flagForReview,
           aiNote: raw.aiNote ? String(raw.aiNote) : undefined,
+          technicianVerified: raw.technicianVerified === true ? true : undefined,
+          technicianNote: raw.technicianNote
+            ? String(raw.technicianNote).trim() || undefined
+            : undefined,
         };
       },
     );
@@ -322,6 +334,23 @@ export async function POST(
           code: "NOT_FOUND",
           message: "Inspection not found",
           status: 404,
+        });
+      }
+
+      const body = await request.json().catch(() => ({}));
+
+      // RA-8619: never replace saved rows (which may carry technician
+      // corrections) unless the technician confirmed. Checked before any AI call.
+      if (
+        generationNeedsConfirmation(
+          inspection.contentsManifestDraft,
+          body?.replaceExisting,
+        )
+      ) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: REPLACE_CONFIRMATION_MESSAGE,
+          status: 409,
         });
       }
 
@@ -424,7 +453,6 @@ Rules:
 - Return ONLY valid JSON, no markdown, no explanation.`;
 
       // Use standard tier for basic manifest, premium for detailed
-      const body = await request.json().catch(() => ({}));
       const detailed = body?.detailed === true;
 
       const result = await workspaceRouteAiRequest(
