@@ -269,15 +269,18 @@ export async function sweepExpiredLeases(
     async (tx) => {
       // RA-8000: lock every workflow the sweep is about to touch before any
       // task row is read or written, in id order, so the cascade and progress
-      // refresh below read committed task state. The candidate list is read
-      // first; a workflow whose lease expired in the gap is locked below,
-      // before its own refresh.
+      // refresh below read committed task state. RA-8624: the UPDATE is then
+      // limited to the locked workflows, so no workflow is ever locked after
+      // its tasks were written (that order deadlocks with cancel and approve).
+      // A task whose lease expires between the two statements in a workflow
+      // not yet locked is left for the next sweep.
       const candidates = await tx.$queryRaw<Array<{ workflowId: string }>>`
         SELECT DISTINCT t."workflowId" AS "workflowId"
         FROM "AgentTask" t
         JOIN "AgentWorkflow" w ON w.id = t."workflowId"
         WHERE ${predicate}`;
       const locked = new Set(candidates.map((c) => c.workflowId));
+      if (locked.size === 0) return tally([], false);
       await lockWorkflowRows(tx, locked);
 
       // `o` is the same row before the update, for the previous lease values.
@@ -293,6 +296,7 @@ export async function sweepExpiredLeases(
         WHERE w.id = t."workflowId"
           AND o.id = t.id
           AND ${predicate}
+          AND t."workflowId" IN (${Prisma.join([...locked])})
         RETURNING t.id, t."workflowId", t.status::text AS status, t."errorCode",
                   t.attempts, o."leaseOwner" AS "prevLeaseOwner",
                   o."leaseExpiresAt" AS "prevLeaseExpiresAt",
@@ -302,10 +306,6 @@ export async function sweepExpiredLeases(
       for (const row of rows) {
         if (row.status === "DEAD_LETTER") failedWorkflows.add(row.workflowId);
       }
-      await lockWorkflowRows(
-        tx,
-        [...failedWorkflows].filter((id) => !locked.has(id)),
-      );
       for (const row of rows) {
         if (row.status === "DEAD_LETTER") {
           await skipDependentsOfFailedTask(tx, row.workflowId, row.id);

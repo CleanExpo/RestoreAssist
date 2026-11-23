@@ -7,14 +7,18 @@
  * AWAITING_APPROVAL, and only approve, reject or cancel move it out.
  *
  * decideApproval is the one writer for approve and reject. Everything happens
- * in one transaction whose first write is a compare-and-swap carrying the
- * tenant scope (`workflow.userId`) inside the write itself, so a decision that
- * lost a race, or belongs to another tenant, writes nothing.
+ * in one transaction that first takes the workflow row lock (withWorkflowLock),
+ * then writes a compare-and-swap carrying the tenant scope (`workflow.userId`)
+ * inside the write itself, so a decision that lost a race, or belongs to
+ * another tenant, writes nothing. The lock comes before the task write, the
+ * same order as cancel and account delete; the other order deadlocks with
+ * them (RA-8624). The lock is only taken once the scoped read above it has
+ * shown the task to this user.
  */
 
 import { prisma } from "@/lib/prisma";
 import { skipDependentsOfFailedTask } from "./lease";
-import { lockWorkflowRow } from "./workflow-lock";
+import { withWorkflowLock } from "./workflow-lock";
 
 export const REJECTED_BY_USER_CODE = "REJECTED_BY_USER";
 
@@ -91,7 +95,7 @@ export async function decideApproval(
   await hooks.afterRead?.();
 
   try {
-    const done = await prisma.$transaction(async (tx) => {
+    const done = await withWorkflowLock(workflowId, async (tx) => {
       const now = new Date();
       const moved = await tx.agentTask.updateMany({
         where: {
@@ -112,10 +116,6 @@ export async function decideApproval(
       if (moved.count === 0) return null;
 
       await hooks.afterTaskUpdate?.();
-
-      // Serialise with markTasksReady: the count below must see a gated task
-      // that another poll has promoted and not yet committed.
-      await lockWorkflowRow(tx, workflowId);
 
       let workflowStatus: string;
       if (decision === "approve") {

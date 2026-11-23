@@ -13,7 +13,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { executeTask, claimTask, resumeWorkflow, sweepExpiredLeases } from "@/lib/agents";
+import {
+  cancelWorkflow,
+  claimTask,
+  decideApproval,
+  executeTask,
+  resumeWorkflow,
+  sweepExpiredLeases,
+} from "@/lib/agents";
 import { moveToDeadLetter } from "@/lib/agents/error-handler";
 import {
   cleanup,
@@ -23,6 +30,7 @@ import {
   makeWorkflow,
   registerTestAgent,
   task,
+  USER_ID,
   workflow,
 } from "../durable/fixtures";
 
@@ -170,5 +178,57 @@ describe.skipIf(!process.env.DATABASE_URL)("RA-8000 workflow lock is taken befor
     expect(outcome).toMatchObject({ ok: true });
     expect((await task(wf.ids.x)).status).toBe("DEAD_LETTER");
     expect((await workflow(wf.workflowId)).status).toBe("PARTIALLY_FAILED");
+  });
+
+  it("decideApproval and cancelWorkflow on the same workflow both return, with no deadlock (RA-8624 mutant: approve writes the task before the workflow lock)", async () => {
+    const wf = await makeWorkflow(
+      [
+        { key: "a", agentSlug: slugA, status: "COMPLETED" },
+        {
+          key: "gated",
+          agentSlug: slugA,
+          status: "AWAITING_APPROVAL",
+          dependsOn: ["a"],
+          requiresApproval: true,
+          approvalRequestedAt: new Date(),
+        },
+      ],
+      { status: "PAUSED" },
+    );
+    const settle = <T>(p: Promise<T>) =>
+      p.then(
+        (value) => ({ ok: true as const, value }),
+        (error: unknown) => ({ ok: false as const, error }),
+      );
+
+    // Approve stops inside its transaction, after its first task write.
+    const entered = deferred<void>();
+    const hold = deferred<void>();
+    const approve = settle(
+      decideApproval(
+        { userId: USER_ID, workflowId: wf.workflowId, taskId: wf.ids.gated, decision: "approve" },
+        {
+          afterTaskUpdate: async () => {
+            entered.resolve();
+            await hold.promise;
+          },
+        },
+      ),
+    );
+    await entered.promise;
+
+    // Cancel starts while approve holds its locks, and reaches its lock wait.
+    const cancel = settle(cancelWorkflow(wf.workflowId));
+    await sleep(600);
+    hold.resolve();
+
+    const [approved, cancelled] = await Promise.all([approve, cancel]);
+    expect(approved).toMatchObject({ ok: true, value: { ok: true, decision: "approve" } });
+    expect(cancelled).toMatchObject({ ok: true });
+    // Approve committed first; cancel then ended the workflow and its tasks.
+    const gated = await task(wf.ids.gated);
+    expect(gated.approvedAt).not.toBeNull();
+    expect(gated.status).toBe("CANCELLED");
+    expect((await workflow(wf.workflowId)).status).toBe("CANCELLED");
   });
 });

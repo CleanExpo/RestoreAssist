@@ -9,10 +9,30 @@
  * read that follows sees the other writer's committed work.
  *
  * Take it as the first statement of the transaction. Taking it after a task
- * write would invert the order used by the other holders and can deadlock.
+ * write would invert the order used by the other holders and can deadlock
+ * (RA-8624: approve against cancel). A transaction on one known workflow opens
+ * through withWorkflowLock, which owns that order; the structural test
+ * lib/agents/__tests__/approval/lock-first-structure.test.ts fails on any
+ * transaction here that writes a task row before its lock.
  */
 
 import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+
+/**
+ * Run `fn` in one transaction whose first statement locks the workflow row.
+ * The caller cannot write a task before the lock, because it never sees the
+ * transaction before the lock is held.
+ */
+export async function withWorkflowLock<T>(
+  workflowId: string,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await lockWorkflowRow(tx, workflowId);
+    return fn(tx);
+  });
+}
 
 export async function lockWorkflowRow(
   tx: Prisma.TransactionClient,

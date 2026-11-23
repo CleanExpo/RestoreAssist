@@ -18,7 +18,7 @@ import {
 import { syncToDatabase } from "./registry";
 import { unskipUpstreamFailed } from "./lease";
 import { ApprovalPendingError, WorkflowStateChangedError } from "./approval";
-import { lockWorkflowRow } from "./workflow-lock";
+import { withWorkflowLock } from "./workflow-lock";
 import { randomUUID } from "node:crypto";
 
 // ---------------------------------------------------------------------------
@@ -211,8 +211,7 @@ export async function getWorkflowContext(
  * never relabelled.
  */
 export async function cancelWorkflow(workflowId: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    await lockWorkflowRow(tx, workflowId);
+  await withWorkflowLock(workflowId, async (tx) => {
     const swapped = await tx.agentWorkflow.updateMany({
       where: {
         id: workflowId,
@@ -248,10 +247,9 @@ export async function cancelWorkflow(workflowId: string): Promise<void> {
 export async function resumeWorkflow(
   workflowId: string,
 ): Promise<{ retriedCount: number }> {
-  return prisma.$transaction(async (tx) => {
-    // First statement: the waiting-task read below must see any pause another
-    // writer committed, and the status swap must not undo it.
-    await lockWorkflowRow(tx, workflowId);
+  // The lock is the first statement: the waiting-task read below must see any
+  // pause another writer committed, and the status swap must not undo it.
+  return withWorkflowLock(workflowId, async (tx) => {
     const waiting = await tx.agentTask.findFirst({
       where: { workflowId, status: "AWAITING_APPROVAL" },
       select: { id: true },
