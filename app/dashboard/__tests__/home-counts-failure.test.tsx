@@ -93,3 +93,24 @@ describe("home figures (RA-8146)", () => {
     );
   });
 });
+
+describe("home page for a technician (RA-8494)", () => {
+  beforeEach(() => {
+    // What the routes now answer a USER inside a business.
+    responses["/api/dashboard/home-counts"] = () =>
+      json({ activeJobs: 125, openReports: 245, awaitingPayment: null, clients: 425, mayViewMoney: false });
+    responses["/api/invoices"] = () =>
+      json({ error: { code: "FORBIDDEN", message: "Only an owner or manager can see prices" } }, 403);
+  });
+
+  it("shows the job figures with no failure banner and no money sections", async () => {
+    render(<DashboardPage />);
+    await waitFor(() =>
+      expect(pipelineValue(/Clients.*People on file/)).toHaveTextContent("425"),
+    );
+    expect(pipelineValue(/Inspect.*Jobs still open/)).toHaveTextContent("125");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("Awaiting payment")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unpaid invoices")).not.toBeInTheDocument();
+  });
+});

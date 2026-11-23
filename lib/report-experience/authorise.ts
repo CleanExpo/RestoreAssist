@@ -9,6 +9,7 @@ import {
 import { getResourceTenant, type ResourceTenant } from "@/lib/organization-credits";
 import { lookupReportShareAccess } from "@/lib/report-share/access";
 import type { ReportReadGrant } from "./snapshot";
+import { canSeeMoney } from "@/lib/auth/redact-money";
 
 /**
  * RA-8105 W1.2: the one server gate in front of the report experience.
@@ -133,8 +134,11 @@ async function bySession(
   const organisationId = await tenantKeyOf(report);
   if (!organisationId) return null;
   const money = await resolveReportFinancialReach(session);
+  // RA-8494: a technician never sees money, even on a report they created.
   const mayViewFinancials =
-    money.ok && (await prisma.report.count({ where: { AND: [{ id: reportId }, money.data] } })) === 1;
+    (await canSeeMoney(session)) &&
+    money.ok &&
+    (await prisma.report.count({ where: { AND: [{ id: reportId }, money.data] } })) === 1;
   return issueGrant({
     reportId: report.id,
     organisationId,

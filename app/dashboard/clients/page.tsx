@@ -705,11 +705,9 @@ export default function ClientsPage() {
                           {client.reportsCount || 0} reports
                         </span>
                         <span className="font-medium text-brand-harbour-600 dark:text-brand-harbour-400">
-                          $
-                          {client.totalRevenue
-                            ? client.totalRevenue.toLocaleString()
-                            : "0"}{" "}
-                          invoiced
+                          {client.totalRevenue == null
+                            ? "Prices hidden"
+                            : `$${client.totalRevenue.toLocaleString()} invoiced`}
                         </span>
                         <span className="text-neutral-500 dark:text-slate-500 truncate">
                           {client.lastJob || "No jobs yet"}
@@ -930,10 +928,9 @@ export default function ClientsPage() {
                             "text-brand-harbour-600 dark:text-brand-harbour-400",
                           )}
                         >
-                          $
-                          {client.totalRevenue
-                            ? client.totalRevenue.toLocaleString()
-                            : "0"}
+                          {client.totalRevenue == null
+                            ? "Hidden"
+                            : `$${client.totalRevenue.toLocaleString()}`}
                         </td>
                         <td
                           className={cn(

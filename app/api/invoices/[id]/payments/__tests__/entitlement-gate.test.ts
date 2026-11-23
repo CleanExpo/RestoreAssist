@@ -51,6 +51,14 @@ const mockFindUnique = invoiceFindUnique;
 beforeEach(() => {
   vi.clearAllMocks();
   mockSession.mockResolvedValue({ user: { id: "u_test" } });
+  // RA-8494: the real price rule runs; u_test is a solo owner by default.
+  userFindUnique.mockResolvedValue({
+    id: "u_test",
+    role: "USER",
+    organizationId: null,
+    organizationLeftAt: null,
+    organizationLeftId: null,
+  });
   transaction.mockImplementation(
     async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ invoice: { findUnique: invoiceFindUnique } }),
@@ -124,6 +132,27 @@ describe("RA-6920 B4 — PAYMENTS add-on gate", () => {
   });
 });
 
+describe("RA-8494 — a technician never reaches payments", () => {
+  it("refuses a technician inside a business before the add-on or the invoice is read", async () => {
+    userFindUnique.mockResolvedValue({
+      id: "u_test",
+      role: "USER",
+      organizationId: "org_a",
+      organizationLeftAt: null,
+      organizationLeftId: null,
+    });
+
+    const res = await POST(
+      makePost({ amount: 1000, paymentMethod: "BANK_TRANSFER" }),
+      makeParams(),
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockRequireAddon).not.toHaveBeenCalled();
+    expect(mockFindUnique).not.toHaveBeenCalled();
+  });
+});
+
 describe("RA-7893 — PAYMENTS on an invoice from the technician's previous organisation", () => {
   it("refuses to record a payment on org B's add-on for an invoice created in org A before the move", async () => {
     // u_test created inv_1 on 1 June in org A, then accepted an invite into
@@ -142,7 +171,9 @@ describe("RA-7893 — PAYMENTS on an invoice from the technician's previous orga
         where.id === "u_test"
           ? {
               id: "u_test",
-              role: "USER",
+              // RA-8494: a manager, so the price rule lets the caller in and
+              // the previous-organisation guard is what this case proves.
+              role: "MANAGER",
               organizationId: "org_b",
               organization: { ownerId: "owner_b" },
               email: "u_test@example.com",
