@@ -67,6 +67,14 @@ export function resolve(name: string, seen = 0): Rgb {
   throw new Error(`cannot read --color-${name}: ${value}`);
 }
 
+/** A literal `oklch(...)` or `#rrggbb` value, as written in a stylesheet. */
+export function parseLiteral(value: string): Rgb {
+  const v = value.trim();
+  const ok = v.match(/^oklch\(([^)]+)\)$/);
+  if (ok) return oklchToRgb(ok[1]);
+  return hexToRgb(v);
+}
+
 /** A literal colour the guards can measure; runtime theme variables are not. */
 export function isColour(name: string): boolean {
   try {
