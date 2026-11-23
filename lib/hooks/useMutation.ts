@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 /**
  * RA-914: useMutation — standard POST/PUT/PATCH/DELETE wrapper.
@@ -60,7 +61,8 @@ export function useMutation<TResponse = unknown, TBody = unknown>(
           const errData = await res
             .json()
             .catch(() => ({ error: res.statusText }));
-          const message = errData?.error ?? `Request failed: ${res.status}`;
+          const message =
+            apiErrorMessage(errData?.error) ?? `Request failed: ${res.status}`;
           setError(message);
           return null;
         }

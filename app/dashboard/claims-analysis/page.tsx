@@ -313,7 +313,7 @@ export default function ClaimsAnalysisPage() {
         }
       } else {
         // Show detailed error message
-        const errorMsg = data.error || "Failed to fetch files";
+        const errorMsg = apiErrorMessage(data.error) ?? "Failed to fetch files";
         const details = data.details || "";
         const serviceAccountEmail = data.serviceAccountEmail;
 

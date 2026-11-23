@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isNrpgEnabled } from "@/lib/flags/one-crm-flags";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1700,7 +1701,8 @@ const NIRClaimAssessmentPanel = forwardRef<
         if (!options?.silent) toast.success("Assessment saved");
       } else {
         const err = await res.json().catch(() => ({}));
-        const message = (err as { error?: string }).error || "Failed to save";
+        const message =
+          apiErrorMessage((err as { error?: unknown }).error) ?? "Failed to save";
         if (options?.silent) throw new Error(message);
         toast.error(message);
       }
@@ -1732,7 +1734,8 @@ const NIRClaimAssessmentPanel = forwardRef<
       } else {
         const err = await res.json().catch(() => ({}));
         const message =
-          (err as { error?: string }).error || "Failed to save compliance";
+          apiErrorMessage((err as { error?: unknown }).error) ??
+          "Failed to save compliance";
         if (options?.silent) throw new Error(message);
         toast.error(message);
       }

@@ -175,6 +175,32 @@ describe("MeterPhotoCapture — moisture photo to logged reading", () => {
     expect(fetchMock.mock.calls[2][1].headers["Idempotency-Key"]).toBe(fetchMock.mock.calls[3][1].headers["Idempotency-Key"]);
   });
 
+  // RA-8367: the moisture route replies through apiError(), so `error` is an
+  // object. Rendering it as a React child would crash the confirm screen.
+  it("shows the server's message when a moisture save is refused with a structured error", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { reading: READING }))
+      .mockResolvedValueOnce(
+        jsonResponse(400, {
+          error: { code: "VALIDATION", message: "Location is required", eventId: "evt_1" },
+        }),
+      );
+
+    render(<MeterPhotoCapture inspectionId="insp_1" mode="moisture" />);
+    await attachMeterPhoto();
+    clickRead();
+    await screen.findByText(/Confirm Moisture Reading/i);
+    fireEvent.change(screen.getByPlaceholderText(/Master bedroom — east wall/i), {
+      target: { value: "Bedroom 4" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Reading" }));
+
+    expect(await screen.findByText("Location is required")).toBeInTheDocument();
+    const toast = (await import("react-hot-toast")).default;
+    expect(toast.error).toHaveBeenCalledWith("Location is required");
+    expect(screen.getByText(/Confirm Moisture Reading/i)).toBeInTheDocument();
+  });
+
   it("never posts to the analyze-photo route that does not exist", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { reading: READING }));
 

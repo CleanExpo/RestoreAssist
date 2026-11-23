@@ -27,12 +27,23 @@
  * cannot carry the object itself (the allow-list in isSafeStep): an argument of
  * apiErrorMessage() or Boolean(), the operand of `!`, `typeof` or `void`, either
  * side of a comparison, the left side of `&&`, the condition of `?:`, or the
- * condition of an if/while/do/for/switch statement.
+ * condition of an if/while/do/for/switch statement. A read already narrowed to
+ * a string is also safe: the true branch of `typeof R === "string" ? R : ...`
+ * and the right side of `typeof R === "string" && R`, where R is the same
+ * expression (RA-8367).
+ *
+ * A copy is followed (RA-8367): when the read is the initialiser of a
+ * `const`/`let`/`var` name (`const m = data.error ?? "x"`), or `error` is
+ * destructured from a body (`const { error } = body`, `{ error: m }`,
+ * `{ error = "x" }`), every later use of that name in the same block is checked
+ * by the same rules, and so on through further copies. The finding keeps the
+ * line of the original read and lists the names it passed through (`via`).
  *
  * Known limits (outside this guard's scope, stated so they are not mistaken
  * for coverage):
- *   - a value copied to another name first (`const e = body.error; setError(e)`)
- *     or destructured (`const { error } = body`);
+ *   - a copy is matched by name within its block, not by symbol: a value
+ *     assigned later (`m = body.error`), passed to a function or returned is
+ *     not followed, and an inner name that shadows the copy is treated as it;
  *   - setters not named `set...`; callees chosen at run time (`f[key](...)`,
  *     `(a || setError)(...)`, `getSetter()(...)`); indirect calls such as
  *     `setError.call(null, body.error)`;
@@ -42,8 +53,7 @@
  *     which a syntax-only check does not have. On this tree such values are
  *     typed strings or component state (for example `result.error: string`
  *     from lib/sketch/seed-estimate-from-sketch.ts).
- *   - a key bound to a named constant (`const K = "error"; body[K]`), the
- *     alias limit above.
+ *   - a key bound to a named constant (`const K = "error"; body[K]`).
  *
  * Scope: app/, components/, hooks/, lib/ excluding app/api/, tests and
  * __tests__ directories. There is no allow-list of files or sites: route the
@@ -187,6 +197,11 @@ const isErrorRead = (node) => staticMemberName(node) === "error";
 function isRawRead(node) {
   if (!isErrorRead(node)) return false;
   if (NON_BODY.has(rootName(node.expression) ?? "")) return false;
+  return isUsedAsIs(node);
+}
+
+/** The one owner of "this value is not read further and not called". */
+function isUsedAsIs(node) {
   let p = node.parent;
   let child = node;
   while (p && isTransparent(p)) {
@@ -198,6 +213,19 @@ function isRawRead(node) {
   return true;
 }
 
+/** `cond` is `typeof <same as value> === "string"` (either order, == or ===). */
+function isStringTestOf(cond, value) {
+  const c = unwrap(cond);
+  if (!ts.isBinaryExpression(c)) return false;
+  const op = c.operatorToken.kind;
+  if (op !== ts.SyntaxKind.EqualsEqualsEqualsToken && op !== ts.SyntaxKind.EqualsEqualsToken) return false;
+  const pair = [unwrap(c.left), unwrap(c.right)];
+  const test = pair.find((n) => ts.isTypeOfExpression(n));
+  const other = pair.find((n) => n !== test);
+  if (!test || staticString(other) !== "string") return false;
+  return unwrap(test.expression).getText() === unwrap(value).getText();
+}
+
 /** `child` sits in a position of `parent` that cannot pass the object on. */
 function isSafeStep(parent, child) {
   if (ts.isCallExpression(parent) && parent.arguments.includes(child)) {
@@ -207,10 +235,14 @@ function isSafeStep(parent, child) {
   if (ts.isTypeOfExpression(parent) || ts.isVoidExpression(parent)) return true;
   if (ts.isBinaryExpression(parent)) {
     if (COMPARISON.has(parent.operatorToken.kind)) return true;
-    if (parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return parent.left === child;
+    if (parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      return parent.left === child || isStringTestOf(parent.left, child);
+    }
     return false;
   }
-  if (ts.isConditionalExpression(parent)) return parent.condition === child;
+  if (ts.isConditionalExpression(parent)) {
+    return parent.condition === child || (parent.whenTrue === child && isStringTestOf(parent.condition, child));
+  }
   if (
     ts.isIfStatement(parent) ||
     ts.isWhileStatement(parent) ||
@@ -238,35 +270,134 @@ function sinkOf(parent, child) {
   return undefined;
 }
 
+/** The block whose statements can see a declaration made at `node`. */
+function scopeOf(node) {
+  let n = node.parent;
+  while (
+    n &&
+    !(ts.isBlock(n) || ts.isSourceFile(n) || ts.isModuleBlock(n) || ts.isCaseClause(n) || ts.isDefaultClause(n))
+  ) {
+    n = n.parent;
+  }
+  return n;
+}
+
+/** `id` reads the variable it names (not a declaration, member name or key). */
+function isReference(id) {
+  const p = id.parent;
+  if (ts.isPropertyAccessExpression(p) && p.name === id) return false;
+  if (ts.isPropertyAssignment(p) && p.name === id) return false;
+  if ((ts.isVariableDeclaration(p) || ts.isBindingElement(p) || ts.isParameter(p)) && p.name === id) return false;
+  if (ts.isBindingElement(p) && p.propertyName === id) return false;
+  if (ts.isJsxAttribute(p) && p.name === id) return false;
+  if ((ts.isMethodDeclaration(p) || ts.isPropertyDeclaration(p) || ts.isFunctionDeclaration(p)) && p.name === id) {
+    return false;
+  }
+  return true;
+}
+
+/** Every later use, as it is, of the name `nameNode` binds, within its block. */
+function usesOf(nameNode) {
+  const scope = scopeOf(nameNode);
+  if (!scope) return [];
+  const uses = [];
+  const visit = (n) => {
+    if (
+      ts.isIdentifier(n) &&
+      n !== nameNode &&
+      n.text === nameNode.text &&
+      n.pos >= nameNode.end &&
+      isReference(n) &&
+      isUsedAsIs(n)
+    ) {
+      uses.push(n);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(scope);
+  return uses;
+}
+
+/** The name a copy binds when `child` is its whole initialiser, if any. */
+function copyTarget(parent, child) {
+  if ((ts.isVariableDeclaration(parent) || ts.isBindingElement(parent)) && parent.initializer === child) {
+    return ts.isIdentifier(parent.name) ? parent.name : undefined;
+  }
+  return undefined;
+}
+
+const MAX_COPIES = 8;
+
 /**
  * Walk from the read towards the root and stop at the first sink: that sink
  * has received the object, and nothing outside it can undo that
  * (`void setError(body.error)` still sets the object). A safe step clears the
- * read only when it comes before any sink.
+ * read only when it comes before any sink. Reaching the whole initialiser of a
+ * copy continues from each later use of the copied name (RA-8367).
  */
-function sinkReached(read) {
+function sinkReached(read, via = []) {
   let child = read;
   let parent = read.parent;
+  // Once the walk leaves a function body, the declaration above it names the
+  // function, not a copy of the read (`const submit = () => {...}`).
+  let leftFunction = false;
   while (parent) {
     if (isSafeStep(parent, child)) return undefined;
     const kind = sinkOf(parent, child);
-    if (kind) return kind;
+    if (kind) return { kind, via };
+    if (ts.isFunctionLike(child)) leftFunction = true;
+    const target = leftFunction ? undefined : copyTarget(parent, child);
+    if (target) {
+      if (via.length >= MAX_COPIES || via.includes(target.text)) return undefined;
+      return followCopy(target, via);
+    }
     child = parent;
     parent = parent.parent;
   }
   return undefined;
 }
 
+function followCopy(target, via) {
+  for (const use of usesOf(target)) {
+    const hit = sinkReached(use, [...via, target.text]);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+/** The name `const { error } = body` (or `{ error: m }`, `{ error = "x" }`) binds. */
+function destructuredErrorName(node) {
+  if (!ts.isBindingElement(node) || node.dotDotDotToken || !ts.isIdentifier(node.name)) return undefined;
+  if (!ts.isObjectBindingPattern(node.parent)) return undefined;
+  const key = node.propertyName
+    ? ts.isIdentifier(node.propertyName)
+      ? node.propertyName.text
+      : staticString(node.propertyName)
+    : node.name.text;
+  if (key !== "error") return undefined;
+  const decl = node.parent.parent;
+  if (!ts.isVariableDeclaration(decl) || !decl.initializer) return undefined;
+  if (NON_BODY.has(rootName(decl.initializer) ?? "")) return undefined;
+  return node.name;
+}
+
 export function findSinks(src, fileName = "file.tsx") {
   const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, scriptKind(fileName));
   const found = [];
+  const record = (node, hit) => {
+    const start = node.getStart(sf);
+    const line = sf.getLineAndCharacterOfPosition(start).line + 1;
+    found.push({ kind: hit.kind, via: hit.via, index: start, line, text: node.getText(sf) });
+  };
   const visit = (node) => {
     if (isRawRead(node)) {
-      const start = node.getStart(sf);
-      const line = sf.getLineAndCharacterOfPosition(start).line + 1;
-      const text = node.getText(sf);
-      const kind = sinkReached(node);
-      if (kind) found.push({ kind, index: start, line, text });
+      const hit = sinkReached(node);
+      if (hit) record(node, hit);
+    }
+    const bound = destructuredErrorName(node);
+    if (bound) {
+      const hit = followCopy(bound, []);
+      if (hit) record(node, hit);
     }
     ts.forEachChild(node, visit);
   };
@@ -281,7 +412,8 @@ export function main() {
   for (const dir of SCAN_DIRS) {
     for (const { full, rel } of walk(join(ROOT, dir))) {
       for (const f of findSinks(readFileSync(full, "utf8"), full)) {
-        violations.push(`${rel}:${f.line}  ${f.text} -> ${f.kind}`);
+        const via = f.via.length > 0 ? ` (copied to ${f.via.join(" -> ")})` : "";
+        violations.push(`${rel}:${f.line}  ${f.text}${via} -> ${f.kind}`);
       }
     }
   }

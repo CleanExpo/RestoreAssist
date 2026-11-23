@@ -90,6 +90,66 @@ describe("check-api-error-sinks guard", () => {
     });
   });
 
+  // RA-8367: a value copied to another name first still reaches the sink.
+  describe("follows a copy of the read to a sink", () => {
+    it.each([
+      ["const m = data.error;\nsetError(m);", "setError("],
+      ['const m = data.error ?? "Failed";\nsetError(m);', "setError("],
+      ['const m = data.error || "Failed";\nconst t = `${m}: x`;', "template literal"],
+      ["const { error } = body;\nsetError(error);", "setError("],
+      ["const { error: msg } = body;\nnew Error(msg);", "new Error("],
+      ['const { error = "Failed" } = body;\nsetError(error);', "setError("],
+      ["let m = data.error;\nconst n = m;\nsetError(n);", "setError("],
+      ["const m = data.error;\nsetState({ message: m });", "setState("],
+      ["const m = data.error;\nsetState({ m });", "setState("],
+    ])("%s", (src, kind) => {
+      expect(kinds(src)).toEqual([kind]);
+    });
+  });
+
+  describe("does not report a copy that is used safely", () => {
+    it.each([
+      "const m = data.error;\nsetError(apiErrorMessage(m) ?? 'x');",
+      "const m = data.error;\nsetError(m.message);",
+      "const m = data.error;\nif (m) setError('failed');",
+      "const m = !!data.error;\nsetFailed(m);",
+      "const { error } = body;\nsetError(error?.message ?? 'x');",
+      "const { error: { message } } = body;\nsetError(message);",
+      "const { error } = console;\nsetError(error);",
+      "const m = data.error;\nsetItem({ m: 1 });",
+      "const m = data.error;\nsetItem(other.m);",
+      // A function containing a read is not a copy of it.
+      "const submit = () => { toast.error(data.error) };\nsetHandler(submit);",
+      "const submit = async () => { const x = data.error; return x; };\nsetHandler(submit);",
+    ])("%s", (src) => {
+      expect(kinds(src)).toEqual([]);
+    });
+  });
+
+  // RA-8367: a read narrowed to a string by a typeof test is a string.
+  describe("treats a typeof string test on the same read as narrowing", () => {
+    it.each([
+      ['setError(typeof body.error === "string" ? body.error : "x")', []],
+      ['setError("string" === typeof body.error ? body.error : "x")', []],
+      ['setError((typeof body.error === "string" && body.error) || "x")', []],
+      ['const m = typeof body.error === "string" ? body.error : "x";\nsetError(m);', []],
+      ['const e = body.error;\nconst m = (typeof e === "string" && e) || "x";\nsetError(m);', []],
+      ['setError(typeof other.error === "string" ? body.error : "x")', ["setError("]],
+      ['setError(typeof body.error !== "string" ? body.error : "x")', ["setError("]],
+      ['setError(typeof body.error === "string" ? "x" : body.error)', ["setError("]],
+      ['setError(typeof body.error === "object" && body.error)', ["setError("]],
+    ])("%s", (src, expected) => {
+      expect(kinds(src)).toEqual(expected);
+    });
+  });
+
+  it("reports a copy at the line of the original read", () => {
+    const f = findSinks('const a = 1;\nconst m = data.error ?? "x";\nsetError(m);', "x.ts");
+    expect(f).toHaveLength(1);
+    expect(f[0].line).toBe(2);
+    expect(f[0].via).toEqual(["m"]);
+  });
+
   it("reports the line of the read", () => {
     const f = findSinks("const a = 1;\n\nsetError(\n  body.error,\n);", "x.ts");
     expect(f).toHaveLength(1);

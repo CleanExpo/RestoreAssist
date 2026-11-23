@@ -14,6 +14,7 @@ import type { AssessmentDomain } from "@/lib/assessments/types";
 import AssessmentResultDisplay, {
   type GenerateResultPayload,
 } from "./AssessmentResultDisplay";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface LatestSummary {
   id: string;
@@ -255,7 +256,8 @@ export default function AssessmentDomainCard({
         | { error?: string; code?: string };
       if (!r.ok) {
         const msg =
-          (json as { error?: string }).error ?? `Generate failed (${r.status})`;
+          apiErrorMessage((json as { error?: unknown }).error) ??
+          `Generate failed (${r.status})`;
         setError(msg);
         return;
       }
