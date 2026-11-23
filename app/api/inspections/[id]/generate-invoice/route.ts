@@ -285,7 +285,6 @@ export async function POST(
   // without idempotency would create two invoices for the same job.
   return withIdempotency(request, userId, async () => {
     try {
-      const gstTreatment = await resolveUserGstTreatment(userId);
       // Resolve the inspection, report and client in one tenant-scoped query.
       const inspection = await prisma.inspection.findFirst({
         where: { id, userId },
@@ -352,6 +351,13 @@ export async function POST(
           status: 409,
         });
       }
+
+      // RA-8608: the caller's access to this inspection is settled above
+      // (tenancy-scoped lookup, then the report and client ownership
+      // refusals). Only now is their organisation locale read, so a caller
+      // who has no access gets the same refusal as any other non-owner
+      // instead of a 422 that reveals the job exists.
+      const gstTreatment = await resolveUserGstTreatment(userId);
 
       if (!inspection.signedAt) {
         return apiError(request, {
