@@ -2,10 +2,14 @@
  * Contents Pack-Out Items API — RA-290 (NIR Phase 2)
  *
  * GET  /api/inspections/[id]/contents-pack-out
- *   Returns all ContentsPackOutItems for this inspection, grouped by packOutDecision.
+ *   Returns all ContentsPackOutItems for this inspection, grouped by packOutDecision,
+ *   each with its sketch room, plus the job's rooms an item can be filed
+ *   against (RA-8501).
  *
  * POST /api/inspections/[id]/contents-pack-out
  *   Creates a new pack-out item. Stamps Inspection.claimType = CONTENTS.
+ *   An optional sketchRoomId must name a room of this job that is not
+ *   detached, or the request is refused with 422 (RA-8501).
  *
  * PATCH  /api/inspections/[id]/contents-pack-out/[itemId]
  *   Sets or clears an item's before / after photo (see [itemId]/route.ts).
@@ -69,6 +73,17 @@ export async function GET(
       where: { inspectionId: id },
       orderBy: { createdAt: "asc" },
       take: 500,
+      include: { sketchRoom: { select: { id: true, name: true } } },
+    });
+
+    // RA-8501: the rooms an item can be filed against. Detached rooms are
+    // history, not a placement target (same rule as moisture readings). 500
+    // matches the sketches route, which reads at most 500 rooms per floor.
+    const rooms = await prisma.sketchRoom.findMany({
+      where: { detachedAt: null, sketch: { inspectionId: id } },
+      select: { id: true, name: true, floorNumber: true },
+      orderBy: [{ floorNumber: "asc" }, { name: "asc" }],
+      take: 500,
     });
     // RA-8537: stored photo URLs on a private bucket do not load unsigned.
     const items = await Promise.all(stored.map(signPackOutItemPhotos));
@@ -83,6 +98,7 @@ export async function GET(
 
     return NextResponse.json({
       items,
+      rooms,
       summary: {
         totalItems: items.length,
         cleanOnsite: items.filter((i) => i.packOutDecision === "CLEAN_ONSITE")
@@ -161,6 +177,27 @@ export async function POST(
         });
       }
 
+      // RA-8501: a room must belong to this job and still be on its sketch.
+      let sketchRoomId: string | null = null;
+      if (data.sketchRoomId) {
+        const room = await prisma.sketchRoom.findFirst({
+          where: {
+            id: data.sketchRoomId,
+            detachedAt: null,
+            sketch: { inspectionId: id },
+          },
+          select: { id: true },
+        });
+        if (!room) {
+          return apiError(req, {
+            code: "VALIDATION",
+            message: "The selected room does not belong to this job.",
+            status: 422,
+          });
+        }
+        sketchRoomId = room.id;
+      }
+
       const record = await writeWithinInspectionScope(
         tenancy.data.inspectionManyWhere,
         // Stamp Inspection.claimType = CONTENTS; this scoped update is also the
@@ -185,6 +222,7 @@ export async function POST(
               beforePhotoUrl: photos.data.beforePhotoUrl ?? null,
               afterPhotoUrl: photos.data.afterPhotoUrl ?? null,
               claimType: data.claimType ?? null,
+              sketchRoomId,
             },
           }),
       );

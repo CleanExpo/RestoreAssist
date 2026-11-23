@@ -3089,10 +3089,18 @@ model ContentsPackOutItem {
   afterPhotoUrl   String?
   claimType       ClaimType?
 
+  // RA-8501 (DRC S8): the room the item was found in. SketchRoom is the one
+  // room identity (D-009). SetNull like the other evidence links; a sketch
+  // save detaches a room that holds items instead of deleting it
+  // (partitionStaleRooms).
+  sketchRoomId String?
+  sketchRoom   SketchRoom? @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
 
   @@index([inspectionId])
+  @@index([sketchRoomId])
   @@index([packOutDecision])
   @@index([claimType])
 }
@@ -7327,6 +7335,7 @@ model SketchRoom {
   scopeItems           ScopeItem[]             @relation("ScopeItemSketchRoom")
   hazards              Hazard[]
   roomObservations     RoomObservation[]
+  contentsPackOutItems ContentsPackOutItem[]
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 

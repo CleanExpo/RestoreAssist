@@ -378,6 +378,7 @@ export async function POST(
                 jobMoistureReadings: true,
                 // RA-8538: a room holding scope items is in use too.
                 scopeItems: true,
+                contentsPackOutItems: true,
               },
             },
           },

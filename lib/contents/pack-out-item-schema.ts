@@ -51,6 +51,9 @@ export const packOutItemSchema = z.object({
   packOutTag: z.string().nullable().optional(),
   beforePhotoUrl: z.string().url().nullable().optional(),
   afterPhotoUrl: z.string().url().nullable().optional(),
+  // RA-8501: the room the item was found in; the route checks it belongs to
+  // this job and is not detached.
+  sketchRoomId: z.string().trim().min(1).nullable().optional(),
   claimType: z
     .enum([
       "WATER",

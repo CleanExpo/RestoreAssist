@@ -91,6 +91,8 @@ export interface StaleRoom {
      * that predate the count still type-check; a missing count is read as 0.
      */
     scopeItems?: number;
+    /** RA-8501: contents items filed against this room (SetNull too). */
+    contentsPackOutItems?: number;
   };
 }
 
@@ -129,7 +131,9 @@ export function partitionStaleRooms(stale: StaleRoom[]): {
       (room._count?.moistureReadings ?? 0) +
       (room._count?.hazards ?? 0) +
       (room._count?.jobMoistureReadings ?? 0) +
-      (room._count?.scopeItems ?? 0);
+      (room._count?.scopeItems ?? 0) +
+      // RA-8501: a contents item's room link is SetNull as well.
+      (room._count?.contentsPackOutItems ?? 0);
     if (dependents > 0) {
       detachableIds.push(room.id);
     } else {
