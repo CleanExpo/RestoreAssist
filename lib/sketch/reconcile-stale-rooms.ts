@@ -49,23 +49,58 @@ export async function confirmEmptyRooms(
   if (candidateIds.length === 0) return { deletableIds: [], detachableIds: [] };
 
   const ids = [...new Set(candidateIds)].sort();
-  // Lock first, count second. Both must stay inside the caller's transaction.
-  await db.$queryRaw(
-    Prisma.sql`SELECT "id" FROM "SketchRoom" WHERE "id" IN (${Prisma.join(
-      ids,
-    )}) ORDER BY "id" FOR UPDATE`,
-  );
-  const current = await db.sketchRoom.findMany({
-    where: { id: { in: ids } },
-    select: {
-      id: true,
-      _count: { select: SKETCH_ROOM_DEPENDENT_COUNT_SELECT },
-    },
-    // Bounded by the caller's own 500-room read.
-    take: 500,
-  });
+  let current: Array<{ id: string; _count?: Record<string, number | undefined> }>;
+  try {
+    // Lock first, count second. Both must stay inside the caller's transaction.
+    await db.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "SketchRoom" WHERE "id" IN (${Prisma.join(
+        ids,
+      )}) ORDER BY "id" FOR UPDATE`,
+    );
+    current = await db.sketchRoom.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        _count: { select: SKETCH_ROOM_DEPENDENT_COUNT_SELECT },
+      },
+      // Bounded by the caller's own 500-room read.
+      take: 500,
+    });
+  } catch (e) {
+    throw new RoomLockError(e);
+  }
   // A room another save already removed is simply absent here.
   return partitionStaleRooms(
     current.map((r) => ({ id: r.id, _count: r._count ?? {} })),
+  );
+}
+
+/**
+ * RA-8576: the lock or recount step failed. The sketch route treats most
+ * room-graph failures as non-fatal (the drawing is already saved), which would
+ * silently drop a room removal. It checks for this class to answer loudly
+ * instead, after one retry when the failure was transient.
+ */
+export class RoomLockError extends Error {
+  readonly transient: boolean;
+  constructor(cause: unknown) {
+    super(
+      `stale-room lock or recount failed: ${
+        cause instanceof Error ? cause.message : String(cause)
+      }`,
+    );
+    this.name = "RoomLockError";
+    this.cause = cause;
+    this.transient = isTransientDbFailure(cause);
+  }
+}
+
+/** Deadlock, lock timeout, or an expired interactive transaction. */
+export function isTransientDbFailure(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (code === "P2034" || code === "P2028") return true;
+  const text = err instanceof Error ? err.message : String(err);
+  return /deadlock detected|40P01|55P03|lock timeout|could not obtain lock/i.test(
+    text,
   );
 }

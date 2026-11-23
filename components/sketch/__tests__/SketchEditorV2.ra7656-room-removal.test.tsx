@@ -64,6 +64,8 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: vi.fn(async () => ({ count: 0 })),
       createMany: vi.fn(async () => ({ count: 0 })),
     },
+    // RA-8576: the stale-room confirm takes a row lock first.
+    $queryRaw: vi.fn(async () => []),
     $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
   },
 }));
@@ -396,7 +398,11 @@ describe("RA-7656 editor room removal (real canvas, real route)", () => {
       sketchData: { objects: [room("room-kitchen", "Kitchen", 0), room("room-laundry", "Laundry", 400)] },
       updatedAt: new Date("2020-01-01T00:00:00Z"),
     });
-    p.sketchRoom.findMany.mockImplementation(async () => storedRows);
+    // RA-8576: the confirm step asks for named rooms, as the database filters.
+    p.sketchRoom.findMany.mockImplementation(
+      async (args?: { where?: { id?: { in?: string[] } } }) =>
+        storedRows.filter((r) => !args?.where?.id?.in || args.where.id.in.includes(r.id)),
+    );
     return import("@/lib/sketch/ingest-roomplan");
   });
 

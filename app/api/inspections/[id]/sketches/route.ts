@@ -17,7 +17,10 @@ import {
   partitionStaleRooms,
   applyRoomProvenanceToSketchData,
 } from "@/lib/sketch/sync-room-graph";
-import { confirmEmptyRooms } from "@/lib/sketch/reconcile-stale-rooms";
+import {
+  confirmEmptyRooms,
+  RoomLockError,
+} from "@/lib/sketch/reconcile-stale-rooms";
 import { SKETCH_ROOM_DEPENDENT_COUNT_SELECT } from "@/lib/sketch/room-dependents";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import { isSupabaseServerConfigured } from "@/lib/supabase-server";
@@ -799,7 +802,7 @@ export async function POST(
       // D-028: the room graph and pin readings are written in one transaction
       // that first re-claims the inspection with the caller's scope, so a
       // reassignment after the sketch save writes none of them.
-      const graphSynced = await writeWithinInspectionScope(
+      const syncRoomGraph = () => writeWithinInspectionScope(
         tenancy.data.inspectionManyWhere,
         { updatedAt: new Date() },
         async (tx) => {
@@ -995,6 +998,29 @@ export async function POST(
         // 5 s interactive-transaction default and roll the whole sync back.
         { timeout: 20_000, maxWait: 10_000 },
       );
+      // RA-8576: the room-graph failures below are non-fatal because the drawing
+      // is already saved, but a failed lock or recount would silently skip the
+      // owner's room removal. That one is retried once when it was transient
+      // (deadlock, lock timeout) and otherwise refused, never answered as a
+      // success. The rooms stay as they were; the next save reconciles them.
+      let graphSynced: boolean | null | undefined;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          graphSynced = await syncRoomGraph();
+          break;
+        } catch (syncErr) {
+          if (!(syncErr instanceof RoomLockError)) throw syncErr;
+          if (attempt === 0 && syncErr.transient) continue;
+          return apiError(request, {
+            code: "UPSTREAM_FAILED",
+            message:
+              "The floor's room changes could not be completed, so the room removal was not saved. It will be retried.",
+            status: 503,
+            err: syncErr,
+            stage: "stale-room-lock",
+          });
+        }
+      }
       if (!graphSynced) {
         console.warn("[sketches] scope lost after the sketch save; room graph not synced", {
           inspectionId: id,

@@ -8,7 +8,7 @@
  * database is available.
  */
 import { describe, expect, it, vi } from "vitest";
-import { confirmEmptyRooms } from "../reconcile-stale-rooms";
+import { confirmEmptyRooms, RoomLockError } from "../reconcile-stale-rooms";
 
 function fakeDb(counts: Record<string, Record<string, number>>) {
   const calls: string[] = [];
@@ -80,5 +80,34 @@ describe("confirmEmptyRooms", () => {
     const out = await confirmEmptyRooms(db, []);
     expect(calls).toEqual([]);
     expect(out).toEqual({ deletableIds: [], detachableIds: [] });
+  });
+});
+
+describe("confirmEmptyRooms failures (RA-8576)", () => {
+  it("wraps a failed lock in RoomLockError so the route cannot swallow it", async () => {
+    const { db } = fakeDb({ r1: {} });
+    db.$queryRaw.mockRejectedValueOnce(new Error("connection reset"));
+    const err = await confirmEmptyRooms(db, ["r1"]).catch((e) => e);
+    expect(err).toBeInstanceOf(RoomLockError);
+    expect(err.transient).toBe(false);
+  });
+
+  it.each([
+    ["a deadlock", new Error("deadlock detected")],
+    ["a lock timeout", new Error("canceling statement due to lock timeout")],
+    ["an expired transaction", Object.assign(new Error("x"), { code: "P2028" })],
+    ["a write conflict", Object.assign(new Error("x"), { code: "P2034" })],
+  ])("marks %s as transient", async (_label, cause) => {
+    const { db } = fakeDb({ r1: {} });
+    db.$queryRaw.mockRejectedValueOnce(cause);
+    const err = await confirmEmptyRooms(db, ["r1"]).catch((e) => e);
+    expect(err.transient).toBe(true);
+  });
+
+  it("wraps a failed recount too", async () => {
+    const { db } = fakeDb({ r1: {} });
+    db.sketchRoom.findMany.mockRejectedValueOnce(new Error("db down"));
+    const err = await confirmEmptyRooms(db, ["r1"]).catch((e) => e);
+    expect(err).toBeInstanceOf(RoomLockError);
   });
 });
