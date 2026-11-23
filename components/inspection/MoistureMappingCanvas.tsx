@@ -141,6 +141,14 @@ export default function MoistureMappingCanvas({
   readonly = false,
   onPlaceReading,
 }: MoistureMappingCanvasProps) {
+  // RA-8606 / RA-8605: offer an editing control only when the owner passed the
+  // handler that saves it. Without one, an edit lives in memory and is lost on
+  // reload with no message. Saved equipment still shows, view-only.
+  const canEditEquipment = !readonly && !!onEquipmentPointsChange;
+  const canUploadFloorPlan = !readonly && !!onImageUpload;
+  const showEquipmentTab =
+    canEditEquipment || initialEquipmentPoints.length > 0;
+
   const svgRef = useRef<SVGSVGElement>(null);
   const [sketchMode, setSketchMode] = useState<SketchMode>("moisture");
   const [points, setPoints] = useState<MoisturePoint[]>(initialPoints);
@@ -228,7 +236,11 @@ export default function MoistureMappingCanvas({
 
       if (sketchMode === "moisture" && placingReading) {
         placeReadingAt(placingReading, x, y);
-      } else if (sketchMode === "equipment" && placingEquipment) {
+      } else if (
+        sketchMode === "equipment" &&
+        placingEquipment &&
+        canEditEquipment
+      ) {
         const newEq: EquipmentPoint = {
           id: `eq-${Date.now()}`,
           x,
@@ -250,6 +262,7 @@ export default function MoistureMappingCanvas({
       sketchMode,
       onPointsChange,
       onEquipmentPointsChange,
+      canEditEquipment,
       onPlaceReading,
     ],
   );
@@ -266,7 +279,7 @@ export default function MoistureMappingCanvas({
   };
 
   const removeEquipment = (id: string) => {
-    if (readonly) return;
+    if (!canEditEquipment) return;
     const updated = equipmentPoints.filter((e) => e.id !== id);
     setEquipmentPoints(updated);
     setSelectedEquipment(null);
@@ -275,22 +288,12 @@ export default function MoistureMappingCanvas({
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || readonly) return;
+    if (!file || !canUploadFloorPlan || !onImageUpload) return;
     setUploadingImage(true);
     try {
-      if (onImageUpload) {
-        const imageUrl = await onImageUpload(file);
-        setBackgroundImage(imageUrl);
-        onBackgroundImageChange?.(imageUrl);
-      } else {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const dataUrl = ev.target?.result as string;
-          setBackgroundImage(dataUrl);
-          onBackgroundImageChange?.(dataUrl);
-        };
-        reader.readAsDataURL(file);
-      }
+      const imageUrl = await onImageUpload(file);
+      setBackgroundImage(imageUrl);
+      onBackgroundImageChange?.(imageUrl);
     } catch (error) {
       console.error("Error uploading floor plan:", error);
     } finally {
@@ -331,7 +334,7 @@ export default function MoistureMappingCanvas({
   };
 
   const resetEquipment = () => {
-    if (readonly) return;
+    if (!canEditEquipment) return;
     setEquipmentPoints([]);
     setPlacingEquipment(null);
     setSelectedEquipment(null);
@@ -407,7 +410,9 @@ export default function MoistureMappingCanvas({
     <div className={cn("space-y-3", className)}>
       {/* Mode toggle tabs */}
       <div className="flex items-center gap-1 p-1 bg-neutral-100 dark:bg-slate-800 rounded-xl w-fit">
-        {MODE_TABS.map(({ mode, label }) => (
+        {MODE_TABS.filter(
+          ({ mode }) => mode !== "equipment" || showEquipmentTab,
+        ).map(({ mode, label }) => (
           <button
             key={mode}
             onClick={() => setSketchMode(mode)}
@@ -426,33 +431,28 @@ export default function MoistureMappingCanvas({
       {/* Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <label
-            className={cn(
-              "flex items-center gap-2 px-3 py-1.5 bg-neutral-100 dark:bg-slate-800 rounded-lg text-sm transition-colors",
-              readonly
-                ? "cursor-not-allowed opacity-50"
-                : "cursor-pointer hover:bg-neutral-200 dark:hover:bg-slate-700",
-            )}
-          >
-            {uploadingImage ? (
-              <>
-                <Loader2 size={14} className="animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Upload size={14} />
-                Upload Floor Plan
-              </>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
-              disabled={readonly || uploadingImage}
-            />
-          </label>
+          {canUploadFloorPlan && (
+            <label className="flex items-center gap-2 px-3 py-1.5 bg-neutral-100 dark:bg-slate-800 rounded-lg text-sm transition-colors cursor-pointer hover:bg-neutral-200 dark:hover:bg-slate-700">
+              {uploadingImage ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload size={14} />
+                  Upload Floor Plan
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                disabled={uploadingImage}
+              />
+            </label>
+          )}
           <button
             onClick={() => setZoom((z) => Math.min(z + 0.25, 2))}
             className="p-2.5 min-h-[44px] min-w-[44px] rounded-lg bg-neutral-100 dark:bg-slate-800 hover:bg-neutral-200 dark:hover:bg-slate-700 transition-colors"
@@ -467,13 +467,15 @@ export default function MoistureMappingCanvas({
           >
             <ZoomOut size={16} />
           </button>
-          <button
-            onClick={sketchMode === "equipment" ? resetEquipment : resetMap}
-            className="p-2.5 min-h-[44px] min-w-[44px] rounded-lg bg-neutral-100 dark:bg-slate-800 hover:bg-neutral-200 dark:hover:bg-slate-700 transition-colors"
-            aria-label="Reset current layer"
-          >
-            <RotateCcw size={16} />
-          </button>
+          {(sketchMode !== "equipment" || canEditEquipment) && (
+            <button
+              onClick={sketchMode === "equipment" ? resetEquipment : resetMap}
+              className="p-2.5 min-h-[44px] min-w-[44px] rounded-lg bg-neutral-100 dark:bg-slate-800 hover:bg-neutral-200 dark:hover:bg-slate-700 transition-colors"
+              aria-label="Reset current layer"
+            >
+              <RotateCcw size={16} />
+            </button>
+          )}
           {sketchMode === "equipment" && (
             <button
               onClick={() => setShowCoverage((v) => !v)}
@@ -711,10 +713,10 @@ export default function MoistureMappingCanvas({
                     key={eq.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!readonly)
+                      if (canEditEquipment)
                         setSelectedEquipment(isSelected ? null : eq);
                     }}
-                    style={{ cursor: readonly ? "default" : "pointer" }}
+                    style={{ cursor: canEditEquipment ? "pointer" : "default" }}
                   >
                     {/* Coverage zone */}
                     {showCoverage && (
@@ -806,13 +808,13 @@ export default function MoistureMappingCanvas({
                 Floor plan overview without moisture or equipment data.
               </p>
               {backgroundImage ? (
-                <p className="text-xs text-success">
-                  Floor plan loaded
-                </p>
-              ) : (
+                <p className="text-xs text-success">Floor plan loaded</p>
+              ) : canUploadFloorPlan ? (
                 <p className="text-xs text-amber-700 dark:text-amber-400">
                   Upload a floor plan to get started
                 </p>
+              ) : (
+                <p className="text-xs">No floor plan on this job</p>
               )}
             </div>
           )}
@@ -873,8 +875,8 @@ export default function MoistureMappingCanvas({
                   </div>
                   {!readonly && (
                     <p className="text-xs text-neutral-600 dark:text-slate-400">
-                      Select a reading, then click the grid to place it, or
-                      drag it onto the grid.
+                      Select a reading, then click the grid to place it, or drag
+                      it onto the grid.
                     </p>
                   )}
                   <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
@@ -925,10 +927,7 @@ export default function MoistureMappingCanvas({
 
               {unplacedReadings.length === 0 && points.length > 0 && (
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 text-center">
-                  <Droplets
-                    className="mx-auto text-success mb-1"
-                    size={20}
-                  />
+                  <Droplets className="mx-auto text-success mb-1" size={20} />
                   <p className="text-xs text-success font-medium">
                     All readings placed
                   </p>
@@ -946,61 +945,63 @@ export default function MoistureMappingCanvas({
           {/* ── EQUIPMENT mode sidebar ── */}
           {sketchMode === "equipment" && (
             <>
-              {/* Equipment palette */}
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-neutral-500 uppercase">
-                  Place Equipment
-                </div>
-                <div className="space-y-1.5">
-                  {EQUIPMENT_TYPES.map((eq) => (
-                    <button
-                      key={eq.type}
-                      onClick={() =>
-                        setPlacingEquipment(
-                          placingEquipment === eq.type ? null : eq.type,
-                        )
-                      }
-                      disabled={readonly}
-                      className={cn(
-                        "w-full text-left p-2.5 rounded-lg border text-sm transition-all",
-                        placingEquipment === eq.type
-                          ? "ring-2 ring-offset-1"
-                          : "border-neutral-200 dark:border-slate-700 hover:border-opacity-50",
-                      )}
-                      style={
-                        placingEquipment === eq.type
-                          ? {
-                              borderColor: eq.color,
-                              backgroundColor: eq.color + "18",
-                              outlineColor: eq.color,
-                            }
-                          : {}
-                      }
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+              {/* Equipment palette: only when placements can be saved */}
+              {canEditEquipment && (
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-neutral-500 uppercase">
+                    Place Equipment
+                  </div>
+                  <div className="space-y-1.5">
+                    {EQUIPMENT_TYPES.map((eq) => (
+                      <button
+                        key={eq.type}
+                        onClick={() =>
+                          setPlacingEquipment(
+                            placingEquipment === eq.type ? null : eq.type,
+                          )
+                        }
+                        disabled={readonly}
+                        className={cn(
+                          "w-full text-left p-2.5 rounded-lg border text-sm transition-all",
+                          placingEquipment === eq.type
+                            ? "ring-2 ring-offset-1"
+                            : "border-neutral-200 dark:border-slate-700 hover:border-opacity-50",
+                        )}
+                        style={
+                          placingEquipment === eq.type
+                            ? {
+                                borderColor: eq.color,
+                                backgroundColor: eq.color + "18",
+                                outlineColor: eq.color,
+                              }
+                            : {}
+                        }
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                              style={{ backgroundColor: eq.color }}
+                            >
+                              {eq.symbol}
+                            </span>
+                            <span className="font-medium">{eq.label}</span>
+                          </div>
                           <span
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                            style={{ backgroundColor: eq.color }}
+                            className="text-xs font-bold tabular-nums"
+                            style={{ color: eq.color }}
                           >
-                            {eq.symbol}
+                            ×{equipmentCounts[eq.type] ?? 0}
                           </span>
-                          <span className="font-medium">{eq.label}</span>
                         </div>
-                        <span
-                          className="text-xs font-bold tabular-nums"
-                          style={{ color: eq.color }}
-                        >
-                          ×{equipmentCounts[eq.type] ?? 0}
-                        </span>
-                      </div>
-                      <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5 ml-8">
-                        {eq.iicrcRatio}
-                      </div>
-                    </button>
-                  ))}
+                        <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5 ml-8">
+                          {eq.iicrcRatio}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Selected equipment detail */}
               {selectedEquipment && (
@@ -1067,7 +1068,7 @@ export default function MoistureMappingCanvas({
                 </div>
               )}
 
-              {equipmentPoints.length === 0 && (
+              {equipmentPoints.length === 0 && canEditEquipment && (
                 <div className="text-center py-6 text-neutral-600 dark:text-neutral-400 text-sm">
                   Select a type above, then click the map to place equipment
                 </div>
