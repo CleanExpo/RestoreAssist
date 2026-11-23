@@ -4,7 +4,12 @@ import { escapeHtml } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { fail, ok, type ServiceResult } from "@/lib/services/_shared/result";
 
-export type InvitationEmailKind = "invite" | "reminder";
+/**
+ * "recovery" (RA-8613) is sent to a homeowner who already has an account.
+ * The link is the same single-use, expiring invitation token; accepting it
+ * sets a new password instead of creating an account.
+ */
+export type InvitationEmailKind = "invite" | "reminder" | "recovery";
 
 export type ExtendAndEmailInput = {
   invitationId: string;
@@ -31,13 +36,21 @@ export function buildPortalInvitationEmailHtml(input: {
   const clientName = escapeHtml(input.clientName);
   const contractorName = escapeHtml(input.contractorName);
   const heading =
-    input.kind === "reminder"
-      ? "Reminder: the client portal invitation is ready"
-      : "Invited to the client portal";
+    input.kind === "recovery"
+      ? "Set a new client portal password"
+      : input.kind === "reminder"
+        ? "Reminder: the client portal invitation is ready"
+        : "Invited to the client portal";
   const lead =
-    input.kind === "reminder"
-      ? `This is a reminder that ${contractorName} invited you to the client portal.`
-      : `${contractorName} invited you to the client portal.`;
+    input.kind === "recovery"
+      ? `Someone asked to get back into the client portal that ${contractorName} set up for you. Use the button below to set a new password. The link works once.`
+      : input.kind === "reminder"
+        ? `This is a reminder that ${contractorName} invited you to the client portal.`
+        : `${contractorName} invited you to the client portal.`;
+  const buttonLabel =
+    input.kind === "recovery"
+      ? "Set a new password"
+      : "Accept invitation and create an account";
 
   return `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -52,11 +65,11 @@ export function buildPortalInvitationEmailHtml(input: {
             </ul>
             <p style="margin: 30px 0;">
               <a href="${input.inviteUrl}" style="background-color: #8A6B4E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                Accept invitation and create an account
+                ${buttonLabel}
               </a>
             </p>
             <p style="font-size: 12px; color: #666;">
-              This invitation expires in ${INVITE_TTL_DAYS} days. If this was not expected, ignore the email.
+              This link expires in ${INVITE_TTL_DAYS} days. If this was not expected, ignore the email and the current password keeps working.
             </p>
             <p style="font-size: 12px; color: #666;">
               Link not working? Copy and paste this address:<br/>
@@ -82,9 +95,11 @@ export async function extendAndEmailPortalInvitation(
 
   const inviteUrl = `${getAppUrl()}/portal/signup?token=${input.token}`;
   const subject =
-    input.kind === "reminder"
-      ? `Reminder: ${input.contractorName} invited you to view the restoration project`
-      : `${input.contractorName} invited you to view the restoration project`;
+    input.kind === "recovery"
+      ? `Set a new password for the ${input.contractorName} client portal`
+      : input.kind === "reminder"
+        ? `Reminder: ${input.contractorName} invited you to view the restoration project`
+        : `${input.contractorName} invited you to view the restoration project`;
 
   const result = await sendTransactionalEmail({
     organizationId: input.organizationId,

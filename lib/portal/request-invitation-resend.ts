@@ -15,10 +15,17 @@ export type RequestInviteResendData = {
   matched: boolean;
 };
 
+const RECOVERY_TTL_DAYS = 7;
+
 /**
  * Public recovery: resend a PENDING or EXPIRED portal invitation for an email.
  * Always returns the same client message so the address cannot be enumerated.
- * REVOKED and ACCEPTED invitations are left alone.
+ * REVOKED and ACCEPTED invitations are never resent.
+ *
+ * RA-8613: when the email belongs to an existing portal account, a fresh
+ * single-use invitation is issued and emailed as a "set a new password" link.
+ * Accepting it (invitations/accept) proves control of that address and sets
+ * the password; knowing the address alone is never enough.
  */
 export async function requestPortalInvitationResend(
   rawEmail: string,
@@ -28,6 +35,18 @@ export async function requestPortalInvitationResend(
   }
 
   const email = normaliseRecoveryEmail(rawEmail);
+
+  const accountHolder = await prisma.clientUser.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: { clientId: true, email: true },
+  });
+  if (accountHolder) {
+    const matched = await emailAccountRecoveryLink(
+      accountHolder.clientId,
+      accountHolder.email,
+    );
+    return ok({ message: GENERIC_INVITE_RESEND_MESSAGE, matched });
+  }
 
   const invitations = await prisma.portalInvitation.findMany({
     where: {
@@ -79,4 +98,68 @@ export async function requestPortalInvitationResend(
     message: GENERIC_INVITE_RESEND_MESSAGE,
     matched: true,
   });
+}
+
+const INVITATION_EMAIL_SELECT = {
+  id: true,
+  token: true,
+  email: true,
+  client: { select: { name: true } },
+  user: {
+    select: { name: true, businessName: true, organizationId: true },
+  },
+} as const;
+
+/**
+ * Reuse an open recovery link for this account if one exists (so repeated
+ * requests do not mint a pile of live links), otherwise issue a new one from
+ * the contractor who sent the accepted invitation. Returns whether an email
+ * was attempted; the caller never exposes that.
+ */
+async function emailAccountRecoveryLink(
+  clientId: string,
+  accountEmail: string,
+): Promise<boolean> {
+  let invitation = await prisma.portalInvitation.findFirst({
+    where: {
+      clientId,
+      email: accountEmail,
+      status: { in: ["PENDING", "EXPIRED"] },
+    },
+    orderBy: { createdAt: "desc" },
+    select: INVITATION_EMAIL_SELECT,
+  });
+
+  if (!invitation) {
+    const accepted = await prisma.portalInvitation.findFirst({
+      where: { clientId, email: accountEmail, status: "ACCEPTED" },
+      orderBy: { createdAt: "desc" },
+      select: { userId: true },
+    });
+    if (!accepted) return false;
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + RECOVERY_TTL_DAYS);
+    invitation = await prisma.portalInvitation.create({
+      data: {
+        email: accountEmail,
+        clientId,
+        userId: accepted.userId,
+        expiresAt,
+      },
+      select: INVITATION_EMAIL_SELECT,
+    });
+  }
+
+  await extendAndEmailPortalInvitation({
+    invitationId: invitation.id,
+    token: invitation.token,
+    email: invitation.email,
+    clientName: invitation.client.name,
+    contractorName:
+      invitation.user.businessName || invitation.user.name || "RestoreAssist",
+    organizationId: invitation.user.organizationId,
+    kind: "recovery",
+  });
+  return true;
 }

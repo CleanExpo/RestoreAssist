@@ -6,7 +6,8 @@ import { validateCsrf } from "@/lib/csrf";
 import { isPortalInvitationToken } from "@/lib/public-token-shape";
 import { signClientPortalJwt } from "@/lib/portal/client-jwt";
 
-// POST /api/portal/invitations/accept - Accept invitation and create ClientUser account
+// POST /api/portal/invitations/accept - Accept invitation and create ClientUser account,
+// or (RA-8613) set a new password for the account the invitation was emailed to
 export async function POST(request: NextRequest) {
   try {
     const rateLimited = await applyRateLimit(request, {
@@ -93,9 +94,69 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingClientUser) {
+      // RA-8613 — recovery. The invitation link was emailed to the address on
+      // the account, so accepting it proves control of that address. Any other
+      // address cannot take over the account.
+      if (
+        existingClientUser.email.toLowerCase() !==
+        invitation.email.toLowerCase()
+      ) {
+        return NextResponse.json(
+          { error: "Client account already exists" },
+          { status: 400 },
+        );
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const now = new Date();
+      const recovered = await prisma.$transaction(async (tx) => {
+        // Single use: only the request that moves this invitation out of
+        // PENDING (and before expiry) may set the password.
+        const claimed = await tx.portalInvitation.updateMany({
+          where: {
+            id: invitation.id,
+            status: "PENDING",
+            expiresAt: { gt: now },
+          },
+          data: { status: "ACCEPTED", acceptedAt: now },
+        });
+        if (claimed.count !== 1) return null;
+
+        // A new hash changes the credential fingerprint, so every portal
+        // token issued before this point is refused by requireClientAuth.
+        return tx.clientUser.update({
+          where: { id: existingClientUser.id },
+          data: { passwordHash, mustChangePassword: false },
+        });
+      });
+
+      if (!recovered) {
+        return NextResponse.json(
+          { error: "Invitation already accepted" },
+          { status: 400 },
+        );
+      }
+
+      const portalToken = await signClientPortalJwt({
+        clientUserId: recovered.id,
+        clientId: recovered.clientId,
+        email: recovered.email,
+        name: recovered.name,
+        passwordHash: recovered.passwordHash,
+      });
+
       return NextResponse.json(
-        { error: "Client account already exists" },
-        { status: 400 },
+        {
+          success: true,
+          message: "Password updated",
+          token: portalToken,
+          clientUser: {
+            id: recovered.id,
+            email: recovered.email,
+            name: recovered.name,
+          },
+        },
+        { status: 200 },
       );
     }
 
