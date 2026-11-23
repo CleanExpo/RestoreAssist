@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "for d in \"$(git rev-parse --show-toplevel 2>/dev/null)\" \"$CLAUDE_PROJECT_DIR\"; do [ -n \"$d\" ] && [ -x \"$d/.claude/hooks/pre-bash-destructive.sh\" ] && exec \"$d/.claude/hooks/pre-bash-destructive.sh\"; done; echo \"BLOCKED: .claude/hooks/pre-bash-destructive.sh not found (CLAUDE_PROJECT_DIR and the git root were both checked). The safety check did not run.\" >&2; exit 2"
+            "command": "h=.claude/hooks/pre-bash-destructive.sh; d=$(pwd -P); while :; do [ -x \"$d/$h\" ] && exec \"$d/$h\"; [ \"$d\" = / ] && break; d=$(dirname \"$d\"); done; [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -x \"$CLAUDE_PROJECT_DIR/$h\" ] && exec \"$CLAUDE_PROJECT_DIR/$h\"; echo \"BLOCKED: $h not found above the working directory or in CLAUDE_PROJECT_DIR. The safety check did not run.\" >&2; exit 2"
           }
         ]
       },
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "for d in \"$(git rev-parse --show-toplevel 2>/dev/null)\" \"$CLAUDE_PROJECT_DIR\"; do [ -n \"$d\" ] && [ -x \"$d/.claude/hooks/pre-edit-sensitive.sh\" ] && exec \"$d/.claude/hooks/pre-edit-sensitive.sh\"; done; echo \"BLOCKED: .claude/hooks/pre-edit-sensitive.sh not found (CLAUDE_PROJECT_DIR and the git root were both checked). The safety check did not run.\" >&2; exit 2"
+            "command": "h=.claude/hooks/pre-edit-sensitive.sh; d=$(pwd -P); while :; do [ -x \"$d/$h\" ] && exec \"$d/$h\"; [ \"$d\" = / ] && break; d=$(dirname \"$d\"); done; [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -x \"$CLAUDE_PROJECT_DIR/$h\" ] && exec \"$CLAUDE_PROJECT_DIR/$h\"; echo \"BLOCKED: $h not found above the working directory or in CLAUDE_PROJECT_DIR. The safety check did not run.\" >&2; exit 2"
           }
         ]
       }

@@ -37,11 +37,11 @@ pass=0; fail=0
 # run_cmd <command-string> <cwd> <project-dir | UNSET> <payload-file> [extra env assignment]
 # Sets RC, OUT, ERR. The payload goes in on stdin, as Claude Code delivers it.
 run_cmd() {
-  local cmd="$1" cwd="$2" cpd="$3" payload="$4" extra="${5:-NOEXTRA=1}"
+  local cmd="$1" cwd="$2" cpd="$3" payload="$4"
   if [[ "$cpd" == UNSET ]]; then
-    OUT="$(cd "$cwd" && env -u CLAUDE_PROJECT_DIR "$extra" sh -c "$cmd" <"$payload" 2>"$scratch/err")"; RC=$?
+    OUT="$(cd "$cwd" && env -u CLAUDE_PROJECT_DIR NOEXTRA=1 "${@:5}" sh -c "$cmd" <"$payload" 2>"$scratch/err")"; RC=$?
   else
-    OUT="$(cd "$cwd" && env CLAUDE_PROJECT_DIR="$cpd" "$extra" sh -c "$cmd" <"$payload" 2>"$scratch/err")"; RC=$?
+    OUT="$(cd "$cwd" && env CLAUDE_PROJECT_DIR="$cpd" NOEXTRA=1 "${@:5}" sh -c "$cmd" <"$payload" 2>"$scratch/err")"; RC=$?
   fi
   ERR="$(cat "$scratch/err")"
 }
@@ -139,6 +139,16 @@ for cmd in "${COMMANDS[@]}"; do
   record "$name: CLAUDE_PROJECT_DIR = another repo with an inert hook" deny "$(verdict)"
 done
 
+# Ambient git variables (inherited from a git hook, a wrapper or a stale shell)
+# make `git rev-parse` name a different repo. Where the tool call runs must still
+# win, even when CLAUDE_PROJECT_DIR is correct (Codex review P1, round 2).
+for cmd in "${COMMANDS[@]}"; do
+  payload="$(payload_for "$cmd")"; name="$(name_of "$cmd")"
+  [[ -n "$payload" ]] || continue
+  run_cmd "$cmd" "$REPO" "$REPO" "$payload" "GIT_DIR=$fake/.git" "GIT_WORK_TREE=$fake"
+  record "$name: GIT_DIR/GIT_WORK_TREE point at a repo with an inert hook" deny "$(verdict)"
+done
+
 echo
 echo "== no hook anywhere: fail loudly, never look like a pass =="
 # No hook at CLAUDE_PROJECT_DIR and not inside a repo. Exit 2 is the code Claude
@@ -148,7 +158,7 @@ nogit="$scratch/not-a-repo"; mkdir -p "$nogit"
 for cmd in "${COMMANDS[@]}"; do
   payload="$(payload_for "$cmd")"; name="$(name_of "$cmd")"
   [[ -n "$payload" ]] || continue
-  run_cmd "$cmd" "$nogit" "$wrong_dir" "$payload" "GIT_CEILING_DIRECTORIES=$scratch"
+  run_cmd "$cmd" "$nogit" "$wrong_dir" "$payload" "GIT_CEILING_DIRECTORIES=$scratch"   # harmless now; kept so a stray parent repo cannot matter
   record "$name: exit code when the hook cannot be found" "launch-failed(2)" "$(verdict)"
   if [[ "$ERR" == *"$name.sh"* && -z "$OUT" ]]; then pass=$((pass+1)); printf '  ok    %-66s %s\n' "$name: names the missing hook on stderr, nothing on stdout" "loud"
   else fail=$((fail+1)); printf '  FAIL  %-66s stderr=[%s] stdout=[%s]\n' "$name: names the missing hook on stderr, nothing on stdout" "$ERR" "$OUT"; fi
