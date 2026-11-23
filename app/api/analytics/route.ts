@@ -562,7 +562,11 @@ export async function GET(request: NextRequest) {
       },
     };
 
+    // RA-8494: one capability answer for this response. RA-8598: the page
+    // uses `mayViewMoney` to offer the revenue-leakage report link.
+    const mayViewMoney = await canSeeMoney(session);
     return NextResponse.json(await moneySafe(session, {
+      mayViewMoney,
       kpis: {
         totalReports: {
           value: totalReports,
@@ -588,7 +592,7 @@ export async function GET(request: NextRequest) {
       hazardDistribution,
       insuranceTypeData,
       // RA-8494: each state's figure is revenue; a technician gets the states only.
-      statePerformance: (await canSeeMoney(session))
+      statePerformance: mayViewMoney
         ? statePerformance
         : statePerformance.map(({ state }) => ({ state })),
       turnaroundTime,

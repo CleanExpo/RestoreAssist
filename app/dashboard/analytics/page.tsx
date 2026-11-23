@@ -80,6 +80,8 @@ const REVENUE_COLOUR = CHART_SERIES[0];
 const REPORTS_COLOUR = CHART_SERIES[1];
 
 interface AnalyticsData {
+  /** RA-8598: server answer to `canSeeMoney`; gates the revenue-leakage link. */
+  mayViewMoney?: boolean;
   kpis: {
     totalReports: { value: number; change: string };
     totalRevenue: { value: number; formatted: string; change: string } | null;
@@ -454,7 +456,12 @@ export default function AnalyticsPage() {
         title="Analytics"
         description="Reports, revenue, and completion trends across your team."
         icon={<BarChart3 className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
-        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/analytics" })}
+        secondaryLinks={[
+          ...workspaceHubLinks({ omitHref: "/dashboard/analytics" }),
+          ...(data?.mayViewMoney === true
+            ? [{ href: "/dashboard/analytics/revenue-leakage", label: "Revenue leakage" }]
+            : []),
+        ]}
       />
 
       <DashboardPanel className="p-3 sm:p-4">
