@@ -135,3 +135,31 @@ describe("POST /api/reports/parse-pdf — founding-trial grant", () => {
     expect(body.error.message).toBe(PAID_BASE_PLAN_MESSAGE);
   });
 });
+
+describe("POST /api/reports/parse-pdf — upload size (RA-8603)", () => {
+  it("refuses a body over the 20 MB cap with 413 before parsing", async () => {
+    seedOwner({
+      status: "TRIAL",
+      trialEndsAt: new Date(Date.now() + 40 * DAY),
+      founding: true,
+    });
+    const big = Buffer.concat([
+      Buffer.from("%PDF-1.4\n"),
+      Buffer.alloc(21 * 1024 * 1024, 0x20),
+      Buffer.from("\n%%EOF\n"),
+    ]);
+    const form = new FormData();
+    form.append(
+      "file",
+      new File([big], "big.pdf", { type: "application/pdf" }),
+    );
+    const res = await POST(
+      new NextRequest("http://localhost/api/reports/parse-pdf", {
+        method: "POST",
+        body: form,
+      }),
+    );
+    expect(res.status).toBe(413);
+    expect(pdfParse).not.toHaveBeenCalled();
+  });
+});

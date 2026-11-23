@@ -5,6 +5,16 @@ import { prisma } from "@/lib/prisma";
 import { assertInspectionAssignedWrite } from "@/lib/auth/assert-tenancy";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { apiError, fromException } from "@/lib/api-errors";
+import { formDataFromBytes, readBoundedBody } from "@/lib/media/bounded-body";
+import {
+  STRICT_REJECTION_MESSAGES,
+  strictRejectionStatus,
+  validateImageUploadStrict,
+} from "@/lib/media/validate-image-upload";
+
+// RA-8603: the RA-8234 strict policy caps the file at 10 MB; the request
+// carries multipart overhead on top, so the raw body cap sits just above it.
+const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
 
 // POST - Upload floor plan image
 export async function POST(
@@ -47,10 +57,19 @@ export async function POST(
       });
     }
 
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
+    // Count the bytes that really arrive; Content-Length is only a hint.
+    const body = await readBoundedBody(request, MAX_REQUEST_BYTES);
+    if (!body) {
+      return apiError(request, {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "Floor-plan upload request must not exceed 12 MB.",
+        status: 413,
+      });
+    }
+    const formData = await formDataFromBytes(request, body);
+    const file = formData.get("file");
 
-    if (!file) {
+    if (!(file instanceof File)) {
       return apiError(request, {
         code: "VALIDATION",
         message: "File is required",
@@ -58,37 +77,23 @@ export async function POST(
       });
     }
 
-    // Read bytes first so magic-byte check and upload share the same buffer.
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Magic-byte validation — prevents spoofed Content-Type header bypass.
-    const isJpeg =
-      buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-    const isPng =
-      buffer[0] === 0x89 &&
-      buffer[1] === 0x50 &&
-      buffer[2] === 0x4e &&
-      buffer[3] === 0x47;
-    const isGif =
-      buffer[0] === 0x47 &&
-      buffer[1] === 0x49 &&
-      buffer[2] === 0x46 &&
-      buffer[3] === 0x38;
-    const isWebp =
-      buffer[0] === 0x52 &&
-      buffer[1] === 0x49 &&
-      buffer[2] === 0x46 &&
-      buffer[3] === 0x46 &&
-      buffer[8] === 0x57 &&
-      buffer[9] === 0x45 &&
-      buffer[10] === 0x42 &&
-      buffer[11] === 0x50;
-    if (!isJpeg && !isPng && !isGif && !isWebp) {
+    // RA-8234 strict policy, one owner: size, signature, declared-vs-sniffed
+    // type and header dimensions. GIF is no longer accepted (RA-8603): the
+    // strict policy reads no GIF dimensions, so a GIF pixel bomb could not be
+    // refused before storage, and floor plans are PNG, JPEG or WebP.
+    const check = validateImageUploadStrict({
+      declaredType: file.type,
+      buffer,
+      allowedTypes: ["image/png", "image/jpeg", "image/webp"],
+    });
+    if (!check.ok) {
+      const status = strictRejectionStatus(check.reason);
       return apiError(request, {
-        code: "VALIDATION",
-        message: "Invalid file type. Only images are allowed.",
-        status: 400,
+        code: status === 413 ? "PAYLOAD_TOO_LARGE" : "VALIDATION",
+        message: STRICT_REJECTION_MESSAGES[check.reason],
+        status,
       });
     }
 

@@ -15,6 +15,7 @@ import {
 } from "@/lib/sketch/underlay-attestation";
 import { formDataFromBytes, readBoundedBody } from "@/lib/media/bounded-body";
 import { validateImageUploadDecoded } from "@/lib/media/decode-check";
+import { STRICT_REJECTION_MESSAGES } from "@/lib/media/validate-image-upload";
 import {
   prepareUnderlayBytes,
   removeStoredUnderlay,
@@ -24,16 +25,6 @@ import {
 import { ALLOWED_UNDERLAY_TYPES } from "@/lib/sketch/validate-underlay-upload";
 
 const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
-
-const UPLOAD_REJECTION_MESSAGES = {
-  empty: "The floor-plan file is empty.",
-  "too-large": "Floor-plan image must not exceed 10 MB.",
-  "unsupported-type": "A PNG, JPEG or WebP floor-plan file is required.",
-  "mime-mismatch": "The file content does not match its declared type.",
-  malformed: "The floor-plan image is damaged or incomplete.",
-  undecodable: "The floor-plan image could not be decoded.",
-  "pixel-bomb": "The floor-plan image dimensions are too large.",
-} as const;
 
 function floorNumberFrom(
   value: FormDataEntryValue | string | null,
@@ -173,7 +164,7 @@ export async function POST(
             })
           : apiError(request, {
               code: "VALIDATION",
-              message: UPLOAD_REJECTION_MESSAGES[check.reason],
+              message: STRICT_REJECTION_MESSAGES[check.reason],
               status: 400,
             });
       }

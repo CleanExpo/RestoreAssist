@@ -286,3 +286,23 @@ export function validateImageUploadStrict({
   }
   return { ok: true, mediaType: sniffed, ...dims };
 }
+
+/**
+ * RA-8603: one owner for what a floor-plan upload route says when the strict
+ * policy refuses a file. Routes call this instead of keeping their own copy.
+ */
+export const STRICT_REJECTION_MESSAGES: Record<StrictImageRejection, string> = {
+  empty: "The floor-plan file is empty.",
+  "too-large": "Floor-plan image must not exceed 10 MB.",
+  "unsupported-type": "A PNG, JPEG or WebP floor-plan file is required.",
+  "mime-mismatch": "The file content does not match its declared type.",
+  malformed: "The floor-plan image is damaged or incomplete.",
+  undecodable: "The floor-plan image could not be decoded.",
+  "pixel-bomb": "The floor-plan image dimensions are too large.",
+};
+
+export function strictRejectionStatus(
+  reason: StrictImageRejection,
+): 400 | 413 {
+  return reason === "too-large" ? 413 : 400;
+}

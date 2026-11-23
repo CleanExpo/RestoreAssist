@@ -30,6 +30,7 @@ import { useSession } from "next-auth/react";
 import { isRecentlyIssuedCreationKey } from "@/lib/creation-attempt-key";
 import { prepareInspectionPhoto, uploadInspectionPhoto } from "@/lib/inspection-photo-upload";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { uploadFailureMessage } from "@/lib/upload-failure-message";
 import { isSignedRow, signedRowRefusal } from "@/lib/evidence/signed-row-guard";
 import { cn } from "@/lib/utils";
 import {
@@ -3244,7 +3245,9 @@ export default function NIRTechnicianInputForm({
                   toast.error(
                     "Please enter property address and postcode first",
                   );
-                  throw new Error("Property info required");
+                  throw new Error(
+                    "Please enter property address and postcode first",
+                  );
                 }
 
                 currentInspectionId = await ensureInspectionExists(false);
@@ -3266,8 +3269,13 @@ export default function NIRTechnicianInputForm({
               );
 
               if (!response.ok) {
-                const error = await response.json();
-                throw new Error(apiErrorMessage(error) || "Failed to upload floor plan");
+                // RA-8603: a non-JSON failure must not hide behind a parse error.
+                throw new Error(
+                  await uploadFailureMessage(
+                    response,
+                    "Failed to upload floor plan",
+                  ),
+                );
               }
 
               const data = await response.json();

@@ -169,6 +169,8 @@ export default function MoistureMappingCanvas({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showCoverage, setShowCoverage] = useState(true);
   const [placeError, setPlaceError] = useState<string | null>(null);
+  // RA-8603: a refused or failed floor-plan upload says why on screen.
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const CANVAS_WIDTH = 800;
   const CANVAS_HEIGHT = 600;
@@ -277,6 +279,7 @@ export default function MoistureMappingCanvas({
     const file = e.target.files?.[0];
     if (!file || readonly) return;
     setUploadingImage(true);
+    setUploadError(null);
     try {
       if (onImageUpload) {
         const imageUrl = await onImageUpload(file);
@@ -293,8 +296,15 @@ export default function MoistureMappingCanvas({
       }
     } catch (error) {
       console.error("Error uploading floor plan:", error);
+      const message =
+        error instanceof Error ? error.message.trim() : "";
+      setUploadError(
+        message || "The floor plan could not be uploaded. Please try again.",
+      );
     } finally {
       setUploadingImage(false);
+      // Let the same file be picked again after a refusal.
+      e.target.value = "";
     }
   };
 
@@ -424,6 +434,14 @@ export default function MoistureMappingCanvas({
       </div>
 
       {/* Toolbar */}
+      {uploadError && (
+        <div
+          role="alert"
+          className="p-2.5 rounded-lg border border-destructive/40 bg-destructive/10 text-xs text-destructive"
+        >
+          {uploadError}
+        </div>
+      )}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <label

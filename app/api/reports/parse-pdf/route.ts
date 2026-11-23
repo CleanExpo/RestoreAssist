@@ -6,6 +6,11 @@ import { createRequire } from "module";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import { requirePaidBasePlan } from "@/lib/billing/paid-base-plan";
+import { formDataFromBytes, readBoundedBody } from "@/lib/media/bounded-body";
+
+// RA-8603: count the bytes that arrive before parsing; same 20 MB cap as the
+// photo and evidence uploads.
+const MAX_REQUEST_BYTES = 20 * 1024 * 1024;
 
 const require = createRequire(import.meta.url);
 
@@ -55,7 +60,15 @@ export async function POST(request: NextRequest) {
     });
     if (rateLimited) return rateLimited;
 
-    const formData = await request.formData();
+    const body = await readBoundedBody(request, MAX_REQUEST_BYTES);
+    if (!body) {
+      return apiError(request, {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "PDF upload must not exceed 20 MB.",
+        status: 413,
+      });
+    }
+    const formData = await formDataFromBytes(request, body);
     const file = formData.get("file") as File;
 
     if (!file) {
