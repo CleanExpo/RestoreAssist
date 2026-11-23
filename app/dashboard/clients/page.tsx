@@ -44,6 +44,7 @@ import type { DataSource } from "@/lib/synced-data/types";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
 import { SimpleDashboardPageFrame } from "@/app/dashboard/components/SimpleDashboardPageFrame";
 import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
+import { fetchAllClients } from "@/lib/clients/fetch-all-clients";
 
 // RA-1204 — Relative-time formatter for the "Last report: 3 days ago"
 // preview under each client name. Uses Intl.RelativeTimeFormat (native,
@@ -161,12 +162,10 @@ export default function ClientsPage() {
       try {
         setLoading(true);
         setLoadError(null);
-        const response = await fetch("/api/clients", { cache: "no-store", signal: controller.signal });
-        if (!response.ok) throw new Error("Failed to load clients");
-        const data = await response.json();
+        // RA-8091: follow every page; search and the pager below run over the full list.
+        const all = await fetchAllClients<Client>({ signal: controller.signal });
         if (controller.signal.aborted) return false;
-        if (!Array.isArray(data.clients)) throw new Error("Invalid clients response");
-        setClients(data.clients);
+        setClients(all);
         return true;
       } catch (error) {
         if (controller.signal.aborted) return false;

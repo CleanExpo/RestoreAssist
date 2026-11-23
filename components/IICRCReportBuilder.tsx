@@ -23,6 +23,7 @@ import EquipmentSizingGuidelines from "./EquipmentSizingGuidelines";
 import MonitoringVerificationProcedures from "./MonitoringVerificationProcedures";
 import IICRCComplianceHelper from "./IICRCComplianceHelper";
 import InsuranceInformation from "./InsuranceInformation";
+import { fetchAllClients } from "@/lib/clients/fetch-all-clients";
 
 interface IICRCReportBuilderProps {
   onReportComplete: (report: any) => void;
@@ -156,11 +157,8 @@ export default function IICRCReportBuilder({
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch("/api/clients");
-        if (response.ok) {
-          const data = await response.json();
-          setClients(data.clients || []);
-        }
+        // RA-8091: every page, so the dropdown and selectedClient see older clients.
+        setClients(await fetchAllClients());
       } catch (error) {
         console.error("Error fetching clients:", error);
       }

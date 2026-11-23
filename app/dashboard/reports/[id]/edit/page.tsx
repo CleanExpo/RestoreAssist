@@ -37,6 +37,7 @@ import {
   type ParsedApiError,
 } from "@/lib/client/parse-api-error";
 import { DetailLoadErrorPanel } from "@/components/dashboard/DetailLoadErrorPanel";
+import { fetchAllClients } from "@/lib/clients/fetch-all-clients";
 
 type EditStage = "inspection" | "scoping" | "estimation";
 
@@ -54,6 +55,7 @@ export default function EditReportPage({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<ParsedApiError | null>(null);
   const [clients, setClients] = useState<any[]>([]);
+  const [clientsError, setClientsError] = useState<string | null>(null);
 
   // Inspection data
   const [inspectionData, setInspectionData] = useState({
@@ -79,11 +81,20 @@ export default function EditReportPage({
   }, [params]);
 
   // Load clients
+  // RA-8091: every page, and a visible message when the load fails.
   useEffect(() => {
-    fetch("/api/clients")
-      .then((res) => res.json())
-      .then((data) => setClients(data.clients || []))
-      .catch((err) => console.error("Error fetching clients:", err));
+    const controller = new AbortController();
+    fetchAllClients({ signal: controller.signal })
+      .then((all) => {
+        setClients(all);
+        setClientsError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        console.error("Error fetching clients:", err);
+        setClientsError("Could not load your clients. Refresh the page to try again.");
+      });
+    return () => controller.abort();
   }, []);
 
   const fetchReportData = async (reportId: string) => {
@@ -455,6 +466,11 @@ export default function EditReportPage({
                       ))}
                     </SelectContent>
                   </Select>
+                  {clientsError && (
+                    <p role="alert" className="text-sm text-red-400">
+                      {clientsError}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3">

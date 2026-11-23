@@ -5,6 +5,7 @@ import { Link2, Send, CheckCircle, Info, Loader2, RefreshCw } from "lucide-react
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import { cn } from "@/lib/utils";
+import { fetchAllClients } from "@/lib/clients/fetch-all-clients";
 
 interface Client {
   id: string;
@@ -49,11 +50,26 @@ export default function PortalInvitePanel({
     "idle" | "sent" | "existing_access" | "pending"
   >("idle");
 
+  const [clientsError, setClientsError] = useState<string | null>(null);
+
   useEffect(() => {
-    fetch("/api/clients")
-      .then((r) => r.json())
-      .then((data) => setClients(data.clients ?? []))
-      .finally(() => setLoading(false));
+    // RA-8091: load every page so an older preselected client is in the list,
+    // and show a failed load instead of an empty dropdown.
+    const controller = new AbortController();
+    fetchAllClients<Client>({ signal: controller.signal })
+      .then((all) => {
+        setClients(all);
+        setClientsError(null);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        console.error("Error fetching clients:", err);
+        setClientsError("Could not load your clients. Refresh the page to try again.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, []);
 
   const loadPendingInvitation = useCallback(async (clientId: string) => {
@@ -279,6 +295,11 @@ export default function PortalInvitePanel({
                 </option>
               ))}
             </select>
+            {clientsError && (
+              <p role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
+                {clientsError}
+              </p>
+            )}
           </div>
           <div>
             <label className="text-xs text-neutral-500 mb-1 block">

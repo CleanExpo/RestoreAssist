@@ -77,7 +77,8 @@ beforeEach(() => {
       if (String(url) === "/api/clients/c1" && init?.method === "PUT") {
         return new Response(JSON.stringify(putBody), { status: 200 });
       }
-      if (String(url) === "/api/clients") {
+      // RA-8091: the list loads through fetchAllClients, which sends page and limit.
+      if (String(url).split("?")[0] === "/api/clients" && !init?.method) {
         return new Response(JSON.stringify({ clients: [listed] }), { status: 200 });
       }
       return new Response("{}", { status: 200 });
