@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Thermometer,
   Droplets,
@@ -64,6 +64,7 @@ import {
   scheduleFollowUpReminder,
 } from "@/lib/capacitor";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
+import { pickReferenceReadings } from "@/lib/iicrc-dry-standards";
 import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion";
 import ClaimTypePicker from "@/components/inspection/ClaimTypePicker";
 import NIRClaimAssessmentPanel, {
@@ -405,8 +406,32 @@ export default function NIRTechnicianInputForm({
       // Loaded with the reading so the classification preview can match a
       // linked reading to its room, as submit does (RA-7610).
       sketchRoom?: { id: string; name: string } | null;
+      // RA-8509: selected by the job API so the map can pick valid reference
+      // readings. A reading added in this form has neither (no unit means a
+      // moisture-content reading; not invalidated).
+      unit?: string | null;
+      invalidatedAt?: string | null;
+      recordedAt?: string | null;
+      createdAt?: string | null;
     }>
   >([]);
+  // RA-8509: the job's reference readings, so the map colours each reading
+  // against its own material's reference and uses the guide only without one.
+  const moistureReferences = useMemo(
+    () =>
+      pickReferenceReadings(
+        moistureReadings.map((r) => ({
+          surfaceType: r.surfaceType,
+          moistureLevel: r.moistureLevel,
+          isBaseline: r.isBaseline,
+          unit: r.unit,
+          invalidatedAt: r.invalidatedAt,
+          recordedAt: r.recordedAt,
+          createdAt: r.createdAt,
+        })),
+      ),
+    [moistureReadings],
+  );
   // B23: the reading and environmental rows this form loaded or has saved.
   // Draft save deletes only these, so a reading captured on another screen
   // after the form opened is never erased.
@@ -2473,7 +2498,9 @@ export default function NIRTechnicianInputForm({
                 moistureLevel: r.moistureLevel,
                 depth: r.depth,
                 notes: null,
+                unit: r.unit,
               }))}
+              references={moistureReferences}
               initialPoints={moistureMapPoints}
               initialBackgroundImage={floorPlanImageUrl}
               readonly={true}
@@ -3301,7 +3328,9 @@ export default function NIRTechnicianInputForm({
               moistureLevel: r.moistureLevel,
               depth: r.depth,
               notes: null,
+              unit: r.unit,
             }))}
+            references={moistureReferences}
             initialPoints={moistureMapPoints}
             initialBackgroundImage={floorPlanImageUrl}
             onPointsChange={(points) => {

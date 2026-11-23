@@ -335,6 +335,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
             source: true,
             isBaseline: true,
             isMonitoringPoint: true,
+            // RA-8509: the job page needs it to pick valid reference readings.
+            invalidatedAt: true,
             affectedArea: true,
             mapX: true,
             mapY: true,
