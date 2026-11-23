@@ -77,7 +77,7 @@ jobs:
 
       # config/playwright.report-canary.config.ts boots `npm run dev` itself.
       - name: Run report theme canary
-        run: npx --no-install playwright test -c config/playwright.report-canary.config.ts --reporter=line
+        run: npx --no-install playwright test -c config/playwright.report-canary.config.ts --reporter=line e2e/report-canary/report-theme-canary.spec.ts
 
       - name: Upload screenshots, PDFs and report
         if: always()
