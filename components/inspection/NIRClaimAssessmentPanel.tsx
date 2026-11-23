@@ -74,7 +74,6 @@ interface NIRClaimAssessmentPanelProps {
   initialClaimType?: NIRClaimType | null;
   /** When set, claim type is fixed (e.g. from ClaimTypePicker) — chip row hidden. */
   lockedClaimType?: NIRClaimType | null;
-  onClaimTypeChange?: (claimType: NIRClaimType) => void;
   /**
    * RA-7709: called when a save changes the water Category / Class pick —
    * `{ category, class }` when both are set, `null` when the pick is cleared.
@@ -1629,7 +1628,6 @@ const NIRClaimAssessmentPanel = forwardRef<
     inspectionId,
     initialClaimType,
     lockedClaimType,
-    onClaimTypeChange,
     onWaterClassificationSaved,
     assessmentSeed,
     complianceSeed,
@@ -1831,7 +1829,6 @@ const NIRClaimAssessmentPanel = forwardRef<
     // A seed belongs to the claim type it was made for.
     assessmentSeedRef.current = null;
     loadAssessment(type);
-    onClaimTypeChange?.(type);
   };
 
   const handleFieldChange = (k: string, v: unknown) => {

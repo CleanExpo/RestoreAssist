@@ -5,7 +5,9 @@
  * is selected on the canvas. Lives in document flow beside the canvas
  * (not sticky/fixed/absolute over the drawing surface).
  *
- * Exposes room type, label, colour, opacity, and stroke controls.
+ * Exposes room type, label, colour and stroke controls. The room opacity
+ * slider was removed in RA-8609: no screen ever passed its handler, so it
+ * moved on screen and changed nothing.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -156,7 +158,6 @@ export interface SketchSelectionPanelProps {
   guided?: boolean;
   onLabelChange?: (id: string, label: string) => void;
   onColorChange?: (id: string, fill: string, stroke: string) => void;
-  onOpacityChange?: (id: string, opacity: number) => void;
   onMaterialChange?: (id: string, slug: string) => void;
   onRecordWhsPathway?: (id: string, note: string) => void;
   onCountryChange?: (country: "AU" | "NZ") => void;
@@ -213,7 +214,6 @@ export function SketchSelectionPanel({
   guided = false,
   onLabelChange,
   onColorChange,
-  onOpacityChange,
   onMaterialChange,
   onRecordWhsPathway,
   onCountryChange,
@@ -982,32 +982,6 @@ export function SketchSelectionPanel({
               />
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Opacity (rooms) */}
-      {isRoom && (
-        <div>
-          <div className="flex justify-between text-xs text-white/50 mb-1">
-            <span>Opacity</span>
-            <span className="tabular-nums">
-              {Math.round((selected.opacity ?? 1) * 100)}%
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0.05}
-            max={1}
-            step={0.05}
-            defaultValue={selected.opacity ?? 1}
-            onInput={(e) =>
-              onOpacityChange?.(
-                selected.id,
-                parseFloat((e.target as HTMLInputElement).value),
-              )
-            }
-            className="w-full accent-brand-harbour-400"
-          />
         </div>
       )}
 
