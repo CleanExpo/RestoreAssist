@@ -97,8 +97,8 @@ const UNMAPPED_EMPTY =
  * guard test pins this exact set so a change to it is a deliberate edit.
  */
 export const OPEN_DEFECT_OWNERS = {
-  /** Reversal handling, refuse-unlisted, skip-on-purpose for Xero, QuickBooks and MYOB. */
-  accounting: "RA-8614",
+  /** Reversal handling, refuse-unlisted, skip-on-purpose for Xero, QuickBooks and MYOB (RA-8614 slice 2). */
+  accounting: "RA-8616",
   /** ServiceM8 receiver rebuilt for the message ServiceM8 actually sends. */
   serviceM8: "RA-8073",
 } as const;

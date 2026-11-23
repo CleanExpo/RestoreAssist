@@ -1,8 +1,39 @@
 {
   "schema": "done/1",
-  "criterion_evidence": "UNPROVEN",
-  "verification_status": "BLOCKED",
+  "criterion_evidence": "PROVEN",
+  "verification_status": "PASS",
   "delivery_status": "NOT_STARTED",
-  "verified_head": null,
-  "updated_at_utc": "2026-11-23T19:27:44Z"
+  "verified_head": "3190fa8f5b84756de3ed2f894ad2169e068fda72",
+  "updated_at_utc": "2026-11-23T19:27:59Z",
+  "last_verify": {
+    "head": "3190fa8f5b84756de3ed2f894ad2169e068fda72",
+    "at_utc": "2026-11-23T19:27:59Z",
+    "matrix": [
+      {
+        "id": "C1",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "npx vitest run --config config/vitest.config.js lib/integrations/__tests__/webhook-event-types.test.ts",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 2.8,
+        "output_digest": "02b4e5312b78a12c339f2d639b4e80a9aa75bad5e639aa60cb363b86dd6f966d",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_f6a1a4f025dd/3190fa8f5b84/C1-ab861dc170dc-02b4e5312b78a12c.log",
+        "output_tail": "npm warn Unknown project config \"puppeteer_skip_download\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/Mini Mini 2T Storage/hot/tmp/mesh-RA-8614-e60c83ff\u001b[39m\n\n \u001b[32m✓\u001b[39m lib/integrations/__tests__/webhook-event-types.test.ts \u001b[2m(\u001b[22m\u001b[2m59 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 493\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m59 passed\u001b[39m\u001b[22m\u001b[90m (59)\u001b[39m\n\u001b[2m   Start at \u001b[22m 05:27:57\n\u001b[2m   Duration \u001b[22m 928ms\u001b[2m (transform 88ms, setup 58ms, import 174ms, tests 493ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "C2",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "node -e \"const s=require('fs').readFileSync('lib/integrations/webhook-event-types.ts','utf8');process.exit(/ticket: \\\"RA-8427\\\"/.test(s)?1:0)\"",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 0.1,
+        "output_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_f6a1a4f025dd/3190fa8f5b84/C2-9685eb765661-e3b0c44298fc1c14.log",
+        "output_tail": ""
+      }
+    ],
+    "blockers": []
+  }
 }

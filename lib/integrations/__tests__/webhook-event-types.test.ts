@@ -640,7 +640,7 @@ describe("webhook event-type registry (RA-8427)", () => {
     // A unit test cannot read Linear. This pins the owner set, so closing an
     // owner ticket without moving its rows needs a deliberate edit here; the
     // check against Linear itself belongs to RA-8615.
-    expect(OPEN_DEFECT_OWNERS).toEqual({ accounting: "RA-8614", serviceM8: "RA-8073" });
+    expect(OPEN_DEFECT_OWNERS).toEqual({ accounting: "RA-8616", serviceM8: "RA-8073" });
     const owners = new Set<string>(Object.values(OPEN_DEFECT_OWNERS));
     const named = [
       ...WEBHOOK_EVENT_TYPES.flatMap((e) =>
