@@ -201,12 +201,10 @@ interface ProgressRingProps {
 ```typescript
 interface BottomActionBarProps {
   onPrevious?: () => void; // Go to previous question
-  onNext?: () => void; // Go to next question
   onComplete?: () => void; // Complete interview
   onCancel?: () => void; // Cancel interview
   canGoPrevious?: boolean; // Disable back button
-  canGoNext?: boolean; // Disable next button
-  isComplete?: boolean; // Show complete button instead of next
+  isComplete?: boolean; // Show the complete button
   disabled?: boolean; // Disable all buttons
 }
 ```
@@ -217,7 +215,6 @@ interface BottomActionBarProps {
 - [PASS] Safe area inset for mobile notch
 - [PASS] Back button (chevron left)
 - [PASS] Cancel button (X icon)
-- [PASS] Next button (chevron right)
 - [PASS] Complete button (checkmark, green)
 - [PASS] Contextual button display
 - [PASS] Disabled state handling
@@ -226,7 +223,8 @@ interface BottomActionBarProps {
 **Button States**:
 
 - Back: Disabled if at first question
-- Next: Disabled until answer provided
+- There is no Next button. The question card's Continue button submits the
+  answer and advances (RA-8611: the bar's Next was wired to an empty handler)
 - Complete: Shown only after last question
 - Cancel: Always available
 
@@ -235,10 +233,8 @@ interface BottomActionBarProps {
 ```typescript
 <BottomActionBar
   onPrevious={handlePrevious}
-  onNext={handleNext}
   onComplete={handleComplete}
   canGoPrevious={currentIndex > 0}
-  canGoNext={answerProvided}
   isComplete={allQuestionsAnswered}
 />
 ```

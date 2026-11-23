@@ -638,6 +638,7 @@ export default function TeamPage() {
         <SeatLimitPanel
           audience={iosShell === true || isCapacitorIOS() ? "ios" : "owner"}
           headline="Your free trial seat has ended, and your technician can't work until it is paid for. Nothing has been deleted."
+          // empty-handler-ok: notice hook called before a purchase so a caller can save a draft; this screen has no draft
           onBeforeBuy={() => undefined}
           onSeatAdded={() => void load()}
         />

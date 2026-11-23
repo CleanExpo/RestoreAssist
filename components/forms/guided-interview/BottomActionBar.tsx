@@ -1,21 +1,20 @@
 /**
  * Bottom Action Bar Component
  * Fixed bottom navigation for interview controls
- * Provides back, next, complete, and cancel buttons
+ * Provides back, complete, and cancel buttons. There is no Next button: the
+ * question card's Continue button submits the answer and advances (RA-8611).
  */
 
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Check, X } from "lucide-react";
+import { ChevronLeft, Check, X } from "lucide-react";
 
 interface BottomActionBarProps {
   onPrevious?: () => void;
-  onNext?: () => void;
   onComplete?: () => void;
   onCancel?: () => void;
   canGoPrevious?: boolean;
-  canGoNext?: boolean;
   isComplete?: boolean;
   disabled?: boolean;
 }
@@ -26,11 +25,9 @@ interface BottomActionBarProps {
  */
 export function BottomActionBar({
   onPrevious,
-  onNext,
   onComplete,
   onCancel,
   canGoPrevious = false,
-  canGoNext = true,
   isComplete = false,
   disabled = false,
 }: BottomActionBarProps) {
@@ -64,19 +61,8 @@ export function BottomActionBar({
           )}
         </div>
 
-        {/* Right section - Next/Complete button */}
+        {/* Right section - Complete button */}
         <div className="flex gap-3">
-          {!isComplete && (
-            <Button
-              onClick={onNext}
-              disabled={!canGoNext || disabled}
-              className="gap-2 h-11 px-6 text-base font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
-            >
-              <span>Next</span>
-              <ChevronRight className="h-5 w-5" />
-            </Button>
-          )}
-
           {isComplete && onComplete && (
             <Button
               onClick={onComplete}

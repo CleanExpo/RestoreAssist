@@ -1318,10 +1318,10 @@ export function GuidedInterviewPanel({
         </div>
       </div>
 
-      {/* Bottom navigation */}
+      {/* Bottom navigation. No Next button here: QuestionCard's Continue
+          submits the answer and advances (RA-8611). */}
       <BottomActionBar
         onPrevious={handlePrevious}
-        onNext={() => {}} // Handled by QuestionCard
         onComplete={
           (interviewState.status as string) === "COMPLETED"
             ? handleComplete
@@ -1332,7 +1332,6 @@ export function GuidedInterviewPanel({
             (q) => q.id === interviewState.currentQuestion?.id,
           ) > 0
         }
-        canGoNext={!!interviewState.currentQuestion}
         isComplete={(interviewState.status as string) === "COMPLETED"}
         onCancel={onCancel}
       />

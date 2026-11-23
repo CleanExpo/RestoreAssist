@@ -294,6 +294,12 @@ jobs:
       - name: Floor-plan custody and export firewall
         run: npm run check:floorplan-custody
 
+      # RA-8611: an on* handler passed as an empty arrow function leaves an
+      # enabled control that does nothing (the guided interview's bottom Next
+      # button). Self-test first so a matcher that cannot fire fails the job.
+      - name: Empty on* handlers
+        run: npm run check:empty-handlers -- --self-test && npm run check:empty-handlers
+
       # Release-gate criterion C2 — secrets scan over the working tree.
       #
       # C2 previously rested on a scan run by hand in May, with a .gitleaks.toml
