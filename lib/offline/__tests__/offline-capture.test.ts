@@ -304,6 +304,45 @@ describe("a form opened for one account is never saved under another (RA-7877 ro
   });
 });
 
+describe("an account switch made in another tab (RA-7877 round 6)", () => {
+  /** Tab 1 is A; another tab signs in as B and broadcasts; B's online check here then fails. */
+  async function otherTabSwitchedToB() {
+    await signInOnline(A);
+    await capture({ propertyAddress: "1 A Street", propertyPostcode: "4000", notes: "A's private notes" });
+    const stop = boundary.listenForOfflineInvalidation();
+    window.dispatchEvent(new StorageEvent("storage", { key: "restoreassist-offline-context-invalidated", newValue: "1:2" }));
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 503 }));
+    await boundary.refreshOfflineOwner();
+    return stop;
+  }
+
+  it("does not fall back to A's device copy, and shows none of A's claims", async () => {
+    const stop = await otherTabSwitchedToB();
+    expect(await boundary.resolveOfflineActor()).toBeNull();
+    expect(await queue.listOwnClaims()).toEqual([]);
+    stop();
+  });
+
+  it("refuses to start a claim until the account is verified online again", async () => {
+    const stop = await otherTabSwitchedToB();
+    await expect(capture({ propertyAddress: "9 B Street", propertyPostcode: "3000" }, A)).rejects.toThrow(/Sign in/);
+    expect(await queue.listQueuedClaims()).toHaveLength(1);
+    stop();
+  });
+
+  it("opens again for whoever the server verifies", async () => {
+    const stop = await otherTabSwitchedToB();
+    serverOwner = B;
+    fetchMock.mockImplementation(async (url: string) =>
+      url === "/api/auth/offline-context" ? new Response(JSON.stringify({ owner: B })) : new Response("{}", { status: 404 }));
+    boundary.setOfflineSession(B.userId);
+    expect(await boundary.refreshOfflineOwner()).toEqual(B);
+    expect(await boundary.resolveOfflineActor()).toEqual(B);
+    expect(await queue.listOwnClaims()).toEqual([]);
+    stop();
+  });
+});
+
 describe("a read overtaken by a wipe", () => {
   it("returns nothing when sign-out happens while the stored identity is being read", async () => {
     await signInOnline(A);

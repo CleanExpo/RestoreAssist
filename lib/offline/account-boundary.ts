@@ -12,6 +12,11 @@ let sessionUserId: string | null = null;
 // otherwise make the page forget that a different account is signed in
 // (RA-7877). Only setOfflineSession() and endOfflineSession() change this.
 let declaredUserId: string | null = null;
+// Another tab changed or ended the session (storage invalidation). From then on
+// this tab does not know who is signed in, whatever declaredUserId still says,
+// so no device copy may be used for anyone until the server verifies an account
+// here (RA-7877). Cleared only by a verified owner or by endOfflineSession().
+let identityUncertain = false;
 let context: OfflineOwner | null = null;
 let generation = 0;
 let pending: Promise<OfflineOwner | null> | null = null;
@@ -43,6 +48,7 @@ export function clearOfflineContext(broadcast = true) {
  */
 export function endOfflineSession() {
   declaredUserId = null;
+  identityUncertain = false;
   clearOfflineContext();
   void forgetDeviceIdentity();
 }
@@ -56,7 +62,9 @@ export function setOfflineSession(userId: string | null) {
 
 export function listenForOfflineInvalidation(): () => void {
   const onStorage = (event: StorageEvent) => {
-    if (event.key === INVALIDATE_KEY) clearOfflineContext(false);
+    if (event.key !== INVALIDATE_KEY) return;
+    identityUncertain = true;
+    clearOfflineContext(false);
   };
   window.addEventListener("storage", onStorage);
   return () => window.removeEventListener("storage", onStorage);
@@ -78,12 +86,13 @@ export function getOfflineOwner(): OfflineOwner | null {
 export async function resolveOfflineActor(): Promise<OfflineOwner | null> {
   const verified = getOfflineOwner();
   if (verified) return verified;
+  if (identityUncertain) return null;
   const known = declaredUserId;
   const stored = (await loadDeviceIdentity())?.owner ?? null;
   if (!stored) return null;
   if (known !== null && stored.userId !== known) return null;
   // The session may have changed while the copy was being read.
-  if (declaredUserId !== known) return null;
+  if (declaredUserId !== known || identityUncertain) return null;
   return stored;
 }
 
@@ -129,6 +138,7 @@ export async function refreshOfflineOwner(): Promise<OfflineOwner | null> {
       }
       const identityChanged = !sameOfflineOwner(context, owner);
       context = Object.freeze(owner);
+      identityUncertain = false;
       void rememberDeviceIdentity(owner);
       if (identityChanged) changed();
       return context;
