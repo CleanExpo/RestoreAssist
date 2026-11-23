@@ -96,6 +96,12 @@ vi.mock("@/lib/lifecycle/subscribers/next-action", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: inspectionFindFirst },
+    // RA-8067: the lifecycle actor role is read from the database row.
+    user: {
+      findUnique: vi
+        .fn()
+        .mockResolvedValue({ role: "USER", isJuniorTechnician: false }),
+    },
     estimate: { findFirst: estimateFindFirst },
     // No frozen approval snapshot: the route falls back to the live lines.
     estimateVersion: { findUnique: vi.fn().mockResolvedValue(null) },
