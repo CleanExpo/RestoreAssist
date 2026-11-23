@@ -93,7 +93,15 @@ export const ROOM_DEPENDENT_RELATIONS = [
   "jobMoistureReadings",
   "scopeItems",
   "contentsPackOutItems",
+  "roomObservations",
 ] as const;
+
+export type RoomDependentRelation = (typeof ROOM_DEPENDENT_RELATIONS)[number];
+
+/** Prisma `_count.select` for every dependent, so a count is read for each. */
+export const ROOM_DEPENDENT_COUNT_SELECT = Object.fromEntries(
+  ROOM_DEPENDENT_RELATIONS.map((relation) => [relation, true]),
+) as Record<RoomDependentRelation, true>;
 
 /** Prisma `where` fragment: the room has no dependent of any kind. */
 export const NO_ROOM_DEPENDENTS = Object.fromEntries(
@@ -103,19 +111,12 @@ export const NO_ROOM_DEPENDENTS = Object.fromEntries(
 /** A room that is no longer present in the incoming canvas. */
 export interface StaleRoom {
   id: string;
-  _count: {
-    evidencePins: number;
-    moistureReadings: number;
-    hazards: number;
-    jobMoistureReadings?: number;
-    /**
-     * RA-8538: priced scope lines placed in this room. Optional so callers
-     * that predate the count still type-check; a missing count is read as 0.
-     */
-    scopeItems?: number;
-    /** RA-8501: contents items filed against this room (SetNull too). */
-    contentsPackOutItems?: number;
-  };
+  /**
+   * One optional count per dependent relation (ROOM_DEPENDENT_RELATIONS), so
+   * callers that predate a relation still type-check; a missing count is read
+   * as 0.
+   */
+  _count: Partial<Record<RoomDependentRelation, number>>;
 }
 
 /**
@@ -148,14 +149,12 @@ export function partitionStaleRooms(stale: StaleRoom[]): {
   const detachableIds: string[] = [];
 
   for (const room of stale) {
-    const dependents =
-      (room._count?.evidencePins ?? 0) +
-      (room._count?.moistureReadings ?? 0) +
-      (room._count?.hazards ?? 0) +
-      (room._count?.jobMoistureReadings ?? 0) +
-      (room._count?.scopeItems ?? 0) +
-      // RA-8501: a contents item's room link is SetNull as well.
-      (room._count?.contentsPackOutItems ?? 0);
+    // Summed over the one list, never a hand-written sum, so a relation added
+    // there cannot be missed here (RA-8501 review: roomObservations was).
+    const dependents = ROOM_DEPENDENT_RELATIONS.reduce(
+      (total, relation) => total + (room._count?.[relation] ?? 0),
+      0,
+    );
     if (dependents > 0) {
       detachableIds.push(room.id);
     } else {

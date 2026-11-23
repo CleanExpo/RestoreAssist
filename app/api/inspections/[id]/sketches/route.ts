@@ -16,6 +16,7 @@ import {
   extractRoomGraphNodes,
   partitionStaleRooms,
   NO_ROOM_DEPENDENTS,
+  ROOM_DEPENDENT_COUNT_SELECT,
   applyRoomProvenanceToSketchData,
 } from "@/lib/sketch/sync-room-graph";
 import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
@@ -372,15 +373,9 @@ export async function POST(
             provenance: true,
             detachedAt: true,
             _count: {
-              select: {
-                evidencePins: true,
-                moistureReadings: true,
-                hazards: true,
-                jobMoistureReadings: true,
-                // RA-8538: a room holding scope items is in use too.
-                scopeItems: true,
-                contentsPackOutItems: true,
-              },
+              // Every SetNull dependent, from the one list (a room holding
+              // scope items, contents items or observations is in use too).
+              select: ROOM_DEPENDENT_COUNT_SELECT,
             },
           },
           take: 500,
