@@ -1660,6 +1660,12 @@ const NIRClaimAssessmentPanel = forwardRef<
   complianceDataRef.current = complianceData;
   const [asbestosWarning, setAsbestosWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // RA-7687: the mould row version this form was loaded from or last saved,
+  // sent with a Save so a row changed since (a confirmed report value) is
+  // refused by the server instead of overwritten. And whether a report confirm
+  // is in flight, during which the Save is held.
+  const assessmentVersionRef = useRef<string | null>(null);
+  const reportConfirmInFlightRef = useRef(false);
   const [_saving, setSaving] = useState(false);
   const [_savingCompliance, setSavingCompliance] = useState(false);
   const [gates, setGates] = useState<Record<string, boolean>>({});
@@ -1708,6 +1714,8 @@ const NIRClaimAssessmentPanel = forwardRef<
         if (!res) return;
         if (res.ok) {
           const record = res.record as Record<string, unknown> | null;
+          assessmentVersionRef.current =
+            typeof record?.updatedAt === "string" ? record.updatedAt : null;
           if (record && type !== "CONTENTS") {
             formDataRef.current = record;
             setFormData(record);
@@ -1728,6 +1736,7 @@ const NIRClaimAssessmentPanel = forwardRef<
           assessmentLoadedRef.current = true;
         } else if (res.status === 404) {
           // No record yet; start from the Quick Fill seed, if any
+          assessmentVersionRef.current = null;
           formDataRef.current = { ...(assessmentSeedRef.current ?? {}) };
           setFormData({ ...(assessmentSeedRef.current ?? {}) });
           setGates({});
@@ -1850,6 +1859,13 @@ const NIRClaimAssessmentPanel = forwardRef<
     if (!assessmentLoadedRef.current) {
       throw new Error("Claim assessment has not loaded; nothing was saved");
     }
+    if (type === "MOULD" && reportConfirmInFlightRef.current) {
+      const message =
+        "Report facts are still being saved. Wait a moment, then save again.";
+      if (options?.silent) throw new Error(message);
+      toast.error(message);
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(
@@ -1857,11 +1873,22 @@ const NIRClaimAssessmentPanel = forwardRef<
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formDataRef.current),
+          body: JSON.stringify(
+            type === "MOULD"
+              ? {
+                  ...formDataRef.current,
+                  expectedUpdatedAt: assessmentVersionRef.current,
+                }
+              : formDataRef.current,
+          ),
         },
       );
       if (res.ok) {
         const record = await res.json();
+        if (type === "MOULD") {
+          assessmentVersionRef.current =
+            typeof record.updatedAt === "string" ? record.updatedAt : null;
+        }
         const g: Record<string, boolean> = {};
         for (const [k, v] of Object.entries(record)) {
           if (k.startsWith("gate") && typeof v === "boolean") g[k] = v;
@@ -2181,7 +2208,11 @@ const NIRClaimAssessmentPanel = forwardRef<
                     <MouldForm data={formData} onChange={handleFieldChange} />
                     <ThirdPartyReportReader
                       inspectionId={inspectionId}
-                      onApplied={(applied) => {
+                      onBusyChange={(busy) => {
+                        reportConfirmInFlightRef.current = busy;
+                      }}
+                      onApplied={(applied, updatedAt) => {
+                        if (updatedAt) assessmentVersionRef.current = updatedAt;
                         for (const [field, value] of Object.entries(applied)) {
                           handleFieldChange(
                             field,

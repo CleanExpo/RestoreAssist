@@ -179,7 +179,7 @@ export async function POST(
           where: { inspectionId },
           create: { inspectionId, ...data },
           update: data,
-          select: { id: true },
+          select: { id: true, updatedAt: true },
         });
         const previous: Record<string, unknown> = {};
         for (const field of accepted.keys()) previous[field] = before?.[field] ?? null;
@@ -221,7 +221,15 @@ export async function POST(
         status: 404,
       });
     }
-    return NextResponse.json({ written: accepted.size, dismissed, applied });
+    // The new row version, so the open form's next Save names it (the
+    // mould-remediation compare-and-set) instead of the one it loaded.
+    return NextResponse.json({
+      written: accepted.size,
+      dismissed,
+      applied,
+      updatedAt:
+        result.updatedAt instanceof Date ? result.updatedAt.toISOString() : null,
+    });
   } catch (err) {
     return fromException(request, err, {
       stage: "third-party-reports:confirm",

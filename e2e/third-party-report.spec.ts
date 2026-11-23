@@ -68,14 +68,17 @@ test("a failed read writes nothing, and a dismissed or forged review writes noth
   const id = await createInspection(request);
   const base = `/api/inspections/${id}/third-party-reports`;
 
-  // 1. A non-PDF is refused before any spend.
+  // 1. The signed-in user has role USER, which may not spend the workspace's AI
+  //    key. The spend gate runs before the upload is inspected, so even a
+  //    non-PDF is refused with 403 (the malformed-PDF 400 is covered by the
+  //    route unit tests, which use an owner or manager).
   const notPdf = await request.post(`${base}/extract`, {
     multipart: { file: { name: "x.pdf", mimeType: "application/pdf", buffer: Buffer.from("GIF89a" + "y".repeat(300)) } },
   });
-  expect(notPdf.status()).toBe(400);
+  expect(notPdf.status()).toBe(403);
 
-  // 2. The signed-in user has role USER, which may not spend the workspace's AI
-  //    key: the read is refused with 403 before any key lookup or model call.
+  // 2. A well-formed PDF is refused the same way: 403 before any key lookup or
+  //    model call.
   const read = await request.post(`${base}/extract`, {
     multipart: { file: { name: "lab.pdf", mimeType: "application/pdf", buffer: await realPdf() } },
   });
@@ -121,11 +124,13 @@ test("accepting and editing writes exactly those facts, and no condition or clea
     },
   });
   expect(res.status()).toBe(200);
-  expect(await res.json()).toEqual({
+  const confirmed = await res.json();
+  expect(confirmed).toMatchObject({
     written: 2,
     dismissed: 1,
     applied: { labName: "Acme Analytical", sporeCountPreRemediation: 5200 },
   });
+  expect(typeof confirmed.updatedAt).toBe("string");
 
   const saved = await assessment(request, id);
   expect(saved.labName).toBe("Acme Analytical");
@@ -140,4 +145,25 @@ test("accepting and editing writes exactly those facts, and no condition or clea
   });
   expect(empty.status()).toBe(400);
   expect((await assessment(request, id)).sporeCountPreRemediation).toBe(5200);
+});
+
+test("a Save built before a confirm cannot write the old lab value back", async ({ request }) => {
+  const id = await createInspection(request);
+  const route = `/api/inspections/${id}/mould-remediation`;
+  // The form loads a record whose lab name is "Old Lab".
+  const first = await request.post(route, { data: { labName: "Old Lab", expectedUpdatedAt: null } });
+  expect(first.status()).toBe(200);
+  const loaded = await first.json();
+
+  // A report confirm then sets "Acme Analytical".
+  const token = await proposalFor(request, id);
+  const confirm = await request.post(`/api/inspections/${id}/third-party-reports/confirm`, {
+    data: { proposalToken: token, decisions: [{ index: 0, action: "accept" }] },
+  });
+  expect(confirm.status()).toBe(200);
+
+  // The older Save lands last, carrying the version it loaded.
+  const stale = await request.post(route, { data: { labName: "Old Lab", expectedUpdatedAt: loaded.updatedAt } });
+  expect(stale.status()).toBe(409);
+  expect((await assessment(request, id)).labName).toBe("Acme Analytical");
 });

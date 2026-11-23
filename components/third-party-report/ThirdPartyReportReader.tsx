@@ -81,11 +81,19 @@ export function readErrorMessage(status: number): string {
 export default function ThirdPartyReportReader({
   inspectionId,
   onApplied,
+  onBusyChange,
 }: {
   inspectionId: string;
-  /** Called after facts are saved, with exactly the values written, so the
-   *  host form shows them instead of a stale copy it could save back. */
-  onApplied?: (applied: Partial<Record<LabField, string | number>>) => void;
+  /** Called after facts are saved, with exactly the values written and the
+   *  new row version, so the host form shows them instead of a stale copy it
+   *  could save back, and its next Save names the version it now holds. */
+  onApplied?: (
+    applied: Partial<Record<LabField, string | number>>,
+    updatedAt: string | null,
+  ) => void;
+  /** True from the moment a confirm is sent until it has answered, so the host
+   *  can hold its own Save for that time. */
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<"idle" | "reading" | "review" | "saving" | "done">("idle");
@@ -143,6 +151,7 @@ export default function ThirdPartyReportReader({
     if (!proposal) return;
     setError(null);
     setPhase("saving");
+    onBusyChange?.(true);
     // The facts, pages and report hash live in the signed token. The screen
     // only says which fact it means and what the technician decided.
     const body = {
@@ -183,14 +192,17 @@ export default function ThirdPartyReportReader({
         written: number;
         dismissed: number;
         applied: Partial<Record<LabField, string | number>>;
+        updatedAt?: string | null;
       };
       setSummary(`${json.written} fact(s) saved to the job. ${json.dismissed} dismissed.`);
       setPhase("done");
       // The values the server actually wrote, typed as stored.
-      onApplied?.(json.applied);
+      onApplied?.(json.applied, json.updatedAt ?? null);
     } catch {
       setError(readErrorMessage(0));
       setPhase("review");
+    } finally {
+      onBusyChange?.(false);
     }
   }
 

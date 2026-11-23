@@ -68,9 +68,10 @@ describe("ThirdPartyReportReader", () => {
   it("posts only accepted and edited facts, plus the dismissed one, and reports the applied values", async () => {
     fetchMock
       .mockResolvedValueOnce(json({ proposal }))
-      .mockResolvedValueOnce(json({ written: 2, dismissed: 1, applied: { labName: "Acme", sporeCountPreRemediation: 5200 } }));
+      .mockResolvedValueOnce(json({ written: 2, dismissed: 1, applied: { labName: "Acme", sporeCountPreRemediation: 5200 }, updatedAt: "2026-11-23T01:00:00.000Z" }));
     const onApplied = vi.fn();
-    render(<ThirdPartyReportReader inspectionId="insp_1" onApplied={onApplied} />);
+    const onBusyChange = vi.fn();
+    render(<ThirdPartyReportReader inspectionId="insp_1" onApplied={onApplied} onBusyChange={onBusyChange} />);
     await upload();
     const facts = await screen.findAllByTestId("third-party-report-fact");
     const btn = (i: number, name: string) =>
@@ -94,7 +95,8 @@ describe("ThirdPartyReportReader", () => {
       { index: 2, action: "dismiss" },
     ]);
     // the host gets the values the server wrote, typed as stored
-    expect(onApplied).toHaveBeenCalledWith({ labName: "Acme", sporeCountPreRemediation: 5200 });
+    expect(onApplied).toHaveBeenCalledWith({ labName: "Acme", sporeCountPreRemediation: 5200 }, "2026-11-23T01:00:00.000Z");
+    expect(onBusyChange.mock.calls.map((c) => c[0])).toEqual([true, false]);
   });
 
   it("choosing a second sample for the same field clears the first choice", async () => {

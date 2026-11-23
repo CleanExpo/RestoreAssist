@@ -51,7 +51,13 @@ const mouldSchema = z.object({
   sporeCountPostRemediation: z.number().nonnegative().nullable().optional(),
   clearanceCriterion: z.string().nullable().optional(),
   iepAssessmentRequired: z.boolean().optional(),
+  // RA-7687: the row version (updatedAt) the form was loaded from; null when
+  // the form loaded no record. See the compare-and-set in POST.
+  expectedUpdatedAt: z.string().datetime().nullable().optional(),
 });
+
+/** Raised inside the POST transaction when the row moved since the form loaded. */
+class StaleAssessmentError extends Error {}
 
 // ─── Gate computation ──────────────────────────────────────────────────────────
 
@@ -141,101 +147,146 @@ export async function POST(
     const data = parsed.data;
     const gates = computeGates(data);
 
-    const [record] = await prisma.$transaction([
-      prisma.mouldRemediationAssessment.upsert({
-        where: { inspectionId: id },
-        create: {
-          inspectionId: id,
-          mouldConditionLevel: data.mouldConditionLevel ?? undefined,
-          visibleGrowthObserved: data.visibleGrowthObserved ?? false,
-          affectedAreaM2: data.affectedAreaM2 ?? undefined,
-          moistureSourceIdentified: data.moistureSourceIdentified ?? false,
-          rootCauseAddressed: data.rootCauseAddressed ?? false,
-          pressureDifferentialPa: data.pressureDifferentialPa ?? undefined,
-          airChangesPerHour: data.airChangesPerHour ?? undefined,
-          containmentBarrierMaterial:
-            data.containmentBarrierMaterial ?? undefined,
-          negativePressureMachineModel:
-            data.negativePressureMachineModel ?? undefined,
-          airSamplingRequired: data.airSamplingRequired ?? false,
-          samplingDate: data.samplingDate
-            ? new Date(data.samplingDate)
-            : undefined,
-          labName: data.labName ?? undefined,
-          labReportReference: data.labReportReference ?? undefined,
-          sporeType: data.sporeType ?? undefined,
-          sporeCountPreRemediation: data.sporeCountPreRemediation ?? undefined,
-          outdoorBaselineCount: data.outdoorBaselineCount ?? undefined,
-          sporeCountPostRemediation:
-            data.sporeCountPostRemediation ?? undefined,
-          clearanceCriterion: data.clearanceCriterion ?? undefined,
-          iepAssessmentRequired: data.iepAssessmentRequired ?? false,
-          ...gates,
-        },
-        update: {
-          ...(data.mouldConditionLevel !== undefined && {
-            mouldConditionLevel: data.mouldConditionLevel,
-          }),
-          ...(data.visibleGrowthObserved !== undefined && {
-            visibleGrowthObserved: data.visibleGrowthObserved,
-          }),
-          ...(data.affectedAreaM2 !== undefined && {
-            affectedAreaM2: data.affectedAreaM2,
-          }),
-          ...(data.moistureSourceIdentified !== undefined && {
-            moistureSourceIdentified: data.moistureSourceIdentified,
-          }),
-          ...(data.rootCauseAddressed !== undefined && {
-            rootCauseAddressed: data.rootCauseAddressed,
-          }),
-          ...(data.pressureDifferentialPa !== undefined && {
-            pressureDifferentialPa: data.pressureDifferentialPa,
-          }),
-          ...(data.airChangesPerHour !== undefined && {
-            airChangesPerHour: data.airChangesPerHour,
-          }),
-          ...(data.containmentBarrierMaterial !== undefined && {
-            containmentBarrierMaterial: data.containmentBarrierMaterial,
-          }),
-          ...(data.negativePressureMachineModel !== undefined && {
-            negativePressureMachineModel: data.negativePressureMachineModel,
-          }),
-          ...(data.airSamplingRequired !== undefined && {
-            airSamplingRequired: data.airSamplingRequired,
-          }),
-          ...(data.samplingDate !== undefined && {
-            samplingDate: data.samplingDate
-              ? new Date(data.samplingDate)
-              : null,
-          }),
-          ...(data.labName !== undefined && { labName: data.labName }),
-          ...(data.labReportReference !== undefined && {
-            labReportReference: data.labReportReference,
-          }),
-          ...(data.sporeType !== undefined && { sporeType: data.sporeType }),
-          ...(data.sporeCountPreRemediation !== undefined && {
-            sporeCountPreRemediation: data.sporeCountPreRemediation,
-          }),
-          ...(data.outdoorBaselineCount !== undefined && {
-            outdoorBaselineCount: data.outdoorBaselineCount,
-          }),
-          ...(data.sporeCountPostRemediation !== undefined && {
-            sporeCountPostRemediation: data.sporeCountPostRemediation,
-          }),
-          ...(data.clearanceCriterion !== undefined && {
-            clearanceCriterion: data.clearanceCriterion,
-          }),
-          ...(data.iepAssessmentRequired !== undefined && {
-            iepAssessmentRequired: data.iepAssessmentRequired,
-          }),
-          ...gates,
-        },
+    // RA-7687: the third-party report confirm route also writes the lab
+    // columns of this row. A Save built from a form loaded before a confirm
+    // would write its old values back over the confirmed ones, silently. The
+    // Save therefore names the row version it loaded (expectedUpdatedAt) and
+    // the write is a compare-and-set on it: a row that moved since, or a Save
+    // that names no version for an existing row, is refused with 409 and
+    // nothing is written. Postgres keeps microseconds, JS milliseconds, so the
+    // version matches within its own millisecond.
+    const createData = {
+      inspectionId: id,
+      mouldConditionLevel: data.mouldConditionLevel ?? undefined,
+      visibleGrowthObserved: data.visibleGrowthObserved ?? false,
+      affectedAreaM2: data.affectedAreaM2 ?? undefined,
+      moistureSourceIdentified: data.moistureSourceIdentified ?? false,
+      rootCauseAddressed: data.rootCauseAddressed ?? false,
+      pressureDifferentialPa: data.pressureDifferentialPa ?? undefined,
+      airChangesPerHour: data.airChangesPerHour ?? undefined,
+      containmentBarrierMaterial: data.containmentBarrierMaterial ?? undefined,
+      negativePressureMachineModel:
+        data.negativePressureMachineModel ?? undefined,
+      airSamplingRequired: data.airSamplingRequired ?? false,
+      samplingDate: data.samplingDate ? new Date(data.samplingDate) : undefined,
+      labName: data.labName ?? undefined,
+      labReportReference: data.labReportReference ?? undefined,
+      sporeType: data.sporeType ?? undefined,
+      sporeCountPreRemediation: data.sporeCountPreRemediation ?? undefined,
+      outdoorBaselineCount: data.outdoorBaselineCount ?? undefined,
+      sporeCountPostRemediation: data.sporeCountPostRemediation ?? undefined,
+      clearanceCriterion: data.clearanceCriterion ?? undefined,
+      iepAssessmentRequired: data.iepAssessmentRequired ?? false,
+      ...gates,
+    };
+    const updateData = {
+      ...(data.mouldConditionLevel !== undefined && {
+        mouldConditionLevel: data.mouldConditionLevel,
       }),
-      prisma.inspection.update({
-        where: tenancy.data.inspectionWhere,
-        data: { claimType: "MOULD" },
+      ...(data.visibleGrowthObserved !== undefined && {
+        visibleGrowthObserved: data.visibleGrowthObserved,
       }),
-    ]);
+      ...(data.affectedAreaM2 !== undefined && {
+        affectedAreaM2: data.affectedAreaM2,
+      }),
+      ...(data.moistureSourceIdentified !== undefined && {
+        moistureSourceIdentified: data.moistureSourceIdentified,
+      }),
+      ...(data.rootCauseAddressed !== undefined && {
+        rootCauseAddressed: data.rootCauseAddressed,
+      }),
+      ...(data.pressureDifferentialPa !== undefined && {
+        pressureDifferentialPa: data.pressureDifferentialPa,
+      }),
+      ...(data.airChangesPerHour !== undefined && {
+        airChangesPerHour: data.airChangesPerHour,
+      }),
+      ...(data.containmentBarrierMaterial !== undefined && {
+        containmentBarrierMaterial: data.containmentBarrierMaterial,
+      }),
+      ...(data.negativePressureMachineModel !== undefined && {
+        negativePressureMachineModel: data.negativePressureMachineModel,
+      }),
+      ...(data.airSamplingRequired !== undefined && {
+        airSamplingRequired: data.airSamplingRequired,
+      }),
+      ...(data.samplingDate !== undefined && {
+        samplingDate: data.samplingDate ? new Date(data.samplingDate) : null,
+      }),
+      ...(data.labName !== undefined && { labName: data.labName }),
+      ...(data.labReportReference !== undefined && {
+        labReportReference: data.labReportReference,
+      }),
+      ...(data.sporeType !== undefined && { sporeType: data.sporeType }),
+      ...(data.sporeCountPreRemediation !== undefined && {
+        sporeCountPreRemediation: data.sporeCountPreRemediation,
+      }),
+      ...(data.outdoorBaselineCount !== undefined && {
+        outdoorBaselineCount: data.outdoorBaselineCount,
+      }),
+      ...(data.sporeCountPostRemediation !== undefined && {
+        sporeCountPostRemediation: data.sporeCountPostRemediation,
+      }),
+      ...(data.clearanceCriterion !== undefined && {
+        clearanceCriterion: data.clearanceCriterion,
+      }),
+      ...(data.iepAssessmentRequired !== undefined && {
+        iepAssessmentRequired: data.iepAssessmentRequired,
+      }),
+      ...gates,
+    };
+
+    let record;
+    try {
+      record = await prisma.$transaction(async (tx) => {
+        const existing = await tx.mouldRemediationAssessment.findUnique({
+          where: { inspectionId: id },
+          select: { updatedAt: true },
+        });
+        let saved;
+        if (existing) {
+          const expected = data.expectedUpdatedAt
+            ? new Date(data.expectedUpdatedAt)
+            : null;
+          if (!expected) throw new StaleAssessmentError();
+          const claimed = await tx.mouldRemediationAssessment.updateMany({
+            where: {
+              inspectionId: id,
+              updatedAt: {
+                gte: expected,
+                lt: new Date(expected.getTime() + 1),
+              },
+            },
+            data: updateData,
+          });
+          if (claimed.count !== 1) throw new StaleAssessmentError();
+          saved = await tx.mouldRemediationAssessment.findUniqueOrThrow({
+            where: { inspectionId: id },
+          });
+        } else {
+          saved = await tx.mouldRemediationAssessment.create({
+            data: createData,
+          });
+        }
+        await tx.inspection.update({
+          where: tenancy.data.inspectionWhere,
+          data: { claimType: "MOULD" },
+        });
+        return saved;
+      });
+    } catch (err) {
+      if (err instanceof StaleAssessmentError) {
+        return NextResponse.json(
+          {
+            error:
+              "This assessment changed since you opened it, for example a confirmed report value. Reload it and check before saving.",
+            code: "STALE_ASSESSMENT",
+          },
+          { status: 409 },
+        );
+      }
+      throw err;
+    }
 
     return NextResponse.json(record);
   } catch (err) {
