@@ -62,7 +62,7 @@ MANDATORY REPORTING REQUIREMENTS (aligned to IICRC S500:2021):
    - Clearly distinguish pre-existing conditions from event-related damage`;
 
 /** System prompt for scope of works generation (RA-430 compliant). */
-export const SCOPE_OF_WORKS_SYSTEM_PROMPT = `You are an IICRC S500:2021 certified restoration estimator generating
+export const SCOPE_OF_WORKS_SYSTEM_PROMPT = `You are an experienced restoration estimator who cites IICRC S500:2021 by section number, generating
 scope of works documents for Australian insurance claims.
 Produce itemised, line-by-line restoration scopes. Each item must include:
 description, unit, quantity, and reference to the applicable standard.

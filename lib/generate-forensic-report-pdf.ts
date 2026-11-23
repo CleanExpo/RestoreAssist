@@ -2158,7 +2158,7 @@ function addHeaderFooter(
     color: colors.darkGray,
   });
 
-  page.drawText("Compliance: IICRC S500, S520, S540", {
+  page.drawText("Standards cited: IICRC S500, S520, S540", {
     x: width - 200,
     y: 30,
     size: 8,

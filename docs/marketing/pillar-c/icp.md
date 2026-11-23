@@ -63,7 +63,7 @@ There is no procurement department. There is no IT department. The owner signs u
 - **Facebook groups** — "Australian Water Damage Restoration", "IICRC Australia", "Restoration Industry Professionals AU". Heavy organic activity, allergic to anything that smells like an ad.
 - **ServiceM8 and Ascora user communities** — Facebook + forum. Operators frustrated with the lack of restoration-specific report templates.
 - **YouTube** — search behaviour is verb-led: "how to write a water damage report Australia", "IICRC S500 scope of works template", "Xero water damage invoicing".
-- **Google Search long-tail** — "water damage report template Australia", "IICRC compliant inspection report", "ABN setup restoration business", "psychrometric chart calculator".
+- **Google Search long-tail** — "water damage report template Australia", "IICRC S500 inspection report", "ABN setup restoration business", "psychrometric chart calculator".
 - **LinkedIn** — restoration owners do use LinkedIn, but mostly to follow insurers and IICRC instructors, not each other. The founder voice plays well here.
 - **Trade nights** — Pickering's, Restorx, Steamatic, and equipment supplier (e.g. Phoenix, Dri-Eaz) trade events.
 

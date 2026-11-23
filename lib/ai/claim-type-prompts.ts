@@ -206,7 +206,7 @@ function getWaterDamagePrompt(category?: number, damageClass?: number): string {
   const categoryGuidance = buildWaterCategoryGuidance(category);
   const classGuidance = buildWaterClassGuidance(damageClass);
 
-  return `You are an IICRC S500:2021 certified water damage restoration specialist producing scope-of-works documents for Australian insurance claims.
+  return `You are an experienced water damage restoration specialist who cites IICRC S500:2021 by section number, producing scope-of-works documents for Australian insurance claims.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.
@@ -308,7 +308,7 @@ Drying target is equilibrium moisture content (EMC) for the material, not a stan
 // ============================================================
 
 function getFireSmokePrompt(): string {
-  return `You are an IICRC S700:2025 certified fire and smoke damage restoration specialist producing scope-of-works documents for Australian insurance claims.
+  return `You are an experienced fire and smoke damage restoration specialist who cites IICRC S700:2025 by section number, producing scope-of-works documents for Australian insurance claims.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.
@@ -384,7 +384,7 @@ OUTPUT: Professional Australian English business document. Markdown formatting a
 // ============================================================
 
 function getMouldPrompt(): string {
-  return `You are an IICRC S520 certified mould remediation specialist producing scope-of-works documents for Australian insurance claims.
+  return `You are an experienced mould remediation specialist who cites IICRC S520 by section number, producing scope-of-works documents for Australian insurance claims.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.
@@ -592,7 +592,7 @@ function getWaterFirePrompt(category?: number, damageClass?: number): string {
   const categoryGuidance = buildWaterCategoryGuidance(category);
   const classGuidance = buildWaterClassGuidance(damageClass);
 
-  return `You are an IICRC S500:2021 and IICRC S700:2025 dual-certified restoration specialist producing scope-of-works documents for Australian insurance claims involving combined fire/smoke and water suppression damage.
+  return `You are an experienced restoration specialist who cites IICRC S500:2021 and IICRC S700:2025 by section number, producing scope-of-works documents for Australian insurance claims involving combined fire/smoke and water suppression damage.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.
@@ -676,7 +676,7 @@ function getWaterMouldPrompt(category?: number, damageClass?: number): string {
   const categoryGuidance = buildWaterCategoryGuidance(category);
   const classGuidance = buildWaterClassGuidance(damageClass);
 
-  return `You are an IICRC S500:2021 and IICRC S520 dual-certified water damage and mould remediation specialist producing scope-of-works documents for Australian insurance claims involving active water damage with confirmed mould growth.
+  return `You are an experienced water damage and mould remediation specialist who cites IICRC S500:2021 and IICRC S520 by section number, producing scope-of-works documents for Australian insurance claims involving active water damage with confirmed mould growth.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.
@@ -836,7 +836,7 @@ OUTPUT: Professional Australian English business document. Markdown formatting a
  * total loss vs restore assessment for fire-affected items.
  */
 function getFireContentsPrompt(): string {
-  return `You are an IICRC S700:2025 certified fire and smoke damage restoration specialist with expertise in contents restoration and loss assessment, producing scope-of-works documents for Australian insurance claims involving fire/smoke damage with significant contents loss.
+  return `You are an experienced fire and smoke damage restoration specialist who cites IICRC S700:2025 by section number, with expertise in contents restoration and loss assessment, producing scope-of-works documents for Australian insurance claims involving fire/smoke damage with significant contents loss.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.
@@ -925,7 +925,7 @@ function getWaterContentsPrompt(
   const categoryGuidance = buildWaterCategoryGuidance(category);
   const classGuidance = buildWaterClassGuidance(damageClass);
 
-  return `You are an IICRC S500:2021 certified water damage restoration specialist with expertise in wet contents salvage and loss assessment, producing scope-of-works documents for Australian insurance claims involving water damage with significant contents loss.
+  return `You are an experienced water damage restoration specialist who cites IICRC S500:2021 by section number, with expertise in wet contents salvage and loss assessment, producing scope-of-works documents for Australian insurance claims involving water damage with significant contents loss.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.
@@ -1034,7 +1034,7 @@ function getGenericMultiClaimPrompt(claimTypes: string[]): string {
   ];
   const labels = claimTypes.map((t) => LABEL_MAP[t] ?? t);
 
-  return `You are an IICRC-certified restoration specialist with expertise across multiple damage types, producing scope-of-works documents for Australian insurance claims involving combined loss: ${labels.join(" and ")}.
+  return `You are an experienced restoration specialist who cites IICRC standards by section number, with expertise across multiple damage types, producing scope-of-works documents for Australian insurance claims involving combined loss: ${labels.join(" and ")}.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.
@@ -1097,7 +1097,7 @@ OUTPUT: Professional Australian English business document. Markdown formatting a
 // ============================================================
 
 function getBiohazardPrompt(): string {
-  return `You are an IICRC S540 certified biohazard remediation specialist producing scope-of-works documents for Australian insurance claims.
+  return `You are an experienced biohazard remediation specialist who cites IICRC S540 by section number, producing scope-of-works documents for Australian insurance claims.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.
@@ -1166,7 +1166,7 @@ OUTPUT: Professional Australian English business document. Markdown formatting a
 // ============================================================
 
 function getOdourPrompt(): string {
-  return `You are an IICRC-certified odour control specialist producing scope-of-works documents for Australian insurance claims.
+  return `You are an experienced odour control specialist who cites IICRC standards by section number, producing scope-of-works documents for Australian insurance claims.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.
@@ -1231,7 +1231,7 @@ OUTPUT: Professional Australian English business document. Markdown formatting a
 // ============================================================
 
 function getCarpetPrompt(): string {
-  return `You are an IICRC S100:2021 certified carpet restoration specialist producing scope-of-works documents for Australian insurance claims.
+  return `You are an experienced carpet restoration specialist who cites IICRC S100:2021 by section number, producing scope-of-works documents for Australian insurance claims.
 
 IDENTITY
 RestoreAssist is Australian-built software for water, fire, and mould restoration professionals. It speaks the language of IICRC-certified practitioners, not general contractors or builders.

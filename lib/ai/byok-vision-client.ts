@@ -126,7 +126,7 @@ export interface S500VisionResult {
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-const S500_SYSTEM_PROMPT = `You are an IICRC-certified water damage restoration expert analysing site photographs for an Australian insurance inspection. Apply IICRC S500:2021 standards to every analysis.
+const S500_SYSTEM_PROMPT = `You are an experienced water damage restoration expert who cites IICRC standards by section number, analysing site photographs for an Australian insurance inspection. Apply IICRC S500:2021 standards to every analysis.
 
 Respond ONLY with a valid JSON object matching this exact schema:
 {
