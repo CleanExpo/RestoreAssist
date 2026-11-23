@@ -54,6 +54,8 @@ async function selectTheme(page: Page, id: string, label: string) {
     await button.click();
     await expect(page.locator("#visual-report-content")).toHaveAttribute("data-theme", id, { timeout: 1500 });
   }).toPass({ timeout: 45_000 });
+  // Colours ease between themes over 200ms; every reader (axe contrast, print colours) must see the settled page.
+  await settled(page);
 }
 
 async function axeFindings(page: Page): Promise<Finding[]> {
@@ -81,8 +83,9 @@ async function overflowFindings(page: Page) {
 }
 
 // Colour changes ease in over 200ms (global rule), so a colour read right after a theme or media change
-// can be mid-transition. Wait until nothing on the page is animating.
-const settled = (page: Page) => page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
+// can be mid-transition. Wait until no colour transition is still running. Only transitions: the page may
+// carry a looping animation that never finishes, and waiting on that would hang every theme change.
+const settled = (page: Page) => page.waitForFunction(() => document.getAnimations().filter((a) => a instanceof CSSTransition).every((a) => a.playState !== "running"));
 
 // Under reduced motion the global rule shortens every animation to 0.01ms. Only motion a viewer could see
 // (longer than 50ms) counts as running.
