@@ -39,6 +39,7 @@ const ALLOWLIST: Record<string, string> = {
   "/dashboard/invoices/recurring": "RA-7959",
   "/dev/report-experience": "RA-8106: development-only synthetic preview; notFound() outside development",
   "/dev/report-experience/[reportId]": "RA-8104: development-only view of one authorised report; notFound() outside development",
+  "/dev/report-experience/visuals": "RA-8107: synthetic report-visuals demonstration; notFound() unless the test-helper switch is on",
   "/dashboard/admin/live-teacher": PRE_EXISTING,
   "/dashboard/assistant": PRE_EXISTING,
   "/dashboard/billing": PRE_EXISTING,
