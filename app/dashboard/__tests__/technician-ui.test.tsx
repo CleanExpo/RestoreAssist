@@ -263,7 +263,9 @@ describe("Inspections list for a technician", () => {
     render(<InspectionsPage />);
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const urls = fetchMock.mock.calls.map((c) => String(c[0]));
-    expect(urls).toContain("/api/inspections");
+    // RA-8092: every page is asked for, with no assignee filter.
+    expect(urls).toContain("/api/inspections?page=1&limit=100");
+    expect(urls.some((u) => /[?&]assignee=/.test(u))).toBe(false);
   });
 
   it("does not fetch the unscoped list while the session is still loading", async () => {
@@ -273,7 +275,9 @@ describe("Inspections list for a technician", () => {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 20));
     });
-    expect(fetchMock.mock.calls.map((c) => String(c[0]))).not.toContain("/api/inspections");
+    expect(
+      fetchMock.mock.calls.some((c) => String(c[0]).startsWith("/api/inspections")),
+    ).toBe(false);
   });
 });
 

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useFetch } from "@/lib/hooks/useFetch";
+import { useAllInspections } from "@/lib/hooks/useAllInspections";
 import { useMobilePullRefreshHandler } from "@/components/mobile/MobilePullToRefresh";
 import { DashboardListErrorBanner } from "@/components/dashboard/DashboardListErrorBanner";
 import type { ParsedApiError } from "@/lib/client/parse-api-error";
@@ -157,6 +157,8 @@ export default function InspectionsPage() {
         : "/dashboard/inspections",
     );
   };
+  // RA-8092: the route is paged (20 by default), and search, counts and
+  // Select all run over what is loaded, so every page is loaded.
   // D-028: a technician (role USER) works their own jobs, so ask for those
   // (assigned to them, plus unassigned). Wait for the session: fetching the
   // unscoped list first would flash every job in the workspace.
@@ -172,7 +174,7 @@ export default function InspectionsPage() {
     error: fetchError,
     refetch: refetchInspections,
     refresh: refreshInspections,
-  } = useFetch<{ inspections: Inspection[] }>(inspectionsUrl);
+  } = useAllInspections<Inspection>(inspectionsUrl);
   const loading = fetchLoading || sessionStatus === "loading";
   useMobilePullRefreshHandler(async () =>
     (await refreshInspections())
@@ -198,7 +200,7 @@ export default function InspectionsPage() {
     id?: string;
   } | null>(null);
 
-  // Data fetching handled by useFetch above — auto-fetches on mount + abort on unmount
+  // Data fetching handled by useAllInspections above: every page, aborted on unmount
 
   const filtered = useMemo(() => {
     const fromDate = dateFrom ? new Date(dateFrom) : null;

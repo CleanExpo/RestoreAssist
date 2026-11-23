@@ -32,8 +32,8 @@ const job = (id: string, inspectionNumber: string) => ({
 
 const fetched = vi.hoisted(() => ({ inspections: [] as unknown[] }));
 
-vi.mock("@/lib/hooks/useFetch", () => ({
-  useFetch: () => ({
+vi.mock("@/lib/hooks/useAllInspections", () => ({
+  useAllInspections: () => ({
     data: fetched,
     loading: false,
     error: null,

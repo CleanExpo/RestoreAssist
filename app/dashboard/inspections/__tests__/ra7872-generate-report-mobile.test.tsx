@@ -8,8 +8,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 
 const fetched = vi.hoisted(() => ({ inspections: [] as unknown[] }));
 
-vi.mock("@/lib/hooks/useFetch", () => ({
-  useFetch: () => ({
+vi.mock("@/lib/hooks/useAllInspections", () => ({
+  useAllInspections: () => ({
     data: fetched,
     loading: false,
     error: null,

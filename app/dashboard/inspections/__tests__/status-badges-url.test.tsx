@@ -12,8 +12,8 @@ const h = vi.hoisted(() => ({
   replace: vi.fn(),
 }));
 
-vi.mock("@/lib/hooks/useFetch", () => ({
-  useFetch: (url: string | null) => {
+vi.mock("@/lib/hooks/useAllInspections", () => ({
+  useAllInspections: (url: string | null) => {
     h.urls.push(url);
     return {
       data: { inspections: h.rows },
