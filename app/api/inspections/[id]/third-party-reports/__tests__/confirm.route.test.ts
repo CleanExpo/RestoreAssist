@@ -62,7 +62,7 @@ beforeEach(() => {
     data: { inspectionManyWhere: { id: "insp_1" } },
   });
   m.findUnique.mockResolvedValue({ labName: "Old Lab" });
-  m.upsert.mockResolvedValue({ id: "mra_1", updatedAt: new Date("2026-11-23T01:00:00.000Z") });
+  m.upsert.mockResolvedValue({ id: "mra_1", labName: "Acme Analytical", labReportReference: null, samplingDate: new Date("2026-09-12T00:00:00.000Z"), sporeType: null, sporeCountPreRemediation: 5200, outdoorBaselineCount: null, sporeCountPostRemediation: null });
   m.auditCreate.mockResolvedValue({});
   m.writeScoped.mockImplementation(async (_where, _data, work) =>
     work({
@@ -75,7 +75,7 @@ beforeEach(() => {
 describe("POST third-party-reports/confirm", () => {
   it("writes an accepted fact from the signed proposal and audits the SHA-256 and page", async () => {
     const res = await post([accept(0)]);
-    expect(await res.json()).toEqual({ written: 1, dismissed: 0, applied: { labName: "Acme Analytical" }, updatedAt: "2026-11-23T01:00:00.000Z" });
+    expect(await res.json()).toEqual({ written: 1, dismissed: 0, applied: { labName: "Acme Analytical" }, lab: { labName: "Acme Analytical", labReportReference: null, samplingDate: "2026-09-12T00:00:00.000Z", sporeType: null, sporeCountPreRemediation: 5200, outdoorBaselineCount: null, sporeCountPostRemediation: null } });
     expect(m.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ update: { labName: "Acme Analytical" } }),
     );

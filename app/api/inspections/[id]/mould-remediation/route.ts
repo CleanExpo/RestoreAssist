@@ -25,6 +25,7 @@ import {
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import { LAB_FIELDS } from "@/lib/third-party-report/schema";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -51,9 +52,20 @@ const mouldSchema = z.object({
   sporeCountPostRemediation: z.number().nonnegative().nullable().optional(),
   clearanceCriterion: z.string().nullable().optional(),
   iepAssessmentRequired: z.boolean().optional(),
-  // RA-7687: the row version (updatedAt) the form was loaded from; null when
-  // the form loaded no record. See the compare-and-set in POST.
-  expectedUpdatedAt: z.string().datetime().nullable().optional(),
+  // RA-7687: the lab values the form loaded (null for a value it did not
+  // have). See the compare-and-set in POST.
+  expectedLab: z
+    .object({
+      labName: z.string().nullable(),
+      labReportReference: z.string().nullable(),
+      samplingDate: z.string().datetime().nullable(),
+      sporeType: z.string().nullable(),
+      sporeCountPreRemediation: z.number().nullable(),
+      outdoorBaselineCount: z.number().nullable(),
+      sporeCountPostRemediation: z.number().nullable(),
+    })
+    .strict()
+    .optional(),
 });
 
 /** Raised inside the POST transaction when the row moved since the form loaded. */
@@ -148,13 +160,14 @@ export async function POST(
     const gates = computeGates(data);
 
     // RA-7687: the third-party report confirm route also writes the lab
-    // columns of this row. A Save built from a form loaded before a confirm
-    // would write its old values back over the confirmed ones, silently. The
-    // Save therefore names the row version it loaded (expectedUpdatedAt) and
-    // the write is a compare-and-set on it: a row that moved since, or a Save
-    // that names no version for an existing row, is refused with 409 and
-    // nothing is written. Postgres keeps microseconds, JS milliseconds, so the
-    // version matches within its own millisecond.
+    // columns of this row (LAB_FIELDS, the one list both routes use). A Save
+    // built from a form loaded before a confirm would write its old values back
+    // over the confirmed ones, silently. The Save therefore names the lab
+    // values its form loaded (expectedLab) and the write only matches a row
+    // whose stored lab values still equal them, checked inside the same UPDATE
+    // (null-safe). The proof is the values, never a timestamp, because two
+    // writes can share one. A row that differs, or a Save that names no loaded
+    // values for an existing row, is refused with 409 and nothing is written.
     const createData = {
       inspectionId: id,
       mouldConditionLevel: data.mouldConditionLevel ?? undefined,
@@ -241,22 +254,22 @@ export async function POST(
       record = await prisma.$transaction(async (tx) => {
         const existing = await tx.mouldRemediationAssessment.findUnique({
           where: { inspectionId: id },
-          select: { updatedAt: true },
+          select: { id: true },
         });
         let saved;
         if (existing) {
-          const expected = data.expectedUpdatedAt
-            ? new Date(data.expectedUpdatedAt)
-            : null;
-          if (!expected) throw new StaleAssessmentError();
+          const loaded = data.expectedLab;
+          if (!loaded) throw new StaleAssessmentError();
+          const unchanged: Record<string, string | number | Date | null> = {};
+          for (const field of LAB_FIELDS) {
+            const value = loaded[field];
+            unchanged[field] =
+              field === "samplingDate" && value !== null
+                ? new Date(value)
+                : value;
+          }
           const claimed = await tx.mouldRemediationAssessment.updateMany({
-            where: {
-              inspectionId: id,
-              updatedAt: {
-                gte: expected,
-                lt: new Date(expected.getTime() + 1),
-              },
-            },
+            where: { inspectionId: id, ...unchanged },
             data: updateData,
           });
           if (claimed.count !== 1) throw new StaleAssessmentError();

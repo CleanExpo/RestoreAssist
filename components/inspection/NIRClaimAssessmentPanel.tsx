@@ -25,6 +25,7 @@ import {
 } from "react";
 import toast from "react-hot-toast";
 import ThirdPartyReportReader from "@/components/third-party-report/ThirdPartyReportReader";
+import { LAB_FIELDS } from "@/lib/third-party-report/schema";
 import { readIfCurrent } from "@/lib/nir-draft-save";
 import {
   CONDITION_GRADES,
@@ -119,6 +120,17 @@ function waterChoice(
 }
 
 // ─── Claim type metadata ──────────────────────────────────────────────────────
+
+/** The lab fields the third-party report confirm can write (RA-7687, the one
+ *  list LAB_FIELDS), as the mould-remediation Save compares them: a value the
+ *  record lacks is null. */
+function labValuesOf(
+  record: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of LAB_FIELDS) out[key] = record?.[key] ?? null;
+  return out;
+}
 
 const CLAIM_TYPES: {
   type: NIRClaimType;
@@ -1660,11 +1672,11 @@ const NIRClaimAssessmentPanel = forwardRef<
   complianceDataRef.current = complianceData;
   const [asbestosWarning, setAsbestosWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  // RA-7687: the mould row version this form was loaded from or last saved,
-  // sent with a Save so a row changed since (a confirmed report value) is
-  // refused by the server instead of overwritten. And whether a report confirm
-  // is in flight, during which the Save is held.
-  const assessmentVersionRef = useRef<string | null>(null);
+  // RA-7687: the lab values this form loaded or last saved, sent with a Save
+  // so the server refuses it if a report confirm changed any of them since,
+  // instead of overwriting. And whether a report confirm is in flight, during
+  // which the Save is held.
+  const loadedLabRef = useRef<Record<string, unknown>>(labValuesOf(null));
   const reportConfirmInFlightRef = useRef(false);
   const [_saving, setSaving] = useState(false);
   const [_savingCompliance, setSavingCompliance] = useState(false);
@@ -1714,8 +1726,7 @@ const NIRClaimAssessmentPanel = forwardRef<
         if (!res) return;
         if (res.ok) {
           const record = res.record as Record<string, unknown> | null;
-          assessmentVersionRef.current =
-            typeof record?.updatedAt === "string" ? record.updatedAt : null;
+          loadedLabRef.current = labValuesOf(record);
           if (record && type !== "CONTENTS") {
             formDataRef.current = record;
             setFormData(record);
@@ -1736,7 +1747,7 @@ const NIRClaimAssessmentPanel = forwardRef<
           assessmentLoadedRef.current = true;
         } else if (res.status === 404) {
           // No record yet; start from the Quick Fill seed, if any
-          assessmentVersionRef.current = null;
+          loadedLabRef.current = labValuesOf(null);
           formDataRef.current = { ...(assessmentSeedRef.current ?? {}) };
           setFormData({ ...(assessmentSeedRef.current ?? {}) });
           setGates({});
@@ -1877,7 +1888,7 @@ const NIRClaimAssessmentPanel = forwardRef<
             type === "MOULD"
               ? {
                   ...formDataRef.current,
-                  expectedUpdatedAt: assessmentVersionRef.current,
+                  expectedLab: loadedLabRef.current,
                 }
               : formDataRef.current,
           ),
@@ -1885,10 +1896,7 @@ const NIRClaimAssessmentPanel = forwardRef<
       );
       if (res.ok) {
         const record = await res.json();
-        if (type === "MOULD") {
-          assessmentVersionRef.current =
-            typeof record.updatedAt === "string" ? record.updatedAt : null;
-        }
+        if (type === "MOULD") loadedLabRef.current = labValuesOf(record);
         const g: Record<string, boolean> = {};
         for (const [k, v] of Object.entries(record)) {
           if (k.startsWith("gate") && typeof v === "boolean") g[k] = v;
@@ -2211,8 +2219,8 @@ const NIRClaimAssessmentPanel = forwardRef<
                       onBusyChange={(busy) => {
                         reportConfirmInFlightRef.current = busy;
                       }}
-                      onApplied={(applied, updatedAt) => {
-                        if (updatedAt) assessmentVersionRef.current = updatedAt;
+                      onApplied={(applied, storedLab) => {
+                        if (storedLab) loadedLabRef.current = labValuesOf(storedLab);
                         for (const [field, value] of Object.entries(applied)) {
                           handleFieldChange(
                             field,

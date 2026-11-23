@@ -85,11 +85,11 @@ export default function ThirdPartyReportReader({
 }: {
   inspectionId: string;
   /** Called after facts are saved, with exactly the values written and the
-   *  new row version, so the host form shows them instead of a stale copy it
-   *  could save back, and its next Save names the version it now holds. */
+   *  lab values now stored, so the host form shows them instead of a stale
+   *  copy it could save back, and its next Save names the values it holds. */
   onApplied?: (
     applied: Partial<Record<LabField, string | number>>,
-    updatedAt: string | null,
+    storedLab: Record<string, string | number | null> | null,
   ) => void;
   /** True from the moment a confirm is sent until it has answered, so the host
    *  can hold its own Save for that time. */
@@ -192,12 +192,12 @@ export default function ThirdPartyReportReader({
         written: number;
         dismissed: number;
         applied: Partial<Record<LabField, string | number>>;
-        updatedAt?: string | null;
+        lab?: Record<string, string | number | null> | null;
       };
       setSummary(`${json.written} fact(s) saved to the job. ${json.dismissed} dismissed.`);
       setPhase("done");
       // The values the server actually wrote, typed as stored.
-      onApplied?.(json.applied, json.updatedAt ?? null);
+      onApplied?.(json.applied, json.lab ?? null);
     } catch {
       setError(readErrorMessage(0));
       setPhase("review");

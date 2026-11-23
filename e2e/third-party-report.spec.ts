@@ -130,7 +130,7 @@ test("accepting and editing writes exactly those facts, and no condition or clea
     dismissed: 1,
     applied: { labName: "Acme Analytical", sporeCountPreRemediation: 5200 },
   });
-  expect(typeof confirmed.updatedAt).toBe("string");
+  expect(confirmed.lab.labName).toBe("Acme Analytical");
 
   const saved = await assessment(request, id);
   expect(saved.labName).toBe("Acme Analytical");
@@ -151,9 +151,9 @@ test("a Save built before a confirm cannot write the old lab value back", async 
   const id = await createInspection(request);
   const route = `/api/inspections/${id}/mould-remediation`;
   // The form loads a record whose lab name is "Old Lab".
-  const first = await request.post(route, { data: { labName: "Old Lab", expectedUpdatedAt: null } });
+  const EMPTY_LAB = { labName: null, labReportReference: null, samplingDate: null, sporeType: null, sporeCountPreRemediation: null, outdoorBaselineCount: null, sporeCountPostRemediation: null };
+  const first = await request.post(route, { data: { labName: "Old Lab", expectedLab: EMPTY_LAB } });
   expect(first.status()).toBe(200);
-  const loaded = await first.json();
 
   // A report confirm then sets "Acme Analytical".
   const token = await proposalFor(request, id);
@@ -162,8 +162,8 @@ test("a Save built before a confirm cannot write the old lab value back", async 
   });
   expect(confirm.status()).toBe(200);
 
-  // The older Save lands last, carrying the version it loaded.
-  const stale = await request.post(route, { data: { labName: "Old Lab", expectedUpdatedAt: loaded.updatedAt } });
+  // The older Save lands last, carrying the lab values it loaded.
+  const stale = await request.post(route, { data: { labName: "Old Lab", expectedLab: { ...EMPTY_LAB, labName: "Old Lab" } } });
   expect(stale.status()).toBe(409);
   expect((await assessment(request, id)).labName).toBe("Acme Analytical");
 });

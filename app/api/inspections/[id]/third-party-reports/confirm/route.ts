@@ -26,6 +26,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import {
   confirmBodySchema,
   LAB_FIELD_LABELS,
+  LAB_FIELDS,
   normaliseFactValue,
   type LabField,
 } from "@/lib/third-party-report/schema";
@@ -123,7 +124,9 @@ export async function POST(
         continue;
       }
       const value =
-        d.action === "edit" ? normaliseFactValue(fact.field, d.value ?? "") : fact.value;
+        d.action === "edit"
+          ? normaliseFactValue(fact.field, d.value ?? "")
+          : fact.value;
       if (value === null) {
         return apiError(request, {
           code: "VALIDATION",
@@ -179,10 +182,20 @@ export async function POST(
           where: { inspectionId },
           create: { inspectionId, ...data },
           update: data,
-          select: { id: true, updatedAt: true },
+          select: {
+            id: true,
+            labName: true,
+            labReportReference: true,
+            samplingDate: true,
+            sporeType: true,
+            sporeCountPreRemediation: true,
+            outdoorBaselineCount: true,
+            sporeCountPostRemediation: true,
+          },
         });
         const previous: Record<string, unknown> = {};
-        for (const field of accepted.keys()) previous[field] = before?.[field] ?? null;
+        for (const field of accepted.keys())
+          previous[field] = before?.[field] ?? null;
         await tx.auditLog.create({
           data: {
             inspectionId,
@@ -221,14 +234,20 @@ export async function POST(
         status: 404,
       });
     }
-    // The new row version, so the open form's next Save names it (the
-    // mould-remediation compare-and-set) instead of the one it loaded.
+    // The lab values now stored, so the open form's next Save names them as
+    // the values it holds (the mould-remediation compare-and-set) instead of
+    // the ones it loaded.
+    const lab: Record<string, string | number | null> = {};
+    for (const field of LAB_FIELDS) {
+      const stored = result[field];
+      lab[field] =
+        stored instanceof Date ? stored.toISOString() : (stored ?? null);
+    }
     return NextResponse.json({
       written: accepted.size,
       dismissed,
       applied,
-      updatedAt:
-        result.updatedAt instanceof Date ? result.updatedAt.toISOString() : null,
+      lab,
     });
   } catch (err) {
     return fromException(request, err, {

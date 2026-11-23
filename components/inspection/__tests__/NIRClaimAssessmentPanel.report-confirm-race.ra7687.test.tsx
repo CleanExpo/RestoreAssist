@@ -19,7 +19,7 @@ vi.mock("react-hot-toast", () => ({
 
 const reader = vi.hoisted(() => ({
   props: null as null | {
-    onApplied: (a: Record<string, string | number>, updatedAt: string | null) => void;
+    onApplied: (a: Record<string, string | number>, storedLab: Record<string, string | number | null> | null) => void;
     onBusyChange: (busy: boolean) => void;
   },
 }));
@@ -37,14 +37,23 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-const LOADED_AT = "2026-11-23T01:00:00.000Z";
-const SAVED_AT = "2026-11-23T01:05:00.000Z";
+const EMPTY_LAB = {
+  labName: null,
+  labReportReference: null,
+  samplingDate: null,
+  sporeType: null,
+  sporeCountPreRemediation: null,
+  outdoorBaselineCount: null,
+  sporeCountPostRemediation: null,
+};
+const LOADED_LAB = { ...EMPTY_LAB, labName: "Old Lab" };
+const SAVED_LAB = { ...EMPTY_LAB, labName: "Edited Lab" };
 
 function stubFetch() {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-    if (init?.method === "POST") return jsonResponse({ id: "m1", updatedAt: SAVED_AT });
+    if (init?.method === "POST") return jsonResponse({ id: "m1", ...SAVED_LAB });
     if (String(url).endsWith("/mould-remediation"))
-      return jsonResponse({ id: "m1", labName: "Old Lab", updatedAt: LOADED_AT });
+      return jsonResponse({ id: "m1", ...LOADED_LAB, mouldConditionLevel: null });
     return jsonResponse({}, 404);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -68,20 +77,20 @@ async function mounted() {
 }
 
 describe("NIRClaimAssessmentPanel: report confirm and Save (RA-7687)", () => {
-  it("sends the row version it loaded, then the version its own Save returned", async () => {
+  it("sends the lab values it loaded, then the values its own Save returned", async () => {
     const { io, ref } = await mounted();
     await act(() => ref.current!.persistAssessment());
     await act(() => ref.current!.persistAssessment());
-    expect(io.postBodies().map((b) => b.expectedUpdatedAt)).toEqual([LOADED_AT, SAVED_AT]);
+    expect(io.postBodies().map((b) => b.expectedLab)).toEqual([LOADED_LAB, SAVED_LAB]);
   });
 
-  it("adopts the version a report confirm returns, so the next Save is not stale", async () => {
+  it("adopts the stored lab values a report confirm returns, so the next Save is not stale", async () => {
     const { io, ref } = await mounted();
-    act(() => reader.props!.onApplied({ labName: "New Lab" }, "2026-11-23T01:09:00.000Z"));
+    act(() => reader.props!.onApplied({ labName: "New Lab" }, { ...EMPTY_LAB, labName: "New Lab" }));
     await act(() => ref.current!.persistAssessment());
     expect(io.postBodies()[0]).toMatchObject({
       labName: "New Lab",
-      expectedUpdatedAt: "2026-11-23T01:09:00.000Z",
+      expectedLab: { ...EMPTY_LAB, labName: "New Lab" },
     });
   });
 

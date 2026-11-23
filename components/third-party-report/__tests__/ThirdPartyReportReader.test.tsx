@@ -68,7 +68,7 @@ describe("ThirdPartyReportReader", () => {
   it("posts only accepted and edited facts, plus the dismissed one, and reports the applied values", async () => {
     fetchMock
       .mockResolvedValueOnce(json({ proposal }))
-      .mockResolvedValueOnce(json({ written: 2, dismissed: 1, applied: { labName: "Acme", sporeCountPreRemediation: 5200 }, updatedAt: "2026-11-23T01:00:00.000Z" }));
+      .mockResolvedValueOnce(json({ written: 2, dismissed: 1, applied: { labName: "Acme", sporeCountPreRemediation: 5200 }, lab: { labName: "Acme", sporeCountPreRemediation: 5200 } }));
     const onApplied = vi.fn();
     const onBusyChange = vi.fn();
     render(<ThirdPartyReportReader inspectionId="insp_1" onApplied={onApplied} onBusyChange={onBusyChange} />);
@@ -95,7 +95,7 @@ describe("ThirdPartyReportReader", () => {
       { index: 2, action: "dismiss" },
     ]);
     // the host gets the values the server wrote, typed as stored
-    expect(onApplied).toHaveBeenCalledWith({ labName: "Acme", sporeCountPreRemediation: 5200 }, "2026-11-23T01:00:00.000Z");
+    expect(onApplied).toHaveBeenCalledWith({ labName: "Acme", sporeCountPreRemediation: 5200 }, { labName: "Acme", sporeCountPreRemediation: 5200 });
     expect(onBusyChange.mock.calls.map((c) => c[0])).toEqual([true, false]);
   });
 
