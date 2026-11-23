@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   writeLifecycleTransition: vi.fn(),
   onNextAction: vi.fn(),
   resolveCanonicalClient: vi.fn(),
+  userFindUnique: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
@@ -71,6 +72,7 @@ vi.mock("@/lib/canonical/resolve-job-client", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: mocks.inspectionFindFirst },
+    user: { findUnique: mocks.userFindUnique },
     invoice: { findFirst: mocks.invoiceFindFirst },
     estimate: { findFirst: mocks.estimateFindFirst },
     // No frozen approval snapshot: the route falls back to the live lines.
@@ -92,6 +94,10 @@ describe("inspection invoice lifecycle", () => {
       user: { id: "u1", name: "Tech" },
     } as never);
     mocks.canTransition.mockReturnValue({ ok: true, softGaps: [] });
+    mocks.userFindUnique.mockResolvedValue({
+      role: "USER",
+      isJuniorTechnician: false,
+    });
     mocks.invoiceFindFirst.mockResolvedValue(null);
     mocks.resolveCanonicalClient.mockResolvedValue(null);
     mocks.txInvoiceFindFirst.mockResolvedValue(null);
@@ -214,6 +220,50 @@ describe("inspection invoice lifecycle", () => {
         toState: "INVOICE_ISSUED",
       }),
     );
+  });
+
+  it("RA-8067: stamps the database role, not a stale session role, on the invoice transition", async () => {
+    // Cookie says MANAGER; the owner has since demoted the user to USER.
+    mockSession.mockResolvedValue({
+      user: { id: "u1", name: "Tech", role: "MANAGER" },
+    } as never);
+    mocks.userFindUnique.mockResolvedValue({
+      role: "USER",
+      isJuniorTechnician: false,
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/inspections/i1/generate-invoice", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id: "i1" }) },
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.userFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "u1" } }),
+    );
+    expect(mocks.writeLifecycleTransition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transitionKey: "issue_invoice",
+        actorRole: "TECHNICIAN",
+      }),
+    );
+  });
+
+  it("RA-8067: 403 and no invoice when the caller's user row is gone", async () => {
+    mocks.userFindUnique.mockResolvedValue(null);
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/inspections/i1/generate-invoice", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id: "i1" }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.writeLifecycleTransition).not.toHaveBeenCalled();
   });
 
   it("does not create an invoice when the billing compare-and-set loses a race", async () => {
