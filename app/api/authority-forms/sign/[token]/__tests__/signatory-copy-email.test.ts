@@ -106,7 +106,7 @@ function signedForm() {
       {
         signatoryName: "Margaret",
         signatoryRole: "PROPERTY_OWNER",
-        signatureData: "data:image/png;base64,AA",
+        signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
         signedAt: new Date("2026-09-21T06:00:00.000Z"),
         signatoryEmail: "margaret@example.com",
       },
@@ -152,7 +152,7 @@ describe("POST /api/authority-forms/sign/[token] — signatory copy email (RA-76
     mockSuccessfulSign();
 
     const res = await POST(
-      postReq({ signatureData: "data:image/png;base64,AA" }),
+      postReq({ signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }),
       ctx(),
     );
 
@@ -182,7 +182,7 @@ describe("POST /api/authority-forms/sign/[token] — signatory copy email (RA-76
     sigUpdateMany.mockResolvedValueOnce({ count: 0 });
 
     const res = await POST(
-      postReq({ signatureData: "data:image/png;base64,AA" }),
+      postReq({ signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }),
       ctx(),
     );
 
@@ -197,7 +197,7 @@ describe("POST /api/authority-forms/sign/[token] — signatory copy email (RA-76
     sendSignedFormEmail.mockRejectedValueOnce(new Error("mailtrap 500"));
 
     const res = await POST(
-      postReq({ signatureData: "data:image/png;base64,AA" }),
+      postReq({ signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }),
       ctx(),
     );
 
@@ -219,7 +219,7 @@ describe("POST /api/authority-forms/sign/[token] — signatory copy email (RA-76
     renderAuthorityFormPdf.mockRejectedValueOnce(new Error("pdf-lib failed"));
 
     const res = await POST(
-      postReq({ signatureData: "data:image/png;base64,AA" }),
+      postReq({ signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }),
       ctx(),
     );
 
@@ -239,7 +239,7 @@ describe("POST /api/authority-forms/sign/[token] — signatory copy email (RA-76
       .mockResolvedValueOnce({ id: "s_1", instanceId: "f_1" });
 
     const res = await POST(
-      postReq({ signatureData: "data:image/png;base64,AA" }),
+      postReq({ signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }),
       ctx(),
     );
 

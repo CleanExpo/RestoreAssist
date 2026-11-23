@@ -1,6 +1,7 @@
 import { PDFDocument, rgb, StandardFonts, PDFImage } from "pdf-lib";
 import { isPublicHttpUrl } from "@/lib/branding/url-validator";
 import type { ProvenanceBlock } from "@/lib/documents/provenance";
+import { decodeSignatureForPdf } from "@/lib/signatures/signature-format";
 
 interface AuthorityFormData {
   // Company Information
@@ -528,30 +529,59 @@ export async function generateAuthorityFormPDF(
 
     const sigContentY = sigY - 20;
 
-    // Draw signature if available
+    // Draw signature if available. The stored format is owned by
+    // lib/signatures/signature-format.ts (RA-8604): a drawn PNG is embedded,
+    // a typed signature is drawn as script text. A value that cannot be drawn
+    // says so on the page — an empty box above a name would read as signed.
     if (sig.signatureData) {
-      try {
-        const base64Data = sig.signatureData.includes(",")
-          ? sig.signatureData.split(",")[1]
-          : sig.signatureData;
-
-        const binaryString = atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
+      const decoded = decodeSignatureForPdf(sig.signatureData);
+      let drawn = false;
+      if (decoded.ok && decoded.kind === "png") {
+        try {
+          const sigImage = await pdfDoc.embedPng(decoded.bytes);
+          const sigDims = sigImage.scale(0.25);
+          const sigImgX = sigX + (signatureBlockWidth - sigDims.width) / 2;
+          page.drawImage(sigImage, {
+            x: sigImgX,
+            y: sigContentY - 30,
+            width: Math.min(sigDims.width, signatureBlockWidth - 20),
+            height: Math.min(sigDims.height, 60),
+          });
+          drawn = true;
+        } catch (error) {
+          console.error("Failed to embed signature image:", error);
         }
-
-        const sigImage = await pdfDoc.embedPng(bytes);
-        const sigDims = sigImage.scale(0.25);
-        const sigImgX = sigX + (signatureBlockWidth - sigDims.width) / 2;
-        page.drawImage(sigImage, {
-          x: sigImgX,
+      } else if (decoded.ok && decoded.kind === "typed") {
+        const scriptFont = await pdfDoc.embedFont(
+          StandardFonts.TimesRomanItalic,
+        );
+        const text = toWinAnsi(decoded.name);
+        let size = 22;
+        while (
+          size > 10 &&
+          scriptFont.widthOfTextAtSize(text, size) > signatureBlockWidth - 20
+        ) {
+          size -= 1;
+        }
+        page.drawText(text, {
+          x: sigX + 10,
           y: sigContentY - 30,
-          width: Math.min(sigDims.width, signatureBlockWidth - 20),
-          height: Math.min(sigDims.height, 60),
+          size,
+          font: scriptFont,
+          color: rgb(0.06, 0.09, 0.16),
         });
-      } catch (error) {
-        console.warn("Failed to embed signature image:", error);
+        drawn = true;
+      } else if (!decoded.ok) {
+        console.error("Stored signature could not be read:", decoded.error);
+      }
+      if (!drawn) {
+        page.drawText("Signature on file could not be displayed", {
+          x: sigX + 10,
+          y: sigContentY - 20,
+          size: 9,
+          font: helvetica,
+          color: darkGray,
+        });
       }
     } else {
       // Draw "Signature pending" text
@@ -847,4 +877,22 @@ function wrapText(
   }
 
   return lines;
+}
+
+/**
+ * pdf-lib's standard fonts only encode WinAnsi. A typed name such as "Mārama"
+ * would throw, so fold accents WinAnsi lacks and replace anything still
+ * unencodable. Latin-1 letters (é, ü, ñ) are kept as typed.
+ */
+function toWinAnsi(text: string): string {
+  return Array.from(text)
+    .map((ch) => {
+      const code = ch.codePointAt(0) ?? 0;
+      if ((code >= 0x20 && code <= 0x7e) || (code >= 0xa0 && code <= 0xff)) {
+        return ch;
+      }
+      const folded = ch.normalize("NFD").replace(/[̀-ͯ]/g, "");
+      return /^[\x20-\x7e]$/.test(folded) ? folded : "?";
+    })
+    .join("");
 }

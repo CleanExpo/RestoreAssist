@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  validateSignatureData,
+  validateSignatoryName,
+} from "@/lib/signatures/signature-format";
 
 /**
  * POST /api/authority-forms/:id/signatures
@@ -124,6 +128,24 @@ export async function POST(
         });
       }
 
+      // RA-8604: same format owner as the public signing route.
+      const signatureCheck = validateSignatureData(signatureData);
+      if (!signatureCheck.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: signatureCheck.error,
+          status: 400,
+        });
+      }
+      const nameCheck = validateSignatoryName(signatoryName);
+      if (!nameCheck.ok) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: nameCheck.error,
+          status: 400,
+        });
+      }
+
       // Get client IP and user agent for verification
       const ipAddress =
         request.headers.get("x-forwarded-for") ||
@@ -138,7 +160,7 @@ export async function POST(
         where: { id: signatureId, instanceId: formId },
         data: {
           signatureData,
-          signatoryName: signatoryName || undefined,
+          signatoryName: nameCheck.name,
           signedAt: new Date(),
           ipAddress,
           userAgent,

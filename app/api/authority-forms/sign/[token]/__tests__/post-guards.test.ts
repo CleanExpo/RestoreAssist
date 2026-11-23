@@ -32,6 +32,7 @@ import { verifyBotId } from "@/lib/auth/botid";
 import { validateCsrf } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
+import { typedSignatureDataUrl } from "@/lib/portal/typed-signature";
 
 const mRate = applyRateLimit as unknown as ReturnType<typeof vi.fn>;
 const mBot = verifyBotId as unknown as ReturnType<typeof vi.fn>;
@@ -46,7 +47,13 @@ const req = () =>
   new NextRequest("http://localhost/api/authority-forms/sign/x", {
     method: "POST",
     headers: { origin: "https://restoreassist.app" },
-    body: JSON.stringify({ signatureData: "data:image/svg+xml;utf8,x" }),
+    body: JSON.stringify({ signatureData: typedSignatureDataUrl("Jane") }),
+  });
+const reqWith = (body: unknown) =>
+  new NextRequest("http://localhost/api/authority-forms/sign/x", {
+    method: "POST",
+    headers: { origin: "https://restoreassist.app" },
+    body: JSON.stringify(body),
   });
 const params = (t = VALID_TOKEN) => ({ params: Promise.resolve({ token: t }) });
 
@@ -81,5 +88,31 @@ describe("POST /api/authority-forms/sign/[token] — bot + CSRF guards", () => {
     expect(mBot).toHaveBeenCalled();
     expect(mCsrf).toHaveBeenCalled();
     expect(res.status).toBe(404);
+  });
+});
+
+describe("POST /api/authority-forms/sign/[token] — signature format (RA-8604)", () => {
+  it.each([
+    ["a loose SVG", { signatureData: "data:image/svg+xml;utf8,x" }],
+    ["a non-string", { signatureData: { evil: true } }],
+    ["plain text", { signatureData: "hello" }],
+    [
+      "a non-string signatory name",
+      { signatureData: typedSignatureDataUrl("Jane"), signatoryName: ["x"] },
+    ],
+    [
+      "an oversize signatory name",
+      { signatureData: typedSignatureDataUrl("Jane"), signatoryName: "x".repeat(500) },
+    ],
+  ])("400 for %s, before any DB lookup", async (_label, body) => {
+    const res = await POST(reqWith(body), params());
+    expect(res.status).toBe(400);
+    expect(p.authorityFormSignature.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("accepts the typed portal signature (proceeds to the DB lookup)", async () => {
+    const res = await POST(req(), params());
+    expect(p.authorityFormSignature.findUnique).toHaveBeenCalled();
+    expect(res.status).toBe(404); // lookup mocked to return no row
   });
 });

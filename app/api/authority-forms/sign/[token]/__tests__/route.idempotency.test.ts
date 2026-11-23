@@ -85,7 +85,7 @@ describe("POST /api/authority-forms/sign/[token]", () => {
     sigCount.mockResolvedValueOnce(0); // no remaining unsigned → form complete
     instanceUpdate.mockResolvedValueOnce({});
 
-    const res = await POST(postReq({ signatureData: "data:image/png;base64,AA" }), ctx());
+    const res = await POST(postReq({ signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }), ctx());
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toMatchObject({ success: true, allSigned: true, formId: "f_1" });
@@ -101,7 +101,7 @@ describe("POST /api/authority-forms/sign/[token]", () => {
     sigFindUnique.mockResolvedValueOnce({ id: "s_1", instanceId: "f_1", signatoryName: "Margaret" });
     sigUpdateMany.mockResolvedValueOnce({ count: 0 }); // already signed — guard matched 0 rows
 
-    const res = await POST(postReq({ signatureData: "data:image/png;base64,AA" }), ctx());
+    const res = await POST(postReq({ signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }), ctx());
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toMatch(/already been signed/i);

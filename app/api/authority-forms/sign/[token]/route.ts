@@ -6,6 +6,10 @@ import { verifyBotId } from "@/lib/auth/botid";
 import { validateCsrf } from "@/lib/csrf";
 import { notifySignatoryOfSignedCopy } from "@/lib/authority-forms/notify-signatory-copy";
 import { reportError } from "@/lib/observability";
+import {
+  validateSignatureData,
+  validateSignatoryName,
+} from "@/lib/signatures/signature-format";
 
 const SIGNATURE_TOKEN_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -152,7 +156,7 @@ export async function POST(
 
     const { token } = await params;
     const body = await request.json();
-    const { signatureData, signatoryName } = body;
+    const { signatureData, signatoryName } = body ?? {};
 
     if (!token || !isValidSignatureToken(token)) {
       return apiError(request, {
@@ -162,10 +166,21 @@ export async function POST(
       });
     }
 
-    if (!signatureData) {
+    // RA-8604: one owner decides what a stored signature may look like, so a
+    // value the PDF maker cannot draw is refused here rather than stored.
+    const signatureCheck = validateSignatureData(signatureData);
+    if (!signatureCheck.ok) {
       return apiError(request, {
         code: "VALIDATION",
-        message: "Signature data is required",
+        message: signatureCheck.error,
+        status: 400,
+      });
+    }
+    const nameCheck = validateSignatoryName(signatoryName);
+    if (!nameCheck.ok) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: nameCheck.error,
         status: 400,
       });
     }
@@ -202,8 +217,8 @@ export async function POST(
     const result = await prisma.authorityFormSignature.updateMany({
       where: { id: signature.id, signatureRequestToken: token, signedAt: null },
       data: {
-        signatureData,
-        signatoryName: signatoryName || signature.signatoryName,
+        signatureData: signatureData as string,
+        signatoryName: nameCheck.name ?? signature.signatoryName,
         signedAt: new Date(),
         ipAddress,
         userAgent,

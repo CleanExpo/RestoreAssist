@@ -87,19 +87,28 @@ beforeEach(() => {
 });
 
 describe("POST /api/authority-forms/[id]/signatures", () => {
+  it("RA-8604: rejects a signature the PDF maker cannot draw, and writes nothing", async () => {
+    const res = await POST(
+      makeRequest({ signatureId: "sig-1", signatureData: "data:image/svg+xml;utf8,x" }),
+      params(),
+    );
+    expect(res.status).toBe(400);
+    expect(signatureUpdateMany).not.toHaveBeenCalled();
+  });
+
   it("updates a signature that belongs to the caller's form", async () => {
     signatureUpdateMany.mockResolvedValueOnce({ count: 1 });
     const signedRow = {
       id: "sig-1",
       instanceId: "form-1",
-      signatureData: "data:image/png;base64,abc",
+      signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
       signedAt: new Date("2026-07-01T00:00:00.000Z"),
     };
     signatureFindUniqueOrThrow.mockResolvedValueOnce(signedRow);
     signatureFindMany.mockResolvedValueOnce([signedRow]);
 
     const res = await POST(
-      makeRequest({ signatureId: "sig-1", signatureData: "data:image/png;base64,abc" }),
+      makeRequest({ signatureId: "sig-1", signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }),
       params(),
     );
     const json = await res.json();
@@ -129,7 +138,7 @@ describe("POST /api/authority-forms/[id]/signatures", () => {
     const res = await POST(
       makeRequest({
         signatureId: "sig-belongs-to-another-tenant",
-        signatureData: "data:image/png;base64,attacker-payload",
+        signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
       }),
       params(),
     );
@@ -160,7 +169,7 @@ describe("POST /api/authority-forms/[id]/signatures", () => {
     });
 
     const res = await POST(
-      makeRequest({ signatureId: "sig-1", signatureData: "data:image/png;base64,abc" }),
+      makeRequest({ signatureId: "sig-1", signatureData: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }),
       params(),
     );
 
