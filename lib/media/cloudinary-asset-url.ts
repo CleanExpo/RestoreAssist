@@ -21,8 +21,34 @@ export function isAbsoluteMediaUrl(path: string): boolean {
 }
 
 /**
+ * RA-8350: the only hosts an absolute media path may point at. The storage
+ * routes redirect a signed-in user to whatever this module resolves, so an
+ * absolute URL is a redirect target and must be allow-listed, never
+ * deny-listed. Older MediaAsset rows hold a Cloudinary secure_url; every
+ * other provider stores a relative ID.
+ */
+export const ALLOWED_MEDIA_HOSTS: readonly string[] = ["res.cloudinary.com"];
+
+/**
+ * True when `path` is an absolute http(s) URL on an allow-listed media host,
+ * with no credentials and no non-default port.
+ */
+export function isAllowedMediaUrl(path: string): boolean {
+  if (!isAbsoluteMediaUrl(path)) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(path);
+  } catch {
+    return false;
+  }
+  if (parsed.username || parsed.password || parsed.port) return false;
+  return ALLOWED_MEDIA_HOSTS.includes(parsed.hostname.toLowerCase());
+}
+
+/**
  * Build a Cloudinary delivery URL for a stored path/public_id.
- * Returns null when Cloudinary is not configured and path is not absolute.
+ * Returns null when Cloudinary is not configured and path is not absolute,
+ * and when an absolute path is not on an allow-listed media host.
  */
 export function resolveMediaDeliveryUrl(
   storagePath: string,
@@ -31,6 +57,7 @@ export function resolveMediaDeliveryUrl(
   if (!storagePath?.trim()) return null;
 
   if (isAbsoluteMediaUrl(storagePath)) {
+    if (!isAllowedMediaUrl(storagePath)) return null;
     // Already a full URL (often Cloudinary secure_url). For thumbs, try to
     // inject a transform segment when it's a standard Cloudinary upload URL.
     if (opts.width || opts.height) {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   injectCloudinaryTransform,
   isAbsoluteMediaUrl,
+  isAllowedMediaUrl,
   resolveMediaDeliveryUrl,
 } from "../cloudinary-asset-url";
 
@@ -27,9 +28,30 @@ describe("cloudinary-asset-url", () => {
     expect(url).toContain("inspection-photos/org/job/photo");
   });
 
-  it("returns absolute URL as-is when no transform needed", () => {
-    const abs = "https://cdn.example.com/photo.jpg";
+  it("returns an allow-listed absolute URL as-is when no transform needed", () => {
+    const abs = "https://res.cloudinary.com/demo/image/upload/v1/pic.jpg";
     expect(resolveMediaDeliveryUrl(abs)).toBe(abs);
+  });
+
+  // RA-8350: an absolute path is a redirect target, so only allow-listed
+  // media hosts pass. Anything else resolves to null.
+  it.each([
+    "https://cdn.example.com/photo.jpg",
+    "https://evil.example/login",
+    "https://res.cloudinary.com.evil.example/x.jpg",
+    "https://res.cloudinary.com@evil.example/x.jpg",
+    "https://user:pw@res.cloudinary.com/x.jpg",
+    "https://res.cloudinary.com:8443/x.jpg",
+  ])("refuses absolute URL outside the allow-list: %s", (abs) => {
+    expect(isAllowedMediaUrl(abs)).toBe(false);
+    expect(resolveMediaDeliveryUrl(abs)).toBeNull();
+    expect(resolveMediaDeliveryUrl(abs, { width: 480 })).toBeNull();
+  });
+
+  it("allows res.cloudinary.com over https, case-insensitively", () => {
+    expect(
+      isAllowedMediaUrl("https://RES.Cloudinary.com/demo/image/upload/a.jpg"),
+    ).toBe(true);
   });
 
   it("injects transforms into Cloudinary upload URLs", () => {
