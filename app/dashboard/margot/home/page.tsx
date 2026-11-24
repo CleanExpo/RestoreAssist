@@ -225,7 +225,7 @@ function HeroTile() {
     <DashboardPanel>
       <DashboardPanelHeader
         title="Margot runtime"
-        description="Heartbeat from the ops assistant on the Mac mini / Hermes stack."
+        description="Heartbeat from the Margot ops assistant."
         action={
           <TileActions
             ts={data?.fetchedAt}
@@ -469,7 +469,7 @@ function CorpusTile() {
     <DashboardPanel className="h-full">
       <DashboardPanelHeader
         title="RAG corpus"
-        description="Knowledge store Margot and Hermes draw from."
+        description="Knowledge store Margot draws from."
         action={
           <TileActions
             ts={data?.fetchedAt}
@@ -593,7 +593,6 @@ export default function MargotHomeDashboard() {
         secondaryLinks={[
           { href: "/dashboard/margot", label: "Chat" },
           { href: "/dashboard/margot/social", label: "Social training" },
-          { href: "/dashboard/mission-control", label: "Mission Control" },
           { href: "/dashboard/admin/rag", label: "RAG admin" },
           { href: "/dashboard/admin", label: "Admin home" },
         ]}
@@ -630,8 +629,8 @@ export default function MargotHomeDashboard() {
           <p className="text-sm text-muted-foreground">
             Run posts through{" "}
             <code className="text-xs">/api/margot/social-relevance</code> before
-            Hermes comments. Copy the role prompt into{" "}
-            <code className="text-xs">SOUL.md</code> on the Mac mini.
+            Margot comments. Copy the role prompt into Margot&apos;s role
+            settings.
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">

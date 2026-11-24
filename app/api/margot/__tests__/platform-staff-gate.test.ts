@@ -81,7 +81,6 @@ import * as health from "../health/route";
 import * as hermesProxy from "../hermes-proxy/route";
 import * as schedules from "../schedules/route";
 import * as socialRelevance from "../social-relevance/route";
-import * as missionControlContext from "../../mission-control/context/route";
 import * as ragIngest from "../../admin/rag/ingest/route";
 import * as ragProbe from "../../admin/rag/probe/route";
 import * as ragStatus from "../../admin/rag/status/route";
@@ -100,7 +99,6 @@ const ROUTES: Array<[string, "GET" | "POST", RouteModule]> = [
   ["margot/hermes-proxy", "POST", hermesProxy],
   ["margot/schedules", "GET", schedules],
   ["margot/social-relevance", "POST", socialRelevance],
-  ["mission-control/context", "GET", missionControlContext],
   ["admin/rag/ingest", "POST", ragIngest],
   ["admin/rag/probe", "GET", ragProbe],
   ["admin/rag/status", "GET", ragStatus],

@@ -144,7 +144,6 @@ export const ENV_SCHEMA = {
   MISSION_CONTROL_WORKERS: { required: false },
   LINEAR_RA_TODO_STATE_ID: { required: false },
   HERMES_BASE_URL: { required: false },
-  NEXT_PUBLIC_HERMES_OPS_URL: { required: false },
   MARGOT_NEXUS_CONTEXT: { required: false },
   TELEGRAM_BOT_TOKEN: { required: false },
   TELEGRAM_CHAT_ID: { required: false },

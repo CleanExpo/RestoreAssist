@@ -12,10 +12,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import {
-  isAllowlistedPlatformSupportOperator,
-  isPlatformSupportOperator,
-} from "@/lib/auth/assert-tenancy";
+import { isAllowlistedPlatformSupportOperator } from "@/lib/auth/assert-tenancy";
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
 import { NextResponse } from "next/server";
@@ -87,8 +84,8 @@ export async function verifyAdminFromDb(
  *
  * Prefer this over JWT-only checks in `page.tsx` / client layouts: demoted
  * admins with a stale session are redirected before any admin UI or Prisma
- * reads run. Shared by `/dashboard/admin/**`, governance, margot, and
- * mission-control layouts.
+ * reads run. Shared by `/dashboard/admin/**`, governance and margot
+ * layouts.
  */
 export async function requireAdminPage(): Promise<{
   id: string;
@@ -118,7 +115,9 @@ export async function requireAdminPage(): Promise<{
  *
  * Call it from the segment layout AND from every server page in the segment:
  * layouts and pages render in parallel, so a layout check alone does not stop
- * a server page from rendering into the RSC payload.
+ * a server page from rendering into the RSC payload. A client page cannot call
+ * it, so it is gated by its server layout plus the platform-support check on
+ * every API route it fetches.
  */
 export async function requirePlatformSupportPage(): Promise<{
   id: string;
@@ -135,8 +134,9 @@ export async function requirePlatformSupportPage(): Promise<{
  * RestoreAssist staff work. `role: "ADMIN"` is granted to every firm that
  * self-registers, so it is not sufficient. Operators must be on
  * `PLATFORM_SUPPORT_USER_IDS` — the same fail-closed allowlist
- * `isPlatformSupportOperator` already owns. Missing or empty configuration
- * refuses everyone, including tenant ADMIN.
+ * `isAllowlistedPlatformSupportOperator` owns. Missing or empty configuration
+ * refuses everyone, including tenant ADMIN, in every environment: there is no
+ * development fallback here (a dev-open ADMIN would reach staff-only data).
  *
  * The allowlist widens an ADMIN; it is not a role of its own and must not
  * promote a listed USER. Call after `verifyAdminFromDb`. This is the HTTP
@@ -148,7 +148,7 @@ export function verifyPlatformSupportOperator(
   if (
     !auth.user ||
     auth.user.role !== "ADMIN" ||
-    !isPlatformSupportOperator(auth.user.id)
+    !isAllowlistedPlatformSupportOperator(auth.user.id)
   ) {
     return {
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
