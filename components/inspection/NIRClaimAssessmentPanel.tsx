@@ -25,7 +25,12 @@ import {
 } from "react";
 import toast from "react-hot-toast";
 import ThirdPartyReportReader from "@/components/third-party-report/ThirdPartyReportReader";
-import { LAB_FIELDS } from "@/lib/third-party-report/schema";
+import {
+  LAB_FIELDS,
+  LAB_FIELD_LABELS,
+  NUMERIC_LAB_FIELDS,
+  type LabField,
+} from "@/lib/third-party-report/schema";
 import { readIfCurrent } from "@/lib/nir-draft-save";
 import {
   CONDITION_GRADES,
@@ -339,6 +344,8 @@ function Input({
   min,
   max,
   step,
+  ariaLabel,
+  list,
 }: {
   value: string | number;
   onChange: (v: string) => void;
@@ -346,12 +353,16 @@ function Input({
   placeholder?: string;
   min?: number;
   max?: number;
-  step?: number;
+  step?: number | "any";
+  ariaLabel?: string;
+  list?: string;
 }) {
   return (
     <input
       type={type}
       value={value}
+      aria-label={ariaLabel}
+      list={list}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       min={min}
@@ -649,19 +660,6 @@ function MouldForm({
           onChange={(v) => onChange("visibleGrowthObserved", v)}
         />
       </FieldRow>
-      <FieldRow label="Spore Type (laboratory result)">
-        <Select
-          value={(data.sporeType as string) || ""}
-          onChange={(v) => onChange("sporeType", v || null)}
-          options={[
-            { value: "CLADOSPORIUM", label: "Cladosporium" },
-            { value: "ASPERGILLUS", label: "Aspergillus / Penicillium" },
-            { value: "STACHYBOTRYS", label: "Stachybotrys" },
-            { value: "ALTERNARIA", label: "Alternaria" },
-            { value: "OTHER", label: "Other / Mixed" },
-          ]}
-        />
-      </FieldRow>
       <FieldRow label="Affected Area (m²)">
         <Input
           type="number"
@@ -723,29 +721,114 @@ function MouldForm({
           onChange={(v) => onChange("airSamplingRequired", v)}
         />
       </FieldRow>
-      <FieldRow label="Spore Count Pre (spores/m³)">
-        <Input
-          type="number"
-          value={(data.sporeCountPreRemediation as number) || ""}
-          onChange={(v) =>
-            onChange("sporeCountPreRemediation", v ? parseInt(v) : null)
-          }
-          min={0}
-          placeholder="e.g. 5000"
+      {LAB_FIELDS.map((field) => (
+        <LabFieldRow
+          key={field}
+          field={field}
+          value={data[field]}
+          onChange={onChange}
         />
-      </FieldRow>
-      <FieldRow label="Spore Count Post (spores/m³)">
+      ))}
+      <FieldRow
+        label="Clearance criterion"
+        hint="As set by the independent professional"
+      >
         <Input
-          type="number"
-          value={(data.sporeCountPostRemediation as number) || ""}
-          onChange={(v) =>
-            onChange("sporeCountPostRemediation", v ? parseInt(v) : null)
-          }
-          min={0}
-          placeholder="e.g. 200"
+          ariaLabel="Clearance criterion"
+          value={(data.clearanceCriterion as string) || ""}
+          onChange={(v) => onChange("clearanceCriterion", v || null)}
+          placeholder="e.g. Indoor/outdoor ratio below 1"
         />
       </FieldRow>
     </>
+  );
+}
+
+/** Common genera offered as suggestions only: the box takes any text, so a
+ *  spore type the report reader saved is shown and sent back as it is. */
+const SPORE_TYPE_SUGGESTIONS = [
+  "Cladosporium",
+  "Aspergillus / Penicillium",
+  "Stachybotrys",
+  "Alternaria",
+  "Chaetomium",
+  "Mixed",
+];
+
+const LAB_FIELD_HINTS: Partial<Record<LabField, string>> = {
+  sporeType: "Laboratory result",
+  sporeCountPreRemediation: "spores/m³",
+  sporeCountPostRemediation: "spores/m³",
+  outdoorBaselineCount: "spores/m³, outdoor reference sample",
+};
+
+/**
+ * RA-8642: one box per lab field, rendered from LAB_FIELDS, the same list the
+ * third-party report reader writes. A field in that list always has a box, so
+ * results can be entered by hand when a read fails. Counts keep 0 and
+ * decimals (Float columns); the sampling date is a day, sent as UTC midnight
+ * as the save route expects.
+ */
+function LabFieldRow({
+  field,
+  value,
+  onChange,
+}: {
+  field: LabField;
+  value: unknown;
+  onChange: (k: string, v: unknown) => void;
+}) {
+  const label = LAB_FIELD_LABELS[field];
+  let input: React.ReactNode;
+  if (NUMERIC_LAB_FIELDS.includes(field)) {
+    input = (
+      <Input
+        type="number"
+        ariaLabel={label}
+        value={typeof value === "number" ? value : ""}
+        onChange={(v) => {
+          const n = v.trim() === "" ? null : Number(v);
+          onChange(field, n !== null && Number.isFinite(n) ? n : null);
+        }}
+        min={0}
+        step="any"
+        placeholder="e.g. 850"
+      />
+    );
+  } else if (field === "samplingDate") {
+    input = (
+      <Input
+        type="date"
+        ariaLabel={label}
+        value={typeof value === "string" ? value.slice(0, 10) : ""}
+        onChange={(v) => onChange(field, v ? `${v}T00:00:00.000Z` : null)}
+      />
+    );
+  } else {
+    const listId = field === "sporeType" ? "mould-spore-type-options" : undefined;
+    input = (
+      <>
+        <Input
+          ariaLabel={label}
+          list={listId}
+          value={typeof value === "string" ? value : ""}
+          onChange={(v) => onChange(field, v || null)}
+          placeholder={field === "sporeType" ? "e.g. Cladosporium" : undefined}
+        />
+        {listId && (
+          <datalist id={listId}>
+            {SPORE_TYPE_SUGGESTIONS.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+        )}
+      </>
+    );
+  }
+  return (
+    <FieldRow label={label} hint={LAB_FIELD_HINTS[field]}>
+      {input}
+    </FieldRow>
   );
 }
 
