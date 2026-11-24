@@ -53,6 +53,7 @@ crm-health.spec.ts                       workflow:sketch-e2e.yml
 dashboard-connected-journey.spec.ts      workflow:sketch-e2e.yml
 dr-nrpg-inbound-job.spec.ts              workflow:sketch-e2e.yml
 floorplan-upload-ai.spec.ts              workflow:sketch-e2e.yml
+third-party-report.spec.ts               workflow:sketch-e2e.yml
 first-tradie-flow.spec.ts                a1
 health-migrations.spec.ts                workflow:sketch-e2e.yml
 health.spec.ts                           workflow:sketch-e2e.yml
@@ -76,6 +77,7 @@ moisture-p2-claim-integrity.spec.ts      workflow:sketch-e2e.yml
 navigation.spec.ts                       workflow:sketch-e2e.yml
 nir-routes-regression.spec.ts            workflow:sketch-e2e.yml
 nz-org-gst.spec.ts                       workflow:sketch-e2e.yml
+offline-cold-start/cold-start.spec.ts      unrun:needs a production build (the service worker registers only in production); run by hand with npm run test:e2e:offline through config/playwright.offline.config.ts, which builds and serves the app itself; no workflow runs it yet
 offline-moisture-sync.spec.ts            workflow:sketch-e2e.yml
 room-observations.spec.ts                workflow:sketch-e2e.yml
 pilot-workflow.spec.ts                   smoke

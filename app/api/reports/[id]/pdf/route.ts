@@ -138,6 +138,25 @@ export async function GET(
                 iepAssessmentRequired: true,
               },
             },
+            // RA-8592: storm record, printed in Sections 6D and 6E.
+            stormDamageAssessment: {
+              select: {
+                bomEventReference: true,
+                windSpeedKmh: true,
+                eventType: true,
+                eventTimestamp: true,
+                roofMaterialType: true,
+                roofDamageAreaM2: true,
+                damagePenetration: true,
+                waterIngressPoints: true,
+                engineerClearanceRequired: true,
+                emergencyTarpingCompleted: true,
+                emergencyTarpingM2: true,
+                emergencyTarpingTimestamp: true,
+                waterCategory: true,
+                asbestosRiskFlag: true,
+              },
+            },
             // RA-7694: Section 6C (room observations). Bounded read.
             roomObservations: {
               orderBy: { observedAt: "asc" },
@@ -284,6 +303,7 @@ export async function GET(
         : null,
       claimType: report.inspection?.claimType ?? null,
       mouldAssessment: report.inspection?.mouldRemediationAssessment ?? null,
+      stormAssessment: report.inspection?.stormDamageAssessment ?? null,
       roomObservations: report.inspection?.roomObservations ?? [],
       // Said in the PDF, never silent: how many were beyond the bounded read.
       roomObservationsOmitted: Math.max(

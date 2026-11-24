@@ -17,6 +17,9 @@ import {
 } from "./state-manager";
 import { syncToDatabase } from "./registry";
 import { unskipUpstreamFailed } from "./lease";
+import { ApprovalPendingError, WorkflowStateChangedError } from "./approval";
+import { lockWorkflowRow } from "./workflow-lock";
+import { randomUUID } from "node:crypto";
 
 // ---------------------------------------------------------------------------
 // Workflow creation
@@ -41,6 +44,16 @@ export async function createWorkflow(
 
   const { tasks, taskGraph } = decompose(definition, params);
 
+  // Dependencies are stored as real task ids. The decomposer names tasks by
+  // step ("task_<step>"), which are not row ids, so each task gets its id here
+  // and dependsOnTaskIds is rewritten to match; otherwise markTasksReady could
+  // never see a dependency complete.
+  const rowIds = new Map(tasks.map((t) => [t.id, randomUUID()]));
+  // RA-8000: a flagged root task starts AWAITING_APPROVAL in a PAUSED workflow.
+  const hasGatedRoot = tasks.some(
+    (t) => t.dependsOnTaskIds.length === 0 && t.requiresApproval,
+  );
+
   const workflow = await prisma.$transaction(async (tx) => {
     const wf = await tx.agentWorkflow.create({
       data: {
@@ -50,7 +63,7 @@ export async function createWorkflow(
         reportId: params.reportId ?? null,
         inspectionId: params.inspectionId ?? null,
         taskGraph: JSON.stringify(taskGraph),
-        status: "PENDING",
+        status: hasGatedRoot ? "PAUSED" : "PENDING",
         totalTasks: tasks.length,
         config: params.config ? JSON.stringify(params.config) : null,
         scheduledFor: params.scheduledFor ?? null,
@@ -59,17 +72,28 @@ export async function createWorkflow(
 
     // Create all tasks — tasks with no dependencies start as READY
     for (const task of tasks) {
+      const isRoot = task.dependsOnTaskIds.length === 0;
+      const waitsForApproval = isRoot && task.requiresApproval;
       await tx.agentTask.create({
         data: {
+          id: rowIds.get(task.id)!,
           workflowId: wf.id,
           agentSlug: task.agentSlug,
           taskType: task.taskType,
           displayName: task.displayName,
           sequenceOrder: task.sequenceOrder,
           parallelGroup: task.parallelGroup,
-          dependsOnTaskIds: task.dependsOnTaskIds,
+          dependsOnTaskIds: task.dependsOnTaskIds.map(
+            (depId) => rowIds.get(depId) ?? depId,
+          ),
           input: task.input,
-          status: task.dependsOnTaskIds.length === 0 ? "READY" : "PENDING",
+          requiresApproval: task.requiresApproval,
+          approvalRequestedAt: waitsForApproval ? new Date() : null,
+          status: waitsForApproval
+            ? "AWAITING_APPROVAL"
+            : isRoot
+              ? "READY"
+              : "PENDING",
           idempotencyKey: `${wf.id}:${task.agentSlug}:${task.taskType}`,
         },
       });
@@ -178,37 +202,77 @@ export async function getWorkflowContext(
  * RA-8429: FAILED and DEAD_LETTER are included so a cancelled workflow holds
  * no retryable task; otherwise the dead-letter review kept reading them for
  * the 90 days until cleanup deleted the workflow. A CANCELLED workflow cannot
- * be resumed (the resume route accepts FAILED, PARTIALLY_FAILED and PAUSED
- * only), so nothing that could still run is lost. RUNNING tasks are left to
- * finish under their lease.
+ * be resumed (the resume route accepts FAILED and PARTIALLY_FAILED only), so
+ * nothing that could still run is lost. RUNNING tasks are left to finish
+ * under their lease.
+ *
+ * RA-8000: a task waiting for approval is cancelled too, and the workflow
+ * status is a compare-and-swap: a finished or already-cancelled workflow is
+ * never relabelled.
  */
 export async function cancelWorkflow(workflowId: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    await tx.agentTask.updateMany({
+    await lockWorkflowRow(tx, workflowId);
+    const swapped = await tx.agentWorkflow.updateMany({
       where: {
-        workflowId,
-        status: { in: ["PENDING", "READY", "FAILED", "DEAD_LETTER"] },
+        id: workflowId,
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
       },
-      data: { status: "CANCELLED" },
-    });
-
-    await tx.agentWorkflow.update({
-      where: { id: workflowId },
       data: {
         status: "CANCELLED",
         completedAt: new Date(),
       },
+    });
+    if (swapped.count === 0) return;
+
+    await tx.agentTask.updateMany({
+      where: {
+        workflowId,
+        status: {
+          in: ["PENDING", "READY", "AWAITING_APPROVAL", "FAILED", "DEAD_LETTER"],
+        },
+      },
+      data: { status: "CANCELLED" },
     });
   });
 }
 
 /**
  * Resume a failed or partially-failed workflow by re-queuing failed tasks.
+ *
+ * RA-8000: refuses (ApprovalPendingError) while any task waits for approval:
+ * approve, reject or cancel are the only exits from that pause. The workflow
+ * status write is a compare-and-swap; a workflow that changed state under the
+ * caller throws WorkflowStateChangedError and nothing is written.
  */
 export async function resumeWorkflow(
   workflowId: string,
 ): Promise<{ retriedCount: number }> {
   return prisma.$transaction(async (tx) => {
+    // First statement: the waiting-task read below must see any pause another
+    // writer committed, and the status swap must not undo it.
+    await lockWorkflowRow(tx, workflowId);
+    const waiting = await tx.agentTask.findFirst({
+      where: { workflowId, status: "AWAITING_APPROVAL" },
+      select: { id: true },
+    });
+    if (waiting) throw new ApprovalPendingError(workflowId, waiting.id);
+
+    // Reset workflow status to RUNNING
+    const swapped = await tx.agentWorkflow.updateMany({
+      where: {
+        id: workflowId,
+        status: { in: ["FAILED", "PARTIALLY_FAILED", "PAUSED"] },
+      },
+      data: {
+        status: "RUNNING",
+        completedAt: null,
+        errorMessage: null,
+        failedTasks: 0,
+      },
+    });
+    if (swapped.count === 0) throw new WorkflowStateChangedError(workflowId);
+
     const result = await tx.agentTask.updateMany({
       where: {
         workflowId,
@@ -225,17 +289,6 @@ export async function resumeWorkflow(
     // RA-7999: dependents skipped by the failure cascade run again too;
     // otherwise the resumed workflow would complete with steps missing.
     await unskipUpstreamFailed(tx, workflowId);
-
-    // Reset workflow status to RUNNING
-    await tx.agentWorkflow.update({
-      where: { id: workflowId },
-      data: {
-        status: "RUNNING",
-        completedAt: null,
-        errorMessage: null,
-        failedTasks: 0,
-      },
-    });
 
     return { retriedCount: result.count };
   });

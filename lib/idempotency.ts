@@ -465,7 +465,13 @@ export async function withIdempotencyFingerprint({
     throw err;
   }
 
-  if (response.status >= 500) {
+  // RA-8000: a handler marks a response that describes only the moment it was
+  // read (an approval conflict) so a retry with the same key is evaluated
+  // again rather than replayed.
+  if (
+    response.status >= 500 ||
+    response.headers.get("X-RestoreAssist-Idempotency-No-Cache") === "true"
+  ) {
     const cleared = await prisma.idempotencyRecord.deleteMany({ where: {
       cacheKey, id: reservation.recordId, status: "PENDING",
     } });

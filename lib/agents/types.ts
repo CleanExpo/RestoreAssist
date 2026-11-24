@@ -123,6 +123,12 @@ export interface WorkflowStep {
   dependsOn: string[]; // Step IDs that must complete first
   inputMapping: (context: WorkflowContext) => TaskInput;
   optional: boolean; // If true, failure doesn't block workflow
+  /**
+   * RA-8000: when true the task waits in AWAITING_APPROVAL (its workflow
+   * PAUSED) until the owner approves it. Copied onto each AgentTask when the
+   * workflow is created; tasks of workflows created earlier keep `false`.
+   */
+  requiresApproval?: boolean;
 }
 
 export interface WorkflowDefinition {

@@ -620,7 +620,10 @@ export default function TeamPage() {
             : "Manage your team members and invitations."
         }
         icon={<Users className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
-        secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/team" })}
+        secondaryLinks={[
+          { href: "/dashboard/training", label: "Training register" },
+          ...workspaceHubLinks({ omitHref: "/dashboard/team" }),
+        ]}
         primaryAction={
           canInvite ? (
             <Button

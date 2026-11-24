@@ -15,6 +15,7 @@ import { dollarsToCents, lineSubtotalCents } from "@/lib/invoices/calc";
 import { parseFrozenEstimateLines } from "@/lib/estimate/approval-snapshot";
 import { mirrorClaimProgressLifecycleState } from "@/lib/claim-progress/mirror-lifecycle-state";
 import { resolveCanonicalClientForInspection } from "@/lib/canonical/resolve-job-client";
+import { loadActorProgressRole } from "@/lib/progress/actor-role";
 
 const toCents = (amount: number | null) => dollarsToCents(amount ?? 0);
 
@@ -382,11 +383,22 @@ export async function POST(
         }
       }
 
+      // RA-8067: the append-only transition carries the caller's current
+      // database role, never the possibly stale login-cookie role.
+      const actorRole = await loadActorProgressRole(userId);
+      if (!actorRole) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
+      }
+
       const billingActor = {
         inspectionId: inspection.id,
         userId,
         actorName: session.user.name ?? "User",
-        actorRole: session.user.role ?? "USER",
+        actorRole,
       };
 
       // A durable source + report + estimate link is the business-level
