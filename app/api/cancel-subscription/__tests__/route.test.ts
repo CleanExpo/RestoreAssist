@@ -127,4 +127,30 @@ describe("POST /api/cancel-subscription", () => {
       cancel_at_period_end: true,
     });
   });
+
+  it("RA-8596: a failed feedback save is reported through reportError and the cancel still succeeds", async () => {
+    vi.mocked(prisma.cancellationFeedback.create).mockRejectedValue(
+      new Error("db down"),
+    );
+    const errorSpy = vi.mocked(console.error);
+
+    const res = await POST(
+      makeRequest({ reason: "too_expensive", comment: "price" }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true });
+    expect(stripeMock.subscriptions.update).toHaveBeenCalled();
+
+    const reported = errorSpy.mock.calls.find((call) => call[0] === "[error]");
+    expect(reported).toBeDefined();
+    const payload = JSON.parse(String(reported![1]));
+    expect(payload).toMatchObject({
+      message: "db down",
+      route: "/api/cancel-subscription",
+      stage: "persist-cancellation-feedback",
+      userId: "u1",
+      reason: "too_expensive",
+    });
+  });
 });

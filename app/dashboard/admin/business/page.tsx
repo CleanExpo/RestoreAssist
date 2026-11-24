@@ -9,6 +9,8 @@
  *
  * RA-7419: a "Last 30 days" row with the founder's four numbers — trials
  * started, activated (first report saved), paid, MRR.
+ *
+ * RA-8596: "Why customers cancelled", the exit-survey reasons and comments.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -24,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { CancellationFeedbackPanel } from "@/components/admin/CancellationFeedbackPanel";
 
 interface Metrics {
   generatedAt: string;
@@ -324,6 +327,8 @@ export default function BusinessMetricsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <CancellationFeedbackPanel />
 
       <div className="rounded-md border border-dashed border-muted p-4 text-xs text-muted-foreground">
         <p className="font-medium">Not yet tracked here:</p>

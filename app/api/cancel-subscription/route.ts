@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { reportError } from "@/lib/observability";
 
 // RA-1243: accept optional reason + comment so we can capture churn signal.
 // Both are optional to preserve backwards compatibility with the old
@@ -152,10 +153,14 @@ export async function POST(request: NextRequest) {
             },
           });
         } catch (err) {
-          console.error(
-            "[cancel-subscription] Failed to persist feedback:",
-            err,
-          );
+          // RA-8596: a lost reason must be visible to an operator, not only
+          // a bare console line. The cancel itself has already succeeded.
+          reportError(err, {
+            route: "/api/cancel-subscription",
+            userId,
+            stage: "persist-cancellation-feedback",
+            reason: parsed.data.reason,
+          });
         }
       }
 
