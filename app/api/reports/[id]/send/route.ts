@@ -6,7 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { assertReportTenancy } from "@/lib/auth/assert-tenancy";
-import { generateInsurerToken } from "@/lib/portal-token";
+import { ReportShareScope } from "@prisma/client";
+import {
+  mintReportShareAccess,
+  revokeReportShareAccess,
+} from "@/lib/report-share/access";
 import { isDemoOrReservedRecipient } from "@/lib/email/reserved-recipient";
 import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
 import { sendTransactionalEmail } from "@/lib/email/send-transactional";
@@ -19,7 +23,7 @@ import {
   FIELD_EVIDENCE_SEND_REFUSAL_MESSAGE,
 } from "@/lib/reports/field-evidence-send-gate";
 
-/** Same lifetime as the insurer link (`generateInsurerToken`). */
+/** Same lifetime as every stored report link (`mintReportShareAccess`). */
 const LINK_VALID_DAYS = 30;
 
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -27,8 +31,10 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /**
  * POST /api/reports/[id]/send  (RA-7632)
  *
- * Emails a COMPLETED report to the client on the report, with a signed
- * no-login link to read it. Only after the provider accepts the message does
+ * Emails a COMPLETED report to the client on the report, with a no-login
+ * link to read it. The link is a stored ReportShareAccess row (RA-8588), so it
+ * is listed under "Active report links" on the Share screen and staff can
+ * revoke it if the email went to the wrong address. Only after the provider accepts the message does
  * it write EmailAudit plus an AuditLog REPORT_SENT row, in one transaction —
  * the record Close Job requires before a job can close.
  *
@@ -158,8 +164,15 @@ export async function POST(
         });
       }
 
-      // The existing signed, no-login report link (the insurer-link namespace).
-      const token = generateInsurerToken(report.id);
+      // RA-8588: one minter for every report link. A stored row is what the
+      // Share screen lists and Revoke switches off; a signed token with no row
+      // could never be stopped once emailed.
+      const { token, id: accessId } = await mintReportShareAccess({
+        reportId: report.id,
+        scope: ReportShareScope.INSURER,
+        createdByUserId: userId,
+        ttlMs: LINK_VALID_DAYS * 24 * 60 * 60 * 1000,
+      });
       const baseUrl =
         process.env.NEXTAUTH_URL?.replace(/\/$/, "") ??
         "https://restoreassist.app";
@@ -172,8 +185,13 @@ export async function POST(
       const replyTo =
         report.user.businessEmail || report.user.email || undefined;
 
-      const sendFailed = (err: unknown) =>
-        apiError(request, {
+      const sendFailed = async (err: unknown) => {
+        // The email did not go, so its link must not stay live. Best effort:
+        // a failure here must not hide the send failure from the user.
+        await revokeReportShareAccess(accessId, report.id).catch(
+          () => undefined,
+        );
+        return apiError(request, {
           code: "UPSTREAM_FAILED",
           message:
             "The report email could not be sent, so nothing was recorded. Please try again shortly.",
@@ -181,6 +199,7 @@ export async function POST(
           err,
           stage: "send-email",
         });
+      };
 
       let providerMessageId: string | null;
       try {

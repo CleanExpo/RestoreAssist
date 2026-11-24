@@ -107,6 +107,13 @@ const INSURER_PREFIX = "ins"; // namespace prefix — prevents cross-use with in
 /**
  * Generate a 30-day HMAC-signed token granting an insurer read access to a report.
  * Token format (base64url): `ins:${reportId}:${expiryUnixSeconds}:${hmac}`
+ *
+ * TEST USE ONLY (RA-8588). A token with no stored row cannot be listed or
+ * revoked, so product code mints report links with `mintReportShareAccess`.
+ * Kept so tests can build a legacy token for the fallback in
+ * `verifyReportReaderToken`; a non-test caller fails
+ * lib/report-share/__tests__/no-legacy-report-minter.test.ts. Remove with
+ * `verifyInsurerToken` on or after 2027-01-15.
  */
 export function generateInsurerToken(reportId: string): string {
   const expiry = Math.floor(Date.now() / 1000) + INSURER_TOKEN_TTL;
@@ -118,6 +125,10 @@ export function generateInsurerToken(reportId: string): string {
 /**
  * Verify an insurer token.
  * Returns `{ reportId }` on success, or `null` if invalid/expired/wrong namespace.
+ *
+ * Legacy (RA-8588): accepts only links minted before Send report moved to
+ * stored rows; they expire 30 days after minting. Remove on or after
+ * 2027-01-15.
  */
 export function verifyInsurerToken(token: string): { reportId: string } | null {
   let decoded: string;

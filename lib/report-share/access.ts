@@ -54,6 +54,12 @@ export async function lookupReportShareAccess(token: string) {
 
 /**
  * Resolve a report read token: DB-backed share access first, then legacy HMAC insurer tokens.
+ *
+ * RA-8588: nothing mints legacy HMAC tokens any more (Send report was the last
+ * caller). The fallback stays only so links already emailed keep working until
+ * they expire, 30 days after they were minted. Remove it, and
+ * `verifyInsurerToken` / `generateInsurerToken`, on or after 2027-01-15, which
+ * leaves margin past the last deploy that could have minted one.
  */
 export async function verifyReportReaderToken(
   token: string,

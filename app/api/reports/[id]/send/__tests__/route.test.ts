@@ -14,8 +14,9 @@
  *   - a failed send writes nothing and returns a message the UI can show.
  *
  * Tenancy runs through the real `assertReportTenancy` (only Prisma is faked
- * underneath it), and the link is checked with the real `verifyInsurerToken`,
- * so neither can pass by being mocked away. The email sender is always a mock:
+ * underneath it). The link runs through the real `mintReportShareAccess`,
+ * `verifyReportReaderToken` and `revokeReportShareAccess` over an in-memory
+ * share-link table (RA-8588), so none can pass by being mocked away. The email sender is always a mock:
  * these tests never send a real email.
  */
 
@@ -31,6 +32,54 @@ import {
 } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyInsurerToken } from "@/lib/portal-token";
+import { verifyReportReaderToken } from "@/lib/report-share/access";
+
+type ShareRow = {
+  id: string;
+  reportId: string;
+  token: string;
+  scope: string;
+  expiresAt: Date;
+  createdByUserId: string | null;
+  revokedAt: Date | null;
+  lastAccessedAt: Date | null;
+};
+// In-memory ReportShareAccess table: what the Share screen lists and revokes.
+let shareRows: ShareRow[] = [];
+const shareCreate = vi.fn(
+  async (args: {
+    data: Omit<ShareRow, "id" | "revokedAt" | "lastAccessedAt">;
+  }) => {
+    const row: ShareRow = {
+      id: `access-${shareRows.length + 1}`,
+      revokedAt: null,
+      lastAccessedAt: null,
+      ...args.data,
+    };
+    shareRows.push(row);
+    return { id: row.id, token: row.token, expiresAt: row.expiresAt };
+  },
+);
+const shareFindUnique = vi.fn(
+  async (args: { where: { token: string } }) =>
+    shareRows.find((r) => r.token === args.where.token) ?? null,
+);
+const shareUpdateMany = vi.fn(
+  async (args: { where: { id: string; reportId: string } }) => {
+    let count = 0;
+    for (const r of shareRows) {
+      if (
+        r.id === args.where.id &&
+        r.reportId === args.where.reportId &&
+        !r.revokedAt
+      ) {
+        r.revokedAt = new Date();
+        count += 1;
+      }
+    }
+    return { count };
+  },
+);
 
 const getServerSession = vi.fn();
 const withIdempotency = vi.fn();
@@ -72,6 +121,14 @@ vi.mock("@/lib/prisma", () => ({
     },
     auditLog: {
       create: (...args: unknown[]) => topLevelAuditLogCreate(...args),
+    },
+    reportShareAccess: {
+      create: (args: Parameters<typeof shareCreate>[0]) => shareCreate(args),
+      findUnique: (args: Parameters<typeof shareFindUnique>[0]) =>
+        shareFindUnique(args),
+      update: async () => ({}),
+      updateMany: (args: Parameters<typeof shareUpdateMany>[0]) =>
+        shareUpdateMany(args),
     },
     $transaction: (...args: unknown[]) => transaction(...args),
   },
@@ -135,6 +192,8 @@ function expectNothingSentOrWritten() {
   expect(txAuditLogCreate).not.toHaveBeenCalled();
   expect(topLevelEmailAuditCreate).not.toHaveBeenCalled();
   expect(topLevelAuditLogCreate).not.toHaveBeenCalled();
+  // RA-8588: a refusal leaves no live link behind.
+  expect(shareCreate).not.toHaveBeenCalled();
 }
 
 const savedEnv: Record<string, string | undefined> = {};
@@ -181,6 +240,10 @@ beforeEach(() => {
   ]) {
     fn.mockReset();
   }
+  shareRows = [];
+  shareCreate.mockClear();
+  shareFindUnique.mockClear();
+  shareUpdateMany.mockClear();
 
   auditInspectionById.mockResolvedValue({
     inspectionId: INSPECTION_ID,
@@ -442,13 +505,36 @@ describe("POST /api/reports/[id]/send — a good send", () => {
     expect(email.html).not.toContain("<script>");
     expect(email.html).not.toContain("<b>Restoration</b>");
 
-    // The link is the existing signed, no-login report link for THIS report.
+    // RA-8588: the link is a stored, revocable share row for THIS report,
+    // created by the sender, so the Share screen lists it and Revoke stops it.
     const match = email.html.match(
       /https:\/\/app\.example\.test\/portal\/insurer\/([A-Za-z0-9_-]+)/,
     );
     expect(match).not.toBeNull();
     const token = match![1];
-    expect(verifyInsurerToken(token)).toEqual({ reportId: REPORT_ID });
+    expect(shareCreate).toHaveBeenCalledTimes(1);
+    expect(shareRows).toHaveLength(1);
+    expect(shareRows[0]).toMatchObject({
+      reportId: REPORT_ID,
+      token,
+      scope: "INSURER",
+      createdByUserId: OWNER_ID,
+      revokedAt: null,
+    });
+    const ttlDays =
+      (shareRows[0].expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000);
+    expect(ttlDays).toBeGreaterThan(29.9);
+    expect(ttlDays).toBeLessThanOrEqual(30);
+    // Not an old-style signed token that no row can switch off.
+    expect(verifyInsurerToken(token)).toBeNull();
+    // The reader shared by the insurer page, PDF route and owner view opens
+    // it, and stops opening it once the row is revoked.
+    expect(await verifyReportReaderToken(token)).toEqual({
+      reportId: REPORT_ID,
+      scope: "INSURER",
+    });
+    shareRows[0].revokedAt = new Date();
+    expect(await verifyReportReaderToken(token)).toBeNull();
 
     // Delivery is recorded in ONE interactive transaction, on the tx client.
     expect(transaction).toHaveBeenCalledTimes(1);
@@ -513,6 +599,9 @@ describe("POST /api/reports/[id]/send — a failed send", () => {
       expect(json.error.message.length).toBeGreaterThan(0);
       expect(json.error.message).not.toContain("raw provider detail");
       expect(emailSend).toHaveBeenCalledTimes(1);
+      // RA-8588: the link minted for the unsent email is switched off.
+      expect(shareRows).toHaveLength(1);
+      expect(shareRows[0].revokedAt).toBeInstanceOf(Date);
       expect(transaction).not.toHaveBeenCalled();
       expect(txEmailAuditCreate).not.toHaveBeenCalled();
       expect(txAuditLogCreate).not.toHaveBeenCalled();
