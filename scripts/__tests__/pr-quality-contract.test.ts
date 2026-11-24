@@ -35,7 +35,9 @@ describe("PR quality contract", () => {
     ) as {
       jobs: {
         quality: { steps: Array<{ name?: string; run?: string }> };
-        "unit-tests-shard": { steps: Array<{ name?: string; run?: string }> };
+        "unit-tests-shard": {
+          steps: Array<{ name?: string; run?: string; if?: string }>;
+        };
       };
     };
     // RA-8625: CI runs the same vitest command as `test:unit:full`, split into
@@ -49,9 +51,14 @@ describe("PR quality contract", () => {
     expect(unitStep?.run).toBe(
       "npm run test:unit -- --shard=${{ matrix.shard }}/4",
     );
-    expect(
-      shardSteps.find((step) => step.run === "npm run test:pilot-harness"),
-    ).toBeDefined();
+    // RA-8629: the pilot-harness step must run exactly once, on shard 1. If
+    // the condition is removed it would run on all 4 shards; if it is changed
+    // it could run on none, and the old existence check would still pass.
+    const pilotSteps = shardSteps.filter(
+      (step) => step.run === "npm run test:pilot-harness",
+    );
+    expect(pilotSteps).toHaveLength(1);
+    expect(pilotSteps[0].if).toBe("matrix.shard == 1");
     expect(
       workflow.jobs.quality.steps.some((step) => step.name === "Unit tests"),
     ).toBe(false);
