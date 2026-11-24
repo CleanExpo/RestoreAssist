@@ -728,8 +728,8 @@ export default function SettingsPage() {
 
             <div className="space-y-3">
               {/* RA-8082 — real 2FA state from /api/user/profile, linked to the
-                  RA-1260 setup page. A failed profile read shows "Unavailable",
-                  never "Off". The former "Login Sessions" and "Last Login" rows
+                  RA-1260 setup page. A failed read, or a profile without the
+                  field, shows "Unavailable", never "Off". The former "Login Sessions" and "Last Login" rows
                   were fixed placeholders with no data source, so they are gone. */}
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm text-slate-700 dark:text-slate-300">
@@ -742,7 +742,7 @@ export default function SettingsPage() {
                   >
                     {loading
                       ? "Checking"
-                      : !profile
+                      : typeof profile?.twoFactorEnabled !== "boolean"
                         ? "Unavailable"
                         : profile.twoFactorEnabled
                           ? "On"
@@ -751,17 +751,17 @@ export default function SettingsPage() {
                   <Link
                     href="/dashboard/security"
                     aria-label={
-                      profile?.twoFactorEnabled
+                      profile?.twoFactorEnabled === true
                         ? "Manage two-factor authentication"
-                        : profile
+                        : profile?.twoFactorEnabled === false
                           ? "Set up two-factor authentication"
                           : "Open two-factor authentication settings"
                     }
                     className="text-xs font-medium text-brand-harbour-600 dark:text-brand-harbour-400 hover:underline"
                   >
-                    {profile?.twoFactorEnabled
+                    {profile?.twoFactorEnabled === true
                       ? "Manage"
-                      : profile
+                      : profile?.twoFactorEnabled === false
                         ? "Set up"
                         : "Open"}
                   </Link>

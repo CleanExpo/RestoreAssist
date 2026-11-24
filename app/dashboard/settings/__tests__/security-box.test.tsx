@@ -136,6 +136,21 @@ describe("Settings Security box (RA-8082)", () => {
     ).toHaveAttribute("href", "/dashboard/security");
   });
 
+  it("does not report 2FA as Off when the profile omits the field", async () => {
+    const { twoFactorEnabled: _omit, ...withoutField } = profile(true);
+    mockFetch({ ok: true, body: { profile: withoutField } });
+    render(<SettingsPage />);
+    const box = await securityBox();
+    await waitFor(() =>
+      expect(within(box).getByTestId("two-factor-status")).toHaveTextContent(
+        "Unavailable",
+      ),
+    );
+    expect(
+      within(box).getByRole("link", { name: /two-factor/i }),
+    ).toHaveAttribute("href", "/dashboard/security");
+  });
+
   it("shows no placeholder session count or last-login value", async () => {
     mockFetch({ ok: true, body: { profile: profile(true) } });
     render(<SettingsPage />);

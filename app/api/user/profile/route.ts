@@ -160,6 +160,8 @@ export async function GET(request: NextRequest) {
           businessABN: true,
           businessPhone: true,
           businessEmail: true,
+          // RA-8082 — Settings > Security reads this; every GET path returns it.
+          twoFactorEnabled: true,
         },
       });
 
