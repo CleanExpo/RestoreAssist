@@ -67,7 +67,7 @@ describe("PropertyDataSetupWizard health reading", () => {
       expect(fetchMock.mock.calls[0][0]).toBe("/api/properties/scrape/health");
       await waitFor(() =>
         expect(screen.getByRole("alert")).toHaveTextContent(
-          featureEnabled === "off" ? /switched off/ : /RA-6850/,
+          featureEnabled === "off" ? /switched off/ : /source permission and provider reachability are unverified/,
         ),
       );
     });

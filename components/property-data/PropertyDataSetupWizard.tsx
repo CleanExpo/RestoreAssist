@@ -93,7 +93,7 @@ export function PropertyDataSetupWizard({
       ) {
         setTestResult("unverified");
         setTestError(
-          "The server is configured, but source permission (RA-6850) and provider reachability are unverified, so no lookup was sent.",
+          "The server is configured, but source permission and provider reachability are unverified, so no lookup was sent.",
         );
         return;
       }

@@ -100,7 +100,7 @@ function bookkeepingComingSoon(): string | null {
   if (!isQuickBooksEnabled()) later.push("QuickBooks");
   if (!isMyobEnabled()) later.push("MYOB");
   if (later.length === 0) return null;
-  return `${later.join(" and ")}: coming soon.`;
+  return `${later.join(" and ")}: not available yet.`;
 }
 
 /** Keyed by AddonSku. A test keeps these keys equal to RECURRING_ADDONS. */
