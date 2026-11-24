@@ -457,7 +457,7 @@ async function run(): Promise<number> {
     console.log(
       "C2 cannot pass while either count is above zero. Findings are triaged " +
         "in docs/evidence/release-gate/1.0.0/C2-secrets-scan.md; unset " +
-        "variables are listed by /api/health.",
+        "variable names are shown by /api/health to a signed-in platform operator only.",
     );
   }
   return 0;
