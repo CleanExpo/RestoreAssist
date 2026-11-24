@@ -59,13 +59,32 @@ describe("EvidenceQueueRecovery", () => {
 
   it.each([
     { status: 401, message: /Sign in as the original account/i },
-    { status: 403, message: /Sign in as the original account/i },
+    { status: 403, message: /does not have access to this job.*saved copy remains on this device/i },
     { status: 409, message: /do not choose the same photo again/i },
   ])("gives the correct remedy for status $status without suggesting a new upload", async ({ status, message }) => {
     getQueuedEvidenceForInspection.mockResolvedValue([{ id: "ev-1", filename: "room.webp", retryCount: 1, lastStatus: status, blob: new Blob(["synthetic"]) }]);
     render(<EvidenceQueueRecovery inspectionId="job-1" />);
     expect(await screen.findByText(message)).toBeInTheDocument();
     expect(screen.queryByText(/choose a supported photo/i)).not.toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(/HTTP \d{3}/);
+  });
+
+  it("never tells a customer to sign in again when the server refused the account (403, no access)", async () => {
+    getQueuedEvidenceForInspection.mockResolvedValue([{ id: "ev-1", filename: "room.webp", retryCount: 1, lastStatus: 403, blob: new Blob(["synthetic"]) }]);
+    render(<EvidenceQueueRecovery inspectionId="job-1" />);
+    await screen.findByText(/does not have access to this job/i);
+    expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(/HTTP \d{3}/);
+  });
+
+  it.each([
+    { status: 401, message: /Sign in as the original account and retry/i, noSignIn: false },
+    { status: 403, message: /does not have access to this job.*saved copy remains on this device/i, noSignIn: true },
+  ])("splits the job readback message for HTTP $status", async ({ status, message, noSignIn }) => {
+    getQueuedEvidenceForInspection.mockResolvedValue([{ id: "ev-1", filename: "room.webp", retryCount: 1, readbackPending: true, readbackStatus: status, blob: new Blob(["synthetic"]) }]);
+    render(<EvidenceQueueRecovery inspectionId="job-1" />);
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    if (noSignIn) expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
     expect(document.body.textContent ?? "").not.toMatch(/HTTP \d{3}/);
   });
 

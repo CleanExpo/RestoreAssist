@@ -14,8 +14,12 @@ function rejectedStatus(status?: number): boolean {
 }
 
 function rejectionMessage(status: number): string {
-  if (status === 401 || status === 403) {
+  if (status === 401) {
     return `Upload needs account verification. Sign in as the original account before retrying. The saved copy remains on this device.`;
+  }
+  if (status === 403) {
+    // RA-8637: the server refused this account, so signing in again as the same account cannot help.
+    return "Upload refused. The signed-in account does not have access to this job. The saved copy remains on this device; ask the job owner for access.";
   }
   if (status === 409) {
     return "Upload conflict. Check the job photo list and keep this saved copy; do not choose the same photo again until the conflict is resolved.";
@@ -27,7 +31,8 @@ function rejectionMessage(status: number): string {
 }
 
 function readbackMessage(status?: number): string {
-  if (status === 401 || status === 403) return `Upload accepted, but account verification blocked job readback. Sign in as the original account and retry; the saved copy remains on this device.`;
+  if (status === 401) return `Upload accepted, but account verification blocked job readback. Sign in as the original account and retry; the saved copy remains on this device.`;
+  if (status === 403) return "Upload accepted, but the signed-in account does not have access to this job, so it cannot be read back. The saved copy remains on this device; ask the job owner for access.";
   return `Upload may have succeeded, but this photo is not verified in the job list. Keep the saved copy and retry verification before choosing the same photo again.`;
 }
 
