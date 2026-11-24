@@ -9,20 +9,17 @@
  * 404 on a colleague's job. Another business still gets 404.
  *
  * Money: the replacement value and restoration estimate columns are added only
- * for a caller whose role, read from the database, is ADMIN or MANAGER
- * (`assertFinancialWriter`, FINANCIAL_WRITER_ROLES). Anyone else, a technician
- * included, gets the same file without those columns. Fails closed: a missing
- * user row means no money. When RA-8494's `canSeeMoney` reaches main this
- * route moves onto it.
+ * when `canSeeMoney` (lib/auth/redact-money.ts, RA-8494) says the caller may
+ * see prices: one rule for every route, so a former manager or a technician
+ * gets the same file without those columns. Fails closed: a missing user row
+ * means no money.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  assertFinancialWriter,
-  assertInspectionReadable,
-} from "@/lib/auth/assert-tenancy";
+import { assertInspectionReadable } from "@/lib/auth/assert-tenancy";
+import { canSeeMoney } from "@/lib/auth/redact-money";
 import { apiError, fromException } from "@/lib/api-errors";
 import { buildContentsInventoryWorkbook } from "@/lib/contents/inventory-workbook";
 
@@ -95,7 +92,7 @@ export async function GET(
       });
     }
 
-    const includeMoney = (await assertFinancialWriter(session)).ok;
+    const includeMoney = await canSeeMoney(session);
 
     const inspection = await prisma.inspection.findUnique({
       where: { id },

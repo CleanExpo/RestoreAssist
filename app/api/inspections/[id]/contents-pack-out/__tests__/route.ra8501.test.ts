@@ -10,11 +10,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import ExcelJS from "exceljs";
 import { expectRefused } from "@/tests/helpers/expect-refused";
+import { canSeeMoney } from "@/lib/auth/redact-money";
 
 const getServerSession = vi.fn();
 const assertInspectionReadable = vi.fn();
 const assertInspectionTenancy = vi.fn();
-const assertFinancialWriter = vi.fn();
 const resolveInspectionWrite = vi.fn();
 const writeWithinInspectionScope = vi.fn();
 const inspectionFindUnique = vi.fn();
@@ -27,8 +27,9 @@ vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
-// RA-8494: the caller here is an owner and the subject is the room link, not
-// the money rule, so the shared owner double stands in for redact-money.
+// RA-8494: `canSeeMoney` is the one money rule. Its shared double lets the room
+// link tests run as an owner; the export tests set it per case below. The rule
+// itself is proven in app/api/inspections/__tests__/technician-no-money.test.ts.
 vi.mock("@/lib/auth/redact-money");
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: async (
@@ -40,7 +41,6 @@ vi.mock("@/lib/idempotency", () => ({
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionReadable: (...a: unknown[]) => assertInspectionReadable(...a),
   assertInspectionTenancy: (...a: unknown[]) => assertInspectionTenancy(...a),
-  assertFinancialWriter: (...a: unknown[]) => assertFinancialWriter(...a),
   resolveInspectionWrite: (...a: unknown[]) => resolveInspectionWrite(...a),
   writeWithinInspectionScope: (...a: unknown[]) => writeWithinInspectionScope(...a),
 }));
@@ -112,11 +112,8 @@ beforeEach(() => {
     status: 404,
     reason: "Inspection not found",
   });
-  assertFinancialWriter.mockResolvedValue({
-    ok: false,
-    status: 403,
-    reason: "Only an owner or manager can do this",
-  });
+  // Default caller may not see prices (a technician); a case opts in below.
+  vi.mocked(canSeeMoney).mockResolvedValue(false);
   inspectionFindUnique.mockResolvedValue(inspection);
   itemFindMany.mockImplementation(async (args: { select: Record<string, unknown> }) =>
     itemsFor(args.select),
@@ -229,10 +226,7 @@ describe("GET contents-pack-out/export", () => {
   });
 
   it("gives an owner or manager the money columns, on a colleague's job too", async () => {
-    assertFinancialWriter.mockResolvedValue({
-      ok: true,
-      data: { id: "user_1", role: "MANAGER" },
-    });
+    vi.mocked(canSeeMoney).mockResolvedValue(true);
     const res = await exportGET(exportReq(), params);
     expect(res.status).toBe(200);
     const { values } = await cellsOf(res);
@@ -243,6 +237,22 @@ describe("GET contents-pack-out/export", () => {
       "insp_1",
     );
     expect(assertInspectionTenancy).not.toHaveBeenCalled();
+  });
+
+  it("asks the one money rule, so a former manager gets no price in any cell", async () => {
+    // canSeeMoney denies a removed organisation member whatever role is still
+    // stored; the export must follow it, not a role check of its own.
+    vi.mocked(canSeeMoney).mockResolvedValue(false);
+    const res = await exportGET(exportReq(), params);
+    expect(res.status).toBe(200);
+    expect(canSeeMoney).toHaveBeenCalledWith(
+      expect.objectContaining({ user: { id: "user_1" } }),
+    );
+    const { values } = await cellsOf(res);
+    for (const v of values) {
+      expect(v).not.toContain("98765");
+      expect(v).not.toMatch(/Replacement value|Restoration estimate/);
+    }
   });
 });
 
