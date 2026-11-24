@@ -36,6 +36,7 @@ import {
 import { storeOperation, type StoreSpec } from "./idb-store";
 import { parseOfflineOwner, sameOfflineOwner, type OfflineOwner } from "./ownership";
 import { notifySyncQueueChanged } from "./sync-status-event";
+import { countClaimsByState, type ClaimStateCounts } from "./unsent-claims-message";
 
 const SPEC: StoreSpec = { db: "ra-offline-claims", version: 1, store: "claims", keyPath: "clientUuid" };
 export const CLAIM_DRAIN_LOCK_NAME = "ra-offline-claims-drain";
@@ -100,14 +101,15 @@ export async function listQueuedClaims(): Promise<OfflineClaim[]> {
 }
 
 /**
- * How many unsent claims rest on this device, for any account. A number only:
- * the sign-out notice shows it without reading or exposing anyone's details.
+ * How many unsent claims rest on this device, for any account, by state.
+ * Numbers only: the sign-out notice shows them without reading or exposing
+ * anyone's details. The wording is describeUnsentClaims() (RA-8641).
  */
-export async function countUnsentClaims(): Promise<number> {
+export async function countUnsentClaims(): Promise<ClaimStateCounts> {
   try {
-    return (await listQueuedClaims()).length;
+    return countClaimsByState(await listQueuedClaims());
   } catch {
-    return 0;
+    return countClaimsByState([]);
   }
 }
 

@@ -3,29 +3,26 @@
 /**
  * RA-7877 — after sign-out, tell the technician that claims captured offline
  * but not yet sent are still on this device. Signing out never discards them
- * (the founder rules out silent loss), and they send once the owner signs in.
- * Shows a count only; no address, note or photo is read or displayed here.
+ * (the founder rules out silent loss). Only queued claims send once the owner
+ * signs in; refused or held ones are described as needing attention (RA-8641).
+ * Shows counts only; no address, note or photo is read or displayed here.
  */
 import { useEffect, useState } from "react";
 import { countUnsentClaims } from "@/lib/offline/claim-capture-queue";
-
-export function unsentClaimsMessage(count: number): string | null {
-  if (count <= 0) return null;
-  return `You have ${count} claim${count === 1 ? "" : "s"} not yet sent. They stay on this device until you sign in and send them.`;
-}
+import { describeUnsentClaims, type ClaimStateCounts } from "@/lib/offline/unsent-claims-message";
 
 export function UnsentClaimsNotice() {
-  const [count, setCount] = useState(0);
+  const [counts, setCounts] = useState<ClaimStateCounts | null>(null);
   useEffect(() => {
     let live = true;
-    void countUnsentClaims().then((n) => {
-      if (live) setCount(n);
+    void countUnsentClaims().then((c) => {
+      if (live) setCounts(c);
     });
     return () => {
       live = false;
     };
   }, []);
-  const message = unsentClaimsMessage(count);
+  const message = counts ? describeUnsentClaims(counts, "signed-out") : null;
   if (!message) return null;
   return (
     <p

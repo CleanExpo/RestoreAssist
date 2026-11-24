@@ -680,25 +680,42 @@ describe("the photo of a claim (stable id, one upload)", () => {
 
 describe("signing out with unsent claims", () => {
   it("counts every unsent claim on the device for the sign-out notice, and keeps them", async () => {
-    const { unsentClaimsMessage } = await import("@/components/offline/UnsentClaimsNotice");
+    const { describeUnsentClaims } = await import("@/lib/offline/unsent-claims-message");
     await signInOnline(A);
     await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
     await capture({ propertyAddress: "2 Test St", propertyPostcode: "4000" });
     boundary.endOfflineSession();
     await coldStart();
-    expect(await queue.countUnsentClaims()).toBe(2);
-    expect(unsentClaimsMessage(2)).toBe("You have 2 claims not yet sent. They stay on this device until you sign in and send them.");
-    expect(unsentClaimsMessage(1)).toBe("You have 1 claim not yet sent. They stay on this device until you sign in and send them.");
-    expect(unsentClaimsMessage(0)).toBeNull();
+    const counts = await queue.countUnsentClaims();
+    expect(counts).toEqual({ queued: 2, failed: 0, needsReview: 0 });
+    expect(describeUnsentClaims(counts, "signed-out")).toBe(
+      "You have 2 claims not yet sent. They stay on this device until you sign in and send them.",
+    );
+  });
+
+  it("RA-8641: a refused claim is not promised to send on sign-in", async () => {
+    const { describeUnsentClaims } = await import("@/lib/offline/unsent-claims-message");
+    await signInOnline(A);
+    createStatus = 400;
+    await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000" });
+    await queue.drainOfflineClaims();
+    boundary.endOfflineSession();
+    await coldStart();
+    const counts = await queue.countUnsentClaims();
+    expect(counts).toEqual({ queued: 0, failed: 1, needsReview: 0 });
+    const message = describeUnsentClaims(counts, "signed-out");
+    expect(message).toBe("1 claim could not be sent and needs attention. It will not be sent automatically.");
+    expect(message).not.toMatch(/sign in and send|waiting to send/i);
   });
 
   it("holds nothing once the server has confirmed every claim: only unsent work rests on the device", async () => {
+    const none = { queued: 0, failed: 0, needsReview: 0 };
     await signInOnline(A);
     await capture({ propertyAddress: "1 Test St", propertyPostcode: "4000", photo: photo() });
     await capture({ propertyAddress: "2 Test St", propertyPostcode: "4000" });
-    expect(await queue.countUnsentClaims()).toBe(2);
+    expect(await queue.countUnsentClaims()).toEqual({ ...none, queued: 2 });
     expect(await queue.drainOfflineClaims()).toBe(2);
-    expect(await queue.countUnsentClaims()).toBe(0);
+    expect(await queue.countUnsentClaims()).toEqual(none);
   });
 });
 

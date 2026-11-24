@@ -17,6 +17,7 @@ import {
   listOwnClaims,
   type OfflineClaim,
 } from "@/lib/offline/claim-capture-queue";
+import { countClaimsByState, describeUnsentClaims } from "@/lib/offline/unsent-claims-message";
 
 type Gate = "checking" | "open" | "closed";
 
@@ -179,9 +180,7 @@ export function OfflineCapture() {
         </p>
       )}
       <p className="mt-4 text-sm text-slate-400" data-testid="offline-capture-count">
-        {queued.length === 0
-          ? "No claims waiting to send."
-          : `${queued.length} claim${queued.length === 1 ? "" : "s"} waiting to send.`}
+        {describeUnsentClaims(countClaimsByState(queued), "signed-in")}
       </p>
     </section>
   );
