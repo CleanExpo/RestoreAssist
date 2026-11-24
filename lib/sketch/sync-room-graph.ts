@@ -8,6 +8,7 @@
  * placed inside a LiDAR polygon binds to the same SketchRoom row after save.
  */
 import { createHash } from "node:crypto";
+import { SKETCH_ROOM_DEPENDENT_RELATIONS } from "./room-dependents";
 import { polygonAbsolutePoints } from "./fabric-absolute";
 import {
   resolvePxPerMetre,
@@ -86,22 +87,7 @@ function xy(p: Point): { x: number; y: number } {
  * delete matches only a room that still has none, and the survivor is detached.
  * partitionStaleRooms sums the same relations from counts.
  */
-export const ROOM_DEPENDENT_RELATIONS = [
-  "evidencePins",
-  "moistureReadings",
-  "hazards",
-  "jobMoistureReadings",
-  "scopeItems",
-  "contentsPackOutItems",
-  "roomObservations",
-] as const;
-
-export type RoomDependentRelation = (typeof ROOM_DEPENDENT_RELATIONS)[number];
-
-/** Prisma `_count.select` for every dependent, so a count is read for each. */
-export const ROOM_DEPENDENT_COUNT_SELECT = Object.fromEntries(
-  ROOM_DEPENDENT_RELATIONS.map((relation) => [relation, true]),
-) as Record<RoomDependentRelation, true>;
+export const ROOM_DEPENDENT_RELATIONS = SKETCH_ROOM_DEPENDENT_RELATIONS;
 
 /** Prisma `where` fragment: the room has no dependent of any kind. */
 export const NO_ROOM_DEPENDENTS = Object.fromEntries(
@@ -112,11 +98,12 @@ export const NO_ROOM_DEPENDENTS = Object.fromEntries(
 export interface StaleRoom {
   id: string;
   /**
-   * One optional count per dependent relation (ROOM_DEPENDENT_RELATIONS), so
-   * callers that predate a relation still type-check; a missing count is read
-   * as 0.
+   * RA-8576: the count of every table that links to this room, keyed by the
+   * SketchRoom relation name (room-dependents.ts builds the select from the
+   * Prisma model). Every count is summed, so a table added later is counted
+   * without editing this file. A missing count is read as 0.
    */
-  _count: Partial<Record<RoomDependentRelation, number>>;
+  _count: Record<string, number | undefined>;
 }
 
 /**
@@ -124,8 +111,9 @@ export interface StaleRoom {
  *
  * WHY THIS IS NOT JUST A DELETE
  * -----------------------------
- * `EvidencePin`, `SketchMoistureReading`, `Hazard`, job `MoistureReading`
- * and `ScopeItem` all reference `SketchRoom` with `onDelete: SetNull`. Deleting a room therefore does not
+ * `EvidencePin`, `SketchMoistureReading`, `Hazard`, job `MoistureReading`,
+ * `ScopeItem` and `RoomObservation` all reference `SketchRoom` with
+ * `onDelete: SetNull`. Deleting a room therefore does not
  * fail and does not cascade -- it silently blanks the room link on evidence
  * that was already captured. The reading survives; the answer to "which room
  * was this taken in" does not.
@@ -149,10 +137,10 @@ export function partitionStaleRooms(stale: StaleRoom[]): {
   const detachableIds: string[] = [];
 
   for (const room of stale) {
-    // Summed over the one list, never a hand-written sum, so a relation added
-    // there cannot be missed here (RA-8501 review: roomObservations was).
-    const dependents = ROOM_DEPENDENT_RELATIONS.reduce(
-      (total, relation) => total + (room._count?.[relation] ?? 0),
+    // Every count is summed, so a relation added to room-dependents.ts cannot
+    // be missed here (RA-8501 review: roomObservations was).
+    const dependents = Object.values(room._count ?? {}).reduce<number>(
+      (sum, n) => sum + (n ?? 0),
       0,
     );
     if (dependents > 0) {

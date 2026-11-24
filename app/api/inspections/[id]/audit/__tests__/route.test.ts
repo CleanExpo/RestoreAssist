@@ -11,6 +11,8 @@ vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// RA-8494: the money rule is proven in app/api/inspections/__tests__/technician-no-money.test.ts.
+vi.mock("@/lib/auth/redact-money");
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: (...a: unknown[]) => inspectionFindFirst(...a) },

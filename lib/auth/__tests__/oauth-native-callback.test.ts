@@ -4,7 +4,7 @@ const socialLoginInitialize = vi.hoisted(() => vi.fn());
 const socialLogin = vi.hoisted(() => vi.fn());
 const fetchMock = vi.hoisted(() => vi.fn());
 const clearOfflineMock = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/offline/account-boundary", () => ({ clearOfflineContext: clearOfflineMock }));
+vi.mock("@/lib/offline/account-boundary", () => ({ endOfflineSession: clearOfflineMock }));
 
 vi.mock("next-auth/react", () => ({
   signIn: vi.fn(),

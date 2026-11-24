@@ -6,6 +6,7 @@ import { withCurrentEquipment } from "@/lib/reports/report-equipment-response";
 import { canCreateReport } from "@/lib/report-limits";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 export async function POST(
   request: NextRequest,
@@ -172,7 +173,9 @@ export async function POST(
         throw createError;
       }
 
-      return NextResponse.json(await withCurrentEquipment(duplicatedReport), {
+      // RA-8494: the copy is priced from the live rate card (dailyRate,
+      // equipmentCostTotal); a technician gets it without money.
+      return NextResponse.json(await moneySafe(session, await withCurrentEquipment(duplicatedReport)), {
         status: 201,
       });
     } catch (error) {

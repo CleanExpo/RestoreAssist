@@ -23,6 +23,10 @@ const m = vi.hoisted(() => ({
 
 vi.mock("next-auth", () => ({ getServerSession: m.session }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// RA-8494: this suite is about deletes, not money; the money rule is proven
+// in technician-no-money.test.ts.
+vi.mock("@/lib/auth/redact-money");
+
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: async (req: NextRequest, _u: string, h: (raw: string) => Promise<Response>) =>
     h(await req.text()),

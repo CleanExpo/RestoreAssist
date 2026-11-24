@@ -52,6 +52,10 @@ describe("partitionStaleRooms", () => {
     ["a scope item", { scopeItems: 1 }],
     // RA-8501: ContentsPackOutItem.sketchRoomId is SetNull too.
     ["a contents item", { contentsPackOutItems: 1 }],
+    // RA-8576: RoomObservation.sketchRoomId is SetNull too, and was never
+    // counted; any count under any key now keeps the room.
+    ["a room observation", { roomObservations: 1 }],
+    ["a dependent table added later", { someFutureTable: 1 }],
     ["several of each", { evidencePins: 3, moistureReadings: 9, hazards: 2 }],
   ])("never deletes a stale room holding %s", (_label, counts) => {
     const { deletableIds, detachableIds } = partitionStaleRooms([

@@ -26,6 +26,9 @@ vi.mock("next-auth", () => ({
   getServerSession: (...args: unknown[]) => getServerSession(...args),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// RA-8494: this suite is about credit charging, not money visibility; the
+// money rule is proven in app/api/inspections/__tests__/technician-no-money.test.ts.
+vi.mock("@/lib/auth/redact-money");
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: (
     req: Request,

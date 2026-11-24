@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ApprovalStatus } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 export async function POST(
   request: NextRequest,
@@ -72,7 +73,8 @@ export async function POST(
         },
       });
 
-      return NextResponse.json({ approval: updated });
+      // RA-8494: a cost-estimate approval carries its amount.
+      return NextResponse.json({ approval: await moneySafe(session, updated) });
     } catch (error) {
       return fromException(request, error, { stage: "approval-respond" });
     }

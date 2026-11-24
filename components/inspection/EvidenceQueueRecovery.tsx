@@ -15,29 +15,29 @@ function rejectedStatus(status?: number): boolean {
 
 function rejectionMessage(status: number): string {
   if (status === 401 || status === 403) {
-    return `Upload needs account verification (HTTP ${status}). Sign in as the original account before retrying. The saved copy remains on this device.`;
+    return `Upload needs account verification. Sign in as the original account before retrying. The saved copy remains on this device.`;
   }
   if (status === 409) {
-    return "Upload conflict (HTTP 409). Check the job photo list and keep this saved copy; do not choose the same photo again until the conflict is resolved.";
+    return "Upload conflict. Check the job photo list and keep this saved copy; do not choose the same photo again until the conflict is resolved.";
   }
   if (status === 413) {
-    return "Photo is too large (HTTP 413). Save a backup and choose a smaller copy. This saved copy remains on this device.";
+    return "Photo is too large. Save a backup and choose a smaller copy. This saved copy remains on this device.";
   }
-  return `Upload rejected (HTTP ${status}). Save a backup and check the photo format or job details. This saved copy remains on this device.`;
+  return `Upload rejected. Save a backup and check the photo format or job details. This saved copy remains on this device.`;
 }
 
 function readbackMessage(status?: number): string {
-  if (status === 401 || status === 403) return `Upload accepted, but account verification blocked job readback (HTTP ${status}). Sign in as the original account and retry; the saved copy remains on this device.`;
-  return `Upload may have succeeded, but this photo is not verified in the job list${status ? ` (readback HTTP ${status})` : ""}. Keep the saved copy and retry verification before choosing the same photo again.`;
+  if (status === 401 || status === 403) return `Upload accepted, but account verification blocked job readback. Sign in as the original account and retry; the saved copy remains on this device.`;
+  return `Upload may have succeeded, but this photo is not verified in the job list. Keep the saved copy and retry verification before choosing the same photo again.`;
 }
 
 function entryStatusMessage(entry: EvidenceQueueEntry): string {
   if (entry.readbackPending && rejectedStatus(entry.lastStatus)) {
-    return `${readbackMessage(entry.readbackStatus)} A later upload retry was rejected (HTTP ${entry.lastStatus}). Save a backup and check the job photo list and photo details before retrying.`;
+    return `${readbackMessage(entry.readbackStatus)} A later upload retry was rejected. Save a backup and check the job photo list and photo details before retrying.`;
   }
   if (entry.readbackPending) return readbackMessage(entry.readbackStatus);
   if (rejectedStatus(entry.lastStatus)) return rejectionMessage(entry.lastStatus!);
-  if (entry.retryCount >= 5) return `Needs attention${entry.lastStatus ? ` (HTTP ${entry.lastStatus})` : ""}. Save a backup and check the job photo list.`;
+  if (entry.retryCount >= 5) return `Needs attention. Save a backup and check the job photo list.`;
   return "Waiting to sync";
 }
 

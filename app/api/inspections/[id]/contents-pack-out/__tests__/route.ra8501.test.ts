@@ -27,6 +27,9 @@ vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// RA-8494: the caller here is an owner and the subject is the room link, not
+// the money rule, so the shared owner double stands in for redact-money.
+vi.mock("@/lib/auth/redact-money");
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: async (
     req: Request,

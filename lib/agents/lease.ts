@@ -18,6 +18,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PG_POOL_CONNECTION_TIMEOUT_MS } from "@/lib/prisma-pool-config";
 import { refreshWorkflowProgress } from "./state-manager";
+import { lockWorkflowRows } from "./workflow-lock";
 
 type Db = Prisma.TransactionClient;
 
@@ -97,13 +98,18 @@ export async function extendLease(
 
 /**
  * Mark every transitive PENDING dependent of `failedTaskId` SKIPPED with
- * errorCode UPSTREAM_FAILED. Run it in the transaction that moved the task to
- * DEAD_LETTER or FAILED.
+ * errorCode UPSTREAM_FAILED (RA-8000: or the caller's `reason`; approval
+ * rejection passes its own code so the un-skip below never resets it). Run it
+ * in the transaction that moved the task to DEAD_LETTER, FAILED or CANCELLED.
  */
 export async function skipDependentsOfFailedTask(
   db: Db,
   workflowId: string,
   failedTaskId: string,
+  reason: { code: string; message: string } = {
+    code: UPSTREAM_FAILED_CODE,
+    message: `Skipped: upstream task ${failedTaskId} failed`,
+  },
 ): Promise<number> {
   const tasks = await db.agentTask.findMany({
     where: { workflowId },
@@ -130,8 +136,8 @@ export async function skipDependentsOfFailedTask(
     where: { AND: [{ id: { in: toSkip } }, { workflowId, status: "PENDING" }] },
     data: {
       status: "SKIPPED",
-      errorCode: UPSTREAM_FAILED_CODE,
-      errorMessage: `Skipped: upstream task ${failedTaskId} failed`,
+      errorCode: reason.code,
+      errorMessage: reason.message,
     },
   });
   return result.count;
@@ -261,6 +267,19 @@ export async function sweepExpiredLeases(
 
   return prisma.$transaction(
     async (tx) => {
+      // RA-8000: lock every workflow the sweep is about to touch before any
+      // task row is read or written, in id order, so the cascade and progress
+      // refresh below read committed task state. The candidate list is read
+      // first; a workflow whose lease expired in the gap is locked below,
+      // before its own refresh.
+      const candidates = await tx.$queryRaw<Array<{ workflowId: string }>>`
+        SELECT DISTINCT t."workflowId" AS "workflowId"
+        FROM "AgentTask" t
+        JOIN "AgentWorkflow" w ON w.id = t."workflowId"
+        WHERE ${predicate}`;
+      const locked = new Set(candidates.map((c) => c.workflowId));
+      await lockWorkflowRows(tx, locked);
+
       // `o` is the same row before the update, for the previous lease values.
       const rows = await tx.$queryRaw<SweptRow[]>`
         UPDATE "AgentTask" t
@@ -281,9 +300,15 @@ export async function sweepExpiredLeases(
 
       const failedWorkflows = new Set<string>();
       for (const row of rows) {
+        if (row.status === "DEAD_LETTER") failedWorkflows.add(row.workflowId);
+      }
+      await lockWorkflowRows(
+        tx,
+        [...failedWorkflows].filter((id) => !locked.has(id)),
+      );
+      for (const row of rows) {
         if (row.status === "DEAD_LETTER") {
           await skipDependentsOfFailedTask(tx, row.workflowId, row.id);
-          failedWorkflows.add(row.workflowId);
         }
       }
       for (const workflowId of failedWorkflows) {

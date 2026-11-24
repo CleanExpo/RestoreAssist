@@ -58,6 +58,8 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: vi.fn(async () => ({ count: 0 })),
       createMany: vi.fn(),
     },
+    // RA-8576: the owner's save locks the candidate rooms before recounting.
+    $queryRaw: vi.fn(async () => []),
     $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
   },
 }));

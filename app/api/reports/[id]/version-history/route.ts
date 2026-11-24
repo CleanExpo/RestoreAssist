@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 // GET - Get version history for a report
 export async function GET(
@@ -57,7 +58,8 @@ export async function GET(
           },
         ];
 
-    return NextResponse.json({ versionHistory });
+    // RA-8494: a change entry for a money field ({ field, from, to }) is money.
+    return NextResponse.json({ versionHistory: await moneySafe(session, versionHistory) });
   } catch (error) {
     return fromException(request, error, { stage: "version-history-get" });
   }
@@ -134,7 +136,7 @@ export async function POST(
     });
 
     return NextResponse.json({
-      versionHistory: updatedHistory,
+      versionHistory: await moneySafe(session, updatedHistory),
       newVersion,
     });
   } catch (error) {

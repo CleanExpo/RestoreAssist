@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/stop-verifier.sh"
+            "command": "r=$(git rev-parse --show-toplevel 2>/dev/null); [ -x \"$r/.claude/hooks/stop-verifier.sh\" ] && exec \"$r/.claude/hooks/stop-verifier.sh\"; echo \"stop-verifier.sh not found from this folder. The Stop check did not run.\" >&2; exit 0"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pre-bash-destructive.sh"
+            "command": "h=.claude/hooks/pre-bash-destructive.sh; d=$(pwd -P); while :; do [ -x \"$d/$h\" ] && exec \"$d/$h\"; [ \"$d\" = / ] && break; d=$(dirname \"$d\"); done; [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -x \"$CLAUDE_PROJECT_DIR/$h\" ] && exec \"$CLAUDE_PROJECT_DIR/$h\"; echo \"BLOCKED: $h not found above the working directory or in CLAUDE_PROJECT_DIR. The safety check did not run.\" >&2; exit 2"
           }
         ]
       },
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pre-edit-sensitive.sh"
+            "command": "h=.claude/hooks/pre-edit-sensitive.sh; d=$(pwd -P); while :; do [ -x \"$d/$h\" ] && exec \"$d/$h\"; [ \"$d\" = / ] && break; d=$(dirname \"$d\"); done; [ -n \"$CLAUDE_PROJECT_DIR\" ] && [ -x \"$CLAUDE_PROJECT_DIR/$h\" ] && exec \"$CLAUDE_PROJECT_DIR/$h\"; echo \"BLOCKED: $h not found above the working directory or in CLAUDE_PROJECT_DIR. The safety check did not run.\" >&2; exit 2"
           }
         ]
       }

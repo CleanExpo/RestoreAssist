@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -85,10 +86,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const nameById = new Map(users.map((u) => [u.id, u.name]));
 
     return NextResponse.json({
-      logs: logs.map((log) => ({
-        ...log,
-        userName: nameById.get(log.userId) ?? null,
-      })),
+      // RA-8494: an audit row's JSON text can carry a price (a cost-estimate
+      // total); the owner withholds it from a caller who may not see money.
+      logs: await moneySafe(
+        session,
+        logs.map((log) => ({
+          ...log,
+          userName: nameById.get(log.userId) ?? null,
+        })),
+      ),
       total,
     });
   } catch (error) {

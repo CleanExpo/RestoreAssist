@@ -1,0 +1,56 @@
+{
+  "schema": "done/1",
+  "work_id": "w_7f8c02b15beb",
+  "version": 4,
+  "supersedes": "w_02782c729658",
+  "goal": "Mining pilot slice 6 v4 (adds two finish-line items found by Codex discovery round 1: every record and every staff member is reachable by paging, and no change or removal silently overwrites someone else's change): staff training register per organisation at /dashboard/training (course, provider, completion date, optional expiry, evidence link, optional user-entered CARSI completion URL or certificate id). Owners and managers read and edit every record in their organisation; a technician reads only their own and cannot write; role and organisation re-read from the database; no CARSI API call; works with zero CARSI records; additive migration file with down.sql, never applied to any shared database",
+  "created_at_utc": "2026-11-23T08:13:11Z",
+  "identity_key": "claude/ra-staff-training-register@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-staff-training-register",
+  "baseline_observed": {
+    "head": "e171e849fa4a46798459946201ed425c860cbad1",
+    "branch": "claude/ra-staff-training-register",
+    "dirty_count": 10
+  },
+  "criteria": [
+    {
+      "id": "TR-ACCESS",
+      "text": "Access helper and paging/version helper unit tests pass: role and organisation come from the database; ADMIN and MANAGER read every record in their organisation and may write; USER (technician) reads only records where staffUserId is self within their current organisation and may not write; a user with no organisation or no user row reads nothing and may not write",
+      "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:/usr/local/bin:/opt/homebrew/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js lib/training/__tests__",
+      "timeout": 300
+    },
+    {
+      "id": "TR-ROUTES",
+      "text": "Route guard tests pass: GET passes the organisation (and for a technician the self) filter to Prisma and pages with a cursor that is ANDed with that scope, so record 101 and beyond is reachable; a malformed cursor is 400; the staff list pages within the caller's organisation and is 403 for a technician; POST/PATCH/DELETE by a technician is 403 with no write; POST for a staff member outside the caller's organisation is 404 with no write; PATCH/DELETE of another organisation's record is 404 and the where carries organizationId; PATCH/DELETE carry the version the caller read, a missing version is 400 and a moved version is 409 with nothing written; the database expiry check on a race is 409 not 500; body carrying organizationId or staffUserId on PATCH is 400; unsigned-in is 401; bad links are 400; an empty register returns 200 with no records",
+      "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:/usr/local/bin:/opt/homebrew/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js app/api/team/training-records",
+      "timeout": 300
+    },
+    {
+      "id": "TR-UI",
+      "text": "Register panel tests pass: a manager sees the add form and every record; a technician sees no add, edit or delete control; the empty state renders with zero records; a CARSI reference is labelled as entered by the business and not checked with CARSI; 'Show more records' and 'Show more staff' fetch the next page; an edit sends only the changed fields plus the version it was made against, and a conflict shows the message and reloads; a removal carries the version",
+      "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:/usr/local/bin:/opt/homebrew/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js app/dashboard/team/__tests__/training-register.test.tsx",
+      "timeout": 300
+    },
+    {
+      "id": "TR-MIGRATION",
+      "text": "The migration is additive, cascades from organisation and staff member, enables row-level security, and its down.sql drops exactly what it adds (static layer of scripts/ci/__tests__/staff-training-register-rollback.test.ts, run with no DATABASE_URL). The Postgres apply, drift and rollback layer runs only in GitHub CI on a throwaway database: the local Bash migration roundtrip is refused by the Supabase write gate and is not routed around",
+      "recipe": "env -u DATABASE_URL -u DIRECT_URL PATH=$HOME/.nvm/versions/node/v22.23.3/bin:/usr/local/bin:/opt/homebrew/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js scripts/ci/__tests__/staff-training-register-rollback.test.ts",
+      "timeout": 300
+    },
+    {
+      "id": "TR-NO-CARSI-CALL",
+      "text": "No new code calls out to CARSI or fetches a user-entered link: no fetch, axios or http request in the new training library or routes",
+      "recipe": "! grep -rnE 'fetch\\(|axios|https?\\.request|undici' lib/training app/api/team/training-records --include='*.ts' --exclude-dir=__tests__"
+    },
+    {
+      "id": "TR-TYPECHECK",
+      "text": "npm run type-check exits zero",
+      "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:/usr/local/bin:/opt/homebrew/bin:$PATH npm run type-check",
+      "timeout": 900
+    },
+    {
+      "id": "TR-SCOPE",
+      "text": "Only the schema, the new migration folder, lib/training, the training-records routes (including the staff list), the /dashboard/training page and its panel, the team page link, the technician nav link, the migration rollback test, their tests and this work item's Done files change against merge base 846564c",
+      "recipe": "git diff --name-only 846564c465877a5fce624000e7f5caeeca53d773...HEAD | grep -v -E '^(prisma/schema.prisma|prisma/migrations/20261123120000_staff_training_register/(migration|down)\\.sql|lib/training/.*|app/api/team/training-records/.*|app/dashboard/training/(page|TrainingRegisterPanel)\\.tsx|app/dashboard/team/page\\.tsx|app/dashboard/DashboardShell\\.tsx|scripts/ci/__tests__/staff-training-register-rollback\\.test\\.ts|app/dashboard/team/__tests__/training-register\\.test\\.tsx|\\.claude/done/.*)$'; test $? -eq 1"
+    }
+  ]
+}

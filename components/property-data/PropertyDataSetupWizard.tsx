@@ -33,9 +33,9 @@ export function PropertyDataSetupWizard({
 }: PropertyDataSetupWizardProps) {
   const [step, setStep] = useState<Step>(1);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<"idle" | "success" | "fail">(
-    "idle",
-  );
+  const [testResult, setTestResult] = useState<
+    "idle" | "success" | "fail" | "unverified"
+  >("idle");
   const [testError, setTestError] = useState<string | null>(null);
 
   // RA-1760 — the wizard used to await a setTimeout and then claim
@@ -65,6 +65,35 @@ export function PropertyDataSetupWizard({
         setTestResult("fail");
         setTestError(
           body.reason ?? `Scraper not configured (health returned ${h.status})`,
+        );
+        return;
+      }
+
+      // RA-8111: configured is not working. The health answer contacts no
+      // provider, so it can never show the source is permitted or reachable.
+      // Stop before any lookup unless it says so explicitly.
+      const health = (await h.json().catch(() => ({}))) as {
+        checks?: {
+          featureEnabled?: string;
+          sourcePermitted?: string;
+          providerReachable?: string;
+        };
+      };
+      const checks = health.checks;
+      if (checks?.featureEnabled !== "on") {
+        setTestResult("unverified");
+        setTestError(
+          "Listing import is switched off on this deployment, so no connection test was run.",
+        );
+        return;
+      }
+      if (
+        checks.sourcePermitted !== "permitted" ||
+        checks.providerReachable !== "reachable"
+      ) {
+        setTestResult("unverified");
+        setTestError(
+          "The server is configured, but source permission and provider reachability are unverified, so no lookup was sent.",
         );
         return;
       }
@@ -155,9 +184,7 @@ export function PropertyDataSetupWizard({
           {step === 1 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-2xl flex-shrink-0">
-                  
-                </div>
+                <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-2xl flex-shrink-0"></div>
                 <div>
                   <h3 className="font-semibold text-slate-900 dark:text-white">
                     Auto-fill property details
@@ -245,7 +272,9 @@ export function PropertyDataSetupWizard({
                     ? "border-emerald-400 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10"
                     : testResult === "fail"
                       ? "border-rose-400 dark:border-rose-500 bg-rose-50 dark:bg-rose-500/10"
-                      : "border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/30"
+                      : testResult === "unverified"
+                        ? "border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-500/10"
+                        : "border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/30"
                 }`}
               >
                 {testing ? (
@@ -254,6 +283,8 @@ export function PropertyDataSetupWizard({
                   <CheckCircle2 size={32} className="text-success" />
                 ) : testResult === "fail" ? (
                   <WifiOff size={32} className="text-destructive" />
+                ) : testResult === "unverified" ? (
+                  <HelpCircle size={32} className="text-warning" />
                 ) : (
                   <Wifi
                     size={32}
@@ -266,7 +297,9 @@ export function PropertyDataSetupWizard({
                       ? "text-success"
                       : testResult === "fail"
                         ? "text-destructive"
-                        : "text-slate-600 dark:text-slate-400"
+                        : testResult === "unverified"
+                          ? "text-warning-subtle-foreground"
+                          : "text-slate-600 dark:text-slate-400"
                   }`}
                 >
                   {testing
@@ -275,16 +308,19 @@ export function PropertyDataSetupWizard({
                       ? "Scraper reachable — ready to use"
                       : testResult === "fail"
                         ? "Connection test failed"
-                        : "Connection not tested yet"}
+                        : testResult === "unverified"
+                          ? "Not verified — property lookup is not confirmed working"
+                          : "Connection not tested yet"}
                 </p>
-                {testResult === "fail" && testError && (
-                  <p
-                    role="alert"
-                    className="text-xs text-destructive text-center px-2"
-                  >
-                    {testError}
-                  </p>
-                )}
+                {(testResult === "fail" || testResult === "unverified") &&
+                  testError && (
+                    <p
+                      role="alert"
+                      className="text-xs text-destructive text-center px-2"
+                    >
+                      {testError}
+                    </p>
+                  )}
               </div>
               <button
                 onClick={handleTestConnection}

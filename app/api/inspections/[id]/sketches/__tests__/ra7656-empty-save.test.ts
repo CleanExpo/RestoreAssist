@@ -69,6 +69,8 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: vi.fn(async () => ({ count: 0 })),
       createMany: vi.fn(async () => ({ count: 0 })),
     },
+    // RA-8576: the stale-room reconcile takes a row lock first.
+    $queryRaw: vi.fn(async () => []),
     $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
   },
 }));
@@ -132,9 +134,17 @@ const storedRooms = [
   },
 ];
 
-function projectRooms(args: { select?: { _count?: unknown } }) {
+function projectRooms(args: {
+  select?: { _count?: unknown };
+  where?: { id?: { in?: string[] } };
+}) {
   if (args?.select?._count) {
-    return storedRooms.map(({ counts, ...r }) => ({ ...r, _count: counts }));
+    // RA-8576: the recount inside the save's transaction asks for named rooms,
+    // as the database would filter them.
+    const only = args.where?.id?.in;
+    return storedRooms
+      .filter((r) => !only || only.includes(r.id))
+      .map(({ counts, ...r }) => ({ ...r, _count: counts }));
   }
   return storedRooms.map(({ id, name, fabricObjectId, geometryJson }) => ({
     id,
@@ -487,10 +497,9 @@ describe("RA-7656 user-removed-rooms intent", () => {
     expect(p.claimSketch.update.mock.calls[0][0].data.sketchData).toEqual(codexPayload);
     expect(p.sketchRoom.deleteMany).not.toHaveBeenCalled();
     expect(p.sketchRoom.updateMany).toHaveBeenCalledTimes(1);
-    expect(p.sketchRoom.updateMany.mock.calls[0][0].where).toEqual({
-      id: { in: ["sr_laundry", "sr_kitchen"] },
-      detachedAt: null,
-    });
+    const where = p.sketchRoom.updateMany.mock.calls[0][0].where;
+    expect([...where.id.in].sort()).toEqual(["sr_kitchen", "sr_laundry"]);
+    expect(where.detachedAt).toBeNull();
   });
 
   it("a bare Clear Canvas (objects: []) with the intent saves the empty floor and reconciles the rooms (owner)", async () => {

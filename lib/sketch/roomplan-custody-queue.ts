@@ -20,6 +20,7 @@
  */
 
 import type { CapturedRoom } from "./roomplan-to-fabric";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 const DB_NAME = "roomplan-custody";
 const DB_VERSION = 1;
@@ -346,7 +347,7 @@ function refusalMessage(text: string, status: number): string {
   } catch {
     // Non-JSON body: fall through to the status line.
   }
-  return `Server refused the receipt (HTTP ${status})`;
+  return statusErrorMessage(status);
 }
 
 /**

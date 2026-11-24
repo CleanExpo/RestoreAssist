@@ -14,6 +14,7 @@ import {
 } from "@/lib/idempotency";
 import { isRecentlyIssuedCreationKey } from "@/lib/creation-attempt-key";
 import { apiError, fromException } from "@/lib/api-errors";
+import { canSeeMoney, redactMoney } from "@/lib/auth/redact-money";
 import {
   assertReportLinkable,
   reportLinkableInTx,
@@ -178,7 +179,15 @@ export async function GET(request: NextRequest) {
           photos: true,
         },
       });
-      if (inspection) return NextResponse.json({ inspection });
+      // RA-8494: the whole job comes back here, so its money goes only to
+      // a caller who may see prices.
+      if (inspection) {
+        return NextResponse.json({
+          inspection: (await canSeeMoney(session))
+            ? inspection
+            : redactMoney(inspection),
+        });
+      }
 
       return apiError(request, {
         code: "NOT_FOUND",
@@ -454,6 +463,10 @@ export async function POST(request: NextRequest) {
     });
   }
   const userId = session.user.id;
+  // RA-8494: the created or existing job carries scope-item rates and its
+  // cost total; a technician gets it, and its stored replay, without money.
+  const mayPrice = await canSeeMoney(session);
+  const priced = <T,>(value: T): T => (mayPrice ? value : redactMoney(value));
 
   // RA-1266: Idempotency-Key prevents duplicate inspections — a technician
   // on flaky mobile data who retries a submit shouldn't end up with two
@@ -654,7 +667,7 @@ export async function POST(request: NextRequest) {
               });
             }
           }
-          return NextResponse.json({ inspection: existing });
+          return NextResponse.json({ inspection: priced(existing) });
         }
         if (
           report.propertyAddress.trim().toLowerCase() !==
@@ -773,7 +786,7 @@ export async function POST(request: NextRequest) {
           const completed = await completeIdempotentSuccessInTransaction({
             tx, scope: userId, key: creationKey, method: "POST",
             path: request.nextUrl.pathname, rawBody,
-            responseBody: JSON.stringify({ inspection: created }),
+            responseBody: JSON.stringify({ inspection: priced(created) }),
             responseStatus: 201,
           });
           if (!completed) throw new IdempotencyReservationLostError();
@@ -814,8 +827,9 @@ export async function POST(request: NextRequest) {
 
       scheduleZohoInspectionPush(inspection.id);
 
-      return NextResponse.json({ inspection }, {
+      return NextResponse.json({ inspection: priced(inspection) }, {
         status: 201,
+
         ...(creationKey ? { headers: { "X-RestoreAssist-Idempotency-Completed-In-Transaction": "true" } } : {}),
       });
     } catch (error) {

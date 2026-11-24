@@ -24,6 +24,7 @@ import {
 import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
 import { aiOwnershipExportMeta } from "@/lib/reports/ai-ownership-export-meta";
 import { versionHistoryForExport } from "@/lib/reports/version-history-export";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 /**
  * RA-7003: the "complete package" previously contained only the three text
@@ -174,6 +175,15 @@ export async function GET(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 
