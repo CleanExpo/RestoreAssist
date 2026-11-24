@@ -40,7 +40,7 @@
 import { signIn, signOut, type SignInOptions } from "next-auth/react";
 import { isCapacitorAndroid, isCapacitorIOS } from "@/lib/capacitor";
 import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
-import { clearOfflineContext } from "@/lib/offline/account-boundary";
+import { endOfflineSession } from "@/lib/offline/account-boundary";
 
 export type OAuthProvider = "google" | "apple";
 
@@ -138,7 +138,7 @@ async function ensureSocialLoginInitialised() {
  *     accept this pattern, since Apple-as-IdP on Android is not required.
  */
 export async function signOutAndConfirm(): Promise<void> {
-  clearOfflineContext();
+  endOfflineSession();
   await signOut({ redirect: false });
   // NextAuth v4 signOut does not reject every HTTP failure. Confirm that
   // the session really cleared before allowing its account-linking callback.
@@ -188,7 +188,7 @@ async function startOAuth(
   }
 
   // Native branch — capgo SocialLogin handles per-platform internals.
-  clearOfflineContext();
+  endOfflineSession();
   await ensureSocialLoginInitialised();
   const { SocialLogin } = await import("@capgo/capacitor-social-login");
 

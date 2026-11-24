@@ -34,20 +34,20 @@ export default defineConfig({
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "chromium",
-      testIgnore: [/auth\.setup\.ts/, /walkthrough\//, /one-setup-path\//],
+      testIgnore: [/auth\.setup\.ts/, /walkthrough\//, /one-setup-path\//, /offline-cold-start\//],
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
     },
     {
       name: "mobile-chrome",
-      testIgnore: [/auth\.setup\.ts/, /walkthrough\//, /one-setup-path\//],
+      testIgnore: [/auth\.setup\.ts/, /walkthrough\//, /one-setup-path\//, /offline-cold-start\//],
       grep: /@smoke/,
       use: { ...devices["Pixel 5"] },
       dependencies: ["setup"],
     },
     {
       name: "tablet-chrome",
-      testIgnore: [/auth\.setup\.ts/, /walkthrough\//, /one-setup-path\//],
+      testIgnore: [/auth\.setup\.ts/, /walkthrough\//, /one-setup-path\//, /offline-cold-start\//],
       grep: /@smoke/,
       use: {
         ...devices["Desktop Chrome"],
