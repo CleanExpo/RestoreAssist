@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 import { resolveReportReach } from "@/lib/auth/assert-tenancy";
 import {
   validateImageUpload,
@@ -106,9 +107,11 @@ export async function GET(
       }
     }
 
+    // RA-8494: the stored blob is client-written and may carry cost estimates
+    // and priced scope items; a technician gets it without money.
     return NextResponse.json({
       success: true,
-      nirData: nirData || {
+      nirData: (await moneySafe(session, nirData)) || {
         moistureReadings: [],
         affectedAreas: [],
         scopeItems: [],

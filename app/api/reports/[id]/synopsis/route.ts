@@ -11,6 +11,7 @@ import {
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { canSeeMoney } from "@/lib/auth/redact-money";
 
 /**
  * RA-1192: POST /api/reports/[id]/synopsis
@@ -37,6 +38,10 @@ export async function POST(
     }
     const userId = session.user.id;
     const { id } = await params;
+    // RA-8494: the stored synopsis may quote the job total, so a caller who may
+    // not see money never gets the cached text, and theirs is written without
+    // the total and never stored over the shared one.
+    const mayPrice = await canSeeMoney(session);
 
     // CLAUDE.md rule 10 — rate-limit on session.user.id, not IP.
     const rateLimited = await applyRateLimit(request, {
@@ -93,6 +98,7 @@ export async function POST(
 
     // Idempotent cache: return the existing synopsis if it's < 24h old.
     if (
+      mayPrice &&
       report.aiSynopsis &&
       report.aiSynopsisAt &&
       Date.now() - report.aiSynopsisAt.getTime() < CACHE_WINDOW_MS
@@ -146,7 +152,7 @@ export async function POST(
         hazardType: report.hazardType,
         affectedArea: report.affectedArea,
         estimatedDryingTime: report.estimatedDryingTime,
-        totalCost: totalCost != null ? Number(totalCost) : null,
+        totalCost: mayPrice && totalCost != null ? Number(totalCost) : null,
         propertyAddress: report.propertyAddress,
       },
     });
@@ -182,10 +188,12 @@ export async function POST(
     const synopsis = result.data;
 
     const now = new Date();
-    await prisma.report.update({
-      where: { id: report.id },
-      data: { aiSynopsis: synopsis, aiSynopsisAt: now },
-    });
+    if (mayPrice) {
+      await prisma.report.update({
+        where: { id: report.id },
+        data: { aiSynopsis: synopsis, aiSynopsisAt: now },
+      });
+    }
 
     return NextResponse.json({
       data: {

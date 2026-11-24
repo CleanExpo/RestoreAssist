@@ -16,6 +16,7 @@ import { parseFrozenEstimateLines } from "@/lib/estimate/approval-snapshot";
 import { mirrorClaimProgressLifecycleState } from "@/lib/claim-progress/mirror-lifecycle-state";
 import { resolveCanonicalClientForInspection } from "@/lib/canonical/resolve-job-client";
 import { loadActorProgressRole } from "@/lib/progress/actor-role";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 const toCents = (amount: number | null) => dollarsToCents(amount ?? 0);
 
@@ -198,6 +199,15 @@ export async function GET(
         status: 401,
       });
     }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
+      });
+    }
 
     const { id } = await params;
 
@@ -276,6 +286,15 @@ export async function POST(
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
     });
   }
   const userId = session.user.id;

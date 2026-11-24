@@ -17,10 +17,17 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
 const inspectionFindFirst = vi.fn();
+// RA-8494: the real price rule reads the caller's user row. tech-a is a
+// technician inside org-a, so the PDF is built without money; the header is
+// still the business's (a technician keeps their report PDF).
+const userFindUnique = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: {
       findFirst: (...a: unknown[]) => inspectionFindFirst(...a),
+    },
+    user: {
+      findUnique: (...a: unknown[]) => userFindUnique(...a),
     },
   },
 }));
@@ -41,7 +48,8 @@ vi.mock("@/lib/api-errors", () => ({
   fromException: () => new Response("e", { status: 500 }),
 }));
 // D-028: read reach and money reach are covered by their own tests; here the
-// caller can read the job and see its money.
+// caller can read the job and has money reach (the RA-8494 role rule still
+// withholds money from a technician).
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionReadable: vi.fn().mockResolvedValue({ ok: true }),
   resolveInspectionFinancialReach: vi
@@ -103,6 +111,10 @@ beforeEach(() => {
   generateNIRPDF.mockReset();
   generateNIRPDF.mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
   getServerSession.mockResolvedValue({ user: { id: "tech-a" } });
+  userFindUnique.mockReset();
+  userFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
+    makeTwoWorkspaces().userRow(where.id),
+  );
 });
 
 describe("GET /api/inspections/[id]/report?format=pdf — business header (RA-7746)", () => {

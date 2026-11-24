@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withCurrentEquipment } from "@/lib/reports/report-equipment-response";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 import {
   hasPaidBasePlan,
   requirePaidBasePlan,
@@ -90,7 +91,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({
-      report: await withCurrentEquipment(updatedReport),
+      // RA-8494: the saved report carries its money; a technician gets it without.
+      report: await moneySafe(session, await withCurrentEquipment(updatedReport)),
       message: `Tier ${tier} responses saved successfully`,
     });
   } catch (error) {

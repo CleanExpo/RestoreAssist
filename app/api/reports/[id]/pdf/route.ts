@@ -22,6 +22,7 @@ import {
   workspaceBusiness,
 } from "@/lib/reports/workspace-business";
 import { relationalMoistureToPdfRows } from "@/lib/reports/pdf-moisture-readings";
+import { assertMoneyViewer, canSeeMoney } from "@/lib/auth/redact-money";
 
 /**
  * GET /api/reports/[id]/pdf
@@ -57,7 +58,8 @@ export async function GET(
     // RA-7769 / D-023: the PDF prints the Estimated Total Cost, so session
     // access follows the financial reach: the organisation widening stops at
     // MANAGER.
-    if (!authorised && session?.user?.id) {
+    // RA-8494: and never to a technician, even one who created the report.
+    if (!authorised && session?.user?.id && (await canSeeMoney(session))) {
       const reach = await resolveReportFinancialReach(session);
       const owns = reach.ok
         ? await prisma.report.findFirst({
@@ -66,6 +68,20 @@ export async function GET(
           })
         : null;
       if (owns) authorised = true;
+    }
+
+    // RA-8494: a signed-in technician is refused as the money rule, not as a
+    // dead session (a 401 makes many clients sign the user out); a share
+    // token does not lift the rule for them (founder ruling 22/11).
+    if (session?.user?.id) {
+      const priceGate = await assertMoneyViewer(session);
+      if (!priceGate.ok) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: priceGate.reason,
+          status: priceGate.status,
+        });
+      }
     }
 
     if (!authorised) {

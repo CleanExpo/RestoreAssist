@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// RA-8494: the caller here (manager-a) may see money; the money rule is proven in
+// technician-no-money.test.ts (see lib/auth/__mocks__/redact-money.ts).
+vi.mock("@/lib/auth/redact-money");
 import { NextRequest } from "next/server";
 
 // RA-8281 B1 class fix: the Excel export prices stored equipment from the
