@@ -655,7 +655,7 @@ export function AvatarOrb({
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-white/50">
                   <Video className="w-12 h-12" />
-                  <p className="text-sm">Video coming soon</p>
+                  <p className="text-sm">This video is not available right now</p>
                 </div>
               )}
             </div>

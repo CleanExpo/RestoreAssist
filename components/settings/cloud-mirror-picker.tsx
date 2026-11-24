@@ -151,7 +151,7 @@ export function CloudMirrorPicker() {
             onValueChange={(v) => setSelected(v as ProviderId)}
             className="space-y-3"
           >
-            {options.map((opt) => (
+            {options.filter((opt) => opt.enabled).map((opt) => (
               <div
                 key={opt.id}
                 className="flex items-start space-x-3 rounded-md border p-4"

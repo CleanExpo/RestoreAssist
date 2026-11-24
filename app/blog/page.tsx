@@ -153,18 +153,7 @@ export default function BlogPage() {
                     >
                       Read article
                     </Link>
-                  ) : (
-                    <span
-                      aria-disabled="true"
-                      className={`text-sm font-medium ${darkMode ? "text-brand-bronze/70" : "text-brand-bronze/70"}`}
-                      style={{
-                        fontFamily:
-                          '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                      }}
-                    >
-                      Coming Soon
-                    </span>
-                  )}
+                  ) : null}
                 </div>
               </motion.div>
             ))}

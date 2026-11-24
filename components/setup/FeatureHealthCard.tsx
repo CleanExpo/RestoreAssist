@@ -33,7 +33,7 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
         const r = await fetch('/api/setup/checks');
         if (!r.ok) {
           if (!cancelled) {
-            setLoadError(`Could not load workspace health (HTTP ${r.status})`);
+            setLoadError(`Could not load workspace health. Try again in a moment.`);
             setLoaded(true);
           }
           return;

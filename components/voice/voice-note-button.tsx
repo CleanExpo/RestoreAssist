@@ -30,6 +30,7 @@ import {
   type VoiceFieldMapping,
 } from "@/lib/services/ai/voice-to-fields";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 type Status = "idle" | "recording" | "uploading";
 
@@ -311,7 +312,7 @@ export function VoiceNoteButton({
 
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(apiErrorMessage(body) || `HTTP ${res.status}`);
+        throw new Error(apiErrorMessage(body) || statusErrorMessage(res.status));
       }
 
       const data = (await res.json()) as { transcript?: string };

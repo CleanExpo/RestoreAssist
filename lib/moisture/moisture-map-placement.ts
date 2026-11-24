@@ -9,6 +9,7 @@
 import {
   fromNormalizedMoistureMapPoint,
 } from "@/lib/nir-moisture-map-coordinates";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 export interface MapPosition {
   mapX: number;
@@ -64,7 +65,7 @@ export async function saveReadingPlacement(
     const message =
       typeof body.error === "string"
         ? body.error
-        : (body.error?.message ?? `HTTP ${res.status}`);
+        : (body.error?.message ?? statusErrorMessage(res.status));
     throw new Error(message);
   }
 }

@@ -44,6 +44,12 @@ import {
   resolveHomeFocus,
 } from "@/lib/dashboard/home-focus";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { DashboardInlineNotice } from "@/components/dashboard/DashboardInlineNotice";
+import { WorkspaceAccessNotice } from "@/components/dashboard/WorkspaceAccessNotice";
+import { DashboardLoadFailureList } from "@/components/dashboard/DashboardLoadFailureList";
+import { SignInAgainButton } from "@/components/dashboard/SignInAgainButton";
+import { customerErrorMessage } from "@/lib/client/customer-error-copy";
 
 type InspectionRow = {
   id: string;
@@ -161,37 +167,6 @@ function DashboardOverviewSkeleton() {
   );
 }
 
-function DashboardInlineNotice({
-  title,
-  body,
-  action,
-  tone = "default",
-}: {
-  title: string;
-  body: ReactNode;
-  action?: ReactNode;
-  tone?: "default" | "warning" | "danger";
-}) {
-  return (
-    <div
-      role="alert"
-      className={cn(
-        "rounded-xl border px-4 py-3 sm:px-5 sm:py-4",
-        tone === "danger" &&
-          "border-red-500/30 bg-red-500/10 text-red-900 dark:text-red-200",
-        tone === "warning" &&
-          "border-amber-500/35 bg-amber-500/10 text-amber-950 dark:text-amber-100",
-        tone === "default" &&
-          "border-border bg-muted/40 text-foreground",
-      )}
-    >
-      <p className="text-sm font-semibold">{title}</p>
-      <p className="mt-1 text-sm opacity-90">{body}</p>
-      {action ? <div className="mt-3">{action}</div> : null}
-    </div>
-  );
-}
-
 export default function DashboardPage() {
   const { data: session, status, update } = useSession();
   if (status === "loading") {
@@ -204,12 +179,7 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">
             Sign in to open your workspace overview.
           </p>
-          <Link
-            href="/login?callbackUrl=/dashboard"
-            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground"
-          >
-            Sign in
-          </Link>
+          <SignInAgainButton label="Sign in" />
         </div>
       </SimpleDashboardPageFrame>
     );
@@ -288,18 +258,7 @@ function DashboardWorkspace({ session }: { session: Session }) {
     return (
       <SimpleDashboardPageFrame>
         <div className="py-8">
-          <DashboardInlineNotice
-            tone="danger"
-            title="Workspace access could not be confirmed"
-            body={
-              <>
-                HTTP {error.status}.{" "}
-                <Link href="/login" className="font-medium underline">
-                  Sign in again
-                </Link>
-              </>
-            }
-          />
+          <WorkspaceAccessNotice status={error.status} />
         </div>
       </SimpleDashboardPageFrame>
     );
@@ -308,7 +267,7 @@ function DashboardWorkspace({ session }: { session: Session }) {
   const workspaceNotice =
     !loading && error
       ? {
-          message: `Workspace details are unavailable (HTTP ${error.status || "unknown"}).${error.eventId ? ` Error ID: ${error.eventId}.` : ""}`,
+          message: `Workspace details are unavailable. ${customerErrorMessage(error)}${error.eventId ? ` Error ID: ${error.eventId}.` : ""}`,
           onRetry: refetch,
         }
       : !loading && data?.hasWorkspace && data.status !== "READY"
@@ -627,45 +586,21 @@ function DashboardContent({
               </>
             }
             action={
-          <button
-            type="button"
+              <Button
+                type="button"
+                variant="outline"
+                size="touch"
                 onClick={workspaceNotice.onRetry}
-                className="inline-flex min-h-11 items-center rounded-lg border border-border bg-background px-4 text-sm font-medium"
               >
                 Retry workspace details
-          </button>
+              </Button>
             }
           />
         </div>
       )}
 
       {model.loadFailed && (
-        <div
-          role="alert"
-          className="mt-4 space-y-2 rounded-[10px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-800 dark:text-red-300"
-        >
-          <p>Some workspace data could not be loaded. Available sections are shown below.</p>
-          <ul className="space-y-2">
-            {model.failures.map(({ label, error, loading, retry }) => (
-              <li key={label} className="flex flex-wrap items-center justify-between gap-2">
-                <span>
-                  {label}: {error!.status ? `HTTP ${error!.status}` : "Network error"}
-                  {error!.code !== "UNKNOWN" ? ` (${error!.code})` : ""}
-                  {error!.eventId ? ` — Error ID: ${error!.eventId}` : ""}
-                  {error!.status === 401 ? ". Sign in again to reload this section." : ""}
-                </span>
-                <button
-                  type="button"
-                  onClick={retry}
-                  disabled={loading}
-                  className="min-h-11 shrink-0 rounded-[10px] border border-red-500/40 px-4 font-medium disabled:opacity-50"
-                >
-                  Retry {label.toLowerCase()}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <DashboardLoadFailureList failures={model.failures} />
       )}
 
       <header className="relative overflow-hidden rounded-2xl border border-brand-mist bg-gradient-to-br from-white via-brand-cloud to-brand-cream p-6 shadow-sm sm:p-8 dark:border-white/10 dark:from-brand-surface dark:via-brand-deep dark:to-brand-canvas dark:shadow-xl dark:shadow-black/50">

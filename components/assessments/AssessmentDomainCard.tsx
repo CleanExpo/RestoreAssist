@@ -317,10 +317,7 @@ export default function AssessmentDomainCard({
             checked={enhanceWithAi}
             onChange={(e) => setEnhanceWithAi(e.target.checked)}
           />
-          <span>
-            Enhance prose with AI (Claude Haiku · ~$0.005 · workspace budget
-            enforced)
-          </span>
+          <span>Enhance prose with AI (counts towards your workspace budget)</span>
         </label>
 
         <div className="flex flex-wrap gap-2 items-center pt-1">

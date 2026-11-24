@@ -29,6 +29,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SignInAgainButton } from "@/components/dashboard/SignInAgainButton";
+import { SESSION_ENDED_MESSAGE } from "@/lib/client/customer-error-copy";
 import toast from "react-hot-toast";
 import type { OcrExtraction, ExtractionType } from "@/lib/nir-vision-ocr";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
@@ -119,7 +121,7 @@ export function visionErrorMessage(status: number, code: string | null) {
     case "PARSE_FAILED":
       return "The meter display could not be interpreted. Retake the photo, or enter the reading manually.";
     default:
-      if (status === 401) return "Your session has expired — sign in again.";
+      if (status === 401) return SESSION_ENDED_MESSAGE;
       if (status === 402)
         return "An active subscription is required to read meters with AI.";
       if (status === 413)
@@ -1223,6 +1225,16 @@ export function MeterPhotoCapture({
                 <p className="text-xs text-destructive">
                   {error}
                 </p>
+                {error === SESSION_ENDED_MESSAGE && (
+                  <SignInAgainButton
+                    className="mt-2"
+                    callbackUrl={
+                      typeof window !== "undefined"
+                        ? window.location.pathname
+                        : "/dashboard"
+                    }
+                  />
+                )}
                 {error.includes("Integrations") && (
                   <a
                     href="/dashboard/integrations"

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { SupportTicketForm } from "@/components/support/support-ticket-form";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 interface Ticket {
   id: string;
@@ -61,7 +62,7 @@ export default function ContactSupportPage() {
   const fetchTickets = useCallback(async () => {
     try {
       const res = await fetch("/api/support/tickets/mine");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(statusErrorMessage(res.status));
       const json = (await res.json()) as { tickets: Ticket[] };
       setTickets(json.tickets);
     } catch (err) {
