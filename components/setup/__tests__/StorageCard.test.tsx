@@ -68,34 +68,35 @@ describe('StorageCard', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders all 3 storage options when disconnected', async () => {
+  it('offers Drive and local storage only when OneDrive is not offered', async () => {
     mockFetches({});
     render(<StorageCard />);
     await waitFor(() => screen.getByLabelText(/google drive/i));
     expect(screen.getByLabelText(/google drive/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/onedrive/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/keep it local/i)).toBeInTheDocument();
   });
 
-  it('OneDrive option is disabled when catalog says so', async () => {
+  it('hides the OneDrive option when the catalog does not offer it', async () => {
     mockFetches({});
     render(<StorageCard />);
-    await waitFor(() => screen.getByLabelText(/onedrive/i));
-    expect(screen.getByLabelText(/onedrive/i)).toBeDisabled();
+    await waitFor(() => screen.getByLabelText(/google drive/i));
+    expect(screen.queryByLabelText(/onedrive/i)).not.toBeInTheDocument();
+    expect(document.body.textContent ?? '').not.toMatch(/coming soon|microsoft oauth/i);
   });
 
-  it('STORM T6: disabled OneDrive option is aria-disabled and explains why to AT', async () => {
-    mockFetches({});
+  it('shows an enabled OneDrive option when the catalog offers it', async () => {
+    mockFetches({
+      catalog: {
+        provider: null,
+        catalog: [
+          { id: 'drive', enabled: true, tagline: 'Drive' },
+          { id: 'onedrive', enabled: true, tagline: 'Mirror to OneDrive' },
+        ],
+      },
+    });
     render(<StorageCard />);
     const onedrive = await waitFor(() => screen.getByLabelText(/onedrive/i));
-    expect(onedrive).toHaveAttribute('aria-disabled', 'true');
-    // The reason ("coming soon") must reach screen-reader users via the name.
-    expect(onedrive).toHaveAccessibleName(/requires microsoft oauth configuration|coming soon/i);
-    // The enabled option must NOT be marked aria-disabled.
-    expect(screen.getByLabelText(/google drive/i)).not.toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
+    expect(onedrive).not.toBeDisabled();
   });
 
   it('clicking Keep it local marks storage section as ready', async () => {
@@ -150,7 +151,8 @@ describe('StorageCard', () => {
       onedrive: { connected: true, accountEmail: 'tradie@example.com' },
     });
     render(<StorageCard />);
-    await waitFor(() => screen.getByLabelText(/onedrive/i));
+    await waitFor(() => screen.getByLabelText(/keep it local/i));
+    expect(screen.queryByLabelText(/onedrive/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/connected as/i)).not.toBeInTheDocument();
     expect(useSetupStore.getState().sections.storage).not.toBe('ready');
   });

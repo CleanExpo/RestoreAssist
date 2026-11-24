@@ -156,10 +156,6 @@ export default async function StatusPage() {
             support@restoreassist.app
           </a>
         </p>
-        <p className="mt-2 text-xs text-slate-500">
-          Historic incident log + RSS feed will land alongside the public
-          Statuspage integration (tracked in Linear).
-        </p>
       </section>
     </main>
   );

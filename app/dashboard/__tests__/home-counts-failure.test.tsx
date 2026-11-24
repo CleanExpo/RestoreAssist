@@ -71,7 +71,7 @@ describe("home figures (RA-8146)", () => {
     responses["/api/dashboard/home-counts"] = () =>
       json({ error: { code: "INTERNAL", message: "Internal server error", eventId: "e1" } }, 500);
     render(<DashboardPage />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("HTTP 500");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong on our side");
     for (const label of ["Active jobs", "Open reports", "Awaiting payment", "Clients"]) {
       const chip = screen
         .getAllByText(label)

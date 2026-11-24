@@ -49,6 +49,7 @@ import {
   type StoredEquipmentSelections,
 } from "@/lib/reports/stored-equipment-pricing";
 import { requirePaidBasePlan } from "@/lib/billing/paid-base-plan";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -560,7 +561,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         report: {
           id: reportId,
-          structuredData: structuredReportData,
+          // RA-8494: the structured report carries priced equipment lines.
+          structuredData: await moneySafe(session, structuredReportData),
         },
         message: `${reportType === "basic" ? "Basic" : "Enhanced"} inspection report generated successfully`,
       });
@@ -860,10 +862,11 @@ BUSINESS INFORMATION: If business information is provided in the REPORT DATA sec
     });
 
     return NextResponse.json({
-      report: {
+      // RA-8494: the narrative is written from priced equipment lines.
+      report: await moneySafe(session, {
         id: reportId,
         detailedReport: inspectionReport,
-      },
+      }),
       message: "Inspection report generated successfully",
     });
   } catch (error) {

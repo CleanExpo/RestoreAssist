@@ -114,8 +114,8 @@ export default function SupportPage() {
             <div className="px-5 pb-4 text-sm text-neutral-600 dark:text-neutral-400">
               Search for <strong>RestoreAssist</strong> on the Apple App Store
               (iOS) and install it, then log in with your existing RestoreAssist
-              account credentials. Android via Google Play is coming soon — in
-              the meantime, field capture runs in the mobile browser at{" "}
+              account credentials. On Android, field capture runs in the mobile
+              browser at{" "}
               <a
                 href="https://restoreassist.app"
                 className="underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"

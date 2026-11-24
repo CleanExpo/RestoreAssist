@@ -8,6 +8,7 @@ import {
   type ClientSummaryInput,
 } from "@/lib/services/ai/generate-client-summary";
 import { apiError, fromException } from "@/lib/api-errors";
+import { canSeeMoney } from "@/lib/auth/redact-money";
 import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
@@ -121,7 +122,12 @@ export async function POST(
 
     // 5-minute per-report cache. Satisfies the ticket's "1 generation per
     // job per 5 minutes" rule and avoids burning credits on every page load.
+    // RA-8494: the scope of works is priced and the summary is free text, so a
+    // technician's summary is written without it and never read from the
+    // cache (a manager's cached summary may quote prices).
+    const mayPrice = await canSeeMoney(session);
     if (
+      mayPrice &&
       !forceRefresh &&
       report.clientSummaryCache &&
       report.clientSummaryCachedAt &&
@@ -186,7 +192,7 @@ export async function POST(
       sourceOfWater: report.sourceOfWater,
       safetyHazards: report.safetyHazards,
       biologicalMouldDetected: report.biologicalMouldDetected,
-      scopeOfWorks: report.scopeOfWorksDocument,
+      scopeOfWorks: mayPrice ? report.scopeOfWorksDocument : null,
     };
 
     const result = await generateClientSummaryService({ apiKey, input });
@@ -217,13 +223,18 @@ export async function POST(
     const summary = result.data;
 
     const now = new Date();
-    await prisma.report.update({
-      where: { id: report.id },
-      data: {
-        clientSummaryCache: summary.summary,
-        clientSummaryCachedAt: now,
-      },
-    });
+    // RA-8494: the cache is the priced summary; a technician's unpriced one
+    // never replaces it. Their requests stay bounded by the per-user rate
+    // limit above.
+    if (mayPrice) {
+      await prisma.report.update({
+        where: { id: report.id },
+        data: {
+          clientSummaryCache: summary.summary,
+          clientSummaryCachedAt: now,
+        },
+      });
+    }
 
     return NextResponse.json({
       data: {

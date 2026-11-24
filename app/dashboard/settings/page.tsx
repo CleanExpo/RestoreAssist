@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SignInAgainButton } from "@/components/dashboard/SignInAgainButton";
 import BillingGate from "@/components/capacitor/BillingGate";
 import { OrganizationLocaleSetting } from "@/components/settings/OrganizationLocaleSetting";
 import { OrganizationProfileSetting } from "@/components/settings/OrganizationProfileSetting";
@@ -157,7 +158,7 @@ export default function SettingsPage() {
       } else {
         setProfile(null);
         setProfileError(
-          `Profile unavailable (HTTP ${response.status}). Subscription, credits, and billing dates can't be shown right now.`,
+          `Profile unavailable. Subscription, credits, and billing dates can't be shown right now.`,
         );
         setFormData({
           name: session?.user?.name || "",
@@ -268,11 +269,12 @@ export default function SettingsPage() {
     return (
       <div className="text-center py-12">
         <h2 className="text-2xl font-semibold text-brand-navy dark:text-white mb-2">
-          Please log in
+          Your session has ended
         </h2>
-        <p className="text-slate-600 dark:text-slate-400">
-          You need to be logged in to view your profile.
+        <p className="mb-4 text-slate-600 dark:text-slate-400">
+          Sign in again to view your profile.
         </p>
+        <SignInAgainButton callbackUrl="/dashboard/settings" />
       </div>
     );
   }

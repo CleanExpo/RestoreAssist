@@ -1,5 +1,6 @@
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { isIntegrationCount } from "@/lib/services/integrations/display";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 /** OAuth / API-key CRM providers that share the external sync routes. */
 export type ExternalProviderSlug =
@@ -106,6 +107,6 @@ export async function runExternalIntegrationSync(
 
   return {
     ok: false,
-    message: apiErrorMessage(data) ?? `HTTP ${response.status}`,
+    message: apiErrorMessage(data) ?? statusErrorMessage(response.status),
   };
 }

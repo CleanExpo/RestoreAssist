@@ -284,7 +284,7 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
   // NEXT_PUBLIC_* variable. An account's existing connection stays listed.
   const listedExternalIntegrations = EXTERNAL_INTEGRATIONS.filter(
     (integration) =>
-      isProviderListed(integration.slug) ||
+      (!integration.comingSoon && isProviderListed(integration.slug)) ||
       Boolean(externalIntegrations[integration.slug]?.connected) ||
       ["ATTENTION", "AMBIGUOUS"].includes(externalIntegrations[integration.slug]?.status ?? ""),
   );
@@ -1160,14 +1160,6 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
                                 {status?.status === "AMBIGUOUS" ? "Multiple connections" : "Needs attention"}
                               </Badge>
                             )}
-                            {integration.comingSoon && !isConnected && (
-                              <Badge
-                                variant="secondary"
-                                className="shrink-0 text-xs"
-                              >
-                                Soon
-                              </Badge>
-                            )}
                             {integration.betaUnverified && !isConnected && (
                               <Badge
                                 variant="outline"
@@ -1262,21 +1254,15 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
                             Disconnect
                           </Button>
                         </>
-                      ) : integration.comingSoon || integration.betaUnverified ? (
+                      ) : integration.betaUnverified ? (
                         <Button
                           variant="secondary"
                           size="sm"
                           className="w-full"
                           disabled
-                          title={
-                            integration.betaUnverified
-                              ? "OAuth exists but is not production-verified (RA-1248). Contact support if you need early access."
-                              : undefined
-                          }
+                          title="This connection is still being checked against live accounts. Contact support if you need early access."
                         >
-                          {integration.betaUnverified
-                            ? "Beta — not verified"
-                            : "Coming Soon"}
+                          Beta, not verified
                         </Button>
                       ) : (
                         <Button
@@ -1368,14 +1354,6 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
                                 {status?.status === "AMBIGUOUS" ? "Multiple connections" : "Needs attention"}
                               </Badge>
                             )}
-                            {integration.comingSoon && !isConnected && (
-                              <Badge
-                                variant="secondary"
-                                className="shrink-0 text-xs"
-                              >
-                                Soon
-                              </Badge>
-                            )}
                             {integration.betaUnverified && !isConnected && (
                               <Badge
                                 variant="outline"
@@ -1470,21 +1448,15 @@ function AccountIntegrationsPage({ sessionStatus }: { sessionStatus: "authentica
                             Disconnect
                           </Button>
                         </>
-                      ) : integration.comingSoon || integration.betaUnverified ? (
+                      ) : integration.betaUnverified ? (
                         <Button
                           variant="secondary"
                           size="sm"
                           className="w-full"
                           disabled
-                          title={
-                            integration.betaUnverified
-                              ? "OAuth exists but is not production-verified (RA-1248). Contact support if you need early access."
-                              : undefined
-                          }
+                          title="This connection is still being checked against live accounts. Contact support if you need early access."
                         >
-                          {integration.betaUnverified
-                            ? "Beta — not verified"
-                            : "Coming Soon"}
+                          Beta, not verified
                         </Button>
                       ) : (
                         <Button

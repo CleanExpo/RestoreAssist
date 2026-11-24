@@ -94,6 +94,22 @@ describe("readEnvCompleteness", () => {
     ).toEqual({ envStatus: "degraded", missingEnvVars: 2 });
   });
 
+  it.each(["error", "degraded"])(
+    "an anonymous-shaped response with env status %s still fails the count",
+    (status) => {
+      const out = readEnvCompleteness({ checks: { env: { status } } });
+      expect(out.envStatus).toBe(status);
+      expect(out.missingEnvVars).toBeGreaterThan(0);
+    },
+  );
+
+  it("an anonymous-shaped ok response counts zero", () => {
+    expect(readEnvCompleteness({ checks: { env: { status: "ok" } } })).toEqual({
+      envStatus: "ok",
+      missingEnvVars: 0,
+    });
+  });
+
   it.each([
     ["a payload that is not an object", "ok"],
     ["a payload with no checks block", { status: "ok" }],

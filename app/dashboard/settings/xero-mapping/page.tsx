@@ -195,7 +195,7 @@ export default function XeroMappingPage() {
             <Accordion type="single" collapsible className="mt-6">
               <AccordionItem value="advanced-routing">
                 <AccordionTrigger className="text-sm font-medium text-brand-navy">
-                  Advanced: per-category routing (RA-854)
+                  Advanced: per-category routing
                 </AccordionTrigger>
                 <AccordionContent>
                   <p className="mb-3 text-xs text-muted-foreground">
