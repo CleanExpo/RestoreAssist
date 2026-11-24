@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/stop-verifier.sh"
+            "command": "r=$(git rev-parse --show-toplevel 2>/dev/null); [ -x \"$r/.claude/hooks/stop-verifier.sh\" ] && exec \"$r/.claude/hooks/stop-verifier.sh\"; echo \"stop-verifier.sh not found from this folder. The Stop check did not run.\" >&2; exit 0"
           }
         ]
       }
