@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   User,
   Mail,
@@ -62,6 +63,7 @@ interface UserProfile {
   subscriptionEndsAt?: string;
   lastBillingDate?: string;
   nextBillingDate?: string;
+  twoFactorEnabled?: boolean;
 }
 
 export default function SettingsPage() {
@@ -725,21 +727,45 @@ export default function SettingsPage() {
             </h2>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              {/* RA-8082 — real 2FA state from /api/user/profile, linked to the
+                  RA-1260 setup page. A failed profile read shows "Unavailable",
+                  never "Off". The former "Login Sessions" and "Last Login" rows
+                  were fixed placeholders with no data source, so they are gone. */}
+              <div className="flex items-center justify-between gap-3">
                 <span className="text-sm text-slate-700 dark:text-slate-300">
                   Two-Factor Authentication
                 </span>
-                <span className="text-xs text-slate-500">Not enabled</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-700 dark:text-slate-300">Login Sessions</span>
-                <span className="text-xs text-slate-500">1 active</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-700 dark:text-slate-300">Last Login</span>
-                <span className="text-xs text-slate-500">Today</span>
+                <div className="flex items-center gap-3">
+                  <span
+                    data-testid="two-factor-status"
+                    className="text-xs text-slate-500"
+                  >
+                    {loading
+                      ? "Checking"
+                      : !profile
+                        ? "Unavailable"
+                        : profile.twoFactorEnabled
+                          ? "On"
+                          : "Off"}
+                  </span>
+                  <Link
+                    href="/dashboard/security"
+                    aria-label={
+                      profile?.twoFactorEnabled
+                        ? "Manage two-factor authentication"
+                        : profile
+                          ? "Set up two-factor authentication"
+                          : "Open two-factor authentication settings"
+                    }
+                    className="text-xs font-medium text-brand-harbour-600 dark:text-brand-harbour-400 hover:underline"
+                  >
+                    {profile?.twoFactorEnabled
+                      ? "Manage"
+                      : profile
+                        ? "Set up"
+                        : "Open"}
+                  </Link>
+                </div>
               </div>
 
               {isCapacitorIOS() && (
