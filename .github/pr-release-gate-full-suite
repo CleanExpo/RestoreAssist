@@ -1,0 +1,8 @@
+# GitHub check names that prove the FULL unit-test suite on the exact pushed head.
+# Read by the PR release gate (~/.claude/skills/pr-release-gate/scripts/affected_tests.py)
+# from the head commit. One name per line; `#` starts a comment.
+#
+# Name the aggregate job, never the shards (RA-8625): it fails when any of the
+# four shards fails, is cancelled or is skipped. Verified on GitHub with
+# `gh pr checks 2710`: "Unit Tests" (aggregate) and "Unit Tests shard 1/4" to "4/4".
+Unit Tests
