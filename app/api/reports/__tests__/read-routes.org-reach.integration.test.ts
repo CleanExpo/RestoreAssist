@@ -196,24 +196,29 @@ describe.skipIf(!process.env.DATABASE_URL)(
       for (const [call, refused] of [
         // RA-8494: a technician-level user is refused the PDF as the money rule (403), not as a dead session.
         [() => pdfGET(new NextRequest(url("/pdf")), ctx()), 403],
-        [() => downloadGET(new NextRequest(url("/download")), ctx()), 404],
-        [() => insurerLinkPOST(post(url("/insurer-link")), ctx()), 404],
+        [() => downloadGET(new NextRequest(url("/download")), ctx()), 403],
+        [() => insurerLinkPOST(post(url("/insurer-link")), ctx()), 403],
       ] as const) {
         as(ids.colleague);
         expect((await call()).status).toBe(refused);
       }
-      for (const call of [
-        () => approvalsGET(new NextRequest(url("/approvals")), ctx()),
-        () => detailGET(new NextRequest(url("")), ctx()),
-        () => downloadJsonGET(new NextRequest(url("/download-json")), ctx()),
-        () => exportExcelGET(new NextRequest(url("/export-excel")), ctx()),
-        () =>
-          bulkExcelListPOST(
-            post("http://localhost/api/reports/bulk-export-excel-list", { ids: [ids.report] }),
-          ),
-      ]) {
+      // RA-8494: the money-gated routes refuse a technician-level user with 403
+      // before any lookup; the rest still miss the report (404) as before.
+      for (const [call, refused] of [
+        [() => approvalsGET(new NextRequest(url("/approvals")), ctx()), 404],
+        [() => detailGET(new NextRequest(url("")), ctx()), 404],
+        [() => downloadJsonGET(new NextRequest(url("/download-json")), ctx()), 404],
+        [() => exportExcelGET(new NextRequest(url("/export-excel")), ctx()), 403],
+        [
+          () =>
+            bulkExcelListPOST(
+              post("http://localhost/api/reports/bulk-export-excel-list", { ids: [ids.report] }),
+            ),
+          403,
+        ],
+      ] as const) {
         as(ids.colleague);
-        expect((await call()).status).toBe(404);
+        expect((await call()).status).toBe(refused);
       }
     });
 
