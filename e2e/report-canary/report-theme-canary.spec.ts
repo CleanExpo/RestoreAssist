@@ -93,6 +93,15 @@ const settled = (page: Page) => page.waitForFunction(() => document.getAnimation
 const report = (page: Page) => page.locator("#visual-report-content");
 const label = (theme: { id: string }, f: Finding) => `${theme.id}: [${f.check}] ${f.detail}`;
 
+// The first click can land before React has hydrated; retry until the page agrees it is animating.
+// One owner for this wait: both the reduced-motion sweep and the planted-fault control call it.
+async function previewMotion(page: Page) {
+  await expect(async () => {
+    await page.getByRole("button", { name: "Preview motion" }).click();
+    await expect(report(page)).toHaveAttribute("data-animated", "true", { timeout: 1500 });
+  }).toPass({ timeout: 45_000 });
+}
+
 test("the registry's themes are exactly the themes the page offers", async ({ page }) => {
   expect(REPORT_THEMES.length).toBeGreaterThanOrEqual(10);
   await open(page);
@@ -131,8 +140,7 @@ test("reduced motion: no animation runs in any theme, and the probe can see one 
     const counts: Record<string, number> = {};
     for (const theme of REPORT_THEMES) {
       await selectTheme(page, theme.id, theme.label);
-      await page.getByRole("button", { name: "Preview motion" }).click();
-      await expect(report(page)).toHaveAttribute("data-animated", "true");
+      await previewMotion(page);
       counts[theme.id] = await running(page);
     }
     await context.close();
@@ -246,11 +254,7 @@ test.describe("the canary can fail: each fault planted in the live page is caugh
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
     const page = await context.newPage();
     await open(page);
-    // The first click can land before hydration; retry until the page is animating.
-    await expect(async () => {
-      await page.getByRole("button", { name: "Preview motion" }).click();
-      await expect(report(page)).toHaveAttribute("data-animated", "true", { timeout: 1500 });
-    }).toPass({ timeout: 45_000 });
+    await previewMotion(page);
     await expect(report(page).locator("[class*='ganttMotion']").first()).toBeAttached(); // the probe has a subject
     const running = () => report(page).evaluate((el) => el.getAnimations({ subtree: true }).filter((a) => a.playState === "running" && Number(a.effect?.getComputedTiming().duration ?? 0) > 50).length);
     expect(await running()).toBe(0);
