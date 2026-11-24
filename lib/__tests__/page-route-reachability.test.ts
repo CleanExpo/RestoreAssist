@@ -55,7 +55,6 @@ const ALLOWLIST: Record<string, string> = {
   "/dashboard/invoices/analytics": PRE_EXISTING,
   "/dashboard/invoices/payments": PRE_EXISTING,
   "/dashboard/invoices/templates": PRE_EXISTING,
-  "/dashboard/mobile": PRE_EXISTING,
   "/dashboard/notifications": PRE_EXISTING,
   "/dashboard/property-lookup": PRE_EXISTING,
   "/dashboard/reports/completeness-check": PRE_EXISTING,

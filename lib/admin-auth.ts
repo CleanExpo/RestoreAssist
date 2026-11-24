@@ -87,8 +87,8 @@ export async function verifyAdminFromDb(
  *
  * Prefer this over JWT-only checks in `page.tsx` / client layouts: demoted
  * admins with a stale session are redirected before any admin UI or Prisma
- * reads run. Shared by `/dashboard/admin/**`, governance, margot, and
- * mission-control layouts.
+ * reads run. Shared by `/dashboard/admin/**`, governance and margot
+ * layouts.
  */
 export async function requireAdminPage(): Promise<{
   id: string;
@@ -118,7 +118,9 @@ export async function requireAdminPage(): Promise<{
  *
  * Call it from the segment layout AND from every server page in the segment:
  * layouts and pages render in parallel, so a layout check alone does not stop
- * a server page from rendering into the RSC payload.
+ * a server page from rendering into the RSC payload. A client page cannot call
+ * it, so it is gated by its server layout plus the platform-support check on
+ * every API route it fetches.
  */
 export async function requirePlatformSupportPage(): Promise<{
   id: string;

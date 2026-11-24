@@ -3,6 +3,12 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { getEnvStatus } from "@/lib/env-check";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 
 const startTime = Date.now();
 
@@ -52,6 +58,19 @@ async function getDatabaseCheck(): Promise<CheckResult> {
   return result;
 }
 
+// Environment variable names are RestoreAssist staff detail. Anonymous callers
+// (uptime monitors, release verification) get status only.
+async function callerIsOperator(): Promise<boolean> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return false;
+    const auth = await verifyAdminFromDb(session);
+    return !verifyPlatformSupportOperator(auth).response;
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(request: NextRequest) {
   // Health must not depend on durable (DB) rate limiting — otherwise a
   // downed Postgres makes /api/health itself unusable for diagnosis.
@@ -73,10 +92,17 @@ export async function GET(request: NextRequest) {
   // webhook secrets here, the only signal was per-request 500s. Now uptime
   // monitoring picks up the missing-secret state on the next health probe.
   const envStatus = getEnvStatus();
+  const operator = await callerIsOperator();
   if (envStatus.missingRequired.length > 0) {
-    checks.env = { status: "error", missing: envStatus.missingRequired };
+    checks.env = {
+      status: "error",
+      ...(operator ? { missing: envStatus.missingRequired } : {}),
+    };
   } else if (envStatus.missingRecommended.length > 0) {
-    checks.env = { status: "degraded", missing: envStatus.missingRecommended };
+    checks.env = {
+      status: "degraded",
+      ...(operator ? { missing: envStatus.missingRecommended } : {}),
+    };
   } else {
     checks.env = { status: "ok" };
   }
