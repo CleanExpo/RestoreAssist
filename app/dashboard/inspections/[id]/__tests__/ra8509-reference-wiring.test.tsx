@@ -13,7 +13,7 @@ describe("RA-8509 reference readings reach the moisture map", () => {
     const page = read("app/dashboard/inspections/[id]/page.tsx");
     expect(page).toMatch(/const moistureReferences = useMemo\(\s*\(\) =>\s*pickReferenceReadings\(/);
     expect(page).toMatch(/invalidatedAt: r\.invalidatedAt/);
-    expect(page).toMatch(/<MoistureMappingCanvas[\s\S]*?references=\{moistureReferences\}[\s\S]*?\/>/);
+    expect(page).toMatch(/<FloorPlanMoistureMap[\s\S]*?references=\{moistureReferences\}[\s\S]*?\/>/);
   });
 
   it("NIR form passes references to both maps", () => {

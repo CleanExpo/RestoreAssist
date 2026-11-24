@@ -64,6 +64,7 @@ import {
   scheduleFollowUpReminder,
 } from "@/lib/capacitor";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
+import FloorPlanMoistureMap from "@/components/inspection/FloorPlanMoistureMap";
 import { pickReferenceReadings } from "@/lib/iicrc-dry-standards";
 import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion";
 import ClaimTypePicker from "@/components/inspection/ClaimTypePicker";
@@ -3320,7 +3321,7 @@ export default function NIRTechnicianInputForm({
             )}
           </p>
 
-          <MoistureMappingCanvas
+          <FloorPlanMoistureMap
             readings={moistureReadings.map((r) => ({
               id: r.id,
               location: r.location,
@@ -3332,50 +3333,19 @@ export default function NIRTechnicianInputForm({
             }))}
             references={moistureReferences}
             initialPoints={moistureMapPoints}
-            initialBackgroundImage={floorPlanImageUrl}
+            floorPlanImageUrl={floorPlanImageUrl}
             onPointsChange={(points) => {
               setMoistureMapPoints(points);
             }}
-            onBackgroundImageChange={(url) => {
-              setFloorPlanImageUrl(url);
-            }}
-            onImageUpload={async (file) => {
+            onFloorPlanSaved={setFloorPlanImageUrl}
+            resolveInspectionId={async () => {
               // Auto-create inspection if it doesn't exist
-              let currentInspectionId = inspectionId;
-              if (!currentInspectionId) {
-                if (!propertyAddress.trim() || !propertyPostcode.trim()) {
-                  toast.error(
-                    "Please enter property address and postcode first",
-                  );
-                  throw new Error("Property info required");
-                }
-
-                currentInspectionId = await ensureInspectionExists(false);
-                if (!currentInspectionId) {
-                  throw new Error("No inspection ID");
-                }
+              if (inspectionId) return inspectionId;
+              if (!propertyAddress.trim() || !propertyPostcode.trim()) {
+                toast.error("Please enter property address and postcode first");
+                throw new Error("Property info required");
               }
-
-              const formData = new FormData();
-              formData.append("file", file);
-              formData.append("type", "floor-plan");
-
-              const response = await fetch(
-                `/api/inspections/${currentInspectionId}/floor-plan`,
-                {
-                  method: "POST",
-                  body: formData,
-                },
-              );
-
-              if (!response.ok) {
-                const error = await response.json();
-                throw new Error(apiErrorMessage(error) || "Failed to upload floor plan");
-              }
-
-              const data = await response.json();
-              setFloorPlanImageUrl(data.imageUrl);
-              return data.imageUrl;
+              return ensureInspectionExists(false);
             }}
           />
         </div>

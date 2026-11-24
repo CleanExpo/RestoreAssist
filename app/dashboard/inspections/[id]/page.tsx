@@ -34,7 +34,7 @@ import {
 } from "@/lib/inspections/format-attendance-date";
 import { resolveAreaSqm } from "@/lib/units";
 import { parseReadingInput } from "@/lib/forms/parse-reading-input";
-import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
+import FloorPlanMoistureMap from "@/components/inspection/FloorPlanMoistureMap";
 import { pickReferenceReadings } from "@/lib/iicrc-dry-standards";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { NirPilotSurvey } from "@/components/nir-pilot-survey";
@@ -230,6 +230,7 @@ const ADVANCED_INSPECTION_TABS: Tab[] = [
 interface Inspection {
   id: string;
   inspectionNumber: string;
+  floorPlanImageUrl?: string | null;
   propertyAddress: string;
   propertyPostcode: string;
   technicianName: string | null;
@@ -2573,7 +2574,7 @@ export default function InspectionDetailPage({
         {activeTab === "moisture-map" && showMoistureTabs && (
           <div>
             {moistureReadings.length > 0 ? (
-              <MoistureMappingCanvas
+              <FloorPlanMoistureMap
                 readings={moistureReadings}
                 initialPoints={moistureMapPoints}
                 onPlaceReading={async (readingId, position) => {
@@ -2589,6 +2590,13 @@ export default function InspectionDetailPage({
                   );
                 }}
                 references={moistureReferences}
+                floorPlanImageUrl={inspection.floorPlanImageUrl ?? null}
+                resolveInspectionId={() => inspection.id}
+                onFloorPlanSaved={(imageUrl) =>
+                  setInspection((prev) =>
+                    prev ? { ...prev, floorPlanImageUrl: imageUrl } : prev,
+                  )
+                }
               />
             ) : (
               <div className="text-center py-12 text-neutral-600 dark:text-neutral-400">

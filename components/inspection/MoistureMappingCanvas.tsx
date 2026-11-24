@@ -56,7 +56,7 @@ type SketchMode = "structural" | "moisture" | "equipment";
 const EMPTY_POINTS: MoisturePoint[] = [];
 const EMPTY_EQUIPMENT: EquipmentPoint[] = [];
 
-interface MoistureMappingCanvasProps {
+export interface MoistureMappingCanvasProps {
   readings: MoistureReading[];
   /**
    * The job's reference readings: `pickReferenceReadings(...)` (RA-8509).
