@@ -194,7 +194,8 @@ describe.skipIf(!process.env.DATABASE_URL)(
       as(ids.colleague);
       expect((await nirDataGET(new NextRequest(url("/nir-data")), ctx())).status).toBe(200);
       for (const [call, refused] of [
-        [() => pdfGET(new NextRequest(url("/pdf")), ctx()), 401],
+        // RA-8494: a technician-level user is refused the PDF as the money rule (403), not as a dead session.
+        [() => pdfGET(new NextRequest(url("/pdf")), ctx()), 403],
         [() => downloadGET(new NextRequest(url("/download")), ctx()), 404],
         [() => insurerLinkPOST(post(url("/insurer-link")), ctx()), 404],
       ] as const) {
