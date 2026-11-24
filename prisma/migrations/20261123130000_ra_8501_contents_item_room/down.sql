@@ -1,4 +1,4 @@
--- Reverse of 20261123010000_ra_8501_contents_item_room.
+-- Reverse of 20261123130000_ra_8501_contents_item_room.
 --
 -- Drops exactly what the forward migration adds, in reverse dependency order:
 -- the foreign key, the index, then the column. Nothing that existed before

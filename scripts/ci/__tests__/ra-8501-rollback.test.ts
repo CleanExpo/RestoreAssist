@@ -1,5 +1,5 @@
 /**
- * RA-8501 rollback: prisma/migrations/20261123010000_ra_8501_contents_item_room/down.sql
+ * RA-8501 rollback: prisma/migrations/20261123130000_ra_8501_contents_item_room/down.sql
  * must remove every object the forward migration adds, and nothing else.
  *
  * Two layers:
@@ -18,7 +18,7 @@ import { join, resolve } from "node:path";
 import { Client } from "pg";
 
 const repoRoot = resolve(__dirname, "..", "..", "..");
-const dir = join(repoRoot, "prisma", "migrations", "20261123010000_ra_8501_contents_item_room");
+const dir = join(repoRoot, "prisma", "migrations", "20261123130000_ra_8501_contents_item_room");
 const forward = readFileSync(join(dir, "migration.sql"), "utf8");
 const down = readFileSync(join(dir, "down.sql"), "utf8");
 
