@@ -17,8 +17,6 @@ const root = join(__dirname, "..", "..", "..");
 const SKIPPED: { path: string; reason: string }[] = [
   { path: "app/api", reason: "route handlers return JSON to clients; screens map it through customerErrorMessage" },
   { path: "app/dashboard/admin", reason: "platform-staff surface, never shown to customers" },
-  { path: "app/dashboard/mission-control", reason: "internal surface owned by the Mission Control removal PR" },
-  { path: "app/dashboard/mobile", reason: "internal surface owned by the Mission Control removal PR" },
   { path: "app/dashboard/margot/home", reason: "owned by the Mission Control removal PR (its own guard covers it)" },
   // Not skipped: remaining Hermes / SOUL.md mentions in lib/margot/*.ts and
   // app/api/margot/chat/route.ts sit in comments that never render.
