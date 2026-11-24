@@ -92,7 +92,10 @@ beforeEach(() => {
     ok: true,
     data: { id: "insp-1" },
   });
-  mockUserFindUnique.mockResolvedValue({ organizationId: "org-1" });
+  mockUserFindUnique.mockResolvedValue({
+    role: "MANAGER",
+    organizationId: "org-1",
+  });
   mockOrgFindUnique.mockResolvedValue({ timezone: "Australia/Sydney" });
   mockUserFindFirst.mockResolvedValue({ id: "tech-1" });
   mockAssertInspectionReadable.mockResolvedValue({
@@ -154,7 +157,10 @@ describe("POST /api/inspections/[id]/appointments (RA-8497)", () => {
   });
 
   it("refuses an assignee when the caller has no organisation", async () => {
-    mockUserFindUnique.mockResolvedValue({ organizationId: null });
+    mockUserFindUnique.mockResolvedValue({
+      role: "MANAGER",
+      organizationId: null,
+    });
     const res = await post(booking);
     await expectRefused(res, 400, /Choose a technician from your team/);
     expect(mockUserFindFirst).not.toHaveBeenCalled();
@@ -244,6 +250,10 @@ describe("POST /api/inspections/[id]/appointments (RA-8497)", () => {
   it("refuses a technician role", async () => {
     mockGetServerSession.mockResolvedValue({
       user: { id: "tech-1", role: "USER" },
+    });
+    mockUserFindUnique.mockResolvedValue({
+      role: "USER",
+      organizationId: "org-1",
     });
     const res = await post(booking);
     await expectRefused(res, 403, /Only managers or owners may schedule visits/);

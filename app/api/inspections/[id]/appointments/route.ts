@@ -8,7 +8,7 @@ import {
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
 import { sanitizeString } from "@/lib/sanitize";
-import { canManageAppointments } from "@/lib/scheduling/can-manage-appointments";
+import { callerCanManageAppointments } from "@/lib/scheduling/can-manage-appointments";
 import { notifyTechnicianOfBooking } from "@/lib/scheduling/appointment-notice";
 import {
   resolveTimeZone,
@@ -109,8 +109,8 @@ export async function POST(
       });
     }
 
-    const role = (session!.user as { role?: string }).role;
-    if (!canManageAppointments(role)) {
+    // RA-8065: the database role, never the cookie's, which survives a demotion.
+    if (!(await callerCanManageAppointments(session!.user.id))) {
       return apiError(request, {
         code: "FORBIDDEN",
         message: "Only managers or owners may schedule visits",

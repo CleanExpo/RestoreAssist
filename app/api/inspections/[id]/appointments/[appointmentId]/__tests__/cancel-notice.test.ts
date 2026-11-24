@@ -38,6 +38,8 @@ const mockUpdate = vi.fn();
 const mockUpdateMany = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    // RA-8065: the cancel gate reads the caller's role from the database.
+    user: { findUnique: vi.fn().mockResolvedValue({ role: "MANAGER" }) },
     jobAppointment: {
       findFirst: (...a: unknown[]) => mockFindFirst(...a),
       findUnique: (...a: unknown[]) => mockFindUnique(...a),
