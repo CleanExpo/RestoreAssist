@@ -112,6 +112,18 @@ const WRITERS: Record<
       }),
     read: (id) => prisma.roomObservation.findUnique({ where: { id } }),
   },
+  // RA-8501: a contents item records the room it was found in.
+  contentsPackOutItems: {
+    create: (db, i) =>
+      db.contentsPackOutItem.create({
+        data: {
+          inspectionId: i.inspectionId,
+          sketchRoomId: i.roomId,
+          itemDescription: "Timber dining chair",
+        },
+      }),
+    read: (id) => prisma.contentsPackOutItem.findUnique({ where: { id } }),
+  },
 };
 
 // The cases are keyed by the schema's own list of dependent relations.
