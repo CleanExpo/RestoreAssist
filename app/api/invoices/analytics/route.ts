@@ -9,6 +9,7 @@ import {
 } from "@/lib/invoice-status";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveTotalsReach } from "@/lib/auth/assert-tenancy";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 const MONTHLY_BUCKETS = 13;
 
@@ -20,6 +21,15 @@ export async function GET(request: NextRequest) {
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 

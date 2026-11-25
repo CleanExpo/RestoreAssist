@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { ORGANIZATION_PROFILE_FIELDS } from "@/lib/organization/profile-fields";
+import { resolveOwnedProfileOrganizationId } from "@/lib/organization/owned-profile-organization";
+import { parseEmail } from "@/lib/validation/email";
 
 const profileSelect = {
   legalName: true,
@@ -36,10 +38,16 @@ export async function GET() {
     });
   }
 
-  const organization = await prisma.organization.findFirst({
-    where: { ownerId: session.user.id },
-    select: profileSelect,
-  });
+  // RA-8516: the same organisation PATCH saves to, never an arbitrary one.
+  const organizationId = await resolveOwnedProfileOrganizationId(
+    session.user.id,
+  );
+  const organization = organizationId
+    ? await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: profileSelect,
+      })
+    : null;
   if (!organization) {
     return apiError(undefined, {
       code: "NOT_FOUND",
@@ -62,10 +70,18 @@ export async function PATCH(request: NextRequest) {
       });
     }
 
-    const org = await prisma.organization.findFirst({
-      where: { ownerId: session.user.id },
-      select: { id: true },
-    });
+    // RA-8516: an owner of several organisations saves to a deterministic
+    // one (see resolveOwnedProfileOrganizationId), not whichever the
+    // database returns first.
+    const organizationId = await resolveOwnedProfileOrganizationId(
+      session.user.id,
+    );
+    const org = organizationId
+      ? await prisma.organization.findUnique({
+          where: { id: organizationId },
+          select: { id: true, email: true },
+        })
+      : null;
     if (!org) {
       return apiError(request, {
         code: "NOT_FOUND",
@@ -86,6 +102,10 @@ export async function PATCH(request: NextRequest) {
       }
       if (typeof v !== "string") continue;
       const trimmed = v.trim();
+      if (field === "email" && trimmed === "") {
+        patch[field] = null;
+        continue;
+      }
       if (
         (field === "primaryColor" || field === "accentColor") &&
         trimmed &&
@@ -94,6 +114,22 @@ export async function PATCH(request: NextRequest) {
         return apiError(request, {
           code: "VALIDATION",
           message: `${field} must be a 6-digit hex colour such as #1C2E47`,
+          status: 400,
+        });
+      }
+      // RA-8503: the business email is also the inbox told when a technician
+      // submits a job visit, so it must be one real address (RA-8516: the
+      // shared parseEmail check, also used at send time). Only a changed
+      // value is checked, so an older stored value that was never validated
+      // does not block saving the rest of the profile.
+      if (
+        field === "email" &&
+        trimmed !== org.email?.trim() &&
+        !parseEmail(trimmed)
+      ) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Office email must be a valid email address",
           status: 400,
         });
       }

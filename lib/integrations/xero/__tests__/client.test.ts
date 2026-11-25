@@ -37,7 +37,8 @@ vi.mock("@/lib/services/xero/binding", () => ({
     const tokens = await getTokens();
     return { ok: true, data: { ...tokens, tenantId: "tenant_1", binding: { tokenExpiresAt: tokens.tokenExpiresAt, userId: "synthetic-owner", workspaceId: null } } };
   }),
-  readXeroBinding: vi.fn(async () => ({ ok: true, data: { status: "CONNECTED" } })),
+  // RA-8446: the mid-sync guard asks the readiness owner, so the snapshot is a real ready grant.
+  readXeroBinding: vi.fn(async () => ({ ok: true, data: { provider: "XERO", name: "Xero", status: "CONNECTED", tenantId: "tenant_1", accessToken: "encrypted:test-access-token" } })),
   sameXeroGrant: vi.fn(() => true),
   updateXeroBinding: vi.fn(async binding => ({ ok: true, data: binding })),
 }));

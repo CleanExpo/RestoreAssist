@@ -17,7 +17,6 @@ import { signStoredMediaUrl } from "@/lib/storage/sign-stored-url";
 import { enqueueMirror } from "@/lib/storage/dual-write";
 import { MirrorJobKind } from "@prisma/client";
 import { extractAndSaveMediaAsset } from "@/lib/media/exif-extract";
-import { scheduleCatalog } from "@/lib/media/catalog";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   getIdempotencyKey,
@@ -29,6 +28,13 @@ import {
   assertInspectionReadable,
 } from "@/lib/auth/assert-tenancy";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+
+/**
+ * RA-8522 — photos per page of GET. A call with no `cursor` returns the newest
+ * page, as it always has. When more photos exist, `nextCursor` names the last
+ * photo returned; `?cursor=<that id>` returns the page after it.
+ */
+export const PHOTO_LIST_PAGE = 500;
 
 // GET - List photos for inspection
 export async function GET(
@@ -58,9 +64,29 @@ export async function GET(
       });
     }
 
-    const photos = await prisma.inspectionPhoto.findMany({
+    // RA-8522: page past the newest 500. The cursor must be a photo of this
+    // job; Prisma would otherwise position the page on another job's photo.
+    const cursor = request.nextUrl.searchParams.get("cursor");
+    if (cursor !== null) {
+      const own = await prisma.inspectionPhoto.findFirst({
+        where: { id: cursor, inspectionId: id },
+        select: { id: true },
+      });
+      if (!own) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "The photo list cursor is not a photo of this job",
+          status: 400,
+        });
+      }
+    }
+
+    const rows = await prisma.inspectionPhoto.findMany({
       where: { inspectionId: id },
-      orderBy: { timestamp: "desc" },
+      // `id` breaks ties between photos taken in the same instant, so the
+      // pages neither repeat nor skip a photo.
+      orderBy: [{ timestamp: "desc" }, { id: "desc" }],
+      ...(cursor !== null ? { cursor: { id: cursor }, skip: 1 } : {}),
       select: {
         id: true,
         url: true,
@@ -97,8 +123,12 @@ export async function GET(
         // RA-8131 — the offline queue finds a photo by hash when it has no id.
         cocoaSha256: true,
       },
-      take: 500,
+      // One extra row says whether another page exists.
+      take: PHOTO_LIST_PAGE + 1,
     });
+    const photos = rows.slice(0, PHOTO_LIST_PAGE);
+    const nextCursor =
+      rows.length > PHOTO_LIST_PAGE ? photos[photos.length - 1].id : null;
 
     // P0-1: the optimised bucket is private, so stored url/thumbnailUrl (bare
     // public URLs from before privatisation, or since-expired signed URLs) must
@@ -111,7 +141,7 @@ export async function GET(
       })),
     );
 
-    return NextResponse.json({ photos: signedPhotos });
+    return NextResponse.json({ photos: signedPhotos, nextCursor });
   } catch (error) {
     return fromException(request, error, { stage: "list" });
   }

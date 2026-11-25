@@ -56,7 +56,7 @@ const CRON_JOBS = [
 const CRON_TRIGGER_FAILURE_ERROR = "Cron job trigger failed";
 
 // GET — list all cron jobs
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;

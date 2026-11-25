@@ -18,11 +18,13 @@ describe("ANZ materials library", () => {
     expect(names.some((n) => n.includes("sheetrock"))).toBe(false);
   });
 
-  it("every material has a region, a dry-standard MC, and an ACM flag", () => {
+  it("every material has a region, a guide MC (or null), and an ACM flag", () => {
     for (const m of ANZ_MATERIALS) {
       expect(m.region.length).toBeGreaterThan(0);
-      expect(typeof m.dryStandardMc).toBe("number");
-      expect(Number.isFinite(m.dryStandardMc)).toBe(true);
+      // RA-8510: null when the guide table has no row for the material.
+      if (m.dryStandardMc !== null) {
+        expect(Number.isFinite(m.dryStandardMc)).toBe(true);
+      }
       expect(typeof m.isPotentialAcm).toBe("boolean");
     }
   });
@@ -45,7 +47,7 @@ describe("ANZ materials library", () => {
   it("timber holds more moisture at dry-standard than plasterboard", () => {
     const timber = getMaterial("timber-framing")!;
     const gyprock = getMaterial("gyprock")!;
-    expect(timber.dryStandardMc).toBeGreaterThan(gyprock.dryStandardMc);
+    expect(timber.dryStandardMc!).toBeGreaterThan(gyprock.dryStandardMc!);
   });
 
   it("filters by region", () => {

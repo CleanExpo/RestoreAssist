@@ -72,7 +72,7 @@ export function DatabaseCard() {
         {phase === "provisioning" ? (
           <div
             role="status"
-            className="rounded-lg bg-cyan-500/10 border border-cyan-500/30 p-3 text-sm"
+            className="rounded-lg bg-brand-harbour-500/10 border border-brand-harbour-500/30 p-3 text-sm"
           >
             Connecting <strong>{host}</strong> — your customer data will live in{" "}
             <strong>your own database</strong>. We&apos;ll confirm once it&apos;s
@@ -88,7 +88,7 @@ export function DatabaseCard() {
               <button
                 type="button"
                 onClick={submit}
-                className="rounded-lg bg-cyan-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-600 transition-colors"
+                className="rounded-lg bg-brand-harbour-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-harbour-600 transition-colors"
               >
                 Confirm &amp; connect
               </button>
@@ -119,7 +119,7 @@ export function DatabaseCard() {
                   className={
                     "rounded-lg border px-2.5 py-1 text-xs transition-colors " +
                     (dbType === t.key
-                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
+                      ? "border-brand-harbour-500 bg-brand-harbour-500/10 text-brand-harbour-700 dark:text-brand-harbour-300"
                       : "border-neutral-300 dark:border-slate-700 text-neutral-600 dark:text-slate-300")
                   }
                 >
@@ -137,7 +137,7 @@ export function DatabaseCard() {
                   href={tut.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-cyan-600 dark:text-cyan-400 underline"
+                  className="text-brand-harbour-600 dark:text-brand-harbour-400 underline"
                 >
                   {tut.title} ({tut.source})
                 </a>
@@ -169,7 +169,7 @@ export function DatabaseCard() {
               type="button"
               onClick={() => setPhase("confirm")}
               disabled={!validation.ok}
-              className="inline-flex items-center rounded-lg bg-cyan-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center rounded-lg bg-brand-harbour-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-harbour-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Connect
             </button>

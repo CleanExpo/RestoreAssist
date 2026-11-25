@@ -79,20 +79,20 @@ export default function CronRunsPage() {
   const getStatusBadge = (run: CronRun) => {
     if (run.status === "failed") {
       return (
-        <Badge className="bg-red-500/10 text-red-600 dark:text-red-400">
+        <Badge className="bg-red-500/10 text-red-700 dark:text-red-400">
           Failed
         </Badge>
       );
     }
     if (run.status === "completed") {
       return (
-        <Badge className="bg-green-500/10 text-green-600 dark:text-green-400">
+        <Badge className="bg-green-500/10 text-green-700 dark:text-green-400">
           Completed
         </Badge>
       );
     }
     return (
-      <Badge className="gap-1 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+      <Badge className="gap-1 bg-brand-harbour-500/10 text-brand-harbour-600 dark:text-brand-harbour-400">
         <span className="inline-block h-3 w-3 rounded-full border-2 border-current/30 border-t-current animate-spin" />
         Running
       </Badge>
@@ -102,7 +102,7 @@ export default function CronRunsPage() {
   if (status === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-harbour-400/30 border-t-brand-harbour-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -146,8 +146,8 @@ export default function CronRunsPage() {
           className={cn(
             "gap-1",
             (data?.failedCount ?? 0) > 0
-              ? "bg-red-500/10 text-red-600 dark:text-red-400"
-              : "bg-green-500/10 text-green-600 dark:text-green-400",
+              ? "bg-red-500/10 text-red-700 dark:text-red-400"
+              : "bg-green-500/10 text-green-700 dark:text-green-400",
           )}
         >
           {data?.failedCount ?? 0} failed
@@ -212,17 +212,17 @@ export default function CronRunsPage() {
                       <span className="font-medium text-neutral-900 dark:text-white text-sm">
                         {run.jobName}
                       </span>
-                      <span className="text-xs text-neutral-400 font-mono">
+                      <span className="text-xs text-brand-slate dark:text-neutral-400 font-mono">
                         {new Date(run.startedAt).toLocaleString()}
                       </span>
                       {run.durationMs !== null && (
-                        <span className="text-xs text-neutral-400 font-mono">
+                        <span className="text-xs text-brand-slate dark:text-neutral-400 font-mono">
                           {run.durationMs}ms
                         </span>
                       )}
                     </div>
                     {run.errorMessage && (
-                      <p className="text-xs text-red-500 dark:text-red-400 mt-1 font-mono break-all">
+                      <p className="text-xs text-red-700 dark:text-red-400 mt-1 font-mono break-all">
                         {run.errorMessage}
                       </p>
                     )}

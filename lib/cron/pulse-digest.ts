@@ -6,6 +6,7 @@ import { buildClientStatusFeed } from "@/lib/portal/client-status-feed";
 import { countBusinessDaysBetween } from "@/lib/pulse/business-days";
 import { auDateKey } from "@/lib/pulse/au-date";
 import { reportError } from "@/lib/observability";
+import { PULSE_DIGEST_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 
 /**
  * Restoration Pulse daily digest + Code of Practice cron handler
@@ -29,17 +30,9 @@ import { reportError } from "@/lib/observability";
  *     successfully, since that digest IS today's client-visible update.
  */
 
-// Active = not yet in a terminal/closed InspectionStatus (see the enum
-// comments in prisma/schema.prisma: COMPLETED/REJECTED/IN_BILLING/CLOSED/
-// ARCHIVED are all terminal).
-const ACTIVE_STATUSES = [
-  "DRAFT",
-  "SUBMITTED",
-  "PROCESSING",
-  "CLASSIFIED",
-  "SCOPED",
-  "ESTIMATED",
-] as const;
+// Which states the digest counts as active is owned by active-status.ts; this
+// set excludes IN_BILLING pending an owner decision (RA-8422).
+const ACTIVE_STATUSES = PULSE_DIGEST_INSPECTION_STATUSES;
 
 const COP_BUSINESS_DAYS_THRESHOLD = 20;
 
@@ -103,6 +96,10 @@ export async function runPulseDigest(): Promise<CronJobResult> {
           surfaceType: true,
           moistureLevel: true,
           recordedAt: true,
+          // RA-8508: references set the goal; invalidated readings never count.
+          isBaseline: true,
+          unit: true,
+          invalidatedAt: true,
         },
       },
     },

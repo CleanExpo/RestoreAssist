@@ -49,7 +49,7 @@ export function SketchMeasurementChecklist({ inspectionId, rooms }: Props) {
               </span>
               <Link
                 href={`/dashboard/inspections/${inspectionId}?tab=sketch&sketchRoomId=${encodeURIComponent(room.id)}`}
-                className="text-cyan-700 dark:text-cyan-400 hover:underline font-medium"
+                className="text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline font-medium"
               >
                 Open room
               </Link>

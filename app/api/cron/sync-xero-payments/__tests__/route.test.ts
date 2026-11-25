@@ -77,7 +77,7 @@ beforeEach(() => {
   processXeroWebhookBatch.mockResolvedValue({ processed: 0, failed: 0, skipped: 0 });
   getValidXeroAccessToken.mockResolvedValue({ ok: true, data: "xero-token" });
   integrationFindMany.mockResolvedValue([
-    { id: "integ-1", provider: "XERO", name: "Xero", workspaceId: null, tenantId: "tenant-1", userId: "user-1" },
+    { id: "integ-1", provider: "XERO", name: "Xero", status: "CONNECTED", workspaceId: null, tenantId: "tenant-1", userId: "user-1" },
   ]);
   invoiceFindMany.mockResolvedValue([{ id: "inv-1", externalInvoiceId: "xero-inv-1" }]);
   invoiceUpdate.mockResolvedValue({});
@@ -141,4 +141,37 @@ it("uses exact personal workspace scope and does not treat a malformed response 
   await GET(authorisedRequest());
   expect(invoiceFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ workspaceId: null, userId: "user-1", externalSyncProvider: { in: ["XERO", "xero"] } }) }));
   expect(invoiceUpdate).not.toHaveBeenCalled();
+});
+
+// RA-8446: the readiness owner (getOAuthReadiness), not status === CONNECTED, picks the rows.
+describe("readiness comes from the owner", () => {
+  it("asks SQL only for rows the owner could call ready, with credentials present", async () => {
+    await GET(authorisedRequest());
+    expect(integrationFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        provider: "XERO",
+        status: { in: ["CONNECTED", "SYNCING", "ERROR"] },
+        accessToken: { not: null, notIn: [""] },
+      }),
+    }));
+  });
+
+  it("skips a CONNECTED row with no Xero organisation", async () => {
+    integrationFindMany.mockResolvedValue([
+      { id: "no-org", provider: "XERO", name: "Xero", status: "CONNECTED", tenantId: null, userId: "user-1", workspaceId: null },
+    ]);
+    await GET(authorisedRequest());
+    expect(getValidXeroAccessToken).not.toHaveBeenCalled();
+    expect(invoiceFindMany).not.toHaveBeenCalled();
+  });
+
+  it("polls a SYNCING row the owner calls ready", async () => {
+    integrationFindMany.mockResolvedValue([
+      { id: "busy", provider: "XERO", name: "Xero", status: "SYNCING", tenantId: "tenant-1", userId: "user-1", workspaceId: null },
+    ]);
+    xeroReturns({ Status: "AUTHORISED", AmountPaid: 0, AmountDue: 500 });
+    await GET(authorisedRequest());
+    expect(getValidXeroAccessToken).toHaveBeenCalledWith("busy", expect.objectContaining({ expectedTenantId: "tenant-1" }));
+    expect(invoiceFindMany).toHaveBeenCalled();
+  });
 });

@@ -7,7 +7,6 @@ import UpgradeTrustStrip from "../UpgradeTrustStrip";
 
 vi.mock("next/image", () => ({
   default: (props: { alt: string; src: string }) => (
-    // eslint-disable-next-line @next/next/no-img-element
     <img alt={props.alt} src={props.src} />
   ),
 }));

@@ -90,10 +90,16 @@ describe("GET /api/analytics/dashboard-stats organisation reach (RA-8146)", () =
   it.each([
     ["admin-a", 1230],
     ["manager-a", 1230],
-    ["tech-a", 30],
     ["admin-b", 9000],
   ])("shows %s revenue of $%d this month", async (userId, dollars) => {
     expect((await statsFor(userId)).revenueMtdAud).toBe(dollars);
+  });
+
+  // RA-8494: a technician gets the job figures and no revenue, not even their own.
+  it("gives tech-a no revenue figure", async () => {
+    // Withheld means null, never absent (readers are typed number | null).
+    expect((await statsFor("tech-a")).revenueMtdAud).toBeNull();
+
   });
 
   it.each(["admin-a", "manager-a", "tech-a"])(

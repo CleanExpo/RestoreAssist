@@ -18,6 +18,10 @@ import {
 import type { PowerAssessment } from "@/lib/restoration/equipment-planner";
 import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 import {
+  DEFAULT_BAND_RGB,
+  headerTextColours,
+} from "@/lib/sketch/pdf-header-contrast";
+import {
   placeMoisturePins,
   moistureLegendClasses,
   type MoistureMapPin,
@@ -104,6 +108,30 @@ export function dataUrlToBytes(dataUrl: string): Uint8Array {
 // area and the calibrated drawing scale. `totalAreaM2` is measured-geometry
 // only (the caller passes extractRooms()'s sum, which already excludes
 // underlay_reference per the A0 firewall). Pure + exported for unit testing.
+/**
+ * RA-8239 — fit a room-legend name into `maxWidth` points. Prints the whole
+ * name at 7.5 pt when it fits, else at the largest size down to 6 pt that
+ * fits, else at 6 pt shortened with an ellipsis. `suffix` (the LiDAR tag) is
+ * always kept.
+ */
+export function fitLegendText(
+  label: string,
+  suffix: string,
+  maxWidth: number,
+  measure: (text: string, size: number) => number,
+): { text: string; size: number } {
+  for (const size of [7.5, 7, 6.5, 6]) {
+    if (measure(label + suffix, size) <= maxWidth) {
+      return { text: label + suffix, size };
+    }
+  }
+  let cut = label;
+  while (cut.length > 1 && measure(`${cut}…${suffix}`, 6) > maxWidth) {
+    cut = cut.slice(0, -1);
+  }
+  return { text: `${cut.trimEnd()}…${suffix}`, size: 6 };
+}
+
 export function formatFloorMeta(input: {
   totalAreaM2: number;
   pxPerMetre: number;
@@ -241,6 +269,15 @@ async function addSketchPage(
     height: HEADER_H,
     color: bandRgb ? rgb(bandRgb.r, bandRgb.g, bandRgb.b) : BRAND_DARK,
   });
+  // RA-8239: header text stays readable on any tenant colour, in colour and
+  // printed in greyscale (WCAG contrast is a luminance ratio).
+  const headerInk = headerTextColours(bandRgb ?? DEFAULT_BAND_RGB);
+  const headerText = rgb(headerInk.text.r, headerInk.text.g, headerInk.text.b);
+  const headerAccent = rgb(
+    headerInk.accent.r,
+    headerInk.accent.g,
+    headerInk.accent.b,
+  );
 
   // Brand zone (left): white-label logo + business name, with graceful
   // fallbacks. Logo lives in the left brand zone so it never collides with the
@@ -264,14 +301,14 @@ async function addSketchPage(
       y: PAGE_H - MARGIN - 22,
       size: 14,
       font: bold,
-      color: rgb(1, 1, 1),
+      color: headerText,
     });
     page.drawText("Floor Plan", {
       x: brandX,
       y: PAGE_H - MARGIN - 40,
       size: 9,
       font: helvetica,
-      color: BRAND_CYAN,
+      color: headerAccent,
     });
   } else if (!logoImage) {
     // Neither name nor logo — fall back to the default so the header is never
@@ -281,14 +318,14 @@ async function addSketchPage(
       y: PAGE_H - MARGIN - 22,
       size: 14,
       font: bold,
-      color: rgb(1, 1, 1),
+      color: headerText,
     });
     page.drawText("Floor Plan", {
       x: brandX,
       y: PAGE_H - MARGIN - 40,
       size: 9,
       font: helvetica,
-      color: BRAND_CYAN,
+      color: headerAccent,
     });
   }
 
@@ -301,7 +338,7 @@ async function addSketchPage(
       y: PAGE_H - MARGIN - 30,
       size: 10,
       font: helvetica,
-      color: rgb(1, 1, 1),
+      color: headerText,
     });
   }
 
@@ -313,7 +350,7 @@ async function addSketchPage(
     y: PAGE_H - MARGIN - 26,
     size: 12,
     font: bold,
-    color: rgb(1, 1, 1),
+    color: headerText,
   });
   if (shared.reportNumber) {
     const refText = `Ref: ${shared.reportNumber}`;
@@ -323,7 +360,7 @@ async function addSketchPage(
       y: PAGE_H - MARGIN - 42,
       size: 9,
       font: helvetica,
-      color: BRAND_CYAN,
+      color: headerAccent,
     });
   }
 
@@ -363,7 +400,7 @@ async function addSketchPage(
     y: PAGE_H - MARGIN - 50,
     size: 8,
     font: helvetica,
-    color: BRAND_CYAN,
+    color: headerAccent,
   });
   let legendW = 0;
 
@@ -434,23 +471,27 @@ async function addSketchPage(
         });
 
         const lidarTag = room.captureAdapter === "roomplan" ? " · LiDAR" : "";
-        const safeLabel = safe(room.label);
-        const maxLen = lidarTag ? 10 : 14;
-        const truncated =
-          safeLabel.length > maxLen
-            ? safeLabel.slice(0, maxLen - 1) + "…"
-            : safeLabel;
-        page.drawText(`${truncated}${lidarTag}`, {
+        const areaText = `${room.areaM2.toFixed(1)} m²`;
+        const areaW = helvetica.widthOfTextAtSize(areaText, 7.5);
+        // RA-8239: fit the room name to the space it has, not to a fixed
+        // character count. Shrink the type to 6 pt first; shorten with an
+        // ellipsis only when even that does not fit.
+        const nameRoom = legendW - 20 - 8 - areaW - 6;
+        const fitted = fitLegendText(
+          safe(room.label),
+          lidarTag,
+          nameRoom,
+          (text, size) => helvetica.widthOfTextAtSize(text, size),
+        );
+        page.drawText(fitted.text, {
           x: legendX + 20,
           y: ly + 2,
-          size: 7.5,
+          size: fitted.size,
           font: helvetica,
           color: TEXT_MAIN,
         });
 
-        const areaText = `${room.areaM2.toFixed(1)} m²`;
-        const areaX =
-          legendX + legendW - 8 - helvetica.widthOfTextAtSize(areaText, 7.5);
+        const areaX = legendX + legendW - 8 - areaW;
         page.drawText(areaText, {
           x: areaX,
           y: ly + 2,

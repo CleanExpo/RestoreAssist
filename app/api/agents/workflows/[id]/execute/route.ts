@@ -105,6 +105,32 @@ export async function POST(
       });
     }
 
+    // RA-8000: a PAUSED workflow is waiting for the owner to approve a task.
+    // Nothing runs, and PAUSED means "stop polling".
+    if (current.status === "PAUSED") {
+      const waiting = await prisma.agentTask.findFirst({
+        where: { workflowId, status: "AWAITING_APPROVAL" },
+        orderBy: { approvalRequestedAt: "asc" },
+        select: { id: true, displayName: true, approvalRequestedAt: true },
+      });
+      return NextResponse.json({
+        workflowId,
+        status: current.status,
+        message: "Workflow is waiting for approval",
+        completedTasks: current.completedTasks,
+        totalTasks: current.totalTasks,
+        failedTasks: current.failedTasks,
+        tasksExecuted: 0,
+        awaitingApproval: waiting
+          ? {
+              taskId: waiting.id,
+              displayName: waiting.displayName,
+              approvalRequestedAt: waiting.approvalRequestedAt,
+            }
+          : null,
+      });
+    }
+
     // RA-8001: G1 then the key preflight, after the terminal early return (a
     // finished workflow stays readable) and before any task is claimed. A
     // refusal leaves the workflow and its READY tasks untouched.

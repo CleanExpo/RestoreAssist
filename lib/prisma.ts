@@ -60,6 +60,15 @@ function getPrismaClient(): PrismaClient {
   return client;
 }
 
+/**
+ * The client if something has already constructed it, else undefined. Never
+ * constructs one, so a CLI can disconnect on its way out without initialising a
+ * client it never used (which throws when DATABASE_URL is absent). RA-7785.
+ */
+export function prismaIfInitialised(): PrismaClient | undefined {
+  return client ?? globalThis.prisma;
+}
+
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
   get(_target, prop, receiver) {
     const value = Reflect.get(getPrismaClient(), prop, receiver);

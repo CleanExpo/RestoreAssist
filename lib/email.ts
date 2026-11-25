@@ -238,7 +238,7 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
           <tbody>${sigList}</tbody>
         </table>
         <p style="margin-top:20px;">The signed PDF is attached to this email for your records.</p>
-        <p style="font-size: 13px; color: #6b7280; margin-top:20px;">This is an automated email from Restore Assist. Please do not reply.</p>
+        <p style="font-size: 13px; color: #6b7280; margin-top:20px;">This is an automated email from RestoreAssist. Please do not reply.</p>
       </div>
     </body>
     </html>
@@ -324,13 +324,13 @@ export async function sendInviteEmail(data: InviteEmailData) {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to Restore Assist</title>
+        <title>Welcome to RestoreAssist</title>
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
         <!-- Header with gradient -->
         <div style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #8b5cf6 100%); padding: 50px 30px; border-radius: 16px 16px 0 0; text-align: center; box-shadow: 0 10px 25px rgba(6, 182, 212, 0.3);">
           <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 12px; padding: 20px; display: inline-block; margin-bottom: 20px;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px;">Restore Assist</h1>
+            <h1 style="color: #ffffff; margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px;">RestoreAssist</h1>
           </div>
           <p style="color: rgba(255, 255, 255, 0.95); margin: 0; font-size: 16px; font-weight: 500;">Water Damage Restoration Platform</p>
         </div>
@@ -347,7 +347,7 @@ export async function sendInviteEmail(data: InviteEmailData) {
               ${
                 isTransfer
                   ? `<strong style="color: #1e293b;">${escapeHtml(data.inviterName)}</strong> has added you as a <strong style="color: #3b82f6;">${escapeHtml(roleLabel)}</strong> to their organization. You can continue using your existing account credentials to log in.`
-                  : `You've been invited by <strong style="color: #1e293b;">${escapeHtml(data.inviterName)}</strong> to join Restore Assist as a <strong style="color: #3b82f6;">${escapeHtml(roleLabel)}</strong>.`
+                  : `You've been invited by <strong style="color: #1e293b;">${escapeHtml(data.inviterName)}</strong> to join RestoreAssist as a <strong style="color: #3b82f6;">${escapeHtml(roleLabel)}</strong>.`
               }
             </p>
           </div>
@@ -408,7 +408,7 @@ export async function sendInviteEmail(data: InviteEmailData) {
         
         <!-- Footer -->
         <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
-          <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          <p style="margin: 5px 0;">This is an automated email from RestoreAssist.</p>
           <p style="margin: 5px 0;">Please do not reply to this email.</p>
           <p style="margin: 10px 0 0 0; color: #cbd5e1;">© ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
         </div>
@@ -427,13 +427,13 @@ Log in here: ${data.loginUrl}
 If you have any questions or need assistance, please contact your administrator or our support team.
 
 ---
-This is an automated email from Restore Assist. Please do not reply to this email.
+This is an automated email from RestoreAssist. Please do not reply to this email.
   `
     : hasInviteLink
       ? `
-Welcome to Restore Assist!
+Welcome to RestoreAssist!
 
-${data.inviterName} has invited you to join Restore Assist as a ${roleLabel}.
+${data.inviterName} has invited you to join RestoreAssist as a ${roleLabel}.
 
 Accept your invite here (valid for 7 days):
 ${data.inviteLink}
@@ -443,9 +443,9 @@ You'll pick your own password during acceptance.
 If you have any questions, contact your administrator or our support team.
 
 ---
-This is an automated email from Restore Assist. Please do not reply to this email.
+This is an automated email from RestoreAssist. Please do not reply to this email.
   `
-      : `Restore Assist invitation requires a secure acceptance link.`;
+      : `RestoreAssist invitation requires a secure acceptance link.`;
 
   try {
     // Secret hygiene: never log the payload because the invite link is a
@@ -454,10 +454,10 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       to: data.email,
       subject: sanitiseEmailField(
         isTransfer
-          ? `You've been added to ${data.inviterName}'s organization - Restore Assist`
+          ? `You've been added to ${data.inviterName}'s organisation - RestoreAssist`
           : hasInviteLink
-            ? `You're invited to join Restore Assist as a ${roleLabel}`
-            : `Restore Assist invitation requires attention`,
+            ? `You're invited to join RestoreAssist as a ${roleLabel}`
+            : `RestoreAssist invitation requires attention`,
       ),
       html,
       text,
@@ -568,7 +568,7 @@ export async function sendPaymentFailedEmail(data: PaymentFailedEmailData) {
 
         <!-- Footer -->
         <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
-          <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          <p style="margin: 5px 0;">This is an automated email from RestoreAssist.</p>
           <p style="margin: 5px 0;">Please do not reply to this email.</p>
           <p style="margin: 10px 0 0 0; color: #cbd5e1;">© ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
         </div>
@@ -595,7 +595,7 @@ What happens next?
 If you believe this is an error or need assistance, please contact our support team.
 
 ---
-This is an automated email from Restore Assist. Please do not reply to this email.
+This is an automated email from RestoreAssist. Please do not reply to this email.
   `;
 
   try {
@@ -693,7 +693,7 @@ export async function sendSubscriptionCancelledEmail(
 
         <!-- Footer -->
         <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
-          <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          <p style="margin: 5px 0;">This is an automated email from RestoreAssist.</p>
           <p style="margin: 10px 0 0 0; color: #cbd5e1;">© ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
         </div>
       </body>
@@ -787,7 +787,7 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
 
         <!-- Footer -->
         <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
-          <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          <p style="margin: 5px 0;">This is an automated email from RestoreAssist.</p>
           <p style="margin: 10px 0 0 0; color: #cbd5e1;">© ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
         </div>
       </body>
@@ -883,7 +883,7 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData) {
 
         <!-- Footer -->
         <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
-          <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          <p style="margin: 5px 0;">This is an automated email from RestoreAssist.</p>
           <p style="margin: 10px 0 0 0; color: #cbd5e1;">&copy; ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
         </div>
       </body>
@@ -903,7 +903,7 @@ This code expires ${RESET_CODE_TTL_MINUTES} minutes after the request.
 If you didn't request this reset, you can safely ignore this email.
 
 ---
-This is an automated email from Restore Assist. Please do not reply to this email.`;
+This is an automated email from RestoreAssist. Please do not reply to this email.`;
 
   const result = await withEmailTimeout(
     sendTransactionalEmail({
@@ -945,13 +945,13 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to Restore Assist</title>
+        <title>Welcome to RestoreAssist</title>
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
         <!-- Header -->
         <div style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #8b5cf6 100%); padding: 50px 30px; border-radius: 16px 16px 0 0; text-align: center; box-shadow: 0 10px 25px rgba(6, 182, 212, 0.3);">
           <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 12px; padding: 20px; display: inline-block; margin-bottom: 20px;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px;">Restore Assist</h1>
+            <h1 style="color: #ffffff; margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px;">RestoreAssist</h1>
           </div>
           <p style="color: rgba(255, 255, 255, 0.95); margin: 0; font-size: 18px; font-weight: 500;">Welcome aboard!</p>
         </div>
@@ -961,7 +961,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
           <p style="font-size: 18px; margin-bottom: 24px;">Hi ${escapeHtml(data.recipientName)},</p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
-            Thanks for signing up to Restore Assist! Your account is ready with a <strong>${data.trialDays}-day free trial</strong> and <strong>${data.trialCredits} report credits</strong> to use during the trial. Basic reports work without pasting an API key. Provider charges apply only if you add your own key later.
+            Thanks for signing up to RestoreAssist! Your account is ready with a <strong>${data.trialDays}-day free trial</strong> and <strong>${data.trialCredits} report credits</strong> to use during the trial. Basic reports work without pasting an API key. Provider charges apply only if you add your own key later.
           </p>
 
           <!-- Getting started -->
@@ -991,14 +991,14 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
 
         <!-- Footer -->
         <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
-          <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          <p style="margin: 5px 0;">This is an automated email from RestoreAssist.</p>
           <p style="margin: 10px 0 0 0; color: #cbd5e1;">&copy; ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
         </div>
       </body>
     </html>
   `;
 
-  const text = `Welcome to Restore Assist!
+  const text = `Welcome to RestoreAssist!
 
 Hi ${data.recipientName},
 
@@ -1014,7 +1014,7 @@ Log in here: ${data.loginUrl}
 Need help? Contact our support team — we're here to help!
 
 ---
-This is an automated email from Restore Assist. Please do not reply to this email.`;
+This is an automated email from RestoreAssist. Please do not reply to this email.`;
 
   try {
     console.log("📧 [EMAIL] Sending welcome email to:", data.recipientEmail);
@@ -1023,7 +1023,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       sendTransactionalEmail({
         from: fromEmail,
         to: data.recipientEmail,
-        subject: "Welcome to Restore Assist — Your Account is Ready!",
+        subject: "Welcome to RestoreAssist — Your Account is Ready!",
         html,
         text,
         idempotencyKey: data.idempotencyKey,
@@ -1105,7 +1105,7 @@ export async function sendReportCompletedEmail(data: ReportCompletedEmailData) {
 
         <!-- Footer -->
         <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
-          <p style="margin: 5px 0;">This is an automated email from Restore Assist.</p>
+          <p style="margin: 5px 0;">This is an automated email from RestoreAssist.</p>
           <p style="margin: 10px 0 0 0; color: #cbd5e1;">&copy; ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
         </div>
       </body>
@@ -1124,7 +1124,7 @@ Type: ${data.reportType}
 View the report: ${data.viewReportUrl}
 
 ---
-This is an automated email from Restore Assist. Please do not reply to this email.`;
+This is an automated email from RestoreAssist. Please do not reply to this email.`;
 
   try {
     console.log(
@@ -1222,7 +1222,7 @@ export async function sendSubscriptionActivatedEmail(
           </div>
           <p style="color: #6b7280; font-size: 13px; margin-top: 32px; text-align: center;">Questions? Reply to this email — we read every one.</p>
         </div>
-        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 16px;">Restore Assist · Australia's compliance platform for water damage restoration</p>
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 16px;">RestoreAssist · Australia's compliance platform for water damage restoration</p>
       </body>
     </html>
   `;
@@ -1368,7 +1368,7 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>We miss you at Restore Assist</title>
+        <title>We miss you at RestoreAssist</title>
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
         <div style="background: linear-gradient(135deg, #1C2E47 0%, #8A6B4E 100%); padding: 40px 30px; border-radius: 16px 16px 0 0; text-align: center;">
@@ -1384,7 +1384,7 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
           </p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
-            Since you left, we've shipped a lot: the new Progress framework that stage-gates every claim from make-safe through to invoice, carrier-ready audit bundles with cryptographic evidence, and a drying-certification workflow that keeps your IICRC S500:2021 compliance watertight.
+            Since you left, we've shipped a lot: the new Progress framework that stage-gates every claim from make-safe through to invoice, carrier-ready audit bundles with cryptographic evidence, and a drying-certification workflow that keeps your documentation aligned to IICRC S500.
           </p>
 
           <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 32px;">
@@ -1487,7 +1487,7 @@ export async function sendSupportReplyEmail(data: SupportReplyEmailData) {
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
         <div style="background: #0f172a; padding: 28px 32px; border-radius: 12px 12px 0 0; text-align: center;">
-          <p style="color: #f8fafc; margin: 0; font-size: 22px; font-weight: 700;">Restore Assist</p>
+          <p style="color: #f8fafc; margin: 0; font-size: 22px; font-weight: 700;">RestoreAssist</p>
           <p style="color: #94a3b8; margin: 6px 0 0; font-size: 13px;">Support</p>
         </div>
         <div style="background: #ffffff; border-radius: 0 0 12px 12px; padding: 32px; border: 1px solid #e2e8f0; border-top: none;">
@@ -1500,7 +1500,7 @@ export async function sendSupportReplyEmail(data: SupportReplyEmailData) {
             </p>
           </div>
         </div>
-        <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 16px;">Restore Assist — Australia's compliance platform for water damage restoration</p>
+        <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 16px;">RestoreAssist — Australia's compliance platform for water damage restoration</p>
       </body>
     </html>
   `;
@@ -1514,7 +1514,7 @@ ${data.replyBody}
 Need more help? Reply to this email and it will reach our support team at ${supportMailbox}.
 
 ---
-Restore Assist — Australia's compliance platform for water damage restoration`;
+RestoreAssist — Australia's compliance platform for water damage restoration`;
 
   const result = await withEmailTimeout(
     sendTransactionalEmail({

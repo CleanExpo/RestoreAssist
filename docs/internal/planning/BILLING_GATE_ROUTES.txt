@@ -17,6 +17,8 @@ app/pricing/page.tsx
 # Rendered by app/setup/page.tsx (SetupShell, Field Add-Ons step) and
 # app/dashboard/addons (AddonsClient). app/setup/layout.tsx supplies the verdict.
 components/addons/AddonCardDeck.tsx
+# Same two pages (RA-8466): the walkthrough shows pack and plan prices.
+components/addons/SimpleWalkthrough.tsx
 components/clients/upgrade-modal.tsx
 components/forms/guided-interview/GuidedInterviewPanel.tsx
 components/live-teacher/InspectionSidekick.tsx

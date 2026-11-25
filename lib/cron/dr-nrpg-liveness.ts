@@ -16,7 +16,7 @@ import { isEncryptedToken } from "@/lib/auth/account-tokens";
 import type { CronJobResult } from "./runner";
 
 const PROBE_TIMEOUT_MS = 10_000;
-const MAX_CONSECUTIVE_FAILURES_BEFORE_DEACTIVATE = 3;
+const _MAX_CONSECUTIVE_FAILURES_BEFORE_DEACTIVATE = 3;
 // Bounded batch per run — least-recently-probed first so the tail is never
 // starved. See scaling note below.
 const BATCH_SIZE = 100;

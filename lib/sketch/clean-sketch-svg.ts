@@ -1,3 +1,5 @@
+import { isOperatorMeasuredProvenance } from "@/lib/sketch/measured-provenance";
+
 const INCLUDED_TYPES = new Set([
   "room",
   "wall",
@@ -362,7 +364,12 @@ function fabricShapes(object: SketchObject, shapeType: string): SceneShape[] {
     Math.abs(finite(object.scaleX, 1)),
     Math.abs(finite(object.scaleY, 1)),
   );
-  return children.flatMap((child) => {
+  // RA-8239: a child carries its own provenance; an unconfirmed child does
+  // not print just because its group is measured.
+  const printable = children.filter((child) =>
+    isOperatorMeasuredProvenance(child.data?.provenance),
+  );
+  return printable.flatMap((child) => {
     const childType = typeof child.type === "string" ? child.type.toLowerCase() : "";
     return fabricShapes(child, childType).map((shape) =>
       mapShape(shape, toScene, scale, keepsCircleRound(object)),
@@ -395,7 +402,10 @@ function shapeBounds(shape: SceneShape) {
 function objectMarkup(object: SketchObject): { markup: string; maxX: number; maxY: number } | null {
   const domainType = typeof object.data?.type === "string" ? object.data.type : "";
   if (!INCLUDED_TYPES.has(domainType)) return null;
-  if (object.data?.provenance === "underlay_reference") return null;
+  // RA-8239: the same allow-list that decides billing (RA-7611). Only
+  // technician-measured or legacy untagged geometry prints; an unconfirmed
+  // AI suggestion, an imported-plan reference or an unknown tag never does.
+  if (!isOperatorMeasuredProvenance(object.data?.provenance)) return null;
 
   const stroke = domainType === "damage" ? "#dc2626" : "#1f2937";
   const fill =
@@ -419,7 +429,23 @@ function objectMarkup(object: SketchObject): { markup: string; maxX: number; max
     maxX: Math.max(...boxes.map((b) => b.maxX)),
     maxY: Math.max(...boxes.map((b) => b.maxY)),
   };
+  // RA-8239: a room's name prints once. A label also held as a text child of
+  // the same group is drawn by the label line below, not by the child.
+  // Only a name from the object's data counts: a plain text object's own
+  // text is its content, drawn where it sits.
+  // Room groups only: an equipment symbol's captions keep their own place.
+  const dataName = object.data?.label ?? object.data?.name;
+  const labelText =
+    domainType === "room" &&
+    Array.isArray(object.objects) &&
+    typeof dataName === "string"
+      ? dataName.trim()
+      : "";
   const shape = scenes
+    .filter(
+      (scene) =>
+        !(labelText && scene.kind === "text" && scene.text.trim() === labelText),
+    )
     .map((scene) => {
       if (scene.kind === "polygon") {
         const points = scene.points.map((p) => `${p.x},${p.y}`).join(" ");

@@ -695,8 +695,11 @@ export async function resolveReportFinancialReach(
 
 /**
  * An inspection's money (cost estimates and their rates): the organisation
- * widening stops at MANAGER, as for invoices. The job's owner always keeps it
- * through the `{ userId }` clause.
+ * widening stops at MANAGER, as for invoices. The job's owner keeps the reach
+ * through the `{ userId }` clause, but reach is not enough on its own: a
+ * technician (USER in a business) never sees money, even on a job they
+ * created. Pair this with `canSeeMoney` from `lib/auth/redact-money.ts`
+ * (D-023 amendment RA-8494).
  */
 export async function resolveInspectionFinancialReach(
   session: SessionLike | null,

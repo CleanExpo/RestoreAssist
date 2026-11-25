@@ -262,7 +262,7 @@ export function SketchDockToolbar({
       const dy = e.clientY - dragRef.current.startY;
       const container = barRef.current?.parentElement;
       if (!container) return;
-      const { width, height } = container.getBoundingClientRect();
+      const { width: _width, height: _height } = container.getBoundingClientRect();
 
       // Determine new dock position from pointer quadrant
       const absDx = Math.abs(dx);
@@ -319,7 +319,7 @@ export function SketchDockToolbar({
 
   const iconActionCls = cn(
     "flex items-center justify-center transition-all duration-150",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-400",
     compact ? "w-9 h-9 rounded-md" : "w-14 h-14 rounded-xl",
   );
 
@@ -736,7 +736,7 @@ export function SketchDockToolbar({
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               iconActionCls,
-              "text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300",
+              "text-brand-harbour-400 hover:bg-brand-harbour-500/20 hover:text-brand-harbour-300",
               (isImporting || isScanning) && "opacity-50 cursor-not-allowed",
             )}
           >
@@ -818,12 +818,12 @@ function ToolBtn({
       disabled={disabled}
       className={cn(
         "flex items-center justify-center transition-all duration-150",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-400",
         compact ? "w-9 h-9 rounded-md" : "w-14 h-14 rounded-xl",
         active
           ? compact
-            ? "bg-cyan-500 text-white shadow-sm shadow-cyan-500/25"
-            : "bg-cyan-500 text-white shadow-md shadow-cyan-500/30"
+            ? "bg-brand-harbour-500 text-white shadow-sm shadow-brand-harbour-500/25"
+            : "bg-brand-harbour-500 text-white shadow-md shadow-brand-harbour-500/30"
           : danger
             ? "text-rose-400 hover:bg-rose-500/20 hover:text-rose-300"
             : "text-white/60 hover:bg-white/10 hover:text-white",

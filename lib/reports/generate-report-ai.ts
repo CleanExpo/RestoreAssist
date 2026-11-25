@@ -184,10 +184,10 @@ export function buildVisualCentricReportPrompt(data: {
   const {
     report,
     tier1,
-    tier2,
-    tier3,
+    tier2: _tier2,
+    tier3: _tier3,
     stateInfo,
-    psychrometricAssessment,
+    psychrometricAssessment: _psychrometricAssessment,
     scopeAreas,
     equipmentSelection,
     waterCategory,
@@ -200,7 +200,7 @@ export function buildVisualCentricReportPrompt(data: {
     totalLitresExtracted,
     dryingIndex,
     dryingStatus,
-    totalAmpsNumber,
+    totalAmpsNumber: _totalAmpsNumber,
     hasHazards,
     isOccupied,
     hasVulnerablePersons,
@@ -209,17 +209,17 @@ export function buildVisualCentricReportPrompt(data: {
     pricingConfig,
     waterMigration,
     hazards,
-    occupancyStatus,
-    waterDuration,
-    affectedContents,
-    structuralConcerns,
-    buildingServices,
-    insuranceConsiderations,
-    timelineRequirements,
-    dryingPreferences,
-    chemicalTreatment,
-    totalAffectedArea,
-    class4Drying,
+    occupancyStatus: _occupancyStatus,
+    waterDuration: _waterDuration,
+    affectedContents: _affectedContents,
+    structuralConcerns: _structuralConcerns,
+    buildingServices: _buildingServices,
+    insuranceConsiderations: _insuranceConsiderations,
+    timelineRequirements: _timelineRequirements,
+    dryingPreferences: _dryingPreferences,
+    chemicalTreatment: _chemicalTreatment,
+    totalAffectedArea: _totalAffectedArea,
+    class4Drying: _class4Drying,
   } = data;
 
   const estimatedDays =
@@ -295,7 +295,7 @@ Generate a visual-centric report matching the RestoreAssist dashboard style. Use
 
 ## Header Section
 
-**Restore Assist** | **Water Damage Restoration Overview**
+**RestoreAssist** | **Water Damage Restoration Overview**
 
 **Job Ref:** ${report.claimReferenceNumber || report.reportNumber || "INS-2025-001234"}
 **Date:** ${new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "numeric" })}

@@ -39,16 +39,21 @@ export async function createNotification(
   }
 }
 
+export type BulkNotificationResult =
+  | { ok: true; written: number }
+  | { ok: false; error: unknown };
+
 /**
- * Create the same notification for multiple users.
- * Non-blocking — catches errors internally.
+ * RA-8516: create the same notification for multiple users and say what
+ * happened, for a caller that must report the real outcome (the RA-8503
+ * office notice). Never throws.
  */
-export async function createNotificationForUsers(
+export async function tryCreateNotificationForUsers(
   userIds: string[],
   notification: Omit<CreateNotificationInput, "userId">,
-): Promise<void> {
+): Promise<BulkNotificationResult> {
   try {
-    await prisma.notification.createMany({
+    const created = await prisma.notification.createMany({
       data: userIds.map((userId) => ({
         userId,
         title: notification.title,
@@ -57,8 +62,26 @@ export async function createNotificationForUsers(
         link: notification.link,
       })),
     });
-  } catch (err) {
-    console.error("[Notifications] Failed to create bulk notifications:", err);
+    return { ok: true, written: created?.count ?? 0 };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+/**
+ * Create the same notification for multiple users.
+ * Non-blocking — catches errors internally.
+ */
+export async function createNotificationForUsers(
+  userIds: string[],
+  notification: Omit<CreateNotificationInput, "userId">,
+): Promise<void> {
+  const result = await tryCreateNotificationForUsers(userIds, notification);
+  if (!result.ok) {
+    console.error(
+      "[Notifications] Failed to create bulk notifications:",
+      result.error,
+    );
   }
 }
 

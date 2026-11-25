@@ -150,11 +150,13 @@ function ClaimDossier() {
 
   return (
     <div className="mt-12 sm:mt-14 lg:mt-16">
-      {/* Folder tabs */}
+      {/* Folder tabs. On a phone all five sit in one row as numbers (the
+          sheet below names the stage), so the strip never scrolls
+          sideways (RA-8403). */}
       <div
         role="tablist"
         aria-labelledby={labelId}
-        className="flex gap-1 overflow-x-auto pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="grid grid-cols-5 gap-1 pb-px sm:flex sm:overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <span id={labelId} className="sr-only">
           Claim stages
@@ -173,16 +175,16 @@ function ClaimDossier() {
               onClick={() => setActive(i)}
               className={[
                 FONT_DISPLAY,
-                "relative shrink-0 rounded-t-xl border px-4 py-3 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50 focus-visible:ring-offset-2 sm:px-5",
+                "relative min-h-11 min-w-0 rounded-t-xl border px-1 py-3 text-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50 focus-visible:ring-offset-2 sm:shrink-0 sm:px-5 sm:text-left",
                 selected
                   ? "z-10 border-slate-200/90 border-b-white bg-white text-brand-navy"
                   : "border-transparent bg-slate-200/40 text-slate-500 hover:bg-slate-200/70 hover:text-brand-navy-hover",
               ].join(" ")}
             >
-              <span className="block text-[10px] font-bold tabular-nums tracking-[0.14em] text-brand-harbour">
+              <span className="block text-xs font-bold tabular-nums tracking-[0.14em] text-brand-harbour sm:text-[10px]">
                 {item.number}
               </span>
-              <span className="mt-0.5 block text-[13px] font-semibold tracking-[-0.01em] sm:text-sm">
+              <span className="sr-only sm:not-sr-only sm:mt-0.5 sm:block sm:text-sm sm:font-semibold sm:tracking-[-0.01em]">
                 {item.phase}
               </span>
             </button>
@@ -398,11 +400,11 @@ export default function HowItWorksPage() {
             initial={reduce ? false : "hidden"}
             whileInView="visible"
             viewport={VIEWPORT}
-            className="relative mt-12 aspect-[21/9] min-h-[14rem] overflow-hidden rounded-2xl border border-slate-200/90 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:mt-16 sm:min-h-[16rem]"
+            className="relative mt-12 aspect-[3/2] overflow-hidden rounded-2xl border border-slate-200/90 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:mt-16 sm:aspect-[21/9] sm:min-h-[16rem]"
           >
             <Image
-              src="/landing/field-capture.jpg"
-              alt="Restoration technician documenting site conditions for a claim"
+              src="/landing/field-capture.avif"
+              alt="Restoration technician on a suburban driveway photographing a house front with a rugged tablet, air movers drying a wet runner beside him"
               fill
               className="object-cover"
               sizes="80vw"

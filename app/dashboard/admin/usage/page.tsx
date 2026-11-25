@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toCsv } from "@/lib/csv/csv-cell";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ---- Types ----------------------------------------------------------------
@@ -166,7 +167,7 @@ function KpiCard({
               {value}
             </p>
             <p className="text-sm text-neutral-500">{title}</p>
-            {subtitle && <p className="text-xs text-neutral-400">{subtitle}</p>}
+            {subtitle && <p className="text-xs text-brand-slate dark:text-neutral-400">{subtitle}</p>}
           </div>
         </div>
       </CardContent>
@@ -234,21 +235,21 @@ function DailyCostChart({ dailyCosts }: { dailyCosts: DailyCost[] }) {
                 })}
               </div>
               {/* Hover highlight */}
-              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 rounded-sm transition-opacity" />
+              <div className="absolute inset-0 bg-brand-navy/5 dark:bg-white/10 opacity-0 group-hover:opacity-100 rounded-sm transition-opacity" />
             </div>
           );
         })}
       </div>
 
       {/* X-axis labels — show first and last date */}
-      <div className="flex justify-between mt-1 text-[10px] text-neutral-400">
+      <div className="flex justify-between mt-1 text-[10px] text-brand-slate dark:text-neutral-400">
         <span>{dailyCosts[0]?.date?.slice(5)}</span>
         <span>{dailyCosts[dailyCosts.length - 1]?.date?.slice(5)}</span>
       </div>
 
       {/* Tooltip */}
       {tooltip && (
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 pointer-events-none bg-neutral-900 dark:bg-neutral-800 text-white text-xs rounded-lg shadow-lg p-3 min-w-[180px] border border-neutral-700">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 pointer-events-none bg-white dark:bg-neutral-800 text-brand-navy dark:text-white text-xs rounded-lg shadow-lg p-3 min-w-[180px] border border-brand-mist dark:border-neutral-700">
           <p className="font-semibold mb-1">{tooltip.day.date}</p>
           {ALL_EVENT_TYPES.map((et) => {
             const cost = tooltip.day.costs[et] ?? 0;
@@ -431,7 +432,7 @@ export default function AiUsageDashboardPage() {
         ];
       }),
     ];
-    const csv = rows.map((r) => r.join(",")).join("\n");
+    const csv = toCsv(rows);
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -481,7 +482,7 @@ export default function AiUsageDashboardPage() {
               setSelectedMonth(e.target.value);
               setPage(0);
             }}
-            className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-harbour-400"
           >
             {months.map((m) => (
               <option key={m.value} value={m.value}>
@@ -539,26 +540,26 @@ export default function AiUsageDashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
               icon={DollarSign}
-              iconClass="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+              iconClass="bg-brand-harbour-500/10 text-brand-harbour-600 dark:text-brand-harbour-400"
               title="Total Cost MTD"
               value={`$${data.totalCostMtd.toFixed(2)} AUD`}
             />
             <KpiCard
               icon={Clock}
-              iconClass="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+              iconClass="bg-amber-500/10 text-amber-700 dark:text-amber-400"
               title="Pending Billing"
               value={String(data.pendingBillingCount)}
               subtitle="events awaiting billing"
             />
             <KpiCard
               icon={CheckCircle}
-              iconClass="bg-green-500/10 text-green-600 dark:text-green-400"
+              iconClass="bg-green-500/10 text-green-700 dark:text-green-400"
               title="Billed MTD"
               value={`$${data.billedMtd.toFixed(2)} AUD`}
             />
             <KpiCard
               icon={XCircle}
-              iconClass="bg-red-500/10 text-red-600 dark:text-red-400"
+              iconClass="bg-red-500/10 text-red-700 dark:text-red-400"
               title="Failed Events"
               value={String(data.failedCount)}
               subtitle="billing failures"
@@ -595,8 +596,8 @@ export default function AiUsageDashboardPage() {
                         onClick={() => toggleBillingFilter(s)}
                         className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                           billingFilter.has(s)
-                            ? "bg-cyan-500 text-white border-cyan-500"
-                            : "bg-transparent text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-cyan-400"
+                            ? "bg-brand-cta text-white border-brand-cta"
+                            : "bg-transparent text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-brand-harbour-400"
                         }`}
                       >
                         {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -616,7 +617,7 @@ export default function AiUsageDashboardPage() {
                         className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                           eventTypeFilter.has(et)
                             ? `${EVENT_COLORS[et].bar} text-white border-transparent`
-                            : "bg-transparent text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-cyan-400"
+                            : "bg-transparent text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-brand-harbour-400"
                         }`}
                       >
                         {EVENT_LABELS[et]}
@@ -668,7 +669,7 @@ export default function AiUsageDashboardPage() {
                       <tr>
                         <td
                           colSpan={6}
-                          className="py-8 text-center text-neutral-400"
+                          className="py-8 text-center text-brand-slate dark:text-neutral-400"
                         >
                           No data for selected filters
                         </td>
@@ -772,7 +773,7 @@ export default function AiUsageDashboardPage() {
                         Events
                       </th>
                       <th
-                        className="text-right py-3 px-4 text-neutral-500 font-medium cursor-pointer select-none hover:text-cyan-500 transition-colors"
+                        className="text-right py-3 px-4 text-neutral-500 font-medium cursor-pointer select-none hover:text-brand-harbour-500 transition-colors"
                         onClick={() => {
                           setSortDesc((d) => !d);
                           setPage(0);
@@ -803,7 +804,7 @@ export default function AiUsageDashboardPage() {
                       <tr>
                         <td
                           colSpan={7}
-                          className="py-8 text-center text-neutral-400"
+                          className="py-8 text-center text-brand-slate dark:text-neutral-400"
                         >
                           No users for selected filters
                         </td>
@@ -828,29 +829,29 @@ export default function AiUsageDashboardPage() {
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
                           {user.pending > 0 ? (
-                            <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">
+                            <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-0">
                               {user.pending}
                             </Badge>
                           ) : (
-                            <span className="text-neutral-400">0</span>
+                            <span className="text-brand-slate dark:text-neutral-400">0</span>
                           )}
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
                           {user.billed > 0 ? (
-                            <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-0">
+                            <Badge className="bg-green-500/10 text-green-700 dark:text-green-400 border-0">
                               {user.billed}
                             </Badge>
                           ) : (
-                            <span className="text-neutral-400">0</span>
+                            <span className="text-brand-slate dark:text-neutral-400">0</span>
                           )}
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
                           {user.failed > 0 ? (
-                            <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 border-0">
+                            <Badge className="bg-red-500/10 text-red-700 dark:text-red-400 border-0">
                               {user.failed}
                             </Badge>
                           ) : (
-                            <span className="text-neutral-400">0</span>
+                            <span className="text-brand-slate dark:text-neutral-400">0</span>
                           )}
                         </td>
                       </tr>

@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 import { listSyncedJobs } from "@/lib/synced-data/list";
 import {
   isExternalDataSource,
@@ -59,7 +60,9 @@ export async function GET(request: NextRequest) {
     const body: SyncedListResponse<SyncedJobRow> = {
       source: sourceParam,
       connected: result.connected,
-      items: result.items,
+      // RA-8494: synced job totals are money. Redact the rows, never the
+      // pagination envelope (its `total` is a count).
+      items: await moneySafe(session, result.items),
       pagination: {
         page,
         pageSize,

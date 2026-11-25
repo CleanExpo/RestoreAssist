@@ -1,0 +1,10 @@
+{
+  "schema": "done/1",
+  "work_id": "w_9b0fe0a737d9",
+  "contract_digest": "4b70e464498bf839574c37888034c09fc4b7e487f05ada4d6efe1a7ef1b113f3",
+  "baseline_head": "863c634fcdecad6bbf2bc2ca86cc4b82a2d7b89a",
+  "identity_key": "claude/ra-8540-mould-no-overreach@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-8540-mould",
+  "locked_at_utc": "2026-11-22T00:10:19Z",
+  "criteria_count": 3,
+  "recipe_pins": {}
+}

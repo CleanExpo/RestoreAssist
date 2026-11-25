@@ -14,6 +14,10 @@ export default function NewInspectionPage() {
   const interviewDataParam = searchParams.get("interviewData");
   const clientIdParam = searchParams.get("clientId");
   const reportIdParam = searchParams.get("reportId");
+  // RA-8334: the inspection this page already created. Kept in the URL so a
+  // reload reopens it and the next Save Draft updates it instead of creating
+  // a second inspection.
+  const draftParam = searchParams.get("draft");
   const [reportPrefill, setReportPrefill] = useState<Record<string, unknown> | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
   const [loadingReport, setLoadingReport] = useState(!!reportIdParam);
@@ -213,7 +217,7 @@ export default function NewInspectionPage() {
             "bg-neutral-50 dark:bg-slate-900/50",
           )}
         >
-          <Loader2 className="animate-spin text-cyan-500" size={28} />
+          <Loader2 className="animate-spin text-brand-harbour-500" size={28} />
           <span className={cn("text-neutral-600 dark:text-slate-400")}>
             Loading draft details...
           </span>
@@ -221,13 +225,20 @@ export default function NewInspectionPage() {
       ) : (
         <>
         {reportIdParam && (
-          <p className="rounded-lg border border-cyan-300 p-3 text-sm">
+          <p className="rounded-lg border border-brand-harbour-300 p-3 text-sm">
             This draft will use the existing report.
             {reportClientUnlinked && " Saving it will link that report to the selected client without changing its contact details."}
           </p>
         )}
         <NIRTechnicianInputForm
           reportId={reportIdParam ?? undefined}
+          draftInspectionId={draftParam ?? undefined}
+          onInspectionCreated={(inspectionId: string) => {
+            if (draftParam === inspectionId) return;
+            const next = new URLSearchParams(searchParams.toString());
+            next.set("draft", inspectionId);
+            router.replace(`/dashboard/inspections/new?${next.toString()}`, { scroll: false });
+          }}
           initialData={initialData ?? undefined}
           onComplete={(inspectionId: string) => {
             router.push(`/dashboard/inspections/${inspectionId}`);

@@ -90,7 +90,7 @@ export function SubmissionGatePanel({
       if ((data.validation?.blockingGaps?.length ?? 0) > 0) {
         setShowDetails(true);
       }
-    } catch (err) {
+    } catch {
       if (!isLatest()) return;
       setError("Failed to validate — check your connection");
     } finally {

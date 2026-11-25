@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 interface Stats {
   total: number;
@@ -36,7 +37,7 @@ export function StorageMirrorHealthTile() {
     async function load() {
       try {
         const res = await fetch("/api/storage/mirror-jobs?limit=1");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(statusErrorMessage(res.status));
         const json = (await res.json()) as { data: { stats: Stats } };
         if (!cancelled) setStats(json.data.stats);
       } catch (err) {

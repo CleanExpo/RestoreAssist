@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ChromeAlertTriangle } from "@/components/brand/chrome-icons";
+import { Button } from "@/components/ui/button";
+import { SignInAgainButton } from "@/components/dashboard/SignInAgainButton";
+import { customerErrorMessage } from "@/lib/client/customer-error-copy";
 import type { ParsedApiError } from "@/lib/client/parse-api-error";
 
 type Props = {
@@ -17,10 +21,16 @@ export function detailErrorFromResponse(
   parsed: ParsedApiError,
   resourceLabel: string,
 ): { title: string; message: string } {
-  if (parsed.status === 401 || parsed.status === 403) {
+  if (parsed.status === 401) {
     return {
-      title: "Sign in required",
-      message: `Your session may have expired. Sign in again to open this ${resourceLabel}.`,
+      title: "Your session has ended",
+      message: `Sign in again to open this ${resourceLabel}.`,
+    };
+  }
+  if (parsed.status === 403) {
+    return {
+      title: "No access",
+      message: `You do not have access to this ${resourceLabel}. Ask your administrator to give you access, or go back and pick another.`,
     };
   }
   if (parsed.status === 404) {
@@ -31,9 +41,7 @@ export function detailErrorFromResponse(
   }
   return {
     title: `Could not load ${resourceLabel}`,
-    message:
-      parsed.message ||
-      `Something went wrong (HTTP ${parsed.status || "unknown"}).`,
+    message: customerErrorMessage(parsed),
   };
 }
 
@@ -45,12 +53,16 @@ export function DetailLoadErrorPanel({
   backLabel,
   onRetry,
 }: Props) {
+  const pathname = usePathname();
   const copy = error
     ? detailErrorFromResponse(error, resourceLabel)
     : {
         title: `${resourceLabel} unavailable`,
         message: fallbackMessage ?? "Please try again.",
       };
+  const signedOut = error?.status === 401;
+  // Retrying cannot fix a missing permission, so 403 offers only a way back.
+  const canRetry = Boolean(onRetry) && error?.status !== 403;
 
   return (
     <div className="flex min-h-[50vh] items-center justify-center px-4">
@@ -64,29 +76,27 @@ export function DetailLoadErrorPanel({
           </p>
         ) : null}
         <div className="flex flex-wrap items-center justify-center gap-3">
-          {onRetry ? (
-            <button
+          {signedOut ? (
+            <SignInAgainButton callbackUrl={pathname ?? backHref} />
+          ) : null}
+          {canRetry ? (
+            <Button
               type="button"
+              variant={signedOut ? "outline" : "default"}
+              size="touch"
               onClick={onRetry}
-              className="rounded-lg bg-cyan-600 px-4 py-2 text-white hover:bg-cyan-700"
+              className={
+                signedOut
+                  ? undefined
+                  : "bg-brand-cta text-white hover:bg-brand-cta/90"
+              }
             >
               Retry
-            </button>
+            </Button>
           ) : null}
-          {error?.status === 401 ? (
-            <Link
-              href="/login"
-              className="rounded-lg border border-border px-4 py-2 hover:bg-muted"
-            >
-              Sign in
-            </Link>
-          ) : null}
-          <Link
-            href={backHref}
-            className="rounded-lg border border-border px-4 py-2 hover:bg-muted"
-          >
-            {backLabel}
-          </Link>
+          <Button asChild variant="outline" size="touch">
+            <Link href={backHref}>{backLabel}</Link>
+          </Button>
         </div>
       </div>
     </div>

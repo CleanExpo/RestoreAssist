@@ -12,7 +12,7 @@
  * - Cursor-based pagination (load more)
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Camera,
   Filter,
@@ -28,7 +28,6 @@ import {
   Code2,
   CheckSquare,
   Square,
-  BarChart3,
   HardDrive,
   TrendingUp,
   Tag,
@@ -297,7 +296,7 @@ export default function MediaPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Media Library"
         description="Catalogued inspection photos for marketing, SEO, and client-facing assets."
-        icon={<Camera className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<Camera className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/media" })}
       />
 
@@ -787,7 +786,6 @@ function AssetCard({
       onClick={onToggle}
     >
       <div className="relative aspect-square bg-muted flex items-center justify-center overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`/api/storage/thumbnail?path=${encodeURIComponent(asset.storagePath)}`}
           alt={asset.originalFilename}

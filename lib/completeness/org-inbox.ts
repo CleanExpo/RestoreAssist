@@ -5,7 +5,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { INACTIVE_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 import { loadClaimContext } from "@/lib/margot/claim-context";
-import { evaluateWaterDamageCompleteness } from "./water-damage-pack";
+import { evaluateCompletenessForClaimType } from "./claim-type-pack";
 import { daysSince } from "./inbox-ageing";
 
 export type CompletenessInboxRow = {
@@ -59,6 +59,7 @@ export async function listCompletenessInboxForOwner(
       propertyAddress: true,
       status: true,
       clientId: true,
+      claimType: true,
       createdAt: true,
       updatedAt: true,
       report: { select: { incidentDate: true } },
@@ -80,7 +81,7 @@ export async function listCompletenessInboxForOwner(
       prisma.inspectionPhoto.count({ where: { inspectionId: insp.id } }),
     ]);
 
-    const pack = evaluateWaterDamageCompleteness({
+    const pack = evaluateCompletenessForClaimType(insp.claimType, {
       hasClient: Boolean(insp.clientId),
       hasCategoryClass: Boolean(wdc?.waterCategory && wdc?.damageClass),
       hasIncidentDate: Boolean(insp.report?.incidentDate),

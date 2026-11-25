@@ -190,7 +190,7 @@ jobs:
           RELEASE_RECEIPT_PUBLIC_KEYS: ${{ vars.RELEASE_RECEIPT_PUBLIC_KEYS || secrets.RELEASE_RECEIPT_PUBLIC_KEYS }}
         run: |
           npx --no-install tsx -e "
-            import { ownerEvidence } from './scripts/release-gate-score';
+            import { ownerEvidence } from './scripts/lib/release-gate-score';
             const r = ownerEvidence('${{ inputs.criterion }}', '1.0.0');
             console.log(JSON.stringify(r, null, 2));
             if (r.status !== 'pass') process.exit(1);

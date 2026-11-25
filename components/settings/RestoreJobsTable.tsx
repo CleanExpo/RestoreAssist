@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 type Status = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "SKIPPED";
 
@@ -52,7 +53,7 @@ export function RestoreJobsTable() {
   async function refresh() {
     try {
       const res = await fetch("/api/storage/restore");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(statusErrorMessage(res.status));
       const json = (await res.json()) as {
         data: { jobs: RestoreJob[]; stats: Stats };
       };
@@ -80,7 +81,7 @@ export function RestoreJobsTable() {
       const res = await fetch(`/api/storage/restore/${jobId}/retry`, {
         method: "POST",
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(statusErrorMessage(res.status));
       toast.success("Retry queued — will run on the next minute tick");
     } catch (err) {
       toast.error("Retry failed");

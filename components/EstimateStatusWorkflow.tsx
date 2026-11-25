@@ -164,7 +164,7 @@ export function EstimateStatusWorkflow({
           estimate or record the client&apos;s approval.
         </p>
         {currentStatus === "CLIENT_REVIEW" && (
-          <p className="mt-2 max-w-2xl text-sm text-cyan-200">
+          <p className="mt-2 max-w-2xl text-sm text-brand-harbour-200">
             Approval works only once the client has approved this estimate
             total in the client portal.
           </p>

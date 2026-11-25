@@ -132,7 +132,6 @@ export default function ClientsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
-  const [duplicating, setDuplicating] = useState<string | null>(null);
   const clientsRequest = useRef<{ promise: Promise<boolean>; controller: AbortController } | null>(null);
 
   // RA-1215 — shared form instance for Add + Edit modals so validation
@@ -380,33 +379,23 @@ export default function ClientsPage() {
     setShowDeleteModal(true);
   };
 
-  // Duplicate client function
-  const duplicateClient = async (clientId: string) => {
-    try {
-      setDuplicating(clientId);
-      const response = await fetch(`/api/clients/${clientId}/duplicate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const newClient = await response.json();
-        setClients([newClient, ...clients]);
-        toast.success("Client duplicated successfully");
-      } else {
-        toast.error("Failed to duplicate client");
-      }
-    } catch (error) {
-      console.error("Error duplicating client:", error);
-      toast.error("Failed to duplicate client");
-    } finally {
-      setDuplicating(null);
-    }
+  // RA-8535: a copy is a new client, and every client needs its own email
+  // (one owner cannot hold two clients with the same email). Open the add
+  // form with the details copied and the email left for the user to enter.
+  const duplicateClient = (client: Client) => {
+    form.reset({
+      name: `${client.name} (Copy)`,
+      email: "",
+      phone: client.phone || "",
+      address: client.address || "",
+      company: client.company || "",
+      contactPerson: client.contactPerson || "",
+      notes: client.notes || "",
+      status: client.status,
+    });
+    setShowAddModal(true);
   };
 
-  // Bulk delete functions
   const handleBulkDelete = async () => {
     if (selectedClients.length === 0) return;
 
@@ -443,7 +432,7 @@ export default function ClientsPage() {
         eyebrow="Simple workspace"
         title="Clients"
         description="People and businesses you work for — linked to reports, jobs, and invoices."
-        icon={<Users className="h-7 w-7 text-cyan-500" aria-hidden />}
+        icon={<Users className="h-7 w-7 text-brand-harbour-500" aria-hidden />}
         primaryAction={
           dataSource === "native" ? (
             <button
@@ -452,7 +441,7 @@ export default function ClientsPage() {
                 form.reset(CLIENT_FORM_DEFAULTS);
                 setShowAddModal(true);
               }}
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-2 font-medium text-white transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/50 sm:w-auto"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-brand-harbour-600 px-6 py-2 font-medium text-white transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/50 sm:w-auto"
             >
               <Plus size={20} aria-hidden />
               Add client
@@ -548,7 +537,7 @@ export default function ClientsPage() {
               setCurrentPage(1);
             }}
             className={cn(
-              "w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+              "w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50",
               "bg-neutral-100 dark:bg-slate-800",
               "border-neutral-300 dark:border-slate-700",
               "text-neutral-900 dark:text-white",
@@ -569,7 +558,7 @@ export default function ClientsPage() {
                 setCurrentPage(1);
               }}
               className={cn(
-                "px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500",
+                "px-3 py-2 border rounded-lg focus:outline-none focus:border-brand-harbour-500",
                 "bg-neutral-100 dark:bg-slate-800",
                 "border-neutral-300 dark:border-slate-700",
                 "text-neutral-900 dark:text-white",
@@ -589,7 +578,7 @@ export default function ClientsPage() {
         <SyncedClientsPanel source={dataSource} searchTerm={searchTerm} />
       ) : loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
         </div>
       ) : loadError && clients.length === 0 ? (
         // RA-8084: a failed load with nothing held is unknown, not empty. The
@@ -651,14 +640,14 @@ export default function ClientsPage() {
                           : "bg-neutral-200 dark:bg-slate-500/20 text-neutral-600 dark:text-slate-400";
                   const NameWrap = fromReport
                     ? ({ children }: { children: React.ReactNode }) => (
-                        <span className="text-cyan-500 dark:text-cyan-400">
+                        <span className="text-brand-harbour-500 dark:text-brand-harbour-400">
                           {children}
                         </span>
                       )
                     : ({ children }: { children: React.ReactNode }) => (
                         <Link
                           href={`/dashboard/clients/${client.id}`}
-                          className="text-cyan-500 dark:text-cyan-400 hover:underline"
+                          className="text-brand-harbour-500 dark:text-brand-harbour-400 hover:underline"
                         >
                           {children}
                         </Link>
@@ -715,12 +704,10 @@ export default function ClientsPage() {
                         <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium">
                           {client.reportsCount || 0} reports
                         </span>
-                        <span className="font-medium text-cyan-600 dark:text-cyan-400">
-                          $
-                          {client.totalRevenue
-                            ? client.totalRevenue.toLocaleString()
-                            : "0"}{" "}
-                          invoiced
+                        <span className="font-medium text-brand-harbour-600 dark:text-brand-harbour-400">
+                          {client.totalRevenue == null
+                            ? "Prices hidden"
+                            : `$${client.totalRevenue.toLocaleString()} invoiced`}
                         </span>
                         <span className="text-neutral-500 dark:text-slate-500 truncate">
                           {client.lastJob || "No jobs yet"}
@@ -856,13 +843,13 @@ export default function ClientsPage() {
                               to see any context. */}
                           <div className="flex items-center gap-2 flex-wrap">
                             {(client as ClientWithReportFlag)._isFromReport ? (
-                              <span className="text-cyan-400">
+                              <span className="text-brand-harbour-700 dark:text-brand-harbour-400">
                                 {client.name}
                               </span>
                             ) : (
                               <Link
                                 href={`/dashboard/clients/${client.id}`}
-                                className="text-cyan-400 hover:underline"
+                                className="text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline"
                               >
                                 {client.name}
                               </Link>
@@ -891,7 +878,7 @@ export default function ClientsPage() {
                             </div>
                           )}
                           {(client as ClientWithReportFlag)._isFromReport && (
-                            <div className="text-xs text-amber-400 mt-1">
+                            <div className="text-xs text-amber-700 dark:text-amber-400 mt-1">
                               From Report
                             </div>
                           )}
@@ -938,13 +925,12 @@ export default function ClientsPage() {
                         <td
                           className={cn(
                             "py-4 px-6 font-medium",
-                            "text-cyan-600 dark:text-cyan-400",
+                            "text-brand-harbour-600 dark:text-brand-harbour-400",
                           )}
                         >
-                          $
-                          {client.totalRevenue
-                            ? client.totalRevenue.toLocaleString()
-                            : "0"}
+                          {client.totalRevenue == null
+                            ? "Hidden"
+                            : `$${client.totalRevenue.toLocaleString()}`}
                         </td>
                         <td
                           className={cn(
@@ -972,16 +958,11 @@ export default function ClientsPage() {
                               <Edit size={16} />
                             </button>
                             <button
-                              onClick={() => duplicateClient(client.id)}
-                              disabled={duplicating === client.id}
-                              className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                              onClick={() => duplicateClient(client)}
+                              className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors"
                               title="Duplicate"
                             >
-                              {duplicating === client.id ? (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500"></div>
-                              ) : (
-                                <Copy size={16} />
-                              )}
+                              <Copy size={16} />
                             </button>
                             <button
                               onClick={() => openDeleteModal(client)}

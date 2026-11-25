@@ -99,4 +99,21 @@ describe("buildSimpleNavItems — manager landing", () => {
     expect(items[0]?.href).toBe("/dashboard/operations/completeness-inbox");
     expect(items.some((i) => i.href === "/dashboard?stay=1")).toBe(true);
   });
+
+  // RA-8523: the inbox was added twice for managers, so React saw two
+  // children with the same key on every dashboard page.
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+    [true, true],
+  ])(
+    "lists every destination once (isManager %s, showFieldAddons %s)",
+    (isManager, showFieldAddons) => {
+      const hrefs = buildSimpleNavItems({ isManager, showFieldAddons }).map(
+        (i) => i.href,
+      );
+      expect(hrefs).toEqual([...new Set(hrefs)]);
+    },
+  );
 });

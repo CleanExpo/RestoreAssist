@@ -60,7 +60,7 @@ export function useSketchTools(opts: UseSketchToolsOptions) {
     showGuides,
     clearGuides,
     roomColor = { fill: "rgba(59,130,246,0.10)", stroke: "#3b82f6" },
-    damageColor = {
+    damageColor: _damageColor = {
       color: "rgba(59,130,246,0.35)",
       stroke: "#3b82f6",
       id: "water",

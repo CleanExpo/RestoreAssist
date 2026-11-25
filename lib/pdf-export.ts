@@ -101,7 +101,18 @@ export async function exportInspectionPdf(
   }
 }
 
-function buildReportHtml(data: InspectionReportData): string {
+// RA-8515: stored text is kept as typed (an address can hold "&" or "<"), so
+// it is escaped here, where it becomes HTML.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+export function buildReportHtml(data: InspectionReportData): string {
   const { inspection, areas, moistureReadings, scopeItems } = data;
 
   const fmt = (d: string) =>
@@ -170,7 +181,7 @@ function buildReportHtml(data: InspectionReportData): string {
         ? fmt(inspection.inspectionDate)
         : "Attendance not recorded"
     }</div>
-    <div>${inspection.propertyAddress}</div>
+    <div>${escapeHtml(inspection.propertyAddress)}</div>
     ${inspection.technician ? `<div>Technician: ${inspection.technician.name}${inspection.technician.licenceNumber ? ` (Lic: ${inspection.technician.licenceNumber})` : ""}</div>` : ""}
   </div>
 </div>`;
@@ -219,7 +230,7 @@ ${sectionHeading("Job Summary")}
 <div style="padding:16px 16px 8px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
   ${summaryGrid}
 </div>
-${inspection.notes ? `<div style="padding:0 16px 16px;font-size:10px;color:#374151;"><strong>Notes:</strong> ${inspection.notes}</div>` : ""}`;
+${inspection.notes ? `<div style="padding:0 16px 16px;font-size:10px;color:#374151;"><strong>Notes:</strong> ${escapeHtml(inspection.notes)}</div>` : ""}`;
 
   // ── 3. Affected Areas ───────────────────────────────────────────────────────
   let areasHtml = "";

@@ -1,16 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Thermometer,
   Droplets,
   MapPin,
   Camera,
   CheckCircle,
-  AlertCircle,
   Plus,
   X,
-  Save,
   ArrowRight,
   Loader2,
   Sparkles,
@@ -18,11 +16,9 @@ import {
   Trash2,
   Pencil,
   Upload,
-  FileImage,
   Map,
   Shield,
   Zap,
-  Eye,
   Locate,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -49,7 +45,7 @@ import {
   sidecarPart,
   type DraftSavePart,
 } from "@/lib/nir-draft-save";
-import { trackDraftSave } from "@/lib/offline/draft-save-status";
+import { clearActiveDraft, setActiveDraft, trackDraftSave } from "@/lib/offline/draft-save-status";
 import {
   calculateClassificationPreview as computeClassificationPreview,
   manualClassificationPayload,
@@ -68,6 +64,7 @@ import {
   scheduleFollowUpReminder,
 } from "@/lib/capacitor";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
+import { pickReferenceReadings } from "@/lib/iicrc-dry-standards";
 import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion";
 import ClaimTypePicker from "@/components/inspection/ClaimTypePicker";
 import NIRClaimAssessmentPanel, {
@@ -98,6 +95,14 @@ import {
 
 interface NIRTechnicianInputFormProps {
   reportId?: string;
+  /**
+   * RA-8334: an inspection this form already created, carried in the page URL
+   * so a reload, dropped connection or app switch reopens the same draft.
+   * While it is set the form never creates a second inspection.
+   */
+  draftInspectionId?: string;
+  /** RA-8334: called once the form knows its saved inspection id. */
+  onInspectionCreated?: (inspectionId: string) => void;
   /** Pre-fill form from guided interview (e.g. interviewData from URL) */
   initialData?: Record<string, unknown>;
   onComplete?: (inspectionId: string) => void;
@@ -209,6 +214,8 @@ const WATER_CLASSES = [
 
 export default function NIRTechnicianInputForm({
   reportId,
+  draftInspectionId,
+  onInspectionCreated,
   initialData,
   onComplete,
   onCancel,
@@ -219,6 +226,14 @@ export default function NIRTechnicianInputForm({
   const [inspectionId, setInspectionId] = useState<string | null>(null);
   const [creatingInspection, setCreatingInspection] = useState(false);
   const inspectionIdRef = useRef<string | null>(null);
+  // RA-8358: names this form to the sync badge until the inspection exists.
+  const [draftFormKey] = useState(
+    () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+  );
+  useEffect(() => {
+    setActiveDraft({ inspectionId: inspectionId ?? draftInspectionId ?? null, formKey: draftFormKey });
+  }, [inspectionId, draftInspectionId, draftFormKey]);
+  useEffect(() => () => clearActiveDraft(draftFormKey), [draftFormKey]);
   const makeSafeChecklistRef = useRef<MakeSafeChecklistHandle | null>(null);
   const claimAssessmentRef = useRef<NIRClaimAssessmentPanelHandle | null>(null);
   const inspectionCreationRef = useRef<{
@@ -229,6 +244,12 @@ export default function NIRTechnicianInputForm({
   const legacyUnresolvedKeyRef = useRef<string | null>(null);
   const [creationRecovery, setCreationRecovery] = useState<"idle" | "checking" | "retryable" | "legacy_missing" | "unresolved">("idle");
   const [recoveryCheck, setRecoveryCheck] = useState(0);
+  // RA-8334: why a draft named in the URL could not be reopened; null otherwise.
+  const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
+  const onInspectionCreatedRef = useRef(onInspectionCreated);
+  useEffect(() => {
+    onInspectionCreatedRef.current = onInspectionCreated;
+  });
   const clientIdForCreation = typeof initialData?.clientId === "string" ? initialData.clientId : null;
   const legacyAttemptStorageKey = `ra.nir-inspection-attempt:${reportId ?? "standalone"}:${clientIdForCreation ?? "unlinked"}`;
   const attemptStorageKey = session?.user?.id
@@ -292,6 +313,7 @@ export default function NIRTechnicianInputForm({
           setTechnicianName(typeof saved.technicianName === "string" ? saved.technicianName : "");
           inspectionIdRef.current = saved.id;
           setInspectionId(saved.id);
+          onInspectionCreatedRef.current?.(saved.id);
           try { sessionStorage.removeItem(attemptStorageKey); } catch { /* saved ID is verified */ }
           try {
             if (sessionStorage.getItem(legacyAttemptStorageKey) === key) sessionStorage.removeItem(legacyAttemptStorageKey);
@@ -384,8 +406,32 @@ export default function NIRTechnicianInputForm({
       // Loaded with the reading so the classification preview can match a
       // linked reading to its room, as submit does (RA-7610).
       sketchRoom?: { id: string; name: string } | null;
+      // RA-8509: selected by the job API so the map can pick valid reference
+      // readings. A reading added in this form has neither (no unit means a
+      // moisture-content reading; not invalidated).
+      unit?: string | null;
+      invalidatedAt?: string | null;
+      recordedAt?: string | null;
+      createdAt?: string | null;
     }>
   >([]);
+  // RA-8509: the job's reference readings, so the map colours each reading
+  // against its own material's reference and uses the guide only without one.
+  const moistureReferences = useMemo(
+    () =>
+      pickReferenceReadings(
+        moistureReadings.map((r) => ({
+          surfaceType: r.surfaceType,
+          moistureLevel: r.moistureLevel,
+          isBaseline: r.isBaseline,
+          unit: r.unit,
+          invalidatedAt: r.invalidatedAt,
+          recordedAt: r.recordedAt,
+          createdAt: r.createdAt,
+        })),
+      ),
+    [moistureReadings],
+  );
   // B23: the reading and environmental rows this form loaded or has saved.
   // Draft save deletes only these, so a reading captured on another screen
   // after the form opened is never erased.
@@ -737,12 +783,6 @@ export default function NIRTechnicianInputForm({
     // choice is made with the Category / Class selectors below.
   }, [initialData]);
 
-  // Initialize inspection if reportId provided
-  useEffect(() => {
-    if (reportId && !inspectionId) {
-      initializeInspection();
-    }
-  }, [reportId]);
 
   // Fetch Quick Fill credits on mount
   useEffect(() => {
@@ -763,17 +803,45 @@ export default function NIRTechnicianInputForm({
   }, []);
 
   const initializeInspection = async () => {
-    if (!reportId) return;
+    if (!reportId && !draftInspectionId) return;
 
     setLoading(true);
+    setDraftLoadError(null);
     try {
-      const response = await fetch(`/api/inspections?reportId=${reportId}`, {
-        method: "GET",
-      });
+      // RA-8334: a draft id from the URL is the inspection this form already
+      // created; reopen exactly that one rather than looking up by report.
+      const response = draftInspectionId
+        ? await fetch(`/api/inspections/${encodeURIComponent(draftInspectionId)}`, {
+            method: "GET",
+            cache: "no-store",
+          })
+        : await fetch(`/api/inspections?reportId=${reportId}`, {
+            method: "GET",
+          });
 
+      if (draftInspectionId && !response.ok) {
+        setDraftLoadError(
+          "This saved draft could not be reopened. Check your inspections list before starting another.",
+        );
+      }
       if (response.ok) {
         const data = await response.json();
-        if (data.inspection) {
+        if (
+          draftInspectionId &&
+          (!data.inspection || data.inspection.id !== draftInspectionId)
+        ) {
+          setDraftLoadError(
+            "This saved draft could not be reopened. Check your inspections list before starting another.",
+          );
+        } else if (
+          draftInspectionId &&
+          typeof data.inspection.status === "string" &&
+          data.inspection.status !== "DRAFT"
+        ) {
+          setDraftLoadError(
+            "This inspection has already been submitted. Open it from your inspections list.",
+          );
+        } else if (data.inspection) {
           inspectionIdRef.current = data.inspection.id;
           setInspectionId(data.inspection.id);
           // Load existing data
@@ -887,10 +955,29 @@ export default function NIRTechnicianInputForm({
       }
     } catch (error) {
       console.warn("Failed to load inspection data", error);
+      if (draftInspectionId) {
+        setDraftLoadError(
+          "This saved draft could not be reopened. Check your connection, then reload.",
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Initialize inspection if reportId provided
+  // Latest-value ref: initialise only when reportId changes, but always with
+  // the current inspectionId / initializer closure.
+  const initInspectionRef = useRef({ inspectionId, initializeInspection });
+  useEffect(() => {
+    initInspectionRef.current = { inspectionId, initializeInspection };
+  });
+  useEffect(() => {
+    const latest = initInspectionRef.current;
+    if ((reportId || draftInspectionId) && !latest.inspectionId) {
+      latest.initializeInspection();
+    }
+  }, [reportId, draftInspectionId]);
 
   const linkedAreaConflict = linkedReadingsAreaConflict(moistureReadings, affectedAreas);
   const unlinkedAreaAmbiguity = unlinkedReadingsAreaAmbiguity(moistureReadings, affectedAreas);
@@ -1012,7 +1099,7 @@ export default function NIRTechnicianInputForm({
     return errors;
   };
 
-  const validateForm = (options?: { forSubmit?: boolean }): boolean => {
+  const _validateForm = (options?: { forSubmit?: boolean }): boolean => {
     const errors = collectValidationErrors(options);
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1512,6 +1599,12 @@ export default function NIRTechnicianInputForm({
     // one creation request and continue against the same saved inspection.
     const knownId = inspectionIdRef.current || inspectionId;
     if (knownId) return Promise.resolve(knownId);
+    // RA-8334: this page already names a saved draft. Until it has reopened,
+    // creating would split the job across two inspections.
+    if (draftInspectionId) {
+      if (showToast) toast.error(draftLoadError ?? "The saved draft is still loading.");
+      return Promise.resolve(null);
+    }
     const pending = inspectionCreationRef.current;
     if (pending?.inFlight) return pending.inFlight;
     if (!attemptStorageKey) {
@@ -1599,6 +1692,7 @@ export default function NIRTechnicianInputForm({
           }
           inspectionIdRef.current = savedId;
           setInspectionId(savedId);
+          onInspectionCreatedRef.current?.(savedId);
           inspectionCreationRef.current = null;
           setCreationRecovery("idle");
           try { sessionStorage.removeItem(attemptStorageKey); } catch { /* saved ID is verified */ }
@@ -1882,7 +1976,7 @@ export default function NIRTechnicianInputForm({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand-harbour-500" />
       </div>
     );
   }
@@ -2100,7 +2194,7 @@ export default function NIRTechnicianInputForm({
                   <span
                     className={cn(
                       "font-semibold",
-                      "text-cyan-600 dark:text-cyan-400",
+                      "text-brand-harbour-600 dark:text-brand-harbour-400",
                     )}
                   >
                     {reading.moistureLevel}%
@@ -2112,9 +2206,9 @@ export default function NIRTechnicianInputForm({
               </div>
             ))}
             {classificationPreview && (
-              <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+              <div className="mt-4 p-3 bg-brand-harbour-500/10 border border-brand-harbour-500/30 rounded-lg">
                 <p
-                  className={cn("text-sm", "text-cyan-700 dark:text-cyan-400")}
+                  className={cn("text-sm", "text-brand-harbour-700 dark:text-brand-harbour-400")}
                 >
                   <strong>Average Moisture:</strong>{" "}
                   {classificationPreview.avgMoisture.toFixed(1)}%
@@ -2164,7 +2258,7 @@ export default function NIRTechnicianInputForm({
                       <span
                         className={cn(
                           "text-xs px-2 py-1 rounded",
-                          "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400",
+                          "bg-brand-harbour-100 dark:bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-brand-harbour-400",
                         )}
                       >
                         {area.affectedSquareFootage.toFixed(2)} m²
@@ -2211,7 +2305,7 @@ export default function NIRTechnicianInputForm({
                       <span>
                         Water Source:{" "}
                         <span
-                          className={cn("text-cyan-600 dark:text-cyan-400")}
+                          className={cn("text-brand-harbour-600 dark:text-brand-harbour-400")}
                         >
                           {area.waterSource}
                         </span>
@@ -2223,9 +2317,9 @@ export default function NIRTechnicianInputForm({
               </div>
             ))}
             {classificationPreview && (
-              <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+              <div className="mt-4 p-3 bg-brand-harbour-500/10 border border-brand-harbour-500/30 rounded-lg">
                 <p
-                  className={cn("text-sm", "text-cyan-700 dark:text-cyan-400")}
+                  className={cn("text-sm", "text-brand-harbour-700 dark:text-brand-harbour-400")}
                 >
                   <strong>Total Affected Area:</strong>{" "}
                   {classificationPreview.totalArea.toFixed(2)} m²
@@ -2237,14 +2331,14 @@ export default function NIRTechnicianInputForm({
 
         {/* Expected Classification Preview */}
         {classificationPreview && (
-          <div className="p-6 rounded-lg border-2 border-cyan-500/50 bg-brand-navy">
+          <div className="p-6 rounded-lg border-2 border-brand-harbour-500/50 bg-brand-navy">
             <h3
               className={cn(
                 "text-lg font-semibold mb-4 flex items-center gap-2",
                 "text-neutral-900 dark:text-white",
               )}
             >
-              <Sparkles className="w-5 h-5 text-cyan-400" />
+              <Sparkles className="w-5 h-5 text-brand-harbour-400" />
               Expected Auto-Classification Preview
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2265,7 +2359,7 @@ export default function NIRTechnicianInputForm({
                 <p
                   className={cn(
                     "text-2xl font-bold mt-1",
-                    "text-cyan-600 dark:text-cyan-400",
+                    "text-brand-harbour-600 dark:text-brand-harbour-400",
                   )}
                 >
                   Category {classificationPreview.category}
@@ -2300,7 +2394,7 @@ export default function NIRTechnicianInputForm({
                 <p
                   className={cn(
                     "text-2xl font-bold mt-1",
-                    "text-cyan-600 dark:text-cyan-400",
+                    "text-brand-harbour-600 dark:text-brand-harbour-400",
                   )}
                 >
                   Class {classificationPreview.class}
@@ -2346,7 +2440,7 @@ export default function NIRTechnicianInputForm({
               "text-neutral-900 dark:text-white",
             )}
           >
-            <ClipboardCheck className="w-5 h-5 text-cyan-400" />
+            <ClipboardCheck className="w-5 h-5 text-brand-harbour-400" />
             Selected Scope Items ({selectedScopeItems.size})
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -2360,7 +2454,7 @@ export default function NIRTechnicianInputForm({
                     "bg-neutral-100 dark:bg-slate-900/50",
                   )}
                 >
-                  <CheckCircle className="w-4 h-4 text-cyan-400" />
+                  <CheckCircle className="w-4 h-4 text-brand-harbour-400" />
                   <span className={cn("text-neutral-900 dark:text-white")}>
                     {item.label}
                   </span>
@@ -2393,7 +2487,7 @@ export default function NIRTechnicianInputForm({
                 "text-neutral-900 dark:text-white",
               )}
             >
-              <Map className="w-5 h-5 text-cyan-400" />
+              <Map className="w-5 h-5 text-brand-harbour-400" />
               Visual Moisture Mapping
             </h3>
             <MoistureMappingCanvas
@@ -2404,7 +2498,9 @@ export default function NIRTechnicianInputForm({
                 moistureLevel: r.moistureLevel,
                 depth: r.depth,
                 notes: null,
+                unit: r.unit,
               }))}
+              references={moistureReferences}
               initialPoints={moistureMapPoints}
               initialBackgroundImage={floorPlanImageUrl}
               readonly={true}
@@ -2439,7 +2535,7 @@ export default function NIRTechnicianInputForm({
                         "border-neutral-300 dark:border-slate-600 bg-neutral-100 dark:bg-slate-900/50",
                       )}
                     >
-                      <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
+                      <Loader2 className="w-6 h-6 animate-spin text-brand-harbour-500" />
                     </div>
                   ) : (
                     <img
@@ -2556,7 +2652,7 @@ export default function NIRTechnicianInputForm({
                     );
                   }
                 }
-              } catch (error) {
+              } catch {
                 toast.error("Failed to check Quick Fill credits");
               } finally {
                 setLoadingCredits(false);
@@ -2608,6 +2704,11 @@ export default function NIRTechnicianInputForm({
         error={validationErrors.claimType}
         disabled={!!inspectionId || creatingInspection}
       />
+      {draftLoadError && !inspectionId && (
+        <div role="alert" className="rounded-lg border border-amber-400 p-3 text-sm">
+          <p>{draftLoadError}</p>
+        </div>
+      )}
       {creationRecovery !== "idle" && !inspectionId && (
         <div role="alert" className="rounded-lg border border-amber-400 p-3 text-sm">
           <p>{creationRecovery === "checking"
@@ -2703,7 +2804,7 @@ export default function NIRTechnicianInputForm({
               value={propertyAddress}
               onChange={(e) => setPropertyAddress(e.target.value)}
               className={cn(
-                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2716,7 +2817,7 @@ export default function NIRTechnicianInputForm({
                 disabled={locating || creatingInspection}
                 className={cn(
                   "mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs",
-                  "bg-cyan-600 hover:bg-cyan-700 text-white transition-colors",
+                  "bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white transition-colors",
                   "disabled:opacity-50 disabled:cursor-not-allowed",
                 )}
               >
@@ -2756,7 +2857,7 @@ export default function NIRTechnicianInputForm({
                 setPropertyPostcode(e.target.value.replace(/\D/g, ""))
               }
               className={cn(
-                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2814,7 +2915,7 @@ export default function NIRTechnicianInputForm({
               value={technicianName}
               onChange={(e) => setTechnicianName(e.target.value)}
               className={cn(
-                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2864,7 +2965,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2898,7 +2999,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2956,7 +3057,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500",
+                  "w-4 h-4 rounded border text-brand-harbour-500 focus:ring-brand-harbour-500",
                   "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
                 )}
               />
@@ -3020,7 +3121,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -3046,7 +3147,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -3081,7 +3182,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -3106,7 +3207,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -3154,7 +3255,7 @@ export default function NIRTechnicianInputForm({
                   <span
                     className={cn(
                       "font-semibold",
-                      "text-cyan-600 dark:text-cyan-400",
+                      "text-brand-harbour-600 dark:text-brand-harbour-400",
                     )}
                   >
                     {reading.moistureLevel}%
@@ -3194,7 +3295,7 @@ export default function NIRTechnicianInputForm({
               "text-neutral-900 dark:text-white",
             )}
           >
-            <Map className="w-5 h-5 text-cyan-400" />
+            <Map className="w-5 h-5 text-brand-harbour-400" />
             Visual Moisture Mapping (Floor Plan Overlay)
           </h3>
           <p
@@ -3227,7 +3328,9 @@ export default function NIRTechnicianInputForm({
               moistureLevel: r.moistureLevel,
               depth: r.depth,
               notes: null,
+              unit: r.unit,
             }))}
+            references={moistureReferences}
             initialPoints={moistureMapPoints}
             initialBackgroundImage={floorPlanImageUrl}
             onPointsChange={(points) => {
@@ -3327,7 +3430,7 @@ export default function NIRTechnicianInputForm({
           )}
         >
           {editingAffectedAreaId && (
-            <p className="text-sm text-cyan-700 dark:text-cyan-300">
+            <p className="text-sm text-brand-harbour-700 dark:text-brand-harbour-300">
               Editing an existing area. Its ID and attached records stay with this area.
             </p>
           )}
@@ -3356,7 +3459,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -3393,7 +3496,7 @@ export default function NIRTechnicianInputForm({
                   }
                   maxLength={200}
                   className={cn(
-                    "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                    "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                     "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                     "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                   )}
@@ -3452,7 +3555,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -3482,7 +3585,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -3511,7 +3614,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -3588,7 +3691,7 @@ export default function NIRTechnicianInputForm({
                     checked={newAffectedArea.materials.includes(material)}
                     onChange={() => handleMaterialToggle(material)}
                     className={cn(
-                      "w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500",
+                      "w-4 h-4 rounded border text-brand-harbour-500 focus:ring-brand-harbour-500",
                       "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
                     )}
                   />
@@ -3604,7 +3707,7 @@ export default function NIRTechnicianInputForm({
               ))}
             </div>
             {newAffectedArea.materials.length > 0 && (
-              <p className="text-xs text-cyan-400 mt-2">
+              <p className="text-xs text-brand-harbour-400 mt-2">
                 Selected: {newAffectedArea.materials.join(", ")}
               </p>
             )}
@@ -3630,7 +3733,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -3669,7 +3772,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -3723,7 +3826,7 @@ export default function NIRTechnicianInputForm({
                       <span
                         className={cn(
                           "text-xs px-2 py-1 rounded",
-                          "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400",
+                          "bg-brand-harbour-100 dark:bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-brand-harbour-400",
                         )}
                       >
                         {area.affectedSquareFootage.toFixed(2)} m²
@@ -3772,7 +3875,7 @@ export default function NIRTechnicianInputForm({
                   <button
                     type="button"
                     onClick={() => handleEditAffectedArea(area)}
-                    className="p-1.5 rounded-md text-cyan-700 hover:bg-cyan-500/10 dark:text-cyan-300"
+                    className="p-1.5 rounded-md text-brand-harbour-700 hover:bg-brand-harbour-500/10 dark:text-brand-harbour-300"
                     title="Edit area"
                     aria-label={`Edit ${area.roomZoneId}`}
                   >
@@ -3812,7 +3915,7 @@ export default function NIRTechnicianInputForm({
             "text-neutral-900 dark:text-white",
           )}
         >
-          <Shield className="w-5 h-5 text-cyan-400" />
+          <Shield className="w-5 h-5 text-brand-harbour-400" />
           IICRC Classification (Optional Manual Override)
         </h3>
         <p
@@ -3838,7 +3941,7 @@ export default function NIRTechnicianInputForm({
             value={damageDescription}
             onChange={(e) => setDamageDescription(e.target.value)}
             className={cn(
-              "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500 resize-none",
+              "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 resize-none",
               "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
               "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
             )}
@@ -3906,7 +4009,7 @@ export default function NIRTechnicianInputForm({
                       }))
                     }
                     className={cn(
-                      "mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500",
+                      "mt-1 w-4 h-4 text-brand-harbour-500 focus:ring-brand-harbour-500",
                       "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
                     )}
                   />
@@ -3965,7 +4068,7 @@ export default function NIRTechnicianInputForm({
                       }))
                     }
                     className={cn(
-                      "mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500",
+                      "mt-1 w-4 h-4 text-brand-harbour-500 focus:ring-brand-harbour-500",
                       "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
                     )}
                   />
@@ -3994,8 +4097,8 @@ export default function NIRTechnicianInputForm({
         </div>
 
         {manualClassification && (
-          <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-            <p className={cn("text-sm", "text-cyan-700 dark:text-cyan-400")}>
+          <div className="mt-4 p-3 bg-brand-harbour-500/10 border border-brand-harbour-500/30 rounded-lg">
+            <p className={cn("text-sm", "text-brand-harbour-700 dark:text-brand-harbour-400")}>
               <strong>Manual Override Active:</strong> Category{" "}
               {manualClassification.category}, Class{" "}
               {manualClassification.class}
@@ -4005,7 +4108,7 @@ export default function NIRTechnicianInputForm({
               onClick={() => setManualClassification(null)}
               className={cn(
                 "mt-2 text-xs underline",
-                "text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300",
+                "text-brand-harbour-600 dark:text-brand-harbour-400 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-300",
               )}
             >
               Clear manual override (use auto-classification)
@@ -4027,7 +4130,7 @@ export default function NIRTechnicianInputForm({
             "text-neutral-900 dark:text-white",
           )}
         >
-          <ClipboardCheck className="w-5 h-5 text-cyan-400" />
+          <ClipboardCheck className="w-5 h-5 text-brand-harbour-400" />
           Scope Items
         </h3>
         <p
@@ -4051,7 +4154,7 @@ export default function NIRTechnicianInputForm({
                 checked={selectedScopeItems.has(item.id)}
                 onChange={() => handleScopeItemToggle(item.id)}
                 className={cn(
-                  "w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500",
+                  "w-4 h-4 rounded border text-brand-harbour-500 focus:ring-brand-harbour-500",
                   "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
                 )}
               />
@@ -4113,7 +4216,7 @@ export default function NIRTechnicianInputForm({
                   setNewEquipment((prev) => ({ ...prev, type: e.target.value }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -4145,7 +4248,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -4240,7 +4343,7 @@ export default function NIRTechnicianInputForm({
                   setDryingDuration(parseInt(e.target.value) || 4)
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -4299,7 +4402,7 @@ export default function NIRTechnicianInputForm({
                     "border-neutral-300 dark:border-slate-600 bg-neutral-100 dark:bg-slate-900/50",
                   )}
                 >
-                  <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
+                  <Loader2 className="w-6 h-6 animate-spin text-brand-harbour-500" />
                 </div>
               ) : photo.error && photo.file ? (
                 <div role="status" className="min-h-32 rounded-lg border border-amber-500/50 p-2 text-xs">
@@ -4350,21 +4453,21 @@ export default function NIRTechnicianInputForm({
               "w-full h-32 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-all duration-200 group bg-slate-900/50",
               uploadingPhotos
                 ? "border-slate-500 cursor-wait opacity-50"
-                : "border-slate-600 hover:border-cyan-500 hover:bg-slate-800/50 hover:scale-[1.02] active:scale-[0.98]",
+                : "border-slate-600 hover:border-brand-harbour-500 hover:bg-slate-800/50 hover:scale-[1.02] active:scale-[0.98]",
             )}
           >
             <div className="text-center">
               {uploadingPhotos ? (
-                <Loader2 className="w-8 h-8 text-cyan-400 mx-auto mb-2 animate-spin" />
+                <Loader2 className="w-8 h-8 text-brand-harbour-400 mx-auto mb-2 animate-spin" />
               ) : (
-                <Upload className="w-8 h-8 text-slate-400 group-hover:text-cyan-400 mx-auto mb-2 transition-all duration-200 group-hover:scale-110 group-hover:-translate-y-1" />
+                <Upload className="w-8 h-8 text-slate-400 group-hover:text-brand-harbour-400 mx-auto mb-2 transition-all duration-200 group-hover:scale-110 group-hover:-translate-y-1" />
               )}
               <span
                 className={cn(
                   "text-xs transition-colors duration-200 font-medium",
                   uploadingPhotos
                     ? "text-slate-500"
-                    : "text-slate-400 group-hover:text-cyan-400",
+                    : "text-slate-400 group-hover:text-brand-harbour-400",
                 )}
               >
                 {uploadingPhotos ? "Uploading..." : "Add Photo"}
@@ -4452,7 +4555,11 @@ export default function NIRTechnicianInputForm({
                 inspectionId || (await ensureInspectionExists(false));
 
               if (!currentInspectionId) {
-                toast.error("Failed to create inspection. Please try again.");
+                toast.error(
+                  draftInspectionId
+                    ? (draftLoadError ?? "The saved draft is still loading.")
+                    : "Failed to create inspection. Please try again.",
+                );
                 setSaving(false);
                 return false;
               }
@@ -4523,7 +4630,12 @@ export default function NIRTechnicianInputForm({
             } finally {
               setSaving(false);
             }
-          })}
+          }, () => ({
+            // RA-8358: report under the inspection this save was for, read
+            // after the attempt so a save that created it uses the new id.
+            inspectionId: inspectionIdRef.current ?? inspectionId ?? draftInspectionId ?? null,
+            formKey: draftFormKey,
+          }), session?.user?.id ?? null)}
           disabled={
             saving || deletingPhotoId !== null || !propertyAddress.trim() || !propertyPostcode.trim()
           }

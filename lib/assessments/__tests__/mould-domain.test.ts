@@ -66,7 +66,9 @@ describe("mouldDomain — happy path (Condition 3, ≥9 m²)", () => {
     expect(headings).toContain("Containment classification");
     expect(headings).toContain("Equipment rationale");
     expect(headings).toContain("Estimated duration");
-    expect(headings).toContain("Clearance criteria");
+    // RA-8540: the report sets no clearance criteria; the assessor decides.
+    expect(headings).toContain("Post-remediation verification");
+    expect(headings).not.toContain("Clearance criteria");
 
     // Citations include S520 + AIHA.
     expect(r.data.citations.some((c) => c.standard === "IICRC S520:2024")).toBe(

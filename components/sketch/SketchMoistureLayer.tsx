@@ -13,7 +13,7 @@
  *   Class 4 (≥ 40%)     → red
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { X, Droplets } from "lucide-react";
 import {
@@ -87,11 +87,14 @@ export function SketchMoistureLayer({
   className,
 }: SketchMoistureLayerProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const vpt =
-    overlayViewport ??
-    (canvasZoom === 1 || !canvasZoom
-      ? IDENTITY_OVERLAY_VIEWPORT
-      : { zoom: canvasZoom, panX: 0, panY: 0 });
+  const vpt = useMemo(
+    () =>
+      overlayViewport ??
+      (canvasZoom === 1 || !canvasZoom
+        ? IDENTITY_OVERLAY_VIEWPORT
+        : { zoom: canvasZoom, panX: 0, panY: 0 }),
+    [overlayViewport, canvasZoom],
+  );
 
   // ── Drop new pin ─────────────────────────────────────────
   const handleLayerClick = useCallback(
@@ -128,9 +131,7 @@ export function SketchMoistureLayer({
       active,
       pins,
       onChange,
-      vpt.zoom,
-      vpt.panX,
-      vpt.panY,
+      vpt,
       width,
       height,
       clipRoomPoints,
@@ -279,7 +280,7 @@ function PinMarker({
                 onChange={(e) =>
                   onUpdate({ wme: parseFloat(e.target.value) || 0 })
                 }
-                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
               />
             </div>
 
@@ -291,7 +292,7 @@ function PinMarker({
                 onChange={(e) =>
                   onUpdate({ material: e.target.value as MaterialTypeId })
                 }
-                className="w-full px-2 py-1.5 rounded-lg bg-brand-deep border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-brand-deep border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
               >
                 {MATERIAL_TYPES.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -313,7 +314,7 @@ function PinMarker({
                       : "bg-rose-500/15 text-rose-300",
                   )}
                 >
-                  <span>S500 dry standard ({dry.targetMc}% WME)</span>
+                  <span>Guide ({dry.targetMc}% WME, not a standard)</span>
                   <span className="font-semibold">
                     {dry.dryStandardMet ? "DRY" : "NOT YET DRY"}
                   </span>
@@ -331,7 +332,7 @@ function PinMarker({
                 value={pin.note ?? ""}
                 onChange={(e) => onUpdate({ note: e.target.value })}
                 placeholder="e.g. near skirting board"
-                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-brand-harbour-400"
               />
             </div>
 

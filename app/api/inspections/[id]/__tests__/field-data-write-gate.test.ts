@@ -80,6 +80,10 @@ const GATED: Record<string, string[]> = {
   "sketches/promote-homeowner/route.ts": ["POST"],
   "sketches/underlay/route.ts": ["POST"],
   "storm-damage/route.ts": ["POST"],
+  // RA-8498 (DRC S5): the site visit record is field data the technician records on site.
+  "visits/route.ts": ["POST"],
+  "visits/[visitId]/route.ts": ["PATCH"],
+  "visits/[visitId]/submit/route.ts": ["POST"],
   "voice/observation/route.ts": ["POST"],
   "voice/session/route.ts": ["POST"],
   "water-damage-classification/route.ts": ["POST"],
@@ -106,7 +110,11 @@ const EXCLUDED: Record<string, Record<string, string>> = {
     PUT: "a snapshot save deletes readings, areas, every scope item and the classification choice; deletes stay owner/manager",
   },
   "contents-pack-out/route.ts": { POST: PACK_OUT_MONEY },
-  "contents-pack-out/[itemId]/route.ts": { DELETE: PACK_OUT_MONEY },
+  "contents-pack-out/[itemId]/route.ts": {
+    // RA-8537: the photo PATCH sits on a money record, so it stays owner/manager.
+    PATCH: PACK_OUT_MONEY,
+    DELETE: PACK_OUT_MONEY,
+  },
   "group-readings/route.ts": { POST: AI_SPEND },
   "sketches/[sketchId]/insurance-context/route.ts": {
     POST: "sets the claim's insurance pathway; insurer routing stays with the owner, as insurer-profile does",

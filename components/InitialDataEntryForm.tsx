@@ -42,7 +42,6 @@ import {
   Minus,
   Phone,
   Plus,
-  Sparkles,
   Thermometer,
   User,
   UserCog,
@@ -241,7 +240,7 @@ export default function InitialDataEntryForm({
   // Review and Report Type Selection State
   const [showReview, setShowReview] = useState(false);
   const [showReportTypeSelection, setShowReportTypeSelection] = useState(false);
-  const [selectedReportType, setSelectedReportType] = useState<
+  const [_selectedReportType, setSelectedReportType] = useState<
     "basic" | "enhanced" | "optimised" | null
   >(null);
 
@@ -595,7 +594,7 @@ export default function InitialDataEntryForm({
             setPricingConfig(config);
           }
         }
-      } catch (error) {
+      } catch {
         // Error fetching pricing config
       }
     };
@@ -612,7 +611,7 @@ export default function InitialDataEntryForm({
           setQuickFillCredits(data.creditsRemaining);
           setHasUnlimitedQuickFill(data.hasUnlimited || false);
         }
-      } catch (error) {
+      } catch {
         // Error fetching credits
       }
     };
@@ -636,7 +635,7 @@ export default function InitialDataEntryForm({
               setSelectedAssigneeId(data.assignees[0].id);
             }
           }
-        } catch (error) {
+        } catch {
           // Error fetching assignees
         } finally {
           setLoadingAssignees(false);
@@ -768,7 +767,7 @@ export default function InitialDataEntryForm({
             setDurationDays(savedDays);
           }
         }
-      } catch (error) {
+      } catch {
         // Error loading report data
       }
     };
@@ -1229,7 +1228,7 @@ export default function InitialDataEntryForm({
     return total;
   }, 0);
 
-  const totalAirflow = equipmentSelections.reduce((total, sel) => {
+  const _totalAirflow = equipmentSelections.reduce((total, sel) => {
     // Only count air movers toward "air movement" target (exclude AFD units which also have airflow).
     if (!sel.groupId.startsWith("airmover-")) return total;
     const group = getEquipmentGroupById(sel.groupId);
@@ -1250,7 +1249,7 @@ export default function InitialDataEntryForm({
   }, 0);
 
   // Equipment Helper Functions
-  const handleAddArea = () => {
+  const _handleAddArea = () => {
     if (!newArea.name.trim()) {
       toast.error("Please enter an area name");
       return;
@@ -1270,7 +1269,7 @@ export default function InitialDataEntryForm({
     toast.success("Area added");
   };
 
-  const handleRemoveArea = (id: string) => {
+  const _handleRemoveArea = (id: string) => {
     setAreas(areas.filter((a) => a.id !== id));
     toast.success("Area removed");
   };
@@ -1398,7 +1397,7 @@ export default function InitialDataEntryForm({
         const error = await response.json();
         toast.error(error.error || "Failed to update report type");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update report type");
     } finally {
       setLoading(false);
@@ -1650,7 +1649,7 @@ export default function InitialDataEntryForm({
         }
         toast.error(message);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to save data");
     } finally {
       creatingReportRef.current = false;
@@ -2611,7 +2610,7 @@ export default function InitialDataEntryForm({
             toast.error(error.error || "Failed to use Quick Fill credit");
           }
         }
-      } catch (error) {
+      } catch {
         toast.error("Failed to check Quick Fill credits");
       } finally {
         setLoadingCredits(false);
@@ -2623,7 +2622,7 @@ export default function InitialDataEntryForm({
   };
 
   // Prevent modal from opening if user has no credits (extra safeguard)
-  const handleModalOpenChange = (open: boolean) => {
+  const _handleModalOpenChange = (open: boolean) => {
     if (
       open &&
       !hasUnlimitedQuickFill &&
@@ -2732,7 +2731,7 @@ export default function InitialDataEntryForm({
             <div
               className={cn(
                 "px-3 py-1.5 rounded-full text-sm font-semibold",
-                "bg-blue-500/10 dark:bg-cyan-500/10 text-blue-600 dark:text-cyan-400",
+                "bg-blue-500/10 dark:bg-brand-harbour-500/10 text-blue-600 dark:text-brand-harbour-400",
               )}
             >
               {Math.round(((currentStep + 1) / visibleSteps.length) * 100)}%
@@ -2750,7 +2749,7 @@ export default function InitialDataEntryForm({
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-500 ease-out",
-                "bg-gradient-to-r from-blue-500 to-cyan-500",
+                "bg-gradient-to-r from-blue-500 to-brand-harbour-500",
               )}
               style={{
                 width: `${((currentStep + 1) / visibleSteps.length) * 100}%`,
@@ -4408,7 +4407,7 @@ export default function InitialDataEntryForm({
                         e.target.checked,
                       )
                     }
-                    className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-700 bg-slate-700 text-cyan-500 focus:ring-cyan-500"
+                    className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-700 bg-slate-700 text-brand-harbour-500 focus:ring-brand-harbour-500"
                   />
                   Visible bio/mould growth recorded
                 </label>
@@ -4660,7 +4659,7 @@ export default function InitialDataEntryForm({
                         onClick={() => setWaterClass(cls as 1 | 2 | 3 | 4)}
                         className={`px-4 py-2 rounded-lg border transition-colors ${
                           waterClass === cls
-                            ? "border-cyan-500 bg-cyan-500/20 text-primary-600 dark:text-primary-400"
+                            ? "border-brand-harbour-500 bg-brand-harbour-500/20 text-primary-600 dark:text-primary-400"
                             : "border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-slate-500"
                         }`}
                       >
@@ -4779,7 +4778,7 @@ export default function InitialDataEntryForm({
                         </div>
                         <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                           <div
-                            className="bg-cyan-500 h-2 rounded-full"
+                            className="bg-brand-harbour-500 h-2 rounded-full"
                             style={{
                               width: `${Math.min(
                                 100,
@@ -4802,7 +4801,7 @@ export default function InitialDataEntryForm({
                         </div>
                         <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                           <div
-                            className="bg-cyan-500 h-2 rounded-full"
+                            className="bg-brand-harbour-500 h-2 rounded-full"
                             style={{
                               width: `${Math.min(
                                 100,
@@ -4825,7 +4824,7 @@ export default function InitialDataEntryForm({
                           </div>
                           <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                             <div
-                              className="bg-cyan-500 h-2 rounded-full"
+                              className="bg-brand-harbour-500 h-2 rounded-full"
                               style={{
                                 width: `${Math.min(
                                   100,
@@ -4887,7 +4886,7 @@ export default function InitialDataEntryForm({
                   <button
                     type="button"
                     onClick={handleAutoSelect}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                   >
                     <Wrench className="w-4 h-4" />
                     Auto-Select Best Fit
@@ -4908,7 +4907,7 @@ export default function InitialDataEntryForm({
                             key={group.id}
                             className={`p-3 rounded-lg border ${
                               quantity > 0
-                                ? "border-cyan-500/50 bg-cyan-500/10"
+                                ? "border-brand-harbour-500/50 bg-brand-harbour-500/10"
                                 : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50"
                             }`}
                           >
@@ -4922,7 +4921,7 @@ export default function InitialDataEntryForm({
                                 </div>
                               </div>
                               {quantity > 0 && (
-                                <div className="px-3 py-1 bg-cyan-500/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
+                                <div className="px-3 py-1 bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                   {quantity}
                                 </div>
                               )}
@@ -4966,7 +4965,7 @@ export default function InitialDataEntryForm({
                             key={group.id}
                             className={`p-3 rounded-lg border ${
                               quantity > 0
-                                ? "border-cyan-500/50 bg-cyan-500/10"
+                                ? "border-brand-harbour-500/50 bg-brand-harbour-500/10"
                                 : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50"
                             }`}
                           >
@@ -4980,7 +4979,7 @@ export default function InitialDataEntryForm({
                                 </div>
                               </div>
                               {quantity > 0 && (
-                                <div className="px-3 py-1 bg-cyan-500/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
+                                <div className="px-3 py-1 bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                   {quantity}
                                 </div>
                               )}
@@ -5028,7 +5027,7 @@ export default function InitialDataEntryForm({
                             key={group.id}
                             className={`p-3 rounded-lg border ${
                               quantity > 0
-                                ? "border-cyan-500/50 bg-cyan-500/10"
+                                ? "border-brand-harbour-500/50 bg-brand-harbour-500/10"
                                 : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50"
                             }`}
                           >
@@ -5042,7 +5041,7 @@ export default function InitialDataEntryForm({
                                 </div>
                               </div>
                               {quantity > 0 && (
-                                <div className="px-3 py-1 bg-cyan-500/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
+                                <div className="px-3 py-1 bg-brand-harbour-500/20 text-brand-harbour-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                   {quantity}
                                 </div>
                               )}

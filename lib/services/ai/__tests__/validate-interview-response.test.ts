@@ -168,7 +168,7 @@ describe("validateInterviewResponse", () => {
       apiKey: "sk-preserve",
       request: {
         system: expect.stringContaining(
-          "You are an IICRC S500:2021 compliance reviewer",
+          "checking Australian water-damage restoration inspections for alignment with IICRC S500:2021",
         ),
         max_tokens: 1200,
         temperature: 0.2,

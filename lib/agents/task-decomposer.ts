@@ -5,7 +5,6 @@
 
 import type {
   WorkflowDefinition,
-  WorkflowStep,
   TaskGraphJSON,
   TaskGraphNode,
   TaskGraphEdge,
@@ -22,6 +21,7 @@ interface DecomposedTask {
   parallelGroup: number;
   dependsOnTaskIds: string[];
   input: string; // JSON
+  requiresApproval: boolean;
 }
 
 interface DecomposeResult {
@@ -98,6 +98,7 @@ export function decompose(
       parallelGroup: step.parallelGroup,
       dependsOnTaskIds,
       input: JSON.stringify(input),
+      requiresApproval: step.requiresApproval === true,
     });
 
     nodes.push({

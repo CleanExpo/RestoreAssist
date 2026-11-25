@@ -31,7 +31,7 @@ const WHITE = rgb(1, 1, 1);
 const DIVIDER = rgb(0.8, 0.8, 0.8);
 const GREEN = rgb(0.13, 0.55, 0.13);
 const RED = rgb(0.7, 0.15, 0.15);
-const AMBER = rgb(0.8, 0.6, 0.0);
+const _AMBER = rgb(0.8, 0.6, 0.0);
 
 // ── Page constants ─────────────────────────────────────────────────────────────
 const PAGE_W = 595; // A4 width
@@ -718,7 +718,7 @@ export async function generateDisputePack(
   // ── Build the PDF ────────────────────────────────────────────────────────
   const pdfDoc = await PDFDocument.create();
   pdfDoc.setTitle(`Dispute Defence Pack - ${data.inspection.inspectionNumber}`);
-  pdfDoc.setSubject("IICRC S500:2021 Compliant Dispute Evidence Package");
+  pdfDoc.setSubject("Dispute Evidence Package (references IICRC S500)");
   pdfDoc.setCreator("RestoreAssist");
   pdfDoc.setProducer("RestoreAssist (pdf-lib)");
 

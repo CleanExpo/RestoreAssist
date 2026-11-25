@@ -119,7 +119,7 @@ export const WhyRestoreAssist = () => {
           <div style={{display: 'flex', gap: 64, marginBottom: 48}}>
             {[
               {value: '2x', label: 'Faster Reports', sub: 'Compared to manual documentation'},
-              {value: 'Pro', label: 'Professional Output', sub: 'IICRC-compliant documentation'},
+              {value: 'Pro', label: 'Professional Output', sub: 'Documentation that cites IICRC standards'},
               {value: '1', label: 'Unified Platform', sub: 'Inspection to invoice in one workflow'},
             ].map((stat, i) => (
               <div key={stat.label} style={{

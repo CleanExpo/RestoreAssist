@@ -87,22 +87,22 @@ function AccountTrialBanner({ accountId }: { accountId: string }) {
           border: "border-rose-500/40 dark:border-rose-700/50",
           text: "text-destructive",
           icon: "text-destructive",
-          cta: "bg-rose-500 hover:bg-rose-600 text-white",
+          cta: "bg-rose-600 hover:bg-rose-700 text-white",
         }
       : d <= 3
         ? {
             bg: "bg-orange-500/10 dark:bg-orange-900/30",
             border: "border-orange-500/40 dark:border-orange-700/50",
-            text: "text-orange-700 dark:text-orange-300",
+            text: "text-orange-800 dark:text-orange-300",
             icon: "text-orange-500",
-            cta: "bg-orange-500 hover:bg-orange-600 text-white",
+            cta: "bg-orange-700 hover:bg-orange-800 text-white",
           }
         : {
             bg: "bg-amber-500/10 dark:bg-amber-900/30",
             border: "border-amber-500/40 dark:border-amber-700/50",
-            text: "text-amber-700 dark:text-amber-300",
+            text: "text-amber-800 dark:text-amber-300",
             icon: "text-amber-500",
-            cta: "bg-amber-500 hover:bg-amber-600 text-white",
+            cta: "bg-amber-700 hover:bg-amber-800 text-white",
           };
 
   const daysLabel =

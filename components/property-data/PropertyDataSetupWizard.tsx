@@ -33,9 +33,9 @@ export function PropertyDataSetupWizard({
 }: PropertyDataSetupWizardProps) {
   const [step, setStep] = useState<Step>(1);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<"idle" | "success" | "fail">(
-    "idle",
-  );
+  const [testResult, setTestResult] = useState<
+    "idle" | "success" | "fail" | "unverified"
+  >("idle");
   const [testError, setTestError] = useState<string | null>(null);
 
   // RA-1760 — the wizard used to await a setTimeout and then claim
@@ -65,6 +65,35 @@ export function PropertyDataSetupWizard({
         setTestResult("fail");
         setTestError(
           body.reason ?? `Scraper not configured (health returned ${h.status})`,
+        );
+        return;
+      }
+
+      // RA-8111: configured is not working. The health answer contacts no
+      // provider, so it can never show the source is permitted or reachable.
+      // Stop before any lookup unless it says so explicitly.
+      const health = (await h.json().catch(() => ({}))) as {
+        checks?: {
+          featureEnabled?: string;
+          sourcePermitted?: string;
+          providerReachable?: string;
+        };
+      };
+      const checks = health.checks;
+      if (checks?.featureEnabled !== "on") {
+        setTestResult("unverified");
+        setTestError(
+          "Listing import is switched off on this deployment, so no connection test was run.",
+        );
+        return;
+      }
+      if (
+        checks.sourcePermitted !== "permitted" ||
+        checks.providerReachable !== "reachable"
+      ) {
+        setTestResult("unverified");
+        setTestError(
+          "The server is configured, but source permission and provider reachability are unverified, so no lookup was sent.",
         );
         return;
       }
@@ -145,7 +174,7 @@ export function PropertyDataSetupWizard({
         {/* Progress bar */}
         <div className="h-1 bg-slate-100 dark:bg-slate-700">
           <div
-            className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-500"
+            className="h-full bg-gradient-to-r from-blue-500 to-brand-harbour-500 transition-all duration-500"
             style={{ width: `${(step / 4) * 100}%` }}
           />
         </div>
@@ -155,9 +184,7 @@ export function PropertyDataSetupWizard({
           {step === 1 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-2xl flex-shrink-0">
-                  
-                </div>
+                <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-2xl flex-shrink-0"></div>
                 <div>
                   <h3 className="font-semibold text-slate-900 dark:text-white">
                     Auto-fill property details
@@ -218,7 +245,7 @@ export function PropertyDataSetupWizard({
                 href="https://chromewebstore.google.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg text-white text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all mt-2"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-lg text-white text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all mt-2"
               >
                 <ExternalLink size={16} />
                 Open Chrome Web Store
@@ -245,7 +272,9 @@ export function PropertyDataSetupWizard({
                     ? "border-emerald-400 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10"
                     : testResult === "fail"
                       ? "border-rose-400 dark:border-rose-500 bg-rose-50 dark:bg-rose-500/10"
-                      : "border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/30"
+                      : testResult === "unverified"
+                        ? "border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-500/10"
+                        : "border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/30"
                 }`}
               >
                 {testing ? (
@@ -254,6 +283,8 @@ export function PropertyDataSetupWizard({
                   <CheckCircle2 size={32} className="text-success" />
                 ) : testResult === "fail" ? (
                   <WifiOff size={32} className="text-destructive" />
+                ) : testResult === "unverified" ? (
+                  <HelpCircle size={32} className="text-warning" />
                 ) : (
                   <Wifi
                     size={32}
@@ -266,7 +297,9 @@ export function PropertyDataSetupWizard({
                       ? "text-success"
                       : testResult === "fail"
                         ? "text-destructive"
-                        : "text-slate-600 dark:text-slate-400"
+                        : testResult === "unverified"
+                          ? "text-warning-subtle-foreground"
+                          : "text-slate-600 dark:text-slate-400"
                   }`}
                 >
                   {testing
@@ -275,16 +308,19 @@ export function PropertyDataSetupWizard({
                       ? "Scraper reachable — ready to use"
                       : testResult === "fail"
                         ? "Connection test failed"
-                        : "Connection not tested yet"}
+                        : testResult === "unverified"
+                          ? "Not verified — property lookup is not confirmed working"
+                          : "Connection not tested yet"}
                 </p>
-                {testResult === "fail" && testError && (
-                  <p
-                    role="alert"
-                    className="text-xs text-destructive text-center px-2"
-                  >
-                    {testError}
-                  </p>
-                )}
+                {(testResult === "fail" || testResult === "unverified") &&
+                  testError && (
+                    <p
+                      role="alert"
+                      className="text-xs text-destructive text-center px-2"
+                    >
+                      {testError}
+                    </p>
+                  )}
               </div>
               <button
                 onClick={handleTestConnection}
@@ -313,18 +349,20 @@ export function PropertyDataSetupWizard({
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                  Property Data Connected
+                  {testResult === "success"
+                    ? "Property Data Connected"
+                    : "Setup Finished"}
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                  You can now use the "Lookup Property Data" button inside any
-                  inspection to auto-fill property details and floor plans.
+                  {/* RA-7627: no inspection control fetches property data yet, so this screen
+                      must not promise one. */}
+                  The browser extension setup is complete. Property lookup
+                  inside an inspection is not available yet.
                 </p>
               </div>
               <div className="w-full p-3 bg-info-subtle rounded-lg text-xs text-info-subtle-foreground text-left">
-                <strong>Next step:</strong> Open an inspection, enter the
-                property address, then tap "Lookup Property Data". RestoreAssist
-                will pull beds, baths, land size, and any available floor plan
-                image automatically.
+                <strong>For now:</strong> enter the property details in the
+                inspection by hand.
               </div>
             </div>
           )}
@@ -343,7 +381,7 @@ export function PropertyDataSetupWizard({
             {step < 4 ? (
               <button
                 onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all"
+                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-brand-harbour-500 text-white rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all"
               >
                 {step === 3 && testResult === "idle" ? "Skip" : "Next"}
                 <ArrowRight size={16} />

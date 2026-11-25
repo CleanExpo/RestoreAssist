@@ -14,6 +14,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-errors";
+import { invalidateAuthorisationCache } from "@/lib/authorisations/most-recent";
 
 // P1 #19 step 1 of 2: enum mirror of prisma `enum AuthorisationLicenceClass`.
 const AUTHORISATION_LICENCE_CLASSES = [
@@ -109,6 +110,12 @@ export async function POST(req: NextRequest) {
     },
     select: { id: true },
   });
+
+  // RA-8530: mostRecentAuthorisationForUser caches its answer (null included)
+  // for 5 minutes. The real POST /api/authorisations invalidates it; this seed
+  // must too, or a probe made earlier in the same dev server keeps answering
+  // "no Authorisation" and the sign-off form stays locked.
+  invalidateAuthorisationCache(session.user.id);
 
   return NextResponse.json({ authorisationId: created.id });
 }

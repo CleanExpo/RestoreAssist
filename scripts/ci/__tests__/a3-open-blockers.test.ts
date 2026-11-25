@@ -9,7 +9,7 @@ import {
   summariseA3,
   type A3Issue,
   type IssuePage,
-} from "../producers/a3-open-blockers";
+} from "../producers/lib/a3-open-blockers";
 
 /**
  * Controls for the A3 producer.

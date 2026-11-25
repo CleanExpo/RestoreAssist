@@ -10,7 +10,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { QuestionType } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { InterviewFlowEngine } from "@/lib/interview";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
@@ -52,7 +51,7 @@ export async function POST(request: NextRequest) {
           status: 400,
         });
       }
-      const { sessionId, answer, confidence } = body;
+      const { sessionId, answer, confidence: _confidence } = body;
 
       if (!sessionId || answer === undefined) {
         return apiError(request, {
@@ -89,7 +88,7 @@ export async function POST(request: NextRequest) {
       const storedAnswers = interviewSession.answers
         ? JSON.parse(interviewSession.answers)
         : {};
-      const currentAutoPopulated = interviewSession.autoPopulatedFields
+      const _currentAutoPopulated = interviewSession.autoPopulatedFields
         ? JSON.parse(interviewSession.autoPopulatedFields)
         : {};
 

@@ -147,7 +147,7 @@ Each line in `prompt-examples.jsonl` is a valid JSON object:
 ```json
 {
   "messages": [
-    { "role": "system", "content": "You are an IICRC S500:2021 certified..." },
+    { "role": "system", "content": "You are an experienced water damage restoration specialist who cites IICRC S500:2021 by section number..." },
     { "role": "user", "content": "Generate a scope for..." },
     {
       "role": "assistant",

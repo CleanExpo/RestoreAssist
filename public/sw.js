@@ -46,7 +46,9 @@
 // Bumped: private documents are no longer cached; retire old account HTML.
 // Keep this namespace for MIME recovery: validate/repair only the requested
 // asset entry below, preserving usable cached assets and offline documents.
-const NIR_VERSION = "nir-v2.2";
+// RA-7877: the install step now also caches the /_next/static files the
+// /offline page needs, so a cold start with no signal can run its JavaScript.
+const NIR_VERSION = "nir-v2.3";
 const CACHE_APP = `${NIR_VERSION}-app`;
 const CACHE_STATIC = `${NIR_VERSION}-static`;
 const ALL_CACHES = [CACHE_APP, CACHE_STATIC];
@@ -59,6 +61,8 @@ const IS_LOCAL_DEV =
  * Keep this list small — only the inspection workflow entry points.
  */
 const PRECACHE_URLS = ["/", "/offline"];
+// Present in the /offline page's markup (app/offline/page.tsx); install requires it.
+const OFFLINE_SHELL_MARKER = 'data-offline-shell="ra-offline-shell-v1"';
 
 // ─── LOCAL DEV: self-destruct ─────────────────────────────────────────────────
 // A leftover SW from a prior session cache-firsts /_next/static and serves
@@ -98,6 +102,11 @@ if (IS_LOCAL_DEV) {
           // Use individual add() calls so a 404 on one page doesn't break the whole install
           Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url))),
         )
+        // RA-7877: the offline page and the files it runs from are the one
+        // thing a no-signal cold start cannot do without. If this version cannot
+        // hold all of them, the install FAILS, so the previous worker and its
+        // working caches stay in place instead of being pruned on activate.
+        .then(() => precacheOfflineShellAssets())
         .then(() => {
           // Take control immediately — don't wait for existing tabs to close
           self.skipWaiting();
@@ -229,6 +238,46 @@ function isCacheableAsset(request, response) {
   }
   if (path.endsWith(".css")) return type === "text/css";
   return true;
+}
+
+/**
+ * RA-7877: caching /offline's HTML alone is not enough. Its capture form is
+ * JavaScript, and a cold start with no signal has no network to fetch the
+ * /_next/static chunks from. Read this version's cached /offline HTML, find
+ * every static file it names and cache each one through the same validity check
+ * the fetch handler uses. Anything missing rejects, which fails the install.
+ */
+async function precacheOfflineShellAssets() {
+  // Read only THIS version's caches. A page left in an older cache must never
+  // stand in for the new one: the old caches are deleted on activate.
+  const appCache = await caches.open(CACHE_APP);
+  const shell = await appCache.match("/offline");
+  if (!shell) throw new Error("The offline page could not be cached");
+  const html = await shell.clone().text();
+  // A 200 page that is not the offline shell (a gateway, a login or an error page)
+  // must never replace a working one.
+  if (!html.includes(OFFLINE_SHELL_MARKER)) throw new Error("The cached /offline is not the offline shell");
+  const found = new Set(
+    (html.match(/\/_next\/static\/[^"'\s\\<>)]+/g) || []).map((path) =>
+      path.replace(/&amp;/g, "&"),
+    ),
+  );
+  if (![...found].some((path) => /\.js(\?|$)/.test(path))) {
+    throw new Error("The offline shell names no JavaScript to cache");
+  }
+  const cache = await caches.open(CACHE_STATIC);
+  const results = await Promise.allSettled(
+    [...found].map(async (path) => {
+      const request = new Request(new URL(path, self.location.origin).href);
+      if (await cache.match(request)) return;
+      const response = await fetch(request);
+      if (!isCacheableAsset(request, response)) throw new Error("Not cacheable: " + path);
+      await cache.put(request, response);
+    }),
+  );
+  if (results.some((result) => result.status === "rejected")) {
+    throw new Error("The offline page's files could not all be cached");
+  }
 }
 
 async function privateDocumentWithOfflineFallback(request) {

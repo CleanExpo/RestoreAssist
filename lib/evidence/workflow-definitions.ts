@@ -1,7 +1,7 @@
 /**
  * Sprint G: Job-Type Workflow Definitions
  * Required evidence per claim type for 13 job types
- * IICRC S500:2021 compliant workflow configurations
+ * Workflow configurations aligned to IICRC S500:2021
  *
  * Each job type defines a sequence of workflow steps.
  * Each step specifies required and optional evidence classes,
@@ -373,10 +373,10 @@ const STEP_MOULD_SAMPLING: WorkflowStepDefinition = {
   stepKey: "mould_sampling",
   stepTitle: "Mould Assessment & Sampling",
   stepDescription:
-    "Visually assess mould growth. Photograph all visible mould with scale reference. " +
+    "Record visible mould growth. Photograph all visible mould with scale reference. " +
     "Take air and surface samples for lab analysis per IICRC S520. " +
     "Record affected material types and area measurements. " +
-    "Note whether growth is active or dormant.",
+    "Record what you observe; the mould condition is set by a qualified assessor.",
   stepDescriptionShort: "Mould photos with scale + air/surface samples.",
   requiredEvidenceClasses: ["PHOTO_DAMAGE", "LAB_RESULT"],
   optionalEvidenceClasses: ["TECHNICIAN_NOTE", "VIDEO_WALKTHROUGH"],
@@ -384,7 +384,8 @@ const STEP_MOULD_SAMPLING: WorkflowStepDefinition = {
   isMandatory: true,
   riskTier: 3,
   escalationNote:
-    "Critical: Mould species identification required for remediation protocol.",
+    "Critical: refer to a qualified assessor (for example, an occupational hygienist) " +
+    "when the cause is unclear. Mould species are identified only by laboratory analysis.",
 };
 
 const STEP_FIRE_SMOKE_ASSESSMENT: WorkflowStepDefinition = {
@@ -556,8 +557,10 @@ const WORKFLOW_MOULD: WorkflowTemplate = {
     STEP_COMPLETION_VERIFICATION,
   ],
   riskEscalationTriggers: [
-    "Toxic mould species identified (Stachybotrys) — full containment protocol",
-    "Area > 10 sqm — licensed remediation required",
+    // RA-8540: no species named from what a technician sees, and no area
+    // threshold stated as law without a cited regulator source.
+    "Cause of mould unclear or growth extensive — refer to a qualified assessor (for example, an occupational hygienist)",
+    "Laboratory report received — attach it; the assessor sets the mould condition",
     "Occupant health complaints — medical referral recommended",
   ],
 };

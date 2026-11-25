@@ -194,10 +194,28 @@ export async function GET(request: NextRequest) {
         AND t.status = 'RUNNING'
         AND NOT COALESCE(${liveLeaseSql("t")}, false)`;
 
+    // RA-8000: the caller's PAUSED workflows and how long the oldest has waited.
+    const pausedAgg = await prisma.agentTask.aggregate({
+      where: {
+        status: "AWAITING_APPROVAL",
+        workflow: { userId: session.user.id, status: "PAUSED" },
+      },
+      _count: { _all: true },
+      _min: { approvalRequestedAt: true },
+    });
+    const pausedWorkflowCount = await prisma.agentWorkflow.count({
+      where: { userId: session.user.id, status: "PAUSED" },
+    });
+
     return NextResponse.json({
       workflows,
       count: workflows.length,
       expiredLeaseTasks: expired,
+      pausedAwaitingApproval: {
+        workflows: pausedWorkflowCount,
+        tasks: pausedAgg._count._all,
+        oldestApprovalRequestedAt: pausedAgg._min.approvalRequestedAt,
+      },
     });
   } catch (error) {
     return fromException(request, error, { stage: "agents-workflow-list" });

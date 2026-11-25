@@ -6,7 +6,6 @@ import {
   Clock,
   DollarSign,
   FileText,
-  Printer,
   Users,
   Wrench,
 } from "lucide-react";
@@ -82,7 +81,7 @@ interface VisualScopeOfWorksViewerProps {
 export default function VisualScopeOfWorksViewer({
   data,
 }: VisualScopeOfWorksViewerProps) {
-  const handlePrint = () => {
+  const _handlePrint = () => {
     window.print();
   };
 
@@ -432,7 +431,7 @@ export default function VisualScopeOfWorksViewer({
                     className="bg-slate-50 border border-slate-200 rounded-lg p-6"
                   >
                     <div className="flex items-start gap-4 mb-3">
-                      <div className="flex-shrink-0 w-10 h-10 bg-cyan-600 text-white rounded-full flex items-center justify-center font-bold text-lg">
+                      <div className="flex-shrink-0 w-10 h-10 bg-brand-harbour-600 text-white rounded-full flex items-center justify-center font-bold text-lg">
                         {idx + 1}
                       </div>
                       <div className="flex-1">

@@ -32,6 +32,11 @@ import { validateCsrf } from "@/lib/csrf";
 import { extractRequestContext } from "@/lib/security-audit";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { lockOpenWorkflowsOfUser } from "@/lib/agents/workflow-lock";
+import {
+  assertNoSignedFormCascade,
+  SignedFormCascadeError,
+} from "@/lib/authority-forms/signed-record-guard";
 
 const CONFIRMATION_PHRASE = "DELETE MY ACCOUNT";
 
@@ -212,11 +217,44 @@ export async function POST(request: NextRequest) {
         // inspection record (privacy policy 2.7), including when the
         // inspection's owner closes their account.
         await tx.voiceCopilotSession.updateMany(reassignToRetentionOwner);
+        // RA-8526: user.delete cascades into any Report still owned by the
+        // user, and from there into authority forms and their signatures.
+        // The reassignment above should leave none; this refuses (and rolls
+        // back) if a signed form would still be reached.
+        await assertNoSignedFormCascade(tx, { userId: user.id });
+        // RA-8000: a paused agent workflow must not outlive its owner waiting
+        // for an approval nobody can give. The 90-day cleanup reaps these.
+        const closedAt = new Date();
+        // Locked as they are read, so a workflow that another writer finishes
+        // meanwhile is left as that writer set it.
+        const ids = await lockOpenWorkflowsOfUser(tx, user.id);
+        if (ids.length > 0) {
+          await tx.agentTask.updateMany({
+            where: {
+              workflowId: { in: ids },
+              status: { in: ["AWAITING_APPROVAL", "PENDING", "READY"] },
+            },
+            data: { status: "CANCELLED" },
+          });
+          await tx.agentWorkflow.updateMany({
+            where: { id: { in: ids } },
+            data: { status: "CANCELLED", completedAt: closedAt },
+          });
+        }
         await tx.user.delete({ where: { id: user.id } });
       });
 
       return NextResponse.json({ success: true });
     } catch (error) {
+      if (error instanceof SignedFormCascadeError) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: error.message,
+          status: 409,
+          err: error,
+          stage: "delete",
+        });
+      }
       return fromException(request, error, { stage: "delete" });
     }
   });

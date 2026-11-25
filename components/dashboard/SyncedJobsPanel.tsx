@@ -23,7 +23,6 @@ import {
   DASHBOARD_LIST_PAGE_SIZE,
   ListPagination,
 } from "@/components/dashboard/ListPagination";
-import { cn } from "@/lib/utils";
 import type {
   ExternalDataSource,
   SyncedJobRow,
@@ -152,7 +151,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500" />
       </div>
     );
   }
@@ -229,7 +228,7 @@ export function SyncedJobsPanel({ source, searchTerm }: SyncedJobsPanelProps) {
                   <span className="text-xs text-slate-600 dark:text-slate-400">{row.claimType}</span>
                 )}
                 {row.totalExTax != null && (
-                  <span className="text-xs text-cyan-700 dark:text-cyan-400">
+                  <span className="text-xs text-brand-harbour-700 dark:text-brand-harbour-400">
                     ${row.totalExTax.toLocaleString()}
                   </span>
                 )}

@@ -102,6 +102,7 @@ one part of this repo that no other suite covers.
 
 ```bash
 bash .claude/hooks/tests/test-guards.sh        # the two PreToolUse guards
+bash .claude/hooks/tests/test-hook-resolution.sh # settings.json hook commands with a wrong CLAUDE_PROJECT_DIR
 bash .claude/hooks/tests/test-ledger-append.sh # the Stop hook's metrics write
 bash scripts/agent-evals/check.sh                            # skills, rules and CLAUDE.md
 ```

@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   assertExpectedLogicalIdentity,
   fingerprintIdentity,
-} from "../../verify-database-identity.mjs";
+} from "../../lib/verify-database-identity.mjs";
 
 test("database fingerprint is stable for the same logical database/schema", () => {
   const identity = {

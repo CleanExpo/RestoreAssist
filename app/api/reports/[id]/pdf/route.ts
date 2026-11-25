@@ -22,10 +22,11 @@ import {
   workspaceBusiness,
 } from "@/lib/reports/workspace-business";
 import { relationalMoistureToPdfRows } from "@/lib/reports/pdf-moisture-readings";
+import { assertMoneyViewer, canSeeMoney } from "@/lib/auth/redact-money";
 
 /**
  * GET /api/reports/[id]/pdf
- * Generates and streams an IICRC S500:2021-compliant PDF for a report.
+ * Generates and streams the IICRC-aligned PDF for a report.
  *
  * Auth modes:
  *   1. Authenticated user (contractor) — standard session auth
@@ -57,7 +58,8 @@ export async function GET(
     // RA-7769 / D-023: the PDF prints the Estimated Total Cost, so session
     // access follows the financial reach: the organisation widening stops at
     // MANAGER.
-    if (!authorised && session?.user?.id) {
+    // RA-8494: and never to a technician, even one who created the report.
+    if (!authorised && session?.user?.id && (await canSeeMoney(session))) {
       const reach = await resolveReportFinancialReach(session);
       const owns = reach.ok
         ? await prisma.report.findFirst({
@@ -66,6 +68,20 @@ export async function GET(
           })
         : null;
       if (owns) authorised = true;
+    }
+
+    // RA-8494: a signed-in technician is refused as the money rule, not as a
+    // dead session (a 401 makes many clients sign the user out); a share
+    // token does not lift the rule for them (founder ruling 22/11).
+    if (session?.user?.id) {
+      const priceGate = await assertMoneyViewer(session);
+      if (!priceGate.ok) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: priceGate.reason,
+          status: priceGate.status,
+        });
+      }
     }
 
     if (!authorised) {
@@ -121,11 +137,64 @@ export async function GET(
         inspection: {
           select: {
             id: true,
+            // RA-7686: Section 6A (sampling & laboratory results).
+            claimType: true,
+            mouldRemediationAssessment: {
+              select: {
+                mouldConditionLevel: true,
+                airSamplingRequired: true,
+                samplingDate: true,
+                labName: true,
+                labReportReference: true,
+                sporeType: true,
+                sporeCountPreRemediation: true,
+                sporeCountPostRemediation: true,
+                outdoorBaselineCount: true,
+                clearanceCriterion: true,
+                iepAssessmentRequired: true,
+              },
+            },
+            // RA-8592: storm record, printed in Sections 6D and 6E.
+            stormDamageAssessment: {
+              select: {
+                bomEventReference: true,
+                windSpeedKmh: true,
+                eventType: true,
+                eventTimestamp: true,
+                roofMaterialType: true,
+                roofDamageAreaM2: true,
+                damagePenetration: true,
+                waterIngressPoints: true,
+                engineerClearanceRequired: true,
+                emergencyTarpingCompleted: true,
+                emergencyTarpingM2: true,
+                emergencyTarpingTimestamp: true,
+                waterCategory: true,
+                asbestosRiskFlag: true,
+              },
+            },
+            // RA-7694: Section 6C (room observations). Bounded read.
+            roomObservations: {
+              orderBy: { observedAt: "asc" },
+              take: 500,
+              select: {
+                roomLabel: true,
+                kind: true,
+                basis: true,
+                odourDescriptor: true,
+                odourIntensity: true,
+                odourPattern: true,
+                areaM2: true,
+                surface: true,
+                detail: true,
+                observedAt: true,
+              },
+            },
             // The folders genuine photo uploads use (photoOwnerFolders).
             userId: true,
             workspaceId: true,
             user: { select: { organizationId: true } },
-            _count: { select: { photos: true } },
+            _count: { select: { photos: true, roomObservations: true } },
             moistureReadings: {
               where: { invalidatedAt: null },
               orderBy: { recordedAt: "asc" },
@@ -134,6 +203,7 @@ export async function GET(
                 surfaceType: true,
                 moistureLevel: true,
                 depth: true,
+                unit: true,
                 isBaseline: true,
                 isMonitoringPoint: true,
                 recordedAt: true,
@@ -247,6 +317,16 @@ export async function GET(
       scopeAreas: report.scopeAreas
         ? JSON.parse(report.scopeAreas as string)
         : null,
+      claimType: report.inspection?.claimType ?? null,
+      mouldAssessment: report.inspection?.mouldRemediationAssessment ?? null,
+      stormAssessment: report.inspection?.stormDamageAssessment ?? null,
+      roomObservations: report.inspection?.roomObservations ?? [],
+      // Said in the PDF, never silent: how many were beyond the bounded read.
+      roomObservationsOmitted: Math.max(
+        0,
+        (report.inspection?._count?.roomObservations ?? 0) -
+          (report.inspection?.roomObservations?.length ?? 0),
+      ),
     };
 
     // Brand the report with the contractor's own firm identity (logo + accent

@@ -10,7 +10,7 @@ import {
   Printer,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import ProfessionalDocumentViewer from "./ProfessionalDocumentViewer";
@@ -34,7 +34,7 @@ export default function InspectionReportViewer({
   reportId,
   onReportGenerated,
 }: InspectionReportViewerProps) {
-  const router = useRouter();
+  const _router = useRouter();
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
@@ -46,10 +46,6 @@ export default function InspectionReportViewer({
   const [visualData, setVisualData] = useState<any>(null);
   const [structuredReportData, setStructuredReportData] = useState<any>(null);
   const [isBasicReport, setIsBasicReport] = useState(false);
-
-  useEffect(() => {
-    fetchReport();
-  }, [reportId]);
 
   // Preprocess report content to ensure proper markdown heading formatting
   const preprocessReportContent = (content: string): string => {
@@ -102,7 +98,7 @@ export default function InspectionReportViewer({
     return processed;
   };
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/reports/${reportId}`);
@@ -154,7 +150,7 @@ export default function InspectionReportViewer({
               } else {
                 throw new Error("Not structured data");
               }
-            } catch (e) {
+            } catch {
               // It's text/markdown content
               const processedContent = preprocessReportContent(
                 data.detailedReport,
@@ -173,17 +169,21 @@ export default function InspectionReportViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to load report");
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportId]);
+
+  useEffect(() => {
+    fetchReport();
+  }, [fetchReport]);
 
   const handleGenerateReport = async (
     reportType: "basic" | "enhanced" = "enhanced",
@@ -244,7 +244,7 @@ export default function InspectionReportViewer({
               } else {
                 throw new Error("Not structured data");
               }
-            } catch (e) {
+            } catch {
               // It's text/markdown content
               const processedContent = preprocessReportContent(
                 data.report.detailedReport,
@@ -273,12 +273,12 @@ export default function InspectionReportViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to generate report");
     } finally {
       setGenerating(false);
@@ -320,12 +320,12 @@ export default function InspectionReportViewer({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success("Inspection Report PDF downloaded");
-    } catch (error) {
+    } catch {
       toast.error("Failed to download PDF");
     }
   };
 
-  const handleSave = async () => {
+  const _handleSave = async () => {
     if (!reportContent) {
       toast.error("No report content to save");
       return;
@@ -347,7 +347,7 @@ export default function InspectionReportViewer({
       } else {
         toast.error("Failed to save report");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to save report");
     }
   };
@@ -355,7 +355,7 @@ export default function InspectionReportViewer({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand-harbour-500" />
       </div>
     );
   }
@@ -451,7 +451,7 @@ export default function InspectionReportViewer({
             <>
               <button
                 onClick={handlePrint}
-                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+                className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg transition-colors print:hidden"
               >
                 <Printer className="w-4 h-4" />
                 Print Report
@@ -459,7 +459,7 @@ export default function InspectionReportViewer({
               {reportContent && (
                 <button
                   onClick={handleDownload}
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg transition-colors print:hidden"
                 >
                   <Download className="w-4 h-4" />
                   Download PDF
@@ -526,7 +526,7 @@ export default function InspectionReportViewer({
               <button
                 onClick={() => handleGenerateReport("enhanced")}
                 disabled={generating}
-                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                className="px-6 py-3 bg-gradient-to-r from-brand-harbour-500 to-blue-500 hover:from-brand-harbour-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
               >
                 {generating ? "Generating..." : "Generate Enhanced Report"}
               </button>
@@ -566,11 +566,11 @@ export default function InspectionReportViewer({
 
       {/* Generating Indicator */}
       {generating && (
-        <div className="p-6 rounded-lg border border-cyan-500/50 bg-cyan-500/10">
+        <div className="p-6 rounded-lg border border-brand-harbour-500/50 bg-brand-harbour-500/10">
           <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-brand-harbour-400" />
             <div>
-              <p className="text-cyan-400 font-medium">
+              <p className="text-brand-harbour-400 font-medium">
                 Processing report generation...
               </p>
               <p className="text-sm text-slate-400">
@@ -767,7 +767,7 @@ export default function InspectionReportViewer({
                     value={reportContent}
                     onChange={(e) => setReportContent(e.target.value)}
                     rows={30}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 font-mono text-sm text-slate-300"
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 font-mono text-sm text-slate-300"
                   />
                 </div>
               ) : (

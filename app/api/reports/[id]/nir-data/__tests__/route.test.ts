@@ -179,3 +179,99 @@ describe("POST /api/reports/[id]/nir-data", () => {
     expect(reportUpdate).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/reports/[id]/nir-data partial posts", () => {
+  const existing = {
+    moistureReadings: [{ location: "Kitchen wall", value: 32 }],
+    affectedAreas: [{ room: "Kitchen", category: "2" }],
+    scopeItems: [{ code: "REMOVE_CARPET", quantity: 12 }],
+    photos: [{ url: "https://images.example/earlier.png" }],
+  };
+
+  function pngFile(name: string) {
+    return new File(
+      [new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
+      name,
+      { type: "image/png" },
+    );
+  }
+
+  function storedNirData() {
+    expect(reportUpdate).toHaveBeenCalledTimes(1);
+    return JSON.parse(reportUpdate.mock.calls[0][0].data.moistureReadings);
+  }
+
+  it("keeps saved readings, areas and scope items when only photos are posted (as Tier3Questions does)", async () => {
+    reportFindUnique.mockResolvedValue({
+      id: "report_1",
+      userId: "user_1",
+      moistureReadings: JSON.stringify(existing),
+    });
+    const formData = new FormData();
+    formData.append("photos", pngFile("room.png"));
+    formData.append("photoCategory_room.png", "damage");
+    formData.append(
+      "photoCategories",
+      JSON.stringify({ damage: [{ fileName: "room.png", description: "" }] }),
+    );
+
+    const response = await POST(postRequest(formData), {
+      params: Promise.resolve({ id: "report_1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    const stored = storedNirData();
+    expect(stored.moistureReadings).toEqual(existing.moistureReadings);
+    expect(stored.affectedAreas).toEqual(existing.affectedAreas);
+    expect(stored.scopeItems).toEqual(existing.scopeItems);
+    expect(stored.photos.map((p: { url: string }) => p.url)).toEqual([
+      "https://images.example/earlier.png",
+      "https://images.example/photo.png",
+    ]);
+    expect(body.nirData.moistureReadings).toBe(1);
+    expect(body.nirData.affectedAreas).toBe(1);
+    expect(body.nirData.scopeItems).toBe(1);
+    expect(body.nirData.photos).toBe(2);
+  });
+
+  it("replaces only the fields the body sends", async () => {
+    reportFindUnique.mockResolvedValue({
+      id: "report_1",
+      userId: "user_1",
+      moistureReadings: JSON.stringify(existing),
+    });
+    const formData = new FormData();
+    formData.set("scopeItems", "[]");
+
+    const response = await POST(postRequest(formData), {
+      params: Promise.resolve({ id: "report_1" }),
+    });
+
+    expect(response.status).toBe(200);
+    const stored = storedNirData();
+    expect(stored.scopeItems).toEqual([]);
+    expect(stored.moistureReadings).toEqual(existing.moistureReadings);
+    expect(stored.affectedAreas).toEqual(existing.affectedAreas);
+    expect(stored.photos).toEqual(existing.photos);
+  });
+
+  it("keeps an older bare array of readings as moistureReadings", async () => {
+    reportFindUnique.mockResolvedValue({
+      id: "report_1",
+      userId: "user_1",
+      moistureReadings: JSON.stringify(existing.moistureReadings),
+    });
+    const formData = new FormData();
+    formData.append("photos", pngFile("room.png"));
+
+    const response = await POST(postRequest(formData), {
+      params: Promise.resolve({ id: "report_1" }),
+    });
+
+    expect(response.status).toBe(200);
+    const stored = storedNirData();
+    expect(stored.moistureReadings).toEqual(existing.moistureReadings);
+    expect(stored.photos).toHaveLength(1);
+  });
+});

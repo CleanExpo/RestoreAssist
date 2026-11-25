@@ -18,6 +18,10 @@ vi.mock("@/lib/workspace/provider-connections", () => ({
 vi.mock("@/lib/entitlements", () => ({
   getEntitlementWorkspaceForUser: vi.fn(),
 }));
+// RA-8466: who may buy follows refuseNonOwner's owner lookup.
+vi.mock("@/lib/organization-credits", () => ({
+  getOrganizationOwner: vi.fn(),
+}));
 
 import { GET } from "../route";
 import { getServerSession } from "next-auth";
@@ -25,6 +29,8 @@ import { prisma } from "@/lib/prisma";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { getEntitlementWorkspaceForUser } from "@/lib/entitlements";
 import { RECURRING_ADDONS } from "@/lib/billing/addon-registry";
+import { getOrganizationOwner } from "@/lib/organization-credits";
+import { COMPLIMENTARY_PRICE_ID } from "@/lib/billing/founding-trial-grant";
 
 const mockSession = getServerSession as ReturnType<typeof vi.fn>;
 const mockFindMany = prisma.featureEntitlement.findMany as ReturnType<
@@ -75,7 +81,7 @@ describe("GET /api/addons/catalog", () => {
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ workspaceId: "ws1", active: true }),
-        select: { sku: true },
+        select: { sku: true, stripePriceId: true, stripeSubscriptionId: true },
         take: 100,
       }),
     );
@@ -107,5 +113,117 @@ describe("GET /api/addons/catalog", () => {
         where: expect.objectContaining({ workspaceId: "ws-owner" }),
       }),
     );
+  });
+
+  describe("RA-8466: per-card label and action", () => {
+    const mockOwner = getOrganizationOwner as ReturnType<typeof vi.fn>;
+    const mockUser = prisma.user.findUnique as ReturnType<typeof vi.fn>;
+    const inTenDays = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+
+    it("trial owner: seats can be bought, other packs are not available yet", async () => {
+      mockSession.mockResolvedValue({ user: { id: "owner-1" } });
+      mockGetWorkspace.mockResolvedValue({ id: "ws1" });
+      mockFindMany.mockResolvedValue([]);
+      mockUser.mockResolvedValue({
+        organizationId: "org1",
+        role: "ADMIN",
+        subscriptionStatus: "TRIAL",
+        trialEndsAt: inTenDays,
+      });
+      mockOwner.mockResolvedValue("owner-1");
+
+      const json = await (await GET(req())).json();
+      expect(json.canManageBilling).toBe(true);
+      expect(json.access.TECHNICIAN_SEATS).toMatchObject({
+        label: "optional_paid",
+        action: "buy",
+      });
+      expect(json.access.VOICE).toMatchObject({
+        label: "unavailable",
+        action: "choose_plan",
+      });
+    });
+
+    it("Founding Trial owner: every held pack is a complimentary pilot with no button", async () => {
+      mockSession.mockResolvedValue({ user: { id: "owner-1" } });
+      mockGetWorkspace.mockResolvedValue({ id: "ws1" });
+      mockFindMany.mockResolvedValue(
+        Object.keys(RECURRING_ADDONS).map((sku) => ({
+          sku,
+          stripePriceId: COMPLIMENTARY_PRICE_ID,
+          stripeSubscriptionId: null,
+        })),
+      );
+      mockUser.mockResolvedValue({
+        organizationId: "org1",
+        role: "ADMIN",
+        subscriptionStatus: "TRIAL",
+        trialEndsAt: inTenDays,
+      });
+      mockOwner.mockResolvedValue("owner-1");
+
+      const json = await (await GET(req())).json();
+      for (const sku of Object.keys(RECURRING_ADDONS)) {
+        expect(json.access[sku]).toMatchObject({
+          label: "complimentary_pilot",
+          action: "none",
+        });
+      }
+    });
+
+    it("paid-plan owner: buy on unheld packs, manage on a paid pack", async () => {
+      mockSession.mockResolvedValue({ user: { id: "owner-1" } });
+      mockGetWorkspace.mockResolvedValue({ id: "ws1" });
+      mockFindMany.mockResolvedValue([
+        { sku: "VOICE", stripePriceId: "price_x", stripeSubscriptionId: "sub_1" },
+      ]);
+      mockUser.mockResolvedValue({
+        organizationId: "org1",
+        role: "ADMIN",
+        subscriptionStatus: "ACTIVE",
+        trialEndsAt: null,
+      });
+      mockOwner.mockResolvedValue("owner-1");
+
+      const json = await (await GET(req())).json();
+      expect(json.access.VOICE).toMatchObject({ label: "optional_paid", action: "manage" });
+      expect(json.access.CLIENT_COMMS).toMatchObject({ label: "optional_paid", action: "buy" });
+    });
+
+    it("RA-8469: a caller whose user row is missing is offered no buy on any card", async () => {
+      mockSession.mockResolvedValue({ user: { id: "ghost-1" } });
+      mockGetWorkspace.mockResolvedValue({ id: "ws1" });
+      mockFindMany.mockResolvedValue([]);
+      mockUser.mockResolvedValue(null);
+      mockOwner.mockResolvedValue(null);
+
+      const res = await GET(req());
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      for (const sku of Object.keys(RECURRING_ADDONS)) {
+        expect(["buy", "add_seat", "manage"]).not.toContain(json.access[sku].action);
+      }
+    });
+
+    it("team member: no card offers a buy, add or manage action", async () => {
+      mockSession.mockResolvedValue({ user: { id: "tech-1" } });
+      mockGetWorkspace.mockResolvedValue({ id: "ws-owner" });
+      mockFindMany.mockResolvedValue([
+        { sku: "VOICE", stripePriceId: "price_x", stripeSubscriptionId: "sub_1" },
+      ]);
+      mockUser.mockResolvedValue({
+        organizationId: "org1",
+        role: "USER",
+        subscriptionStatus: "ACTIVE",
+        trialEndsAt: null,
+      });
+      mockOwner.mockResolvedValue("owner-1");
+
+      const json = await (await GET(req())).json();
+      expect(json.canManageBilling).toBe(false);
+      for (const sku of Object.keys(RECURRING_ADDONS)) {
+        expect(["ask_owner", "none"]).toContain(json.access[sku].action);
+      }
+    });
   });
 });

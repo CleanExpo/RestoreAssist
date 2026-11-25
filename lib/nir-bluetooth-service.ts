@@ -43,10 +43,8 @@ import { isCapacitorIOS } from "./capacitor";
 import { pairingRefusalReason } from "./field-device-registry";
 
 // ─── Web Bluetooth API type stubs (not in default lib.dom.d.ts) ──────────────
-/* eslint-disable @typescript-eslint/no-explicit-any */
 type BluetoothDevice = any;
 type BluetoothRemoteGATTCharacteristic = any;
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ─── CONSTANTS & DEVICE PROFILES ─────────────────────────────────────────────
 

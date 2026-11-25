@@ -15,7 +15,6 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -28,7 +27,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
 import { DEFAULT_GST_TREATMENT } from "@/lib/gst-rules";
 import {
   Save,
@@ -38,10 +36,8 @@ import {
   AlertCircle,
   CheckCircle,
   Lock,
-  History,
   Plus,
   Trash2,
-  Edit2,
   ChevronRight,
   Bookmark,
   BookmarkCheck,
@@ -228,7 +224,7 @@ export default function EstimationEngine({
         toast.error("Failed to load existing estimate data");
       }
     }
-  }, [initialEstimateData]);
+  }, [initialEstimateData, estimateData]);
 
   // Auto-generate line items from scope if available (only once, and only if no initial data)
   useEffect(() => {
@@ -487,11 +483,7 @@ export default function EstimationEngine({
         totalIncGST,
       };
     });
-  }, [
-    estimateData.lineItems,
-    estimateData.commercialParams,
-    estimateData.rateTables,
-  ]);
+  }, [estimateData]);
 
   const generateLineItemsFromScope = () => {
     const items: any[] = [];
@@ -899,7 +891,7 @@ export default function EstimationEngine({
         <Button
           onClick={handleSaveAndNext}
           disabled={loading || estimateIsImmutable}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
+          className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
           {loading ? "Saving..." : `Save & Continue to ${getNextTabName()}`}
@@ -1049,7 +1041,7 @@ export default function EstimationEngine({
                 lineItems: [...prev.lineItems, newItem],
               }));
             }}
-            className="bg-cyan-600 hover:bg-cyan-700"
+            className="bg-brand-harbour-600 hover:bg-brand-harbour-700"
           >
             <Plus className="mr-2" size={16} />
             Add Line Item
@@ -1241,7 +1233,7 @@ export default function EstimationEngine({
                           className={
                             item.sourceCostItemId
                               ? "text-success hover:text-success"
-                              : "text-slate-400 hover:text-cyan-300"
+                              : "text-slate-400 hover:text-brand-harbour-300"
                           }
                           disabled={item._savingToLibrary}
                           title={
@@ -1297,7 +1289,7 @@ export default function EstimationEngine({
         <Button
           onClick={handleSaveAndNext}
           disabled={loading || estimateIsImmutable}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
+          className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
           {loading ? "Saving..." : `Save & Continue to ${getNextTabName()}`}
@@ -1371,7 +1363,7 @@ export default function EstimationEngine({
           </Card>
         </div>
 
-        <Card className="bg-slate-800 border-cyan-600">
+        <Card className="bg-slate-800 border-brand-harbour-600">
           <CardHeader>
             <CardTitle className="text-white text-xl">Grand Total</CardTitle>
           </CardHeader>
@@ -1387,7 +1379,7 @@ export default function EstimationEngine({
               </div>
               <div className="flex justify-between text-white text-xl font-bold pt-2 border-t border-slate-700">
                 <span>Total Inc-GST:</span>
-                <span className="text-cyan-400">
+                <span className="text-brand-harbour-400">
                   ${(estimateData.totalIncGST || 0).toFixed(2)}
                 </span>
               </div>
@@ -1401,7 +1393,7 @@ export default function EstimationEngine({
         <Button
           onClick={handleSaveAndNext}
           disabled={loading || estimateIsImmutable}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
+          className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
           {loading ? "Saving..." : `Save & Continue to ${getNextTabName()}`}
@@ -1504,7 +1496,7 @@ export default function EstimationEngine({
         <Button
           onClick={handleSaveAndNext}
           disabled={loading || estimateIsImmutable}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
+          className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
           {loading ? "Saving..." : `Save & Continue to ${getNextTabName()}`}
@@ -1551,7 +1543,7 @@ export default function EstimationEngine({
         <Button
           onClick={handleSaveAndNext}
           disabled={loading || estimateIsImmutable}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
+          className="bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
           {loading
@@ -1676,7 +1668,7 @@ export default function EstimationEngine({
                   <div className="flex space-x-4">
                     <Button
                       onClick={() => window.print()}
-                      className="bg-cyan-600 hover:bg-cyan-700"
+                      className="bg-brand-harbour-600 hover:bg-brand-harbour-700"
                     >
                       <FileText className="mr-2" size={16} />
                       Export PDF

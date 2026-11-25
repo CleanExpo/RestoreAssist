@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -55,7 +55,7 @@ function StatusBadge({ status }: { status: string }) {
     SENT: "bg-info-subtle text-info-subtle-foreground",
     PAID: "bg-success-subtle text-success-subtle-foreground",
     OVERDUE: "bg-destructive-subtle text-destructive-subtle-foreground",
-    CANCELLED: "bg-neutral-100 dark:bg-slate-800 text-neutral-400",
+    CANCELLED: "bg-neutral-100 dark:bg-slate-800 text-brand-slate dark:text-neutral-400",
   };
   return (
     <span
@@ -88,11 +88,7 @@ export default function InspectionInvoicePage({
     needsReport: boolean;
   } | null>(null);
 
-  useEffect(() => {
-    fetchInvoice();
-  }, [id]);
-
-  const fetchInvoice = async () => {
+  const fetchInvoice = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/inspections/${id}/generate-invoice`);
@@ -107,7 +103,11 @@ export default function InspectionInvoicePage({
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchInvoice();
+  }, [fetchInvoice]);
 
   const handleGenerate = async () => {
     try {
@@ -149,7 +149,7 @@ export default function InspectionInvoicePage({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin text-cyan-500" size={32} />
+        <Loader2 className="animate-spin text-brand-harbour-500" size={32} />
       </div>
     );
   }
@@ -166,7 +166,7 @@ export default function InspectionInvoicePage({
         </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-            <Receipt size={22} className="text-cyan-500" />
+            <Receipt size={22} className="text-brand-harbour-500" />
             Invoice from Approved Estimate
           </h1>
           <p className="text-sm text-neutral-500 dark:text-slate-400 mt-0.5">
@@ -179,7 +179,7 @@ export default function InspectionInvoicePage({
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white text-sm font-semibold transition-colors disabled:opacity-60"
           >
             {generating ? (
               <Loader2 size={16} className="animate-spin" />
@@ -193,7 +193,7 @@ export default function InspectionInvoicePage({
         {invoice && (
           <Link
             href={`/dashboard/invoices/${invoice.id}`}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-sm font-semibold transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-brand-harbour-500 text-brand-harbour-600 dark:text-brand-harbour-400 hover:bg-brand-harbour-50 dark:hover:bg-brand-harbour-900/10 text-sm font-semibold transition-colors"
           >
             <ExternalLink size={16} />
             View Full Invoice
@@ -216,7 +216,7 @@ export default function InspectionInvoicePage({
               </p>
               <Link
                 href="/dashboard/invoices/new"
-                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700"
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-brand-harbour-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-harbour-700"
               >
                 <FileText size={16} />
                 Create the invoice in Billing → Invoices
@@ -230,19 +230,19 @@ export default function InspectionInvoicePage({
         <div className="p-12 rounded-xl border border-dashed border-neutral-300 dark:border-slate-700 text-center space-y-3">
           <Receipt
             size={40}
-            className="mx-auto text-neutral-300 dark:text-slate-600"
+            className="mx-auto text-brand-slate dark:text-slate-600"
           />
           <p className="text-neutral-500 dark:text-slate-400 font-medium">
             No invoice generated yet
           </p>
-          <p className="text-sm text-neutral-400 dark:text-slate-500">
+          <p className="text-sm text-brand-slate dark:text-slate-500">
             Click &quot;Generate Invoice&quot; to create a draft invoice from
             this inspection&apos;s approved estimate.
           </p>
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 mt-2"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 mt-2"
           >
             {generating ? (
               <Loader2 size={16} className="animate-spin" />
@@ -267,7 +267,7 @@ export default function InspectionInvoicePage({
                 <p className="text-sm text-neutral-500 dark:text-slate-400">
                   {invoice.customerName} &bull; {invoice.customerEmail}
                 </p>
-                <p className="text-sm text-neutral-400 dark:text-slate-500 mt-0.5">
+                <p className="text-sm text-brand-slate dark:text-slate-500 mt-0.5">
                   Due:{" "}
                   {new Date(invoice.dueDate).toLocaleDateString("en-AU", {
                     day: "2-digit",
@@ -277,7 +277,7 @@ export default function InspectionInvoicePage({
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-neutral-400 uppercase tracking-wider mb-0.5">
+                <p className="text-xs text-brand-slate dark:text-neutral-400 uppercase tracking-wider mb-0.5">
                   Total inc. GST
                 </p>
                 <p className="text-2xl font-bold text-success">
@@ -289,7 +289,7 @@ export default function InspectionInvoicePage({
             {/* Totals row */}
             <div className="flex gap-6 pt-3 border-t border-neutral-100 dark:border-slate-800 text-sm">
               <div>
-                <span className="text-neutral-400 text-xs uppercase tracking-wider block">
+                <span className="text-brand-slate dark:text-neutral-400 text-xs uppercase tracking-wider block">
                   Subtotal ex. GST
                 </span>
                 <span className="font-semibold">
@@ -297,7 +297,7 @@ export default function InspectionInvoicePage({
                 </span>
               </div>
               <div>
-                <span className="text-neutral-400 text-xs uppercase tracking-wider block">
+                <span className="text-brand-slate dark:text-neutral-400 text-xs uppercase tracking-wider block">
                   GST
                 </span>
                 <span className="font-semibold">
@@ -305,10 +305,10 @@ export default function InspectionInvoicePage({
                 </span>
               </div>
               <div>
-                <span className="text-neutral-400 text-xs uppercase tracking-wider block">
+                <span className="text-brand-slate dark:text-neutral-400 text-xs uppercase tracking-wider block">
                   Amount Due
                 </span>
-                <span className="font-semibold text-cyan-600 dark:text-cyan-400">
+                <span className="font-semibold text-brand-harbour-600 dark:text-brand-harbour-400">
                   {centsToAud(invoice.amountDue)}
                 </span>
               </div>
@@ -357,7 +357,7 @@ export default function InspectionInvoicePage({
                           {item.description}
                         </span>
                         {item.category && (
-                          <span className="text-xs text-neutral-400 dark:text-slate-500">
+                          <span className="text-xs text-brand-slate dark:text-slate-500">
                             {item.category}
                           </span>
                         )}
@@ -399,7 +399,7 @@ export default function InspectionInvoicePage({
           </div>
 
           {/* Footer note */}
-          <p className="text-xs text-neutral-400 dark:text-slate-500 text-center pb-4">
+          <p className="text-xs text-brand-slate dark:text-slate-500 text-center pb-4">
             Line items and prices are copied from the approved estimate. Review
             the draft in the full invoice editor before sending.
           </p>

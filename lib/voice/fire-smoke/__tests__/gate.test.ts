@@ -5,7 +5,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 import { checkFireSubmitGate, type FireDb } from "../server";
 import { computeWalkthroughStatus, evaluateFireGate } from "../status";
 import { FIRE_SECTION_IDS } from "../checklist";
-import { allFilled, entry, lastAt, resetClock, signoff } from "./helpers";
+import { allFilled, entry, resetClock, signoff } from "./helpers";
 import type { FireObservationRow } from "../schema";
 
 function dbWith(

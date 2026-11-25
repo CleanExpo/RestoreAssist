@@ -22,6 +22,7 @@ const getServerSession = vi.fn();
 const withIdempotency = vi.fn();
 const instanceFindUnique = vi.fn();
 const instanceUpdate = vi.fn();
+const instanceUpdateMany = vi.fn();
 const signatureFindFirst = vi.fn();
 const signatureUpdateMany = vi.fn();
 const emailSend = vi.fn();
@@ -38,6 +39,7 @@ vi.mock("@/lib/prisma", () => ({
     authorityFormInstance: {
       findUnique: (...args: unknown[]) => instanceFindUnique(...args),
       update: (...args: unknown[]) => instanceUpdate(...args),
+      updateMany: (...args: unknown[]) => instanceUpdateMany(...args),
     },
     authorityFormSignature: {
       findFirst: (...args: unknown[]) => signatureFindFirst(...args),
@@ -85,6 +87,7 @@ beforeEach(() => {
   withIdempotency.mockReset();
   instanceFindUnique.mockReset();
   instanceUpdate.mockReset();
+  instanceUpdateMany.mockReset();
   signatureFindFirst.mockReset();
   signatureUpdateMany.mockReset();
   emailSend.mockReset();
@@ -129,7 +132,12 @@ describe("POST /api/authority-forms/[id]/send-signature-request", () => {
     );
     expect(signatureUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "sig-1", instanceId: "form-1" },
+        where: {
+          id: "sig-1",
+          instanceId: "form-1",
+          signedAt: null,
+          instance: { status: { notIn: ["CANCELLED", "COMPLETED"] } },
+        },
       }),
     );
     expect(emailSend).toHaveBeenCalledTimes(1);
@@ -246,5 +254,31 @@ describe("POST /api/authority-forms/[id]/send-signature-request", () => {
     expect(res.status).toBe(403);
     expect(signatureFindFirst).not.toHaveBeenCalled();
     expect(emailSend).not.toHaveBeenCalled();
+  });
+
+  it("RA-8400: a cancelled form issues no signing link and sends no email", async () => {
+    instanceFindUnique.mockResolvedValue({ ...ownedForm, status: "CANCELLED" });
+    const res = await POST(makeRequest({ signatureId: "sig-1" }), params());
+    expect(res.status).toBe(409);
+    expect(signatureUpdateMany).not.toHaveBeenCalled();
+    expect(emailSend).not.toHaveBeenCalled();
+  });
+
+  it("RA-8400: the status move is conditional on DRAFT, so a cancel after the read is not reopened", async () => {
+    instanceFindUnique.mockResolvedValue({ ...ownedForm, status: "DRAFT" });
+    signatureFindFirst.mockResolvedValue({
+      id: "sig-1",
+      instanceId: "form-1",
+      signatoryName: "Jane Client",
+      signatoryEmail: "jane@example.com",
+      signedAt: null,
+    });
+    signatureUpdateMany.mockResolvedValue({ count: 1 });
+    await POST(makeRequest({ signatureId: "sig-1" }), params());
+    expect(instanceUpdate).not.toHaveBeenCalled();
+    expect(instanceUpdateMany).toHaveBeenCalledWith({
+      where: { id: "form-1", status: "DRAFT" },
+      data: { status: "PENDING_SIGNATURES" },
+    });
   });
 });

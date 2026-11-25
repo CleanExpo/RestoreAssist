@@ -31,8 +31,13 @@ import {
   type MoistureReadingInput,
   type EquipmentItemInput,
 } from "@/lib/scope-narrative-prompts";
-import { getDryStandard, getMoistureStatus } from "@/lib/iicrc-dry-standards";
+import {
+  isProgressReading,
+  pickReferenceReadings,
+  readingGoalStatus,
+} from "@/lib/iicrc-dry-standards";
 import { safeRetrieveSimilarJobs } from "@/lib/ai/rag-context";
+import { canSeeMoney } from "@/lib/auth/redact-money";
 import {
   getClaimTypePrompt,
   getMultiClaimPrompt,
@@ -159,6 +164,11 @@ export async function POST(
             location: true,
             surfaceType: true,
             moistureLevel: true,
+            isBaseline: true,
+            unit: true,
+            invalidatedAt: true,
+            recordedAt: true,
+            createdAt: true,
           },
         },
         // RA-1383 (M-7): EnvironmentalData is now a time-series. Use the most
@@ -190,6 +200,11 @@ export async function POST(
             justification: true,
             specification: true,
           },
+        },
+        // RA-8540: the only mould condition the scope writer may use is the
+        // one a human assessor recorded.
+        mouldRemediationAssessment: {
+          select: { mouldConditionLevel: true },
         },
       },
     });
@@ -231,15 +246,19 @@ export async function POST(
     }
 
     // Build moisture readings input
-    const moistureInputs: MoistureReadingInput[] =
-      inspection.moistureReadings.map((r) => {
-        const std = getDryStandard(r.surfaceType);
-        const status = getMoistureStatus(r.moistureLevel, r.surfaceType);
+    // RA-8508: the goal is the job's reference reading for the material where
+    // one was recorded; otherwise a guide value, labelled as such in the prompt.
+    const references = pickReferenceReadings(inspection.moistureReadings);
+    const moistureInputs: MoistureReadingInput[] = inspection.moistureReadings
+      .filter(isProgressReading)
+      .map((r) => {
+        const { goal, status } = readingGoalStatus(r, references);
         return {
           location: r.location,
           surfaceType: r.surfaceType,
           moistureLevel: r.moistureLevel,
-          target: std.dryThreshold,
+          target: goal.target,
+          targetBasis: goal.basis,
           status: status.toUpperCase() as "DRY" | "DRYING" | "WET",
         };
       });
@@ -296,16 +315,19 @@ export async function POST(
       waterClass: parseInt(classification.class, 10) || undefined,
       description: lossSourceDescription ?? inspection.propertyAddress,
       suburb: inspection.propertyAddress.split(",").slice(-2, -1)[0]?.trim(),
+      withPrices: await canSeeMoney(session),
     });
     // Build claim-type-aware system prompt, injecting RAG context when available
     const promptOptions = {
       damageCategory: parseInt(classification.category, 10) || undefined,
       damageClass: parseInt(classification.class, 10) || undefined,
       ragContext: ragResult.jobCount > 0 ? ragResult.contextPrompt : undefined,
+      recordedMouldCondition:
+        inspection.mouldRemediationAssessment?.mouldConditionLevel ?? null,
     };
     const effectiveSystemPrompt = isMultiClaim
       ? getMultiClaimPrompt(effectiveClaimTypes, promptOptions)
-      : getClaimTypePrompt(claimType as ClaimType, promptOptions);
+      : getClaimTypePrompt(effectiveClaimTypes[0] as ClaimType, promptOptions);
 
     // ============================================================
     // RA-6971 (BYOK, P1) — resolve the workspace's own Anthropic key and pass

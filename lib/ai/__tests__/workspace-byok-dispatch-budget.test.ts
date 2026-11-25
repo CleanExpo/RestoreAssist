@@ -33,7 +33,6 @@ vi.mock("../../usage/log-usage", async (importOriginal) => {
 });
 
 import { workspaceByokDispatch } from "../workspace-byok-dispatch";
-import { BudgetExceededError } from "../budget-guard";
 
 beforeEach(() => {
   getProviderApiKey.mockReset();

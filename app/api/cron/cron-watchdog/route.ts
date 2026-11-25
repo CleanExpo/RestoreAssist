@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyCronAuth, runCronJob } from "@/lib/cron";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email-send";
+import { readEnv } from "@/lib/env";
 import {
   PRODUCTION_MONITORED_CRONS,
   analyzeCronHealth,
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     let alerted = false;
     if (!report.healthy) {
-      const to = process.env.CRON_ALERT_EMAIL?.trim();
+      const to = readEnv("CRON_ALERT_EMAIL")?.trim();
       if (to) {
         const messageId = await sendEmail({
           to,

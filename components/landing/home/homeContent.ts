@@ -63,9 +63,9 @@ export const HOME = {
 
   /** Honest trust signal — no fabricated logos or vanity metrics. */
   proof: {
-    eyebrow: "Live today",
-    title: "Built for real restoration work on restoreassist.app",
-    body: "RestoreAssist is in active use with a transparent trial: no credit card to start, clear report-credit limits, and email support during Australian business hours.",
+    eyebrow: "The trial",
+    title: "Try it before you pay anything",
+    body: "Start a trial with no credit card, clear report-credit limits, Basic reports without an API key, and email support during Australian business hours.",
     bullets: [
       `${trialDays}-day trial · ${trialReports} inspection report credits`,
       "No credit card required to sign up",
@@ -128,7 +128,7 @@ export const HOME = {
       {
         step: "02",
         title: "Finish the report",
-        body: "IICRC S500:2021-aligned report drafts take shape in minutes from what you captured. You review, edit, and own every decision before it leaves your company.",
+        body: "IICRC S500:2021-aligned report drafts are built from what you captured. You review, edit, and own every decision before it leaves your company.",
       },
       {
         step: "03",
@@ -350,7 +350,7 @@ export function getHomeFaqs() {
     {
       cat: "Reports",
       q: "Does RestoreAssist create IICRC S500 reports?",
-      a: "Yes. RestoreAssist helps produce S500:2021-aligned report drafts so writing time drops from hours to minutes. You review, edit, and own the final document — professional judgement stays with the operator on every claim.",
+      a: "Yes. RestoreAssist helps produce S500:2021-aligned report drafts from what you captured. You review, edit, and own the final document — professional judgement stays with the operator on every claim.",
     },
     {
       cat: "Setup",

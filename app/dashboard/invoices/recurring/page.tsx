@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -282,7 +281,7 @@ export default function RecurringInvoicesPage() {
 
       // Derive stats from list
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const _startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       setStats({
         active: list.filter((s) => s.status === "ACTIVE").length,
         paused: list.filter((s) => s.status === "PAUSED").length,
@@ -382,7 +381,7 @@ export default function RecurringInvoicesPage() {
           </p>
         </div>
         <Link href="/dashboard/invoices/recurring/new">
-          <Button className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:opacity-90 transition-opacity">
+          <Button className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white hover:opacity-90 transition-opacity">
             <Plus className="h-4 w-4" />
             Create Recurring Invoice
           </Button>
@@ -438,7 +437,7 @@ export default function RecurringInvoicesPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4 text-cyan-500" />
+                  <RefreshCw className="h-4 w-4 text-brand-harbour-500" />
                   Generated This Month
                 </CardTitle>
               </CardHeader>
@@ -453,7 +452,7 @@ export default function RecurringInvoicesPage() {
           {/* Table or empty state */}
           {schedules.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700 py-20 px-6 text-center">
-              <CalendarClock className="h-14 w-14 text-slate-300 dark:text-slate-600 mb-4" />
+              <CalendarClock className="h-14 w-14 text-brand-slate dark:text-slate-600 mb-4" />
               <p className="text-slate-600 dark:text-slate-400 text-lg font-medium mb-1">
                 No recurring invoices set up yet.
               </p>

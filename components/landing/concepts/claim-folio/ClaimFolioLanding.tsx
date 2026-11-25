@@ -85,9 +85,11 @@ export function ClaimFolioLanding() {
         />
       </div>
 
-      {/* Folio index — desktop */}
+      {/* Folio index — desktop. It floats over light and navy sections, and no
+          single text colour reaches 4.5:1 on both, so it carries its own light
+          backing (RA-4868). */}
       <nav
-        className="fixed top-1/2 right-[max(1rem,calc((100vw-80%)/2-3.5rem))] z-40 hidden -translate-y-1/2 flex-col gap-1 xl:flex"
+        className="fixed top-1/2 right-[max(1rem,calc((100vw-80%)/2-3.5rem))] z-40 hidden -translate-y-1/2 flex-col gap-1 rounded-lg bg-white/85 p-1 backdrop-blur-sm xl:flex"
         aria-label="Page sections"
       >
         {SECTIONS.map((s) => (
@@ -99,7 +101,7 @@ export function ClaimFolioLanding() {
             className={`font-[family-name:var(--font-landing-display)] rounded px-2 py-1.5 text-[10px] font-bold tracking-[0.14em] transition-colors ${
               active === s.id
                 ? "text-brand-harbour"
-                : "text-slate-400 hover:text-brand-navy"
+                : "text-slate-600 hover:text-brand-navy"
             }`}
           >
             {s.label}
@@ -116,12 +118,12 @@ export function ClaimFolioLanding() {
           className="absolute inset-0"
         >
           <Image
-            src="/landing/hero-flooded-home.jpg"
-            alt="RestoreAssist technician extracting floodwater from a water-filled home during active restoration"
+            src="/landing/hero-flooded-home.avif"
+            alt="Restoration technician photographing a moisture meter reading on a water-stained wall, with air movers and a dehumidifier drying an Australian home"
             fill
             priority
             sizes="100vw"
-            className="object-cover object-[42%_55%]"
+            className="object-cover object-[72%_55%]"
           />
         </motion.div>
 
@@ -355,7 +357,7 @@ export function ClaimFolioLanding() {
                 className="relative grid items-start gap-6 border-t border-brand-navy/12 py-14 sm:grid-cols-[minmax(0,0.35fr)_minmax(0,0.65fr)] sm:gap-10 lg:py-20"
               >
                 <span
-                  className={`${FONT_DISPLAY} select-none text-[clamp(4.5rem,14vw,9rem)] font-bold leading-[0.8] tracking-[-0.06em] text-brand-harbour/20`}
+                  className={`${FONT_DISPLAY} select-none text-[clamp(4.5rem,14vw,9rem)] font-bold leading-[0.8] tracking-[-0.06em] text-brand-harbour/65`}
                   aria-hidden
                 >
                   {s.step}
@@ -396,7 +398,7 @@ export function ClaimFolioLanding() {
 
           <div className="relative mt-20 grid gap-16 lg:grid-cols-2 lg:gap-0">
             <div className="lg:pr-16">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/40">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/60">
                 Before
               </p>
               <h3 className={`${FONT_DISPLAY} mt-3 text-xl font-semibold`}>
@@ -406,7 +408,7 @@ export function ClaimFolioLanding() {
                 {HOME.beforeAfter.before.map((line) => (
                   <li
                     key={line}
-                    className="border-l border-white/20 pl-5 text-[16px] text-white/45 line-through decoration-white/30"
+                    className="border-l border-white/20 pl-5 text-[16px] text-white/60 line-through decoration-white/30"
                   >
                     {line}
                   </li>
@@ -482,7 +484,7 @@ export function ClaimFolioLanding() {
                   {HOME.platform.continuumRight}
                 </span>
               </div>
-              <p className="mt-3 text-[13px] text-slate-500">
+              <p className="mt-3 text-[13px] text-slate-600">
                 {HOME.platform.continuumNote}
               </p>
             </div>
@@ -503,7 +505,7 @@ export function ClaimFolioLanding() {
                     >
                       {String(i + 1).padStart(2, "0")}
                     </span>
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600">
                       {f.lane}
                     </span>
                   </div>
@@ -547,7 +549,7 @@ export function ClaimFolioLanding() {
                 className="group grid gap-4 border-t border-brand-navy/10 py-10 transition-colors hover:bg-[#F0F3F6]/80 sm:grid-cols-[4rem_minmax(0,1fr)_minmax(0,1.4fr)] sm:gap-10 sm:px-4"
               >
                 <span
-                  className={`${FONT_DISPLAY} text-2xl font-bold text-brand-harbour/35 transition-colors group-hover:text-brand-harbour`}
+                  className={`${FONT_DISPLAY} text-2xl font-bold text-brand-harbour/65 transition-colors group-hover:text-brand-harbour`}
                 >
                   {String(i + 1).padStart(2, "0")}
                 </span>
@@ -575,7 +577,7 @@ export function ClaimFolioLanding() {
             className={`${FONT_DISPLAY} mt-5 text-[clamp(2rem,4.5vw,3.25rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-brand-navy`}
           >
             {HOME.coverage.title}
-            <span className="mt-4 block text-[1.25rem] font-medium leading-snug text-slate-500 sm:text-[1.5rem]">
+            <span className="mt-4 block text-[1.25rem] font-medium leading-snug text-slate-600 sm:text-[1.5rem]">
               {HOME.coverage.titleAside}
             </span>
           </h2>
@@ -613,7 +615,7 @@ export function ClaimFolioLanding() {
                 <p className="mt-1 text-sm font-semibold text-slate-700">
                   {r.name}
                 </p>
-                <p className="mt-1 text-[12px] leading-snug text-slate-500">
+                <p className="mt-1 text-[12px] leading-snug text-slate-600">
                   {r.note}
                 </p>
               </li>
@@ -689,7 +691,7 @@ export function ClaimFolioLanding() {
                     onClick={() => setFaqOpen(i)}
                   >
                     <span className="min-w-0">
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
                         {item.cat}
                       </span>
                       <span
@@ -765,7 +767,7 @@ export function ClaimFolioLanding() {
             {HOME.cta.reassurances.map((r) => (
               <li
                 key={r}
-                className="text-[13px] font-medium tracking-wide text-slate-500"
+                className="text-[13px] font-medium tracking-wide text-slate-600"
               >
                 {r}
               </li>

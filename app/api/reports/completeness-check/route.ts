@@ -75,6 +75,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       reportId,
+      // RA-8545: fix links open the linked inspection, so the page needs its id.
+      inspectionId: report.inspection?.id ?? null,
       reportTitle: report.reportNumber ?? reportId,
       overallScore,
       sections,

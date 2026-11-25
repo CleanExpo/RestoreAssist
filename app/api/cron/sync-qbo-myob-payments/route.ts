@@ -5,6 +5,11 @@ import {
   processQboMyobPendingPayments,
   retryUnresolvedQboMyobPayments,
 } from "@/lib/integrations/webhook-processor";
+import { WebhookReclaimError } from "@/lib/jobs/webhook-reclaim";
+
+// RA-8426 — a claim this run holds must end before WEBHOOK_STALE_CLAIM_MS
+// (10 minutes), or the next run would release a live claim. Keep it below.
+export const maxDuration = 300;
 
 /**
  * GET /api/cron/sync-qbo-myob-payments — QBO/MYOB payment reconciliation (RA-6984)
@@ -24,7 +29,8 @@ import {
  *
  * Secured by CRON_SECRET bearer token via verifyCronAuth (timing-safe comparison).
  * Integration rule: sync failures NEVER block user-facing operations. This
- * route always returns 200 with structured stats — never 5xx.
+ * route returns 200 with structured stats, except when the stale-claim
+ * reclaim fails (RA-8481): that fails the run so monitoring sees it.
  */
 export async function GET(request: NextRequest) {
   const authError = verifyCronAuth(request);
@@ -51,6 +57,11 @@ async function syncQboMyobPaymentsOnce() {
     retroactiveSkipped: 0,
   };
 
+  // RA-8481 — a failed stale-claim reclaim leaves dead claims PROCESSING
+  // for good, so it must not look like a successful run. Both phases still
+  // run, then the error is rethrown so runCronJob records the run failed.
+  let reclaimError: WebhookReclaimError | null = null;
+
   // ── Phase 1: drain PENDING payment webhook events ────────────────────────
   try {
     const pendingResult = await processQboMyobPendingPayments(50);
@@ -59,6 +70,7 @@ async function syncQboMyobPaymentsOnce() {
     stats.pendingSkipped = pendingResult.skipped;
   } catch (err) {
     console.error("[QBO/MYOB Payment Sync] Pending batch error:", err);
+    if (err instanceof WebhookReclaimError) reclaimError = err;
     // Non-fatal — continue to the retroactive phase
   }
 
@@ -70,7 +82,10 @@ async function syncQboMyobPaymentsOnce() {
     stats.retroactiveSkipped = retroResult.skipped;
   } catch (err) {
     console.error("[QBO/MYOB Payment Sync] Retroactive batch error:", err);
+    if (err instanceof WebhookReclaimError) reclaimError ??= err;
   }
+
+  if (reclaimError) throw reclaimError;
 
   return {
     itemsProcessed: stats.pendingProcessed + stats.retroactiveProcessed,

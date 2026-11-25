@@ -15,6 +15,7 @@ describe("formatClaimContextForPrompt", () => {
         completenessHint: "Complete: clientId",
       },
       completeness: {
+        packId: "water",
         facts: [],
         blocking: ["client", "baseline"],
         completionPercent: 40,

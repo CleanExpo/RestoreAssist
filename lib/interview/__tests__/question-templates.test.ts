@@ -9,7 +9,6 @@ import {
   getQuestionsForSubscriptionTier,
 } from "../question-templates";
 import { QuestionGenerationEngine } from "../question-generation-engine";
-import { Question } from "../types";
 
 describe("Interview Question Templates", () => {
   describe("Library Structure", () => {
@@ -247,24 +246,24 @@ describe("Interview Question Templates", () => {
 
   describe("Conditional Shows", () => {
     it("conditional show rules should reference valid fields", () => {
-      const validFieldTypes = [
-        "water_source",
-        "time_since_loss",
-        "affected_area_percentage",
-        "materials_affected",
-        "temperature",
-        "humidity",
-      ];
+      // RA-8518: a condition reads previousAnswers.get(field), and answers are keyed by question
+      // id, so a field must be the id of another question in the library. An unknown name would
+      // never match an answer and would silently hide the question.
+      const questionIds = new Set(INTERVIEW_QUESTION_LIBRARY.map((q) => q.id));
 
-      const invalidConditionals = INTERVIEW_QUESTION_LIBRARY.filter((q) => {
-        if (!q.conditionalShows) return false;
-        return q.conditionalShows.some((c) => {
-          // Field can be any string, but should be reasonable
-          return !c.field || c.field.length === 0;
-        });
-      });
+      const invalid = INTERVIEW_QUESTION_LIBRARY.flatMap((q) =>
+        (q.conditionalShows ?? [])
+          .filter((c) => !questionIds.has(c.field) || c.field === q.id)
+          .map((c) => `${q.id} -> ${c.field}`),
+      );
 
-      expect(invalidConditionals).toHaveLength(0);
+      expect(invalid).toEqual([]);
+    });
+
+    it("the field check catches an unknown field name", () => {
+      const questionIds = new Set(INTERVIEW_QUESTION_LIBRARY.map((q) => q.id));
+      expect(questionIds.has("not_a_real_field")).toBe(false);
+      expect(questionIds.has("q1_water_source")).toBe(true);
     });
 
     it("conditional show rules should have valid operators", () => {

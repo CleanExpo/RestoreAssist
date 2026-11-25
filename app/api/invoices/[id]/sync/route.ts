@@ -15,6 +15,7 @@ import {
 } from "@/lib/integrations/sync-error";
 import { apiError, fromException } from "@/lib/api-errors";
 import { getGstTreatmentForCurrency } from "@/lib/gst-rules";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 export async function POST(
   request: NextRequest,
@@ -26,6 +27,15 @@ export async function POST(
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
     });
   }
   const userId = session.user.id;
@@ -120,6 +130,15 @@ export async function POST(
         prisma, userId, provider: provider.toUpperCase(),
         workspaceId: invoice.workspaceId ?? null, requireReady: true,
       });
+      // RA-8446: readiness is selectOAuthIntegration({ requireReady })'s answer.
+      // A lapsed access token is not a refusal: the provider sync refreshes it.
+      if (!selection.ok && selection.reason === "NOT_READY") {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `${provider} integration is not connected. Please reconnect.`,
+          status: 400,
+        });
+      }
       const integration = selection.ok ? selection.data : null;
 
       if (!integration) {
@@ -127,26 +146,6 @@ export async function POST(
           code: "NOT_FOUND",
           message: `No ${provider} integration found. Please connect to ${provider} first.`,
           status: 404,
-        });
-      }
-
-      if (integration.status !== "CONNECTED") {
-        return apiError(request, {
-          code: "VALIDATION",
-          message: `${provider} integration is not connected. Please reconnect.`,
-          status: 400,
-        });
-      }
-
-      // Check if token is expired
-      if (
-        integration.tokenExpiresAt &&
-        new Date(integration.tokenExpiresAt) < new Date()
-      ) {
-        return apiError(request, {
-          code: "UNAUTHORIZED",
-          message: `${provider} access token has expired. Please reconnect.`,
-          status: 401,
         });
       }
 
@@ -340,6 +339,15 @@ export async function GET(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 

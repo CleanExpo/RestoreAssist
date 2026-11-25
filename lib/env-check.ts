@@ -15,7 +15,7 @@
 // secret causes Stripe's retry loop to drop subscription state changes after
 // 72h, silently corrupting User.subscriptionStatus for paying customers.
 
-const REQUIRED_VARS = [
+export const REQUIRED_VARS = [
   "DATABASE_URL",
   "CREDENTIAL_ENCRYPTION_KEY",
   "NEXTAUTH_SECRET",

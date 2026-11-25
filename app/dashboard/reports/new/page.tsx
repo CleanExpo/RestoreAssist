@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import BillingGate from "@/components/capacitor/BillingGate";
@@ -36,8 +36,12 @@ import { PRICING_CONFIG } from "@/lib/pricing";
 
 export default function NewReportPage() {
   const router = useRouter();
-  const searchParams = useSearchParams() ?? new URLSearchParams();
-  const { data: session, update } = useSession();
+  const rawSearchParams = useSearchParams();
+  const searchParams = useMemo(
+    () => rawSearchParams ?? new URLSearchParams(),
+    [rawSearchParams],
+  );
+  const { data: _session, update } = useSession();
   const [uploading, setUploading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [uploadedData, setUploadedData] = useState<any>(null);
@@ -63,7 +67,6 @@ export default function NewReportPage() {
   // Fetch subscription status on mount (always needed for feature gating)
   useEffect(() => {
     fetchSubscriptionStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Check credits and onboarding status on mount (only for new reports)
@@ -169,6 +172,12 @@ export default function NewReportPage() {
   };
 
   // Check for reportId or interview data in URL
+  // Latest loadReportData, so the searchParams effect still fires only when
+  // searchParams changes.
+  const loadReportDataRef = useRef<((id: string) => Promise<void>) | null>(
+    null,
+  );
+
   useEffect(() => {
     const urlReportId = searchParams.get("reportId");
     const interviewDataParam = searchParams.get("interviewData");
@@ -276,7 +285,7 @@ export default function NewReportPage() {
       if (typeof window !== "undefined") {
         localStorage.setItem("currentReportId", urlReportId);
       }
-      loadReportData(urlReportId);
+      loadReportDataRef.current?.(urlReportId);
     } else {
       // Clear localStorage when creating a new report (no reportId in URL)
       if (typeof window !== "undefined") {
@@ -418,6 +427,8 @@ export default function NewReportPage() {
     }
   };
 
+  loadReportDataRef.current = loadReportData;
+
   const handleComplete = () => {
     // Clear localStorage when report is complete
     if (typeof window !== "undefined") {
@@ -463,7 +474,7 @@ export default function NewReportPage() {
         const error = await response.json();
         toast.error(error.error || "Failed to upload PDF");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to upload PDF");
     } finally {
       setUploading(false);
@@ -602,12 +613,12 @@ export default function NewReportPage() {
 
         {/* Upload Option */}
         {!uploadedData && (
-          <div className="mb-6 p-6 rounded-lg border border-cyan-500/50 dark:border-cyan-500/30 bg-cyan-500/10 dark:bg-cyan-500/5">
+          <div className="mb-6 p-6 rounded-lg border border-brand-harbour-500/50 dark:border-brand-harbour-500/30 bg-brand-harbour-500/10 dark:bg-brand-harbour-500/5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Upload className="w-6 h-6 text-cyan-400 dark:text-cyan-300" />
+                <Upload className="w-6 h-6 text-brand-harbour-700 dark:text-brand-harbour-300" />
                 <div>
-                  <h3 className="text-lg font-semibold text-cyan-400 dark:text-cyan-300">
+                  <h3 className="text-lg font-semibold text-brand-harbour-700 dark:text-brand-harbour-300">
                     Upload Existing Report
                   </h3>
                   <p
@@ -631,7 +642,7 @@ export default function NewReportPage() {
                         : undefined
                     }
                     className={cn(
-                      "px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors",
+                      "px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg transition-colors",
                       "disabled:bg-neutral-300 dark:disabled:bg-neutral-600 disabled:text-neutral-500 dark:disabled:text-neutral-400 disabled:cursor-not-allowed",
                     )}
                   >
@@ -639,7 +650,7 @@ export default function NewReportPage() {
                   </button>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <label className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors cursor-pointer">
+                    <label className="px-4 py-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg transition-colors cursor-pointer">
                       {uploading ? (
                         <span className="flex items-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -718,7 +729,7 @@ export default function NewReportPage() {
               </div>
               <button
                 onClick={handleDiscardUpload}
-                className="flex items-center gap-2 px-4 py-2 border border-red-600/50 dark:border-red-600/30 text-red-400 dark:text-red-300 rounded-lg hover:bg-red-600/10 dark:hover:bg-red-600/20 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 border border-red-600/50 dark:border-red-600/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-600/10 dark:hover:bg-red-600/20 transition-colors"
               >
                 <X className="w-4 h-4" />
                 Discard
@@ -733,7 +744,7 @@ export default function NewReportPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-4 flex-1">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center shadow-lg flex-shrink-0">
-                  <Sparkles className="w-6 h-6 text-white" />
+                  <Sparkles className="w-6 h-6 text-brand-navy dark:text-white" />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-success mb-1">
@@ -763,7 +774,7 @@ export default function NewReportPage() {
                   setUploadedData(null);
                   router.replace("/dashboard/reports/new");
                 }}
-                className="flex items-center gap-2 px-4 py-2 border border-red-600/50 text-red-400 rounded-lg hover:bg-red-600/10 transition-colors flex-shrink-0"
+                className="flex items-center gap-2 px-4 py-2 border border-red-600/50 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-600/10 transition-colors flex-shrink-0"
               >
                 <X className="w-4 h-4" />
                 Clear
@@ -818,7 +829,7 @@ export default function NewReportPage() {
 
         {loadingReport ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+            <Loader2 className="w-8 h-8 animate-spin text-brand-harbour-500" />
           </div>
         ) : creditsCheckError && hasCheckedCredits ? (
           <div className="flex flex-col items-center justify-center py-20 px-6">
@@ -841,7 +852,7 @@ export default function NewReportPage() {
                   setCreditsCheckError(null);
                   void checkCreditsAndOnboarding();
                 }}
-                className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors mx-auto"
+                className="px-6 py-3 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white rounded-lg font-medium transition-colors mx-auto"
               >
                 Retry
               </button>
@@ -851,7 +862,7 @@ export default function NewReportPage() {
           <div className="flex flex-col items-center justify-center py-20 px-6">
             <div className="max-w-md text-center">
               <div className="inline-flex p-4 bg-amber-500/10 rounded-full mb-4">
-                <Crown className="w-12 h-12 text-amber-400" />
+                <Crown className="w-12 h-12 text-amber-700 dark:text-amber-400" />
               </div>
               <h3
                 className={cn(
@@ -880,7 +891,7 @@ export default function NewReportPage() {
           // Modal will show automatically, so just show a loading state or empty state
           <div className="flex flex-col items-center justify-center py-20 px-6">
             <div className="max-w-md text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-cyan-500 mx-auto mb-4" />
+              <Loader2 className="w-8 h-8 animate-spin text-brand-harbour-500 mx-auto mb-4" />
               <h3
                 className={cn(
                   "text-2xl font-semibold mb-2",
@@ -914,7 +925,7 @@ export default function NewReportPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
-                    <Sparkles className="text-white" size={24} />
+                    <Sparkles className="text-brand-navy dark:text-white" size={24} />
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -944,18 +955,18 @@ export default function NewReportPage() {
 
               {/* Setup Steps */}
               <div className="space-y-4">
-                {setupSteps.map((step, index) => {
+                {setupSteps.map((step, _index) => {
                   const Icon = step.icon;
                   return (
                     <div
                       key={step.number}
-                      className="group relative p-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-cyan-500 dark:hover:border-cyan-500 hover:shadow-lg transition-all duration-300"
+                      className="group relative p-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-brand-harbour-500 dark:hover:border-brand-harbour-500 hover:shadow-lg transition-all duration-300"
                     >
                       <div className="flex items-start gap-4">
                         {/* Step Number & Icon */}
                         <div className="flex-shrink-0">
-                          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg">
-                            <Icon className="text-white" size={24} />
+                          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-harbour-500 to-blue-500 flex items-center justify-center shadow-lg">
+                            <Icon className="text-brand-navy dark:text-white" size={24} />
                           </div>
                           <div className="mt-2 text-center">
                             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -997,7 +1008,7 @@ export default function NewReportPage() {
                               onClick={async () => {
                                 await handleStartSetup(step.route);
                               }}
-                              className="px-4 py-1.5 text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center gap-2 group/btn"
+                              className="px-4 py-1.5 text-sm bg-gradient-to-r from-brand-harbour-500 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-brand-harbour-500/50 transition-all flex items-center gap-2 group/btn"
                             >
                               Start
                               <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-1 transition-transform" />
@@ -1050,7 +1061,7 @@ export default function NewReportPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
-                  <Crown className="text-white" size={24} />
+                  <Crown className="text-brand-navy dark:text-white" size={24} />
                 </div>
                 <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
                   Upgrade Required

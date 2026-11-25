@@ -8,7 +8,7 @@
  *   - Preferred evidence classes (what strengthens the claim)
  *   - Report formatting requirements (section order, mandatory sections, branding)
  *   - Claim submission preferences (file formats, naming conventions, portals)
- *   - S500:2021 compliance emphasis areas per insurer
+ *   - S500:2021 emphasis areas per insurer
  *
  * The guided capture workflow (Sprint G) adapts dynamically based on
  * the selected insurer profile — surfacing insurer-specific requirements
@@ -81,7 +81,8 @@ export const REPORT_SECTION_LABELS: Record<ReportSection, string> = {
   DRYING_PLAN: "Drying Plan & Goals",
   CONTENTS_ASSESSMENT: "Contents Assessment",
   HEALTH_SAFETY: "Health & Safety Compliance",
-  COMPLIANCE_STATEMENT: "IICRC S500:2021 Compliance Statement",
+  // RA-7665: the key keeps its name; the printed label is a reference, not a claim.
+  COMPLIANCE_STATEMENT: "IICRC S500 Alignment Statement",
   PHOTO_APPENDIX: "Photo Evidence Appendix",
   FLOOR_PLANS: "Floor Plans & Diagrams",
   LAB_RESULTS: "Laboratory Results",
@@ -131,7 +132,7 @@ export interface InsurerReportSpec {
   headerText: string;
   /** Maximum report length guidance (pages) — 0 = no limit */
   maxPagesGuidance: number;
-  /** Whether to include the IICRC S500:2021 compliance matrix */
+  /** Whether to include the IICRC S500:2021 alignment matrix */
   includeComplianceMatrix: boolean;
   /** Photo requirements */
   photoRequirements: {
@@ -189,7 +190,7 @@ export interface InsurerProfileTemplate {
   submissionSpec: InsurerSubmissionSpec;
   /** Job-type-specific overrides */
   jobTypeOverrides: InsurerJobTypeOverride[];
-  /** S500:2021 compliance emphasis areas this insurer cares most about */
+  /** S500:2021 emphasis areas this insurer cares most about */
   s500EmphasisAreas: string[];
   /** General notes about working with this insurer */
   notes: string;
@@ -553,7 +554,8 @@ const QBE_PROFILE: InsurerProfileTemplate = {
       mandatory: true,
       minimumCount: 1,
       instructions:
-        "QBE requires IICRC compliance certificate or equivalent for all restoration claims over $20,000.",
+        // iicrc-wording-ignore: insurer requirement as recorded, not a RestoreAssist claim; source unverified (RA-7665).
+        "QBE requires IICRC compliance certificate or equivalent for all restoration claims over $20,000.", // iicrc-wording-ignore
     },
   ],
   reportSpec: {
@@ -773,7 +775,8 @@ const ZURICH_PROFILE: InsurerProfileTemplate = {
       mandatory: true,
       minimumCount: 1,
       instructions:
-        "Zurich requires IICRC compliance documentation for all restoration claims.",
+        // iicrc-wording-ignore: insurer requirement as recorded, not a RestoreAssist claim; source unverified (RA-7665).
+        "Zurich requires IICRC compliance documentation for all restoration claims.", // iicrc-wording-ignore
     },
   ],
   reportSpec: {
@@ -917,7 +920,8 @@ const AIG_PROFILE: InsurerProfileTemplate = {
       mandatory: true,
       minimumCount: 1,
       instructions:
-        "IICRC compliance certificate or equivalent international standard certification required.",
+        // iicrc-wording-ignore: insurer requirement as recorded, not a RestoreAssist claim; source unverified (RA-7665).
+        "IICRC compliance certificate or equivalent international standard certification required.", // iicrc-wording-ignore
     } as InsurerEvidenceRequirement,
     {
       evidenceClass: "CHAIN_OF_CUSTODY" as unknown as EvidenceClass,

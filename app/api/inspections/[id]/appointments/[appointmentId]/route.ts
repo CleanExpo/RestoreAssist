@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +8,7 @@ import {
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
 import { canManageAppointments } from "@/lib/scheduling/can-manage-appointments";
+import { notifyTechnicianOfCancellation } from "@/lib/scheduling/appointment-notice";
 
 /** PATCH — acknowledge or cancel an appointment (P5-1). */
 export async function PATCH(
@@ -86,12 +87,37 @@ export async function PATCH(
     }
 
     const now = new Date();
-    const updated = await prisma.jobAppointment.update({
+    if (action === "acknowledge") {
+      const updated = await prisma.jobAppointment.update({
+        where: { id: appointmentId },
+        data: { status: "ACKNOWLEDGED", acknowledgedAt: now },
+      });
+      return NextResponse.json({ data: updated });
+    }
+
+    // RA-8525: only the request that moves the visit to CANCELLED tells the
+    // technician, so a repeated or concurrent cancel sends nothing twice.
+    const cancelled = await prisma.jobAppointment.updateMany({
+      where: { id: appointmentId, status: { not: "CANCELLED" } },
+      data: { status: "CANCELLED", cancelledAt: now },
+    });
+    if (cancelled.count === 1 && existing.assignedUserId) {
+      // In-app notice and a calendar cancellation for the event the booking
+      // email added. Fire-and-forget (rule 13), started INSIDE after() so the
+      // response never waits on email and a failure never fails the cancel.
+      const runNotice = () =>
+        notifyTechnicianOfCancellation({ appointmentId }).catch((err) =>
+          console.error("[appointment-cancel-notice] cancel notice failed:", err),
+        );
+      try {
+        after(runNotice);
+      } catch {
+        // Outside a request scope after() throws; send without it.
+        void runNotice();
+      }
+    }
+    const updated = await prisma.jobAppointment.findUnique({
       where: { id: appointmentId },
-      data:
-        action === "acknowledge"
-          ? { status: "ACKNOWLEDGED", acknowledgedAt: now }
-          : { status: "CANCELLED", cancelledAt: now },
     });
 
     return NextResponse.json({ data: updated });

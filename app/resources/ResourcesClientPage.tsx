@@ -25,8 +25,7 @@ export default function ResourcesClientPage() {
     items: {
       title: string;
       description: string;
-      link?: string;
-      comingSoon?: boolean;
+      link: string;
     }[];
   }[] = [
     {
@@ -38,13 +37,8 @@ export default function ResourcesClientPage() {
           link: "/help",
         },
         {
-          title: "API Documentation",
-          description: "Integrate RestoreAssist with your systems",
-          comingSoon: true,
-        },
-        {
           title: "Compliance Library",
-          description: "Access compliance standards and guidelines",
+          description: "The standards restoration work is measured against",
           link: "/compliance-library",
         },
       ],
@@ -71,16 +65,6 @@ export default function ResourcesClientPage() {
           title: "Blog",
           description: "Read the latest updates and insights",
           link: "/blog",
-        },
-        {
-          title: "Case Studies",
-          description: "See how others use RestoreAssist",
-          comingSoon: true,
-        },
-        {
-          title: "Webinars",
-          description: "Join live training sessions",
-          comingSoon: true,
         },
       ],
     },
@@ -124,11 +108,6 @@ export default function ResourcesClientPage() {
                           >
                             {item.title}
                           </h3>
-                          {item.comingSoon ? (
-                            <span className="rounded-md border border-slate-200 bg-[#F3F5F7] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                              Coming Soon
-                            </span>
-                          ) : null}
                         </div>
                         <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
                           {item.description}
@@ -136,7 +115,9 @@ export default function ResourcesClientPage() {
                       </>
                     );
 
-                    return item.link ? (
+                    // Only shipped resources are listed (RA-8403): every
+                    // tile links somewhere real; nothing is listed before it ships.
+                    return (
                       <li key={item.title}>
                         <Link
                           href={item.link}
@@ -144,14 +125,6 @@ export default function ResourcesClientPage() {
                         >
                           {inner}
                         </Link>
-                      </li>
-                    ) : (
-                      <li
-                        key={item.title}
-                        aria-disabled="true"
-                        className="block rounded-xl p-3 opacity-70"
-                      >
-                        {inner}
                       </li>
                     );
                   })}

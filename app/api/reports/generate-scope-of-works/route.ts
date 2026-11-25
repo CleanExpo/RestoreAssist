@@ -15,6 +15,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 import { resolveReportPricing } from "@/lib/pricing/report-pricing";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -24,6 +25,15 @@ export async function POST(request: NextRequest) {
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
     });
   }
   const userId = session.user.id;
@@ -287,7 +297,7 @@ function buildScopeOfWorksDocument(scopeData: any): string {
   // Format line items with actual calculations
   const formatLineItems = (items: any[]) => {
     let output = "";
-    items.forEach((item: any, index: number) => {
+    items.forEach((item: any, _index: number) => {
       output += `\n## ${item.id}: ${item.description}\n\n`;
       output += `- **Qty:** ${item.qty}\n`;
       output += `- **Unit:** ${item.unit}\n`;
@@ -469,7 +479,7 @@ Note: All line items, quantities, rates, and calculations can be edited by the a
 }
 
 // Legacy function - kept for reference but not used
-function buildScopeOfWorksPrompt(scopeData: any): string {
+function _buildScopeOfWorksPrompt(scopeData: any): string {
   return `Generate a comprehensive Scope of Works document for RestoreAssist with the following structure:
 
 # SCOPE OF WORKS DATA

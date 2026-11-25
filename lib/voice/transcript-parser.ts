@@ -8,6 +8,7 @@
  */
 
 import type { ObservationType, ParsedObservation } from "./types";
+import { parseRoomObservation } from "./room-observation-parse";
 
 interface ParseResult {
   type: ObservationType;
@@ -69,7 +70,11 @@ const MOISTURE_RE =
 function extractRoom(text: string): string | undefined {
   const lower = text.toLowerCase();
   for (const [alias, canonical] of Object.entries(ROOM_ALIASES)) {
-    if (lower.includes(alias)) return canonical;
+    // RA-7694: an alias matches at the start of a word, and a short one only
+    // as a whole word. A bare substring test read "en" inside "intermittent"
+    // as the ensuite, which would print the wrong room in the report.
+    const re = new RegExp(`\\b${alias}${alias.length <= 3 ? "\\b" : ""}`);
+    if (re.test(lower)) return canonical;
   }
   return undefined;
 }
@@ -162,7 +167,7 @@ function isRoomEntry(text: string): boolean {
  */
 export function parseTranscript(transcript: string): ParseResult {
   const text = transcript.trim();
-  const lower = text.toLowerCase();
+  const _lower = text.toLowerCase();
 
   const room = extractRoom(text);
   const material = extractMaterial(text);
@@ -177,6 +182,24 @@ export function parseTranscript(transcript: string): ParseResult {
       type: "psychrometric",
       parsed: { room, note: text, s500Section: "§6" },
       confidence: "medium",
+      needsConfirmation: true,
+    };
+  }
+
+  // ── Room observation: odour, visible growth, staining (RA-7694) ──
+  // Before the category check: "sewage smell" is an odour, not Category 3.
+  // Always confirmed by the technician before it is kept: speech to text
+  // mishears, and these entries print in the report.
+  const roomObservation = parseRoomObservation(text);
+  if (roomObservation) {
+    return {
+      type: roomObservation.type,
+      parsed: {
+        room,
+        ...(material ? { material } : {}),
+        ...roomObservation.parsed,
+      },
+      confidence: room ? "medium" : "low",
       needsConfirmation: true,
     };
   }
@@ -275,6 +298,21 @@ export function buildConfirmationPrompt(
 
     case "equipment_note":
       return `Equipment noted${parsed.room ? ` in ${parsed.room}` : ""}. Want me to log it?`;
+
+    case "odour_observation": {
+      const bits = [
+        parsed.odourDescriptor,
+        parsed.odourPattern?.toLowerCase(),
+        parsed.odourIntensity ? `intensity ${parsed.odourIntensity} of 3` : undefined,
+      ].filter(Boolean);
+      return `Odour${parsed.room ? ` in ${parsed.room}` : ""}: ${bits.join(", ") || "noted"}. Keep it?`;
+    }
+
+    case "growth_observation":
+      return `Visible growth${parsed.room ? ` in ${parsed.room}` : ""}${parsed.areaM2 !== undefined ? `, about ${parsed.areaM2} square metres` : ""}. Keep it?`;
+
+    case "staining_observation":
+      return `Staining${parsed.room ? ` in ${parsed.room}` : ""}${parsed.material ? ` on ${parsed.material}` : ""}. Keep it?`;
 
     case "room_entry":
       return `Moving to ${parsed.room}.`;

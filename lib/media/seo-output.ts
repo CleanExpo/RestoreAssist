@@ -107,6 +107,8 @@ export interface SeoAssetInput {
     propertyAddress: string;
     propertyPostcode: string;
     propertySuburb?: string | null;
+    /** Prisma ClaimType, when the caller selected it (RA-8282). */
+    claimType?: string | null;
   } | null;
   tags: Array<{ category: string; value: string }>;
   workspace?: {
@@ -438,5 +440,4 @@ const RESTORATION_SERVICES = [
   "Mould Remediation",
   "Storm Damage Restoration",
   "Fire and Smoke Restoration",
-  "IICRC S500 Compliant Drying",
 ];

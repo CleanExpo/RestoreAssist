@@ -72,7 +72,8 @@ describe("waterDomain — happy path", () => {
     expect(headings).toContain("Evidence — moisture mapping");
     expect(headings).toContain("Scope rationale");
     expect(headings).toContain("Estimated duration");
-    expect(headings).toContain("Dry-standard reference");
+    // RA-8508: the fixed table is no longer presented as a standard.
+    expect(headings).toContain("Drying goal basis");
 
     // Citations aggregate IICRC S500 references.
     expect(r.data.citations.length).toBeGreaterThan(0);
@@ -224,8 +225,8 @@ describe("waterDomain — moisture summary", () => {
       (s) => s.heading === "Evidence — moisture mapping",
     );
     expect(evidence?.body).toContain("6 moisture readings");
-    expect(evidence?.body).toContain("2 above wet-standard");
-    expect(evidence?.body).toContain("1 in drying band");
+    expect(evidence?.body).toContain("2 wet");
+    expect(evidence?.body).toContain("1 drying");
     expect(evidence?.body).toContain("3 at or below");
   });
 });

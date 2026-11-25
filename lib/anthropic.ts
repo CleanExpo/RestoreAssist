@@ -42,7 +42,7 @@ export async function generateDetailedReport(
       {
         system: [
           createCachedSystemPrompt(
-            "You are an expert IICRC S500 certified water damage restoration specialist generating comprehensive, professional reports.",
+            "You are an experienced water damage restoration specialist who cites IICRC S500 by section number, generating comprehensive, professional reports.",
           ),
         ],
         max_tokens: 4000,
@@ -81,7 +81,7 @@ export async function generateDetailedReport(
 
 function createReportPrompt(data: ReportGenerationRequest): string {
   return `
-You are an expert IICRC S500 certified water damage restoration specialist. Generate a comprehensive, professional water damage restoration report based on the following information:
+You are an experienced water damage restoration specialist who cites IICRC S500 by section number. Generate a comprehensive, professional water damage restoration report based on the following information:
 
 ## BASIC INFORMATION
 - Title: ${data.basicInfo.title}

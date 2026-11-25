@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import {
+  SERVICE_CATALOGUE,
+  parseServicesOffered,
+} from "@/lib/crm/service-catalogue";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -59,8 +63,10 @@ interface ServiceArea {
 }
 
 export default function ContractorProfileDashboard() {
-  const { data: session, status } = useSession();
+  const { data: _session, status } = useSession();
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const confirm = useConfirmDialog();
 
   const [profile, setProfile] = useState<ContractorProfile | null>(null);
@@ -79,6 +85,9 @@ export default function ContractorProfileDashboard() {
   const [teamSize, setTeamSize] = useState("");
   const [isPubliclyVisible, setIsPubliclyVisible] = useState(true);
   const [specializations, setSpecializations] = useState("");
+  // RA-8220: services shown on the public Business Card.
+  const [offeredServices, setOfferedServices] = useState<string[]>([]);
+  const [customServices, setCustomServices] = useState("");
 
   // New certification form
   const [showAddCert, setShowAddCert] = useState(false);
@@ -104,7 +113,7 @@ export default function ContractorProfileDashboard() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/login");
+      routerRef.current.push("/login");
     } else if (status === "authenticated") {
       fetchProfile();
     }
@@ -138,6 +147,9 @@ export default function ContractorProfileDashboard() {
       setTeamSize(loaded?.teamSize?.toString() || "");
       setIsPubliclyVisible(loaded?.isPubliclyVisible ?? true);
       setSpecializations((loaded?.specializations || []).join(", "));
+      const offered = parseServicesOffered(loaded?.servicesOffered);
+      setOfferedServices(offered.services);
+      setCustomServices(offered.custom.join(", "));
 
       const certsData = certsRes.ok ? await certsRes.json() : {};
       setCertifications(certsData.certifications || []);
@@ -172,6 +184,10 @@ export default function ContractorProfileDashboard() {
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean),
+          servicesOffered: {
+            services: offeredServices,
+            custom: customServices.split(","),
+          },
         }),
       });
 
@@ -240,7 +256,7 @@ export default function ContractorProfileDashboard() {
           text: apiErrorMessage(data) || "Failed to add certification",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to add certification" });
     }
   };
@@ -265,7 +281,7 @@ export default function ContractorProfileDashboard() {
       } else {
         setMessage({ type: "error", text: "Failed to delete certification" });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to delete certification" });
     }
   };
@@ -305,7 +321,7 @@ export default function ContractorProfileDashboard() {
           text: apiErrorMessage(data) || "Failed to add service area",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to add service area" });
     }
   };
@@ -330,7 +346,7 @@ export default function ContractorProfileDashboard() {
       } else {
         setMessage({ type: "error", text: "Failed to delete service area" });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to delete service area" });
     }
   };
@@ -338,7 +354,7 @@ export default function ContractorProfileDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-slate-400">Loading profile...</div>
+        <div className="text-brand-slate dark:text-slate-400">Loading profile...</div>
       </div>
     );
   }
@@ -347,12 +363,12 @@ export default function ContractorProfileDashboard() {
     <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <confirm.Mount />
       <ContractorsBackLink />
-      <h1 className="text-3xl font-bold text-white mb-8">Contractor Profile</h1>
+      <h1 className="text-3xl font-bold text-brand-navy dark:text-white mb-8">Contractor Profile</h1>
 
       {loadError && (
         <div
           role="alert"
-          className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-400">
           {loadError}
           <button
             type="button"
@@ -373,8 +389,8 @@ export default function ContractorProfileDashboard() {
           role={message.type === "error" ? "alert" : "status"}
           className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
             message.type === "success"
-              ? "bg-green-500/10 border border-green-500/30 text-green-400"
-              : "bg-red-500/10 border border-red-500/30 text-red-400"
+              ? "bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400"
+              : "bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400"
           }`}
         >
           {message.type === "success" ? (
@@ -388,18 +404,18 @@ export default function ContractorProfileDashboard() {
 
       {/* Verification Status */}
       {profile && (
-        <div className="mb-6 p-4 bg-slate-800/30 border border-slate-700 rounded-lg flex items-center justify-between">
+        <div className="mb-6 p-4 bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Shield
-              className={`h-6 w-6 ${profile.isVerified ? "text-cyan-400" : "text-slate-500"}`}
+              className={`h-6 w-6 ${profile.isVerified ? "text-brand-harbour-700 dark:text-brand-harbour-400" : "text-slate-500"}`}
             />
             <div>
-              <div className="text-white font-medium">
+              <div className="text-brand-navy dark:text-white font-medium">
                 {profile.isVerified
                   ? "Verified Contractor"
                   : "Not Yet Verified"}
               </div>
-              <div className="text-sm text-slate-400">
+              <div className="text-sm text-brand-slate dark:text-slate-400">
                 {profile.isVerified
                   ? "Your profile is verified"
                   : "Submit certifications for verification"}
@@ -407,10 +423,10 @@ export default function ContractorProfileDashboard() {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-brand-navy dark:text-white">
               {profile.averageRating.toFixed(1)}/5.0
             </div>
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-brand-slate dark:text-slate-400">
               {profile.totalReviews} reviews
             </div>
           </div>
@@ -418,53 +434,53 @@ export default function ContractorProfileDashboard() {
       )}
 
       {/* Basic Profile */}
-      <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-semibold text-white mb-6">
+      <div className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-6 mb-8">
+        <h2 className="text-xl font-semibold text-brand-navy dark:text-white mb-6">
           Basic Information
         </h2>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
               Public Description
             </label>
             <textarea
               value={publicDescription}
               onChange={(e) => setPublicDescription(e.target.value)}
               rows={4}
-              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               placeholder="Describe your business and services..."
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                 Years in Business
               </label>
               <input
                 type="number"
                 value={yearsInBusiness}
                 onChange={(e) => setYearsInBusiness(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                 Team Size
               </label>
               <input
                 type="number"
                 value={teamSize}
                 onChange={(e) => setTeamSize(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
               Specializations (comma-separated)
             </label>
             <input
@@ -472,9 +488,54 @@ export default function ContractorProfileDashboard() {
               value={specializations}
               onChange={(e) => setSpecializations(e.target.value)}
               placeholder="e.g. Water Damage, Fire Restoration, Mould Remediation"
-              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
             />
           </div>
+
+          <fieldset>
+            <legend className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-1">
+              Services you offer
+            </legend>
+            <p className="text-xs text-brand-slate/80 dark:text-slate-400 mb-3">
+              Shown on your public Business Card, and used to suggest a client&apos;s next service after a job.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {SERVICE_CATALOGUE.map((svc) => (
+                <label
+                  key={svc.id}
+                  className="flex items-center gap-2 text-sm text-brand-navy dark:text-slate-200"
+                >
+                  <input
+                    type="checkbox"
+                    checked={offeredServices.includes(svc.id)}
+                    onChange={(e) =>
+                      setOfferedServices((prev) =>
+                        e.target.checked
+                          ? [...prev, svc.id]
+                          : prev.filter((id) => id !== svc.id),
+                      )
+                    }
+                    className="w-4 h-4 text-brand-harbour-500 bg-brand-cream dark:bg-slate-700 border-slate-600 rounded focus:ring-brand-harbour-500"
+                  />
+                  {svc.label}
+                </label>
+              ))}
+            </div>
+            <label
+              htmlFor="customServices"
+              className="block text-sm font-medium text-brand-slate dark:text-slate-300 mt-4 mb-2"
+            >
+              Other services (comma-separated)
+            </label>
+            <input
+              id="customServices"
+              type="text"
+              value={customServices}
+              onChange={(e) => setCustomServices(e.target.value)}
+              placeholder="e.g. Pressure washing, Window cleaning"
+              className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
+            />
+          </fieldset>
 
           <div className="flex items-center gap-3">
             <input
@@ -482,11 +543,11 @@ export default function ContractorProfileDashboard() {
               id="isPubliclyVisible"
               checked={isPubliclyVisible}
               onChange={(e) => setIsPubliclyVisible(e.target.checked)}
-              className="w-4 h-4 text-cyan-500 bg-slate-700 border-slate-600 rounded focus:ring-cyan-500"
+              className="w-4 h-4 text-brand-harbour-500 bg-brand-cream dark:bg-slate-700 border-slate-600 rounded focus:ring-brand-harbour-500"
             />
             <label
               htmlFor="isPubliclyVisible"
-              className="text-sm text-slate-300"
+              className="text-sm text-brand-slate dark:text-slate-300"
             >
               Make profile publicly visible in directory
             </label>
@@ -495,7 +556,7 @@ export default function ContractorProfileDashboard() {
           <button
             onClick={saveProfile}
             disabled={saving}
-            className="flex items-center gap-2 px-6 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors disabled:opacity-50"
           >
             <Save className="h-5 w-5" />
             {saving ? "Saving..." : "Save Profile"}
@@ -504,12 +565,12 @@ export default function ContractorProfileDashboard() {
       </div>
 
       {/* Certifications */}
-      <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6 mb-8">
+      <div className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-6 mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">Certifications</h2>
+          <h2 className="text-xl font-semibold text-brand-navy dark:text-white">Certifications</h2>
           <button
             onClick={() => setShowAddCert(!showAddCert)}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
           >
             <Plus className="h-5 w-5" />
             Add Certification
@@ -518,10 +579,10 @@ export default function ContractorProfileDashboard() {
 
         {/* Add Certification Form */}
         {showAddCert && (
-          <div className="mb-6 p-4 bg-slate-700/30 border border-slate-600 rounded-lg space-y-4">
+          <div className="mb-6 p-4 bg-brand-cream dark:bg-slate-700/30 border border-slate-600 rounded-lg space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                   Certification Type *
                 </label>
                 <select
@@ -532,7 +593,7 @@ export default function ContractorProfileDashboard() {
                       certificationType: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 >
                   <option value="">Select type...</option>
                   <option value="IICRC_WRT">
@@ -552,7 +613,7 @@ export default function ContractorProfileDashboard() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                   Certification Name *
                 </label>
                 <input
@@ -564,12 +625,12 @@ export default function ContractorProfileDashboard() {
                       certificationName: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                   Issuing Body *
                 </label>
                 <input
@@ -578,12 +639,12 @@ export default function ContractorProfileDashboard() {
                   onChange={(e) =>
                     setNewCert({ ...newCert, issuingBody: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                   Certification Number
                 </label>
                 <input
@@ -595,12 +656,12 @@ export default function ContractorProfileDashboard() {
                       certificationNumber: e.target.value,
                     })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                   Issue Date *
                 </label>
                 <input
@@ -609,12 +670,12 @@ export default function ContractorProfileDashboard() {
                   onChange={(e) =>
                     setNewCert({ ...newCert, issueDate: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                   Expiry Date
                 </label>
                 <input
@@ -623,7 +684,7 @@ export default function ContractorProfileDashboard() {
                   onChange={(e) =>
                     setNewCert({ ...newCert, expiryDate: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
             </div>
@@ -631,7 +692,7 @@ export default function ContractorProfileDashboard() {
             <div className="flex gap-2">
               <button
                 onClick={addCertification}
-                className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+                className="px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
               >
                 Add Certification
               </button>
@@ -647,7 +708,7 @@ export default function ContractorProfileDashboard() {
 
         {/* Certifications List */}
         {certifications.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">
+          <div className="text-center py-8 text-brand-slate dark:text-slate-400">
             {isConfirmedEmpty(loadError, certifications.length)
               ? "No certifications added yet"
               : "Certifications could not be loaded"}
@@ -657,15 +718,15 @@ export default function ContractorProfileDashboard() {
             {certifications.map((cert) => (
               <div
                 key={cert.id}
-                className="flex items-start justify-between p-4 bg-slate-700/30 border border-slate-600 rounded-lg"
+                className="flex items-start justify-between p-4 bg-brand-cream dark:bg-slate-700/30 border border-slate-600 rounded-lg"
               >
                 <div className="flex items-start gap-3">
-                  <Award className="h-6 w-6 text-cyan-400 flex-shrink-0 mt-1" />
+                  <Award className="h-6 w-6 text-brand-harbour-700 dark:text-brand-harbour-400 flex-shrink-0 mt-1" />
                   <div>
-                    <div className="font-medium text-white">
+                    <div className="font-medium text-brand-navy dark:text-white">
                       {cert.certificationName}
                     </div>
-                    <div className="text-sm text-slate-400">
+                    <div className="text-sm text-brand-slate dark:text-slate-400">
                       {cert.issuingBody}
                     </div>
                     {cert.certificationNumber && (
@@ -674,11 +735,11 @@ export default function ContractorProfileDashboard() {
                       </div>
                     )}
                     <div className="flex items-center gap-4 mt-2 text-sm">
-                      <span className="text-slate-400">
+                      <span className="text-brand-slate dark:text-slate-400">
                         Issued: {new Date(cert.issueDate).toLocaleDateString()}
                       </span>
                       {cert.expiryDate && (
-                        <span className="text-slate-400">
+                        <span className="text-brand-slate dark:text-slate-400">
                           Expires:{" "}
                           {new Date(cert.expiryDate).toLocaleDateString()}
                         </span>
@@ -686,10 +747,10 @@ export default function ContractorProfileDashboard() {
                       <span
                         className={`px-2 py-1 rounded text-xs ${
                           cert.verificationStatus === "VERIFIED"
-                            ? "bg-green-500/10 text-green-400 border border-green-500/30"
+                            ? "bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/30"
                             : cert.verificationStatus === "PENDING"
-                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                              : "bg-red-500/10 text-red-400 border border-red-500/30"
+                              ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+                              : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/30"
                         }`}
                       >
                         {cert.verificationStatus}
@@ -712,12 +773,12 @@ export default function ContractorProfileDashboard() {
       </div>
 
       {/* Service Areas */}
-      <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
+      <div className="bg-white dark:bg-slate-800/30 border border-brand-mist dark:border-slate-700 rounded-lg p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">Service Areas</h2>
+          <h2 className="text-xl font-semibold text-brand-navy dark:text-white">Service Areas</h2>
           <button
             onClick={() => setShowAddArea(!showAddArea)}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
           >
             <Plus className="h-5 w-5" />
             Add Service Area
@@ -726,10 +787,10 @@ export default function ContractorProfileDashboard() {
 
         {/* Add Service Area Form */}
         {showAddArea && (
-          <div className="mb-6 p-4 bg-slate-700/30 border border-slate-600 rounded-lg space-y-4">
+          <div className="mb-6 p-4 bg-brand-cream dark:bg-slate-700/30 border border-slate-600 rounded-lg space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                   Postcode *
                 </label>
                 <input
@@ -740,12 +801,12 @@ export default function ContractorProfileDashboard() {
                   }
                   placeholder="e.g. 2000"
                   maxLength={4}
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                   Suburb
                 </label>
                 <input
@@ -754,12 +815,12 @@ export default function ContractorProfileDashboard() {
                   onChange={(e) =>
                     setNewArea({ ...newArea, suburb: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                   State *
                 </label>
                 <select
@@ -767,7 +828,7 @@ export default function ContractorProfileDashboard() {
                   onChange={(e) =>
                     setNewArea({ ...newArea, state: e.target.value })
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-lg text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
                 >
                   <option value="">Select state...</option>
                   <option value="NSW">NSW</option>
@@ -785,7 +846,7 @@ export default function ContractorProfileDashboard() {
             <div className="flex gap-2">
               <button
                 onClick={addServiceArea}
-                className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+                className="px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
               >
                 Add Service Area
               </button>
@@ -801,7 +862,7 @@ export default function ContractorProfileDashboard() {
 
         {/* Service Areas List */}
         {serviceAreas.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">
+          <div className="text-center py-8 text-brand-slate dark:text-slate-400">
             {isConfirmedEmpty(loadError, serviceAreas.length)
               ? "No service areas added yet"
               : "Service areas could not be loaded"}
@@ -811,16 +872,16 @@ export default function ContractorProfileDashboard() {
             {serviceAreas.map((area) => (
               <div
                 key={area.id}
-                className="flex items-center justify-between p-4 bg-slate-700/30 border border-slate-600 rounded-lg"
+                className="flex items-center justify-between p-4 bg-brand-cream dark:bg-slate-700/30 border border-slate-600 rounded-lg"
               >
                 <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5 text-cyan-400" />
+                  <MapPin className="h-5 w-5 text-brand-harbour-700 dark:text-brand-harbour-400" />
                   <div>
-                    <div className="font-medium text-white">
+                    <div className="font-medium text-brand-navy dark:text-white">
                       {area.suburb ? `${area.suburb}, ` : ""}
                       {area.postcode}
                     </div>
-                    <div className="text-sm text-slate-400">{area.state}</div>
+                    <div className="text-sm text-brand-slate dark:text-slate-400">{area.state}</div>
                   </div>
                 </div>
                 <button

@@ -305,7 +305,7 @@ function findHedgingWords(scope: string): string[] {
     const pattern = new RegExp(`\\b${escaped}\\b(?!\\s*\\d)`, "gi");
     const matches = lowerScope.match(pattern);
     if (matches) {
-      for (const m of matches) {
+      for (const _m of matches) {
         found.push(word);
       }
     }
@@ -330,7 +330,7 @@ function scoreCategoryCompliance(
     return 100; // Category 1 has no special requirements
   }
 
-  const lowerScope = scope.toLowerCase();
+  const _lowerScope = scope.toLowerCase();
   let score = 0;
 
   if (damageCategory === 2) {

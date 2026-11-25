@@ -24,6 +24,15 @@ import {
   MARGOT_WELCOME,
 } from "@/lib/margot-surface";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  FAB_DRAG_THRESHOLD,
+  FAB_PANEL_GAP,
+  FAB_SIZE,
+  FAB_STORAGE_KEY,
+  clampFabPosition,
+  parseFabPosition,
+  type FabPosition,
+} from "@/components/chatbot-position";
 
 interface Message {
   id: string;
@@ -53,7 +62,7 @@ const SUGGESTED_QUESTIONS = [
   "How do I create a new inspection report?",
   "What is the difference between Scope of Works and Cost Estimation?",
   "How do I upload a PDF inspection report?",
-  "What standards does Restore Assist use for compliance?",
+  "What standards does RestoreAssist use for compliance?",
   "How do I configure equipment pricing?",
   "Can you explain the 8-step workflow?",
   "How do I generate a Scope of Works document?",
@@ -128,7 +137,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [_isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   // Voice state
   const [isListening, setIsListening] = useState(false);
@@ -146,7 +155,93 @@ export default function Chatbot() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
 
-  const userName = session?.user?.name || "there";
+  // Button position. null = the default, lifted clear of the bottom bars; once
+  // the user drags the button the chosen spot is kept in this browser.
+  const [fabPos, setFabPos] = useState<FabPosition | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startRight: number;
+    startBottom: number;
+    moved: boolean;
+    last: FabPosition | null;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      const saved = parseFabPosition(window.localStorage.getItem(FAB_STORAGE_KEY));
+      if (saved) {
+        setFabPos(
+          clampFabPosition(saved, {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          }),
+        );
+      }
+    } catch {
+      // storage unavailable: keep the default position
+    }
+  }, []);
+
+  const onFabPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startRight: window.innerWidth - rect.right,
+      startBottom: window.innerHeight - rect.bottom,
+      moved: false,
+      last: null,
+    };
+  };
+
+  const onFabPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < FAB_DRAG_THRESHOLD) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    }
+    const next = clampFabPosition(
+      { right: drag.startRight - dx, bottom: drag.startBottom - dy },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
+    drag.last = next;
+    setFabPos(next);
+  };
+
+  const onFabPointerEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    dragRef.current = null;
+    if (!drag.moved) return;
+    // The press that ended a drag must not also open or close the chat.
+    suppressClickRef.current = true;
+    try {
+      if (drag.last) {
+        window.localStorage.setItem(FAB_STORAGE_KEY, JSON.stringify(drag.last));
+      }
+    } catch {
+      // storage unavailable: the position holds for this visit only
+    }
+  };
+
+  const onFabClick = () => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    setIsOpen((open) => !open);
+  };
+
+  const _userName = session?.user?.name || "there";
 
   // Close language menu on outside click
   useEffect(() => {
@@ -433,11 +528,18 @@ export default function Chatbot() {
     <>
       {/* Chat Button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 w-16 h-16 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-[100] group p-1"
+        onClick={onFabClick}
+        onPointerDown={onFabPointerDown}
+        onPointerMove={onFabPointerMove}
+        onPointerUp={onFabPointerEnd}
+        onPointerCancel={onFabPointerEnd}
+        data-margot-button=""
+        className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 md:right-6 w-16 h-16 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-[box-shadow,transform] duration-300 flex items-center justify-center z-[100] group p-1 touch-none"
         style={{
           position: "fixed",
           boxShadow: isOpen ? undefined : `0 8px 28px ${MARGOT_ACCENT}66`,
+          // A dragged position replaces the default offsets.
+          ...(fabPos ? { right: fabPos.right, bottom: fabPos.bottom } : {}),
         }}
         aria-label={isOpen ? "Close chat" : `Open ${MARGOT_DISPLAY_NAME}`}
       >
@@ -468,8 +570,19 @@ export default function Chatbot() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-24 right-6 w-96 h-[600px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl flex flex-col z-[100] animate-fade-in"
-          style={{ position: "fixed" }}
+          data-margot-window=""
+          className="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom,0px))] right-4 md:right-6 w-96 max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100dvh-11rem)] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl flex flex-col z-[100] animate-fade-in"
+          style={{
+            position: "fixed",
+            // Sits just above the button, wherever the button has been moved.
+            ...(fabPos
+              ? {
+                  right: fabPos.right,
+                  bottom: fabPos.bottom + FAB_SIZE + FAB_PANEL_GAP,
+                  maxHeight: `calc(100dvh - ${fabPos.bottom + FAB_SIZE + FAB_PANEL_GAP + 16}px)`,
+                }
+              : {}),
+          }}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-t-lg">
@@ -518,7 +631,7 @@ export default function Chatbot() {
                         }}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
                           selectedLanguage.code === lang.code
-                            ? "bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 font-medium"
+                            ? "bg-brand-harbour-50 dark:bg-brand-harbour-900/20 text-brand-harbour-600 dark:text-brand-harbour-400 font-medium"
                             : "text-slate-700 dark:text-slate-300"
                         }`}
                       >
@@ -554,10 +667,10 @@ export default function Chatbot() {
                   isSpeaking ? (
                     <Volume2
                       size={16}
-                      className="text-cyan-500 animate-pulse"
+                      className="text-brand-harbour-500 animate-pulse"
                     />
                   ) : (
-                    <Volume2 size={16} className="text-cyan-500" />
+                    <Volume2 size={16} className="text-brand-harbour-500" />
                   )
                 ) : (
                   <VolumeX
@@ -612,7 +725,7 @@ export default function Chatbot() {
                 <div
                   className={`max-w-[80%] rounded-lg px-4 py-2 ${
                     message.role === "user"
-                      ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
+                      ? "bg-gradient-to-r from-blue-500 to-brand-harbour-500 text-white"
                       : "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                   }`}
                 >
@@ -699,7 +812,7 @@ export default function Chatbot() {
               <div className="flex justify-start">
                 <div className="bg-slate-100 dark:bg-slate-700 rounded-lg px-4 py-2">
                   <Loader2
-                    className="animate-spin text-cyan-500 dark:text-cyan-400"
+                    className="animate-spin text-brand-harbour-500 dark:text-brand-harbour-400"
                     size={16}
                   />
                 </div>
@@ -717,7 +830,7 @@ export default function Chatbot() {
                   {[0, 1, 2].map((i) => (
                     <div
                       key={i}
-                      className="w-1 bg-cyan-500 rounded-full animate-pulse"
+                      className="w-1 bg-brand-harbour-500 rounded-full animate-pulse"
                       style={{
                         height: "12px",
                         animationDelay: `${i * 0.15}s`,
@@ -725,7 +838,7 @@ export default function Chatbot() {
                     />
                   ))}
                 </div>
-                <span className="text-xs text-cyan-500 font-medium">
+                <span className="text-xs text-brand-harbour-500 font-medium">
                   Listening ({currentLang.flag} {currentLang.label})…
                 </span>
               </div>
@@ -772,13 +885,13 @@ export default function Chatbot() {
                     : `Type or speak in ${currentLang.label}…`
                 }
                 disabled={isLoading || isListening}
-                className="flex-1 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-400 disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-400 disabled:opacity-50"
               />
 
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 aria-label="Send message"
               >
                 {isLoading ? (

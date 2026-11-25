@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { QuickMoistureEntry } from "@/components/mobile/QuickMoistureEntry";
 import { MobileNav } from "@/components/mobile/MobileNav";
 import { Badge } from "@/components/ui/badge";
+import { SiteVisitPanel } from "@/components/inspection/SiteVisitPanel";
 import {
   moistureReadingsRequired,
   type IicrcClaimType,
@@ -76,7 +77,9 @@ const STATUS_LABEL: Record<string, string> = {
   CLOSED: "Closed",
 };
 
-type TabId = "readings" | "checklist";
+// RA-8498: "visit" is the site visit record (arrival, departure, who was on
+// site, front photo, equipment); every claim type has it.
+type TabId = "visit" | "readings" | "checklist";
 
 export default function FieldModePage({ params }: PageProps) {
   const { id: inspectionId } = use(params);
@@ -149,9 +152,11 @@ export default function FieldModePage({ params }: PageProps) {
         // water job, whose default tab is readings.
         if (loadedFor.current !== inspectionId) {
           setTab(
-            needsMoisture && window.location.hash !== "#checklist"
-              ? "readings"
-              : "checklist",
+            window.location.hash === "#visit"
+              ? "visit"
+              : needsMoisture && window.location.hash !== "#checklist"
+                ? "readings"
+                : "checklist",
           );
         }
         loadedFor.current = inspectionId;
@@ -180,6 +185,7 @@ export default function FieldModePage({ params }: PageProps) {
   useEffect(() => {
     const onHash = () => {
       if (window.location.hash === "#checklist") setTab("checklist");
+      if (window.location.hash === "#visit") setTab("visit");
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -206,29 +212,29 @@ export default function FieldModePage({ params }: PageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand-canvas flex items-center justify-center">
-        <RefreshCw className="h-6 w-6 text-white/30 animate-spin" />
+      <div className="min-h-screen bg-brand-cloud dark:bg-brand-canvas flex items-center justify-center">
+        <RefreshCw className="h-6 w-6 text-brand-slate dark:text-white/30 animate-spin" />
       </div>
     );
   }
 
   if (loadError || !inspection) {
     return (
-      <div className="min-h-screen bg-brand-canvas text-white flex flex-col items-center justify-center gap-4 px-6">
-        <p className="text-sm text-white/70 text-center">
+      <div className="min-h-screen bg-brand-cloud dark:bg-brand-canvas text-brand-navy dark:text-white flex flex-col items-center justify-center gap-4 px-6">
+        <p className="text-sm text-brand-slate dark:text-white/70 text-center">
           {loadError ?? "Inspection not found"}
         </p>
         <button
           type="button"
           onClick={() => setReadingsSaved((n) => n + 1)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-sm hover:bg-white/15"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-navy/5 dark:bg-white/10 text-sm hover:bg-brand-cream dark:hover:bg-white/15"
         >
           <RefreshCw className="h-4 w-4" />
           Retry
         </button>
         <Link
           href={`/dashboard/inspections/${inspectionId}`}
-          className="text-sm text-brand-gold"
+          className="text-sm text-brand-bronze dark:text-brand-gold"
         >
           Back to inspection
         </Link>
@@ -237,17 +243,17 @@ export default function FieldModePage({ params }: PageProps) {
   }
 
   const tabs: TabId[] = waterClaim
-    ? ["readings", "checklist"]
-    : ["checklist"];
+    ? ["visit", "readings", "checklist"]
+    : ["visit", "checklist"];
 
   return (
-    <div className="min-h-screen bg-brand-canvas text-white pb-20">
+    <div className="min-h-screen bg-brand-cloud dark:bg-brand-canvas text-brand-navy dark:text-white pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-brand-canvas/95 backdrop-blur border-b border-white/10">
+      <div className="sticky top-0 z-20 bg-brand-cloud dark:bg-brand-canvas/95 backdrop-blur border-b border-brand-mist dark:border-white/10">
         <div className="flex items-center gap-3 px-4 py-3">
           <button
             onClick={() => router.back()}
-            className="p-2 rounded-xl bg-white/5 text-white/60 hover:text-white active:scale-95"
+            className="p-2 rounded-xl bg-brand-navy/5 dark:bg-white/5 text-brand-slate dark:text-white/60 hover:text-brand-navy dark:hover:text-white active:scale-95"
             aria-label="Back"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -256,7 +262,7 @@ export default function FieldModePage({ params }: PageProps) {
             <p className="font-semibold text-sm truncate">
               {inspection.propertyAddress}
             </p>
-            <p className="text-xs text-white/40">
+            <p className="text-xs text-brand-slate dark:text-white/40">
               <span>{inspection.inspectionNumber}</span> ·{" "}
               {STATUS_LABEL[inspection.status] ?? inspection.status}
             </p>
@@ -269,7 +275,7 @@ export default function FieldModePage({ params }: PageProps) {
             ) : (
               <Badge
                 variant="outline"
-                className="border-amber-500 text-amber-400 text-xs"
+                className="border-amber-500 text-amber-700 dark:text-amber-400 text-xs"
               >
                 {criticalMissing.length} critical
               </Badge>
@@ -280,43 +286,43 @@ export default function FieldModePage({ params }: PageProps) {
         {refreshError && (
           <p
             role="status"
-            className="mx-4 mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+            className="mx-4 mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200"
           >
             {refreshError}
           </p>
         )}
 
         {/* Compact evidence readiness */}
-        <div className="mx-4 mb-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+        <div className="mx-4 mb-3 rounded-xl border border-brand-mist dark:border-white/10 bg-brand-navy/5 dark:bg-white/5 px-3 py-2.5">
           <div className="flex items-center justify-between gap-2 mb-1.5">
-            <p className="text-xs font-medium text-white/80 flex items-center gap-1.5">
+            <p className="text-xs font-medium text-brand-navy dark:text-white/80 flex items-center gap-1.5">
               <ClipboardCheck className="h-3.5 w-3.5 text-brand-gold" />
               Field readiness
             </p>
-            <span className="text-[10px] uppercase tracking-wide text-white/40">
+            <span className="text-[10px] uppercase tracking-wide text-brand-slate dark:text-white/40">
               {claimLabel}
             </span>
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/55">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-brand-slate dark:text-white/55">
             <span>
               Photos{" "}
-              <span className="text-white font-medium tabular-nums">
+              <span className="text-brand-navy dark:text-white font-medium tabular-nums">
                 {photoCount}
               </span>
             </span>
             {waterClaim ? (
               <span>
                 Moisture{" "}
-                <span className="text-white font-medium tabular-nums">
+                <span className="text-brand-navy dark:text-white font-medium tabular-nums">
                   {moistureCount}
                 </span>
               </span>
             ) : (
-              <span className="text-white/40">Moisture not required</span>
+              <span className="text-brand-slate dark:text-white/40">Moisture not required</span>
             )}
             <span>
               Checklist{" "}
-              <span className="text-white font-medium tabular-nums">
+              <span className="text-brand-navy dark:text-white font-medium tabular-nums">
                 {completedCount}/{checklist.length || "—"}
               </span>
             </span>
@@ -345,7 +351,7 @@ export default function FieldModePage({ params }: PageProps) {
             <Link
               key={action.label}
               href={action.href}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 text-white/60 text-sm hover:bg-white/10 active:scale-95 transition-all"
+              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand-navy/5 dark:bg-white/5 text-brand-slate dark:text-white/60 text-sm hover:bg-brand-cream dark:hover:bg-white/10 active:scale-95 transition-all"
             >
               <action.icon className="h-4 w-4" />
               {action.label}
@@ -354,7 +360,7 @@ export default function FieldModePage({ params }: PageProps) {
         </div>
 
         {/* Tab bar */}
-        <div className="flex border-t border-white/10">
+        <div className="flex border-t border-brand-mist dark:border-white/10">
           {tabs.map((t) => (
             <button
               key={t}
@@ -363,14 +369,18 @@ export default function FieldModePage({ params }: PageProps) {
                 "flex-1 py-3 text-sm font-medium transition-colors",
                 tab === t
                   ? "text-brand-gold border-b-2 border-brand-gold"
-                  : "text-white/40 hover:text-white/60",
+                  : "text-brand-slate dark:text-white/40 hover:text-brand-slate dark:hover:text-white/60",
               )}
             >
-              {t === "readings" ? (
+              {t === "visit" ? (
+                <span className="flex items-center justify-center gap-1.5">
+                  Visit
+                </span>
+              ) : t === "readings" ? (
                 <span className="flex items-center justify-center gap-1.5">
                   <Droplets className="h-4 w-4" />
                   Moisture
-                  <span className="ml-1 text-xs bg-white/10 px-1.5 py-0.5 rounded-full">
+                  <span className="ml-1 text-xs bg-brand-navy/5 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
                     {moistureCount}
                   </span>
                 </span>
@@ -378,7 +388,7 @@ export default function FieldModePage({ params }: PageProps) {
                 <span className="flex items-center justify-center gap-1.5">
                   <CheckCircle2 className="h-4 w-4" />
                   {waterClaim ? "S500 Checklist" : "Field checklist"}
-                  <span className="ml-1 text-xs bg-white/10 px-1.5 py-0.5 rounded-full">
+                  <span className="ml-1 text-xs bg-brand-navy/5 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
                     {completedCount}/{checklist.length}
                   </span>
                 </span>
@@ -390,6 +400,8 @@ export default function FieldModePage({ params }: PageProps) {
 
       {/* Tab content */}
       <div className="px-4 py-4">
+        {tab === "visit" && <SiteVisitPanel inspectionId={inspectionId} />}
+
         {tab === "readings" && waterClaim && (
           <div className="space-y-6">
             <QuickMoistureEntry
@@ -399,7 +411,7 @@ export default function FieldModePage({ params }: PageProps) {
 
             {moistureCount > 0 ? (
               <div>
-                <p className="text-xs text-white/40 uppercase tracking-wider mb-3">
+                <p className="text-xs text-brand-slate dark:text-white/40 uppercase tracking-wider mb-3">
                   Recent readings
                 </p>
                 <div className="space-y-2">
@@ -413,13 +425,13 @@ export default function FieldModePage({ params }: PageProps) {
                     .map((r) => (
                       <div
                         key={r.id}
-                        className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3"
+                        className="flex items-center justify-between bg-brand-navy/5 dark:bg-white/5 rounded-xl px-4 py-3"
                       >
                         <div>
-                          <p className="text-sm font-medium text-white">
+                          <p className="text-sm font-medium text-brand-navy dark:text-white">
                             {r.location}
                           </p>
-                          <p className="text-xs text-white/40">{r.surfaceType}</p>
+                          <p className="text-xs text-brand-slate dark:text-white/40">{r.surfaceType}</p>
                         </div>
                         <div className="text-right">
                           <p
@@ -428,7 +440,7 @@ export default function FieldModePage({ params }: PageProps) {
                               r.moistureLevel > 25
                                 ? "text-destructive"
                                 : r.moistureLevel > 15
-                                  ? "text-amber-400"
+                                  ? "text-amber-700 dark:text-amber-400"
                                   : "text-success",
                             )}
                           >
@@ -440,7 +452,7 @@ export default function FieldModePage({ params }: PageProps) {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-white/40 text-center py-6">
+              <p className="text-sm text-brand-slate dark:text-white/40 text-center py-6">
                 No moisture readings yet — add the first reading above.
               </p>
             )}
@@ -450,13 +462,13 @@ export default function FieldModePage({ params }: PageProps) {
         {tab === "checklist" && (
           <div id="checklist" className="space-y-3">
             {!waterClaim ? (
-              <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60 mb-2">
+              <div className="rounded-xl border border-brand-mist dark:border-white/10 bg-brand-navy/5 dark:bg-white/5 px-4 py-3 text-sm text-brand-slate dark:text-white/60 mb-2">
                 {claimLabel} claim — moisture readings are not required. Focus
                 on photos and claim-type evidence from the full inspection.
               </div>
             ) : null}
             {checklist.length === 0 ? (
-              <div className="text-center py-12 text-white/30">
+              <div className="text-center py-12 text-brand-slate dark:text-white/30">
                 <p className="text-sm">
                   {waterClaim
                     ? "Start an inspection to see the S500:2021 checklist"
@@ -465,16 +477,16 @@ export default function FieldModePage({ params }: PageProps) {
               </div>
             ) : (
               <>
-                <div className="bg-white/5 rounded-xl p-4 mb-4">
+                <div className="bg-brand-navy/5 dark:bg-white/5 rounded-xl p-4 mb-4">
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="text-white/60">
+                    <span className="text-brand-slate dark:text-white/60">
                       {waterClaim ? "S500:2021 completion" : "Checklist"}
                     </span>
                     <span className="font-medium">
                       {completedCount}/{checklist.length}
                     </span>
                   </div>
-                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-2 bg-brand-navy/5 dark:bg-white/10 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-brand-gold rounded-full transition-all"
                       style={{
@@ -494,7 +506,7 @@ export default function FieldModePage({ params }: PageProps) {
                   if (items.length === 0) return null;
                   return (
                     <div key={priority} className="space-y-2">
-                      <p className="text-xs text-white/40 uppercase tracking-wider pt-2">
+                      <p className="text-xs text-brand-slate dark:text-white/40 uppercase tracking-wider pt-2">
                         Priority {priority}
                       </p>
                       {items.map((item) => (
@@ -502,28 +514,28 @@ export default function FieldModePage({ params }: PageProps) {
                           key={item.id}
                           className={cn(
                             "flex items-start gap-3 rounded-xl px-4 py-3",
-                            item.complete ? "bg-white/5" : "bg-white/[0.07]",
+                            item.complete ? "bg-brand-navy/5 dark:bg-white/5" : "bg-white/[0.07]",
                           )}
                         >
                           {item.complete ? (
                             <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
                           ) : priority === 1 ? (
-                            <AlertCircle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                            <AlertCircle className="h-5 w-5 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
                           ) : (
-                            <Circle className="h-5 w-5 text-white/25 shrink-0 mt-0.5" />
+                            <Circle className="h-5 w-5 text-brand-slate dark:text-white/25 shrink-0 mt-0.5" />
                           )}
                           <div className="min-w-0 flex-1">
                             <p
                               className={cn(
                                 "text-sm",
                                 item.complete
-                                  ? "text-white/50 line-through"
-                                  : "text-white",
+                                  ? "text-brand-slate dark:text-white/50 line-through"
+                                  : "text-brand-navy dark:text-white",
                               )}
                             >
                               {item.label}
                             </p>
-                            <p className="text-xs text-white/30 mt-0.5">
+                            <p className="text-xs text-brand-slate dark:text-white/30 mt-0.5">
                               {item.s500Section}
                             </p>
                           </div>
@@ -537,7 +549,7 @@ export default function FieldModePage({ params }: PageProps) {
 
             <Link
               href={`/dashboard/inspections/${inspectionId}`}
-              className="mt-6 flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 text-sm text-white/60 hover:bg-white/10"
+              className="mt-6 flex items-center justify-center gap-2 py-3 rounded-xl bg-brand-navy/5 dark:bg-white/5 text-sm text-brand-slate dark:text-white/60 hover:bg-brand-cream dark:hover:bg-white/10"
             >
               Open full inspection
               <ChevronRight className="h-4 w-4" />

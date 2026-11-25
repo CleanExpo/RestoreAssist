@@ -24,7 +24,7 @@ export default function Header({ darkMode, setDarkMode }: HeaderProps) {
           <Link href="/">
             <Image
               src="/logo.png"
-              alt="Restore Assist Logo"
+              alt="RestoreAssist Logo"
               width={64}
               height={64}
               className="object-contain"

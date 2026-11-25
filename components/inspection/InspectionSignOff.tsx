@@ -165,7 +165,7 @@ export default function InspectionSignOff({
     setSignOffState("modal");
   };
 
-  const isInitial = signOffState === "initial";
+  const _isInitial = signOffState === "initial";
   const isModal = signOffState === "modal";
   const isFormUnlocked = signOffState === "form-unlocked";
 
@@ -177,7 +177,7 @@ export default function InspectionSignOff({
       >
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <PenLine className="h-5 w-5 text-cyan-500" aria-hidden />
+            <PenLine className="h-5 w-5 text-brand-harbour-500" aria-hidden />
             <h3
               id={`sign-off-heading-${inspectionId}`}
               className="text-base font-semibold text-neutral-900 dark:text-white"
@@ -213,7 +213,7 @@ export default function InspectionSignOff({
                 value={signatoryName}
                 onChange={(e) => setSignatoryName(e.target.value)}
                 placeholder="e.g. John Smith"
-                className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
 
@@ -230,7 +230,7 @@ export default function InspectionSignOff({
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 placeholder="e.g. Lead Technician"
-                className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
 
@@ -239,7 +239,7 @@ export default function InspectionSignOff({
                 type="checkbox"
                 checked={confirmed}
                 onChange={(e) => setConfirmed(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-cyan-500 focus:ring-cyan-500"
+                className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-brand-harbour-500 focus:ring-brand-harbour-500"
               />
               <span className="text-sm text-neutral-600 dark:text-neutral-400">
                 I confirm I have authority to sign this inspection report on
@@ -266,7 +266,7 @@ export default function InspectionSignOff({
             <Button
               onClick={performSubmit}
               disabled={submitting || !signatoryName.trim() || !confirmed}
-              className="gap-2 bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="gap-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white"
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -279,7 +279,7 @@ export default function InspectionSignOff({
             <Button
               onClick={handleStartSignOff}
               disabled={isModal}
-              className="gap-2 bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="gap-2 bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white"
             >
               {isModal ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

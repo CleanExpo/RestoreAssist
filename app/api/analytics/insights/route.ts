@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { canSeeMoney, moneySafe } from "@/lib/auth/redact-money";
 
 function getDateFilter(dateRange: string) {
   const now = new Date();
@@ -296,11 +297,13 @@ export async function GET(request: NextRequest) {
         ? `Slowest turnaround: ${slowestHazards[0].hazard} (avg ${slowestHazards[0].avgHours.toFixed(1)}h).`
         : "";
 
-    const summary = [revenueSentence, hazardSentence, turnaroundSentence]
+    // RA-8494: the revenue sentence is money; a technician's summary leaves it out.
+    const mayPrice = await canSeeMoney(session);
+    const summary = [mayPrice ? revenueSentence : "", hazardSentence, turnaroundSentence]
       .filter(Boolean)
       .join(" ");
 
-    return NextResponse.json({
+    return NextResponse.json(await moneySafe(session, {
       summary,
       periodComparison: {
         currentReports: currentReports.length,
@@ -322,7 +325,7 @@ export async function GET(request: NextRequest) {
         avgHours: Math.round(h.avgHours * 10) / 10,
         count: h.count,
       })),
-    });
+    }));
   } catch (error) {
     return fromException(request, error, { stage: "load" });
   }
