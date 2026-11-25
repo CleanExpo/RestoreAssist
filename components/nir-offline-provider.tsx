@@ -354,9 +354,25 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
     const { drainQueue } = await import("@/lib/nir-sync-queue");
     const { drainEvidenceQueue } = await import("@/lib/evidence-upload-queue");
     const { drainVoiceNoteQueue } = await import("@/lib/voice-note-queue");
+    // Claims first: each one's photo joins the evidence queue drained just below.
+    try {
+      const { drainOfflineClaims } = await import("@/lib/offline/claim-capture-queue");
+      await drainOfflineClaims();
+    } catch (err) {
+      // A failure here must not stop the existing queues from draining.
+      console.warn("[NIR Offline] Offline claim drain failed:", err);
+    }
     await Promise.all([drainQueue(), drainEvidenceQueue(), drainVoiceNoteQueue()]);
     await refreshStatus();
   }, [refreshStatus]);
+
+  // A session the server says does not exist ends the device copy that opens
+  // offline capture. Only a definite 401 does it, so a failed session fetch while
+  // offline never strands a technician (lib/offline/device-identity.ts).
+  useEffect(() => {
+    if (sessionStatus !== "unauthenticated") return;
+    void import("@/lib/offline/device-identity").then((m) => m.confirmDeviceIdentityOnline());
+  }, [sessionStatus]);
 
   useEffect(() => {
     setOfflineSession(sessionUserId);

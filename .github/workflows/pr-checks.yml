@@ -503,10 +503,23 @@ jobs:
   # The extra ~8 min also covers checkout / npm ci / prisma generate /
   # migrate deploy before vitest starts. Local durations are a floor: CI
   # runs the DATABASE_URL-gated files that skip without a DB.
-  unit-tests:
-    name: Unit Tests
+  #
+  # RA-8625 — the suite is split into 4 parallel shards (`vitest --shard i/4`).
+  # Each shard is a full job of its own: its own Postgres service, migrations
+  # and Prisma client, so DB-gated suites keep an isolated database and the
+  # ordering described below is unchanged. The timeout above was measured on
+  # the unsplit suite and is kept per shard (a shard runs about a quarter of it).
+  # The `unit-tests` job after this one is the single aggregate result named
+  # "Unit Tests"; read that, not the shards.
+  unit-tests-shard:
+    name: Unit Tests shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      # Let every shard finish so one failure never hides another's result.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
 
     services:
       postgres:
@@ -593,14 +606,41 @@ jobs:
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
 
       - name: Unit tests
-        # This package command is also the only valid local full-suite receipt.
-        # Feature-selected test totals must never be reported as PR parity.
-        run: npm run test:unit:full
+        # RA-8625 — one quarter of the suite per shard. `npm run test:unit:full`
+        # is vitest plus the pilot-harness package tests; the four shards
+        # together cover the same vitest files, and the pilot-harness step
+        # below runs once (shard 1), so nothing is run twice or dropped.
+        run: npm run test:unit -- --shard=${{ matrix.shard }}/4
         # RA-6685 — without DATABASE_URL the `skipIf(!process.env.DATABASE_URL)`
         # suites evaluate `skipIf(true)` and report green WITHOUT running.
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
+      - name: Pilot-harness package tests (once, on shard 1)
+        if: matrix.shard == 1
+        run: npm run test:pilot-harness
+
+  # RA-8625 — the one result that keeps the old check name ("Unit Tests").
+  # `if: always()` makes it run even when a shard fails or is cancelled; it
+  # passes only when the shard job's overall result is exactly `success`
+  # (failure, cancelled and skipped all fail it).
+  unit-tests:
+    name: Unit Tests
+    needs: [unit-tests-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every unit-test shard to succeed
+        env:
+          SHARDS_RESULT: ${{ needs.unit-tests-shard.result }}
+        run: |
+          echo "unit-tests-shard result: ${SHARDS_RESULT}"
+          if [ "${SHARDS_RESULT}" != "success" ]; then
+            echo "Unit tests did not pass (${SHARDS_RESULT})." >&2
+            exit 1
+          fi
 
   # RA-7708 — money oracle. Property tests pinning every persisted estimate
   # line to qty × rate (Decimal, ROUND_HALF_UP, 2dp), contingency as one

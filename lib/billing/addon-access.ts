@@ -81,7 +81,7 @@ export const SEAT_ON_TRIAL_REASON =
   "You can add technician seats during the free trial.";
 
 export const COMING_SOON_REASON =
-  "Coming soon. It cannot be added yet.";
+  "Not available yet. It cannot be added at the moment.";
 
 /**
  * Whether a pack's feature is switched on. Floor Plan Underlay unlocks only

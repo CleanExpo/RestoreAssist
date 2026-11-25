@@ -2,6 +2,7 @@ import { normalizeClaimType } from "@/lib/evidence/claim-type";
 import { ASBESTOS_PRESUMPTION_YEAR } from "@/lib/compliance/asbestos-era";
 import { MAKE_SAFE_SEED_NOTE } from "@/lib/compliance/make-safe-compliance";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 /**
  * The standard Stabilisation (make-safe) list: water, mould and every job
@@ -262,7 +263,7 @@ export async function persistMakeSafeChecklist(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(
-      apiErrorMessage(body) ?? `HTTP ${res.status}`,
+      apiErrorMessage(body) ?? statusErrorMessage(res.status),
     );
   }
 }

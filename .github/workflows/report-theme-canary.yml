@@ -1,0 +1,90 @@
+name: Report theme canary
+
+# RA-8110 — renders the report in every theme on a synthetic scenario and checks phone,
+# tablet and desktop width, reduced motion, print and PDF, axe, role isolation (a technician
+# never sees a price) and standardCite(). It needs no database and no login: the page it drives
+# answers only when ALLOW_TEST_HELPERS=true and shows synthetic data only. Scoped to the files
+# that can change what the report looks like. NOT a required check: it starts as a canary.
+# Screenshots and the dark-theme PDF are kept as a build artefact for a person to look at.
+
+on:
+  pull_request:
+    paths:
+      - "lib/report-experience/**"
+      - "components/report-experience/**"
+      - "app/dev/report-experience/**"
+      - "e2e/report-canary/**"
+      - "config/playwright.report-canary.config.ts"
+      - "lib/nir-standards-mapping.ts"
+      - "lib/auth/redact-money.ts"
+      - ".github/workflows/report-theme-canary.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lib/report-experience/**"
+      - "components/report-experience/**"
+      - "app/dev/report-experience/**"
+      - "e2e/report-canary/**"
+      - ".github/workflows/report-theme-canary.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: report-theme-canary-${{ github.event_name == 'push' && github.sha || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  report-theme-canary:
+    name: Report theme canary (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # Literal CI values, not secrets: the app and the spec read the same variable in this job.
+      ALLOW_TEST_HELPERS: "true"
+      NEXTAUTH_SECRET: report-canary-nextauth-secret-not-for-prod
+      NEXTAUTH_URL: http://localhost:3000
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      CREDENTIAL_ENCRYPTION_KEY: ci-not-a-real-key
+      CRON_SECRET: report-canary-cron-secret-not-for-prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Install Playwright OS dependencies
+        run: npx playwright install-deps chromium
+
+      - name: Install Playwright (chromium)
+        run: npx --no-install playwright install chromium
+
+      # config/playwright.report-canary.config.ts boots `npm run dev` itself.
+      - name: Run report theme canary
+        run: npx --no-install playwright test -c config/playwright.report-canary.config.ts --reporter=line e2e/report-canary/report-theme-canary.spec.ts
+
+      - name: Upload screenshots, PDFs and report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: report-theme-canary
+          path: |
+            test-results/report-canary/
+            playwright-report/report-canary/
+          retention-days: 14

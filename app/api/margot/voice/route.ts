@@ -24,7 +24,10 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { verifyAdminFromDb } from "@/lib/admin-auth";
+import {
+  verifyAdminFromDb,
+  verifyPlatformSupportOperator,
+} from "@/lib/admin-auth";
 import { apiError, fromException } from "@/lib/api-errors";
 import { textToSpeech } from "@/lib/elevenlabs/client";
 import {
@@ -42,6 +45,9 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+    // Every firm owner is an ADMIN; voice spend is RestoreAssist staff only.
+    const operator = verifyPlatformSupportOperator(auth);
+    if (operator.response) return operator.response;
     const userId = auth.user!.id;
 
     const body = (await request.json()) as { text?: unknown };

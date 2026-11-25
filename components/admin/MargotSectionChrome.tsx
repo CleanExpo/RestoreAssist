@@ -37,12 +37,6 @@ const TABS = [
     icon: "shield",
     match: (path: string) => path.startsWith("/dashboard/margot/social"),
   },
-  {
-    href: "/dashboard/mission-control",
-    label: "Mission Control",
-    icon: "task",
-    match: (path: string) => path.startsWith("/dashboard/mission-control"),
-  },
 ] as const;
 
 export function MargotSectionChrome({

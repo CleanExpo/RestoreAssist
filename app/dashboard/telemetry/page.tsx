@@ -45,7 +45,7 @@ export default async function ProgressTelemetryPage() {
       <header>
         <h1 className="text-2xl font-semibold">Progress Telemetry</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Last 30 days · M-17 ship-blocker (RA-1392)
+          Last 30 days
         </p>
       </header>
 

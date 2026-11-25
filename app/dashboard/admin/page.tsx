@@ -232,12 +232,6 @@ export default function AdminDashboardPage() {
           Margot
         </a>
         <a
-          href="/dashboard/mission-control"
-          className="underline text-brand-harbour-600 dark:text-brand-harbour-400"
-        >
-          Mission Control
-        </a>
-        <a
           href="/dashboard/admin/rag"
           className="underline text-brand-harbour-600 dark:text-brand-harbour-400"
         >

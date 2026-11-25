@@ -60,6 +60,8 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: vi.fn(async () => ({ count: 0 })),
       createMany: vi.fn(),
     },
+    // RA-8576: the stale-room reconcile takes a row lock first.
+    $queryRaw: vi.fn(async () => []),
     $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
   },
 }));

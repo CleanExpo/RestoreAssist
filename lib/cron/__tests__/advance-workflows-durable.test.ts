@@ -223,10 +223,12 @@ describe.skipIf(!process.env.DATABASE_URL)("RA-7999 advance-workflows cron with 
   });
 
   it("[AC6] regression pin only: a stale PAUSED workflow with an expired lease is kept, not failed or swept", async () => {
-    const { workflowId, ids } = await makeWorkflow([{ key: "a", agentSlug: slug }], {
-      status: "PAUSED",
-    });
+    const { workflowId, ids } = await makeWorkflow([{ key: "a", agentSlug: slug }]);
     const claim = await claimTask(ids.a, 15_000);
+    await prisma.agentWorkflow.update({
+      where: { id: workflowId },
+      data: { status: "PAUSED" },
+    });
     await expireLease(ids.a);
     await backdateWorkflowActivity(workflowId, HOUR);
 
