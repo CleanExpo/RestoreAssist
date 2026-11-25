@@ -72,7 +72,7 @@ function labelFor(state: ConnState): string {
     case "error":
       return "Needs attention";
     case "coming_soon":
-      return "Coming soon";
+      return "Not available";
     default:
       return "Checking…";
   }
@@ -210,7 +210,7 @@ export default function ConnectionsSettingsPage() {
       } else if (!onedrive?.enabled) {
         setCloudState({
           state: "missing",
-          detail: "Choose Google Drive for evidence mirroring (OneDrive coming soon)",
+          detail: "Choose Google Drive for evidence mirroring",
         });
       } else {
         setCloudState({
@@ -266,23 +266,12 @@ export default function ConnectionsSettingsPage() {
       id: "cloud",
       title: "Cloud mirror",
       description:
-        "Mirror viewing-quality evidence to Google Drive after capture. OneDrive coming soon.",
+        "Mirror viewing-quality evidence to Google Drive after capture.",
       href: "/dashboard/settings/cloud-mirror",
       icon: ChromeCloud,
       state: cloudState.state,
       detail: cloudState.detail,
       manageLabel: "Manage cloud mirror",
-    },
-    {
-      id: "icloud",
-      title: "iCloud",
-      description:
-        "Apple CloudKit mirroring is planned. Not available yet — we will not fake a connection.",
-      href: "/dashboard/settings/cloud-mirror",
-      icon: ChromeCloud,
-      state: "coming_soon",
-      detail: "Requires CloudKit — Coming soon",
-      manageLabel: "View cloud options",
     },
   ];
 

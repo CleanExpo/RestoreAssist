@@ -81,7 +81,7 @@ export async function parseApiError(
 
   return {
     code: "UNKNOWN",
-    message: `Request failed (HTTP ${response.status})`,
+    message: "Something went wrong. Try again in a moment.",
     status: response.status,
   };
 }

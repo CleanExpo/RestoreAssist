@@ -144,7 +144,6 @@ export const ENV_SCHEMA = {
   MISSION_CONTROL_WORKERS: { required: false },
   LINEAR_RA_TODO_STATE_ID: { required: false },
   HERMES_BASE_URL: { required: false },
-  NEXT_PUBLIC_HERMES_OPS_URL: { required: false },
   MARGOT_NEXUS_CONTEXT: { required: false },
   TELEGRAM_BOT_TOKEN: { required: false },
   TELEGRAM_CHAT_ID: { required: false },
@@ -278,4 +277,13 @@ export function readEnv(name: EnvName): string | undefined {
 export function readDeclaredEnv(name: string): string | undefined {
   if (!isDeclaredEnvName(name)) return undefined;
   return Object.hasOwn(process.env, name) ? process.env[name] : undefined;
+}
+
+/**
+ * True when this process is a production build (`NODE_ENV=production`), which is what
+ * every deployed environment runs. For development-only and test-only pages that must
+ * answer 404 there (RA-8110). NODE_ENV is set by Next itself, so it is not in ENV_SCHEMA.
+ */
+export function isProductionBuild(): boolean {
+  return process.env.NODE_ENV === "production";
 }

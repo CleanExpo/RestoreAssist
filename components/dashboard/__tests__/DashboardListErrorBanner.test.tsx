@@ -13,6 +13,6 @@ describe("dashboardListErrorSummary", () => {
     const summary = dashboardListErrorSummary(error, "inspections");
     expect(summary).toContain("inspections");
     expect(summary).toContain("abc123");
-    expect(summary).toContain("Unauthorized");
+    expect(summary).toContain("Your session has ended");
   });
 });

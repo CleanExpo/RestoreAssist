@@ -28,6 +28,7 @@ import {
 } from "@/lib/equipment-calculator";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { canSeeMoney, redactMoney } from "@/lib/auth/redact-money";
 
 /**
  * Marks the scope rows this calculator writes (ScopeItem.source, as D-030
@@ -237,8 +238,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         savedScopeItems.push(...equipmentPayloads.map((p) => p.id));
       }
 
+      // RA-8494: the electricity running cost is money. A technician gets the
+      // equipment, load and kWh without the dollar figure, in the number and
+      // in the summary (the calculator's own price-free fieldSummary).
+      const shown = (await canSeeMoney(session))
+        ? result
+        : { ...redactMoney(result), summary: result.fieldSummary };
       return NextResponse.json({
-        ...result,
+        ...shown,
         inspectionId,
         affectedAreaM2,
         floorCount,

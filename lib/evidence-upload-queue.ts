@@ -75,6 +75,13 @@ export interface EvidenceQueueEntry {
   readbackStatus?: number;
   /** Server row id from a successful POST — used to verify before re-POST (RA-7862 B15). */
   serverPhotoId?: string;
+  /**
+   * RA-7877: when the first POST that could have reached the server was started.
+   * A lost answer (network error, 5xx) leaves no other trace, so past the
+   * server's Idempotency-Key lifetime this is what makes the drain verify on the
+   * listing instead of repeating the POST.
+   */
+  postAttemptedAt?: string;
   /** Direct photo POST retry: keep the original request's byte/field shape. */
   directRetry?: boolean;
   /** Exact hash field from the first direct request, if it included one. */
@@ -168,12 +175,22 @@ export async function queueEvidenceUpload(input: {
   /** Same key as an uncertain direct POST, to make replay idempotent. */
   directRetryKey?: string;
   directCocoaSha256?: string;
+  /**
+   * RA-7877: a caller-chosen stable entry id, which is also the photo POST's
+   * Idempotency-Key. Queuing the same id again does nothing (the entry may be
+   * waiting) and, if it already uploaded, replays under the same key rather than
+   * a new random one, so an interrupted hand-over cannot upload the photo twice.
+   */
+  id?: string;
 }): Promise<string> {
   const owner = requireOfflineOwner();
   const db = await openDatabase();
 
   if (input.directRetryKey && !/^[\x21-\x7e]{8,255}$/.test(input.directRetryKey)) {
     throw new Error("Invalid photo retry key");
+  }
+  if (input.id !== undefined && !/^[\x21-\x7e]{8,255}$/.test(input.id)) {
+    throw new Error("Invalid photo id");
   }
   const compressed = input.directRetryKey
     ? { blob: input.blob, originalSize: input.blob.size, compressedSize: input.blob.size, format: input.mimeType, skipped: true }
@@ -186,7 +203,7 @@ export async function queueEvidenceUpload(input: {
   if (!ownsOfflineEntry({ owner })) throw new Error("Offline account changed; photo was not overwritten");
   const entry: EvidenceQueueEntry = {
     owner,
-    id: input.directRetryKey ?? generateId(),
+    id: input.directRetryKey ?? input.id ?? generateId(),
     inspectionId: input.inspectionId,
     blob: compressed.blob,
     filename: compressed.skipped
@@ -222,6 +239,8 @@ export async function queueEvidenceUpload(input: {
     read.onsuccess = () => {
       if (!ownsOfflineEntry({ owner })) return refuse("Offline account changed; photo was not overwritten");
       const entries = read.result;
+      // A stable id already queued: nothing to add, and nothing to refuse.
+      if (input.id !== undefined && entries.some((row) => row.id === input.id)) return;
       const active = entries.filter((row) => sameOfflineOwner(row.owner, owner) && row.retryCount < MAX_RETRY_COUNT).length;
       if (active >= MAX_QUEUE_SIZE) return refuse(`Evidence queue full (${MAX_QUEUE_SIZE}) — sync pending uploads before capturing more`);
       const storedBytes = entries.reduce((total, row) => total + (row.blob?.size ?? 0), 0);
@@ -331,11 +350,23 @@ function queuedEntryHash(entry: EvidenceQueueEntry): string | undefined {
   return entry.directRetry ? entry.directCocoaSha256 : entry.cocoaSha256;
 }
 
-function photoMatchesQueuedEntry(
+/**
+ * RA-7877: only the server's own photo id proves that THIS queued upload is on
+ * the inspection. Identical bytes (same hash) prove only that a photo like it is
+ * there, so a hash match never clears or removes a queued photo; it can only
+ * stop the queue re-uploading (see photoHasQueuedBytes).
+ */
+function photoIsQueuedUpload(
   photo: ListedPhoto,
   entry: EvidenceQueueEntry,
 ): boolean {
-  if (entry.serverPhotoId && photo.id === entry.serverPhotoId) return true;
+  return Boolean(entry.serverPhotoId && photo.id === entry.serverPhotoId);
+}
+
+function photoHasQueuedBytes(
+  photo: ListedPhoto,
+  entry: EvidenceQueueEntry,
+): boolean {
   const hash = queuedEntryHash(entry);
   return Boolean(hash && photo.cocoaSha256 === hash);
 }
@@ -346,7 +377,7 @@ function photoVisibleForQueuedEntry(
 ): boolean {
   const urlOk =
     typeof photo.url === "string" && Boolean(photo.url.trim());
-  return urlOk && photoMatchesQueuedEntry(photo, entry);
+  return urlOk && photoIsQueuedUpload(photo, entry);
 }
 
 /**
@@ -384,7 +415,10 @@ async function tryClearQueuedPhotoViaListing(
       (!queuedEntryHash(entry) ||
         photos.some((photo) => !("cocoaSha256" in photo)))) ||
     photos.length >= PHOTO_LISTING_CAP ||
-    photos.some((photo) => photoMatchesQueuedEntry(photo, entry))
+    photos.some(
+      (photo) =>
+        photoIsQueuedUpload(photo, entry) || photoHasQueuedBytes(photo, entry),
+    )
   ) {
     return unverified;
   }
@@ -427,6 +461,30 @@ async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
         if (verify.kind === "unverified" && entry.readbackPending) {
           await incrementRetry(db, entry, verify.readbackStatus, "readback");
           continue;
+        }
+      }
+
+      // RA-7877 — the first POST may have created the photo even though its
+      // answer was lost. Past the server's key lifetime a repeat would insert a
+      // second photo, so verify on the listing first; proven absent falls through.
+      if (!entry.readbackPending && !entry.serverPhotoId) {
+        if (entry.postAttemptedAt === undefined) {
+          entry.postAttemptedAt = new Date().toISOString();
+          await putEntry(db, entry);
+        } else {
+          const first = Date.parse(entry.postAttemptedAt);
+          if (!Number.isFinite(first) || Date.now() - first > POST_KEY_WINDOW_MS) {
+            const verify = await tryClearQueuedPhotoViaListing(db, entry);
+            if (verify.kind === "cleared") {
+              uploaded++;
+              continue;
+            }
+            if (verify.kind === "offline") break;
+            if (verify.kind === "unverified") {
+              await incrementRetry(db, entry, verify.readbackStatus, "readback");
+              continue;
+            }
+          }
         }
       }
 
@@ -488,10 +546,7 @@ async function drainEvidenceQueueImpl(onlyId?: string): Promise<number> {
         if (
           !Array.isArray(listing?.photos) ||
           !listing.photos.some((photo: ListedPhoto) =>
-            photoVisibleForQueuedEntry(
-              { ...photo, id: photo.id ?? photoId },
-              { ...entry, serverPhotoId: photoId },
-            ),
+            photoVisibleForQueuedEntry(photo, { ...entry, serverPhotoId: photoId }),
           )
         ) {
           await incrementRetry(db, entry, readback.status, "readback", photoId);
@@ -574,6 +629,18 @@ function removeEntry(db: IDBDatabase, id: string): Promise<void> {
     const req = tx.objectStore(STORE).delete(id);
     req.onerror = () => reject(req.error);
     tx.oncomplete = () => { notifySyncQueueChanged(); resolve(); };
+  });
+}
+
+/** Mirrors the server's Idempotency-Key lifetime (lib/idempotency.ts TTL_MS). */
+const POST_KEY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function putEntry(db: IDBDatabase, entry: EvidenceQueueEntry): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const req = tx.objectStore(STORE).put(entry);
+    tx.oncomplete = () => resolve();
+    req.onerror = () => reject(req.error);
   });
 }
 

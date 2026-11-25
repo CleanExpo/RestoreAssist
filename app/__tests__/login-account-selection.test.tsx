@@ -4,7 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({ offline: vi.fn(), oauth: vi.fn(), signIn: vi.fn(), getSession: vi.fn(), success: vi.fn(), error: vi.fn(), params: new URLSearchParams(), session: null as any }));
-vi.mock("@/lib/offline/account-boundary", () => ({ clearOfflineContext: h.offline }));
+vi.mock("@/lib/offline/account-boundary", () => ({ endOfflineSession: h.offline }));
 vi.mock("@/components/landing/home", () => ({ MarketingShell: ({ children }: any) => children }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => h.params }));
 vi.mock("next-auth/react", () => ({ signIn: h.signIn, getSession: h.getSession, useSession: () => ({ data: h.session }) }));

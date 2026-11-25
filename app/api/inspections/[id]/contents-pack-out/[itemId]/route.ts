@@ -16,6 +16,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 import { packOutItemPhotosSchema } from "@/lib/contents/pack-out-item-schema";
 import {
   resolvePackOutPhotos,
@@ -103,7 +104,10 @@ export async function PATCH(
         status: 404,
       });
     }
-    return NextResponse.json(await signPackOutItemPhotos(item));
+    // RA-8494: the item carries replacement values and cost estimates.
+    return NextResponse.json(
+      await moneySafe(session, await signPackOutItemPhotos(item)),
+    );
   } catch (err) {
     return fromException(req, err, { stage: "contents-pack-out:photos" });
   }

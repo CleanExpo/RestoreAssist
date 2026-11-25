@@ -24,6 +24,8 @@ import {
   useRef,
 } from "react";
 import toast from "react-hot-toast";
+import ThirdPartyReportReader from "@/components/third-party-report/ThirdPartyReportReader";
+import { LAB_FIELDS } from "@/lib/third-party-report/schema";
 import { readIfCurrent } from "@/lib/nir-draft-save";
 import {
   CONDITION_GRADES,
@@ -118,6 +120,60 @@ function waterChoice(
 }
 
 // ─── Claim type metadata ──────────────────────────────────────────────────────
+
+/** The lab fields the third-party report confirm can write (RA-7687, the one
+ *  list LAB_FIELDS), as the mould-remediation Save compares them: a value the
+ *  record lacks is null. */
+function labValuesOf(
+  record: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of LAB_FIELDS) out[key] = record?.[key] ?? null;
+  return out;
+}
+
+/** One comparable form of a lab value: a blank is null, a date is its day. */
+function labComparable(key: string, v: unknown): string | null {
+  if (v === null || v === undefined || v === "") return null;
+  return key === "samplingDate" ? String(v).slice(0, 10) : String(v);
+}
+
+/**
+ * A report confirm returned the lab values now stored. The one place the
+ * outgoing form values and the values a Save names as loaded (`expectedLab`)
+ * are brought together after a confirm: every stored value that changed, or
+ * that this confirm applied, goes into the form and into the baseline at the
+ * same moment, so the two cannot differ. A stored value that changed under an
+ * unsaved local edit of the same field is a clash: nothing is adopted and the
+ * caller tells the user to reload, so the Save is refused by the server and
+ * never overwrites silently.
+ */
+export function adoptConfirmedLab(
+  form: Record<string, unknown>,
+  baseline: Record<string, unknown>,
+  storedLab: Record<string, unknown>,
+  appliedFields: string[],
+): {
+  clash: boolean;
+  form: Record<string, unknown>;
+  baseline: Record<string, unknown>;
+} {
+  const stored = labValuesOf(storedLab);
+  const next = { ...form };
+  for (const key of LAB_FIELDS) {
+    const changed =
+      labComparable(key, stored[key]) !== labComparable(key, baseline[key]);
+    const applied = appliedFields.includes(key);
+    if (!changed && !applied) continue;
+    const edited =
+      labComparable(key, form[key]) !== labComparable(key, baseline[key]);
+    if (changed && !applied && edited) {
+      return { clash: true, form, baseline };
+    }
+    next[key] = stored[key];
+  }
+  return { clash: false, form: next, baseline: stored };
+}
 
 const CLAIM_TYPES: {
   type: NIRClaimType;
@@ -1659,6 +1715,12 @@ const NIRClaimAssessmentPanel = forwardRef<
   complianceDataRef.current = complianceData;
   const [asbestosWarning, setAsbestosWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // RA-7687: the lab values this form loaded or last saved, sent with a Save
+  // so the server refuses it if a report confirm changed any of them since,
+  // instead of overwriting. And whether a report confirm is in flight, during
+  // which the Save is held.
+  const loadedLabRef = useRef<Record<string, unknown>>(labValuesOf(null));
+  const reportConfirmInFlightRef = useRef(false);
   const [_saving, setSaving] = useState(false);
   const [_savingCompliance, setSavingCompliance] = useState(false);
   const [gates, setGates] = useState<Record<string, boolean>>({});
@@ -1707,6 +1769,7 @@ const NIRClaimAssessmentPanel = forwardRef<
         if (!res) return;
         if (res.ok) {
           const record = res.record as Record<string, unknown> | null;
+          loadedLabRef.current = labValuesOf(record);
           if (record && type !== "CONTENTS") {
             formDataRef.current = record;
             setFormData(record);
@@ -1727,6 +1790,7 @@ const NIRClaimAssessmentPanel = forwardRef<
           assessmentLoadedRef.current = true;
         } else if (res.status === 404) {
           // No record yet; start from the Quick Fill seed, if any
+          loadedLabRef.current = labValuesOf(null);
           formDataRef.current = { ...(assessmentSeedRef.current ?? {}) };
           setFormData({ ...(assessmentSeedRef.current ?? {}) });
           setGates({});
@@ -1849,6 +1913,13 @@ const NIRClaimAssessmentPanel = forwardRef<
     if (!assessmentLoadedRef.current) {
       throw new Error("Claim assessment has not loaded; nothing was saved");
     }
+    if (type === "MOULD" && reportConfirmInFlightRef.current) {
+      const message =
+        "Report facts are still being saved. Wait a moment, then save again.";
+      if (options?.silent) throw new Error(message);
+      toast.error(message);
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(
@@ -1856,11 +1927,19 @@ const NIRClaimAssessmentPanel = forwardRef<
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formDataRef.current),
+          body: JSON.stringify(
+            type === "MOULD"
+              ? {
+                  ...formDataRef.current,
+                  expectedLab: loadedLabRef.current,
+                }
+              : formDataRef.current,
+          ),
         },
       );
       if (res.ok) {
         const record = await res.json();
+        if (type === "MOULD") loadedLabRef.current = labValuesOf(record);
         const g: Record<string, boolean> = {};
         for (const [k, v] of Object.entries(record)) {
           if (k.startsWith("gate") && typeof v === "boolean") g[k] = v;
@@ -2176,7 +2255,46 @@ const NIRClaimAssessmentPanel = forwardRef<
                   />
                 )}
                 {selectedType === "MOULD" && (
-                  <MouldForm data={formData} onChange={handleFieldChange} />
+                  <>
+                    <MouldForm data={formData} onChange={handleFieldChange} />
+                    <ThirdPartyReportReader
+                      inspectionId={inspectionId}
+                      onBusyChange={(busy) => {
+                        reportConfirmInFlightRef.current = busy;
+                      }}
+                      onApplied={(applied, storedLab) => {
+                        if (!storedLab) {
+                          for (const [field, value] of Object.entries(applied)) {
+                            handleFieldChange(
+                              field,
+                              field === "samplingDate"
+                                ? `${value}T00:00:00.000Z`
+                                : value,
+                            );
+                          }
+                          return;
+                        }
+                        const adopted = adoptConfirmedLab(
+                          formDataRef.current,
+                          loadedLabRef.current,
+                          storedLab,
+                          Object.keys(applied),
+                        );
+                        if (adopted.clash) {
+                          toast.error(
+                            "Another report changed lab values you have edited here. Reload this assessment before saving.",
+                          );
+                          return;
+                        }
+                        // The form and the values a Save will name as loaded
+                        // change together, in this turn: a Save that runs
+                        // before React renders sends the confirmed values.
+                        formDataRef.current = adopted.form;
+                        loadedLabRef.current = adopted.baseline;
+                        setFormData(adopted.form);
+                      }}
+                    />
+                  </>
                 )}
                 {selectedType === "STORM" && (
                   <StormForm data={formData} onChange={handleFieldChange} />

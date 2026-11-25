@@ -81,17 +81,13 @@ function xy(p: Point): { x: number; y: number } {
 /** A room that is no longer present in the incoming canvas. */
 export interface StaleRoom {
   id: string;
-  _count: {
-    evidencePins: number;
-    moistureReadings: number;
-    hazards: number;
-    jobMoistureReadings?: number;
-    /**
-     * RA-8538: priced scope lines placed in this room. Optional so callers
-     * that predate the count still type-check; a missing count is read as 0.
-     */
-    scopeItems?: number;
-  };
+  /**
+   * RA-8576: the count of every table that links to this room, keyed by the
+   * SketchRoom relation name (room-dependents.ts builds the select from the
+   * Prisma model). Every count is summed, so a table added later is counted
+   * without editing this file. A missing count is read as 0.
+   */
+  _count: Record<string, number | undefined>;
 }
 
 /**
@@ -99,8 +95,9 @@ export interface StaleRoom {
  *
  * WHY THIS IS NOT JUST A DELETE
  * -----------------------------
- * `EvidencePin`, `SketchMoistureReading`, `Hazard`, job `MoistureReading`
- * and `ScopeItem` all reference `SketchRoom` with `onDelete: SetNull`. Deleting a room therefore does not
+ * `EvidencePin`, `SketchMoistureReading`, `Hazard`, job `MoistureReading`,
+ * `ScopeItem` and `RoomObservation` all reference `SketchRoom` with
+ * `onDelete: SetNull`. Deleting a room therefore does not
  * fail and does not cascade -- it silently blanks the room link on evidence
  * that was already captured. The reading survives; the answer to "which room
  * was this taken in" does not.
@@ -124,12 +121,10 @@ export function partitionStaleRooms(stale: StaleRoom[]): {
   const detachableIds: string[] = [];
 
   for (const room of stale) {
-    const dependents =
-      (room._count?.evidencePins ?? 0) +
-      (room._count?.moistureReadings ?? 0) +
-      (room._count?.hazards ?? 0) +
-      (room._count?.jobMoistureReadings ?? 0) +
-      (room._count?.scopeItems ?? 0);
+    const dependents = Object.values(room._count ?? {}).reduce<number>(
+      (sum, n) => sum + (n ?? 0),
+      0,
+    );
     if (dependents > 0) {
       detachableIds.push(room.id);
     } else {

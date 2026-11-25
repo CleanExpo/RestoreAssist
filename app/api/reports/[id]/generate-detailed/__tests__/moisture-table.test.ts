@@ -15,6 +15,7 @@ vi.mock("next-auth", () => ({ getServerSession: mock.session }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    user: { findUnique: async () => ({ role: "ADMIN", organizationId: null, organizationLeftAt: null, organizationLeftId: null, organization: null }) },
     report: { findFirst: mock.find },
     scope: { findFirst: mock.scope },
     estimate: { findFirst: async () => null },

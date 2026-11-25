@@ -124,9 +124,16 @@ describe.skipIf(!process.env.DATABASE_URL)(
       expect(body.url).toContain(`/reports/${ids.report}/view?token=`);
     });
 
-    it("returns 404 to a USER colleague, who must not see the report total", async () => {
+    // RA-8494 (founder ruling 22/11): a technician is refused by the money
+    // rule before any query, so the answer is 403, not a reach 404.
+    it("refuses a USER colleague, who must not see the report total", async () => {
       const res = await shareAs(ids.colleague);
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(403);
+    });
+
+    it("refuses the technician who created the report", async () => {
+      const res = await shareAs(ids.tech);
+      expect(res.status).toBe(403);
     });
   },
 );

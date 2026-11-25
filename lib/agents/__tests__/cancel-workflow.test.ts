@@ -20,8 +20,11 @@ function matches(row: Row, where: Row | undefined): boolean {
   return Object.entries(where).every(([key, cond]) => {
     const value = row[key];
     if (cond && typeof cond === "object" && !(cond instanceof Date)) {
-      const c = cond as { in?: unknown[] };
-      return c.in === undefined || c.in.includes(value);
+      const c = cond as { in?: unknown[]; notIn?: unknown[] };
+      return (
+        (c.in === undefined || c.in.includes(value)) &&
+        (c.notIn === undefined || !c.notIn.includes(value))
+      );
     }
     return value === cond;
   });
@@ -37,13 +40,15 @@ vi.mock("@/lib/prisma", () => {
       },
     },
     agentWorkflow: {
-      update: async (args: { where: { id: string }; data: Row }) => {
-        const wf = db.workflows.find((w) => w.id === args.where.id);
-        if (!wf) throw new Error("workflow not found");
-        Object.assign(wf, args.data);
-        return wf;
+      // RA-8000: the status write is a compare-and-swap (updateMany).
+      updateMany: async (args: { where?: Row; data: Row }) => {
+        const hit = db.workflows.filter((w) => matches(w, args.where));
+        for (const w of hit) Object.assign(w, args.data);
+        return { count: hit.length };
       },
     },
+    // RA-8000: the workflow row lock; the real lock is tested in workflow-lock-order.test.ts.
+    $queryRaw: async () => [],
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(client),
   };
   return { prisma: client };

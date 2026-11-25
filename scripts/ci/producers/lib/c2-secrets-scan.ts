@@ -182,7 +182,8 @@ export function parseGitleaksReport(raw: string): GitleaksFinding[] {
  * Read production's env-var completeness from a `/api/health` payload.
  *
  * `checks.env` is `ok`, `degraded` (recommended variables unset) or `error`
- * (required variables unset). `missing` carries the names. A payload without a
+ * (required variables unset). `missing` carries the names for operators only;
+ * an anonymous response omits it. A payload without a
  * `checks.env` block is an error rather than a zero: an endpoint that does not
  * report the check has not told us the check passed.
  */
@@ -212,7 +213,15 @@ export function readEnvCompleteness(payload: unknown): {
   if (missing !== undefined && !Array.isArray(missing)) {
     throw new Error("health payload checks.env.missing is not an array");
   }
-  return { envStatus: status, missingEnvVars: missing?.length ?? 0 };
+  // The anonymous /api/health response carries the status only; the names
+  // are operator detail. A status other than "ok" is the failure signal on
+  // its own, so when the names are absent the count is floored at 1 ("at
+  // least one"), never a zero that would read as complete.
+  const named = missing?.length ?? 0;
+  return {
+    envStatus: status,
+    missingEnvVars: status === "ok" ? named : Math.max(1, named),
+  };
 }
 
 /**
@@ -448,7 +457,7 @@ async function run(): Promise<number> {
     console.log(
       "C2 cannot pass while either count is above zero. Findings are triaged " +
         "in docs/evidence/release-gate/1.0.0/C2-secrets-scan.md; unset " +
-        "variables are listed by /api/health.",
+        "variable names are shown by /api/health to a signed-in platform operator only.",
     );
   }
   return 0;

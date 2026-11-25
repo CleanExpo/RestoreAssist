@@ -1,0 +1,99 @@
+{
+  "schema": "done/1",
+  "criterion_evidence": "PROVEN",
+  "verification_status": "PASS",
+  "delivery_status": "NOT_STARTED",
+  "verified_head": "9df3e1c5f80dbd74a24499a8d71f3efdb0074900",
+  "updated_at_utc": "2026-11-23T08:17:48Z",
+  "last_verify": {
+    "head": "9df3e1c5f80dbd74a24499a8d71f3efdb0074900",
+    "at_utc": "2026-11-23T08:17:48Z",
+    "matrix": [
+      {
+        "id": "TR-ACCESS",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:/usr/local/bin:/opt/homebrew/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js lib/training/__tests__",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 11.4,
+        "output_digest": "7c6abc21be79a7eb9959d149f7a12513f0e23bbd8d3c67c93e513ea187c26717",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_7f8c02b15beb/9df3e1c5f80d/TR-ACCESS-8db7d04a4533-7c6abc21be79a7eb.log",
+        "output_tail": "\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/Mini Mini 2T Storage/worktrees/ra-staff-training-register\u001b[39m\n\n \u001b[32m✓\u001b[39m lib/training/__tests__/paging-version.test.ts \u001b[2m(\u001b[22m\u001b[2m6 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 9\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/training/__tests__/record-input.test.ts \u001b[2m(\u001b[22m\u001b[2m15 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 6\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m lib/training/__tests__/register-access.test.ts \u001b[2m(\u001b[22m\u001b[2m10 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m3 passed\u001b[39m\u001b[22m\u001b[90m (3)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m31 passed\u001b[39m\u001b[22m\u001b[90m (31)\u001b[39m\n\u001b[2m   Start at \u001b[22m 18:14:27\n\u001b[2m   Duration \u001b[22m 3.89s\u001b[2m (transform 626ms, setup 850ms, import 1.64s, tests 19ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "TR-ROUTES",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:/usr/local/bin:/opt/homebrew/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js app/api/team/training-records",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 3.0,
+        "output_digest": "b20f962200ce2de305cf47f86d245bea8fc01b84ea124230eefda5909c3c6d7f",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_7f8c02b15beb/9df3e1c5f80d/TR-ROUTES-cdd1959d9db4-b20f962200ce2de3.log",
+        "output_tail": "date is 400\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/x\",\"eventId\":\"f9za4265\"}\n\n\u001b[90mstderr\u001b[2m | app/api/team/training-records/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPATCH (changing)\u001b[2m > \u001b[22m\u001b[2man empty change is 400\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/x\",\"eventId\":\"f1l4nhjb\"}\n\n\u001b[90mstderr\u001b[2m | app/api/team/training-records/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPATCH and DELETE never lose someone else's change\u001b[2m > \u001b[22m\u001b[2ma change without the version it was made against is 400 and nothing is written\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/x\",\"eventId\":\"wswebp31\"}\n\n\u001b[90mstderr\u001b[2m | app/api/team/training-records/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPATCH and DELETE never lose someone else's change\u001b[2m > \u001b[22m\u001b[2ma change without the version it was made against is 400 and nothing is written\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/x\",\"eventId\":\"7hqacafn\"}\n\n\u001b[90mstderr\u001b[2m | app/api/team/training-records/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPATCH and DELETE never lose someone else's change\u001b[2m > \u001b[22m\u001b[2ma change without the version it was made against is 400 and nothing is written\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/x\",\"eventId\":\"si90vy83\"}\n\n\u001b[90mstderr\u001b[2m | app/api/team/training-records/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPATCH and DELETE never lose someone else's change\u001b[2m > \u001b[22m\u001b[2ma change without the version it was made against is 400 and nothing is written\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/x\",\"eventId\":\"550adcle\"}\n\n\u001b[90mstderr\u001b[2m | app/api/team/training-records/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPATCH and DELETE never lose someone else's change\u001b[2m > \u001b[22m\u001b[2ma change without the version it was made against is 400 and nothing is written\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"VALIDATION\",\"status\":400,\"route\":\"/x\",\"eventId\":\"nkiw2uko\"}\n\n\u001b[90mstderr\u001b[2m | app/api/team/training-records/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPATCH and DELETE never lose someone else's change\u001b[2m > \u001b[22m\u001b[2ma change made against an old version is 409 (record still there, version moved on)\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"CONFLICT\",\"status\":409,\"route\":\"/x\",\"stage\":\"training-records-patch\",\"eventId\":\"xga3rq41\"}\n\n\u001b[90mstderr\u001b[2m | app/api/team/training-records/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPATCH and DELETE never lose someone else's change\u001b[2m > \u001b[22m\u001b[2ma removal made against an old version is 409\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"CONFLICT\",\"status\":409,\"route\":\"/x\",\"stage\":\"training-records-delete\",\"eventId\":\"w40i7x20\"}\n\n\u001b[90mstderr\u001b[2m | app/api/team/training-records/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mPATCH and DELETE never lose someone else's change\u001b[2m > \u001b[22m\u001b[2ma write the database's own expiry check refuses (a race on the dates) is 409, not 500\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"CONFLICT\",\"status\":409,\"route\":\"/x\",\"stage\":\"training-records-patch\",\"eventId\":\"mw5vd3ie\"}\n\n\u001b[90mstderr\u001b[2m | app/api/team/training-records/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mDELETE (removing)\u001b[2m > \u001b[22m\u001b[2manother organisation's record is 404\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"NOT_FOUND\",\"status\":404,\"route\":\"/x\",\"stage\":\"training-records-delete\",\"eventId\":\"2o8lt7vs\"}\n\n\u001b[90mstderr\u001b[2m | app/api/team/training-records/__tests__/route.test.ts\u001b[2m > \u001b[22m\u001b[2mDELETE (removing)\u001b[2m > \u001b[22m\u001b[2ma technician cannot remove a record: 403 and no delete\n\u001b[22m\u001b[39m[api-refusal] {\"code\":\"FORBIDDEN\",\"status\":403,\"route\":\"/x\",\"stage\":\"training-records-delete\",\"eventId\":\"xp1g7fzx\"}\n\n \u001b[32m✓\u001b[39m app/api/team/training-records/__tests__/route.test.ts \u001b[2m(\u001b[22m\u001b[2m35 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 20\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m35 passed\u001b[39m\u001b[22m\u001b[90m (35)\u001b[39m\n\u001b[2m   Start at \u001b[22m 18:14:32\n\u001b[2m   Duration \u001b[22m 2.71s\u001b[2m (transform 1.13s, setup 512ms, import 1.98s, tests 20ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "TR-UI",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:/usr/local/bin:/opt/homebrew/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js app/dashboard/team/__tests__/training-register.test.tsx",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 26.1,
+        "output_digest": "b86a7a68c389470b20a4899d7ce54ca85b842ed88969e50de78852eec5fa737c",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_7f8c02b15beb/9df3e1c5f80d/TR-UI-f85289655190-b86a7a68c389470b.log",
+        "output_tail": "\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/Mini Mini 2T Storage/worktrees/ra-staff-training-register\u001b[39m\n\n\u001b[90mstderr\u001b[2m | app/dashboard/team/__tests__/training-register.test.tsx\u001b[2m > \u001b[22m\u001b[2mTrainingRegisterPanel\u001b[2m > \u001b[22m\u001b[2mthe add form opens with every field, and labels the CARSI field as not checked\n\u001b[22m\u001b[39mAn update to TrainingRegisterPanel inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\nAn update to TrainingRegisterPanel inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n\n \u001b[32m✓\u001b[39m app/dashboard/team/__tests__/training-register.test.tsx \u001b[2m(\u001b[22m\u001b[2m13 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 305\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m13 passed\u001b[39m\u001b[22m\u001b[90m (13)\u001b[39m\n\u001b[2m   Start at \u001b[22m 18:14:35\n\u001b[2m   Duration \u001b[22m 25.20s\u001b[2m (transform 883ms, setup 436ms, import 8.25s, tests 305ms, environment 16.09s)\u001b[22m"
+      },
+      {
+        "id": "TR-MIGRATION",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "env -u DATABASE_URL -u DIRECT_URL PATH=$HOME/.nvm/versions/node/v22.23.3/bin:/usr/local/bin:/opt/homebrew/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js scripts/ci/__tests__/staff-training-register-rollback.test.ts",
+        "exit_code": 0,
+        "timeout_s": 300,
+        "duration_s": 2.8,
+        "output_digest": "1681ba0d40a89d1a4b86eb8f51d54fce126d2a94be62246687f3740efe9a51b9",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_7f8c02b15beb/9df3e1c5f80d/TR-MIGRATION-b2b73180357d-1681ba0d40a89d1a.log",
+        "output_tail": "\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.12 \u001b[39m\u001b[90m/Volumes/Mini Mini 2T Storage/worktrees/ra-staff-training-register\u001b[39m\n\n \u001b[32m✓\u001b[39m scripts/ci/__tests__/staff-training-register-rollback.test.ts \u001b[2m(\u001b[22m\u001b[2m7 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[33m3 skipped\u001b[39m\u001b[2m)\u001b[22m\u001b[32m 49\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m4 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m3 skipped\u001b[39m\u001b[90m (7)\u001b[39m\n\u001b[2m   Start at \u001b[22m 18:15:02\n\u001b[2m   Duration \u001b[22m 794ms\u001b[2m (transform 581ms, setup 603ms, import 24ms, tests 49ms, environment 0ms)\u001b[22m"
+      },
+      {
+        "id": "TR-NO-CARSI-CALL",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "! grep -rnE 'fetch\\(|axios|https?\\.request|undici' lib/training app/api/team/training-records --include='*.ts' --exclude-dir=__tests__",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 0.0,
+        "output_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_7f8c02b15beb/9df3e1c5f80d/TR-NO-CARSI-CALL-5aaa0a18a1f0-e3b0c44298fc1c14.log",
+        "output_tail": ""
+      },
+      {
+        "id": "TR-TYPECHECK",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:/usr/local/bin:/opt/homebrew/bin:$PATH npm run type-check",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 162.6,
+        "output_digest": "543a6c4a5b757adf1fb67288fee99744b554c21994e5c43be6c2214fc5960ce4",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_7f8c02b15beb/9df3e1c5f80d/TR-TYPECHECK-960a6a4e88ce-543a6c4a5b757adf.log",
+        "output_tail": "> restoreassist@1.0.0 pretype-check\n> prisma generate\n\nLoaded Prisma config from prisma.config.ts.\n\nPrisma schema loaded from prisma/schema.prisma.\n\n✔ Generated Prisma Client (v7.9.1) to ./node_modules/.prisma/client in 3.01s\n\nStart by importing your Prisma Client (See: https://pris.ly/d/importing-client)\n\n\n\n> restoreassist@1.0.0 type-check\n> node scripts/type-check.mjs"
+      },
+      {
+        "id": "TR-SCOPE",
+        "required": true,
+        "evidence": "PROVEN",
+        "recipe": "git diff --name-only 846564c465877a5fce624000e7f5caeeca53d773...HEAD | grep -v -E '^(prisma/schema.prisma|prisma/migrations/20261123120000_staff_training_register/(migration|down)\\.sql|lib/training/.*|app/api/team/training-records/.*|app/dashboard/training/(page|TrainingRegisterPanel)\\.tsx|app/dashboard/team/page\\.tsx|app/dashboard/DashboardShell\\.tsx|scripts/ci/__tests__/staff-training-register-rollback\\.test\\.ts|app/dashboard/team/__tests__/training-register\\.test\\.tsx|\\.claude/done/.*)$'; test $? -eq 1",
+        "exit_code": 0,
+        "timeout_s": 900,
+        "duration_s": 0.7,
+        "output_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "output_log": "/Users/phill-mac/.cache/donectl/w_7f8c02b15beb/9df3e1c5f80d/TR-SCOPE-29158a12cc9a-e3b0c44298fc1c14.log",
+        "output_tail": ""
+      }
+    ],
+    "blockers": []
+  }
+}

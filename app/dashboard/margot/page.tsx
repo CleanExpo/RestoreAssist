@@ -225,7 +225,6 @@ function MargotChatWorkspace() {
         secondaryLinks={[
           { href: "/dashboard/margot/home", label: "Ops overview" },
           { href: "/dashboard/margot/social", label: "Social training" },
-          { href: "/dashboard/mission-control", label: "Mission Control" },
         ]}
       />
 
