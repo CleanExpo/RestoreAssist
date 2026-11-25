@@ -7,6 +7,8 @@ import { apiError, fromException } from "@/lib/api-errors";
 import {
   formAcceptsSignatureWhere,
   formSignatureRefusal,
+  formTextEditRefusal,
+  noSignedSignatureWhere,
   unsignedSlotWhere,
 } from "@/lib/authority-forms/signed-record-guard";
 import { clearedSigningLinkData } from "@/lib/authority-forms/signing-link";
@@ -24,6 +26,13 @@ import { clearedSigningLinkData } from "@/lib/authority-forms/signing-link";
  * A signed slot is a closed legal record (RA-8400): the write carries
  * unsignedSlotWhere() and formAcceptsSignatureWhere(), so a signature that
  * lands between the read and the write still blocks it.
+ *
+ * The executed PDF is rendered from the live rows, so a signatory's email on
+ * a form that anybody has signed is part of the signed record (RA-8526 treats
+ * the form, not the row, as the unit of immutability). An email edit is
+ * therefore refused once any signature on the form is signed, checked on the
+ * read (formTextEditRefusal) and again in the write (noSignedSignatureWhere).
+ * Cancelling a link only clears bookkeeping and stays allowed.
  */
 const BodySchema = z.union([
   z.object({ action: z.literal("cancel_request") }).strict(),
@@ -72,6 +81,7 @@ export async function PATCH(
       where: { id: formId },
       select: {
         status: true,
+        signatures: { select: { signedAt: true } },
         report: {
           select: {
             userId: true,
@@ -110,10 +120,20 @@ export async function PATCH(
     }
 
     const body = parsed.data;
-    const data =
-      "signatoryEmail" in body
-        ? { ...clearedSigningLinkData(), signatoryEmail: body.signatoryEmail }
-        : clearedSigningLinkData();
+    const editsEmail = "signatoryEmail" in body;
+    if (editsEmail) {
+      const signedRefusal = formTextEditRefusal(form);
+      if (signedRefusal) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: signedRefusal,
+          status: 409,
+        });
+      }
+    }
+    const data = editsEmail
+      ? { ...clearedSigningLinkData(), signatoryEmail: body.signatoryEmail }
+      : clearedSigningLinkData();
 
     // Scoped by instanceId: signatureId comes from the URL, and a foreign
     // signature must not be reachable through a form the caller owns.
@@ -122,7 +142,9 @@ export async function PATCH(
         id: signatureId,
         instanceId: formId,
         ...unsignedSlotWhere(),
-        instance: formAcceptsSignatureWhere(),
+        instance: editsEmail
+          ? { ...formAcceptsSignatureWhere(), ...noSignedSignatureWhere() }
+          : formAcceptsSignatureWhere(),
       },
       data,
     });

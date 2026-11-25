@@ -13,6 +13,7 @@ import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { prisma } from "@/lib/prisma";
 import { GET } from "../route";
+import { signingLinkCutoff } from "@/lib/authority-forms/signing-link";
 
 const mLookup = lookupPortalAccount as unknown as ReturnType<typeof vi.fn>;
 const mRate = applyRateLimit as unknown as ReturnType<typeof vi.fn>;
@@ -67,6 +68,29 @@ describe("GET /api/portal/[token]/authorities", () => {
         signToken: "sig_abc",
       },
     ]);
+  });
+
+  // RA-8589: a lapsed signing link is hidden in the portal. Both the form
+  // filter and the per-signature select must carry the live cutoff, and the
+  // cutoff must be the shared one (signingLinkCutoff), so removing either
+  // spread, or changing the rule here, fails this test.
+  it("hides lapsed signing links in both the form filter and the token select", async () => {
+    p.authorityFormInstance.findMany.mockResolvedValue([]);
+    const before = Date.now();
+    await GET(req(), params);
+    const after = Date.now();
+    const args = p.authorityFormInstance.findMany.mock.calls[0][0];
+    const inWhere =
+      args.where.signatures.some.signatureRequestSentAt as { gt: Date };
+    const inSelect =
+      args.select.signatures.where.signatureRequestSentAt as { gt: Date };
+    for (const clause of [inWhere, inSelect]) {
+      expect(clause.gt).toBeInstanceOf(Date);
+      const low = signingLinkCutoff(new Date(before)).getTime();
+      const high = signingLinkCutoff(new Date(after)).getTime();
+      expect(clause.gt.getTime()).toBeGreaterThanOrEqual(low);
+      expect(clause.gt.getTime()).toBeLessThanOrEqual(high);
+    }
   });
 
   it("drops instances that have no pending client signature token", async () => {

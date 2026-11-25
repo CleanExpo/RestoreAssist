@@ -37,8 +37,12 @@ const req = (body: unknown) =>
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 
-const openForm = (status = "PENDING_SIGNATURES") => ({
+const openForm = (
+  status = "PENDING_SIGNATURES",
+  signatures: Array<{ signedAt: Date | null }> = [{ signedAt: null }],
+) => ({
   status,
+  signatures,
   report: { userId: "u_1", assignedManagerId: null, assignedAdminId: null },
 });
 
@@ -91,6 +95,47 @@ describe("PATCH /api/authority-forms/:id/signatures/:signatureId (RA-8589)", () 
     const res = await PATCH(req({ signatoryEmail: "a@b.co" }), ctx());
     expect(res.status).toBe(409);
     expect(sigUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  // RA-8526: the executed PDF is rendered from live rows, so once any signatory
+  // has signed, another slot's email is part of the signed record.
+  it("refuses an email edit on a partly signed form before any write", async () => {
+    instanceFindUnique.mockResolvedValueOnce(
+      openForm("PARTIALLY_SIGNED", [
+        { signedAt: new Date("2026-11-01T00:00:00Z") },
+        { signedAt: null },
+      ]),
+    );
+    const res = await PATCH(req({ signatoryEmail: "changed@example.com" }), ctx());
+    expect(res.status).toBe(409);
+    expect(sigUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("still lets staff cancel a link on a partly signed form", async () => {
+    instanceFindUnique.mockResolvedValueOnce(
+      openForm("PARTIALLY_SIGNED", [
+        { signedAt: new Date("2026-11-01T00:00:00Z") },
+        { signedAt: null },
+      ]),
+    );
+    const res = await PATCH(req({ action: "cancel_request" }), ctx());
+    expect(res.status).toBe(200);
+    expect(sigUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("an email write also matches only a form with no signed signature", async () => {
+    await PATCH(req({ signatoryEmail: "right@example.com" }), ctx());
+    expect(sigUpdateMany.mock.calls[0][0].where.instance).toMatchObject({
+      status: { notIn: ["CANCELLED", "COMPLETED"] },
+      signatures: { none: { signedAt: { not: null } } },
+    });
+  });
+
+  it("a cancel write does not need an all-unsigned form", async () => {
+    await PATCH(req({ action: "cancel_request" }), ctx());
+    expect(sigUpdateMany.mock.calls[0][0].where.instance).not.toHaveProperty(
+      "signatures",
+    );
   });
 
   it("a completed form is refused before any write", async () => {
