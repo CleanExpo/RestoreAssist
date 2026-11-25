@@ -802,7 +802,10 @@ test("semantic workflow inspection covers the current workflow population", () =
     .filter((name) => /\.ya?ml$/i.test(name));
   // A deliberate review tripwire: adding a workflow must force someone to
   // re-confirm the inspection below still holds over the new population.
-  // Reviewed 2026-11-22 at 28 -> 29: migration-merge-gate.yml (RA-8529).
+  // Reviewed 2026-11-23 at 29 -> 30: report-theme-canary.yml (RA-8110). Runs the synthetic
+  // report canary on `next dev` only: checkout and setup-node SHA-pinned, no secrets, no
+  // migrate, no deploy. findReleaseBootstrapViolations returned 0 over all 30.
+  // Prior review 2026-11-22 at 28 -> 29: migration-merge-gate.yml (RA-8529).
   // Read-only: checkout and setup-node only, both SHA-pinned, no secrets, no
   // install, no migrate. findReleaseBootstrapViolations returned 0 over all 29.
   // Prior review 2026-11-06 at 27 -> 28: migration-ledger-parity.yml (RA-7939).
@@ -811,7 +814,7 @@ test("semantic workflow inspection covers the current workflow population", () =
   // Prior review 2026-11-02 at 26 -> 27: check-visuals.yml (PR 2483).
   // Prior reviews 2026-09-21 at 25 -> 26 (RA-7466) and 24 -> 25 (RA-7597);
   // 2026-09-06 at 20 -> 24.
-  assert.equal(workflowPopulation.length, 29);
+  assert.equal(workflowPopulation.length, 30);
   assert.deepEqual(findReleaseBootstrapViolations(process.cwd()), []);
 });
 

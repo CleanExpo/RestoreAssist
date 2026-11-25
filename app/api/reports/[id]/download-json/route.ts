@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 export async function GET(
   request: NextRequest,
@@ -293,7 +294,13 @@ export async function GET(
     };
 
     // Convert to JSON string
-    const jsonString = JSON.stringify(parsedReport, null, 2);
+    // RA-8494: the export carries the report's money only for a caller who
+    // may see it.
+    const jsonString = JSON.stringify(
+      await moneySafe(session, parsedReport),
+      null,
+      2,
+    );
     const jsonBuffer = Buffer.from(jsonString, "utf-8");
 
     // Return JSON as downloadable file

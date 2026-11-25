@@ -11,6 +11,7 @@ import {
   DETAILED_MOISTURE_COLUMNS,
   detailedMoistureCells,
 } from "@/lib/reports/detailed-moisture-rows";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 export async function POST(
   request: NextRequest,
@@ -23,6 +24,15 @@ export async function POST(
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
     });
   }
   const userId = session.user.id;

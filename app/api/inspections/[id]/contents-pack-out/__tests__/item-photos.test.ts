@@ -30,6 +30,7 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    user: { findUnique: async () => ({ role: "ADMIN", organizationId: null, organizationLeftAt: null, organizationLeftId: null, organization: null }) },
     inspectionPhoto: { findMany: (...a: unknown[]) => photoFindMany(...a) },
     contentsPackOutItem: {
       findMany: (...a: unknown[]) => itemFindMany(...a),

@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 type Category = "general" | "billing" | "technical" | "feature_request" | "bug";
 type Priority = "low" | "normal" | "high" | "urgent";
@@ -56,7 +57,7 @@ export function SupportTicketForm({
       });
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(apiErrorMessage(err) || `HTTP ${res.status}`);
+        throw new Error(apiErrorMessage(err) || statusErrorMessage(res.status));
       }
       toast.success("Ticket submitted — we'll respond within one business day");
       setSubject("");

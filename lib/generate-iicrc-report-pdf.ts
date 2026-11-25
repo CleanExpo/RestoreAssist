@@ -61,6 +61,11 @@ import {
   type StandardKey,
 } from "@/lib/nir-standards-mapping";
 import { readEquipmentDeploymentLog } from "@/lib/reports/stored-equipment-pricing";
+import {
+  type StormReportAssessment,
+  stormFindingRows,
+  stormSafetyRows,
+} from "@/lib/reports/storm-assessment-rows";
 
 /**
  * RA-8508: PDF moisture rows as owner inputs. Rows come from the relational
@@ -109,6 +114,8 @@ export interface IICRCReportData {
   /** RA-7686: the job's claim type and mould sampling record, for Section 6A. */
   claimType?: string | null;
   mouldAssessment?: MouldLabAssessment | null;
+  /** RA-8592: the saved storm record, for Sections 6D and 6E. */
+  stormAssessment?: StormReportAssessment | null;
   /** RA-7694: per-room odour, visible growth and staining, for Section 6C. */
   roomObservations?: ReportRoomObservation[] | null;
   /** Recorded observations beyond the bounded read, so the report can say so. */
@@ -825,6 +832,27 @@ export async function generateIICRCReportPDF(
       }
       w.gap(8);
     }
+  }
+
+  // ── SECTION 6D: Site safety (RA-8592) ──────────────────────────────────────
+  // Safety facts the technician recorded. A flag prints only when raised: the
+  // schema defaults these to false, so false is not a recorded "no".
+  const safetyRows = stormSafetyRows(data.stormAssessment);
+  if (safetyRows.length > 0) {
+    w.sectionHeader("SECTION 6D - Site safety");
+    w.gap(4);
+    for (const [label, value] of safetyRows) w.kv(label, value, 170);
+    w.gap(8);
+  }
+
+  // ── SECTION 6E: Storm assessment (RA-8592) ─────────────────────────────────
+  // Only the fields that were filled; an absent record prints nothing.
+  const stormRows = stormFindingRows(data.stormAssessment);
+  if (stormRows.length > 0) {
+    w.sectionHeader("SECTION 6E - Storm assessment");
+    w.gap(4);
+    for (const [label, value] of stormRows) w.kv(label, value, 170);
+    w.gap(8);
   }
 
   // ── SECTION 6C: Room observations (RA-7694) ─────────────────────────────────

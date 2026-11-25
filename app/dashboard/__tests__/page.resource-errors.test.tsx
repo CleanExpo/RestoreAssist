@@ -69,7 +69,7 @@ describe("dashboard resource failures and account separation", () => {
   it("preserves successful reports and invoices when clients return a 500, with correlation and targeted retry", async () => {
     responses["/api/clients"] = () => failure();
     render(<DashboardPage />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("Clients: HTTP 500 (INTERNAL) — Error ID: synthetic-error-1");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Clients: Something went wrong on our side. Try again in a moment. Error ID: synthetic-error-1");
     expect(screen.getAllByText(report.title).length).toBeGreaterThan(0);
     expect(screen.getByText(invoice.invoiceNumber)).toBeInTheDocument();
     // The figure has its own source, so a failed list page does not take it away.
@@ -85,7 +85,7 @@ describe("dashboard resource failures and account separation", () => {
   it.each(resources)("identifies a failed %s resource without showing a false empty state", async (resource) => {
     responses[`/api/${resource}`] = () => failure();
     render(<DashboardPage />);
-    expect(await screen.findByRole("alert")).toHaveTextContent(`${resource[0].toUpperCase()}${resource.slice(1)}: HTTP 500`);
+    expect(await screen.findByRole("alert")).toHaveTextContent(`${resource[0].toUpperCase()}${resource.slice(1)}: Something went wrong on our side`);
     expect(screen.queryByText("No reports yet")).not.toBeInTheDocument();
     expect(screen.queryByText("No jobs on the board yet")).not.toBeInTheDocument();
     expect(screen.queryByText("No invoices waiting on payment.")).not.toBeInTheDocument();
@@ -113,10 +113,25 @@ describe("dashboard resource failures and account separation", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it.each([401, 403])("surfaces an authentication failure from workspace metadata without treating it as an empty workspace", async (status) => {
-    responses["/api/workspace/status"] = () => failure(status);
+  it("401 from workspace metadata shows plain wording and a Sign in again button, never an empty workspace", async () => {
+    responses["/api/workspace/status"] = () => failure(401);
     render(<DashboardPage />);
-    expect(await screen.findByRole("alert")).toHaveTextContent(`HTTP ${status}`);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Your session has ended. Sign in again to continue.");
+    expect(alert).not.toHaveTextContent(/HTTP/);
+    const button = screen.getByRole("link", { name: "Sign in again" });
+    expect(button).toHaveAttribute("data-slot", "button");
+    expect(button).toHaveAttribute("href", "/login?callbackUrl=%2Fdashboard");
+    expect(screen.queryByText("Start the first job")).not.toBeInTheDocument();
+  });
+
+  it("403 from workspace metadata says the user has no access, with no sign-in prompt", async () => {
+    responses["/api/workspace/status"] = () => failure(403);
+    render(<DashboardPage />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("You do not have access to this workspace");
+    expect(alert).not.toHaveTextContent(/HTTP|Sign in/);
+    expect(screen.queryByRole("link", { name: /sign in/i })).not.toBeInTheDocument();
     expect(screen.queryByText("Start the first job")).not.toBeInTheDocument();
   });
 
@@ -132,7 +147,7 @@ describe("dashboard resource failures and account separation", () => {
     auth.session.user.needsOnboarding = false;
     responses["/api/workspace/status"] = () => failure(status);
     render(<DashboardPage />);
-    expect(await screen.findByRole("alert")).toHaveTextContent(`Workspace details are unavailable (HTTP ${status})`);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Workspace details are unavailable.");
     expect((await screen.findAllByText(report.title)).length).toBeGreaterThan(0);
     expect(hasResourceRequests()).toBe(true);
   });
@@ -150,7 +165,7 @@ describe("dashboard resource failures and account separation", () => {
     auth.status = "unauthenticated";
     view.rerender(<DashboardPage />);
     expect(screen.queryByText(report.title)).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login?callbackUrl=/dashboard");
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login?callbackUrl=%2Fdashboard");
     auth.session = { ...auth.session, user: { ...auth.session.user, id: "synthetic-b", organizationId: "org-b" } };
     auth.status = "authenticated";
     responses["/api/reports"] = () => new Promise(() => {});
@@ -173,7 +188,7 @@ describe("dashboard resource failures and account separation", () => {
   it("preserves successful resources when a sibling response is interrupted or returns HTML", async () => {
     responses["/api/clients"] = () => new Response("<html>Sign in</html>", { status: 200 });
     render(<DashboardPage />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("Clients: HTTP 200 (INVALID_RESPONSE)");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Clients: The server returned an unreadable response.");
     expect(screen.getAllByText(report.title).length).toBeGreaterThan(0);
   });
 });

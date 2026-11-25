@@ -17,12 +17,11 @@ export default async function PublicHelpIndex() {
 
       {HELP_CATEGORIES.map((cat) => {
         const inCat = articles.filter((a) => a.frontmatter.category === cat);
+        if (inCat.length === 0) return null;
         return (
           <section key={cat} className="mb-12">
             <h2 className="mb-4 text-lg font-medium text-slate-800">{HELP_CATEGORY_LABELS[cat as HelpCategory]}</h2>
-            {inCat.length === 0 ? (
-              <p className="text-sm text-slate-500">More articles landing soon.</p>
-            ) : (
+            {inCat.length === 0 ? null : (
               <ul className="space-y-2">
                 {inCat.map((a) => (
                   <li key={a.frontmatter.slug}>

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { signIn, getSession, useSession } from "next-auth/react";
-import { clearOfflineContext } from "@/lib/offline/account-boundary";
+import { endOfflineSession } from "@/lib/offline/account-boundary";
 import { signInWithOAuth } from "@/lib/oauth-native";
+import { UnsentClaimsNotice } from "@/components/offline/UnsentClaimsNotice";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import { useServerIosShell } from "@/components/capacitor/ShellPlatformProvider";
 import { useSearchParams } from "next/navigation";
@@ -109,7 +110,7 @@ function LoginForm() {
     setError("");
 
     try {
-      clearOfflineContext();
+      endOfflineSession();
       const result = await signIn("credentials", {
         email,
         password,
@@ -218,6 +219,7 @@ function LoginForm() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="bg-white border border-slate-200/90 rounded-2xl p-8 shadow-[0_1px_3px_rgba(15,23,42,0.04)]"
         >
+          <UnsentClaimsNotice />
           {currentSession?.user && (
             <div className="mb-6 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
               <p>Currently signed in as <strong className="break-all">{currentSession.user.email}</strong>.</p>

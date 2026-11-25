@@ -13,6 +13,7 @@ import { blockedPricingResponse } from "@/lib/pricing/blocked-line-response";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 import { resolveReportPricing } from "@/lib/pricing/report-pricing";
 import type { StoredEquipmentSelections } from "@/lib/reports/stored-equipment-pricing";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
@@ -23,6 +24,15 @@ export async function POST(request: NextRequest) {
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
     });
   }
   const userId = session.user.id;

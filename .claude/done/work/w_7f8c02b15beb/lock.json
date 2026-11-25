@@ -1,0 +1,10 @@
+{
+  "schema": "done/1",
+  "work_id": "w_7f8c02b15beb",
+  "contract_digest": "42328006c7fdedf155dbad1fe176e2154a893eb5cdf3b858041e325e96a7f949",
+  "baseline_head": "e171e849fa4a46798459946201ed425c860cbad1",
+  "identity_key": "claude/ra-staff-training-register@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-staff-training-register",
+  "locked_at_utc": "2026-11-23T08:13:22Z",
+  "criteria_count": 7,
+  "recipe_pins": {}
+}

@@ -8,6 +8,7 @@ import {
   resolveInspectionWrite,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import { canSeeMoney, redactMoney } from "@/lib/auth/redact-money";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -492,7 +493,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       });
     }
 
-    return NextResponse.json({ inspection });
+    // RA-8494: a technician opens the job, never its money (cost lines,
+    // scope-item rates, the job's cost total).
+    return NextResponse.json({
+      inspection: (await canSeeMoney(session))
+        ? inspection
+        : redactMoney(inspection),
+    });
   } catch (error) {
     return fromException(request, error, { stage: "inspection:get" });
   }

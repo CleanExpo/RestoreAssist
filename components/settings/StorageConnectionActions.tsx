@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 /**
  * RA-6942: connect / reconnect / disconnect controls for the storage settings
@@ -24,7 +25,7 @@ export function StorageConnectionActions({ connected }: { connected: boolean }) 
       const res = await fetch("/api/oauth/google-drive/disconnect", {
         method: "POST",
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(statusErrorMessage(res.status));
       toast.success("Google Drive disconnected");
       window.location.reload();
     } catch (err) {

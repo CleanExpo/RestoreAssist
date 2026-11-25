@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/assert-tenancy";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 // POST - Add scope item
 export async function POST(
@@ -138,7 +139,8 @@ export async function POST(
         },
       });
 
-      return NextResponse.json({ scopeItem }, { status: 201 });
+      // RA-8494: a scope item can carry its suggested rate.
+      return NextResponse.json({ scopeItem: await moneySafe(session, scopeItem) }, { status: 201 });
     } catch (error) {
       return fromException(request, error, { stage: "scope-items-create" });
     }

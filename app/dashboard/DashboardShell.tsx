@@ -43,6 +43,7 @@ import {
   Bot,
   CalendarDays,
   Inbox,
+  GraduationCap,
 } from "lucide-react";
 import { signOutAndConfirm } from "@/lib/oauth-native";
 import { useSession } from "next-auth/react";
@@ -435,6 +436,8 @@ export default function DashboardShell({
       highlight: true,
     },
     { icon: Camera, label: "Media", href: "/dashboard/media" },
+    // Mining pilot slice 6: a technician reads their own training records.
+    { icon: GraduationCap, label: "My training", href: "/dashboard/training" },
     { icon: HelpCircle, label: "Help", href: "/dashboard/help" },
     { icon: Settings, label: "Account", href: "/dashboard/settings" },
   ];

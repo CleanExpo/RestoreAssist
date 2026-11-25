@@ -33,6 +33,7 @@ import {
   resolvePackOutPhotos,
   signPackOutItemPhotos,
 } from "@/lib/contents/pack-out-item-photos";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 // RA-8533: the schema lives in lib/contents so the Contents form builds its
@@ -81,7 +82,9 @@ export async function GET(
       0,
     );
 
-    return NextResponse.json({
+    // RA-8494 / D-028: pack-out items carry replacement values and
+    // restoration estimates, which are money.
+    return NextResponse.json(await moneySafe(session, {
       items,
       summary: {
         totalItems: items.length,
@@ -92,7 +95,7 @@ export async function GET(
           .length,
         totalReplacementValueAud,
       },
-    });
+    }));
   } catch (err) {
     return fromException(_req, err, { stage: "contents-pack-out:list" });
   }
@@ -199,9 +202,10 @@ export async function POST(
         });
       }
 
-      return NextResponse.json(await signPackOutItemPhotos(record), {
-        status: 201,
-      });
+      return NextResponse.json(
+        await moneySafe(session, await signPackOutItemPhotos(record)),
+        { status: 201 },
+      );
     } catch (err) {
       return fromException(req, err, { stage: "contents-pack-out:create" });
     }

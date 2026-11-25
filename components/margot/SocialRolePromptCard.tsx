@@ -66,8 +66,8 @@ export function SocialRolePromptCard({ className }: { className?: string }) {
       </pre>
 
       <p className="text-xs text-muted-foreground">
-        Paste into Hermes <code className="text-[11px]">SOUL.md</code> on the Mac
-        mini so Telegram social replies use the same rule.
+        Paste into Margot&apos;s role settings so social replies use the same
+        rule.
       </p>
     </section>
   );

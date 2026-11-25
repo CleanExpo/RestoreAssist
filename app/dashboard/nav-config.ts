@@ -288,7 +288,6 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/margot": "Admin",
     "/dashboard/margot/home": "Admin",
     "/dashboard/margot/social": "Admin",
-    "/dashboard/mission-control": "Admin",
   };
 
   const groups: Record<GroupLabel, NavItem[]> = {
