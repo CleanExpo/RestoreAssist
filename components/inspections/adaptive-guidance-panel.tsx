@@ -21,14 +21,12 @@ import {
   Info,
   Shield,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   getStepGuidance,
   hasApprenticeGuidance,
   hasExperiencedAlerts,
   getRequiredConfirmations,
 } from "@/lib/evidence/adaptive-guidance";
-import type { StepGuidance } from "@/lib/evidence/adaptive-guidance";
 
 // ============================================
 // TYPES
@@ -53,7 +51,7 @@ interface AdaptiveGuidancePanelProps {
 
 export function AdaptiveGuidancePanel({
   stepKey,
-  stepTitle,
+  stepTitle: _stepTitle,
   stepDescription,
   stepDescriptionShort,
   escalationNote,
@@ -110,7 +108,7 @@ export function AdaptiveGuidancePanel({
     });
   }, []);
 
-  const hasGuidance = hasApprenticeGuidance(stepKey);
+  const _hasGuidance = hasApprenticeGuidance(stepKey);
   const hasAlerts = hasExperiencedAlerts(stepKey);
 
   // ============================================

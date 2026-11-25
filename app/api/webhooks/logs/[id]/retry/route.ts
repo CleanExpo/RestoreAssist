@@ -9,7 +9,9 @@ import { apiError, fromException } from "@/lib/api-errors";
  * POST /api/webhooks/logs/[id]/retry
  *
  * Re-queues a FAILED webhook event by resetting its status to PENDING.
- * The event will be picked up on the next cron run (/api/webhooks/process).
+ * Xero events are picked up by the next /api/cron/sync-xero-payments run, and
+ * QuickBooks and MYOB payment events by /api/cron/sync-qbo-myob-payments
+ * (both every 15 minutes).
  */
 export async function POST(
   request: NextRequest,

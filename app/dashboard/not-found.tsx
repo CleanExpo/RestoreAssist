@@ -4,7 +4,7 @@ export default function DashboardNotFound() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="text-center max-w-md">
-        <p className="text-6xl font-bold text-cyan-500 mb-4">404</p>
+        <p className="text-6xl font-bold text-brand-harbour-500 mb-4">404</p>
         <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
           Page Not Found
         </h1>
@@ -13,7 +13,7 @@ export default function DashboardNotFound() {
         </p>
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white rounded-lg font-medium transition-colors"
         >
           Back to Dashboard
         </Link>

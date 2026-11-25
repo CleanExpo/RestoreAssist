@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -35,19 +35,7 @@ function SignupForm() {
     confirmPassword: "",
   });
 
-  // Verify invitation token on mount
-  useEffect(() => {
-    if (!token) {
-      setError("No invitation token provided");
-      setVerifying(false);
-      setLoading(false);
-      return;
-    }
-
-    verifyToken();
-  }, [token]);
-
-  const verifyToken = async () => {
+  const verifyToken = useCallback(async () => {
     try {
       const response = await fetch(
         `/api/portal/invitations/verify?token=${token}`,
@@ -68,13 +56,25 @@ function SignupForm() {
         setError(apiErrorMessage(data) ?? "Invalid invitation");
         setInviteStatus(parseInviteFailureStatus(data.status));
       }
-    } catch (err) {
+    } catch {
       setError("Failed to verify invitation");
     } finally {
       setVerifying(false);
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  // Verify invitation token on mount
+  useEffect(() => {
+    if (!token) {
+      setError("No invitation token provided");
+      setVerifying(false);
+      setLoading(false);
+      return;
+    }
+
+    verifyToken();
+  }, [token, verifyToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

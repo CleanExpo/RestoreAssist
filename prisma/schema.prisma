@@ -191,7 +191,9 @@ model User {
   inspections             Inspection[]
   jobAppointmentsCreated  JobAppointment[]      @relation("JobAppointmentCreator")
   jobAppointmentsAssigned JobAppointment[]      @relation("JobAppointmentAssignee")
-  chatMessages            ChatMessage[]
+  siteVisitsStarted       SiteVisit[]           @relation("SiteVisitTechnician")
+  siteVisitsSubmitted     SiteVisit[]           @relation("SiteVisitSubmitter")
+  chatMessages           ChatMessage[]
   usageEvents             UsageEvent[]          @relation("usageEvents")
   emailConnection         EmailConnection?
   scheduledEmails         ScheduledEmail[]
@@ -307,6 +309,9 @@ model User {
   moistureMeters          MoistureMeter[]
   pushTokens              PushToken[]
   clientInvites           ClientInvite[]
+
+  // Mining pilot slice 6: this user's entries in their employer's training register.
+  staffTrainingRecords StaffTrainingRecord[]
 
   @@index([managedById])
   @@index([organizationId])
@@ -1008,7 +1013,13 @@ model Organization {
   // RA-6952 (Pulse P0): the firm's Google review link. Null = review-ask
   // notification suppressed (NO_URL) rather than sent with a broken/missing link.
   googleReviewUrl String?
-  setupMode       SetupMode @default(AI)
+
+  // RA-8495 (DRC S2): office job-number prefix. Null = derived from the
+  // organisation name by lib/jobs/job-number.ts (e.g. "DRC (NSW) Pty Ltd" -> DRC).
+  jobNumberPrefix String?
+  jobSequence     OrganizationJobSequence?
+  numberedJobs    Inspection[]             @relation("InspectionJobNumberOrganization")
+  setupMode       SetupMode                @default(AI)
 
   // Relations to new models
   hydrationJobs HydrationJob[]
@@ -1026,10 +1037,41 @@ model Organization {
   // RA-8156: Pulse address withdrawal is organisation-wide, not per staff user.
   pulseAddressOptOuts PulseOrgAddressOptOut[]
 
+  // Mining pilot slice 6: the business's staff training register.
+  staffTrainingRecords StaffTrainingRecord[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
+}
+
+/// Mining pilot slice 6: one training record for one staff member, kept by
+/// their organisation. Owners and managers read and edit every record in the
+/// organisation; a technician reads their own only (lib/training/register-access.ts).
+///
+/// carsiCompletionRef is what the business typed: a carsi.com.au link or a
+/// certificate id. RestoreAssist never calls CARSI and never checks it, so it
+/// is shown as "entered by the business", never as verified (decision D-007).
+model StaffTrainingRecord {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staffUserId       String
+  staffUser         User         @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  course            String
+  provider          String
+  completedOn       DateTime     @db.Date
+  expiresOn         DateTime?    @db.Date
+  evidenceUrl       String?
+  carsiCompletionRef String?
+  recordedByUserId  String?
+  updatedByUserId   String?
+  createdAt         DateTime     @default(now()) @db.Timestamptz
+  updatedAt         DateTime     @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([organizationId, staffUserId])
+  @@index([staffUserId])
 }
 
 /// RA-8156 — durable Pulse consent lock for one address inside one organisation.
@@ -1043,12 +1085,12 @@ model Organization {
 /// No FK to Client or User: deleting a client or a staff account must not
 /// restore mail to an address that already withdrew.
 model PulseOrgAddressOptOut {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// HMAC fingerprint from pulseAddressTag(); never the raw address.
   addressTag     String
-  optedOutAt     DateTime @default(now())
+  optedOutAt     DateTime     @default(now())
   sourceClientId String?
   sourceUserId   String?
 
@@ -2161,7 +2203,7 @@ model Inspection {
   insurerProfile    InsurerProfile? @relation(fields: [insurerProfileId], references: [id], onDelete: SetNull)
   /// Template id from lib/insurer-profiles (e.g. iag) when persisted before DB row match
   insurerTemplateId String?
-  claimNumber       String?
+  claimNumber       String? // RA-8495: the office intake's "insurer claim number"
 
   // Homeowner self-capture tokens scoped to this inspection's sketch (spec §2).
   captureTokens             CaptureToken[]
@@ -2259,6 +2301,8 @@ model Inspection {
   usageEvents        UsageEvent[]        @relation("usageEvents")
   clientMutations    ClientMutation[]
   fieldCaptureEvents FieldCaptureEvent[]
+  // RA-7694: per-room odour, visible growth and staining observations.
+  roomObservations RoomObservation[]
 
   // RA-7493: AI runtime — receipts and suggestions land on the job record
   aiRunnerReceipts AiRunnerReceipt[] @relation("InspectionAiRunnerReceipts")
@@ -2356,6 +2400,7 @@ model Inspection {
   claimProgress   ClaimProgress?
   authorisations  Authorisation[]
   jobAppointments JobAppointment[]
+  siteVisits      SiteVisit[]
 
   // RA-261 NIR phase 1 — re-modelled here per issue #963.
   // Tables existed on prod (via repair hotfix #960) but had no Prisma models.
@@ -2377,6 +2422,20 @@ model Inspection {
   hvacAssessment              HVACAssessment?
   australianComplianceRecord  AustralianComplianceRecord?
 
+  // RA-8495 (DRC S2): office "log a job" intake. All nullable; jobs created
+  // anywhere else keep these empty. jobNumber is allocated once, at intake,
+  // from OrganizationJobSequence and never rewritten.
+  jobNumber               String?
+  jobNumberOrganizationId String?
+  jobNumberOrganization   Organization?  @relation("InspectionJobNumberOrganization", fields: [jobNumberOrganizationId], references: [id], onDelete: SetNull)
+  policyNumber            String?
+  clientType              JobClientType?
+  insuredName             String?
+  insuredPhone            String?
+  insuredEmail            String?
+  officeNotes             String?        @db.Text
+
+  @@unique([jobNumberOrganizationId, jobNumber])
   @@index([userId])
   @@index([status])
   @@index([inspectionDate])
@@ -2415,6 +2474,26 @@ enum InspectionStatus {
 // Inspection.claimType. ScopeItem.claimType + ContentsPackOutItem.claimType
 // remain typed as String in the DB / are not yet declared in this schema —
 // out of scope for the dormant-cols drift fix.
+/// RA-8495: who instructed the job (office intake).
+enum JobClientType {
+  BUILDER
+  LOSS_ADJUSTER
+  CLIENT
+  INSURANCE_COMPANY
+  OTHER
+}
+
+/// RA-8495: per-organisation job-number counter. One row per organisation,
+/// incremented with a single INSERT .. ON CONFLICT DO UPDATE .. RETURNING inside
+/// the job's own transaction (lib/jobs/job-number.ts), so two saves at once
+/// serialise on this row and a rolled-back save releases its number.
+model OrganizationJobSequence {
+  organizationId String       @id
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lastValue      Int          @default(0)
+  updatedAt      DateTime     @updatedAt
+}
+
 enum ClaimType {
   WATER
   FIRE
@@ -2968,6 +3047,58 @@ model MouldRemediationAssessment {
 
   @@index([inspectionId])
   @@index([mouldConditionLevel])
+}
+
+enum RoomObservationKind {
+  ODOUR
+  VISIBLE_GROWTH
+  STAINING
+}
+
+// What the entry rests on. A hypothesis is never printed as an observation.
+enum RoomObservationBasis {
+  OBSERVED
+  MEASURED
+  HYPOTHESISED
+}
+
+enum RoomOdourPattern {
+  CONSTANT
+  INTERMITTENT
+}
+
+// RA-7694: one structured observation in one room, on any job type. Records what
+// the technician saw or smelt: no species, no diagnosis, no condition or
+// clearance. `roomLabel` is a snapshot of the room name when it was recorded, so
+// the report still names the room if the sketch room is later removed
+// (sketchRoomId is SetNull, as on the other room-linked records).
+model RoomObservation {
+  id               String               @id @default(cuid())
+  inspectionId     String
+  inspection       Inspection           @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  sketchRoomId     String?
+  sketchRoom       SketchRoom?          @relation(fields: [sketchRoomId], references: [id], onDelete: SetNull)
+  roomLabel        String
+  kind             RoomObservationKind
+  basis            RoomObservationBasis @default(OBSERVED)
+  // ODOUR only
+  odourDescriptor  String? // musty, sewage, smoke ... as the technician put it
+  odourIntensity   Int? // 1 faint, 2 moderate, 3 strong
+  odourPattern     RoomOdourPattern?
+  // VISIBLE_GROWTH only: estimated visible area
+  areaM2           Float?
+  // VISIBLE_GROWTH and STAINING: the surface or material it is on
+  surface          String?
+  // Free text description (colour, extent, location in the room)
+  detail           String?              @db.Text
+  source           String               @default("manual") // manual | voice
+  capturedByUserId String?
+  observedAt       DateTime             @default(now()) @db.Timestamptz
+  createdAt        DateTime             @default(now()) @db.Timestamptz
+  updatedAt        DateTime             @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId, observedAt])
+  @@index([sketchRoomId])
 }
 
 model ContentsPackOutItem {
@@ -3621,6 +3752,8 @@ model InspectionPhoto {
   mobileLocalId String?
   metadata      Json?         @default("{}")
   evidencePins  EvidencePin[]
+  // RA-8498: visits that use this photo as their front-of-property photo.
+  frontPhotoOfVisits SiteVisit[] @relation("SiteVisitFrontPhoto")
 
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -4711,6 +4844,8 @@ enum TaskStatus {
   SKIPPED
   CANCELLED
   DEAD_LETTER
+  /// RA-8000: waiting for the contractor to approve. A DB CHECK requires approvalRequestedAt.
+  AWAITING_APPROVAL
 }
 
 /// Registry of all available agents and their capabilities
@@ -4802,6 +4937,13 @@ model AgentTask {
   leaseOwner       String?
   /// RA-7999: database-clock expiry of the current claim; the sweep reclaims RUNNING rows past it.
   leaseExpiresAt   DateTime?
+  /// RA-8000: copied from the workflow step when the task is created. A task with this set is never claimed until approvedAt is set.
+  requiresApproval Boolean          @default(false)
+  /// RA-8000: when the task began waiting; a DB CHECK requires it while status is AWAITING_APPROVAL.
+  approvalRequestedAt DateTime?
+  approvedAt       DateTime?
+  /// RA-8000: always the workflow owner's user id (no foreign key; cross-member approval is out of scope).
+  approvedBy       String?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   logs             AgentTaskLog[]
@@ -7227,6 +7369,7 @@ model SketchRoom {
   jobMoistureReadings  MoistureReading[]       @relation("JobMoistureReadings")
   scopeItems           ScopeItem[]             @relation("ScopeItemSketchRoom")
   hazards              Hazard[]
+  roomObservations     RoomObservation[]
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 
@@ -8863,6 +9006,59 @@ model InsurerProfile {
 
   @@index([slug])
   @@index([isActive])
+}
+
+/// RA-8498 (DRC S5) — who the technician met on site at a visit. A category,
+/// never a name.
+enum SiteVisitPresence {
+  OWNER
+  TENANT
+  CLIENT_SUPERVISOR
+  NO_ONE
+}
+
+/// RA-8498 (DRC S5) — what happened to the drying equipment at the end of a visit.
+enum SiteVisitEquipmentOutcome {
+  NONE_ON_SITE
+  ALL_LEFT
+  SOME_REMOVED
+  ALL_REMOVED
+}
+
+/// RA-8498 (DRC S5) — one record per attendance at the property: the first
+/// attendance and every re-attendance. A JobAppointment is the booking (the
+/// plan); a SiteVisit is what happened on site. Once `submittedAt` is set the
+/// row is read-only. `lib/site-visits/visit-gate.ts` owns the rule for which
+/// items must be recorded before a visit can be submitted.
+model SiteVisit {
+  id               String                     @id @default(cuid())
+  inspectionId     String
+  inspection       Inspection                 @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  /// 1 for the first attendance, then 2, 3 ... per job.
+  visitNumber      Int
+  /// The user who started the visit on site.
+  technicianId     String?
+  technician       User?                      @relation("SiteVisitTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
+  arrivedAt        DateTime?
+  departedAt       DateTime?
+  metOnSite        SiteVisitPresence?
+  /// An InspectionPhoto of this same job. NoAction: a photo in use as a
+  /// visit's front photo cannot be deleted on its own (the delete routes
+  /// refuse first); deleting the whole job still cascades both rows.
+  frontPhotoId     String?
+  frontPhoto       InspectionPhoto?           @relation("SiteVisitFrontPhoto", fields: [frontPhotoId], references: [id], onDelete: NoAction)
+  equipmentOutcome SiteVisitEquipmentOutcome?
+  equipmentNote    String?
+  submittedAt      DateTime?
+  submittedById    String?
+  submittedBy      User?                      @relation("SiteVisitSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  @@unique([inspectionId, visitNumber])
+  @@index([frontPhotoId])
+  @@index([technicianId])
+  @@index([submittedById])
 }
 
 /// V1 Phase 5 — minimum scheduling model (P5-1)

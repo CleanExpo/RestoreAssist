@@ -99,16 +99,17 @@ describe("GET /api/invoices/analytics organisation reach (RA-8146)", () => {
     },
   );
 
-  it("gives a technician only their own money", async () => {
-    const body = await analyticsFor("tech-a");
-    expect(body.stats).toEqual({
-      totalRevenue: 3000,
-      outstanding: 0,
-      overdue: 0,
-      paidThisMonth: 3000,
-      draftTotal: 500,
-    });
-    expect(body.statusCounts).toEqual({ PAID: 1, DRAFT: 1 });
+  // RA-8494: invoice analytics are money in their entirety; a technician is
+  // refused, even for invoices they created (D-023 amendment RA-8494).
+  it("refuses a technician, with no money in the answer", async () => {
+    (getServerSession as ReturnType<typeof vi.fn>).mockResolvedValue(
+      sessionFor("tech-a"),
+    );
+    const res = await GET(new Request("http://localhost/api/invoices/analytics") as never);
+    expect(res.status).toBe(403);
+    const text = await res.text();
+    expect(text).not.toContain("3000");
+    expect(text).not.toContain("500");
   });
 
   it("gives another organisation only its own money", async () => {
@@ -123,13 +124,6 @@ describe("GET /api/invoices/analytics organisation reach (RA-8146)", () => {
       { month: "2026-11", revenue: 100000 + 20000 + 3000 + 11, count: 4 },
       { month: "2026-10", revenue: 40000 + 22, count: 2 },
       { month: "2025-11", revenue: 1111, count: 1 },
-    ]);
-  });
-
-  it("buckets a technician's monthly revenue from their own invoices", async () => {
-    const body = await analyticsFor("tech-a");
-    expect(body.monthlyRevenue).toEqual([
-      { month: "2026-11", revenue: 3000, count: 1 },
     ]);
   });
 

@@ -45,7 +45,7 @@ export default async function PortalHelpArticlePage({
         <nav className="text-sm text-slate-400">
           <Link
             href={PORTAL_PATHS.help}
-            className="text-cyan-400/90 hover:underline"
+            className="text-brand-harbour-400/90 hover:underline"
           >
             Client help
           </Link>
@@ -74,14 +74,14 @@ export default async function PortalHelpArticlePage({
         <p className="text-sm text-slate-400">
           <Link
             href={PORTAL_PATHS.recovery}
-            className="text-cyan-400/90 hover:underline"
+            className="text-brand-harbour-400/90 hover:underline"
           >
             Request a new invite
           </Link>
           <span className="px-2 text-slate-600">·</span>
           <Link
             href={PORTAL_PATHS.login}
-            className="text-cyan-400/90 hover:underline"
+            className="text-brand-harbour-400/90 hover:underline"
           >
             Client portal sign-in
           </Link>

@@ -23,6 +23,7 @@ import {
 import { blockedPricingResponse } from "@/lib/pricing/blocked-line-response";
 import { isEffectivePlanCurrent } from "@/lib/billing/subscription-gate";
 import { getEffectiveSubscription } from "@/lib/organization-credits";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 /** Default pricing config (mirrors getDefaultPricingConfig in pricing-config route). */
 function getDefaultRates() {
@@ -97,6 +98,16 @@ export async function POST(request: NextRequest) {
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 

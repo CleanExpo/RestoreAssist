@@ -62,7 +62,7 @@ export function DashboardListPageHeader({
               <Link
                 key={link.href}
                 href={link.href}
-                className="inline-flex min-h-11 items-center rounded-lg border border-neutral-200 px-3 font-medium text-neutral-700 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="inline-flex min-h-11 items-center rounded-lg border border-neutral-200 px-3 font-medium text-neutral-700 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-500 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 {link.label}
               </Link>

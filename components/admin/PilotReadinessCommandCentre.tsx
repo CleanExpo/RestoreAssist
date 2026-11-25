@@ -149,7 +149,7 @@ function GateRow({ gate }: { gate: PilotReadinessGate }) {
         target="_blank"
         rel="noreferrer"
         aria-label={`Open ${gate.title} evidence`}
-        className="inline-flex h-8 w-fit items-center gap-1.5 text-xs font-medium text-cyan-700 hover:text-cyan-800 dark:text-cyan-400 dark:hover:text-cyan-300"
+        className="inline-flex h-8 w-fit items-center gap-1.5 text-xs font-medium text-brand-harbour-700 hover:text-brand-harbour-800 dark:text-brand-harbour-400 dark:hover:text-brand-harbour-300"
       >
         Evidence
         <ExternalLink className="h-3.5 w-3.5" />
@@ -172,7 +172,7 @@ export function PilotReadinessCommandCentre({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="mb-1 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-cyan-500" />
+            <span className="h-2 w-2 rounded-full bg-brand-harbour-500" />
             <span className="text-xs font-semibold uppercase text-neutral-500 dark:text-slate-400">
               Operational gate
             </span>

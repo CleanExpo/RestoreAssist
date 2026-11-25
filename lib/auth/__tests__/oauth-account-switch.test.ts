@@ -5,7 +5,7 @@ const { signInMock, signOutMock, clearOfflineMock } = vi.hoisted(() => ({
   signOutMock: vi.fn(),
   clearOfflineMock: vi.fn(),
 }));
-vi.mock("@/lib/offline/account-boundary", () => ({ clearOfflineContext: clearOfflineMock }));
+vi.mock("@/lib/offline/account-boundary", () => ({ endOfflineSession: clearOfflineMock }));
 
 vi.mock("next-auth/react", () => ({
   signIn: signInMock,

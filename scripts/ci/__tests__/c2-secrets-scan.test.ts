@@ -22,7 +22,7 @@ import {
   scanDirectory,
   summariseC2,
   type GitleaksFinding,
-} from "../producers/c2-secrets-scan";
+} from "../producers/lib/c2-secrets-scan";
 
 /**
  * C2 producer unit tests.
@@ -92,6 +92,22 @@ describe("readEnvCompleteness", () => {
         },
       }),
     ).toEqual({ envStatus: "degraded", missingEnvVars: 2 });
+  });
+
+  it.each(["error", "degraded"])(
+    "an anonymous-shaped response with env status %s still fails the count",
+    (status) => {
+      const out = readEnvCompleteness({ checks: { env: { status } } });
+      expect(out.envStatus).toBe(status);
+      expect(out.missingEnvVars).toBeGreaterThan(0);
+    },
+  );
+
+  it("an anonymous-shaped ok response counts zero", () => {
+    expect(readEnvCompleteness({ checks: { env: { status: "ok" } } })).toEqual({
+      envStatus: "ok",
+      missingEnvVars: 0,
+    });
   });
 
   it.each([
@@ -197,7 +213,7 @@ describe("the control canary", () => {
      * the assembled value is detected in a .md, and this source scans clean.
      */
     const source = readFileSync(
-      join(process.cwd(), "scripts/ci/producers/c2-secrets-scan.ts"),
+      join(process.cwd(), "scripts/ci/producers/lib/c2-secrets-scan.ts"),
       "utf8",
     );
     expect(source).not.toContain(c2CanarySecret());

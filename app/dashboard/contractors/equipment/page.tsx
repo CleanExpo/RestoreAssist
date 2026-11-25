@@ -42,31 +42,31 @@ export default function EquipmentPage() {
             Back
           </Link>
         </Button>
-        <h1 className="text-2xl font-semibold text-white flex items-center gap-2">
-          <Wrench className="h-6 w-6 text-cyan-400" />
+        <h1 className="text-2xl font-semibold text-brand-navy dark:text-white flex items-center gap-2">
+          <Wrench className="h-6 w-6 text-brand-harbour-700 dark:text-brand-harbour-400" />
           Equipment
         </h1>
       </div>
 
-      <Card className="bg-slate-800/40 border-amber-500/40">
+      <Card className="bg-white dark:bg-slate-800/40 border-amber-500/40">
         <CardHeader>
-          <CardTitle className="text-amber-300 flex items-center gap-2 text-base">
+          <CardTitle className="text-amber-700 dark:text-amber-300 flex items-center gap-2 text-base">
             <AlertTriangle className="h-5 w-5" />
             Not available in this release
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-slate-300">
+        <CardContent className="space-y-3 text-sm text-brand-slate dark:text-slate-300">
           <p>
             The equipment and calibration register UI is not wired to a
             dedicated API yet. Creating or editing gear here would not persist
             correctly.
           </p>
-          <p className="text-slate-400">
+          <p className="text-brand-slate dark:text-slate-400">
             Track moisture meters and drying kit against the job in Field Mode
             and inspection photos until the equipment API ships.
           </p>
           <div className="flex flex-wrap gap-2 pt-2">
-            <Button asChild className="bg-cyan-500 hover:bg-cyan-600 text-white">
+            <Button asChild className="bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white">
               <Link href="/dashboard/field">Open Field Mode</Link>
             </Button>
             <Button

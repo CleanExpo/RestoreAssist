@@ -17,13 +17,13 @@
  * a symlink to the CLI.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // @ts-expect-error — plain .mjs helper, no type declarations.
-import { scanText } from "../ci/lib/corpus-hygiene.mjs";
+import { scanDir, scanText } from "../ci/lib/corpus-hygiene.mjs";
 
 const ROOT = process.cwd();
 const SCRIPT = join(ROOT, "scripts/ci/check-corpus-hygiene.mjs");
@@ -214,6 +214,78 @@ describe("check-corpus-hygiene CLI", () => {
     } finally {
       rmSync(scratch, { recursive: true, force: true });
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// RA-7790: scanDir used `statSync`, which follows symlinks, so a folder link
+// pointing back up the staging tree recursed until it threw ELOOP and the CLI
+// exited 2. Symlinked folders are now skipped; real files are scanned once.
+describe("scanDir symlinked folders (RA-7790)", () => {
+  function loopTree(ctx: { skip: (reason: string) => void }): string | null {
+    const dir = tempDir();
+    mkdirSync(join(dir, "sub"));
+    writeFileSync(join(dir, "top.md"), "Category 2 water requires extraction.\n");
+    writeFileSync(join(dir, "sub", "rates.md"), "Technician charge-out is $440/hr on site.\n");
+    try {
+      symlinkSync(dir, join(dir, "sub", "loop"), "dir");
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      if (isEperm(err)) {
+        ctx.skip("symlink creation threw EPERM");
+        return null;
+      }
+      throw err;
+    }
+    return dir;
+  }
+
+  it("terminates on a symlink loop and scans each real file once", (ctx) => {
+    const dir = loopTree(ctx);
+    if (!dir) return;
+    try {
+      const { files, hits } = scanDir(dir);
+      expect([...files].sort()).toEqual([join(dir, "sub", "rates.md"), join(dir, "top.md")]);
+      expect(hits).toHaveLength(1);
+      expect(hits[0].text).toContain("$440/hr");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("the CLI exits 1 under --strict on a staging tree with a symlink loop", (ctx) => {
+    const dir = loopTree(ctx);
+    if (!dir) return;
+    try {
+      const result = runCli(["--dir", dir, "--strict"]);
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain("$440/hr");
+      expect(result.stdout).not.toContain("loop");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("still scans a symlinked .md file", (ctx) => {
+    const dir = tempDir();
+    const other = tempDir();
+    try {
+      writeFileSync(join(other, "rates.md"), "Travel is $5 per hour.\n");
+      try {
+        symlinkSync(join(other, "rates.md"), join(dir, "linked.md"));
+      } catch (err) {
+        if (isEperm(err)) {
+          ctx.skip("symlink creation threw EPERM");
+          return;
+        }
+        throw err;
+      }
+      const { files, hits } = scanDir(dir);
+      expect(files).toEqual([join(dir, "linked.md")]);
+      expect(hits).toHaveLength(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(other, { recursive: true, force: true });
     }
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Circle, Clock, User, Mail } from "lucide-react";
+import { CheckCircle, Circle, Clock, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Signatory {
@@ -34,7 +34,7 @@ interface SignatoryFlowTimelineProps {
 export function SignatoryFlowTimeline({
   signatories,
   className,
-  compact = false,
+  compact: _compact = false,
 }: SignatoryFlowTimelineProps) {
   if (signatories.length === 0) {
     return null;
@@ -94,7 +94,7 @@ export function SignatoryFlowTimeline({
       INSURER:
         "bg-info-subtle text-info-subtle-foreground",
       CONTRACTOR:
-        "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-400",
+        "bg-brand-harbour-100 text-brand-harbour-700 dark:bg-brand-harbour-950/30 dark:text-brand-harbour-400",
       PROPERTY_OWNER:
         "bg-warning-subtle text-warning-subtle-foreground",
       MANAGER:

@@ -1,0 +1,36 @@
+{
+  "schema": "done/1",
+  "work_id": "w_129164bf1317",
+  "version": 2,
+  "supersedes": "w_67ba4b4f4250",
+  "goal": "RestoreAssist E2E runs on E2E_PORT when set (default 3000): Playwright config, one local-origin helper, sketch-e2e NEXTAUTH_URL (UNI-3468); scope allows the committed Done files",
+  "created_at_utc": "2026-11-19T02:06:42Z",
+  "identity_key": "uni-3468-ra-e2e-ports@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/ra-e2e-ports",
+  "baseline_observed": {
+    "head": "0d1bdd1c0d603843cd90861c4d8ec880b7d82ef5",
+    "branch": "uni-3468-ra-e2e-ports",
+    "dirty_count": 1
+  },
+  "criteria": [
+    {
+      "id": "RA-PORTS-CONFIG-TEST",
+      "text": "config/playwright.config.ts serves and targets E2E_PORT when set and 3000 when not (webServer url and PORT env); PLAYWRIGHT_BASE_URL still wins and still disables the webServer",
+      "recipe": "PATH=$HOME/.nvm/versions/node/v22.23.3/bin:$PATH node_modules/.bin/vitest run --config config/vitest.config.js tests/unit/playwright-e2e-ports.test.ts"
+    },
+    {
+      "id": "RA-PORTS-ONE-OWNER",
+      "text": "The changed E2E files take the local origin from e2e/helpers/local-origin.ts; none of them still hard-codes localhost:3000",
+      "recipe": "git grep -n 'localhost:3000' -- config/playwright.config.ts e2e/helpers/session-cookie.ts e2e/pilot-workflow.spec.ts e2e/stripe-connect-payments.spec.ts e2e/setup-storage-google-drive.spec.ts; test $? -eq 1"
+    },
+    {
+      "id": "RA-PORTS-NEXTAUTH",
+      "text": "sketch-e2e.yml no longer pins NEXTAUTH_URL to localhost:3000 at job level and sets it from E2E_PORT (default 3000) in a step; actionlint passes",
+      "recipe": "git grep -q -E '^\\s+NEXTAUTH_URL: http://localhost:3000' -- .github/workflows/sketch-e2e.yml; test $? -eq 1 && git grep -q 'NEXTAUTH_URL=http://localhost:%s' -- .github/workflows/sketch-e2e.yml && /opt/homebrew/bin/actionlint .github/workflows/sketch-e2e.yml"
+    },
+    {
+      "id": "RA-PORTS-SCOPE",
+      "text": "Only the Playwright config, the local-origin helper, the four E2E files, sketch-e2e.yml and the new unit test change against origin/main, plus this work item's Done contract files under .claude/done/ (the repo commits them with each PR)",
+      "recipe": "git diff --name-only origin/main...HEAD | grep -v -E '^(config/playwright.config.ts|e2e/helpers/local-origin.ts|e2e/helpers/session-cookie.ts|e2e/pilot-workflow.spec.ts|e2e/stripe-connect-payments.spec.ts|e2e/setup-storage-google-drive.spec.ts|.github/workflows/sketch-e2e.yml|tests/unit/playwright-e2e-ports.test.ts|\\.claude/done/.*)$'; test $? -eq 1"
+    }
+  ]
+}

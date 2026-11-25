@@ -15,12 +15,10 @@ import {
   Download,
   Eye,
   Edit,
-  MoreVertical,
   Copy,
   Trash2,
   CheckSquare,
   Square,
-  X,
   GitBranch,
   RefreshCw,
   Sparkles,
@@ -32,7 +30,6 @@ import { workspaceHubLinks } from "@/lib/dashboard/workspace-secondary-links";
 import toast from "react-hot-toast";
 import {
   EvaluatorScoreBadge,
-  PhaseProgressBar,
 } from "@/components/SessionMetadataCard";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
@@ -83,9 +80,9 @@ export default function ReportsPage() {
       ? { kind: "updated", message: "Reports updated" }
       : { kind: "error", message: "Could not refresh reports. Try again." };
   });
-  const reports = reportsData?.reports ?? [];
+  const reports = useMemo(() => reportsData?.reports ?? [], [reportsData]);
   const [duplicating, setDuplicating] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState<string | null>(null);
+  const [_downloading, setDownloading] = useState<string | null>(null);
   // RA-1192: per-row synopsis generation. Keyed by report id so multiple rows
   // can be generated in parallel without stepping on each other's state.
   const [synopsising, setSynopsising] = useState<string | null>(null);
@@ -117,7 +114,7 @@ export default function ReportsPage() {
       });
 
       if (response.ok) {
-        const newReport = await response.json();
+        const _newReport = await response.json();
         toast.success("Report duplicated successfully!", {
           duration: 4000,
           style: {
@@ -216,7 +213,7 @@ export default function ReportsPage() {
   };
 
   // Download report function
-  const downloadReport = async (reportId: string) => {
+  const _downloadReport = async (reportId: string) => {
     try {
       setDownloading(reportId);
       const response = await fetch(`/api/reports/${reportId}/download`);
@@ -408,7 +405,7 @@ export default function ReportsPage() {
         eyebrow="Simple workspace"
         title="My Reports"
         description="Manage and view all restoration reports"
-        icon={<FileText className="h-7 w-7 text-cyan-500" aria-hidden />}
+        icon={<FileText className="h-7 w-7 text-brand-harbour-500" aria-hidden />}
         secondaryLinks={workspaceHubLinks({
           omitHref: "/dashboard/reports",
         })}
@@ -448,7 +445,7 @@ export default function ReportsPage() {
           {dataSource === "native" && (
             <Link
               href="/dashboard/reports/new"
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
             >
               New Report
             </Link>
@@ -474,7 +471,7 @@ export default function ReportsPage() {
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-slate-900 dark:text-white placeholder-slate-500"
+                className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50 text-slate-900 dark:text-white placeholder-slate-500"
               />
             </div>
           </div>
@@ -498,7 +495,7 @@ export default function ReportsPage() {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-slate-900 dark:text-white placeholder-slate-500"
+            className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/50 text-slate-900 dark:text-white placeholder-slate-500"
           />
         </div>
         <button
@@ -524,7 +521,7 @@ export default function ReportsPage() {
           }
         >
           {batchDownloading ? (
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-cyan-500" />
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand-harbour-500" />
           ) : (
             <Download size={20} />
           )}
@@ -543,7 +540,7 @@ export default function ReportsPage() {
                   setFilters({ ...filters, status: e.target.value });
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
               >
                 <option value="all">All Status</option>
                 <option value="COMPLETED">Completed</option>
@@ -563,7 +560,7 @@ export default function ReportsPage() {
                   setFilters({ ...filters, hazard: e.target.value });
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
               >
                 <option value="all">All Categories</option>
                 <option value="Category 1">Category 1</option>
@@ -581,7 +578,7 @@ export default function ReportsPage() {
                   setFilters({ ...filters, insurance: e.target.value });
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
               >
                 <option value="all">All Types</option>
                 <option value="Building & Contents">Building & Contents</option>
@@ -602,7 +599,7 @@ export default function ReportsPage() {
                 onChange={(e) =>
                   setFilters({ ...filters, dateFrom: e.target.value })
                 }
-                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
               />
             </div>
             <div>
@@ -614,7 +611,7 @@ export default function ReportsPage() {
                 onChange={(e) =>
                   setFilters({ ...filters, dateTo: e.target.value })
                 }
-                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-slate-200/50 dark:bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
               />
             </div>
           </div>
@@ -678,7 +675,7 @@ export default function ReportsPage() {
                   No reports found.{" "}
                   <Link
                     href="/dashboard/reports/new"
-                    className="text-cyan-700 dark:text-cyan-400 hover:underline"
+                    className="text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline"
                   >
                     Create your first report
                   </Link>
@@ -700,7 +697,7 @@ export default function ReportsPage() {
                         className="mt-1 flex-shrink-0 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors min-h-[24px] min-w-[24px]"
                       >
                         {selectedReports.includes(report.id) ? (
-                          <CheckSquare size={20} className="text-cyan-700 dark:text-cyan-400" />
+                          <CheckSquare size={20} className="text-brand-harbour-700 dark:text-brand-harbour-400" />
                         ) : (
                           <Square size={20} />
                         )}
@@ -709,7 +706,7 @@ export default function ReportsPage() {
                         <div className="flex items-center gap-2 flex-wrap mb-2">
                           <Link
                             href={`/dashboard/reports/${report.id}`}
-                            className="font-mono text-sm font-semibold text-cyan-700 dark:text-cyan-400 hover:underline"
+                            className="font-mono text-sm font-semibold text-brand-harbour-700 dark:text-brand-harbour-400 hover:underline"
                           >
                             {report.reportNumber || report.id}
                           </Link>
@@ -769,7 +766,7 @@ export default function ReportsPage() {
                             aria-label="Duplicate report"
                           >
                             {duplicating === report.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500" />
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-harbour-500" />
                             ) : (
                               <Copy size={16} />
                             )}
@@ -783,9 +780,9 @@ export default function ReportsPage() {
                               aria-label="Generate AI summary"
                             >
                               {synopsising === report.id ? (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500" />
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-harbour-500" />
                               ) : (
-                                <Sparkles size={16} className="text-cyan-700 dark:text-cyan-400" />
+                                <Sparkles size={16} className="text-brand-harbour-700 dark:text-brand-harbour-400" />
                               )}
                             </button>
                           )}
@@ -865,7 +862,7 @@ export default function ReportsPage() {
                         <EmptyState
                           icon={<GitBranch size={40} aria-hidden />}
                           title="No reports yet"
-                          description="Water-damage reports appear here once you complete an inspection. Start one to generate your first IICRC-compliant report."
+                          description="Water-damage reports appear here once you complete an inspection. Start one to generate your first IICRC-aligned report."
                           primaryAction={{
                             label: "Create your first report",
                             href: "/dashboard/reports/new",
@@ -893,14 +890,14 @@ export default function ReportsPage() {
                             {selectedReports.includes(report.id) ? (
                               <CheckSquare
                                 size={16}
-                                className="text-cyan-700 dark:text-cyan-400"
+                                className="text-brand-harbour-700 dark:text-brand-harbour-400"
                               />
                             ) : (
                               <Square size={16} />
                             )}
                           </button>
                         </td>
-                        <td className="py-4 px-6 font-medium text-cyan-700 dark:text-cyan-400">
+                        <td className="py-4 px-6 font-medium text-brand-harbour-700 dark:text-brand-harbour-400">
                           <Link
                             href={`/dashboard/reports/${report.id}`}
                             className="hover:underline"
@@ -925,10 +922,10 @@ export default function ReportsPage() {
                               size="sm"
                               disabled={synopsising === report.id}
                               onClick={() => generateSynopsis(report.id)}
-                              className="mt-1 h-6 px-2 text-xs text-cyan-700 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 hover:bg-slate-200/40 dark:hover:bg-slate-700/40"
+                              className="mt-1 h-6 px-2 text-xs text-brand-harbour-700 dark:text-brand-harbour-400 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-300 hover:bg-slate-200/40 dark:hover:bg-slate-700/40"
                             >
                               {synopsising === report.id ? (
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-cyan-500" />
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-brand-harbour-500" />
                               ) : (
                                 <Sparkles size={12} />
                               )}
@@ -977,7 +974,7 @@ export default function ReportsPage() {
                                       title={p.label}
                                       className={`flex-1 h-1.5 rounded-sm ${
                                         p.completed
-                                          ? "bg-cyan-500"
+                                          ? "bg-brand-harbour-500"
                                           : "bg-slate-200 dark:bg-slate-700"
                                       }`}
                                     />
@@ -1045,7 +1042,7 @@ export default function ReportsPage() {
                               aria-label="Duplicate report"
                             >
                               {duplicating === report.id ? (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500"></div>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-harbour-500"></div>
                               ) : (
                                 <Copy size={16} />
                               )}
@@ -1057,7 +1054,7 @@ export default function ReportsPage() {
                             title="Download PDF"
                           >
                             {downloading === report.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500"></div>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-harbour-500"></div>
                             ) : (
                               <Download size={16} />
                             )}

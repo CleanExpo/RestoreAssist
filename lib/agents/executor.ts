@@ -25,6 +25,7 @@ import { classifyError } from "./error-handler";
 import { PlatformKeyRefusedError } from "./ai-bridge";
 import { logAgentEvent } from "./logger";
 import { refreshWorkflowProgress } from "./state-manager";
+import { lockWorkflowRow } from "./workflow-lock";
 import {
   DB_NOW,
   DEFAULT_RETRY_AFTER_MS,
@@ -45,7 +46,10 @@ export interface TaskClaim {
 /**
  * Claim a READY task: RUNNING, a fresh lease token, a database-clock lease of
  * `timeoutMs + LEASE_MARGIN_MS`, and `attempts + 1`, in one compare-and-swap.
- * Returns null when the task was not READY (another worker has it).
+ * Returns null when the task was not READY (another worker has it) or needs
+ * an approval it has not received, or its workflow is not RUNNING (RA-8000:
+ * four writers can set READY, and a poll can pause the workflow after it has
+ * promoted a plain sibling; this predicate is what stops both).
  */
 export async function claimTask(
   taskId: string,
@@ -65,6 +69,11 @@ export async function claimTask(
         "updatedAt" = ${DB_NOW}
     WHERE id = ${taskId}
       AND status = 'READY'
+      AND ("requiresApproval" = false OR "approvedAt" IS NOT NULL)
+      AND EXISTS (
+        SELECT 1 FROM "AgentWorkflow" w
+        WHERE w.id = "AgentTask"."workflowId" AND w.status = 'RUNNING'
+      )
     RETURNING attempts, "maxRetries", "workflowId"`;
 
   const row = rows[0];
@@ -255,6 +264,7 @@ export async function executeTask(
     // No more retries — mark as failed and skip its dependents in one transaction
     const finalStatus = attempts >= maxRetries ? "DEAD_LETTER" : "FAILED";
     const failed = await prisma.$transaction(async (tx) => {
+      await lockWorkflowRow(tx, workflowId);
       const result = await tx.agentTask.updateMany({
         where: { id: task.id, status: "RUNNING", leaseOwner },
         data: {

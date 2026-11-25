@@ -19,7 +19,6 @@
     "app/api/inspections/[id]/reopen/route.ts",
     "app/api/inspections/[id]/scope-variations/route.ts",
     "app/api/inspections/[id]/sign/route.ts",
-    "app/api/live-teacher/audit/[sessionId]/route.ts",
-    "app/api/margot/voice/route.ts"
+    "app/api/live-teacher/audit/[sessionId]/route.ts"
   ]
 }

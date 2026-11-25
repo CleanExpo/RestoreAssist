@@ -29,6 +29,8 @@ const db = vi.hoisted(() => ({
   shares: [] as FakeShare[],
   tenants: {} as Record<string, { ownerId: string; organizationId: string | null } | null>,
   leftAt: {} as Record<string, Date>,
+  // RA-8494: the real price rule reads these rows (role and membership).
+  users: {} as Record<string, { role: string; organizationId: string | null; organizationLeftAt: Date | null; organizationLeftId: string | null }>,
 }));
 
 function matches(report: FakeReport, clause: Record<string, unknown>): boolean {
@@ -57,6 +59,12 @@ vi.mock("@/lib/prisma", () => {
         count: vi.fn(async ({ where }: { where: { AND?: Record<string, unknown>[] } }) => {
           if (!Array.isArray(where.AND) || Object.keys(where).length !== 1) return 0;
           return db.reports.filter((x) => where.AND!.every((c) => matches(x, c))).length;
+        }),
+      },
+      user: {
+        findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
+          const u = db.users[where.id];
+          return u ? { id: where.id, ...u } : null;
         }),
       },
       reportShareAccess: {
@@ -133,6 +141,14 @@ beforeEach(() => {
     user_b: { ownerId: "owner_b", organizationId: "business_b" },
   };
   db.leftAt = {};
+  const member = (role: string, organizationId: string) => ({
+    role, organizationId, organizationLeftAt: null, organizationLeftId: null,
+  });
+  db.users = {
+    user_a: member("MANAGER", "business_a"),
+    user_b: member("ADMIN", "business_b"),
+    user_t: member("USER", "business_a"),
+  };
   db.shares = [
     { id: "s1", reportId: "report_001", token: "tok_owner_live", scope: "OWNER_VIEW", revokedAt: null, expiresAt: FUTURE },
     { id: "s2", reportId: "report_001", token: "tok_insurer_live", scope: "INSURER", revokedAt: null, expiresAt: FUTURE },
@@ -178,6 +194,23 @@ describe("authoriseReportExperienceRead: session path", () => {
     if (!result.ok) return;
     expect(result.grant.mayViewFinancials).toBe(false);
     expect(result.grant.audience).toBe("technician");
+  });
+
+  // RA-8494: a technician who CREATED the report, with full money reach over
+  // it, still gets no money (role is decided before reach).
+  it("withholds money from a technician who created the report, even with money reach", async () => {
+    db.reports[0] = { ...db.reports[0], userId: "user_t" };
+    db.tenants.user_t = { ownerId: "owner_a", organizationId: "business_a" };
+    const result = await authoriseReportExperienceRead({ reportId: "report_001", session: { user: { id: "user_t", role: "USER" } } });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.grant.mayViewFinancials).toBe(false);
+  });
+
+  it("control: a manager with the same money reach sees money", async () => {
+    const result = await authoriseReportExperienceRead({ reportId: "report_001", session: sessionA });
+    if (!result.ok) throw new Error("expected a grant");
+    expect(result.grant.mayViewFinancials).toBe(true);
   });
 
   it("answers 401 only when there is neither a session nor a token", async () => {

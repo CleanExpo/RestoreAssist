@@ -8,15 +8,25 @@
  *   - payment.created  → mark local invoice as PAID via payment reference
  *
  * Called by /api/cron/sync-xero-payments (and directly from tests).
- * All events are marked COMPLETED or FAILED — never left in PROCESSING indefinitely.
+ * Events are marked COMPLETED, SKIPPED or FAILED. A run that dies before it
+ * writes the outcome leaves the row PROCESSING; reclaimStaleWebhookEvents
+ * releases it at the start of a later batch (RA-8426).
  */
 
 import { createHmac, timingSafeEqual } from "crypto";
 import type { Integration } from "@prisma/client";
-import { isOAuthIntegration } from "@/lib/integrations/identity";
+import { isReadyOAuthCandidate, OAUTH_CREDENTIAL_PRESENT_WHERE } from "@/lib/services/integrations/select-oauth";
+import { MAX_WEBHOOK_CANDIDATES, resolveReadyWebhookIntegration, type NotReadyReason } from "@/lib/integrations/webhook-binding";
+import { reclaimStaleWebhookEvents } from "@/lib/jobs/webhook-reclaim";
 import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
+import { XERO_REQUEST_TIMEOUT_MS } from "@/lib/integrations/xero/request-timeout";
+import {
+  XERO_DRAIN_INVOICE_PAID_TYPES,
+  XERO_DRAIN_INVOICE_UPDATE_TYPES,
+  isOneOf,
+} from "@/lib/integrations/webhook-event-types";
 
 /** Identity metadata only. Legacy config stays internal: never log or serialize it. */
 export const XERO_WEBHOOK_INTEGRATION_SELECT = {
@@ -31,33 +41,43 @@ export const XERO_WEBHOOK_INTEGRATION_SELECT = {
   status: true,
 } as const;
 
-export const MAX_XERO_WEBHOOK_TENANT_CANDIDATES = 100;
+export const MAX_XERO_WEBHOOK_TENANT_CANDIDATES = MAX_WEBHOOK_CANDIDATES;
+
+/**
+ * The queued event's tenant is still this connection's, and the readiness
+ * owner calls it ready. Only for a row read under OAUTH_CREDENTIAL_PRESENT_WHERE.
+ */
+function isReadyForTenant(integration: XeroWebhookIntegration, tenantId: unknown): boolean {
+  return typeof tenantId === "string" && tenantId.trim().length > 0 &&
+    integration.tenantId === tenantId && isReadyOAuthCandidate(integration, "XERO");
+}
 
 type XeroWebhookIntegration = Pick<Integration, keyof typeof XERO_WEBHOOK_INTEGRATION_SELECT>;
 export type XeroWebhookBindingResult =
   | { ok: true; data: XeroWebhookIntegration }
-  | { ok: false; reason: "UNKNOWN_TENANT" | "AMBIGUOUS_TENANT" };
+  | { ok: false; reason: "UNKNOWN_TENANT" | "AMBIGUOUS_TENANT" }
+  | { ok: false; reason: "NOT_READY"; detail: NotReadyReason };
 
-function matchesTenant(integration: XeroWebhookIntegration, tenantId: unknown): boolean {
-  return typeof tenantId === "string" && tenantId.trim().length > 0 &&
-    integration.tenantId === tenantId && integration.status === "CONNECTED" &&
-    isOAuthIntegration(integration, "XERO");
-}
-
-/** Resolve one event's tenant without choosing an arbitrary local account. */
+/**
+ * Resolve one event's tenant without choosing an arbitrary local account.
+ * RA-8446: the connection must be one getOAuthReadiness calls ready, not one
+ * whose raw status is CONNECTED. See lib/integrations/webhook-binding.ts for
+ * what happens to an event whose only match is not ready.
+ */
 export async function resolveXeroWebhookBinding(
   tenantId: string,
   findCandidates: (tenantId: string) => Promise<XeroWebhookIntegration[]>,
+  findCredentialPresentIds: (ids: string[]) => Promise<Set<string>>,
 ): Promise<XeroWebhookBindingResult> {
-  const rows = await findCandidates(tenantId);
-  // A capped query must not hide another legitimate owner after its last row.
-  if (rows.length > MAX_XERO_WEBHOOK_TENANT_CANDIDATES) {
-    return { ok: false, reason: "AMBIGUOUS_TENANT" };
-  }
-  const candidates = rows.filter(row => matchesTenant(row, tenantId));
-  if (candidates.length === 0) return { ok: false, reason: "UNKNOWN_TENANT" };
-  if (candidates.length !== 1) return { ok: false, reason: "AMBIGUOUS_TENANT" };
-  return { ok: true, data: candidates[0] };
+  if (typeof tenantId !== "string" || !tenantId.trim()) return { ok: false, reason: "UNKNOWN_TENANT" };
+  const result = await resolveReadyWebhookIntegration({
+    provider: "XERO",
+    rows: await findCandidates(tenantId),
+    matches: row => row.tenantId === tenantId,
+    credentialPresentIds: findCredentialPresentIds,
+  });
+  if (result.ok || result.reason === "NOT_READY") return result;
+  return { ok: false, reason: result.reason === "AMBIGUOUS" ? "AMBIGUOUS_TENANT" : "UNKNOWN_TENANT" };
 }
 
 function invoiceScope(integration: XeroWebhookIntegration, externalInvoiceId: string) {
@@ -121,6 +141,10 @@ export async function processXeroWebhookBatch(
 ): Promise<ProcessBatchResult> {
   const result: ProcessBatchResult = { processed: 0, failed: 0, skipped: 0 };
 
+  // RA-8426 — release claims left PROCESSING by a run that died, before
+  // selecting PENDING rows; otherwise they are never selected again.
+  await reclaimStaleWebhookEvents();
+
   // Claim a batch — transition PENDING → PROCESSING atomically per event
   const events = await prisma.webhookEvent.findMany({
     where: {
@@ -153,26 +177,28 @@ export async function processXeroWebhookBatch(
       const eventType = event.eventType; // normalised in webhook route
       // The queued event may predate a disconnect, tenant change, or identity
       // correction. Re-read its binding immediately before dispatch, without tokens.
+      // RA-8446: stored credentials are tested in SQL (no token read), so a
+      // row without them is not found; the owner decides the rest.
       const integration = await prisma.integration.findUnique({
-        where: { id: event.integrationId },
+        where: { id: event.integrationId, accessToken: OAUTH_CREDENTIAL_PRESENT_WHERE.accessToken },
         select: XERO_WEBHOOK_INTEGRATION_SELECT,
       });
-      if (!integration || !matchesTenant(integration, payload?.tenantId)) {
+      if (!integration || !isReadyForTenant(integration, payload?.tenantId)) {
         throw new Error("Xero webhook tenant/integration binding is no longer valid");
       }
 
-      if (eventType === "invoice.updated" || eventType === "invoice.created") {
+      // RA-8427: accept lists are owned by lib/integrations/webhook-event-types.ts.
+      if (isOneOf(XERO_DRAIN_INVOICE_UPDATE_TYPES, eventType)) {
         await handleInvoiceUpdated(payload, integration);
-      } else if (
-        eventType === "invoice.paid" ||
-        eventType === "payment.created"
-      ) {
+      } else if (isOneOf(XERO_DRAIN_INVOICE_PAID_TYPES, eventType)) {
         await handleInvoicePaid(payload, integration);
       } else {
         // Unrecognised event type — skip cleanly, no retry needed
         await prisma.webhookEvent.update({
           where: { id: event.id },
-          data: { status: "SKIPPED", processedAt: new Date() },
+          // errorMessage: null clears a reclaim note left by an earlier
+          // interrupted attempt (RA-8426).
+          data: { status: "SKIPPED", processedAt: new Date(), errorMessage: null },
         });
         result.skipped++;
         continue;
@@ -180,7 +206,7 @@ export async function processXeroWebhookBatch(
 
       await prisma.webhookEvent.update({
         where: { id: event.id },
-        data: { status: "COMPLETED", processedAt: new Date() },
+        data: { status: "COMPLETED", processedAt: new Date(), errorMessage: null },
       });
       result.processed++;
     } catch (err) {
@@ -333,6 +359,9 @@ async function handlePaymentCreated(
         "Xero-tenant-id": integration.tenantId,
         Accept: "application/json",
       },
+      // RA-8426: an unbounded call could hold this claim past
+      // WEBHOOK_STALE_CLAIM_MS and let a later run release it while live.
+      signal: AbortSignal.timeout(XERO_REQUEST_TIMEOUT_MS),
     },
   );
 

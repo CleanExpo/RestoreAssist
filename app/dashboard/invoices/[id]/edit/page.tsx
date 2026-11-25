@@ -75,7 +75,7 @@ export default function EditInvoicePage({
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [loadingClients, setLoadingClients] = useState(false);
+  const [_loadingClients, setLoadingClients] = useState(false);
   const [defaultGstRate, setDefaultGstRate] = useState<number>(
     DEFAULT_GST_TREATMENT.ratePercent,
   );
@@ -216,7 +216,7 @@ export default function EditInvoicePage({
             "Payment is due within 30 days from the date of this invoice. Late payments may incur additional charges.",
         );
         setFooter(inv.footer || "Thank you for your business!");
-      } catch (e) {
+      } catch {
         setFetchError("Failed to load invoice");
       } finally {
         setFetching(false);
@@ -394,7 +394,7 @@ export default function EditInvoicePage({
   if (fetching) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-cyan-500 border-t-transparent" />
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-brand-harbour-500 border-t-transparent" />
       </div>
     );
   }
@@ -402,10 +402,10 @@ export default function EditInvoicePage({
   if (fetchError || !invoiceId) {
     return (
       <div className="max-w-lg mx-auto px-4 py-12 text-center">
-        <p className="text-slate-400 mb-4">{fetchError || "Invalid invoice"}</p>
+        <p className="text-brand-slate dark:text-slate-400 mb-4">{fetchError || "Invalid invoice"}</p>
         <Link
           href="/dashboard/invoices"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white rounded-lg transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Invoices
@@ -420,7 +420,7 @@ export default function EditInvoicePage({
         <button
           type="button"
           onClick={() => router.push(`/dashboard/invoices/${invoiceId}`)}
-          className="p-2 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
+          className="p-2 hover:bg-brand-cream dark:hover:bg-slate-700 rounded-lg transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -453,7 +453,7 @@ export default function EditInvoicePage({
                   onClick={() => setCustomerType("client")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
                     customerType === "client"
-                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+                      ? "border-brand-harbour-500 bg-brand-harbour-500/10 text-brand-harbour-600 dark:text-brand-harbour-400"
                       : "border-slate-300 dark:border-slate-600 hover:border-slate-400"
                   }`}
                 >
@@ -465,7 +465,7 @@ export default function EditInvoicePage({
                   onClick={() => setCustomerType("manual")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
                     customerType === "manual"
-                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+                      ? "border-brand-harbour-500 bg-brand-harbour-500/10 text-brand-harbour-600 dark:text-brand-harbour-400"
                       : "border-slate-300 dark:border-slate-600 hover:border-slate-400"
                   }`}
                 >
@@ -505,7 +505,7 @@ export default function EditInvoicePage({
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -518,7 +518,7 @@ export default function EditInvoicePage({
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     required
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                   />
                 </div>
                 <div>
@@ -529,7 +529,7 @@ export default function EditInvoicePage({
                     type="tel"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                   />
                 </div>
               </div>
@@ -541,7 +541,7 @@ export default function EditInvoicePage({
                   value={customerAddress}
                   onChange={(e) => setCustomerAddress(e.target.value)}
                   rows={2}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div>
@@ -552,7 +552,7 @@ export default function EditInvoicePage({
                   type="text"
                   value={customerABN}
                   onChange={(e) => setCustomerABN(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
             </div>
@@ -566,7 +566,7 @@ export default function EditInvoicePage({
               <button
                 type="button"
                 onClick={addLineItem}
-                className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg text-sm transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white rounded-lg text-sm transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 Add Item
@@ -589,7 +589,7 @@ export default function EditInvoicePage({
                         updateLineItem(item.id, "description", e.target.value)
                       }
                       required
-                      className="w-full px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                      className="w-full px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                     />
                   </div>
                   <div className="col-span-2">
@@ -609,7 +609,7 @@ export default function EditInvoicePage({
                       }
                       required
                       min={0}
-                      className="w-full px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                      className="w-full px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                     />
                   </div>
                   <div className="col-span-2">
@@ -629,7 +629,7 @@ export default function EditInvoicePage({
                       }
                       required
                       min={0}
-                      className="w-full px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                      className="w-full px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                     />
                   </div>
                   <div className="col-span-2">
@@ -673,7 +673,7 @@ export default function EditInvoicePage({
                   onChange={(e) =>
                     setDiscountType(e.target.value as "amount" | "percentage")
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                 >
                   <option value="amount">Fixed Amount ($)</option>
                   <option value="percentage">Percentage (%)</option>
@@ -690,7 +690,7 @@ export default function EditInvoicePage({
                     value={discountAmount}
                     onChange={(e) => setDiscountAmount(e.target.value)}
                     placeholder="0.00"
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                   />
                 ) : (
                   <input
@@ -700,7 +700,7 @@ export default function EditInvoicePage({
                     onChange={(e) => setDiscountPercentage(e.target.value)}
                     placeholder="0"
                     max={100}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                   />
                 )}
               </div>
@@ -714,7 +714,7 @@ export default function EditInvoicePage({
                   value={shippingAmount}
                   onChange={(e) => setShippingAmount(e.target.value)}
                   placeholder="0.00"
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
             </div>
@@ -733,7 +733,7 @@ export default function EditInvoicePage({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div>
@@ -744,7 +744,7 @@ export default function EditInvoicePage({
                   value={terms}
                   onChange={(e) => setTerms(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div>
@@ -755,7 +755,7 @@ export default function EditInvoicePage({
                   type="text"
                   value={footer}
                   onChange={(e) => setFooter(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
             </div>
@@ -777,7 +777,7 @@ export default function EditInvoicePage({
                   value={invoiceDate}
                   onChange={(e) => setInvoiceDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div>
@@ -790,7 +790,7 @@ export default function EditInvoicePage({
                   onChange={(e) =>
                     setDueInDays(parseInt(e.target.value, 10) || 0)
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
               <div>
@@ -802,7 +802,7 @@ export default function EditInvoicePage({
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-harbour-500"
                 />
               </div>
             </div>
@@ -842,7 +842,7 @@ export default function EditInvoicePage({
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-4 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+              className="w-full px-4 py-3 bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
             >
               {loading ? "Updating..." : "Update Invoice"}
             </button>

@@ -34,11 +34,19 @@ export function isImageMimeType(mimeType: string): boolean {
  * - Thumbnail: 400px longest edge (for list views and evidence grids)
  *
  * The original buffer is NOT modified — it is stored as-is for
- * chain-of-custody legal requirements.
+ * chain-of-custody legal requirements, and its SHA-256 (computeSha256) is
+ * taken from those untouched bytes.
+ *
+ * Both copies apply the EXIF orientation first (`.rotate()` with no
+ * arguments, RA-8534). Sharp strips EXIF on re-encode, so without this a
+ * phone photo tagged "rotate 90°" was stored sideways. The rotation is baked
+ * into the pixels and no orientation tag is written, so viewers cannot rotate
+ * the copy a second time. `width`/`height` still describe the original's
+ * stored pixels.
  */
 export async function compressImage(
   buffer: Buffer,
-  mimeType: string,
+  _mimeType: string,
 ): Promise<CompressionResult> {
   // Dynamic import — sharp is a native module, keep it server-only
   const sharp = (await import("sharp")).default;
@@ -49,6 +57,7 @@ export async function compressImage(
   const height = metadata.height ?? 0;
 
   const compressed = await sharp(buffer)
+    .rotate()
     .resize(2048, 2048, {
       fit: "inside",
       withoutEnlargement: true,
@@ -57,6 +66,7 @@ export async function compressImage(
     .toBuffer();
 
   const thumbnail = await sharp(buffer)
+    .rotate()
     .resize(400, 400, {
       fit: "inside",
       withoutEnlargement: true,

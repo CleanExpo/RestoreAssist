@@ -52,7 +52,7 @@ afterEach(() => {
 
 describe("POST customer_reengagement", () => {
   it("admin send: sends to the recipient with reply-to and returns sent:true", async () => {
-    process.env.EMAIL_REPLY_TO = "airestoreassist@gmail.com";
+    process.env.EMAIL_REPLY_TO = "replies@example.test";
     const res = await POST(post({
       event: "customer_reengagement",
       recipientEmail: "ryan.morey@outlook.com.au",
@@ -63,7 +63,7 @@ describe("POST customer_reengagement", () => {
     expect(send).toHaveBeenCalledTimes(1);
     const arg = send.mock.calls[0][0];
     expect(arg.to).toBe("ryan.morey@outlook.com.au");
-    expect(arg.replyTo).toBe("airestoreassist@gmail.com");
+    expect(arg.replyTo).toBe("replies@example.test");
     expect(arg.subject).toContain("Pick up where you left off");
     expect(arg.html).toContain("Hi Ryan,");
     expect(json).toMatchObject({ sent: true, event: "customer_reengagement" });

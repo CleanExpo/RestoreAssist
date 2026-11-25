@@ -3,8 +3,20 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { BRAND } from "@/lib/brand";
+
+const SUPPORT_EMAIL = BRAND.company.supportEmail;
+
 export default function ContactPage() {
   const darkMode = false;
+  // /demo redirects here with ?topic=demo (RA-8403). Read it after mount so
+  // the static page needs no Suspense boundary for useSearchParams.
+  const [isDemo, setIsDemo] = useState(false);
+  useEffect(() => {
+    setIsDemo(
+      new URLSearchParams(window.location.search).get("topic") === "demo",
+    );
+  }, []);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -34,7 +46,7 @@ export default function ContactPage() {
         body: JSON.stringify({
           name: form.name.trim(),
           email: form.email.trim(),
-          subject: "Website contact enquiry",
+          subject: isDemo ? "Demo request" : "Website contact enquiry",
           body: form.message.trim(),
           category: "general",
           website: form.website,
@@ -106,7 +118,7 @@ export default function ContactPage() {
                 '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
-            Contact Us
+            {isDemo ? "Book a demo" : "Contact Us"}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 30 }}
@@ -118,7 +130,9 @@ export default function ContactPage() {
                 '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
-            Get in touch with our team. We're here to help.
+            {isDemo
+              ? "Tell us about your business and what you want to see. We will reply by email to arrange a time."
+              : "Get in touch with our team. We're here to help."}
           </motion.p>
         </div>
       </section>
@@ -164,7 +178,12 @@ export default function ContactPage() {
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                     }}
                   >
-                    airestoreassist@gmail.com
+                    <a
+                      href={`mailto:${SUPPORT_EMAIL}`}
+                      className="underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour/50"
+                    >
+                      {SUPPORT_EMAIL}
+                    </a>
                   </p>
                 </div>
 

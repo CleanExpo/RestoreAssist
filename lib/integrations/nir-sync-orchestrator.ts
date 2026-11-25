@@ -16,7 +16,12 @@ import { syncNIRJobToQuickBooks } from "./quickbooks/nir-sync";
 import { syncNIRJobToMYOB } from "./myob/nir-sync";
 import { syncNIRJobToServiceM8 } from "./servicem8/nir-sync";
 import { runInclusionCheck } from "@/lib/iicrc-inclusion-check";
-import { isOAuthIntegration } from "./identity";
+import { getOAuthReadiness, isOAuthIntegration } from "./identity";
+import {
+  isReadyOAuthCandidate,
+  OAUTH_CREDENTIAL_PRESENT_WHERE,
+  OAUTH_READY_PREFILTER_WHERE,
+} from "@/lib/services/integrations/select-oauth";
 
 export type { NIRJobPayload } from "./xero/nir-sync";
 
@@ -39,8 +44,9 @@ export async function syncNIRToAllConnectedIntegrations(
   });
   if (!report) return [];
   const integrations = await prisma.integration.findMany({
-    where: { userId, workspaceId: report.workspaceId ?? null, status: "CONNECTED" },
-    select: { id: true, provider: true, name: true, icon: true, config: true, tenantId: true, realmId: true, companyId: true, tokenExpiresAt: true },
+    // RA-8446: readiness is getOAuthReadiness's answer, not status === CONNECTED.
+    where: { userId, workspaceId: report.workspaceId ?? null, ...OAUTH_READY_PREFILTER_WHERE },
+    select: { id: true, provider: true, status: true, name: true, icon: true, config: true, tenantId: true, realmId: true, companyId: true, tokenExpiresAt: true },
     take: 250,
   });
   if (integrations.length === 0) return [];
@@ -59,7 +65,7 @@ export async function syncNIRToAllConnectedIntegrations(
   }
 
   return Promise.all(
-    integrations.filter(i => isOAuthIntegration(i)).map((i) =>
+    integrations.filter(i => isReadyOAuthCandidate(i)).map((i) =>
       syncNIRToSpecificIntegration(userId, i.id, payload, i.provider),
     ),
   );
@@ -93,12 +99,18 @@ export async function syncNIRToSpecificIntegration(
     return { integrationId, provider: providerHint || integration.provider,
       status: "skipped", error: "Invalid OAuth integration identity or provider" };
   }
-  if (integration.status !== "CONNECTED")
+  // Credential presence is tested in SQL so token material is never read here.
+  const credential = await prisma.integration.findFirst({
+    where: { id: integration.id, userId, workspaceId: report.workspaceId ?? null, ...OAUTH_CREDENTIAL_PRESENT_WHERE },
+    select: { id: true },
+  });
+  const readiness = getOAuthReadiness({ ...integration, hasOAuthCredentials: Boolean(credential) }, providerHint);
+  if (!readiness.ready)
     return {
       integrationId,
       provider: integration.provider,
       status: "skipped",
-      error: `Status: ${integration.status}`,
+      error: `Not ready: ${readiness.reason}`,
     };
 
   try {

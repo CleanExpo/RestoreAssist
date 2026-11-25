@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { resumeWorkflow } from "@/lib/agents";
+import {
+  ApprovalPendingError,
+  WorkflowStateChangedError,
+  resumeWorkflow,
+} from "@/lib/agents";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -50,7 +54,36 @@ export async function POST(
         });
       }
 
-      const result = await resumeWorkflow(workflowId);
+      let result: { retriedCount: number };
+      try {
+        result = await resumeWorkflow(workflowId);
+      } catch (err) {
+        // RA-8000: approve, reject or cancel are the only exits from an
+        // approval pause; resume cannot skip the wait.
+        if (err instanceof ApprovalPendingError) {
+          const conflict = apiError(request, {
+            code: "CONFLICT",
+            message:
+              "This workflow is waiting for approval. Approve or reject the waiting task instead.",
+            status: 409,
+            stage: "agents-workflow-resume",
+            fields: { taskId: err.taskId },
+          });
+          conflict.headers.set("X-RestoreAssist-Idempotency-No-Cache", "true");
+          return conflict;
+        }
+        if (err instanceof WorkflowStateChangedError) {
+          const conflict = apiError(request, {
+            code: "CONFLICT",
+            message: "The workflow changed state; check its status and try again.",
+            status: 409,
+            stage: "agents-workflow-resume",
+          });
+          conflict.headers.set("X-RestoreAssist-Idempotency-No-Cache", "true");
+          return conflict;
+        }
+        throw err;
+      }
 
       return NextResponse.json({
         workflowId,

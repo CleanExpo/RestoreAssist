@@ -15,6 +15,7 @@ import {
   resolveWorkspaceAiKey,
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 export async function GET(request: NextRequest) {
   try {
@@ -117,7 +118,8 @@ export async function GET(request: NextRequest) {
     const total = await prisma.report.count({ where });
 
     return NextResponse.json({
-      reports: reportsWithCost,
+      // RA-8494: a report row carries its cost; never to a technician.
+      reports: await moneySafe(session, reportsWithCost),
       ...(page && limit
         ? {
             pagination: {
@@ -462,7 +464,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         {
-          ...(await withCurrentEquipment(report)),
+          ...(await moneySafe(session, await withCurrentEquipment(report))),
           detailedReportGenerated: !!detailedReport,
           detailedReportLength: detailedReport?.length || 0,
           aiGenerationStatus: detailedReport ? "success" : "failed",

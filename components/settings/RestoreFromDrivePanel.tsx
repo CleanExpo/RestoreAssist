@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 type Mode = "MISSING" | "FORCE";
 
@@ -15,7 +16,7 @@ export function RestoreFromDrivePanel() {
     setBusy(true);
     try {
       const res = await fetch("/api/storage/restore?scope=org");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(statusErrorMessage(res.status));
       const json = (await res.json()) as { data: { fileCount: number } };
       setCount(json.data.fileCount);
     } catch (err) {
@@ -34,7 +35,7 @@ export function RestoreFromDrivePanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scope: "org", mode }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(statusErrorMessage(res.status));
       const json = (await res.json()) as { data: { enqueued: number } };
       toast.success(
         `Queued ${json.data.enqueued} file(s) to restore — runs on the minute tick`,

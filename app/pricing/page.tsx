@@ -231,18 +231,18 @@ function PricingPageContent() {
                     {plan.price}
                   </span>
                   {plan.period ? (
-                    <span className="text-base text-slate-500">
+                    <span className="text-base text-slate-600">
                       {plan.period}
                     </span>
                   ) : null}
                   {!plan.isFree ? (
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-600">
                       AUD, incl. GST. Tax invoices issued monthly. Cancel any
                       time.
                     </p>
                   ) : null}
                   {plan.monthlyEquivalent ? (
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-slate-600">
                       ${plan.monthlyEquivalent}/month equivalent
                     </p>
                   ) : null}
@@ -257,7 +257,7 @@ function PricingPageContent() {
                             : ""}
                       </p>
                       {plan.signupBonus && !plan.isFree ? (
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-slate-600">
                           {/*
                             NOT "on first month". app/api/webhooks/stripe/route.ts
                             grants the bonus as `addonReports: { increment }` —
@@ -294,12 +294,12 @@ function PricingPageContent() {
                             {formatPerReport(
                               perReportRate(plan.amountAud, plan.reportLimit),
                             )}{" "}
-                            <span className="font-normal text-slate-500">
+                            <span className="font-normal text-slate-600">
                               per report, plan and packs only
                             </span>
                           </p>
                           {plan.signupBonus ? (
-                            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                            <p className="mt-1 text-xs leading-relaxed text-slate-600">
                               {/*
                                 This used to say the first month was cheaper and
                                 "the rate above is what you pay from the second
@@ -369,12 +369,12 @@ function PricingPageContent() {
           </motion.div>
 
           {/* Every "per report" figure on this page — plan cards, pack cards,
-              volume picker, cost disclosure — is the Restore Assist software
+              volume picker, cost disclosure — is the RestoreAssist software
               cost only. Report generation runs on the buyer's own AI key and
               is billed to them by their provider, so the unit rate is not the
               whole cost of producing a report. Saying so once, plainly, next
               to the rates rather than only in the disclosure at the bottom. */}
-          <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-slate-500">
+          <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-slate-600">
             Every per-report figure on this page covers the plan and report
             packs only. Two other things can add to your bill and are not in
             those figures: any optional add-ons you switch on, and — only if
@@ -470,7 +470,7 @@ function PricingPageContent() {
                         {formatPerReport(
                           perReportRate(addon.amountAud, addon.reportLimit),
                         )}{" "}
-                        <span className="font-normal text-slate-500">
+                        <span className="font-normal text-slate-600">
                           per report, plan and packs only
                         </span>
                       </p>

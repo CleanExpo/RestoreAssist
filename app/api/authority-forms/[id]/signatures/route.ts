@@ -4,6 +4,13 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  formAcceptsSignatureWhere,
+  formNewSlotRefusal,
+  formSignatureRefusal,
+  noSignedSignatureWhere,
+  unsignedSlotWhere,
+} from "@/lib/authority-forms/signed-record-guard";
 
 /**
  * POST /api/authority-forms/:id/signatures
@@ -58,6 +65,7 @@ export async function POST(
               assignedAdminId: true,
             },
           },
+          signatures: { select: { signedAt: true }, take: 100 },
         },
       });
 
@@ -82,6 +90,17 @@ export async function POST(
         });
       }
 
+      // RA-8400: a cancelled or completed form takes no new slot and no
+      // new signature.
+      const closedRefusal = formSignatureRefusal(form);
+      if (closedRefusal) {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: closedRefusal,
+          status: 409,
+        });
+      }
+
       // Create new signatory slot
       if (action === "add_signatory") {
         if (!signatoryName || !signatoryRole) {
@@ -92,24 +111,52 @@ export async function POST(
           });
         }
 
-        const newSignature = await prisma.authorityFormSignature.create({
-          data: {
-            instanceId: formId,
-            signatoryName,
-            signatoryRole,
-            signatoryEmail: signatoryEmail || null,
-          },
+        // RA-8400: once anyone has signed, a new slot would appear on the
+        // executed document.
+        const newSlotRefusal = formNewSlotRefusal(form);
+        if (newSlotRefusal) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: newSlotRefusal,
+            status: 409,
+          });
+        }
+
+        // The same rule sits in the write: the form row is locked by a
+        // conditional update, then the slot is created in the same
+        // transaction, so a signature or cancellation landing after the read
+        // above blocks the create.
+        const newSignature = await prisma.$transaction(async (tx) => {
+          const open = await tx.authorityFormInstance.updateMany({
+            where: {
+              id: formId,
+              ...formAcceptsSignatureWhere(),
+              ...noSignedSignatureWhere(),
+            },
+            data: { updatedAt: new Date() },
+          });
+          if (open.count === 0) return null;
+          const created = await tx.authorityFormSignature.create({
+            data: {
+              instanceId: formId,
+              signatoryName,
+              signatoryRole,
+              signatoryEmail: signatoryEmail || null,
+            },
+          });
+          // Update form status to pending if still draft
+          await tx.authorityFormInstance.updateMany({
+            where: { id: formId, status: "DRAFT" },
+            data: { status: "PENDING_SIGNATURES" },
+          });
+          return created;
         });
 
-        // Update form status to pending if still draft
-        const currentForm = await prisma.authorityFormInstance.findUnique({
-          where: { id: formId },
-          select: { status: true },
-        });
-        if (currentForm?.status === "DRAFT") {
-          await prisma.authorityFormInstance.update({
-            where: { id: formId },
-            data: { status: "PENDING_SIGNATURES" },
+        if (!newSignature) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: "This form changed while you were editing it; reload and try again",
+            status: 409,
           });
         }
 
@@ -135,7 +182,15 @@ export async function POST(
       // client-supplied; without this guard a caller who owns formId could
       // pass a foreign signatureId and overwrite another tenant's signature.
       const updateResult = await prisma.authorityFormSignature.updateMany({
-        where: { id: signatureId, instanceId: formId },
+        // RA-8400: only an unsigned slot on a form that still accepts
+        // signatures. A signed slot is a terminal legal record: a second
+        // call must not replace its image, name, time or IP.
+        where: {
+          id: signatureId,
+          instanceId: formId,
+          ...unsignedSlotWhere(),
+          instance: formAcceptsSignatureWhere(),
+        },
         data: {
           signatureData,
           signatoryName: signatoryName || undefined,
@@ -146,6 +201,19 @@ export async function POST(
       });
 
       if (updateResult.count === 0) {
+        // Scoped by this form, so a 409 never confirms that another
+        // tenant's signature id exists.
+        const existing = await prisma.authorityFormSignature.findFirst({
+          where: { id: signatureId, instanceId: formId },
+          select: { id: true },
+        });
+        if (existing) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message: "This signature has already been recorded",
+            status: 409,
+          });
+        }
         return apiError(request, {
           code: "NOT_FOUND",
           message: "Signature not found",

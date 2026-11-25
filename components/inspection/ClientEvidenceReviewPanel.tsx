@@ -151,7 +151,7 @@ export function ClientEvidenceReviewPanel({
         disabled={busy}
         aria-label="Add all client photos to the report"
         aria-describedby={noteId}
-        className="min-h-11 px-4 rounded-lg bg-cyan-600 text-white text-sm font-medium hover:bg-cyan-700 disabled:opacity-40"
+        className="min-h-11 px-4 rounded-lg bg-brand-harbour-600 text-white text-sm font-medium hover:bg-brand-harbour-700 disabled:opacity-40"
       >
         {busy ? "Adding…" : "Add all to report"}
       </button>

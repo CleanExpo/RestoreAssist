@@ -35,7 +35,7 @@ export default function UpgradeValueBento({ className }: { className?: string })
           <p className="relative text-3xl font-semibold tabular-nums text-white">
             {plan.reportLimit}
           </p>
-          <p className="relative mt-1 text-xs font-medium uppercase tracking-wide text-cyan-200/80">
+          <p className="relative mt-1 text-xs font-medium uppercase tracking-wide text-brand-harbour-200/80">
             Reports / month
           </p>
         </div>
@@ -44,7 +44,7 @@ export default function UpgradeValueBento({ className }: { className?: string })
           <p className="relative text-3xl font-semibold tabular-nums text-white">
             +{plan.signupBonus}
           </p>
-          <p className="relative mt-1 text-xs font-medium uppercase tracking-wide text-cyan-200/80">
+          <p className="relative mt-1 text-xs font-medium uppercase tracking-wide text-brand-harbour-200/80">
             First month bonus
           </p>
         </div>

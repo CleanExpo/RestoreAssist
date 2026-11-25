@@ -22,6 +22,7 @@ import { evaluateVariation } from "@/lib/compliance/variation-auto-approve";
 import { withIdempotency } from "@/lib/idempotency";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 // RA-1383 v2: authorisationSource is now a Prisma enum. Accept both the
 // legacy lowercase strings (for backward compat with existing clients)
@@ -64,6 +65,15 @@ export async function GET(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 
@@ -110,6 +120,15 @@ export async function POST(
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
     });
   }
   const userId = session.user.id;
@@ -275,6 +294,15 @@ export async function PATCH(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 

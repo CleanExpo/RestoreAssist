@@ -7,7 +7,8 @@ vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: mockApplyRateLimit }));
 import { GET } from "../route";
 
 const ORIGINAL_ENV = { ...process.env };
-const request = () => new NextRequest("http://localhost/api/properties/scrape/health");
+const request = () =>
+  new NextRequest("http://localhost/api/properties/scrape/health");
 
 beforeEach(() => {
   mockApplyRateLimit.mockReset().mockResolvedValue(null);
@@ -25,7 +26,7 @@ describe("GET /api/properties/scrape/health", () => {
     const res = await GET(request());
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.status).toBe("ok");
+    expect(json.status).toBe("configured_unverified");
     expect(json.configured).toBe(true);
     expect(typeof json.timestamp).toBe("string");
   });
@@ -36,7 +37,7 @@ describe("GET /api/properties/scrape/health", () => {
     const res = await GET(request());
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.status).toBe("ok");
+    expect(json.status).toBe("configured_unverified");
   });
 
   it("returns 503 / degraded when PROPERTY_SCRAPER_REQUIRED=1 but URL is missing", async () => {
@@ -56,61 +57,87 @@ describe("GET /api/properties/scrape/health", () => {
   });
 
   it("returns a rate limit response before health details", async () => {
-    mockApplyRateLimit.mockResolvedValue(NextResponse.json({ error: "Rate limited" }, { status: 429 }));
+    mockApplyRateLimit.mockResolvedValue(
+      NextResponse.json({ error: "Rate limited" }, { status: 429 }),
+    );
     const res = await GET(request());
     expect(res.status).toBe(429);
   });
 });
 
-// Sketch package 27/10 P0A: "ok" here once read as "the floor-plan source works".
-// The answer must say what was not checked, so nobody can read it that way.
-describe("GET /api/properties/scrape/health: what it did not check", () => {
-  const UNCHECKED = {
-    providerConnectivity: "not_checked",
-    sourceImageAvailability: "not_checked",
-    sourceRights: "unknown",
-  };
+// RA-8111 step 2: "ok" / configured=true was read as "the floor-plan source works".
+// Each question gets its own field, and none may read as passed without evidence.
+describe("GET /api/properties/scrape/health: separate honest fields", () => {
+  const UNVERIFIED = "unverified (legal gate RA-6850)";
+  const fetchSpy = vi.fn();
 
   beforeEach(() => {
     delete process.env.NEXT_PUBLIC_UNDERLAY_URL_IMPORT;
+    fetchSpy.mockReset();
+    vi.stubGlobal("fetch", fetchSpy);
   });
 
-  it("says plainly that it checked configuration only", async () => {
-    const json = await (await GET(request())).json();
-    expect(json.scope).toBe("configuration-only");
-    expect(json.checks.configuration).toBe("ok");
-    expect(json.note).toMatch(/does not contact any property provider/i);
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it("never reports provider connectivity, image availability or rights as passed", async () => {
+  it("makes no outbound request at all, so it cannot prove a provider works", async () => {
+    await GET(request());
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("never reports green status from configuration alone", async () => {
     process.env.PROPERTY_SCRAPER_REQUIRED = "1";
     process.env.PROPERTY_SCRAPER_URL = "https://scraper.example.com";
     const json = await (await GET(request())).json();
-    expect(json.status).toBe("ok");
-    expect(json.checks).toMatchObject(UNCHECKED);
+    expect(json.status).not.toBe("ok");
+    expect(json.verified).toBe(false);
   });
 
-  it("keeps the same unknown fields on the degraded answer", async () => {
+  it("reports configured, reachable, plan, permitted and enabled as separate fields", async () => {
+    const json = await (await GET(request())).json();
+    expect(json.scope).toBe("configuration-only");
+    expect(json.checks).toEqual({
+      configured: "ok",
+      providerReachable: UNVERIFIED,
+      planAvailable: UNVERIFIED,
+      sourcePermitted: UNVERIFIED,
+      featureEnabled: "off",
+    });
+    expect(json.note).toMatch(/does not contact any property provider/i);
+  });
+
+  it("keeps the unverified fields on the degraded answer", async () => {
     process.env.PROPERTY_SCRAPER_REQUIRED = "1";
     const res = await GET(request());
     expect(res.status).toBe(503);
     const json = await res.json();
-    expect(json.scope).toBe("configuration-only");
-    expect(json.checks).toMatchObject({ ...UNCHECKED, configuration: "missing" });
+    expect(json.verified).toBe(false);
+    expect(json.checks).toEqual({
+      configured: "missing",
+      providerReachable: UNVERIFIED,
+      planAvailable: UNVERIFIED,
+      sourcePermitted: UNVERIFIED,
+      featureEnabled: "off",
+    });
   });
 
-  it("reports the URL-import legal release as off unless explicitly switched on", async () => {
+  it("reports the feature as off unless the flag is explicitly on", async () => {
     for (const raw of [undefined, "", "0", "false", "yes"]) {
       if (raw === undefined) delete process.env.NEXT_PUBLIC_UNDERLAY_URL_IMPORT;
       else process.env.NEXT_PUBLIC_UNDERLAY_URL_IMPORT = raw;
       const json = await (await GET(request())).json();
-      expect(json.checks.urlImportRelease).toBe("off");
+      expect(json.checks.featureEnabled).toBe("off");
     }
   });
 
-  it("reports the URL-import legal release as on only for an explicit on value", async () => {
+  it("flag on does not make the source permitted or the provider reachable", async () => {
     process.env.NEXT_PUBLIC_UNDERLAY_URL_IMPORT = "on";
     const json = await (await GET(request())).json();
-    expect(json.checks.urlImportRelease).toBe("on");
+    expect(json.checks.featureEnabled).toBe("on");
+    expect(json.checks.sourcePermitted).toBe(UNVERIFIED);
+    expect(json.checks.providerReachable).toBe(UNVERIFIED);
+    expect(json.status).toBe("configured_unverified");
+    expect(json.warning).toMatch(/RA-6850/);
   });
 });

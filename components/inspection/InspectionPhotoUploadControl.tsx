@@ -4,6 +4,9 @@ import { useRef, useState } from "react";
 import { PhotoUploadError, prepareInspectionPhoto, uploadInspectionPhoto } from "@/lib/inspection-photo-upload";
 import { queueEvidenceUpload } from "@/lib/evidence-upload-queue";
 
+/** How many photos upload at once when several are picked (RA-8534). */
+export const PHOTO_UPLOAD_CONCURRENCY = 3;
+
 type PendingPhoto = { key: string; file: File; prepared: boolean; error: string | null };
 
 /** Shares truthful upload/readback and in-page retry across both photo screens. */
@@ -63,7 +66,19 @@ export function InspectionPhotoUploadControl({
     busyRef.current = true;
     setBusy(true);
     try {
-      for (const entry of entries) await attempt(entry);
+      // A small pool: up to PHOTO_UPLOAD_CONCURRENCY photos in flight. attempt()
+      // records its own failure against that photo and never throws, so one
+      // failed photo does not stop the rest.
+      let next = 0;
+      const worker = async () => {
+        while (next < entries.length) {
+          const entry = entries[next++];
+          await attempt(entry);
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(PHOTO_UPLOAD_CONCURRENCY, entries.length) }, worker),
+      );
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -84,7 +99,7 @@ export function InspectionPhotoUploadControl({
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className="rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+      <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className="rounded-lg bg-brand-harbour-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
         {busy ? "Uploading…" : label}
       </button>
       <input ref={inputRef} type="file" accept="image/*" multiple={multiple} aria-label="Choose inspection photos" className="hidden" onChange={(event) => {

@@ -24,6 +24,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { apiError, fromException } from "@/lib/api-errors";
 import { InspectionStatus } from "@prisma/client";
+import { SIGN_OFF_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -84,11 +85,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           userId: userId,
           ...({ signedAt: null } as any),
           status: {
-            in: [
-              InspectionStatus.ESTIMATED,
-              InspectionStatus.COMPLETED,
-              InspectionStatus.SUBMITTED,
-            ],
+            in: [...SIGN_OFF_INSPECTION_STATUSES],
           },
         },
         data: {

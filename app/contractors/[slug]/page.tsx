@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import {
+  parseServicesOffered,
+  serviceLabels,
+} from "@/lib/crm/service-catalogue";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -102,11 +106,7 @@ export default function ContractorProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchProfile();
-  }, [params.slug, session]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const res = await fetch(`/api/contractors/${params.slug}`);
       if (!res.ok) {
@@ -119,7 +119,12 @@ export default function ContractorProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.slug]);
+
+  useEffect(() => {
+    fetchProfile();
+    // session is a trigger: re-fetch when auth state changes
+  }, [fetchProfile, session]);
 
   if (loading) {
     return (
@@ -140,7 +145,7 @@ export default function ContractorProfilePage() {
           </p>
           <Link
             href="/contractors"
-            className="text-cyan-400 hover:text-cyan-300"
+            className="text-brand-harbour-400 hover:text-brand-harbour-300"
           >
             Back to directory
           </Link>
@@ -154,7 +159,7 @@ export default function ContractorProfilePage() {
     certifications,
     serviceAreas,
     reviews,
-    ratingBreakdown,
+    ratingBreakdown: _ratingBreakdown,
     subRatings,
     requiresAuthForContact,
   } = data;
@@ -166,7 +171,7 @@ export default function ContractorProfilePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Link
             href="/contractors"
-            className="text-cyan-400 hover:text-cyan-300 mb-4 inline-block"
+            className="text-brand-harbour-400 hover:text-brand-harbour-300 mb-4 inline-block"
           >
             ← Back to directory
           </Link>
@@ -192,7 +197,7 @@ export default function ContractorProfilePage() {
               <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
                 {contractor.businessName}
                 {contractor.isVerified && (
-                  <span className="inline-flex items-center gap-2 px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-full text-sm text-cyan-400">
+                  <span className="inline-flex items-center gap-2 px-3 py-1 bg-brand-harbour-500/10 border border-brand-harbour-500/30 rounded-full text-sm text-brand-harbour-400">
                     <Shield className="h-4 w-4" />
                     Verified
                   </span>
@@ -227,19 +232,19 @@ export default function ContractorProfilePage() {
               <div className="flex flex-wrap items-center gap-6 text-slate-300">
                 {contractor.yearsInBusiness && (
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-cyan-400" />
+                    <Calendar className="h-5 w-5 text-brand-harbour-400" />
                     <span>{contractor.yearsInBusiness} years in business</span>
                   </div>
                 )}
                 {contractor.teamSize && (
                   <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-cyan-400" />
+                    <Users className="h-5 w-5 text-brand-harbour-400" />
                     <span>{contractor.teamSize} team members</span>
                   </div>
                 )}
                 {contractor.completedJobs > 0 && (
                   <div className="flex items-center gap-2">
-                    <Briefcase className="h-5 w-5 text-cyan-400" />
+                    <Briefcase className="h-5 w-5 text-brand-harbour-400" />
                     <span>{contractor.completedJobs} completed jobs</span>
                   </div>
                 )}
@@ -281,6 +286,25 @@ export default function ContractorProfilePage() {
                     </span>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* RA-8220: Business Card services */}
+            {serviceLabels(parseServicesOffered(contractor.servicesOffered)).length > 0 && (
+              <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  Services
+                </h2>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {serviceLabels(parseServicesOffered(contractor.servicesOffered)).map((label) => (
+                    <li
+                      key={label}
+                      className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300"
+                    >
+                      {label}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
@@ -393,9 +417,9 @@ export default function ContractorProfilePage() {
 
                       {/* Contractor Response */}
                       {review.contractorResponse && (
-                        <div className="mt-4 pl-4 border-l-2 border-cyan-500/30 bg-slate-700/20 p-4 rounded">
+                        <div className="mt-4 pl-4 border-l-2 border-brand-harbour-500/30 bg-slate-700/20 p-4 rounded">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="text-sm font-medium text-cyan-400">
+                            <span className="text-sm font-medium text-brand-harbour-400">
                               Response from {contractor.businessName}
                             </span>
                             {review.respondedAt && (
@@ -415,7 +439,7 @@ export default function ContractorProfilePage() {
                       {/* Helpful Buttons */}
                       <div className="flex items-center gap-4 mt-4 text-sm text-slate-400">
                         <span>Was this review helpful?</span>
-                        <button className="flex items-center gap-1 hover:text-cyan-400">
+                        <button className="flex items-center gap-1 hover:text-brand-harbour-400">
                           <ThumbsUp className="h-4 w-4" />
                           <span>{review.helpfulCount}</span>
                         </button>
@@ -447,7 +471,7 @@ export default function ContractorProfilePage() {
                   </p>
                   <Link
                     href="/login"
-                    className="inline-block px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+                    className="inline-block px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
                   >
                     Sign In
                   </Link>
@@ -456,10 +480,10 @@ export default function ContractorProfilePage() {
                 <div className="space-y-3">
                   {contractor.phoneNumber && (
                     <div className="flex items-center gap-3 text-slate-300">
-                      <Phone className="h-5 w-5 text-cyan-400" />
+                      <Phone className="h-5 w-5 text-brand-harbour-400" />
                       <a
                         href={`tel:${contractor.phoneNumber}`}
-                        className="hover:text-cyan-400"
+                        className="hover:text-brand-harbour-400"
                       >
                         {contractor.phoneNumber}
                       </a>
@@ -467,10 +491,10 @@ export default function ContractorProfilePage() {
                   )}
                   {contractor.email && (
                     <div className="flex items-center gap-3 text-slate-300">
-                      <Mail className="h-5 w-5 text-cyan-400" />
+                      <Mail className="h-5 w-5 text-brand-harbour-400" />
                       <a
                         href={`mailto:${contractor.email}`}
-                        className="hover:text-cyan-400"
+                        className="hover:text-brand-harbour-400"
                       >
                         {contractor.email}
                       </a>
@@ -478,12 +502,12 @@ export default function ContractorProfilePage() {
                   )}
                   {contractor.website && (
                     <div className="flex items-center gap-3 text-slate-300">
-                      <Globe className="h-5 w-5 text-cyan-400" />
+                      <Globe className="h-5 w-5 text-brand-harbour-400" />
                       <a
                         href={contractor.website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="hover:text-cyan-400"
+                        className="hover:text-brand-harbour-400"
                       >
                         Visit Website
                       </a>
@@ -491,7 +515,7 @@ export default function ContractorProfilePage() {
                   )}
                   {contractor.businessAddress && (
                     <div className="flex items-start gap-3 text-slate-300">
-                      <MapPin className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-1" />
+                      <MapPin className="h-5 w-5 text-brand-harbour-400 flex-shrink-0 mt-1" />
                       <span>{contractor.businessAddress}</span>
                     </div>
                   )}
@@ -508,7 +532,7 @@ export default function ContractorProfilePage() {
                 <div className="space-y-3">
                   {certifications.map((cert) => (
                     <div key={cert.id} className="flex items-start gap-3">
-                      <Award className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-1" />
+                      <Award className="h-5 w-5 text-brand-harbour-400 flex-shrink-0 mt-1" />
                       <div>
                         <div className="font-medium text-white">
                           {cert.certificationName}
@@ -541,7 +565,7 @@ export default function ContractorProfilePage() {
                       key={idx}
                       className="flex items-center gap-2 text-slate-300"
                     >
-                      <MapPin className="h-4 w-4 text-cyan-400" />
+                      <MapPin className="h-4 w-4 text-brand-harbour-400" />
                       <span>
                         {area.suburb ? `${area.suburb}, ` : ""}
                         {area.postcode}, {area.state}

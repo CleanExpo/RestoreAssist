@@ -13,6 +13,7 @@ import {
   getMoistureStatus,
   STATUS_COLORS,
   getDryStandard,
+  MOISTURE_GUIDE_LABEL,
 } from "@/lib/iicrc-dry-standards";
 import { queueWrite } from "@/lib/nir-sync-queue";
 
@@ -259,7 +260,7 @@ export function QuickMoistureEntry({
           className={cn(
             "px-3 py-2 rounded-xl text-sm font-medium transition-colors",
             isBaseline
-              ? "bg-cyan-600 text-white"
+              ? "bg-brand-harbour-600 text-white"
               : "bg-white/5 text-white/60 hover:bg-white/10",
           )}
         >
@@ -271,7 +272,7 @@ export function QuickMoistureEntry({
           className={cn(
             "px-3 py-2 rounded-xl text-sm font-medium transition-colors",
             isMonitoringPoint
-              ? "bg-cyan-600 text-white"
+              ? "bg-brand-harbour-600 text-white"
               : "bg-white/5 text-white/60 hover:bg-white/10",
           )}
         >
@@ -323,8 +324,9 @@ export function QuickMoistureEntry({
       {/* Target range hint */}
       {std && (
         <p className="text-center text-xs text-white/30">
-          Dry target for {MATERIALS.find((m) => m.value === material)?.label}: ≤
-          {std.dryThreshold}%{" · "}S500:2021 §12
+          Guide for {MATERIALS.find((m) => m.value === material)?.label}: ≤
+          {std.dryThreshold}%{" · "}{MOISTURE_GUIDE_LABEL}. Use a reference
+          reading from unaffected like material where you have one.
         </p>
       )}
     </div>

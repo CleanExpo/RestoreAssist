@@ -121,7 +121,7 @@ export default function CronJobsPage() {
   const getStatusBadge = (state: JobRunState) => {
     if (state.status === "success") {
       return (
-        <Badge className="gap-1 bg-green-500/10 text-green-600 dark:text-green-400">
+        <Badge className="gap-1 bg-green-500/10 text-green-700 dark:text-green-400">
           <CheckCircle className="h-3 w-3" />
           {state.message ?? "Success"}
         </Badge>
@@ -129,7 +129,7 @@ export default function CronJobsPage() {
     }
     if (state.status === "error") {
       return (
-        <Badge className="gap-1 bg-red-500/10 text-red-600 dark:text-red-400">
+        <Badge className="gap-1 bg-red-500/10 text-red-700 dark:text-red-400">
           <AlertCircle className="h-3 w-3" />
           {state.message ?? "Error"}
         </Badge>
@@ -141,7 +141,7 @@ export default function CronJobsPage() {
   if (status === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-harbour-400/30 border-t-brand-harbour-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -149,7 +149,7 @@ export default function CronJobsPage() {
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Shield className="h-12 w-12 text-neutral-400" />
+        <Shield className="h-12 w-12 text-brand-slate dark:text-neutral-400" />
         <p className="text-neutral-600 dark:text-neutral-400">
           Admin access required
         </p>
@@ -181,7 +181,7 @@ export default function CronJobsPage() {
             Monitor and manually trigger scheduled background jobs
           </p>
         </div>
-        <Badge className="gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+        <Badge className="gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400">
           <Shield className="h-3 w-3" />
           Admin Only
         </Badge>
@@ -204,10 +204,10 @@ export default function CronJobsPage() {
       )}
 
       {/* Info banner */}
-      <Card className="bg-cyan-500/5 border-cyan-200 dark:border-cyan-800/60">
+      <Card className="bg-brand-harbour-500/5 border-brand-harbour-200 dark:border-brand-harbour-800/60">
         <CardContent className="pt-4 pb-4">
           <div className="flex items-start gap-3">
-            <Terminal className="h-4 w-4 text-cyan-500 mt-0.5 flex-shrink-0" />
+            <Terminal className="h-4 w-4 text-brand-harbour-500 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
               These jobs run automatically on a schedule. Use "Run Now" to
               trigger them manually for testing or to catch up on missed runs.
@@ -225,7 +225,7 @@ export default function CronJobsPage() {
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white">
-            <Clock className="h-5 w-5 text-cyan-500" />
+            <Clock className="h-5 w-5 text-brand-harbour-500" />
             Scheduled Jobs
           </CardTitle>
           <CardDescription>{jobs.length} jobs configured</CardDescription>
@@ -245,7 +245,7 @@ export default function CronJobsPage() {
                       <span className="font-medium text-neutral-900 dark:text-white text-sm">
                         {job.name}
                       </span>
-                      <code className="text-xs text-neutral-400 font-mono hidden sm:inline">
+                      <code className="text-xs text-brand-slate dark:text-neutral-400 font-mono hidden sm:inline">
                         {job.path}
                       </code>
                     </div>
@@ -263,7 +263,7 @@ export default function CronJobsPage() {
                       className={cn(
                         "gap-2",
                         !isRunning &&
-                          "border-cyan-200 dark:border-cyan-800/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/30",
+                          "border-brand-harbour-200 dark:border-brand-harbour-800/60 text-brand-harbour-600 dark:text-brand-harbour-400 hover:bg-brand-harbour-50 dark:hover:bg-brand-harbour-950/30",
                       )}
                     >
                       {isRunning ? (

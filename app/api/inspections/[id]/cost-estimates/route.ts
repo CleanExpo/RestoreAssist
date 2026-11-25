@@ -20,6 +20,7 @@ import { buildEstimateLines } from "@/lib/estimate-lines";
 import { apiError, fromException } from "@/lib/api-errors";
 import { z } from "zod";
 import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 const postSchema = z.object({
   /** When true, regenerate even if estimates already exist (default true). */
@@ -37,6 +38,15 @@ export async function GET(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 
@@ -75,6 +85,15 @@ export async function POST(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 

@@ -71,7 +71,7 @@ export default function HomeownerCapturePage() {
           </p>
           <button
             type="button"
-            className="min-h-11 px-4 py-2 rounded-lg bg-cyan-600 text-white text-sm font-medium"
+            className="min-h-11 px-4 py-2 rounded-lg bg-brand-harbour-600 text-white text-sm font-medium"
             onClick={() => window.location.reload()}
           >
             Try again

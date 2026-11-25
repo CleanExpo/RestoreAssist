@@ -38,6 +38,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     claimSketch: {
       findFirst: vi.fn(),
+      findMany: vi.fn(async () => []),
       update: vi.fn(),
       create: vi.fn(),
     },

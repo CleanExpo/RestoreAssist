@@ -31,6 +31,8 @@ vi.mock("@/lib/prisma", () => ({
     },
     auditLog: { create: (...a: unknown[]) => mockAuditCreate(...a) },
     user: { findUnique: (...a: unknown[]) => mockUserFindUnique(...a) },
+    // RA-8498: no site visit uses the photo (front-photo-delete.test.ts covers the refusal).
+    siteVisit: { findMany: async () => [] },
   },
 }));
 

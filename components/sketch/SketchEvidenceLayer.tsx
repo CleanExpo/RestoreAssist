@@ -5,7 +5,7 @@
  * React overlay (same pattern as SketchMoistureLayer) so pins survive Fabric reloads.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ChromeX } from "@/components/brand/chrome-icons";
 import { RAIcon } from "@/components/brand/RAIcon";
 import { Button } from "@/components/ui/button";
@@ -114,11 +114,19 @@ export function SketchEvidenceLayer({
     origY: number;
   } | null>(null);
 
-  const vpt =
+  const resolvedVpt =
     overlayViewport ??
     (canvasZoom === 1 || !canvasZoom
       ? IDENTITY_OVERLAY_VIEWPORT
       : { zoom: canvasZoom, panX: 0, panY: 0 });
+  const vptZoom = resolvedVpt.zoom;
+  const vptPanX = resolvedVpt.panX;
+  const vptPanY = resolvedVpt.panY;
+  // Memoised by value so callbacks only change when the viewport values do.
+  const vpt = useMemo(
+    () => ({ zoom: vptZoom, panX: vptPanX, panY: vptPanY }),
+    [vptZoom, vptPanX, vptPanY],
+  );
 
   const handleLayerClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -139,9 +147,7 @@ export function SketchEvidenceLayer({
       existingPhotos.length,
       onPlaceExisting,
       sourcePickerOpen,
-      vpt.zoom,
-      vpt.panX,
-      vpt.panY,
+      vpt,
     ],
   );
 

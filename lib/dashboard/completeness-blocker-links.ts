@@ -8,7 +8,10 @@ export type CompletenessBlockerId =
   | "loss_date"
   | "baseline"
   | "monitoring"
-  | "photos";
+  | "photos"
+  | "inspection_data"
+  | "scope"
+  | "costs";
 
 const BLOCKER_META: Record<
   CompletenessBlockerId,
@@ -22,9 +25,12 @@ const BLOCKER_META: Record<
     label: "Water category and class",
     action: "Classify",
   },
+  // RA-8337: no inspection tab has a date-of-loss field yet (that needs the
+  // column in RA-8332), so this blocker opens the job rather than claiming a
+  // tab that cannot fix it.
   loss_date: {
     label: "Date of loss",
-    action: "Set loss date",
+    action: "Open job",
   },
   baseline: {
     label: "Baseline moisture",
@@ -37,6 +43,19 @@ const BLOCKER_META: Record<
   photos: {
     label: "Site photos",
     action: "Add photos",
+  },
+  // RA-8545: report completeness sections that map onto the job.
+  inspection_data: {
+    label: "Inspection data",
+    action: "Open job",
+  },
+  scope: {
+    label: "Scope of works",
+    action: "Add scope",
+  },
+  costs: {
+    label: "Cost estimate",
+    action: "Add costs",
   },
 };
 
@@ -51,15 +70,61 @@ export function completenessBlockerHref(
     case "s500":
       return `${base}?tab=classification`;
     case "loss_date":
-      return `${base}?tab=insurer`;
+      // RA-8337: the insurer tab has no date field. Until RA-8332 adds one,
+      // there is nowhere on the job to set it, so open the job itself.
+      return base;
     case "baseline":
     case "monitoring":
       return `${base}?tab=moisture`;
     case "photos":
       return `${base}?tab=photos`;
+    case "scope":
+      return `${base}?tab=scope`;
+    case "costs":
+      return `${base}?tab=costs`;
+    case "inspection_data":
     default:
       return base;
   }
+}
+
+/**
+ * RA-8545: report completeness section name (lib/reports/completeness.ts) to
+ * the blocker that fixes it. Sections not listed have no screen on the job
+ * that clears them, so they show no fix link. "Client Information" checks the
+ * report's client record (name, email, phone); no inspection tab edits that
+ * record, so it is left out rather than sent to a tab that cannot fix it.
+ */
+const SECTION_BLOCKER: Record<string, CompletenessBlockerId> = {
+  "Inspection Data": "inspection_data",
+  "IICRC Classification": "s500",
+  "Scope of Works": "scope",
+  "Cost Estimates": "costs",
+  "Site Photos": "photos",
+};
+
+/**
+ * The "fix this" link for a report completeness section. Fixes live on the
+ * inspection linked to the report, so this needs that inspection's id — never
+ * the report id. Returns null when the report has no inspection or the
+ * section has no fix screen.
+ */
+export function completenessSectionHref(
+  sectionName: string,
+  inspectionId: string | null | undefined,
+): string | null {
+  const blockerId = SECTION_BLOCKER[sectionName];
+  if (!inspectionId || !blockerId) return null;
+  return completenessBlockerHref(inspectionId, blockerId);
+}
+
+/**
+ * False when no screen on the job can clear this blocker yet, so the UI
+ * should show the label without a fix link. Only date of loss today
+ * (waits on RA-8332).
+ */
+export function completenessBlockerHasFix(blockerId: string): boolean {
+  return blockerId !== "loss_date";
 }
 
 export function completenessBlockerLabel(blockerId: string): string {

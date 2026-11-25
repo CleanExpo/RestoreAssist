@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { validateManifest } from "../validate-paid-pilot-package.mjs";
+import { validateManifest } from "../lib/validate-paid-pilot-package.mjs";
 
 function fixture() {
   const root = mkdtempSync(path.join(tmpdir(), "paid-pilot-"));

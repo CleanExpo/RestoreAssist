@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
   title: "Resources - Restoration Guides & Documentation",
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
       "Guides and documentation for restoration professionals and insurance documentation.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/resources" },

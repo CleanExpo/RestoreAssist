@@ -12,7 +12,7 @@
  *
  * References:
  *   ANSI/IICRC S500:2021 §12.2.2 — Restoration drying rate factors
- *   ANSI/IICRC S500:2021 Appendix C — Per-material dry standard references
+ *   End points are guide values, not a published standard (RA-8508).
  */
 
 import {

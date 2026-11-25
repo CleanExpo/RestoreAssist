@@ -67,8 +67,26 @@ describe("POST /api/forms/submit — template ownership (RA-1711)", () => {
       where: {
         id: "tpl_1",
         OR: [{ userId: "user_1" }, { isSystemTemplate: true }],
+        isActive: true,
       },
     });
+  });
+
+  it("RA-7957: 404s and creates no submission for the caller's archived template", async () => {
+    // Emulate the DB: the caller's own template, archived (isActive false).
+    const archived = { id: "tpl_archived", userId: "user_1", isSystemTemplate: false, isActive: false };
+    formTemplateFindFirst.mockImplementation(async ({ where }: any) => {
+      if (where.id !== archived.id) return null;
+      if (where.isActive !== undefined && where.isActive !== archived.isActive) return null;
+      return archived;
+    });
+
+    const res = await POST(
+      makeRequest({ templateId: "tpl_archived", formData: { a: 1 } }),
+    );
+
+    expect(res.status).toBe(404);
+    expect(formSubmissionCreate).not.toHaveBeenCalled();
   });
 
   it("404s and creates no submission for another tenant's private template", async () => {

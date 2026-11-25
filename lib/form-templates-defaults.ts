@@ -9,7 +9,7 @@ export const DEFAULT_FORM_TEMPLATES = [
     formType: "WORK_ORDER" as const,
     category: "JOB_DOCUMENTATION" as const,
     description:
-      "Comprehensive water damage inspection form with IICRC S500 compliance. Includes property details, environmental data, moisture readings, affected areas, and equipment recommendations.",
+      "Comprehensive water damage inspection form aligned to IICRC S500. Includes property details, environmental data, moisture readings, affected areas, and equipment recommendations.",
     formSchema: JSON.stringify({
       sections: [
         {
@@ -199,7 +199,7 @@ export const DEFAULT_FORM_TEMPLATES = [
             {
               id: "mouldType",
               type: "select",
-              label: "Mould Type",
+              label: "Mould Type (laboratory result only)",
               options: ["Stachybotrys", "Aspergillus", "Penicillium", "Other"],
             },
           ],

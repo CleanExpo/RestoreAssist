@@ -30,11 +30,18 @@ vi.mock("@/lib/webhook-audit", () => ({
 }));
 
 import { POST } from "../route";
+import { fakeFindFirst, fakeFindMany, type FakeIntegrationRow } from "@/tests/helpers/fake-integration-table";
+
+/** Serve findMany/findFirst from these rows, honouring the route's where (RA-8446). */
+function useConnections(rows: FakeIntegrationRow[]) {
+  integrationFindMany.mockImplementation(fakeFindMany(rows));
+  integrationFindFirst.mockImplementation(fakeFindFirst(rows));
+}
 
 function integration(overrides: Record<string, unknown> = {}) {
   return { id: "integration_1", userId: "owner_1", workspaceId: "workspace_1",
     provider: "XERO", name: "Custom accounting connection", icon: null,
-    tenantId: "tenant_1", status: "CONNECTED", ...overrides };
+    tenantId: "tenant_1", status: "CONNECTED", accessToken: "ciphertext", ...overrides };
 }
 
 function event(tenantId: unknown = "tenant_1") {
@@ -59,8 +66,7 @@ beforeEach(() => {
   process.env.XERO_WEBHOOK_KEY = "key";
 
   verifyXeroWebhookSignature.mockReturnValue(true);
-  integrationFindFirst.mockResolvedValue(integration());
-  integrationFindMany.mockResolvedValue([integration()]);
+  useConnections([integration()]);
   webhookEventCreate.mockResolvedValue({ id: "event_1" });
 });
 
@@ -173,20 +179,23 @@ describe("POST /api/webhooks/xero — freshness gate", () => {
 describe("POST /api/webhooks/xero — tenant and provider isolation", () => {
   it("binds each event in a mixed-tenant batch to its own integration", async () => {
     const rows = [integration(), integration({ id: "integration_2", userId: "owner_2", workspaceId: "workspace_2", tenantId: "tenant_2" })];
-    integrationFindMany.mockImplementation(({ where }) => rows.filter(row => row.tenantId === where.tenantId));
+    useConnections(rows);
     const response = await POST(requestWithEvents([event(), event("tenant_2")]));
     expect(response.status).toBe(200);
     expect((await response.json()).processed).toBe(2);
     expect(webhookEventCreate.mock.calls.map(([arg]) => [arg.data.integrationId, arg.data.payload.tenantId]))
       .toEqual([["integration_1", "tenant_1"], ["integration_2", "tenant_2"]]);
-    const selects = integrationFindMany.mock.calls.map(([arg]) => arg.select);
+    // Candidate reads carry identity metadata only; the RA-8446 credential
+    // check is a separate SQL presence test that selects ids.
+    const selects = integrationFindMany.mock.calls.map(([arg]) => arg.select).filter(select => !("id" in select && Object.keys(select).length === 1));
+    expect(selects).toHaveLength(2);
     for (const select of selects) {
       expect(select).toEqual({ id: true, userId: true, workspaceId: true, provider: true, name: true, icon: true, config: true, tenantId: true, status: true });
     }
   });
 
   it("acknowledges an unknown tenant without dropping a later known event", async () => {
-    integrationFindMany.mockImplementation(({ where }) => where.tenantId === "tenant_1" ? [integration()] : []);
+    useConnections([integration()]);
     const response = await POST(requestWithEvents([event("unknown"), event()]));
     expect(response.status).toBe(200);
     expect((await response.json()).processed).toBe(1);
@@ -258,5 +267,37 @@ describe("Xero webhook bounded identity lookup", () => {
     expect((await response.json()).processed).toBe(0);
     expect(webhookEventCreate).not.toHaveBeenCalled();
     expect(integrationFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 101 }));
+  });
+});
+
+
+describe("Xero webhook binding takes readiness from the owner (RA-8446)", () => {
+  it.each(["SYNCING", "ERROR"])("queues for a %s connection the owner calls ready", async (status) => {
+    useConnections([integration({ status })]);
+    const response = await POST(requestWithEvents([event()]));
+    expect((await response.json()).processed).toBe(1);
+    expect(webhookEventCreate.mock.calls[0][0].data.integrationId).toBe("integration_1");
+  });
+
+  it.each([{ accessToken: null }, { accessToken: "" }])("does not store an event for a CONNECTED connection without stored credentials %j", async (overrides) => {
+    useConnections([integration(overrides)]);
+    const response = await POST(requestWithEvents([event()]));
+    expect(response.status).toBe(200);
+    expect((await response.json()).processed).toBe(0);
+    expect(webhookEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("uses the ready connection when a not-ready one shares the tenant", async () => {
+    useConnections([integration({ id: "stale", userId: "other", accessToken: null }), integration()]);
+    await POST(requestWithEvents([event()]));
+    expect(webhookEventCreate.mock.calls.map(([arg]) => arg.data.integrationId)).toEqual(["integration_1"]);
+  });
+
+  it("acknowledges a not-ready event and still queues a later ready tenant's event", async () => {
+    useConnections([integration(), integration({ id: "integration_2", tenantId: "tenant_2", accessToken: null })]);
+    const response = await POST(requestWithEvents([event("tenant_2"), event()]));
+    expect(response.status).toBe(200);
+    expect((await response.json()).processed).toBe(1);
+    expect(webhookEventCreate.mock.calls.map(([arg]) => arg.data.payload.tenantId)).toEqual(["tenant_1"]);
   });
 });

@@ -7,6 +7,8 @@ import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { toCsv } from "@/lib/csv/csv-cell";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 interface ExportRequest {
   format: "csv" | "excel" | "pdf";
@@ -41,6 +43,15 @@ export async function POST(request: NextRequest) {
       status: 401,
     });
   }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
+    });
+  }
   const userId = session.user.id;
 
   const rateLimited = await applyRateLimit(request, {
@@ -64,7 +75,7 @@ export async function POST(request: NextRequest) {
           status: 400,
         });
       }
-      const { format, dateRange, includeCharts = false } = body;
+      const { format, dateRange, includeCharts: _includeCharts = false } = body;
 
       // Parse dates
       const fromDate = new Date(dateRange.from);
@@ -158,21 +169,7 @@ function handleCSVExport(
   const headers = Object.keys(data[0]);
 
   // Build CSV
-  let csv = headers.join(",") + "\n";
-  csv += data
-    .map((row) =>
-      headers
-        .map((header) => {
-          const value = row[header];
-          // Escape quotes and wrap in quotes if contains comma
-          if (value.includes(",") || value.includes('"')) {
-            return `"${value.replace(/"/g, '""')}"`;
-          }
-          return value;
-        })
-        .join(","),
-    )
-    .join("\n");
+  const csv = toCsv([headers, ...data.map((row) => headers.map((h) => row[h]))]);
 
   return new NextResponse(csv, {
     headers: {

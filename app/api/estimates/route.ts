@@ -6,6 +6,7 @@ import { sanitizeString } from "@/lib/sanitize";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 const MAX_ESTIMATE_LINE_ITEMS = 500;
 
@@ -17,6 +18,15 @@ export async function POST(request: NextRequest) {
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
     });
   }
   const userId = session.user.id;
@@ -392,6 +402,15 @@ export async function GET(request: NextRequest) {
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 

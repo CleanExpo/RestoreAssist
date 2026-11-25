@@ -20,15 +20,15 @@ import { useLandingReduceMotion } from "@/components/landing/home/useLandingRedu
 /**
  * Full cost disclosure for the public pricing page.
  *
- * More than one party charges a contractor who runs Restore Assist, and this
+ * More than one party charges a contractor who runs RestoreAssist, and this
  * component names every one of them in one place:
  *
- *   1. Restore Assist, plan and report packs — itemised from PRICING_CONFIG
+ *   1. RestoreAssist, plan and report packs — itemised from PRICING_CONFIG
  *      (lib/pricing.ts) so the page can never drift from the catalogue the
  *      checkout actually sells from. The effective per-report rate is derived
  *      by division from those same authored numbers.
  *
- *   2. Restore Assist, recurring add-ons — itemised from RECURRING_ADDONS
+ *   2. RestoreAssist, recurring add-ons — itemised from RECURRING_ADDONS
  *      (lib/billing/addon-registry.ts), the same registry
  *      app/api/addons/checkout/route.ts prices the Stripe subscription from.
  *      Every descriptor is rendered; nothing is filtered and no price is
@@ -169,7 +169,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
             <h2
               className={`${FONT_DISPLAY} mt-4 text-3xl font-semibold tracking-tight text-brand-navy sm:text-4xl`}
             >
-              Everything you pay to run Restore Assist
+              Everything you pay to run RestoreAssist
             </h2>
             {/*
               This read "Two parties charge you. We are one of them." A critic
@@ -192,7 +192,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
             </p>
           </motion.div>
 
-          {/* 1 — What Restore Assist bills. */}
+          {/* 1 — What RestoreAssist bills. */}
           <motion.div variants={fadeUp} className={`${SURFACE} mt-10 p-7 sm:p-8`}>
             <div className="flex items-start gap-3">
               <span className="mt-0.5 text-brand-harbour">
@@ -202,7 +202,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                 <h3
                   className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-brand-navy`}
                 >
-                  1. Billed by Restore Assist — plan and report packs
+                  1. Billed by RestoreAssist — plan and report packs
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
                   The subscription and the report top-up packs. There is no
@@ -216,7 +216,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
             <div className="mt-6 overflow-x-auto">
               <table className="w-full min-w-[34rem] border-collapse text-left text-sm">
                 <caption className="sr-only">
-                  Restore Assist subscription and add-on charges, with the
+                  RestoreAssist subscription and add-on charges, with the
                   effective software cost per inspection report.
                 </caption>
                 <thead>
@@ -263,7 +263,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                         <span className="font-semibold text-brand-navy">
                           {row.amount}
                         </span>
-                        <span className="block text-xs text-slate-500">
+                        <span className="block text-xs text-slate-600">
                           {row.cadence}
                         </span>
                       </td>
@@ -279,21 +279,21 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
               </table>
             </div>
 
-            <p className="mt-5 text-xs leading-relaxed text-slate-500">
+            <p className="mt-5 text-xs leading-relaxed text-slate-600">
               Amounts in {monthly.currency}. Plan pricing includes GST and tax
               invoices are issued monthly. The per-report column is the plan or
               pack price divided by the reports it covers, and it is the
               {/*
                 This previously named the AI cost as the ONLY thing sitting on
                 top, which was still incomplete: the seven add-ons listed in
-                section 2 are Restore Assist charges and are also excluded from
+                section 2 are RestoreAssist charges and are also excluded from
                 the per-report column. A critic worked the example — a
                 three-technician shop at 50 reports a month pays $99 + $33 =
                 $132, i.e. $2.64 per report against a headline of $1.98 labelled
                 "software cost per report". Naming one excluded cost and not the
                 other is the same partial disclosure this section exists to end.
               */}
-              Restore Assist plan and pack cost only. Two things sit on top of
+              RestoreAssist plan and pack cost only. Two things sit on top of
               it and are not in that figure: any add-ons from section 2, and the
               AI generation cost in section 3. Cancel any time.
             </p>
@@ -312,7 +312,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                 <h3
                   className={`${FONT_DISPLAY} text-xl font-semibold tracking-tight text-brand-navy`}
                 >
-                  2. Billed by Restore Assist — optional add-ons
+                  2. Billed by RestoreAssist — optional add-ons
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">
                   None of these is required to run the product, and none is
@@ -327,7 +327,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
             <div className="mt-6 overflow-x-auto">
               <table className="w-full min-w-[34rem] border-collapse text-left text-sm">
                 <caption className="sr-only">
-                  Every optional recurring Restore Assist add-on, with its
+                  Every optional recurring RestoreAssist add-on, with its
                   price and billing interval.
                 </caption>
                 <thead>
@@ -371,7 +371,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                         <span className="font-semibold text-brand-navy">
                           {formatAud(addon.amount)}
                         </span>
-                        <span className="block text-xs text-slate-500">
+                        <span className="block text-xs text-slate-600">
                           per {addon.interval}
                           {addon.perSeat ? ", per seat" : ""}
                         </span>
@@ -382,7 +382,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
               </table>
             </div>
 
-            <p className="mt-5 text-xs leading-relaxed text-slate-500">
+            <p className="mt-5 text-xs leading-relaxed text-slate-600">
               Amounts in {ADDON_ROWS[0]?.currency ?? monthly.currency},
               GST-inclusive, each billed as its own subscription alongside the
               plan. A per-seat add-on is charged once for every seat you buy,
@@ -428,7 +428,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
                   Our margin on it
                 </dt>
                 <dd className="mt-1 text-sm leading-relaxed text-slate-600 sm:mt-0">
-                  None. Restore Assist adds no markup and takes no share. It is
+                  None. RestoreAssist adds no markup and takes no share. It is
                   why the subscription above is priced as it is.
                 </dd>
               </div>
@@ -481,7 +481,7 @@ export function CostDisclosure({ className }: CostDisclosureProps) {
 
           <motion.p
             variants={fadeUp}
-            className="mt-6 text-center text-xs leading-relaxed text-slate-500"
+            className="mt-6 text-center text-xs leading-relaxed text-slate-600"
           >
             If a cost is missing from this page, that is a fault we want to
             hear about, not a detail we left out on purpose.

@@ -102,7 +102,7 @@ export default function HowToDropdown() {
                 setOpen(false);
                 openHelpSearch();
               }}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-2.5 text-xs font-medium text-cyan-200 hover:bg-white/10"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-2.5 text-xs font-medium text-brand-harbour-200 hover:bg-white/10"
             >
               <ChromeSearch className="h-3.5 w-3.5" aria-hidden />
               Search
@@ -124,12 +124,12 @@ export default function HowToDropdown() {
                   className={cn(
                     "flex min-h-[44px] items-start gap-3 rounded-lg p-3 transition-colors",
                     activeCategory === cat
-                      ? "bg-cyan-500/15 ring-1 ring-cyan-400/25"
+                      ? "bg-brand-harbour-500/15 ring-1 ring-brand-harbour-400/25"
                       : "hover:bg-white/5",
                   )}
                 >
                   <ChromeBook
-                    className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300/80"
+                    className="mt-0.5 h-4 w-4 shrink-0 text-brand-harbour-300/80"
                     aria-hidden
                   />
                   <div className="min-w-0">
@@ -145,7 +145,7 @@ export default function HowToDropdown() {
             </div>
 
             <div className="border-white/10 lg:col-span-2 lg:border-l lg:pl-4">
-              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-cyan-200/90">
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-brand-harbour-200/90">
                 <ChromePlayCircle className="h-3.5 w-3.5" aria-hidden />
                 Video walkthroughs
               </div>
@@ -160,9 +160,9 @@ export default function HowToDropdown() {
                       onClick={() => setOpen(false)}
                       className="group flex items-center gap-2 rounded-lg p-2 hover:bg-white/5"
                     >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10 group-hover:bg-cyan-500/20">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10 group-hover:bg-brand-harbour-500/20">
                         <ChromePlayCircle
-                          className="h-4 w-4 text-cyan-300 group-hover:text-white"
+                          className="h-4 w-4 text-brand-harbour-300 group-hover:text-white"
                           aria-hidden
                         />
                       </div>
@@ -192,7 +192,7 @@ export default function HowToDropdown() {
             <Link
               href="/dashboard/help"
               onClick={() => setOpen(false)}
-              className="text-sm font-medium text-cyan-300 hover:text-cyan-200"
+              className="text-sm font-medium text-brand-harbour-300 hover:text-brand-harbour-200"
             >
               Browse all articles →
             </Link>

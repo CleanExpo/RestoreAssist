@@ -9,8 +9,8 @@
  * CIRCULAR and cannot be checked by anyone: the corpus it cites as the authority
  * is `IicrcChunk`, which has zero rows on production, and the corpus's own
  * provenance is the open question. An audit of the accessible Drive on 2026-08-31
- * found no S520 document of any edition — only a superseded S540:2017 set and a  standards-cite-ignore (naming a superseded edition on purpose)
- * third-party retyping of the S500 definitions clause.
+ * found no S520 document of any edition — only a superseded S540 set (the 2017
+ * edition) and a third-party retyping of the S500 definitions clause.
  *
  * So: these numbers are ATTESTED BY THE OWNER, not independently verifiable from
  * anything in this repository or reachable from it. They are used because they

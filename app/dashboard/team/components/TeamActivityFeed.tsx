@@ -91,8 +91,8 @@ const activityConfig: Record<
   },
   invite_sent: {
     icon: Mail,
-    color: "text-cyan-500",
-    bgColor: "bg-cyan-500/10",
+    color: "text-brand-harbour-500",
+    bgColor: "bg-brand-harbour-500/10",
     label: "Invite",
   },
   invite_accepted: {
@@ -249,7 +249,7 @@ export default function TeamActivityFeed() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-cyan-500" />
+            <Activity className="w-5 h-5 text-brand-harbour-500" />
             <CardTitle className="text-lg">Team Activity</CardTitle>
             {total > 0 && (
               <Badge variant="secondary" className="text-xs">
@@ -389,7 +389,7 @@ export default function TeamActivityFeed() {
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center space-y-3">
-              <Loader2 className="w-6 h-6 text-cyan-500 animate-spin mx-auto" />
+              <Loader2 className="w-6 h-6 text-brand-harbour-500 animate-spin mx-auto" />
               <p className={cn("text-sm", "text-muted-foreground")}>
                 Loading team activity...
               </p>
@@ -431,7 +431,7 @@ export default function TeamActivityFeed() {
                 )}
               />
 
-              {activities.map((activity, idx) => {
+              {activities.map((activity, _idx) => {
                 const config = activityConfig[activity.type];
                 const Icon = config?.icon ?? FileText;
                 const RoleIcon = roleIcon[activity.actorRole] || Wrench;

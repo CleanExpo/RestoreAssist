@@ -21,9 +21,9 @@ const CheckMark = (props: MarkProps) => (
     <RAIcon name="success" size={18} decorative />
   </Mark>
 );
-const PauseMark = (props: MarkProps) => <Mark {...props}>Ⅱ</Mark>;
-const UpMark = (props: MarkProps) => <Mark {...props}>↗</Mark>;
-const DownMark = (props: MarkProps) => <Mark {...props}>↘</Mark>;
+const _PauseMark = (props: MarkProps) => <Mark {...props}>Ⅱ</Mark>;
+const _UpMark = (props: MarkProps) => <Mark {...props}>↗</Mark>;
+const _DownMark = (props: MarkProps) => <Mark {...props}>↘</Mark>;
 const UsersMark = (props: MarkProps) => <Mark {...props}>◉</Mark>;
 
 interface VideoStat {
@@ -74,7 +74,7 @@ export default function VideoAnalyticsPage() {
 
   const colorForRate = (rate: number) => {
     if (rate >= 70) return "text-success";
-    if (rate >= 40) return "text-amber-400";
+    if (rate >= 40) return "text-amber-700 dark:text-amber-400";
     return "text-destructive";
   };
 
@@ -111,7 +111,7 @@ export default function VideoAnalyticsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-3">
-            <PlayMark className="h-5 w-5 text-blue-400" />
+            <PlayMark className="h-5 w-5 text-blue-700 dark:text-blue-400" />
             <div>
               <p className="text-sm text-muted-foreground">Total Plays</p>
               <p className="text-2xl font-bold">{totalPlays.toLocaleString()}</p>

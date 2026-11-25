@@ -63,6 +63,27 @@ describe("NIRClaimAssessmentPanel — locked claim type (RA-1029)", () => {
     expect(screen.queryByText(/Mould Category/i)).not.toBeInTheDocument();
   });
 
+  it("labels mould condition as an assessor entry and spore type as a laboratory result (RA-8541)", async () => {
+    render(
+      <NIRClaimAssessmentPanel
+        inspectionId="insp_1"
+        lockedClaimType="MOULD"
+      />,
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByText("Assessor entry only (IICRC S520:2024 Condition 1–3)"),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText("Spore Type (laboratory result)"),
+    ).toBeInTheDocument();
+    // The label changes; the stored option value stays, so saved data still matches.
+    const option = screen.getByRole("option", { name: "Stachybotrys" });
+    expect(option).toHaveAttribute("value", "STACHYBOTRYS");
+    expect(screen.queryByText(/Black Mould/i)).not.toBeInTheDocument();
+  });
+
   it("renders fire residue fields when locked to FIRE", async () => {
     render(
       <NIRClaimAssessmentPanel

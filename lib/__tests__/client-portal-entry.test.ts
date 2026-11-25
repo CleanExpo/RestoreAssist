@@ -107,7 +107,8 @@ describe("client portal public CTA (RA-7552)", () => {
   it("is wired into existing public chrome (hide over invent)", () => {
     const surfaces = [
       "components/landing/home/LandingNav.tsx",
-      "components/landing/home/LandingFooter.tsx",
+      // RA-8403: LandingFooter renders FOOTER_COLUMNS from footer-links.ts.
+      "components/landing/home/footer-links.ts",
       "components/landing/Footer.tsx",
       "app/login/page.tsx",
     ];

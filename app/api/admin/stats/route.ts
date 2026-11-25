@@ -8,6 +8,37 @@ import {
   verifyPlatformSupportOperator,
 } from "@/lib/admin-auth";
 import { fromException } from "@/lib/api-errors";
+import {
+  isReadyOAuthCandidate,
+  OAUTH_CANDIDATE_WHERE,
+  OAUTH_IDENTITY_SELECT,
+  OAUTH_READY_PREFILTER_WHERE,
+} from "@/lib/services/integrations/select-oauth";
+
+const READY_COUNT_PAGE = 500;
+
+/**
+ * RA-8446: "connected" means the readiness owner calls the connection ready
+ * (getOAuthReadiness), so a CONNECTED row with no organisation is not counted
+ * and a SYNCING / ERROR row the owner accepts is. Paged by id so the count is
+ * exact without loading every row at once.
+ */
+async function countReadyOAuthIntegrations(): Promise<number> {
+  let ready = 0;
+  let cursor: string | undefined;
+  for (;;) {
+    const rows = await prisma.integration.findMany({
+      where: { ...OAUTH_CANDIDATE_WHERE, ...OAUTH_READY_PREFILTER_WHERE },
+      select: OAUTH_IDENTITY_SELECT,
+      orderBy: { id: "asc" },
+      take: READY_COUNT_PAGE,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    ready += rows.filter(row => isReadyOAuthCandidate(row)).length;
+    if (rows.length < READY_COUNT_PAGE) return ready;
+    cursor = rows[rows.length - 1].id;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -77,7 +108,7 @@ export async function GET(request: NextRequest) {
         .then(() => "healthy" as const)
         .catch(() => "down" as const),
 
-      prisma.integration.count({ where: { status: "CONNECTED" } }),
+      countReadyOAuthIntegrations(),
       prisma.integration.count({ where: { status: "ERROR" } }),
     ]);
 

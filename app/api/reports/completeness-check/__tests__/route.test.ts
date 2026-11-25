@@ -124,6 +124,25 @@ describe("POST /api/reports/completeness-check (RA-7571)", () => {
     );
   });
 
+  it("returns the linked inspection id for fix links, never the report id (RA-8545)", async () => {
+    const report = completeReport();
+    reportFindFirst.mockResolvedValueOnce({
+      ...report,
+      inspection: { ...report.inspection!, id: "insp_9" },
+    });
+    const body = await (await POST(postRequest({ reportId: "rep_1" }))).json();
+    expect(body.inspectionId).toBe("insp_9");
+
+    reportFindFirst.mockResolvedValueOnce({
+      ...completeReport(),
+      inspection: null,
+    });
+    const noInspection = await (
+      await POST(postRequest({ reportId: "rep_1" }))
+    ).json();
+    expect(noInspection.inspectionId).toBeNull();
+  });
+
   it("returns a completeness result, not 500, when the manifest scalar is present", async () => {
     reportFindFirst.mockResolvedValueOnce(completeReport());
 

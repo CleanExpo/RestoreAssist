@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { CheckCircle, Clock, FileText, Shield } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface IICRCDashboardProps {
   reports: any[];
@@ -18,10 +18,6 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
     averageDryingTime: 0,
     complianceRate: 0,
   });
-
-  useEffect(() => {
-    calculateComplianceStats();
-  }, [reports, selectedPeriod]);
 
   const calculateComplianceStats = () => {
     const filteredReports = filterReportsByPeriod(reports, selectedPeriod);
@@ -43,6 +39,16 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
 
     setComplianceStats(stats);
   };
+
+  // Latest-value ref so the effect still fires only when reports / period change.
+  const calculateComplianceStatsRef = useRef(calculateComplianceStats);
+  useEffect(() => {
+    calculateComplianceStatsRef.current = calculateComplianceStats;
+  });
+
+  useEffect(() => {
+    calculateComplianceStatsRef.current();
+  }, [reports, selectedPeriod]);
 
   const filterReportsByPeriod = (reports: any[], period: string) => {
     const now = new Date();
@@ -160,7 +166,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
             className="text-2xl font-medium text-white"
             style={{ fontFamily: "Titillium Web, sans-serif" }}
           >
-            IICRC S500 Compliance Dashboard
+            IICRC S500 Alignment Dashboard
           </h2>
           <p className="text-slate-400">
             Professional water damage restoration standards tracking
@@ -171,7 +177,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+            className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
           >
             <option value="7days">Last 7 days</option>
             <option value="30days">Last 30 days</option>
@@ -190,11 +196,11 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <FileText className="text-cyan-400" size={24} />
+            <FileText className="text-brand-harbour-400" size={24} />
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold text-cyan-400">
+            <p className="text-3xl font-bold text-brand-harbour-400">
               {complianceStats.totalReports}
             </p>
             <p className="text-slate-400 text-sm font-medium">Total Reports</p>
@@ -276,7 +282,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
             Water Category Distribution
           </h3>
           <div className="space-y-3">
-            {getCategoryDistribution().map((item, index) => (
+            {getCategoryDistribution().map((item, _index) => (
               <div
                 key={item.category}
                 className="flex items-center justify-between"
@@ -312,17 +318,17 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
             Water Class Distribution
           </h3>
           <div className="space-y-3">
-            {getClassDistribution().map((item, index) => (
+            {getClassDistribution().map((item, _index) => (
               <div
                 key={item.class}
                 className="flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-cyan-500/20" />
+                  <div className="w-3 h-3 rounded-full bg-brand-harbour-500/20" />
                   <span className="text-slate-300">{item.class}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-bold text-cyan-400">{item.count}</span>
+                  <span className="font-bold text-brand-harbour-400">{item.count}</span>
                   <span className="text-slate-400 text-sm">
                     ({item.percentage}%)
                   </span>
@@ -347,7 +353,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
           Recent IICRC S500 Reports
         </h3>
         <div className="space-y-3">
-          {recentReports.map((report, index) => (
+          {recentReports.map((report, _index) => (
             <div
               key={report.id}
               className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg"
@@ -370,7 +376,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-sm font-medium text-cyan-400">
+                <p className="text-sm font-medium text-brand-harbour-400">
                   {report.waterCategory}
                 </p>
                 <p className="text-xs text-slate-400">{report.waterClass}</p>
@@ -391,7 +397,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
           className="text-lg font-medium text-white mb-4"
           style={{ fontFamily: "Titillium Web, sans-serif" }}
         >
-          IICRC S500 Compliance Checklist
+          IICRC S500 Alignment Checklist
         </h3>
         <div className="grid md:grid-cols-2 gap-4">
           <div>

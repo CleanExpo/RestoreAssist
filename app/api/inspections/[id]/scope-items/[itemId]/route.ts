@@ -8,6 +8,7 @@ import {
   hasDisposalAuthorityForInspection,
   scopeItemRequiresDisposalAuthority,
 } from "@/lib/compliance/disposal-authority-gate";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 export async function PATCH(
   request: NextRequest,
@@ -144,7 +145,8 @@ export async function PATCH(
         }),
       },
     });
-    return NextResponse.json({ scopeItem: updated });
+    // RA-8494: the updated row carries suggestedRate; never to a technician.
+    return NextResponse.json({ scopeItem: await moneySafe(session, updated) });
   } catch (err) {
     return fromException(request, err, { stage: "scope-items:patch" });
   }

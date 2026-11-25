@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 import { resolveReportPricing } from "@/lib/pricing/report-pricing";
 import {
   hasStoredEquipment,
@@ -208,14 +209,16 @@ export async function GET(
       Number(report.estimatedDryingDuration) || 1,
     );
 
-    return NextResponse.json({
+    // RA-8494: equipment is priced from the business rate card (dailyRate,
+    // equipmentCostTotal); a technician gets the selection without prices.
+    return NextResponse.json(await moneySafe(session, {
       psychrometricAssessment: report.psychrometricAssessment
         ? JSON.parse(report.psychrometricAssessment)
         : null,
       scopeAreas: report.scopeAreas ? JSON.parse(report.scopeAreas) : null,
       ...equipment,
       estimatedDryingDuration: report.estimatedDryingDuration,
-    });
+    }));
   } catch (error) {
     return fromException(request, error, { stage: "equipment-get" });
   }

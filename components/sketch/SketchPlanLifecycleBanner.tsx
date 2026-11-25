@@ -94,7 +94,7 @@ export function SketchPlanLifecycleBanner({
           className={cn(
             "shrink-0 mt-0.5",
             phase === "scanning" && "animate-spin text-emerald-300",
-            phase === "waiting" && "text-cyan-300",
+            phase === "waiting" && "text-brand-harbour-300",
             phase === "needs_confirm" && "text-amber-300",
             phase === "plan_ready" && "text-emerald-300",
           )}

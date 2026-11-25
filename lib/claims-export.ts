@@ -4,6 +4,7 @@
 
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { toCsv } from "@/lib/csv/csv-cell";
 
 interface ExportIssue {
   category: string;
@@ -127,7 +128,7 @@ export function exportClaimsCSV(
     });
   }
   rows.push(["", "", "", "", "", "", "", "", "", ""]);
-  rows.push(["=== DETAILED RESULTS ===", "", "", "", "", "", "", "", "", ""]);
+  rows.push(["DETAILED RESULTS", "", "", "", "", "", "", "", "", ""]);
   rows.push(headers);
 
   // Data rows
@@ -138,7 +139,7 @@ export function exportClaimsCSV(
         issue.category.replace(/_/g, " "),
         issue.severity,
         issue.elementName,
-        (issue.description || "").replace(/"/g, '""'),
+        issue.description || "",
         issue.standardReference || "",
         issue.isBillable ? "Yes" : "No",
         issue.estimatedCost ? `$${issue.estimatedCost.toFixed(2)}` : "",
@@ -148,9 +149,7 @@ export function exportClaimsCSV(
     }
   }
 
-  const csvContent = rows
-    .map((row) => row.map((cell) => `"${cell}"`).join(","))
-    .join("\n");
+  const csvContent = toCsv(rows);
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -229,7 +228,7 @@ function buildClaimsReportHTML(
     <table>
       <tr>
         ${Object.entries(summary.averageScores)
-          .map(([k, v]) => `<th>${k.replace(/([A-Z])/g, " $1").trim()}</th>`)
+          .map(([k, _v]) => `<th>${k.replace(/([A-Z])/g, " $1").trim()}</th>`)
           .join("")}
       </tr>
       <tr>
@@ -324,12 +323,12 @@ export async function exportClaimsPDF(
       logging: false,
       backgroundColor: "#ffffff",
     });
-    const imgData = canvas.toDataURL("image/png");
+    const _imgData = canvas.toDataURL("image/png");
     const pageW = 210;
     const margin = 10;
     const contentW = pageW - margin * 2;
     const imgW = contentW;
-    const imgH = (canvas.height * contentW) / canvas.width;
+    const _imgH = (canvas.height * contentW) / canvas.width;
     const pageH = 297;
     const contentH = pageH - margin * 2;
     const pdf = new jsPDF({

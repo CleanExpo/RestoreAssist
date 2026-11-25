@@ -148,6 +148,38 @@ export async function completeIdempotentSuccessInTransaction({
   return updated.count === 1;
 }
 
+/**
+ * Replace the body of a success already completed for this key and request,
+ * for a route whose post-commit work (RA-8515: make-safe seeding on office
+ * intake) learns something the committed response could not yet say. Only a
+ * COMPLETE record with the same fingerprint changes; a refusal or a different
+ * body is never touched. Returns true when the record changed.
+ */
+export async function replaceCompletedIdempotentResponse({
+  scope, key, method, path, rawBody, responseBody,
+}: {
+  scope: string;
+  key: string;
+  method: string;
+  path: string;
+  rawBody: string;
+  responseBody: string;
+}): Promise<boolean> {
+  if (responseBody.length > MAX_BODY_CACHE_BYTES) return false;
+  const updated = await prisma.idempotencyRecord.updateMany({
+    where: {
+      cacheKey: buildCacheKey(scope, key),
+      scope,
+      key,
+      fingerprint: storedFingerprint(method, path, rawBody),
+      status: "COMPLETE",
+      expiresAt: { gt: new Date() },
+    },
+    data: { responseBody },
+  });
+  return updated.count === 1;
+}
+
 function responseFromCache(cached: CachedResponse): NextResponse {
   return new NextResponse(cached.body, {
     status: cached.status,
@@ -433,7 +465,13 @@ export async function withIdempotencyFingerprint({
     throw err;
   }
 
-  if (response.status >= 500) {
+  // RA-8000: a handler marks a response that describes only the moment it was
+  // read (an approval conflict) so a retry with the same key is evaluated
+  // again rather than replayed.
+  if (
+    response.status >= 500 ||
+    response.headers.get("X-RestoreAssist-Idempotency-No-Cache") === "true"
+  ) {
     const cleared = await prisma.idempotencyRecord.deleteMany({ where: {
       cacheKey, id: reservation.recordId, status: "PENDING",
     } });

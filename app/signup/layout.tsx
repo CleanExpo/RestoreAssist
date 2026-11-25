@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "Sign up",
   description:
     "Create a RestoreAssist account and get started in minutes. Free trial, no credit card required.",
+  alternates: { canonical: "/signup" },
   robots: { index: true, follow: true },
 };
 

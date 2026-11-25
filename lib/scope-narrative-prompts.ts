@@ -66,6 +66,11 @@ export interface MoistureReadingInput {
   surfaceType: string;
   moistureLevel: number;
   target: number;
+  /**
+   * RA-8508: "reference" = the job's reading from unaffected like material;
+   * "guide" = a starting guide value that is not a published standard.
+   */
+  targetBasis?: "reference" | "guide";
   status: "DRY" | "DRYING" | "WET";
 }
 
@@ -206,10 +211,17 @@ export function buildScopeUserMessage(input: ScopeNarrativeInput): string {
     for (const r of moistureReadings) {
       const statusEmoji =
         r.status === "DRY" ? "✅" : r.status === "DRYING" ? "🟡" : "🔴";
+      const basis =
+        r.targetBasis === "reference"
+          ? "reference reading from unaffected like material"
+          : "starting guide, not a standard";
       lines.push(
-        `- ${r.location} (${r.surfaceType}): ${r.moistureLevel}% [target ≤${r.target}%] ${statusEmoji} ${r.status}`,
+        `- ${r.location} (${r.surfaceType}): ${r.moistureLevel}% [goal ≤${r.target}%, ${basis}] ${statusEmoji} ${r.status}`,
       );
     }
+    lines.push(
+      `- Moisture goals above come from the job's reference readings or from starting guide values. Do not attribute these moisture goal numbers to any standard or cite a standard section for them.`,
+    );
     const wetCount = moistureReadings.filter((r) => r.status === "WET").length;
     const dryingCount = moistureReadings.filter(
       (r) => r.status === "DRYING",

@@ -17,6 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { MeterPhotoCapture } from "@/components/inspection/MeterPhotoCapture";
 
 // ── Types (mirrors API response) ─────────────────────────────────────────────
 
@@ -100,17 +101,17 @@ function StatusIcon({ status }: { status: DryingStatus }) {
     case "ACHIEVED":
       return <CheckCircle2 size={14} className="text-success" />;
     case "PROGRESSING":
-      return <TrendingDown size={14} className="text-cyan-600" />;
+      return <TrendingDown size={14} className="text-brand-harbour-600" />;
     case "PLATEAU":
       return <Minus size={14} className="text-amber-600" />;
     default:
-      return <TrendingUp size={14} className="text-neutral-400" />;
+      return <TrendingUp size={14} className="text-brand-slate dark:text-neutral-400" />;
   }
 }
 
 function moistureColor(level: number, target: number): string {
   if (level <= target) return "text-success";
-  if (level <= target * 1.5) return "text-amber-600 dark:text-amber-400";
+  if (level <= target * 1.5) return "text-amber-700 dark:text-amber-400";
   return "text-destructive";
 }
 
@@ -136,6 +137,8 @@ export default function MonitoringPage({
   const [report, setReport] = useState<MonitoringReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // RA-8229: bumped when a meter photo is accepted, so the log reloads.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -158,12 +161,12 @@ export default function MonitoringPage({
       }
     }
     void load();
-  }, [id]);
+  }, [id, reloadKey]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="animate-spin text-cyan-500" size={28} />
+        <Loader2 className="animate-spin text-brand-harbour-500" size={28} />
       </div>
     );
   }
@@ -203,7 +206,7 @@ export default function MonitoringPage({
             </h1>
             <Badge
               variant="outline"
-              className="text-xs font-mono border-cyan-300 text-cyan-700 dark:text-cyan-400"
+              className="text-xs font-mono border-brand-harbour-300 text-brand-harbour-700 dark:text-brand-harbour-400"
             >
               {report.iicrcReference}
             </Badge>
@@ -212,7 +215,7 @@ export default function MonitoringPage({
             {report.inspectionNumber} · {report.propertyAddress}
           </p>
           {report.technicianName && (
-            <p className="text-xs text-neutral-400 dark:text-slate-500 mt-0.5">
+            <p className="text-xs text-brand-slate dark:text-slate-500 mt-0.5">
               Technician: {report.technicianName}
             </p>
           )}
@@ -275,24 +278,43 @@ export default function MonitoringPage({
         </Card>
       </div>
 
+      {/* ── Photo-to-reading (RA-8229) ── */}
+      {/* A photo of the moisture meter becomes a recorded reading on this job,
+          confirmed by the technician before it is saved, right beside the
+          drying log it feeds. */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-neutral-700 dark:text-slate-200">
+            Add a reading from a meter photo
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MeterPhotoCapture
+            inspectionId={id}
+            mode="moisture"
+            onReadingAccepted={() => setReloadKey((key) => key + 1)}
+          />
+        </CardContent>
+      </Card>
+
       {/* ── Empty state ── */}
       {!hasReadings && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
             <Droplets
               size={40}
-              className="text-neutral-300 dark:text-slate-600"
+              className="text-brand-slate dark:text-slate-600"
             />
             <p className="text-neutral-500 dark:text-slate-400 font-medium">
               No moisture readings yet
             </p>
-            <p className="text-sm text-neutral-400 dark:text-slate-500 text-center max-w-xs">
+            <p className="text-sm text-brand-slate dark:text-slate-500 text-center max-w-xs">
               Add moisture readings to this inspection to generate the daily
               drying log.
             </p>
             <button
               onClick={() => router.push(`/dashboard/inspections/${id}`)}
-              className="mt-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+              className="mt-2 px-4 py-2 rounded-lg bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white text-sm font-medium transition-colors"
             >
               Add Readings
             </button>
@@ -329,7 +351,7 @@ export default function MonitoringPage({
                         {statusLabel(log.dryingStatus)}
                       </Badge>
                       {log.aboveTargetCount > 0 && (
-                        <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                        <span className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
                           <AlertTriangle size={11} />
                           {log.aboveTargetCount} above target
                         </span>
@@ -337,7 +359,7 @@ export default function MonitoringPage({
                     </div>
                   </div>
                   {/* Status reason */}
-                  <p className="text-xs text-neutral-400 dark:text-slate-500 mt-1">
+                  <p className="text-xs text-brand-slate dark:text-slate-500 mt-1">
                     {log.statusReason}
                   </p>
                 </CardHeader>
@@ -346,7 +368,7 @@ export default function MonitoringPage({
                   {/* Quick stats row */}
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div>
-                      <p className="text-xs text-neutral-400 dark:text-slate-500 mb-1">
+                      <p className="text-xs text-brand-slate dark:text-slate-500 mb-1">
                         Avg MC%
                       </p>
                       <p className="text-lg font-bold text-neutral-900 dark:text-white">
@@ -354,7 +376,7 @@ export default function MonitoringPage({
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-neutral-400 dark:text-slate-500 mb-1">
+                      <p className="text-xs text-brand-slate dark:text-slate-500 mb-1">
                         Max MC%
                       </p>
                       <p className="text-lg font-bold text-neutral-900 dark:text-white">
@@ -362,7 +384,7 @@ export default function MonitoringPage({
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-neutral-400 dark:text-slate-500 mb-1">
+                      <p className="text-xs text-brand-slate dark:text-slate-500 mb-1">
                         Readings
                       </p>
                       <p className="text-lg font-bold text-neutral-900 dark:text-white">
@@ -406,7 +428,7 @@ export default function MonitoringPage({
                             <td className="px-3 py-2 text-neutral-900 dark:text-white font-medium">
                               {r.location}
                               {r.depth !== "Surface" && (
-                                <span className="ml-1 text-xs text-neutral-400">
+                                <span className="ml-1 text-xs text-brand-slate dark:text-neutral-400">
                                   ({r.depth})
                                 </span>
                               )}
@@ -419,12 +441,12 @@ export default function MonitoringPage({
                             >
                               {r.moistureLevel}%
                             </td>
-                            <td className="px-3 py-2 text-right font-mono text-neutral-400 dark:text-slate-500">
+                            <td className="px-3 py-2 text-right font-mono text-brand-slate dark:text-slate-500">
                               {r.target}%
                             </td>
                             <td className="px-3 py-2">
                               {r.aboveTarget ? (
-                                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs">
+                                <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400 text-xs">
                                   <AlertTriangle size={11} /> Above target
                                 </span>
                               ) : (

@@ -24,6 +24,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { generateAnalyticsNarrative } from "@/lib/services/ai/analytics-narrative";
 import { apiError, fromException } from "@/lib/api-errors";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -144,6 +145,16 @@ export async function GET(request: NextRequest) {
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: the narrative is built from revenue and cached per caller;
+    // prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
     const userId = session.user.id;

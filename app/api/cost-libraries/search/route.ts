@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 /**
  * GET /api/cost-libraries/search?q=<term>&category=<cat>&limit=<n>
@@ -58,7 +59,9 @@ export async function GET(request: NextRequest) {
       take: limit,
     });
 
-    return NextResponse.json({ items });
+    // RA-8494: a cost library line is a price.
+    return NextResponse.json({ items: await moneySafe(session, items) });
+
   } catch (error) {
     return fromException(request, error, { stage: "search" });
   }

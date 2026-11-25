@@ -36,7 +36,7 @@ export function StorageCard() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [onedriveStatus, setOnedriveStatus] = useState<OneDriveStatusResponse | null>(null);
   const [onedriveEnabled, setOnedriveEnabled] = useState(false);
-  const [onedriveTagline, setOnedriveTagline] = useState('Coming soon');
+  const [onedriveTagline, setOnedriveTagline] = useState('Mirror evidence photos to your OneDrive.');
   const [loading, setLoading] = useState(true);
   const [forceGrid, setForceGrid] = useState(false);
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -167,7 +167,7 @@ export function StorageCard() {
                 Could not connect storage: {oauthError}
               </p>
             ) : null}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className={`grid grid-cols-1 gap-3 ${onedriveEnabled ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
               <StorageOption
                 label="Google Drive"
                 description="OAuth into your Drive — we mirror photos to a folder you choose."
@@ -175,18 +175,15 @@ export function StorageCard() {
                 active={choice === 'drive'}
                 onClick={() => pick('drive')}
               />
-              <StorageOption
-                label="OneDrive"
-                description={
-                  onedriveEnabled
-                    ? onedriveTagline
-                    : 'Coming soon — requires Microsoft OAuth configuration'
-                }
-                icon={<Cloud className="w-5 h-5" aria-hidden="true" />}
-                active={choice === 'onedrive'}
-                disabled={!onedriveEnabled}
-                onClick={() => pick('onedrive')}
-              />
+              {onedriveEnabled ? (
+                <StorageOption
+                  label="OneDrive"
+                  description={onedriveTagline}
+                  icon={<Cloud className="w-5 h-5" aria-hidden="true" />}
+                  active={choice === 'onedrive'}
+                  onClick={() => pick('onedrive')}
+                />
+              ) : null}
               <StorageOption
                 label="Keep it local"
                 description="No cloud mirror. Photos stay in the app."

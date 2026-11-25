@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import type {
-  UserAnalyticsSummary,
-  TemplatePerformanceAnalytics,
-} from "@/lib/forms/analytics";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 /**
  * Hook for accessing interview analytics data
@@ -56,7 +53,7 @@ export function useInterviewAnalytics(
       const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(statusErrorMessage(response.status));
       }
 
       const data = await response.json();
@@ -137,7 +134,7 @@ export function useInterviewCompletion() {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw new Error(statusErrorMessage(response.status));
         }
 
         const result = await response.json();

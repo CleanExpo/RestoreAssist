@@ -9,12 +9,6 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { extractTextFromPDF } from "./file-extraction";
-import {
-  retrieveRelevantStandards,
-  buildStandardsContextPrompt,
-  RetrievalQuery,
-} from "./standards-retrieval";
 import {
   createCachedSystemPrompt,
   extractCacheMetrics,

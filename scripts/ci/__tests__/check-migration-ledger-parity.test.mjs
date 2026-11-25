@@ -11,8 +11,8 @@ import {
   checkMigrationLedgerParity,
   compareLedger,
   healthUrl,
-} from "../check-migration-ledger-parity.mjs";
-import { expectedMigrationLedger } from "../expected-migration-ledger.mjs";
+} from "../lib/check-migration-ledger-parity.mjs";
+import { expectedMigrationLedger } from "../lib/expected-migration-ledger.mjs";
 
 const SCRIPT = fileURLToPath(new URL("../check-migration-ledger-parity.mjs", import.meta.url));
 

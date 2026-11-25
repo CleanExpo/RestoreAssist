@@ -16,9 +16,11 @@ import {
   Filter,
 } from "lucide-react";
 import {
-  getMoistureStatus,
+  chartReadingGoal,
   STATUS_COLORS,
   getDryStandard,
+  DRYING_GOAL_BASIS_SHORT,
+  MOISTURE_GUIDE_LABEL,
 } from "@/lib/iicrc-dry-standards";
 import { dryingLocationForReading } from "@/lib/moisture/reading-room-join";
 
@@ -31,6 +33,8 @@ interface MoistureReading {
   notes: string | null;
   sketchRoomId?: string | null;
   sketchRoom?: { id: string; name: string } | null;
+  /** Recorded unit; a reference applies only to a moisture-content reading. */
+  unit?: string | null;
 }
 
 interface MoisturePoint {
@@ -54,6 +58,12 @@ const EMPTY_EQUIPMENT: EquipmentPoint[] = [];
 
 interface MoistureMappingCanvasProps {
   readings: MoistureReading[];
+  /**
+   * The job's reference readings: `pickReferenceReadings(...)` (RA-8509).
+   * A reading is coloured against its material's reference when one exists,
+   * and against the guide only when there is none.
+   */
+  references?: Record<string, number>;
   className?: string;
   initialPoints?: MoisturePoint[];
   initialEquipmentPoints?: EquipmentPoint[];
@@ -111,25 +121,38 @@ function getEquipmentConfig(type: string) {
   return EQUIPMENT_TYPES.find((e) => e.type === type) ?? EQUIPMENT_TYPES[0];
 }
 
-function getMoistureColor(level: number, material = "other"): string {
-  const status = getMoistureStatus(level, material);
-  return STATUS_COLORS[status].dot;
+const NO_REFERENCES: Record<string, number> = {};
+
+function getMoistureColor(
+  reading: Pick<MoistureReading, "surfaceType" | "moistureLevel" | "unit">,
+  references: Record<string, number>,
+): string {
+  return STATUS_COLORS[chartReadingGoal(reading, references).status].dot;
 }
 
 function readingLabel(reading: MoistureReading): string {
   return dryingLocationForReading(reading) ?? reading.location;
 }
 
-function getMoistureLabel(level: number, material = "other"): string {
-  const status = getMoistureStatus(level, material);
-  const std = getDryStandard(material);
-  if (status === "dry") return `Dry (≤${std.dryThreshold}%)`;
-  if (status === "drying") return `Drying (≤${std.wetThreshold}%)`;
-  return `Wet (>${std.wetThreshold}%)`;
+function getMoistureLabel(
+  reading: Pick<MoistureReading, "surfaceType" | "moistureLevel" | "unit">,
+  references: Record<string, number>,
+): string {
+  const goal = chartReadingGoal(reading, references);
+  if (goal.basis === "reference") {
+    if (goal.status === "dry") return `Dry (reference ≤${goal.target}%)`;
+    if (goal.status === "drying") return `Drying (above reference ${goal.target}%)`;
+    return `Wet (above reference ${goal.target}%)`;
+  }
+  const std = getDryStandard(reading.surfaceType);
+  if (goal.status === "dry") return `Dry (guide ≤${std.dryThreshold}%)`;
+  if (goal.status === "drying") return `Drying (guide ≤${std.wetThreshold}%)`;
+  return `Wet (guide >${std.wetThreshold}%)`;
 }
 
 export default function MoistureMappingCanvas({
   readings,
+  references = NO_REFERENCES,
   className,
   initialPoints = EMPTY_POINTS,
   initialEquipmentPoints = EMPTY_EQUIPMENT,
@@ -188,36 +211,39 @@ export default function MoistureMappingCanvas({
 
   // RA-7713: place a reading locally, then persist it through onPlaceReading.
   // A failed save puts the reading back in the unplaced list and says so.
-  const placeReadingAt = (reading: MoistureReading, x: number, y: number) => {
-    const newPoint: MoisturePoint = { id: reading.id, x, y, reading };
-    const updatedPoints = [
-      ...points.filter((p) => p.id !== reading.id),
-      newPoint,
-    ];
-    setPoints(updatedPoints);
-    setUnplacedReadings((prev) => prev.filter((r) => r.id !== reading.id));
-    setPlacingReading(null);
-    setPlaceError(null);
-    onPointsChange?.(updatedPoints);
-    if (!onPlaceReading) return;
-    const position = {
-      mapX: Math.min(1, Math.max(0, x / CANVAS_WIDTH)),
-      mapY: Math.min(1, Math.max(0, y / CANVAS_HEIGHT)),
-    };
-    Promise.resolve()
-      .then(() => onPlaceReading(reading.id, position))
-      .catch((err: unknown) => {
-        setPoints((prev) => prev.filter((p) => p.id !== reading.id));
-        setUnplacedReadings((prev) =>
-          prev.some((r) => r.id === reading.id) ? prev : [...prev, reading],
-        );
-        setPlaceError(
-          `Could not save the position of ${reading.location}: ${
-            err instanceof Error ? err.message : "unknown error"
-          }. Try again.`,
-        );
-      });
-  };
+  const placeReadingAt = useCallback(
+    (reading: MoistureReading, x: number, y: number) => {
+      const newPoint: MoisturePoint = { id: reading.id, x, y, reading };
+      const updatedPoints = [
+        ...points.filter((p) => p.id !== reading.id),
+        newPoint,
+      ];
+      setPoints(updatedPoints);
+      setUnplacedReadings((prev) => prev.filter((r) => r.id !== reading.id));
+      setPlacingReading(null);
+      setPlaceError(null);
+      onPointsChange?.(updatedPoints);
+      if (!onPlaceReading) return;
+      const position = {
+        mapX: Math.min(1, Math.max(0, x / CANVAS_WIDTH)),
+        mapY: Math.min(1, Math.max(0, y / CANVAS_HEIGHT)),
+      };
+      Promise.resolve()
+        .then(() => onPlaceReading(reading.id, position))
+        .catch((err: unknown) => {
+          setPoints((prev) => prev.filter((p) => p.id !== reading.id));
+          setUnplacedReadings((prev) =>
+            prev.some((r) => r.id === reading.id) ? prev : [...prev, reading],
+          );
+          setPlaceError(
+            `Could not save the position of ${reading.location}: ${
+              err instanceof Error ? err.message : "unknown error"
+            }. Try again.`,
+          );
+        });
+    },
+    [points, onPointsChange, onPlaceReading],
+  );
 
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
@@ -245,12 +271,10 @@ export default function MoistureMappingCanvas({
       placingReading,
       placingEquipment,
       readonly,
-      points,
       equipmentPoints,
       sketchMode,
-      onPointsChange,
       onEquipmentPointsChange,
-      onPlaceReading,
+      placeReadingAt,
     ],
   );
 
@@ -499,19 +523,23 @@ export default function MoistureMappingCanvas({
                 ? points.length === 0
                 : equipmentPoints.length === 0
           }
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500 text-white rounded-lg text-sm hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-harbour-500 text-white rounded-lg text-sm hover:bg-brand-harbour-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <Download size={14} />
           Export PNG
         </button>
       </div>
 
-      {/* IICRC S500 Legend — conditional on mode */}
+      {/* Moisture guide legend (not a standard, RA-8508) — conditional on mode */}
       {sketchMode === "moisture" && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 rounded-lg bg-neutral-50 dark:bg-slate-800/50 border border-neutral-200 dark:border-slate-700/50 text-xs">
           <div className="flex items-center gap-1.5 text-neutral-600 dark:text-slate-400">
             <Info size={11} className="flex-shrink-0" />
-            <span className="font-semibold">IICRC S500</span>
+            <span className="font-semibold">
+              {Object.keys(references).length > 0
+                ? DRYING_GOAL_BASIS_SHORT
+                : MOISTURE_GUIDE_LABEL}
+            </span>
           </div>
           {(["dry", "drying", "wet"] as const).map((status) => (
             <span key={status} className="flex items-center gap-1.5">
@@ -632,10 +660,7 @@ export default function MoistureMappingCanvas({
             {/* ── MOISTURE LAYER (shown in moisture + equipment modes) ── */}
             {sketchMode !== "structural" &&
               points.map((point) => {
-                const color = getMoistureColor(
-                  point.reading.moistureLevel,
-                  point.reading.surfaceType,
-                );
+                const color = getMoistureColor(point.reading, references);
                 const isSelected = selectedPoint?.id === point.id;
                 return (
                   <g
@@ -806,9 +831,7 @@ export default function MoistureMappingCanvas({
                 Floor plan overview without moisture or equipment data.
               </p>
               {backgroundImage ? (
-                <p className="text-xs text-success">
-                  Floor plan loaded
-                </p>
+                <p className="text-xs text-success">Floor plan loaded</p>
               ) : (
                 <p className="text-xs text-amber-700 dark:text-amber-400">
                   Upload a floor plan to get started
@@ -821,8 +844,8 @@ export default function MoistureMappingCanvas({
           {sketchMode === "moisture" && (
             <>
               {selectedPoint && (
-                <div className="p-3 rounded-xl border-2 border-cyan-400 bg-cyan-50/50 dark:bg-cyan-900/10 space-y-2">
-                  <div className="text-xs font-semibold text-cyan-600 uppercase">
+                <div className="p-3 rounded-xl border-2 border-brand-harbour-400 bg-brand-harbour-50/50 dark:bg-brand-harbour-900/10 space-y-2">
+                  <div className="text-xs font-semibold text-brand-harbour-600 uppercase">
                     Selected Reading
                   </div>
                   <div className="text-sm font-medium">
@@ -833,18 +856,15 @@ export default function MoistureMappingCanvas({
                       className="px-2 py-0.5 rounded-full text-xs font-bold text-white"
                       style={{
                         backgroundColor: getMoistureColor(
-                          selectedPoint.reading.moistureLevel,
-                          selectedPoint.reading.surfaceType,
+                          selectedPoint.reading,
+                          references,
                         ),
                       }}
                     >
                       {selectedPoint.reading.moistureLevel}%
                     </span>
                     <span className="text-xs text-neutral-500">
-                      {getMoistureLabel(
-                        selectedPoint.reading.moistureLevel,
-                        selectedPoint.reading.surfaceType,
-                      )}
+                      {getMoistureLabel(selectedPoint.reading, references)}
                     </span>
                   </div>
                   <div className="text-xs text-neutral-500">
@@ -873,8 +893,8 @@ export default function MoistureMappingCanvas({
                   </div>
                   {!readonly && (
                     <p className="text-xs text-neutral-600 dark:text-slate-400">
-                      Select a reading, then click the grid to place it, or
-                      drag it onto the grid.
+                      Select a reading, then click the grid to place it, or drag
+                      it onto the grid.
                     </p>
                   )}
                   <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
@@ -894,8 +914,8 @@ export default function MoistureMappingCanvas({
                         className={cn(
                           "w-full text-left p-2.5 rounded-lg border text-sm transition-all",
                           placingReading?.id === reading.id
-                            ? "border-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 ring-2 ring-cyan-500/30"
-                            : "border-neutral-200 dark:border-slate-700 hover:border-cyan-300 dark:hover:border-cyan-800",
+                            ? "border-brand-harbour-400 bg-brand-harbour-50 dark:bg-brand-harbour-900/20 ring-2 ring-brand-harbour-500/30"
+                            : "border-neutral-200 dark:border-slate-700 hover:border-brand-harbour-300 dark:hover:border-brand-harbour-800",
                         )}
                       >
                         <div className="flex items-center justify-between">
@@ -906,8 +926,8 @@ export default function MoistureMappingCanvas({
                             className="px-1.5 py-0.5 rounded text-xs font-bold text-white flex-shrink-0"
                             style={{
                               backgroundColor: getMoistureColor(
-                                reading.moistureLevel,
-                                reading.surfaceType,
+                                reading,
+                                references,
                               ),
                             }}
                           >
@@ -925,10 +945,7 @@ export default function MoistureMappingCanvas({
 
               {unplacedReadings.length === 0 && points.length > 0 && (
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 text-center">
-                  <Droplets
-                    className="mx-auto text-success mb-1"
-                    size={20}
-                  />
+                  <Droplets className="mx-auto text-success mb-1" size={20} />
                   <p className="text-xs text-success font-medium">
                     All readings placed
                   </p>

@@ -348,7 +348,6 @@ async function textItemsByPage(
     for (let n = 1; n <= doc.numPages; n++) {
       const content = await (await doc.getPage(n)).getTextContent();
       pages.push(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         content.items.map((item: any) => ({ str: item.str as string, y: item.transform[5] as number })),
       );
     }

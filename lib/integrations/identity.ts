@@ -72,12 +72,15 @@ export function isOAuthIntegration(row: IntegrationIdentityInput, expectedProvid
   return identity.kind === "OAUTH" && (!expectedProvider || identity.provider === expectedProvider);
 }
 
+/** Statuses the readiness owner accepts; SQL prefilters import this, never a copy. */
+export const OAUTH_READY_STATUSES = ["CONNECTED", "SYNCING", "ERROR"] as const;
+
 export type OAuthReadiness = { ready: true } | { ready: false; reason:
   "INVALID_IDENTITY" | "DISCONNECTED" | "CREDENTIALS_REQUIRED" | "ORGANISATION_REQUIRED" };
 
 export function getOAuthReadiness(row: IntegrationIdentityInput, expectedProvider?: string): OAuthReadiness {
   if (!isOAuthIntegration(row, expectedProvider)) return { ready: false, reason: "INVALID_IDENTITY" };
-  if (!["CONNECTED", "SYNCING", "ERROR"].includes(row.status ?? "")) return { ready: false, reason: "DISCONNECTED" };
+  if (!(OAUTH_READY_STATUSES as readonly string[]).includes(row.status ?? "")) return { ready: false, reason: "DISCONNECTED" };
   if (!(row.hasOAuthCredentials ?? Boolean(row.accessToken?.trim()))) return { ready: false, reason: "CREDENTIALS_REQUIRED" };
   if ((row.provider === "XERO" || row.provider === "MYOB" || row.provider === "ZOHO") && !row.tenantId?.trim() || row.provider === "QUICKBOOKS" && !row.realmId?.trim()) {
     return { ready: false, reason: "ORGANISATION_REQUIRED" };

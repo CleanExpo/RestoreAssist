@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { mintReportShareAccess } from "@/lib/report-share/access";
 import { ReportShareScope } from "@prisma/client";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
 import { REPORT_INSURER_LINK_GENERATED_ACTION } from "@/lib/lifecycle/report-delivery";
 
@@ -25,6 +26,16 @@ export async function POST(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494 (founder ruling 22/11): the link opens the priced report to
+    // whoever holds it, so only a caller who may see money can mint one.
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 

@@ -14,7 +14,6 @@ import {
 } from "@/lib/restoration/plan-inputs";
 import {
   requiredPpe,
-  type HazardProfile,
   type MouldCondition,
 } from "@/lib/restoration/ppe-requirements";
 import {
@@ -253,7 +252,7 @@ export function buildStructuredBasicReport(data: {
           }
         });
       }
-    } catch (e) {
+    } catch {
       // Not JSON, skip
     }
   }
@@ -850,10 +849,11 @@ export function buildStructuredBasicReport(data: {
         report.biologicalMouldDetected ||
         analysis?.biologicalMouldDetected ||
         false,
-      biologicalMouldCategory:
-        report.biologicalMouldCategory ||
-        analysis?.biologicalMouldCategory ||
-        null,
+      // RA-8540: the mould category/condition is a human assessor's entry.
+      // The AI analysis value is never promoted to it; with no human value
+      // the report carries none ("not assessed"). Detection above stays
+      // OR-ed, because over-flagging mould is the safe direction.
+      biologicalMouldCategory: report.biologicalMouldCategory || null,
       asbestosRisk: hazardEraFlag,
       // Its own year now, from lead.presumption-year.au, rather than the
       // asbestos flag it used to share. That sharing was the defect CodeRabbit

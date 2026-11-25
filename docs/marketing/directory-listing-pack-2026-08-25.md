@@ -96,7 +96,7 @@ Pricing: 15-day free trial with 50 inspection report credits, no credit card req
 
 **RIA Australasia.** Regional chapter; Encircle cannot have this. Find the current ANZ chapter contact and apply as a supplier member.
 
-**IICRC — iicrc.org.** A relationship already exists through CARSI's CEC registration. Check whether an approved-provider or partner listing exists and whether RestoreAssist can be listed separately from CARSI. One sentence in Thursday's board meeting.
+**IICRC — iicrc.org.** RestoreAssist has no relationship with the IICRC. CARSI's CEC registration belongs to CARSI and must not be presented as a RestoreAssist relationship, approval or endorsement. Check whether the IICRC offers any software or supplier listing open to RestoreAssist in its own right. One sentence in Thursday's board meeting.
 
 **State and national bodies:** Australian Cleaning & Restoration Association · Master Builders state chapters (supplier directories) · Australian Institute of Building · NZ equivalents.
 

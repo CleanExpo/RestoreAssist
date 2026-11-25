@@ -356,7 +356,7 @@ export function VolumePicker({
           </button>
         </div>
 
-        <p id={hintId} className="mt-2 text-xs text-slate-500">
+        <p id={hintId} className="mt-2 text-xs text-slate-600">
           Anything from {MIN_REPORTS} to {MAX_REPORTS} reports a month. Type an
           exact figure, or step in {STEP}s.
         </p>
@@ -371,7 +371,7 @@ export function VolumePicker({
             id={noticeId}
             className={cn(
               "mt-2 flex items-start gap-2 text-xs leading-relaxed",
-              mismatch ? "text-[#B4471F]" : "text-slate-500",
+              mismatch ? "text-[#B4471F]" : "text-slate-600",
             )}
           >
             {mismatch ? (
@@ -506,7 +506,7 @@ export function VolumePicker({
           </p>
         ) : null}
 
-        <p className="mt-2 text-sm leading-relaxed text-slate-500">
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
           AUD, incl. GST. Cancel any time. Software only. Basic reports on the
           free trial need no API key. Provider charges apply only if you add
           your own Anthropic or OpenAI key &mdash; they bill you directly.
@@ -681,7 +681,7 @@ export function VolumePicker({
             >
               <span>
                 {rung.label}
-                <span className="text-slate-500"> &mdash; {rung.detail}</span>
+                <span className="text-slate-600"> &mdash; {rung.detail}</span>
               </span>
               <span className="shrink-0 font-semibold text-brand-navy">
                 {formatPerReport(rung.rate)}

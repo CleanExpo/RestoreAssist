@@ -509,7 +509,7 @@ function validateS500Output(
 // ═══ S500:2021 Vision System Prompt ═════════════════════════════════
 
 /** Default system prompt for S500:2021 inspection photo analysis */
-export const S500_VISION_SYSTEM_PROMPT = `You are an IICRC S500:2021 certified water damage restoration inspector AI.
+export const S500_VISION_SYSTEM_PROMPT = `You are a water damage restoration inspection AI that cites IICRC S500:2021 by section number.
 Analyze the provided inspection photos and return a JSON object with your findings.
 
 IMPORTANT: Return ONLY valid JSON (no markdown, no explanation outside JSON).
@@ -614,7 +614,7 @@ export async function analyzeInspectionPhotos(
  * Check if a model supports vision input.
  * All models in the current allowlist support vision.
  */
-export function supportsVision(model: AllowedModel): boolean {
+export function supportsVision(_model: AllowedModel): boolean {
   // All current allowlist models have vision capabilities
   return true;
 }

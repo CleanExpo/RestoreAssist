@@ -8,7 +8,7 @@
  * Do not leave markers in screen space.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ChromeX } from "@/components/brand/chrome-icons";
 import { cn } from "@/lib/utils";
 import { pinPixelPosition } from "@/lib/sketch/pin-coords";
@@ -57,11 +57,14 @@ export function SketchDamageMarkerLayer({
   className,
 }: SketchDamageMarkerLayerProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const vpt =
-    overlayViewport ??
-    (canvasZoom === 1 || !canvasZoom
-      ? IDENTITY_OVERLAY_VIEWPORT
-      : { zoom: canvasZoom, panX: 0, panY: 0 });
+  const vpt = useMemo(
+    () =>
+      overlayViewport ??
+      (canvasZoom === 1 || !canvasZoom
+        ? IDENTITY_OVERLAY_VIEWPORT
+        : { zoom: canvasZoom, panX: 0, panY: 0 }),
+    [overlayViewport, canvasZoom],
+  );
 
   const handleLayerClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -11,10 +10,20 @@ import {
   ResponsiveContainer,
   ComposedChart,
   Area,
-  AreaChart,
 } from "recharts";
 import { Loader2, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  CHART_NEUTRAL,
+  CHART_SERIES,
+  CHART_STATUS,
+  CHART_TOOLTIP_STYLE,
+} from "@/lib/charts/palette";
+
+// Historical revenue takes slot 1 as revenue does across analytics; the
+// projection takes slot 2 and a dashed line, so it never reads as recorded.
+const HISTORICAL_COLOUR = CHART_SERIES[0];
+const PROJECTED_COLOUR = CHART_SERIES[1];
 
 const TooltipAny = Tooltip as any;
 
@@ -49,7 +58,7 @@ export default function RevenueProjection({
       >
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
-            <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
+            <Loader2 className="w-8 h-8 text-brand-harbour-500 animate-spin mx-auto" />
             <p
               className={cn("text-sm", "text-muted-foreground")}
             >
@@ -95,12 +104,13 @@ export default function RevenueProjection({
     );
   }
 
+  // The trend is a state, so it wears status colours; trendLabel names it.
   const trendColor =
     trend === "improving"
-      ? "#10b981"
+      ? CHART_STATUS.good
       : trend === "declining"
-        ? "#f97316"
-        : "#8b5cf6";
+        ? CHART_STATUS.warning
+        : CHART_NEUTRAL;
 
   const trendLabel =
     trend === "improving"
@@ -140,11 +150,10 @@ export default function RevenueProjection({
             "border-neutral-200 dark:border-slate-700/60",
           )}
         >
-          <span
-            style={{ color: trendColor }}
-            className="inline-flex items-center gap-1 text-sm font-medium"
-          >
-            <TrendIcon size={14} aria-hidden="true" />
+          {/* The icon carries the status colour; the label stays in text ink
+              so it reads at full contrast in both modes. */}
+          <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground">
+            <TrendIcon size={14} aria-hidden="true" style={{ color: trendColor }} />
             {trendLabel}
           </span>
         </div>
@@ -154,12 +163,12 @@ export default function RevenueProjection({
         <ComposedChart data={combinedData}>
           <defs>
             <linearGradient id="colorHistorical" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+              <stop offset="5%" stopColor={HISTORICAL_COLOUR} stopOpacity={0.8} />
+              <stop offset="95%" stopColor={HISTORICAL_COLOUR} stopOpacity={0} />
             </linearGradient>
             <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
-              <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+              <stop offset="5%" stopColor={PROJECTED_COLOUR} stopOpacity={0.4} />
+              <stop offset="95%" stopColor={PROJECTED_COLOUR} stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid
@@ -179,12 +188,7 @@ export default function RevenueProjection({
             style={{ fontSize: "12px" }}
           />
           <TooltipAny
-            contentStyle={{
-              backgroundColor: "rgb(255 255 255 / 0.95)",
-              border: "1px solid rgb(229 231 235)",
-              borderRadius: "8px",
-              color: "#111827",
-            }}
+            contentStyle={CHART_TOOLTIP_STYLE}
             className=""
             formatter={(value: any) => `$${(value as number).toLocaleString()}`}
             labelFormatter={(label: any) => `Date: ${label}`}
@@ -195,7 +199,7 @@ export default function RevenueProjection({
           <Area
             type="monotone"
             dataKey="revenue"
-            stroke="#3b82f6"
+            stroke={HISTORICAL_COLOUR}
             fill="url(#colorHistorical)"
             name="Historical Revenue"
             data={combinedData.filter((d) => d.type === "historical")}
@@ -206,7 +210,7 @@ export default function RevenueProjection({
           <Line
             type="monotone"
             dataKey="revenue"
-            stroke="#06b6d4"
+            stroke={PROJECTED_COLOUR}
             strokeWidth={2}
             strokeDasharray="5 5"
             name="Projected Revenue"
@@ -234,7 +238,7 @@ export default function RevenueProjection({
           >
             30-Day Projection
           </p>
-          <p className="text-lg font-semibold text-cyan-600 dark:text-cyan-400">
+          <p className="text-lg font-semibold text-brand-harbour-600 dark:text-brand-harbour-400">
             $
             {(
               projected.slice(0, 30).reduce((sum, p) => sum + p.revenue, 0) || 0
@@ -250,7 +254,7 @@ export default function RevenueProjection({
           >
             60-Day Projection
           </p>
-          <p className="text-lg font-semibold text-cyan-600 dark:text-cyan-400">
+          <p className="text-lg font-semibold text-brand-harbour-600 dark:text-brand-harbour-400">
             $
             {(
               projected.slice(0, 60).reduce((sum, p) => sum + p.revenue, 0) || 0
@@ -266,7 +270,7 @@ export default function RevenueProjection({
           >
             90-Day Projection
           </p>
-          <p className="text-lg font-semibold text-cyan-600 dark:text-cyan-400">
+          <p className="text-lg font-semibold text-brand-harbour-600 dark:text-brand-harbour-400">
             $
             {(
               projected.slice(0, 90).reduce((sum, p) => sum + p.revenue, 0) || 0

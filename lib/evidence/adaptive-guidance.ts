@@ -660,7 +660,7 @@ export const STEP_GUIDANCE: Record<string, StepGuidance> = {
       "Disturbing mould before photographing — once disturbed, the original growth pattern cannot be documented.",
     ],
     experiencedAlerts: [
-      "Mould area > 3m²: specialist remediation protocol required. Do not attempt general cleaning.",
+      "Extensive growth or an unclear cause: refer to a qualified assessor (for example, an occupational hygienist) before general cleaning.",
     ],
   },
 

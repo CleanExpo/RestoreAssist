@@ -61,6 +61,19 @@ export {
 } from "./lease";
 export type { SweepResult } from "./lease";
 
+// Approval pauses (RA-8000)
+export {
+  decideApproval,
+  ApprovalPendingError,
+  WorkflowStateChangedError,
+  REJECTED_BY_USER_CODE,
+} from "./approval";
+export type {
+  ApprovalDecision,
+  DecideApprovalInput,
+  DecideApprovalResult,
+} from "./approval";
+
 // Workflow templates
 export { quickAssessmentWorkflow } from "./workflows";
 

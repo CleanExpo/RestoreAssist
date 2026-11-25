@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { WEBHOOK_MAX_RETRIES } from "@/lib/jobs/webhook-reclaim";
 import { apiError } from "@/lib/api-errors";
 
 /**
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
         },
         status: "FAILED",
         retryCount: {
-          gte: 5, // Only show events that have maxed out retries
+          gte: WEBHOOK_MAX_RETRIES, // RA-8481 — the one WebhookEvent retry limit
         },
       },
       include: {

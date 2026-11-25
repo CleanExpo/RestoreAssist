@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 // @ts-expect-error -- plain .mjs helper, no type declarations
-import { parseCssTokens, parseDocTokens, findDrift } from "../check-design-tokens.mjs";
+import { parseCssTokens, parseDocTokens, findDrift } from "../lib/check-design-tokens.mjs";
 
 /**
  * .github/scripts/design-md-lint.sh checks that six H2 headings exist. It

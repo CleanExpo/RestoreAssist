@@ -325,6 +325,51 @@ afterEach(() => {
   delete process.env.EVIDENCE_REQUIRE_SIGNED_MANIFEST;
 });
 
+// The whole point of the fix: all four classes must be able to sign. A class
+// that is left off this list rejoins the unsigned path by omission, which is
+// exactly how three earlier review rounds found bypassed writers here.
+const METADATA_CLASSES: Array<[string, MetadataBody]> = [
+  [
+    "TECHNICIAN_NOTE",
+    {
+      evidenceClass: "TECHNICIAN_NOTE",
+      title: "Initial attendance",
+      notes: "Category 3 sewage, occupants relocated.",
+      structuredData: null,
+      workflowStepId: "step1",
+    },
+  ],
+  ["MOISTURE_READING", MOISTURE_BODY],
+  [
+    "AMBIENT_ENVIRONMENTAL",
+    {
+      evidenceClass: "AMBIENT_ENVIRONMENTAL",
+      title: "Living room ambient",
+      notes: "Temperature 22.5 C, relative humidity 61 %",
+      // The field-contract keys, which are what EnvironmentalData's
+      // required columns are derived from. The screen that asked for one
+      // number labelled RH could never have filled this.
+      structuredData: {
+        location: "Living room",
+        ambientTemperature: 22.5,
+        humidityLevel: 61,
+        fieldContractVersion: 1,
+      },
+      workflowStepId: "step1",
+    },
+  ],
+  [
+    "EQUIPMENT_LOG",
+    {
+      evidenceClass: "EQUIPMENT_LOG",
+      title: "Dehumidifier deployment",
+      notes: "2 x LGR dehumidifier, 3 x air mover, installed 14:20.",
+      structuredData: null,
+      workflowStepId: "step1",
+    },
+  ],
+];
+
 describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
   it("accepts a correctly signed moisture reading and persists it as verified", async () => {
     const res = await signedPost(MOISTURE_BODY);
@@ -358,50 +403,6 @@ describe("POST /evidence — signed metadata JSON (RA-8388, policy ON)", () => {
     expect(structured.depth).toBe("Subsurface");
   });
 
-  // The whole point of the fix: all four classes must be able to sign. A class
-  // that is left off this list rejoins the unsigned path by omission, which is
-  // exactly how three earlier review rounds found bypassed writers here.
-  const METADATA_CLASSES: Array<[string, MetadataBody]> = [
-    [
-      "TECHNICIAN_NOTE",
-      {
-        evidenceClass: "TECHNICIAN_NOTE",
-        title: "Initial attendance",
-        notes: "Category 3 sewage, occupants relocated.",
-        structuredData: null,
-        workflowStepId: "step1",
-      },
-    ],
-    ["MOISTURE_READING", MOISTURE_BODY],
-    [
-      "AMBIENT_ENVIRONMENTAL",
-      {
-        evidenceClass: "AMBIENT_ENVIRONMENTAL",
-        title: "Living room ambient",
-        notes: "Temperature 22.5 C, relative humidity 61 %",
-        // The field-contract keys, which are what EnvironmentalData's
-        // required columns are derived from. The screen that asked for one
-        // number labelled RH could never have filled this.
-        structuredData: {
-          location: "Living room",
-          ambientTemperature: 22.5,
-          humidityLevel: 61,
-          fieldContractVersion: 1,
-        },
-        workflowStepId: "step1",
-      },
-    ],
-    [
-      "EQUIPMENT_LOG",
-      {
-        evidenceClass: "EQUIPMENT_LOG",
-        title: "Dehumidifier deployment",
-        notes: "2 x LGR dehumidifier, 3 x air mover, installed 14:20.",
-        structuredData: null,
-        workflowStepId: "step1",
-      },
-    ],
-  ];
 
   it.each(METADATA_CLASSES)(
     "accepts a signed %s submission",
@@ -607,11 +608,41 @@ describe("POST /evidence (JSON): one path per evidence class (RA-8388)", () => {
     },
   );
 
+  // RA-8407 item 2: "not turned away" was all this used to assert, which a
+  // refusal for some other reason also satisfies. Each class is sent with a
+  // complete, honestly signed body and must be STORED, verified because the
+  // server verified it, over the digest the server recomputed.
+  const BODY_FOR: Record<string, MetadataBody> = Object.fromEntries(
+    METADATA_CLASSES,
+  );
+
+  it("has a complete body for every class this path takes", () => {
+    expect(Object.keys(BODY_FOR).sort()).toEqual([...forJson].sort());
+  });
+
   it.each(forJson)(
-    "does not turn %s away for being sent as JSON",
+    "stores a signed %s sent as JSON: 201 and truthfully verified",
     async (evidenceClass) => {
-      const res = await signedPost({ evidenceClass, title: "Typed in" });
+      const body = BODY_FOR[evidenceClass];
+      const res = await signedPost(body);
       expect(JSON.stringify(await res.json())).not.toMatch(JSON_REFUSAL);
+      expect(res.status).toBe(201);
+
+      expect(mCreate).toHaveBeenCalledTimes(1);
+      const data = mCreate.mock.calls[0][0].data as Record<string, unknown>;
+      expect(data.evidenceClass).toBe(evidenceClass);
+      expect(data.title).toBe(body.title);
+      // A note or reading has no file, so it must not claim one.
+      expect(data.fileMimeType ?? null).toBeNull();
+      expect(data.fileUrl ?? null).toBeNull();
+      const structured = persistedStructuredData();
+      expect(structured.signedManifestVerified).toBe(true);
+      expect(structured.downgradeReason ?? null).toBeNull();
+      const manifest = structured.c2paManifest as Record<string, unknown>;
+      expect(manifest.digestKind).toBe("metadata");
+      expect(manifest.evidenceClass).toBe(evidenceClass);
+      expect(manifest.sha256).toBe(await digestFor(body));
+      expect((data.capturedAt as Date).toISOString()).toBe(CAPTURED_AT);
     },
   );
 });
