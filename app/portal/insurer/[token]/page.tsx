@@ -1,6 +1,9 @@
 import { verifyReportReaderToken } from "@/lib/report-share/access";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
+import {
+  reportAlignedStandard,
+  standardCite,
+} from "@/lib/nir-standards-mapping";
 import { readEquipmentDeploymentLog } from "@/lib/reports/stored-equipment-pricing";
 
 interface PageProps {
@@ -35,6 +38,8 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           businessABN: true,
         },
       },
+      // RA-8282: the claim type decides which standard the portal names.
+      inspection: { select: { claimType: true } },
     },
   });
 
@@ -67,13 +72,21 @@ export default async function InsurerPortalPage({ params }: PageProps) {
 
   const pdfUrl = `/api/reports/${report.id}/pdf?token=${token}`;
 
+  // RA-7665 / RA-8282: name the standard the report is aligned to for its
+  // claim type, as a reference. Never "compliant".
+  const alignedStd = reportAlignedStandard(
+    report.inspection?.claimType,
+    report.hazardType,
+  );
+  const alignedCite = alignedStd ? `IICRC ${standardCite(alignedStd)}` : null;
+
   return (
     <main className="min-h-screen bg-slate-50">
       {/* Header */}
       <header className="bg-brand-navy text-white">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <span className="text-lg font-bold tracking-tight text-cyan-400">
+            <span className="text-lg font-bold tracking-tight text-brand-harbour-400">
               RestoreAssist
             </span>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -82,7 +95,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           </div>
           <a
             href={pdfUrl}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 rounded-lg text-sm font-semibold transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 hover:bg-brand-harbour-400 rounded-lg text-sm font-semibold transition-colors"
           >
             <svg
               className="w-4 h-4"
@@ -108,7 +121,9 @@ export default async function InsurerPortalPage({ params }: PageProps) {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
-                IICRC S500:2021 Compliant Inspection Report
+                {alignedCite
+                  ? `Inspection report aligned to ${alignedCite}`
+                  : "Inspection report"}
               </p>
               <h1 className="text-xl font-bold text-slate-900">
                 {report.reportNumber ??
@@ -373,13 +388,14 @@ export default async function InsurerPortalPage({ params }: PageProps) {
               Full PDF Report Available
             </p>
             <p className="text-xs text-slate-400 mt-0.5">
-              Download the complete IICRC S500:2021 compliant report for your
-              records.
+              {alignedCite
+                ? `Download the complete report, aligned to ${alignedCite}, for your records.`
+                : "Download the complete report for your records."}
             </p>
           </div>
           <a
             href={pdfUrl}
-            className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 rounded-lg text-sm font-semibold text-white transition-colors"
+            className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-brand-harbour-500 hover:bg-brand-harbour-400 rounded-lg text-sm font-semibold text-white transition-colors"
           >
             Download PDF
           </a>
@@ -394,7 +410,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
         </p>
         <p className="text-xs text-slate-300 mt-1">
           Powered by{" "}
-          <span className="font-semibold text-cyan-600">RestoreAssist</span>
+          <span className="font-semibold text-brand-harbour-600">RestoreAssist</span>
         </p>
       </footer>
     </main>

@@ -37,6 +37,9 @@ export type ObservationType =
   | "equipment_note"
   | "psychrometric"
   | "photo_note"
+  | "odour_observation"
+  | "growth_observation"
+  | "staining_observation"
   | "general_note";
 
 export interface VoiceObservation {
@@ -62,6 +65,12 @@ export interface ParsedObservation {
   equipment?: string;
   note?: string;
   s500Section?: string;
+  // RA-7694: structured room observations. What was said, never a diagnosis.
+  odourDescriptor?: string;
+  odourIntensity?: 1 | 2 | 3; // 1 faint, 2 moderate, 3 strong
+  odourPattern?: "CONSTANT" | "INTERMITTENT";
+  areaM2?: number;
+  basis?: "OBSERVED" | "MEASURED" | "HYPOTHESISED";
 }
 
 // ─── S500:2021 Completion Checking ────────────────────────────────────────────

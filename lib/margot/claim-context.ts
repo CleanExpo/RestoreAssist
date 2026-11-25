@@ -4,12 +4,17 @@
 
 import type { PrismaClient } from "@prisma/client";
 import { latestMonitoringReadingsForDryingGoal } from "@/lib/moisture/latest-monitoring-readings";
+import { pickReferenceReadings, readingGoalStatus } from "@/lib/iicrc-dry-standards";
 
 export type ClaimContext = {
   inspectionId: string;
   stage: string;
   claimType: string | null;
   missingFields: string[];
+  /**
+   * Latest monitoring readings still above their drying goal (the job's
+   * reference reading, else the guide value), judged by readingGoalStatus.
+   */
   wetReadingCount: number;
   baselineCaptured: boolean;
   monitoringPointCount: number;
@@ -43,8 +48,10 @@ export async function loadClaimContext(
       location: true,
       surfaceType: true,
       moistureLevel: true,
+      unit: true,
       isBaseline: true,
       isMonitoringPoint: true,
+      invalidatedAt: true,
       recordedAt: true,
       createdAt: true,
     },
@@ -52,7 +59,16 @@ export async function loadClaimContext(
   });
 
   const latest = latestMonitoringReadingsForDryingGoal(readings);
-  const wetReadingCount = latest.filter((r) => r.moistureLevel > 15).length;
+  // RA-8517: no fixed number here. The drying goal owner decides, using the
+  // job's reference readings first and the guide only without one.
+  const references = pickReferenceReadings(readings);
+  const wetReadingCount = latest.filter(
+    (r) =>
+      readingGoalStatus(
+        { surfaceType: r.surfaceType, moistureLevel: r.moistureLevel, unit: r.unit },
+        references,
+      ).status !== "dry",
+  ).length;
   const baselineCaptured = readings.some((r) => r.isBaseline);
   const monitoringPointCount = readings.filter((r) => r.isMonitoringPoint).length;
 

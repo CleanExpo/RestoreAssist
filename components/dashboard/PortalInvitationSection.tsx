@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Mail,
   Send,
@@ -40,11 +40,7 @@ export default function PortalInvitationSection({
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteMessage, setInviteMessage] = useState("");
 
-  useEffect(() => {
-    fetchInvitations();
-  }, [clientId]);
-
-  const fetchInvitations = async () => {
+  const fetchInvitations = useCallback(async () => {
     try {
       const response = await fetch(
         `/api/portal/invitations?clientId=${clientId}`,
@@ -58,7 +54,11 @@ export default function PortalInvitationSection({
     } finally {
       setLoading(false);
     }
-  };
+  }, [clientId]);
+
+  useEffect(() => {
+    fetchInvitations();
+  }, [fetchInvitations]);
 
   const handleSendInvitation = async () => {
     setSending(true);

@@ -12,8 +12,6 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import {
   QuestionGenerationEngine,
-  INTERVIEW_QUESTION_LIBRARY,
-  getQuestionsForSubscriptionTier,
 } from "@/lib/interview";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
@@ -75,6 +73,8 @@ export async function POST(request: NextRequest) {
         where: {
           id: formTemplateId,
           OR: [{ userId: session.user.id }, { isSystemTemplate: true }],
+          // RA-7957: an archived template starts no new interviews.
+          isActive: true,
         },
       });
 

@@ -10,6 +10,7 @@ import {
   brandPrimaryColorSchema,
 } from "@/lib/clients/brand";
 import {
+  resolveClientReach,
   resolveInvoiceReach,
   resolveReportFinancialReach,
 } from "@/lib/auth/assert-tenancy";
@@ -20,6 +21,7 @@ import {
   recordPulseOptOut,
   type PulseConsentDb,
 } from "@/lib/pulse/opt-out";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 const MAX_REPORT_ROWS = 200;
 
@@ -40,11 +42,20 @@ export async function GET(
 
     const { id } = await params;
 
+    // RA-8535: the same reach as the client list (D-023), so anyone who sees a
+    // client in the list can open it, and nobody else can. Merged with `AND`
+    // so the reach clause cannot be overwritten.
+    const reach = await resolveClientReach(session);
+    if (!reach.ok) {
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: reach.reason,
+        status: reach.status,
+      });
+    }
+
     const client = await prisma.client.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
+      where: { AND: [{ id }, reach.data] },
       include: {
         reports: {
           select: {
@@ -116,7 +127,8 @@ export async function GET(
     const lastJob =
       client.reports.length > 0 ? client.reports[0].createdAt : null;
 
-    return NextResponse.json({
+    // RA-8494: revenue and report costs go only to a caller who may see money.
+    const body = {
       ...client,
       reports: client.reports.map((report) => ({
         ...report,
@@ -126,7 +138,8 @@ export async function GET(
       invoicedCount: invoiced._count,
       lastJob: lastJob ? new Date(lastJob).toLocaleDateString() : "Never",
       reportsCount: client._count.reports,
-    });
+    };
+    return NextResponse.json(await moneySafe(session, body));
   } catch (error) {
     return fromException(request, error, { stage: "client-get" });
   }
@@ -227,10 +240,12 @@ export async function PUT(
     }
 
     // Check if email is being changed and if it conflicts with another client
+    // RA-8535: compared without case, so "Jo@X.com" and "jo@x.com" are one
+    // person. The stored value is whatever this request sends.
     if (email !== existingClient.email) {
       const emailConflict = await prisma.client.findFirst({
         where: {
-          email,
+          email: { equals: email, mode: "insensitive" },
           userId: session.user.id,
           id: { not: id },
         },

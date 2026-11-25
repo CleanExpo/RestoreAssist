@@ -64,13 +64,13 @@ export function InterviewCompletionSummary({
   showActions = true,
   isLoading = false,
 }: InterviewCompletionSummaryProps) {
-  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [_copiedField, setCopiedField] = useState<string | null>(null);
 
   const {
     statistics,
     mergedFields,
     addedFields,
-    updatedFields,
+    updatedFields: _updatedFields,
     conflictedFields,
   } = mergeResult;
 

@@ -79,37 +79,37 @@ const WORKFLOW_STATUS_CONFIG: Record<
 > = {
   PENDING: {
     label: "Pending",
-    className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
     icon: Clock,
   },
   RUNNING: {
     label: "Running",
-    className: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    className: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
     icon: Loader2,
   },
   PAUSED: {
     label: "Paused",
-    className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
     icon: Clock,
   },
   COMPLETED: {
     label: "Completed",
-    className: "bg-green-500/10 text-green-600 dark:text-green-400",
+    className: "bg-green-500/10 text-green-700 dark:text-green-400",
     icon: CheckCircle,
   },
   FAILED: {
     label: "Failed",
-    className: "bg-red-500/10 text-red-600 dark:text-red-400",
+    className: "bg-red-500/10 text-red-700 dark:text-red-400",
     icon: XCircle,
   },
   PARTIALLY_FAILED: {
     label: "Partial Fail",
-    className: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+    className: "bg-orange-500/10 text-orange-700 dark:text-orange-400",
     icon: AlertCircle,
   },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-neutral-500/10 text-neutral-500 dark:text-neutral-400",
+    className: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400",
     icon: XCircle,
   },
 };
@@ -120,32 +120,32 @@ const TASK_STATUS_CONFIG: Record<
 > = {
   PENDING: {
     label: "Pending",
-    className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    className: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
   },
-  READY: { label: "Ready", className: "bg-blue-500/10 text-blue-500" },
+  READY: { label: "Ready", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
   RUNNING: {
     label: "Running",
-    className: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    className: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
   },
   COMPLETED: {
     label: "Completed",
-    className: "bg-green-500/10 text-green-600 dark:text-green-400",
+    className: "bg-green-500/10 text-green-700 dark:text-green-400",
   },
   FAILED: {
     label: "Failed",
-    className: "bg-red-500/10 text-red-600 dark:text-red-400",
+    className: "bg-red-500/10 text-red-700 dark:text-red-400",
   },
   SKIPPED: {
     label: "Skipped",
-    className: "bg-neutral-500/10 text-neutral-500",
+    className: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400",
   },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-neutral-500/10 text-neutral-500",
+    className: "bg-neutral-500/10 text-neutral-700 dark:text-neutral-400",
   },
   DEAD_LETTER: {
     label: "Dead Letter",
-    className: "bg-red-900/20 text-red-700 dark:text-red-400",
+    className: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400",
   },
 };
 
@@ -175,7 +175,8 @@ function formatDuration(
 }
 
 function canResume(status: WorkflowStatus): boolean {
-  return ["FAILED", "PARTIALLY_FAILED", "PAUSED"].includes(status);
+  // RA-8000: PAUSED is not resumable; a paused workflow is waiting for approval.
+  return ["FAILED", "PARTIALLY_FAILED"].includes(status);
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -254,7 +255,7 @@ function TaskRow({ task }: { task: AgentTask }) {
             </span>
           </div>
         ) : (
-          <span className="text-neutral-400">—</span>
+          <span className="text-brand-slate dark:text-neutral-400">—</span>
         )}
       </td>
     </tr>
@@ -325,7 +326,7 @@ function WorkflowRow({
             aria-label={expanded ? "Collapse" : "Expand"}
           >
             {loadingTasks ? (
-              <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-brand-slate dark:text-neutral-400" />
             ) : expanded ? (
               <ChevronDown className="h-4 w-4 text-neutral-500" />
             ) : (
@@ -347,7 +348,7 @@ function WorkflowRow({
             {workflow.name || "—"}
           </span>
           {workflow.reportId && (
-            <span className="text-xs text-neutral-400 font-mono">
+            <span className="text-xs text-brand-slate dark:text-neutral-400 font-mono">
               report:{workflow.reportId.slice(0, 6)}
             </span>
           )}
@@ -396,7 +397,7 @@ function WorkflowRow({
               {workflow.failedTasks}
             </span>
           ) : (
-            <span className="text-xs text-neutral-400">0</span>
+            <span className="text-xs text-brand-slate dark:text-neutral-400">0</span>
           )}
         </td>
 
@@ -440,7 +441,7 @@ function WorkflowRow({
         <>
           <tr className="bg-neutral-50/80 dark:bg-neutral-800/20">
             <td colSpan={9} className="px-4 pt-2 pb-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-brand-slate dark:text-neutral-500">
                 Tasks ({tasks.length})
               </span>
             </td>
@@ -454,7 +455,7 @@ function WorkflowRow({
         <tr className="bg-neutral-50/80 dark:bg-neutral-800/20">
           <td
             colSpan={9}
-            className="px-4 py-3 text-xs text-neutral-400 text-center"
+            className="px-4 py-3 text-xs text-brand-slate dark:text-neutral-400 text-center"
           >
             No tasks recorded for this workflow.
           </td>
@@ -553,6 +554,10 @@ export default function WorkflowMonitorPage() {
   const [expiredLeaseTasks, setExpiredLeaseTasks] = useState<number | null>(
     null,
   );
+  const [pausedApproval, setPausedApproval] = useState<{
+    workflows: number;
+    oldest: string | null;
+  } | null>(null);
   useEffect(() => {
     if (!isAdmin) return;
     fetch("/api/agents/workflows?limit=50")
@@ -561,6 +566,12 @@ export default function WorkflowMonitorPage() {
         setAllWorkflows(d.workflows ?? []);
         setExpiredLeaseTasks(
           typeof d.expiredLeaseTasks === "number" ? d.expiredLeaseTasks : null,
+        );
+        const p = d.pausedAwaitingApproval;
+        setPausedApproval(
+          p && typeof p.workflows === "number"
+            ? { workflows: p.workflows, oldest: p.oldestApprovalRequestedAt ?? null }
+            : null,
         );
       })
       .catch(() => {});
@@ -608,7 +619,7 @@ export default function WorkflowMonitorPage() {
   if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Shield className="h-12 w-12 text-neutral-400" />
+        <Shield className="h-12 w-12 text-brand-slate dark:text-neutral-400" />
         <p className="text-neutral-600 dark:text-neutral-400">
           Admin access required
         </p>
@@ -715,6 +726,20 @@ export default function WorkflowMonitorPage() {
         </span>
       </p>
 
+      {/* RA-8000: read-only count of workflows waiting for the owner's approval */}
+      <p
+        className="text-sm text-neutral-500"
+        data-testid="paused-approval-count"
+      >
+        PAUSED awaiting approval:{" "}
+        <span className="font-semibold text-neutral-900 dark:text-white">
+          {pausedApproval?.workflows ?? "unavailable"}
+        </span>
+        {pausedApproval && pausedApproval.workflows > 0 && (
+          <> (oldest waiting since {formatDate(pausedApproval.oldest)})</>
+        )}
+      </p>
+
       {/* Filter tabs */}
       <div className="flex gap-1 border-b border-neutral-200 dark:border-neutral-800">
         {FILTER_TABS.map((tab) => (
@@ -737,9 +762,9 @@ export default function WorkflowMonitorPage() {
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white text-base">
-            <Activity className="h-5 w-5 text-cyan-500" />
+            <Activity className="h-5 w-5 text-brand-harbour-500" />
             Workflows
-            <span className="text-sm font-normal text-neutral-400">
+            <span className="text-sm font-normal text-brand-slate dark:text-neutral-400">
               ({workflows.length})
             </span>
           </CardTitle>
@@ -752,7 +777,7 @@ export default function WorkflowMonitorPage() {
             </p>
           ) : workflows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <Activity className="h-10 w-10 text-neutral-300 dark:text-neutral-600" />
+              <Activity className="h-10 w-10 text-brand-slate dark:text-neutral-600" />
               <p className="text-neutral-500 dark:text-neutral-400 text-sm">
                 No workflows recorded yet.
               </p>

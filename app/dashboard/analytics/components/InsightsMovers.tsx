@@ -40,7 +40,7 @@ export default function InsightsMovers({
         )}
       >
         <div className="h-[320px] flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+          <Loader2 className="w-8 h-8 text-brand-harbour-500 animate-spin" />
         </div>
       </div>
     );
@@ -199,7 +199,7 @@ export default function InsightsMovers({
         {/* Fastest turnaround */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <Zap className="w-4 h-4 text-cyan-500" />
+            <Zap className="w-4 h-4 text-brand-harbour-500" />
             <span
               className={cn(
                 "text-sm font-medium",
@@ -226,7 +226,7 @@ export default function InsightsMovers({
                 >
                   {h.hazard}
                 </span>
-                <span className="text-cyan-500 font-semibold">
+                <span className="text-brand-harbour-500 font-semibold">
                   {h.avgHours.toFixed(1)}h
                 </span>
               </li>

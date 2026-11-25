@@ -32,6 +32,7 @@ import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { requireActiveSubscription } from "@/lib/billing/subscription-gate";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 import { resolveAreaSqm } from "@/lib/units";
 import {
   resolveWorkspaceAiKey,
@@ -174,7 +175,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     return NextResponse.json({
-      results,
+      // RA-8494: past jobs carry their totals; a technician gets them without.
+      results: await moneySafe(session, results),
       count: results.length,
       queryType: classification ? "inspection" : "generic",
       provider,

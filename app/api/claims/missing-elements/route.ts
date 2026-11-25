@@ -9,6 +9,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 const MAX_MISSING_ELEMENTS_SUMMARY_ROWS = 5000;
 
@@ -152,7 +153,7 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => (b.totalEstimatedCost || 0) - (a.totalEstimatedCost || 0))
       .slice(0, 20);
 
-    return NextResponse.json({
+    return NextResponse.json(await moneySafe(session, {
       summary: {
         totalMissingElements,
         rowsReturned: missingElements.length,
@@ -169,7 +170,7 @@ export async function GET(request: NextRequest) {
       ),
       topMissing,
       topBillable,
-    });
+    }));
   } catch (err) {
     return fromException(request, err, { stage: "fetch-missing-elements" });
   }

@@ -275,7 +275,7 @@ function AdjusterAnalysisPanel({ inspectionId }: { inspectionId: string }) {
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-brand-gold" />
           <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400">
-            RA-1131 · AI Adjuster Review
+            AI Adjuster Review
           </span>
         </div>
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-slate-100">
@@ -447,7 +447,7 @@ function AdjusterReviewContent() {
               setReportId("");
               setNotes("");
             }}
-            className="mt-4 text-xs text-cyan-500 hover:text-cyan-600 underline underline-offset-2"
+            className="mt-4 text-xs text-brand-harbour-500 hover:text-brand-harbour-600 underline underline-offset-2"
           >
             Submit another review
           </button>
@@ -461,7 +461,7 @@ function AdjusterReviewContent() {
     <PageShell>
       <div className="space-y-1 mb-6">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-cyan-400" />
+          <div className="w-2 h-2 rounded-full bg-brand-harbour-400" />
           <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400">
             NIR Pilot Program
           </span>
@@ -491,7 +491,7 @@ function AdjusterReviewContent() {
                 className={cn(
                   "text-left p-4 rounded-xl border-2 transition-all",
                   reportFormat === opt.value
-                    ? "border-cyan-400 bg-cyan-50 dark:bg-cyan-950/30"
+                    ? "border-brand-harbour-400 bg-brand-harbour-50 dark:bg-brand-harbour-950/30"
                     : "border-neutral-200 dark:border-slate-700 hover:border-neutral-300 dark:hover:border-slate-600",
                 )}
               >
@@ -522,7 +522,7 @@ function AdjusterReviewContent() {
                 value={hours}
                 onChange={(e) => setHours(e.target.value)}
                 placeholder="0"
-                className="w-16 text-center text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                className="w-16 text-center text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
               />
               <span className="text-xs text-neutral-500">hrs</span>
             </div>
@@ -534,7 +534,7 @@ function AdjusterReviewContent() {
                 value={minutes}
                 onChange={(e) => setMinutes(e.target.value)}
                 placeholder="0"
-                className="w-16 text-center text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                className="w-16 text-center text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
               />
               <span className="text-xs text-neutral-500">min</span>
             </div>
@@ -562,7 +562,7 @@ function AdjusterReviewContent() {
               value={reportId}
               onChange={(e) => setReportId(e.target.value)}
               placeholder="e.g. NIR-2026-001234"
-              className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+              className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
             />
           </div>
           <div className="space-y-1.5">
@@ -575,7 +575,7 @@ function AdjusterReviewContent() {
               value={adjusterCode}
               onChange={(e) => setAdjusterCode(e.target.value)}
               placeholder="e.g. ADJ-03"
-              className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+              className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40"
             />
           </div>
         </div>
@@ -589,7 +589,7 @@ function AdjusterReviewContent() {
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Any observations about the report format, missing information, or what made the review faster or slower?"
             rows={3}
-            className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 resize-none"
+            className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-harbour-400/40 resize-none"
           />
         </div>
 
@@ -615,7 +615,7 @@ function AdjusterReviewContent() {
         <button
           type="submit"
           disabled={formState === "submitting"}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium transition-colors disabled:opacity-60"
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white text-sm font-medium transition-colors disabled:opacity-60"
         >
           {formState === "submitting" ? (
             <>

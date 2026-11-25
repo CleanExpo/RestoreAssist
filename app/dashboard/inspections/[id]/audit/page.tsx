@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,7 +37,7 @@ const ACTION_TABS: { key: ActionFilter; label: string }[] = [
   { key: "view", label: "View" },
 ];
 
-function getActionVariant(
+function _getActionVariant(
   action: string,
 ): "default" | "secondary" | "destructive" | "outline" {
   const lower = action.toLowerCase();
@@ -139,7 +139,7 @@ function DiffView({
   return (
     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
       <div>
-        <p className="text-xs font-semibold text-neutral-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+        <p className="text-xs font-semibold text-brand-slate dark:text-slate-500 uppercase tracking-wider mb-1">
           Previous
         </p>
         <pre className="text-xs bg-destructive-subtle border border-destructive-subtle-foreground/30 rounded-lg p-2 text-destructive-subtle-foreground whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
@@ -147,7 +147,7 @@ function DiffView({
         </pre>
       </div>
       <div>
-        <p className="text-xs font-semibold text-neutral-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+        <p className="text-xs font-semibold text-brand-slate dark:text-slate-500 uppercase tracking-wider mb-1">
           New Value
         </p>
         <pre className="text-xs bg-success-subtle border border-success-subtle-foreground/30 rounded-lg p-2 text-success-subtle-foreground whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
@@ -273,7 +273,7 @@ export default function InspectionAuditPage({
               className={cn(
                 "text-xs h-8",
                 activeFilter === tab.key
-                  ? "bg-cyan-600 hover:bg-cyan-700 text-white border-cyan-600"
+                  ? "bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white border-brand-harbour-600"
                   : "",
               )}
             >
@@ -292,7 +292,7 @@ export default function InspectionAuditPage({
               type="datetime-local"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="text-xs px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+              className="text-xs px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
             />
           </div>
           <div className="flex items-center gap-1.5">
@@ -303,7 +303,7 @@ export default function InspectionAuditPage({
               type="datetime-local"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="text-xs px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+              className="text-xs px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
             />
           </div>
           <Button
@@ -318,7 +318,7 @@ export default function InspectionAuditPage({
             <Button
               size="sm"
               variant="ghost"
-              className="text-xs h-8 text-neutral-400"
+              className="text-xs h-8 text-brand-slate dark:text-neutral-400"
               onClick={clearDateFilter}
             >
               Clear
@@ -334,12 +334,12 @@ export default function InspectionAuditPage({
         <AuditLogSkeleton />
       ) : logs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-          <Clock size={40} className="text-neutral-300 dark:text-slate-600" />
+          <Clock size={40} className="text-brand-slate dark:text-slate-600" />
           <p className="text-neutral-500 dark:text-slate-400 text-sm font-medium">
             No audit records found for this inspection
           </p>
           {(activeFilter !== "all" || fromDate || toDate) && (
-            <p className="text-xs text-neutral-400 dark:text-slate-500">
+            <p className="text-xs text-brand-slate dark:text-slate-500">
               Try clearing the filters to see all records
             </p>
           )}
@@ -377,7 +377,7 @@ export default function InspectionAuditPage({
                         >
                           {log.action}
                         </span>
-                        <span className="text-xs text-neutral-400 dark:text-slate-500 whitespace-nowrap">
+                        <span className="text-xs text-brand-slate dark:text-slate-500 whitespace-nowrap">
                           {formatTimestamp(log.timestamp)}
                         </span>
                       </div>
@@ -394,7 +394,7 @@ export default function InspectionAuditPage({
                             </Badge>
                           )}
                           {log.entityId && (
-                            <span className="text-xs text-neutral-400 dark:text-slate-500 font-mono">
+                            <span className="text-xs text-brand-slate dark:text-slate-500 font-mono">
                               {log.entityId}
                             </span>
                           )}
@@ -413,7 +413,7 @@ export default function InspectionAuditPage({
                         </span>
                         {log.device && (
                           <>
-                            <span className="text-neutral-300 dark:text-slate-600">
+                            <span className="text-brand-slate dark:text-slate-600">
                               ·
                             </span>
                             <span>{log.device}</span>
@@ -421,7 +421,7 @@ export default function InspectionAuditPage({
                         )}
                         {log.gpsLocation && (
                           <>
-                            <span className="text-neutral-300 dark:text-slate-600">
+                            <span className="text-brand-slate dark:text-slate-600">
                               ·
                             </span>
                             <span>GPS: {log.gpsLocation}</span>
@@ -440,7 +440,7 @@ export default function InspectionAuditPage({
                       {/* Changes JSON (if no prev/new but changes exist) */}
                       {log.changes && !log.previousValue && !log.newValue && (
                         <div className="mt-2">
-                          <p className="text-xs font-semibold text-neutral-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+                          <p className="text-xs font-semibold text-brand-slate dark:text-slate-500 uppercase tracking-wider mb-1">
                             Changes
                           </p>
                           <pre className="text-xs bg-neutral-50 dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 rounded-lg p-2 text-neutral-600 dark:text-slate-300 whitespace-pre-wrap break-all max-h-32 overflow-y-auto">

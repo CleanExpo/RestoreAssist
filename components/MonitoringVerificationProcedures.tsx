@@ -6,14 +6,9 @@ import { RAIcon } from "@/components/brand/RAIcon";
 import {
   Thermometer,
   Droplets,
-  BarChart3,
   CheckCircle,
   Clock,
-  AlertTriangle,
-  FileText,
   Activity,
-  Settings,
-  Zap,
   Home,
   Wind,
 } from "lucide-react";
@@ -326,7 +321,7 @@ export default function MonitoringVerificationProcedures({
 
   const getComplianceStatus = () => {
     const targets = getPsychrometricTargets();
-    const moistureTargets = getMoistureTargets();
+    const _moistureTargets = getMoistureTargets();
 
     let complianceScore = 0;
     let totalChecks = 0;
@@ -393,10 +388,10 @@ export default function MonitoringVerificationProcedures({
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4"
         >
           <div className="flex items-center gap-2 mb-2">
-            <Thermometer className="text-cyan-400" size={20} />
+            <Thermometer className="text-brand-harbour-400" size={20} />
             <span className="font-medium text-white">Psychrometric</span>
           </div>
-          <div className="text-2xl font-bold text-cyan-400">
+          <div className="text-2xl font-bold text-brand-harbour-400">
             {Array.isArray(monitoringData.psychrometricReadings)
               ? monitoringData.psychrometricReadings.length
               : 0}
@@ -474,7 +469,7 @@ export default function MonitoringVerificationProcedures({
       {/* Psychrometric Monitoring */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-          <Thermometer className="text-cyan-400" size={20} />
+          <Thermometer className="text-brand-harbour-400" size={20} />
           Psychrometric Monitoring
         </h4>
 
@@ -484,7 +479,7 @@ export default function MonitoringVerificationProcedures({
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
                 <span className="text-slate-300">Target Humidity:</span>
-                <span className="text-xl font-bold text-cyan-400">
+                <span className="text-xl font-bold text-brand-harbour-400">
                   {psychrometricTargets.humidity}%
                 </span>
               </div>
@@ -516,7 +511,7 @@ export default function MonitoringVerificationProcedures({
                     location: e.target.value,
                   })
                 }
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
               />
               <div className="grid grid-cols-2 gap-3">
                 <input
@@ -529,7 +524,7 @@ export default function MonitoringVerificationProcedures({
                       temperature: e.target.value,
                     })
                   }
-                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
                 />
                 <input
                   type="number"
@@ -541,12 +536,12 @@ export default function MonitoringVerificationProcedures({
                       humidity: e.target.value,
                     })
                   }
-                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
                 />
               </div>
               <button
                 onClick={addPsychrometricReading}
-                className="w-full px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+                className="w-full px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
               >
                 Add Reading
               </button>
@@ -563,7 +558,7 @@ export default function MonitoringVerificationProcedures({
                 {monitoringData.psychrometricReadings
                   .slice(-5)
                   .reverse()
-                  .map((reading, index) => (
+                  .map((reading, _index) => (
                     <div
                       key={reading.id}
                       className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg"
@@ -577,7 +572,7 @@ export default function MonitoringVerificationProcedures({
                         </span>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className="text-cyan-400">
+                        <span className="text-brand-harbour-400">
                           {reading.temperature}°C
                         </span>
                         <span className="text-blue-400">
@@ -641,7 +636,7 @@ export default function MonitoringVerificationProcedures({
                       material: e.target.value,
                     })
                   }
-                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
                 />
                 <input
                   type="text"
@@ -653,7 +648,7 @@ export default function MonitoringVerificationProcedures({
                       location: e.target.value,
                     })
                   }
-                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -667,7 +662,7 @@ export default function MonitoringVerificationProcedures({
                       moistureContent: e.target.value,
                     })
                   }
-                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
                 />
                 <input
                   type="number"
@@ -679,7 +674,7 @@ export default function MonitoringVerificationProcedures({
                       targetLevel: e.target.value,
                     })
                   }
-                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                  className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500"
                 />
               </div>
               <button
@@ -703,7 +698,7 @@ export default function MonitoringVerificationProcedures({
                 {monitoringData.moistureReadings
                   .slice(-5)
                   .reverse()
-                  .map((reading, index) => (
+                  .map((reading, _index) => (
                     <div
                       key={reading.id}
                       className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg"
@@ -798,7 +793,7 @@ export default function MonitoringVerificationProcedures({
                   <li key={index} className="flex items-center gap-2">
                     <CheckCircle
                       size={14}
-                      className="text-cyan-400 flex-shrink-0"
+                      className="text-brand-harbour-400 flex-shrink-0"
                     />
                     {reading}
                   </li>
@@ -879,7 +874,7 @@ export default function MonitoringVerificationProcedures({
                 <li key={index} className="flex items-center gap-2">
                   <CheckCircle
                     size={14}
-                    className="text-cyan-400 flex-shrink-0"
+                    className="text-brand-harbour-400 flex-shrink-0"
                   />
                   {criterion}
                 </li>
@@ -892,7 +887,7 @@ export default function MonitoringVerificationProcedures({
       {/* Monitoring Locations */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-          <Home className="text-cyan-400" size={20} />
+          <Home className="text-brand-harbour-400" size={20} />
           Monitoring Locations
         </h4>
 
@@ -922,7 +917,7 @@ export default function MonitoringVerificationProcedures({
                 <ul className="space-y-1 text-sm text-slate-300">
                   {equipmentMonitoring.airmovers.map((item, index) => (
                     <li key={index} className="flex items-center gap-2">
-                      <Wind size={12} className="text-cyan-400 flex-shrink-0" />
+                      <Wind size={12} className="text-brand-harbour-400 flex-shrink-0" />
                       {item}
                     </li>
                   ))}

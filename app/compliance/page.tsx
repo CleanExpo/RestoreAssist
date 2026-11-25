@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import BillingGate from "@/components/capacitor/BillingGate";
 
@@ -202,9 +201,10 @@ export default function CompliancePage() {
             <div className={`space-y-4 leading-relaxed ${muted}`}>
               <p>
                 The IICRC S500 is the internationally recognised standard for
-                professional water damage restoration. The 2025 edition —
+                professional water damage restoration. The current edition,{" "}
+                <strong className={text}>ANSI/IICRC S500:2021</strong>, is
                 adopted in Australia as{" "}
-                <strong className={text}>ANSI/IICRC S500:2021</strong> — sets the
+                <strong className={text}>AS-IICRC S500:2025</strong>. It sets the
                 minimum documentation, classification, drying verification, and
                 equipment requirements that restoration contractors must follow
                 to demonstrate competent practice.
@@ -213,15 +213,18 @@ export default function CompliancePage() {
                 For Australian restoration companies, the standard matters most
                 in three situations: insurer claim audits, adjuster reviews, and
                 any dispute where the quality or completeness of your
-                documentation is challenged. A report that cannot demonstrate
-                S500:2021 compliance is a liability.
+                documentation is challenged. A report that cannot show, section
+                by section, how its findings line up with S500:2021 is a
+                liability.
               </p>
               <p>
                 RestoreAssist was built around S500:2021 from the ground up.
                 Every data field the technician fills in maps to a specific
                 section of the standard. The exported PDF includes an
-                auto-generated standards citation section so insurers can
-                immediately verify compliance without additional documentation.
+                auto-generated standards citation section, so an insurer can see
+                which section each finding references. That is alignment with
+                the standard, not certification: the contractor remains
+                responsible for the work.
               </p>
             </div>
           </div>
@@ -324,7 +327,7 @@ export default function CompliancePage() {
               className={`text-3xl font-bold mb-4 ${text}`}
               style={{ fontFamily: '"Open Sauce Sans", Inter, sans-serif' }}
             >
-              Generate your first compliant report
+              Generate your first S500-aligned report
             </h2>
             <p className={`mb-8 text-lg ${muted}`}>
               Start a free trial and produce a fully S500:2021-mapped report

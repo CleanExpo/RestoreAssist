@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterAll } from "vitest";
-import { grandfatherAiCopilotAddon } from "../grandfather-ai-copilot-addon";
+import { grandfatherAiCopilotAddon } from "../lib/grandfather-ai-copilot-addon";
 import { prisma } from "@/lib/prisma";
 
 /**

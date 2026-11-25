@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -9,7 +9,6 @@ import {
   CheckCircle,
   Clock,
   X,
-  PenTool,
   AlertCircle,
   Eye,
 } from "lucide-react";
@@ -64,11 +63,7 @@ export default function AuthorityFormsViewer({
   >(null);
   const [authorityDescription, setAuthorityDescription] = useState("");
 
-  useEffect(() => {
-    fetchData();
-  }, [reportId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -117,7 +112,11 @@ export default function AuthorityFormsViewer({
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleCreateForm = async (templateCode: string) => {
     try {
@@ -249,7 +248,7 @@ export default function AuthorityFormsViewer({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
       </div>
     );
   }
@@ -273,7 +272,7 @@ export default function AuthorityFormsViewer({
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
         >
           <Plus size={18} />
           Create Form
@@ -349,7 +348,7 @@ export default function AuthorityFormsViewer({
                         setSelectedTemplateCode(suggestion.templateCode);
                         setShowCreateModal(true);
                       }}
-                      className="px-3 py-1.5 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm"
+                      className="px-3 py-1.5 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors text-sm"
                     >
                       Create
                     </button>
@@ -550,7 +549,7 @@ export default function AuthorityFormsViewer({
                   <button
                     onClick={() => handleCreateForm(selectedTemplateCode)}
                     disabled={creating}
-                    className="flex-1 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors disabled:opacity-50"
                   >
                     {creating ? "Creating..." : "Create Form"}
                   </button>

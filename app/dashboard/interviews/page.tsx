@@ -87,7 +87,10 @@ export default function InterviewsPage() {
     sessions: InterviewSession[];
     pagination?: { page: number; limit: number; total: number; totalPages: number };
   }>("/api/interviews?limit=100");
-  const sessions = sessionsData?.sessions ?? [];
+  const sessions = useMemo(
+    () => sessionsData?.sessions ?? [],
+    [sessionsData?.sessions],
+  );
   const sessionsTotal = sessionsData?.pagination?.total ?? sessions.length;
 
   const {
@@ -230,7 +233,7 @@ export default function InterviewsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-            <MessageSquare className="text-cyan-500" size={28} />
+            <MessageSquare className="text-brand-harbour-500" size={28} />
             Guided Interviews
           </h1>
           <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1">
@@ -247,7 +250,7 @@ export default function InterviewsPage() {
           </button>
           <button
             onClick={() => router.push("/dashboard/interviews/new")}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-brand-harbour-600 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
             <Plus size={18} />
             New Interview
@@ -259,7 +262,7 @@ export default function InterviewsPage() {
       {loadingTemplates ? (
         <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
           <div className="flex items-center gap-3">
-            <Loader2 className="animate-spin text-cyan-500" size={20} />
+            <Loader2 className="animate-spin text-brand-harbour-500" size={20} />
             <p className="text-sm text-neutral-600 dark:text-slate-400">
               Loading templates...
             </p>
@@ -358,7 +361,7 @@ export default function InterviewsPage() {
               </div>
             ) : sessions.length === 0 ? (
               <div
-                className="text-xl font-bold text-neutral-400 dark:text-slate-500 mt-1"
+                className="text-xl font-bold text-brand-slate dark:text-slate-500 mt-1"
                 title="Run your first interview to populate"
               >
                 —
@@ -379,7 +382,7 @@ export default function InterviewsPage() {
           className={cn(
             "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
             !statusFilter
-              ? "bg-cyan-500 text-white"
+              ? "bg-brand-harbour-500 text-white"
               : "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:bg-neutral-200 dark:hover:bg-slate-700",
           )}
         >
@@ -393,7 +396,7 @@ export default function InterviewsPage() {
               className={cn(
                 "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
                 statusFilter === key
-                  ? "bg-cyan-500 text-white"
+                  ? "bg-brand-harbour-500 text-white"
                   : cn(cfg.bg, cfg.color, "hover:opacity-80"),
               )}
             >
@@ -407,14 +410,14 @@ export default function InterviewsPage() {
       <div className="relative">
         <Search
           size={18}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-slate dark:text-neutral-400"
         />
         <input
           type="text"
           placeholder="Search by template name or session ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-900 dark:text-white placeholder:text-brand-slate dark:placeholder:text-neutral-400 focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500 outline-none transition-all"
         />
       </div>
 
@@ -428,7 +431,7 @@ export default function InterviewsPage() {
                 selectedIds.size === filtered.length && filtered.length > 0
               }
               onChange={toggleSelectAll}
-              className="rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
+              className="rounded border-neutral-300 dark:border-slate-600 text-brand-harbour-500 focus:ring-brand-harbour-500"
             />
             Select all ({filtered.length})
           </label>
@@ -453,7 +456,7 @@ export default function InterviewsPage() {
       {/* Results */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="animate-spin text-cyan-500" size={32} />
+          <Loader2 className="animate-spin text-brand-harbour-500" size={32} />
         </div>
       ) : sessionsError ? (
         <div
@@ -472,7 +475,7 @@ export default function InterviewsPage() {
           </p>
           <button
             onClick={() => refetchSessions()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
           >
             Retry
           </button>
@@ -481,7 +484,7 @@ export default function InterviewsPage() {
         <div className="text-center py-20">
           <MessageSquare
             size={48}
-            className="mx-auto text-neutral-300 dark:text-slate-600 mb-4"
+            className="mx-auto text-brand-slate dark:text-slate-600 mb-4"
           />
           <h3 className="text-lg font-semibold text-neutral-700 dark:text-slate-300">
             {sessions.length === 0
@@ -496,7 +499,7 @@ export default function InterviewsPage() {
           {sessions.length === 0 && (
             <button
               onClick={() => router.push("/dashboard/interviews/new")}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-brand-harbour-500 text-white rounded-lg hover:bg-brand-harbour-600 transition-colors"
             >
               <Plus size={16} />
               Start Interview
@@ -518,8 +521,8 @@ export default function InterviewsPage() {
                 className={cn(
                   "w-full text-left p-4 rounded-xl border cursor-pointer transition-all duration-200 group flex items-start gap-3",
                   selectedIds.has(s.id)
-                    ? "border-cyan-400 dark:border-cyan-600 bg-cyan-50/50 dark:bg-cyan-900/20"
-                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md",
+                    ? "border-brand-harbour-400 dark:border-brand-harbour-600 bg-brand-harbour-50/50 dark:bg-brand-harbour-900/20"
+                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-brand-harbour-300 dark:hover:border-brand-harbour-800 hover:shadow-md",
                 )}
               >
                 <input
@@ -527,7 +530,7 @@ export default function InterviewsPage() {
                   checked={selectedIds.has(s.id)}
                   onChange={() => toggleSelect(s.id)}
                   onClick={(e) => e.stopPropagation()}
-                  className="mt-1 rounded border-neutral-300 dark:border-slate-600 text-cyan-500 focus:ring-cyan-500"
+                  className="mt-1 rounded border-neutral-300 dark:border-slate-600 text-brand-harbour-500 focus:ring-brand-harbour-500"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
@@ -545,7 +548,7 @@ export default function InterviewsPage() {
                       {cfg.label}
                     </span>
                     {isResumable && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-brand-harbour-50 dark:bg-brand-harbour-900/30 text-brand-harbour-600 dark:text-brand-harbour-400">
                         Resume
                       </span>
                     )}
@@ -563,7 +566,7 @@ export default function InterviewsPage() {
                       {s.totalAnswersGiven}/{s.totalQuestionsAsked} questions
                     </span>
                     {s.actualTimeMinutes && <span>{s.actualTimeMinutes}m</span>}
-                    <span className="text-neutral-400 dark:text-slate-500 capitalize">
+                    <span className="text-brand-slate dark:text-slate-500 capitalize">
                       {s.formTemplate.category.toLowerCase().replace("_", " ")}
                     </span>
                   </div>
@@ -572,11 +575,11 @@ export default function InterviewsPage() {
                     <div className="mt-2 flex items-center gap-2">
                       <div className="flex-1 h-1.5 rounded-full bg-neutral-100 dark:bg-slate-800 overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 transition-all"
+                          className="h-full rounded-full bg-gradient-to-r from-blue-600 to-brand-harbour-600 transition-all"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
-                      <span className="text-xs text-neutral-400 w-8">
+                      <span className="text-xs text-brand-slate dark:text-neutral-400 w-8">
                         {progress}%
                       </span>
                     </div>
@@ -590,14 +593,14 @@ export default function InterviewsPage() {
                     type="button"
                     onClick={(e) => handleDeleteOne(e, s.id)}
                     disabled={deleting}
-                    className="p-2 rounded-lg text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                    className="p-2 rounded-lg text-brand-slate dark:text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                     title="Delete session"
                   >
                     <Trash2 size={18} />
                   </button>
                   <ChevronRight
                     size={20}
-                    className="text-neutral-300 dark:text-slate-600 group-hover:text-cyan-500 transition-colors mt-1"
+                    className="text-brand-slate dark:text-slate-600 group-hover:text-brand-harbour-500 transition-colors mt-1"
                   />
                 </div>
               </div>

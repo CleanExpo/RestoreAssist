@@ -5,6 +5,7 @@
  * payments entitlement surface responds without live charges when keys absent.
  */
 import { test, expect } from "@playwright/test";
+import { LOCAL_ORIGIN } from "./helpers/local-origin";
 
 test.describe("Stripe Connect payments (guarded)", () => {
   test.skip(
@@ -13,7 +14,7 @@ test.describe("Stripe Connect payments (guarded)", () => {
   );
 
   test("webhook endpoint rejects unsigned payloads", async ({ request }) => {
-    const base = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+    const base = process.env.PLAYWRIGHT_BASE_URL ?? LOCAL_ORIGIN;
     const res = await request.post(`${base}/api/webhooks/stripe`, {
       data: { type: "account.updated" },
     });

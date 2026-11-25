@@ -8,6 +8,10 @@ import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-process
 import { createQuickBooksClient } from "@/lib/integrations/quickbooks/client";
 import { createMYOBClient } from "@/lib/integrations/myob/client";
 import { isOAuthIntegration } from "./identity";
+import {
+  reclaimStaleWebhookEvents,
+  WEBHOOK_MAX_RETRIES,
+} from "@/lib/jobs/webhook-reclaim";
 
 const WEBHOOK_INTEGRATION_IDENTITY_SELECT = {
   provider: true, name: true, icon: true, config: true,
@@ -33,7 +37,7 @@ async function canDispatchWebhook(event: { id: string; integrationId: string; pr
  * Handles payment status updates, invoice changes, and customer sync
  */
 
-interface WebhookEvent {
+interface _WebhookEvent {
   id: string;
   provider: IntegrationProvider;
   integrationId: string;
@@ -187,7 +191,7 @@ export async function processWebhookEvent(eventId: string): Promise<void> {
 
     // Update retry count and status
     const retryCount = event.retryCount + 1;
-    const maxRetries = 5;
+    const maxRetries = WEBHOOK_MAX_RETRIES;
 
     await prisma.webhookEvent.update({
       where: { id: eventId },
@@ -740,12 +744,15 @@ async function handleContactUpdated(event: any): Promise<void> {
 export async function processPendingWebhookEvents(
   limit: number = 10,
 ): Promise<void> {
+  // RA-8426 — every path into a WebhookEvent claim expires dead claims first
+  // (enforced by lib/jobs/__tests__/queue-claim-rescue.test.ts).
+  await reclaimStaleWebhookEvents();
+
   const pendingEvents = await prisma.webhookEvent.findMany({
     where: {
       status: "PENDING",
-      retryCount: {
-        lt: 5, // Max 5 retries
-      },
+      // RA-8481 — the one WebhookEvent retry limit.
+      retryCount: { lt: WEBHOOK_MAX_RETRIES },
     },
     orderBy: {
       createdAt: "asc",
@@ -816,6 +823,10 @@ export async function processQboMyobPendingPayments(
     skipped: 0,
   };
 
+  // RA-8426 — release claims left PROCESSING by a run that died (this drain
+  // and the retroactive one both claim), before selecting PENDING rows.
+  await reclaimStaleWebhookEvents();
+
   const events = await prisma.webhookEvent.findMany({
     where: {
       provider: { in: ["QUICKBOOKS", "MYOB"] },
@@ -864,7 +875,7 @@ export async function processQboMyobPendingPayments(
 
       const message = err instanceof Error ? err.message : String(err);
       const retryCount = event.retryCount + 1;
-      const maxRetries = 5;
+      const maxRetries = WEBHOOK_MAX_RETRIES;
       await prisma.webhookEvent.update({
         where: { id: event.id },
         data: {
@@ -905,6 +916,10 @@ export async function retryUnresolvedQboMyobPayments(
     failed: 0,
     skipped: 0,
   };
+
+  // RA-8426 — this drain claims SKIPPED -> PROCESSING, so it expires dead
+  // claims itself rather than relying on the pending drain having run first.
+  await reclaimStaleWebhookEvents();
 
   const events = await prisma.webhookEvent.findMany({
     where: {
@@ -955,7 +970,7 @@ export async function retryUnresolvedQboMyobPayments(
 
       const message = err instanceof Error ? err.message : String(err);
       const retryCount = event.retryCount + 1;
-      const maxRetries = 5;
+      const maxRetries = WEBHOOK_MAX_RETRIES;
       if (retryCount >= maxRetries) {
         // Exhausted — surface to FAILED monitoring instead of silently
         // retrying forever. Terminal, so it leaves the SKIPPED marker filter.

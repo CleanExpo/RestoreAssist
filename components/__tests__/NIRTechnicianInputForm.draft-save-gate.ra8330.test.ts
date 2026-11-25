@@ -160,14 +160,15 @@ describe("Save Draft badge outcome has one owner (review round 2)", () => {
     };
     window.addEventListener(DRAFT_SAVE_STATUS_EVENT, listener);
     try {
-      expect(await trackDraftSave(async () => {})).toBe(false);
-      expect(await trackDraftSave(async () => false)).toBe(false);
+      const draft = () => ({ inspectionId: "insp-1", formKey: "form-1" });
+      expect(await trackDraftSave(async () => {}, draft, "user-a")).toBe(false);
+      expect(await trackDraftSave(async () => false, draft, "user-a")).toBe(false);
       expect(
         await trackDraftSave(async () => {
           throw new Error("HTTP 500");
-        }),
+        }, draft, "user-a"),
       ).toBe(false);
-      expect(await trackDraftSave(async () => true)).toBe(true);
+      expect(await trackDraftSave(async () => true, draft, "user-a")).toBe(true);
     } finally {
       window.removeEventListener(DRAFT_SAVE_STATUS_EVENT, listener);
     }

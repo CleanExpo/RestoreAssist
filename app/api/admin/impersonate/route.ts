@@ -27,6 +27,7 @@ import {
   serializeToken,
 } from "@/lib/admin-impersonation";
 import { apiError } from "@/lib/api-errors";
+import { readEnv } from "@/lib/env";
 import {
   verifyAdminFromDb,
   verifyPlatformSupportOperator,
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
   // they've actually impersonated. The existing audit/rate-limit
   // scaffolding above still runs in dev (flag=true) so the future
   // wiring PR can test against it.
-  if (process.env.ENABLE_ADMIN_IMPERSONATION !== "true") {
+  if (readEnv("ENABLE_ADMIN_IMPERSONATION") !== "true") {
     console.info(
       "[admin-impersonation.start] attempted while feature-flag off",
       JSON.stringify({ adminUserId: session.user.id }),

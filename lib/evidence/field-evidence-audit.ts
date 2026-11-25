@@ -51,6 +51,22 @@ import type {
   FieldEvidenceChecklist,
 } from "./field-evidence-checklist";
 
+/**
+ * RA-8488: the inspection has neither a claim type nor a Guided Capture job
+ * type, so there is no template to check it against. This is a state the
+ * technician can fix (start Guided Capture and choose the job type), not a
+ * server fault, so it has its own type and the route answers 409.
+ */
+export class UnknownJobTypeError extends Error {
+  constructor(inspectionId: string, claimType: string | null = null) {
+    super(
+      `Cannot build a field evidence checklist for inspection ${inspectionId}: ` +
+        `claimType "${claimType ?? "null"}" does not map to a known workflow job type.`,
+    );
+    this.name = "UnknownJobTypeError";
+  }
+}
+
 // ============================================
 // INPUT SHAPES
 // ============================================
@@ -168,10 +184,7 @@ export function buildFieldEvidenceChecklist(
 ): FieldEvidenceChecklist {
   const jobType = normalizeClaimType(inspection.claimType);
   if (!jobType) {
-    throw new Error(
-      `Cannot build a field evidence checklist for inspection ${inspection.id}: ` +
-        `claimType "${inspection.claimType ?? "null"}" does not map to a known workflow job type.`,
-    );
+    throw new UnknownJobTypeError(inspection.id, inspection.claimType);
   }
 
   const template = getWorkflowTemplate(jobType);
@@ -311,11 +324,21 @@ export async function auditInspectionById(
 ): Promise<FieldEvidenceChecklist> {
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },
-    select: { id: true, claimType: true },
+    select: {
+      id: true,
+      claimType: true,
+      // RA-8488: the job type the technician chose when starting Guided
+      // Capture. Used only when the inspection's own claim type is empty or
+      // unrecognised; the claim type wins when both are set.
+      inspectionWorkflow: { select: { jobType: true } },
+    },
   });
   if (!inspection) {
     throw new Error(`Inspection ${inspectionId} not found`);
   }
+  const claimType = normalizeClaimType(inspection.claimType)
+    ? inspection.claimType
+    : (inspection.inspectionWorkflow?.jobType ?? inspection.claimType);
 
   const [evidenceItems, moistureReadings, psychrometricReadings, affectedAreas] =
     await Promise.all([
@@ -346,7 +369,7 @@ export async function auditInspectionById(
     ]);
 
   return buildFieldEvidenceChecklist(
-    { id: inspection.id, claimType: inspection.claimType },
+    { id: inspection.id, claimType },
     evidenceItems,
     moistureReadings,
     psychrometricReadings,

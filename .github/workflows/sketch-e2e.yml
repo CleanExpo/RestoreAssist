@@ -99,7 +99,7 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
       NEXTAUTH_SECRET: e2e-nextauth-secret-not-for-prod-deadbeefdeadbeef
-      NEXTAUTH_URL: http://localhost:3000
+      # NEXTAUTH_URL is set by the first step from E2E_PORT (UNI-3468).
       E2E_USER_EMAIL: test@restoreassist.app
       E2E_USER_PASSWORD: Test1234!
       # A SECOND tenant and a THIRD, NON-ADMIN user. Without these,
@@ -163,6 +163,12 @@ jobs:
       STRIPE_SECRET_KEY: sk_test_ci_placeholder
 
     steps:
+      # The app server listens on E2E_PORT when set (the release gate's local CI mirror
+      # sets a free port because a shared Mac often has localhost:3000 taken), else 3000.
+      # GitHub never sets E2E_PORT, so here it is always http://localhost:3000 (UNI-3468).
+      - name: Set NEXTAUTH_URL from the E2E port
+        run: printf 'NEXTAUTH_URL=http://localhost:%s\n' "${E2E_PORT:-3000}" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -243,7 +249,7 @@ jobs:
       # (v2-sketch-workflow.spec.ts) has stale selectors and is stabilised
       # separately before being added.
       - name: Run Sketch E2E
-        run: npx --no-install playwright test -c config/playwright.config.ts e2e/sketch-api.spec.ts e2e/sketch-chrome-1280.spec.ts e2e/sketch-image-report-1280.spec.ts e2e/sketch-damage-markers-1280.spec.ts e2e/floorplan-upload-ai.spec.ts --project=chromium --reporter=line
+        run: npx --no-install playwright test -c config/playwright.config.ts e2e/sketch-api.spec.ts e2e/sketch-chrome-1280.spec.ts e2e/sketch-image-report-1280.spec.ts e2e/sketch-damage-markers-1280.spec.ts e2e/floorplan-upload-ai.spec.ts e2e/third-party-report.spec.ts --project=chromium --reporter=line
 
       # The billing suite had never been executed by any pipeline, so nothing
       # had established whether it passed. Run locally on 2026-09-07 it was
@@ -368,6 +374,7 @@ jobs:
           e2e/dashboard-connected-journey.spec.ts
           e2e/inspection-floor-plan-flow.spec.ts
           e2e/offline-moisture-sync.spec.ts
+          e2e/room-observations.spec.ts
           e2e/nz-org-gst.spec.ts
           e2e/storage-restore.spec.ts
           e2e/stripe-payment-intent-webhook.spec.ts

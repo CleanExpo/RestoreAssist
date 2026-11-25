@@ -27,6 +27,7 @@ import {
   integrationProviderToSlug,
   runExternalIntegrationSync,
 } from "@/lib/integrations/external-sync-client";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -195,7 +196,7 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
         <span className="text-sm font-medium text-destructive">
           {error.recordsFailed}
         </span>
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-brand-slate dark:text-slate-400">
           {" "}
           / {error.recordsProcessed}
         </span>
@@ -307,7 +308,7 @@ function WebhookErrorRow({ error }: WebhookErrorRowProps) {
         <span className="text-sm font-medium text-amber-700">
           {error.retryCount}
         </span>
-        <span className="text-xs text-slate-400"> / 5</span>
+        <span className="text-xs text-brand-slate dark:text-slate-400"> / 5</span>
       </TableCell>
 
       <TableCell>
@@ -399,7 +400,7 @@ export default function SyncErrorsPage() {
     setFetchError(null);
     try {
       const res = await fetch("/api/integrations/sync-errors");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(statusErrorMessage(res.status));
       const data: SyncErrorsResponse = await res.json();
       if (data.success) {
         setSyncErrors(data.syncErrors ?? []);
@@ -549,7 +550,7 @@ export default function SyncErrorsPage() {
               onClick={() => setActiveTab(tab.value)}
               className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
                 activeTab === tab.value
-                  ? "bg-slate-900 text-white"
+                  ? "bg-white dark:bg-slate-900 text-brand-navy dark:text-white"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
@@ -598,7 +599,7 @@ export default function SyncErrorsPage() {
                       <p className="text-base font-medium text-slate-700">
                         No sync errors — all integrations healthy
                       </p>
-                      <p className="text-sm text-slate-400">
+                      <p className="text-sm text-brand-slate dark:text-slate-400">
                         Sync logs will appear here when errors occur.
                       </p>
                     </div>
@@ -626,7 +627,7 @@ export default function SyncErrorsPage() {
 
         {/* Footer count */}
         {!loading && (syncErrors.length > 0 || webhookErrors.length > 0) && (
-          <p className="mt-3 text-xs text-slate-400 text-right">
+          <p className="mt-3 text-xs text-brand-slate dark:text-slate-400 text-right">
             {syncErrors.length} sync log{syncErrors.length !== 1 ? "s" : ""}{" "}
             &middot; {webhookErrors.length} webhook error
             {webhookErrors.length !== 1 ? "s" : ""}

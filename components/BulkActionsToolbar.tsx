@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import {
-  Download,
   Copy,
   CheckSquare,
   Trash2,
-  ChevronDown,
   Loader2,
   FileText,
   Archive,
@@ -24,9 +22,9 @@ interface BulkActionsToolbarProps {
 export function BulkActionsToolbar({
   selectedCount,
   totalCount,
-  onSelectedIdsChange,
+  onSelectedIdsChange: _onSelectedIdsChange,
   selectedIds,
-  onRefresh,
+  onRefresh: _onRefresh,
 }: BulkActionsToolbarProps) {
   const [isLoading, setIsLoading] = useState(false);
 

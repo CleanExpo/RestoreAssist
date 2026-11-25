@@ -45,6 +45,10 @@ export async function saveDraftParts(
 export interface SidecarPanel {
   persist: () => Promise<void>;
   isReady: () => boolean;
+  /** RA-8359: true when the panel's read of its saved data failed. */
+  loadFailed?: () => boolean;
+  /** RA-8359: re-runs the failed read; resolves to isReady(). */
+  reload?: () => Promise<boolean>;
 }
 
 export interface SidecarSource {
@@ -68,12 +72,20 @@ export function sidecarPart(label: string, source: SidecarSource): DraftSavePart
     run: async () => {
       const panel = source.panel();
       if (panel && panel.isReady()) return panel.persist();
+      // RA-8359: a failed read is never retried on its own, so Save Draft
+      // reads again first. Only a confirmed read lets the part save.
+      if (panel && panel.loadFailed?.() && panel.reload) {
+        if (await panel.reload()) return panel.persist();
+        throw new Error(
+          `${label} could not be loaded, so it was not saved; check your connection and press Try again`,
+        );
+      }
       // Skip only what the technician could not have touched: no panel on
       // screen at the press and no pending data (review round 5).
       if (!source.wasOnScreen && !source.hasPendingData()) return;
       // Never write data the panel has not confirmed against the saved
       // record (RA-8330 review round 4): name the part instead.
-      throw new Error(`${label} is not ready yet; press Save Draft again`);
+      throw new Error(`${label} is still loading; press Save Draft again once it has loaded`);
     },
   };
 }

@@ -57,7 +57,7 @@ export const simpleDashboardPanelGradient =
 
 export const simpleDashboardStatGradient = {
   amber: "from-amber-500/15 to-card border-amber-500/20",
-  cyan: "from-cyan-500/15 to-card border-cyan-500/20",
+  cyan: "from-brand-harbour-500/15 to-card border-brand-harbour-500/20",
   violet: "from-violet-500/15 to-card border-violet-500/20",
   neutral: "from-muted/40 to-card border-border",
 } as const;

@@ -2,7 +2,7 @@ import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { geistSans, geistMono } from "@/app/fonts/site";
 import { BRAND } from "@/lib/brand";
-import { OG_SHARE_PATH, ogAlt, ogSize } from "@/lib/og/constants";
+import { OG_SHARE_IMAGE, OG_SHARE_PATH } from "@/lib/og/constants";
 import SessionProvider from "@/components/providers/SessionProvider";
 import { CapacitorProvider } from "@/components/providers/CapacitorProvider";
 import { AppThemeProvider } from "@/components/app-theme-provider";
@@ -85,15 +85,10 @@ export const metadata: Metadata = {
     // For now, defaults to en_AU.
     locale: "en_AU",
     siteName: BRAND.name,
-    // Versioned /og path — hard cache-bust for LinkedIn/Slack still holding
-    // the old navy card at /opengraph-image. Resolved absolute via metadataBase.
+    // RA-8473: static photo share card, versioned for crawler cache-busting.
+    // Resolved absolute via metadataBase.
     images: [
-      {
-        url: OG_SHARE_PATH,
-        width: ogSize.width,
-        height: ogSize.height,
-        alt: ogAlt,
-      },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/" },
@@ -123,7 +118,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#12324f",
+  themeColor: "#17181c",
 };
 
 // NOTE: the iOS-shell platform verdict is deliberately NOT resolved here.

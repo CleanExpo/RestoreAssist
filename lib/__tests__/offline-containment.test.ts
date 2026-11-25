@@ -456,13 +456,13 @@ describe("offline ownership containment", () => {
       return queue;
     }
 
-    it("finds a photo by hash alone and sends no second upload (RA-8131)", async () => {
+    it("a photo with the same hash alone is not proof: nothing is removed or re-uploaded (RA-8131, changed by RA-7877)", async () => {
       const queue = await hashOnly(await pendingRow(
         () => new Response(JSON.stringify({ photos: [{ id: "created", url: signed, cocoaSha256: "deadbeef" }] }), { status: 200 }),
       ));
-      expect(await queue.drainEvidenceQueue()).toBe(1);
+      expect(await queue.drainEvidenceQueue()).toBe(0);
       expect(posts()).toHaveLength(0);
-      expect(await pending()).toBeUndefined();
+      expect(await pending()).toEqual(expect.objectContaining({ retryCount: 2 }));
     });
 
     it("re-uploads a hash-only row when no listed photo carries its hash (RA-8131)", async () => {

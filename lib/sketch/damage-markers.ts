@@ -1,5 +1,5 @@
 /**
- * IICRC-compliant damage marker library (RA-2953 / Floor Plan 6/8).
+ * IICRC-aligned damage marker library (RA-2953 / Floor Plan 6/8).
  *
  * Selectable overlay markers — not Fabric strokes and not the dead
  * `apps/mobile/src/floorPlan/damageMarkers/` path. Live surface is the web

@@ -43,6 +43,7 @@ import {
   Bot,
   CalendarDays,
   Inbox,
+  GraduationCap,
 } from "lucide-react";
 import { signOutAndConfirm } from "@/lib/oauth-native";
 import { useSession } from "next-auth/react";
@@ -72,6 +73,7 @@ import {
   fieldAddonsTabVisible,
   isAdvancedMode,
   ADMIN_NAV_HREFS,
+  MANAGER_NAV_HREFS,
   platformNavHrefs,
   type ExperienceMode,
   type NavItem,
@@ -276,7 +278,7 @@ export default function DashboardShell({
           "bg-slate-50 dark:bg-slate-950",
         )}
       >
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-harbour-400/30 border-t-brand-harbour-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -289,7 +291,7 @@ export default function DashboardShell({
           "bg-slate-50 dark:bg-slate-950",
         )}
       >
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-harbour-400/30 border-t-brand-harbour-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -349,14 +351,13 @@ export default function DashboardShell({
       label: "Job schedule",
       href: "/dashboard/inspections/schedule",
     },
+    // RA-8523: one source (nav-config MANAGER_NAV_HREFS) for the manager items.
     ...(isManager
-      ? [
-          {
-            icon: Inbox,
-            label: "Completeness inbox",
-            href: "/dashboard/operations/completeness-inbox",
-          },
-        ]
+      ? MANAGER_NAV_HREFS.map((i) => ({
+          icon: Inbox,
+          label: i.label,
+          href: i.href,
+        }))
       : []),
     { icon: Users, label: "Clients", href: "/dashboard/clients" },
     { icon: Receipt, label: "Invoices", href: "/dashboard/invoices" },
@@ -435,6 +436,8 @@ export default function DashboardShell({
       highlight: true,
     },
     { icon: Camera, label: "Media", href: "/dashboard/media" },
+    // Mining pilot slice 6: a technician reads their own training records.
+    { icon: GraduationCap, label: "My training", href: "/dashboard/training" },
     { icon: HelpCircle, label: "Help", href: "/dashboard/help" },
     { icon: Settings, label: "Account", href: "/dashboard/settings" },
   ];
@@ -554,7 +557,7 @@ export default function DashboardShell({
           className={cn(
             "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left",
             item.highlight
-              ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+              ? "bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white font-medium hover:from-blue-600 hover:to-brand-harbour-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
               : cn(
                   "text-neutral-700 dark:text-slate-300",
                   "hover:bg-neutral-100 dark:hover:bg-slate-800",
@@ -579,17 +582,17 @@ export default function DashboardShell({
         onClick={() => setMobileMenuOpen(false)}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-deep",
+          "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-harbour-500 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-deep",
           item.adminOnly
             ? cn(
                 "text-neutral-600 dark:text-slate-500",
-                "hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
+                "hover:bg-brand-harbour-50 dark:hover:bg-brand-harbour-950/30 hover:text-brand-harbour-700 dark:hover:text-brand-harbour-400",
                 active &&
-                  "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 font-medium",
+                  "bg-brand-harbour-50 dark:bg-brand-harbour-950/30 text-brand-harbour-700 dark:text-brand-harbour-400 font-medium",
                 "hover:scale-[1.02]",
               )
             : item.highlight
-              ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+              ? "bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white font-medium hover:from-blue-600 hover:to-brand-harbour-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
               : cn(
                   advanced
                     ? cn(
@@ -657,7 +660,7 @@ export default function DashboardShell({
           >
             {sidebarOpen && (
               <Link href="/dashboard/" className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-brand-harbour-500 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-xs">RA</span>
                 </div>
                 <div className="flex flex-col">
@@ -669,13 +672,13 @@ export default function DashboardShell({
                         : "text-neutral-900 dark:text-slate-50",
                     )}
                   >
-                    Restore Assist
+                    RestoreAssist
                   </span>
                   <span
                     className={cn(
                       "text-[10px] font-normal leading-tight",
                       advanced
-                        ? "text-cyan-800/70 dark:text-cyan-200/60"
+                        ? "text-brand-harbour-800/70 dark:text-brand-harbour-200/60"
                         : "text-neutral-600 dark:text-slate-400",
                     )}
                   >
@@ -1018,7 +1021,7 @@ export default function DashboardShell({
                 )}
                 {!isTechnician && advanced && (
                   <p className="mb-4 text-xs font-medium text-muted-foreground">
-                    <span className="text-cyan-700 dark:text-cyan-400">
+                    <span className="text-brand-harbour-700 dark:text-brand-harbour-400">
                       Advanced workspace
                     </span>
                     {" — "}

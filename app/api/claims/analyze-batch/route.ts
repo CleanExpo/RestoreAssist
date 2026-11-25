@@ -22,6 +22,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { verifyAdminFromDb, verifyPlatformSupportOperator } from "@/lib/admin-auth";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 import { reportError } from "@/lib/observability";
+import { canSeeMoney, moneySafe, redactMoney } from "@/lib/auth/redact-money";
 
 const ROUTE = "/api/claims/analyze-batch";
 
@@ -290,8 +291,13 @@ export async function POST(request: NextRequest) {
     // --- Streaming mode: process one-by-one with progress events ---
     if (stream) {
       const encoder = new TextEncoder();
+      // RA-8494: every streamed event passes the same money rule as the JSON answer.
+      const mayPrice = await canSeeMoney(session);
       const readable = new ReadableStream({
         async start(controller) {
+          // Events carry counts (`total` files, `index`); only the result
+          // records inside the complete event carry money, so those records
+          // are redacted where they are built, never the event envelope.
           const sendEvent = (data: any) => {
             controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
           };
@@ -527,8 +533,8 @@ export async function POST(request: NextRequest) {
 
           sendEvent({
             type: "complete",
-            results: analysisResults,
-            summary,
+            results: mayPrice ? analysisResults : redactMoney(analysisResults),
+            summary: mayPrice ? summary : redactMoney(summary),
             batchId: batch.id,
           });
           controller.close();
@@ -679,12 +685,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    return NextResponse.json(await moneySafe(session, {
       success: true,
       results: analysisResults,
       summary,
       batchId: batch.id,
-    });
+    }));
   } catch (err) {
     return fromException(request, err, { stage: "analyze-batch" });
   }

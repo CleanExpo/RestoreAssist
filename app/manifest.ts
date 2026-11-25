@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "RestoreAssist - Restoration Report Software",
     short_name: "RestoreAssist",
-    // "IICRC S500 compliant" removed. lib/iicrc-inclusion-check.ts documents a
+    // The earlier standard-conformity claim was removed. lib/iicrc-inclusion-check.ts documents a
     // hard rule never to assert "complies", "certifies", "meets [the standard]"
     // or "required by law", enforced by a regression test, and full S500 clause
     // ingestion is blocked pending legal clearance. Reports are structured on

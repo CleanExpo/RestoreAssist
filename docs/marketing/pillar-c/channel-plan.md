@@ -38,7 +38,7 @@
 |---|---|
 | Channel | YouTube — RestoreAssist (existing) |
 | Six published explainers (Pillar B) | `setup-wizard-signup`, `setup-wizard-signin`, `setup-wizard-setup`, `setup-wizard-dashboard`, `setup-wizard-integrations`, `setup-wizard-health` (full URLs and titles in `copy-pack.md`) |
-| New uploads in first 30 days | 4 long-tail walkthroughs: "Writing an IICRC S500-compliant water damage report", "Pushing a restoration job into Xero without re-keying", "Photo chain-of-custody on an iPad — what insurers check", "ABN setup for a new water-damage business" |
+| New uploads in first 30 days | 4 long-tail walkthroughs: "Writing a water damage report that cites IICRC S500", "Pushing a restoration job into Xero without re-keying", "Photo chain-of-custody on an iPad — what insurers check", "ABN setup for a new water-damage business" |
 | Frequency | 1 long-form (3–6 min) every 10 days; 2 shorts (under 60s, vertical) per week cut from the same source footage |
 | Who posts | Phill — narration via the brand voice (ElevenLabs "Sarah" voice, locale en-AU per BrandConfig) for shorts; Phill's own voice for long-form |
 | Success metric | Watch-time on the setup wizard explainer (target >50% retention to 90s mark); subscribers gained; click-through from end-card to `/setup`. Target: 200 subscribers and 2,000 watch hours over 90 days. |

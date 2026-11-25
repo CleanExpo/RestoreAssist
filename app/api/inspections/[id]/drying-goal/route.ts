@@ -1,5 +1,6 @@
 /**
- * Drying Goal Validation — IICRC S500 psychrometric gate
+ * Drying Goal Validation — moisture drying-goal gate (RA-8508: the goal is the
+ * job's reference reading from unaffected like material; guide values otherwise)
  *
  * GET  /api/inspections/[id]/drying-goal  — Get current drying goal status
  * POST /api/inspections/[id]/drying-goal  — Create/initialise drying goal record
@@ -20,17 +21,25 @@ import {
   assertInspectionReadable,
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
-import { IICRC_DRY_STANDARDS, getDryStandard } from "@/lib/iicrc-dry-standards";
+import {
+  DRYING_GOAL_BASIS_RECORD,
+  MOISTURE_GUIDE_VALUES,
+  dryingGoalAchievedMessage,
+  dryingGoalCertificate,
+  dryingGoalProgressMessage,
+  evaluateDryingGoal,
+  pickReferenceReadings,
+} from "@/lib/iicrc-dry-standards";
 import { computeTargetCurve } from "@/lib/drying/target-curve";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { latestMonitoringReadingsForDryingGoal } from "@/lib/moisture/latest-monitoring-readings";
 
-// Material EMC targets for the "Drying Goal: ACHIEVED" gate
-// These map the iicrc-dry-standards.ts values into the per-material target JSON
+// Guide snapshot stored on the record at POST. At evaluation time a job's
+// reference reading for the material always wins over this snapshot.
 function buildMaterialTargets(): Record<string, number> {
   const targets: Record<string, number> = {};
-  for (const std of IICRC_DRY_STANDARDS) {
+  for (const std of MOISTURE_GUIDE_VALUES) {
     targets[std.material] = std.dryThreshold;
   }
   return targets;
@@ -239,7 +248,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 targetClass,
                 materialTargets: buildMaterialTargets(),
                 goalAchieved: false,
-                iicrcReference: "IICRC S500:2021 §11.4",
+                iicrcReference: DRYING_GOAL_BASIS_RECORD,
               },
             }),
         );
@@ -313,6 +322,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             moistureLevel: true,
             isBaseline: true,
             isMonitoringPoint: true,
+            unit: true,
             invalidatedAt: true,
             recordedAt: true,
             createdAt: true,
@@ -344,8 +354,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         status: "ACHIEVED",
         goalAchievedAt: record.goalAchievedAt,
         totalDryingDays: record.totalDryingDays,
-        iicrcReference: record.iicrcReference,
-        message: `Drying Goal: ACHIEVED — certified ${record.goalAchievedAt?.toISOString()} per ${record.iicrcReference}`,
+        message: `Drying Goal: ACHIEVED — certified ${record.goalAchievedAt?.toISOString()}`,
       });
     }
 
@@ -363,51 +372,20 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Evaluate each reading against its material EMC target
-    interface ReadingGap {
-      location: string;
-      surfaceType: string;
-      moistureLevel: number;
-      target: number;
-      gap: number;
-    }
-
-    const failingReadings: ReadingGap[] = [];
-    const readingSnapshot: Record<string, unknown>[] = [];
-
-    for (const reading of readings) {
-      const target =
-        materialTargets[reading.surfaceType] ??
-        getDryStandard(reading.surfaceType).dryThreshold;
-
-      const snap = {
-        id: reading.id,
-        location: reading.location,
-        surfaceType: reading.surfaceType,
-        moistureLevel: reading.moistureLevel,
-        target,
-        timestamp: reading.recordedAt ?? reading.createdAt,
-      };
-      readingSnapshot.push(snap);
-
-      if (reading.moistureLevel > target) {
-        failingReadings.push({
-          location: reading.location,
-          surfaceType: reading.surfaceType,
-          moistureLevel: reading.moistureLevel,
-          target,
-          gap: parseFloat((reading.moistureLevel - target).toFixed(2)),
-        });
-      }
-    }
+    // Reference reading (unaffected like material, same building) first;
+    // the stored guide snapshot only where no reference exists.
+    const references = pickReferenceReadings(inspection.moistureReadings);
+    const evaluation = evaluateDryingGoal(readings, materialTargets, references);
+    const failingReadings = evaluation.failing;
+    const readingSnapshot = evaluation.snapshot;
 
     if (failingReadings.length > 0) {
       return NextResponse.json({
         status: "IN_PROGRESS",
-        message: `${failingReadings.length} reading(s) still above IICRC S500 target EMC. Continue drying.`,
+        message: dryingGoalProgressMessage(failingReadings.length),
         readingsChecked: readings.length,
         failingReadings,
-        iicrcReference: record.iicrcReference,
+        goalBases: evaluation.bases,
       });
     }
 
@@ -466,11 +444,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       goalAchievedAt: updated.goalAchievedAt,
       totalDryingDays: updated.totalDryingDays,
       readingsChecked: readings.length,
-      iicrcReference: updated.iicrcReference,
+      goalBases: evaluation.bases,
       signedOffBy: updated.signedOffBy,
-      // This string goes verbatim into the NIR PDF report
-      certificate: `Drying Goal: ACHIEVED — ${updated.goalAchievedAt?.toISOString()} — All materials at or below IICRC S500:2021 §11.4 target EMC — ${totalDryingDays} day(s) drying`,
-      message: `All ${readings.length} moisture readings are at or below IICRC S500 target EMC. Drying complete in ${totalDryingDays} day(s).`,
+      // Plain statement of the basis; never names a standard (RA-8508).
+      certificate: dryingGoalCertificate(
+        updated.goalAchievedAt?.toISOString(),
+        totalDryingDays,
+        evaluation.bases,
+      ),
+      message: dryingGoalAchievedMessage(
+        readings.length,
+        totalDryingDays,
+        evaluation.bases,
+      ),
     });
   } catch (error) {
     return fromException(request, error, { stage: "drying-goal-put" });

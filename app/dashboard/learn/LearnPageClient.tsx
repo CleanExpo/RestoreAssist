@@ -39,12 +39,12 @@ const LIBRARY: { slug: string; subtitle: string; category: string }[] = [
   { slug: "remotion-tutorial-reports", subtitle: "Generate AI-assisted professional reports.", category: "reports" },
   { slug: "remotion-tutorial-billing", subtitle: "Plans, invoices, and upgrades.", category: "billing" },
   { slug: "remotion-tutorial-team", subtitle: "Invite members and manage roles.", category: "team" },
-  { slug: "remotion-tutorial-compliance", subtitle: "IICRC standards and digital compliance.", category: "compliance" },
+  { slug: "remotion-tutorial-compliance", subtitle: "IICRC standards and digital record-keeping.", category: "compliance" },
   { slug: "remotion-tutorial-integrations", subtitle: "Connect Xero, Ascora and more.", category: "integrations" },
   { slug: "remotion-hero-product-overview", subtitle: "Complete platform overview for new users.", category: "getting-started" },
   { slug: "remotion-dashboard", subtitle: "Navigate the dashboard and key metrics.", category: "getting-started" },
   { slug: "remotion-create-inspection", subtitle: "Start a new inspection from scratch.", category: "inspections" },
-  { slug: "remotion-report-builder", subtitle: "Build professional S500-compliant reports.", category: "reports" },
+  { slug: "remotion-report-builder", subtitle: "Build professional reports aligned to IICRC S500.", category: "reports" },
   { slug: "remotion-client-portal", subtitle: "Share reports and manage client access.", category: "marketing" },
   { slug: "remotion-evidence-capture", subtitle: "Capture and annotate photo evidence.", category: "inspections" },
   { slug: "remotion-moisture-mapping", subtitle: "Map moisture readings and dry goals.", category: "inspections" },
@@ -53,7 +53,7 @@ const LIBRARY: { slug: string; subtitle: string; category: string }[] = [
   { slug: "remotion-settings-config", subtitle: "Configure your company profile and preferences.", category: "getting-started" },
   { slug: "remotion-pricing-overview", subtitle: "Plans, features, and upgrade paths.", category: "billing" },
   { slug: "remotion-analytics-overview", subtitle: "Business intelligence and reporting.", category: "reports" },
-  { slug: "remotion-compliance-checklists", subtitle: "IICRC and WHS compliance workflows.", category: "compliance" },
+  { slug: "remotion-compliance-checklists", subtitle: "IICRC-aligned and WHS checklist workflows.", category: "compliance" },
   { slug: "remotion-invoice-generator", subtitle: "Generate and send invoices.", category: "billing" },
   { slug: "remotion-quote-builder", subtitle: "Build and send quotes to clients.", category: "billing" },
   { slug: "remotion-mobile-workflow", subtitle: "Field workflow on mobile devices.", category: "inspections" },
@@ -139,7 +139,7 @@ export function LearnPageClient() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Tutorials"
         description={`Short walk-throughs of RestoreAssist — ${filtered.length} videos in the library.`}
-        icon={<ChromePlayCircle className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={<ChromePlayCircle className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400" aria-hidden />}
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/learn" })}
       />
 

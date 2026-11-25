@@ -29,8 +29,22 @@ describe("getS500Section — verified S500-2021 recall", () => {
     ); // not "equipment"
   });
 
-  it("has a meaningful index", () => {
-    expect(Object.keys(S500_SECTIONS).length).toBeGreaterThanOrEqual(35);
+  it("holds exactly the 62 verified entries (16 chapters, 46 subsections)", () => {
+    // Pinned, not a floor: a floor of 35 let 27 verified sections disappear
+    // unnoticed. Adding or removing a verified section must change this number
+    // on purpose. The marketing copy states this count, so it must stay true.
+    const keys = Object.keys(S500_SECTIONS);
+    expect(keys).toHaveLength(62);
+    expect(keys.filter((k) => !k.includes("."))).toHaveLength(16);
+  });
+
+  it("every subsection sits under a chapter that is itself in the index", () => {
+    // The index is a partial table of contents (e.g. §12.3.2 without §12.3),
+    // so only the top-level chapter is required. The citation gate derives its
+    // set of real chapters from these keys, so an orphan here would widen it.
+    for (const key of Object.keys(S500_SECTIONS)) {
+      expect(S500_SECTIONS[key.split(".")[0]], key).toBeDefined();
+    }
   });
 
   it("recalls the §10 inspection subsections verified from the licensed chapter PDF", () => {
@@ -38,7 +52,9 @@ describe("getS500Section — verified S500-2021 recall", () => {
     // Evaluations.pdf" (licensed S500-2021 chapter), read 2026-06-30.
     expect(getS500Section("10.1")?.title).toBe("Introduction");
     expect(getS500Section("10.3")?.title).toBe("Documentation");
-    expect(getS500Section("10.6.6")?.title).toBe("Dry Standards and Drying Goals");
+    expect(getS500Section("10.6.6")?.title).toBe(
+      "Dry Standards and Drying Goals",
+    );
     expect(getS500Section("10.7")?.title).toBe(
       "Pre-Remediation and Pre-Restoration Evaluation",
     );

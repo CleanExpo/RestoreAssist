@@ -183,7 +183,7 @@ export async function generateEnhancedReportPDF(
         helvetica,
         secondaryColor,
       );
-    } catch (e) {
+    } catch {
       // Skip invalid dates
     }
   }

@@ -225,7 +225,7 @@ function HeroTile() {
     <DashboardPanel>
       <DashboardPanelHeader
         title="Margot runtime"
-        description="Heartbeat from the ops assistant on the Mac mini / Hermes stack."
+        description="Heartbeat from the Margot ops assistant."
         action={
           <TileActions
             ts={data?.fetchedAt}
@@ -469,7 +469,7 @@ function CorpusTile() {
     <DashboardPanel className="h-full">
       <DashboardPanelHeader
         title="RAG corpus"
-        description="Knowledge store Margot and Hermes draw from."
+        description="Knowledge store Margot draws from."
         action={
           <TileActions
             ts={data?.fetchedAt}
@@ -572,7 +572,7 @@ export default function MargotHomeDashboard() {
         title="Ops overview"
         description="Live health, Telegram, Linear, schedules, and corpus — plus the social restoration gate Phil asked for. Engage only on property and insurance work; refuse car, teeth, and other false matches."
         icon={
-          <span className="relative block h-8 w-8 overflow-hidden rounded-full ring-2 ring-cyan-400/40">
+          <span className="relative block h-8 w-8 overflow-hidden rounded-full ring-2 ring-brand-harbour-400/40">
             <Image
               src={MARGOT_AVATAR_ORB_PATH}
               alt=""
@@ -593,7 +593,6 @@ export default function MargotHomeDashboard() {
         secondaryLinks={[
           { href: "/dashboard/margot", label: "Chat" },
           { href: "/dashboard/margot/social", label: "Social training" },
-          { href: "/dashboard/mission-control", label: "Mission Control" },
           { href: "/dashboard/admin/rag", label: "RAG admin" },
           { href: "/dashboard/admin", label: "Admin home" },
         ]}
@@ -605,7 +604,7 @@ export default function MargotHomeDashboard() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <Bot className="h-5 w-5 text-cyan-500" aria-hidden />
+              <Bot className="h-5 w-5 text-brand-harbour-500" aria-hidden />
               Live ops
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -630,8 +629,8 @@ export default function MargotHomeDashboard() {
           <p className="text-sm text-muted-foreground">
             Run posts through{" "}
             <code className="text-xs">/api/margot/social-relevance</code> before
-            Hermes comments. Copy the role prompt into{" "}
-            <code className="text-xs">SOUL.md</code> on the Mac mini.
+            Margot comments. Copy the role prompt into Margot&apos;s role
+            settings.
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">

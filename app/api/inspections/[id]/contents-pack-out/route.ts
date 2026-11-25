@@ -7,15 +7,21 @@
  * POST /api/inspections/[id]/contents-pack-out
  *   Creates a new pack-out item. Stamps Inspection.claimType = CONTENTS.
  *
+ * PATCH  /api/inspections/[id]/contents-pack-out/[itemId]
+ *   Sets or clears an item's before / after photo (see [itemId]/route.ts).
+ *
  * DELETE /api/inspections/[id]/contents-pack-out/[itemId]
  *   Removes a specific item (see [itemId]/route.ts).
+ *
+ * RA-8537: an item's photo URLs must name a photo already uploaded to this
+ * job through /photos; GET re-signs them so private-bucket photos display.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
+import { packOutItemSchema } from "@/lib/contents/pack-out-item-schema";
 import { withIdempotency } from "@/lib/idempotency";
 import {
   assertInspectionTenancy,
@@ -23,48 +29,15 @@ import {
   writeWithinInspectionScope,
 } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  resolvePackOutPhotos,
+  signPackOutItemPhotos,
+} from "@/lib/contents/pack-out-item-photos";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
-
-const packOutItemSchema = z.object({
-  itemDescription: z.string().min(1),
-  make: z.string().nullable().optional(),
-  model: z.string().nullable().optional(),
-  serialNumber: z.string().nullable().optional(),
-  ageYears: z.number().int().nonnegative().nullable().optional(),
-  conditionPreLoss: z
-    .enum(["EXCELLENT", "GOOD", "FAIR", "POOR"])
-    .nullable()
-    .optional(),
-  conditionPostLoss: z
-    .enum(["EXCELLENT", "GOOD", "FAIR", "POOR"])
-    .nullable()
-    .optional(),
-  replacementValueAud: z.number().nonnegative().nullable().optional(),
-  restorationCostEstimate: z.number().nonnegative().nullable().optional(),
-  packOutDecision: z
-    .enum(["CLEAN_ONSITE", "PACK_OUT", "TOTAL_LOSS"])
-    .nullable()
-    .optional(),
-  packOutTag: z.string().nullable().optional(),
-  beforePhotoUrl: z.string().url().nullable().optional(),
-  afterPhotoUrl: z.string().url().nullable().optional(),
-  claimType: z
-    .enum([
-      "WATER",
-      "FIRE",
-      "MOULD",
-      "STORM",
-      "CONTENTS",
-      "BIOHAZARD",
-      "ODOUR",
-      "CARPET",
-      "HVAC",
-      "ASBESTOS",
-    ])
-    .nullable()
-    .optional(),
-});
+// RA-8533: the schema lives in lib/contents so the Contents form builds its
+// body from the same contract this route validates.
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
@@ -93,11 +66,13 @@ export async function GET(
       );
     }
 
-    const items = await prisma.contentsPackOutItem.findMany({
+    const stored = await prisma.contentsPackOutItem.findMany({
       where: { inspectionId: id },
       orderBy: { createdAt: "asc" },
       take: 500,
     });
+    // RA-8537: stored photo URLs on a private bucket do not load unsigned.
+    const items = await Promise.all(stored.map(signPackOutItemPhotos));
 
     const totalReplacementValueAud = items.reduce(
       (sum, item) =>
@@ -107,7 +82,9 @@ export async function GET(
       0,
     );
 
-    return NextResponse.json({
+    // RA-8494 / D-028: pack-out items carry replacement values and
+    // restoration estimates, which are money.
+    return NextResponse.json(await moneySafe(session, {
       items,
       summary: {
         totalItems: items.length,
@@ -118,7 +95,7 @@ export async function GET(
           .length,
         totalReplacementValueAud,
       },
-    });
+    }));
   } catch (err) {
     return fromException(_req, err, { stage: "contents-pack-out:list" });
   }
@@ -174,6 +151,19 @@ export async function POST(
 
       const data = parsed.data;
 
+      // RA-8537: a photo must be one already uploaded to this job.
+      const photos = await resolvePackOutPhotos(id, {
+        beforePhotoUrl: data.beforePhotoUrl,
+        afterPhotoUrl: data.afterPhotoUrl,
+      });
+      if (!photos.ok) {
+        return apiError(req, {
+          code: "VALIDATION",
+          message: `${photos.field} is not a photo on this job. Upload it to the job's photos first.`,
+          status: 400,
+        });
+      }
+
       const record = await writeWithinInspectionScope(
         tenancy.data.inspectionManyWhere,
         // Stamp Inspection.claimType = CONTENTS; this scoped update is also the
@@ -195,8 +185,8 @@ export async function POST(
               restorationCostEstimate: data.restorationCostEstimate ?? null,
               packOutDecision: data.packOutDecision ?? null,
               packOutTag: data.packOutTag ?? null,
-              beforePhotoUrl: data.beforePhotoUrl ?? null,
-              afterPhotoUrl: data.afterPhotoUrl ?? null,
+              beforePhotoUrl: photos.data.beforePhotoUrl ?? null,
+              afterPhotoUrl: photos.data.afterPhotoUrl ?? null,
               claimType: data.claimType ?? null,
             },
           }),
@@ -212,7 +202,10 @@ export async function POST(
         });
       }
 
-      return NextResponse.json(record, { status: 201 });
+      return NextResponse.json(
+        await moneySafe(session, await signPackOutItemPhotos(record)),
+        { status: 201 },
+      );
     } catch (err) {
       return fromException(req, err, { stage: "contents-pack-out:create" });
     }

@@ -28,6 +28,10 @@ import {
   GUIDEWIRE_FIELD_MAP,
 } from "@/lib/nir-guidewire-integration";
 import { withIdempotency } from "@/lib/idempotency";
+import {
+  GUIDEWIRE_EXPORT_INSPECTION_STATUSES,
+  inspectionStatusAllowsGuidewireExport,
+} from "@/lib/inspections/active-status";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -168,19 +172,13 @@ async function buildResponse(
   }
 
   // Only COMPLETED/ESTIMATED inspections have enough data for a Guidewire payload
-  const submittableStatuses = [
-    "ESTIMATED",
-    "COMPLETED",
-    "SCOPED",
-    "CLASSIFIED",
-  ];
-  if (!submittableStatuses.includes(inspection.status)) {
+  if (!inspectionStatusAllowsGuidewireExport(inspection.status)) {
     return NextResponse.json(
       {
         error:
           "Inspection must be processed before Guidewire payload can be generated",
         currentStatus: inspection.status,
-        requiredStatuses: submittableStatuses,
+        requiredStatuses: [...GUIDEWIRE_EXPORT_INSPECTION_STATUSES],
       },
       { status: 422 },
     );

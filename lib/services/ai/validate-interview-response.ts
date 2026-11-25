@@ -1,5 +1,5 @@
 /**
- * AI-driven IICRC S500:2021 compliance validator for guided inspection
+ * AI-driven IICRC S500:2021 alignment reviewer for guided inspection
  * interview answers.
  *
  * Composes the multi-model-fallback gateway helper
@@ -29,7 +29,7 @@ import {
 const MAX_FIELD_CHARS = 600;
 const MAX_FINDINGS = 20;
 
-const SYSTEM_PROMPT = `You are an IICRC S500:2021 compliance reviewer for Australian water-damage restoration inspections.
+const SYSTEM_PROMPT = `You are a reviewer checking Australian water-damage restoration inspections for alignment with IICRC S500:2021. You flag gaps for a human; you never certify or state that a job is compliant.
 
 Your job: read the technician's answers from a guided inspection interview and flag anything that is inconsistent, missing, or non-compliant against IICRC S500:2021.
 

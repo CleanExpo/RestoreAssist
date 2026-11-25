@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// RA-8494: the caller here may see money; the money rule is proven in
+// technician-no-money.test.ts (see lib/auth/__mocks__/redact-money.ts).
+vi.mock("@/lib/auth/redact-money");
+
 /**
  * The builder accepts only grants issued by authoriseReportExperienceRead, so
  * these tests obtain every grant through that gate, with its database and

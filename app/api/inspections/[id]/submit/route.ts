@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -48,6 +48,7 @@ import {
 import { resolveAreaSqm } from "@/lib/units";
 import { InspectionStatus } from "@prisma/client";
 import { notifyClientStepChange } from "@/lib/pulse/notify-client-change";
+import { notifyOfficeOfSubmittedVisit } from "@/lib/office-notice/submit-notice";
 import { linkedReadingsAreaConflict, readingMatchesArea, unlinkedReadingsAreaAmbiguity } from "@/lib/moisture/reading-room-join";
 
 // POST - Submit inspection for processing
@@ -136,6 +137,14 @@ export async function POST(
           // record (RA-8388, below); it is never returned.
           photos: { select: { id: true, photoStage: true, url: true } },
           evidenceItems: FILE_EVIDENCE_STATUS_SELECT,
+          // RA-8498: an open site visit (started, not submitted) blocks the
+          // job's submit, below. Only whether one exists is read.
+          siteVisits: {
+            where: { submittedAt: null },
+            select: { visitNumber: true },
+            orderBy: { visitNumber: "asc" },
+            take: 1,
+          },
         },
       });
 
@@ -258,6 +267,24 @@ export async function POST(
         return NextResponse.json(fireGate.body, { status: fireGate.status });
       }
 
+      // ── RA-8498 (DRC S5): an open site visit blocks the job's submit ─────────
+      // A visit records arrival, departure, who was on site, the front photo
+      // and the equipment outcome; lib/site-visits/visit-gate.ts decides when
+      // it is complete. A job with no visits, or only submitted ones, is not
+      // affected. Runs before every write below, so a refusal leaves no side
+      // effects. A visit started after this read bumps the job's updatedAt,
+      // so the CAS below then refuses instead of submitting past it.
+      const openVisit = inspection.siteVisits?.[0];
+      if (openVisit) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Visit ${openVisit.visitNumber} is still open. Submit the visit (arrival, departure, who was on site, front photo, equipment) before submitting the job.`,
+          status: 422,
+          fields: { siteVisit: "SITE_VISIT_OPEN" },
+          stage: "site-visit-open",
+        });
+      }
+
       // ── CLAIM-003 auto-detection ────────────────────────────────────────────
       // If the inspection was previously processed (status != DRAFT), this submission
       // represents a re-inspection event. Record it automatically so no admin action
@@ -361,6 +388,8 @@ export async function POST(
       // The fire gate is read again inside the claim's transaction, after
       // the claim holds the row lock that every fire write also takes, so a
       // fire edit cannot slip in between the gate and the claim.
+      // RA-8503: kept so the office notice is keyed to this exact submit.
+      const submittedAt = new Date();
       const submitGuard = await claimSubmitWithFireGate(
         prisma,
         {
@@ -376,7 +405,7 @@ export async function POST(
               status: "DRAFT",
               updatedAt: inspection.updatedAt,
             },
-            data: { status: "SUBMITTED", submittedAt: new Date() },
+            data: { status: "SUBMITTED", submittedAt },
           }),
       );
       if (submitGuard.fireBlock) {
@@ -390,6 +419,27 @@ export async function POST(
           console.error("[next-action] SUBMITTED nudge failed:", err),
         );
         scheduleZohoInspectionPush(id);
+        // RA-8503: tell the office the visit is complete. Only the winning
+        // CAS reaches here, so a retry or a lost race tells nobody; the email
+        // is also claimed once in the delivery ledger. At most once, never
+        // blocks the response, and after() keeps the work alive past it.
+        // RA-8525: the notice starts INSIDE the after() callback, as the
+        // booking notice does (RA-8497), never as a promise already running.
+        const submitterName = session.user.name ?? null;
+        const runOfficeNotice = () =>
+          notifyOfficeOfSubmittedVisit({
+            inspectionId: id,
+            submittedAt,
+            submitterName,
+          }).catch((err) =>
+            console.error("[office-notice] submit notice failed:", err),
+          );
+        try {
+          after(runOfficeNotice);
+        } catch {
+          // Outside a request scope after() throws; send without it.
+          void runOfficeNotice();
+        }
       }
       if (submitGuard.count === 0) {
         return apiError(request, {

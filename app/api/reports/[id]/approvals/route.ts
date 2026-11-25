@@ -6,6 +6,7 @@ import { ApprovalType } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 import { resolveReportFinancialReach } from "@/lib/auth/assert-tenancy";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 export async function GET(
   request: NextRequest,
@@ -64,7 +65,8 @@ export async function GET(
       take: 50,
     });
 
-    return NextResponse.json({ approvals });
+    // RA-8494: an approval's amount is money.
+    return NextResponse.json({ approvals: await moneySafe(session, approvals) });
   } catch (error) {
     return fromException(request, error, { stage: "approvals-get" });
   }
@@ -145,7 +147,10 @@ export async function POST(
         },
       });
 
-      return NextResponse.json({ approval }, { status: 201 });
+      return NextResponse.json(
+        { approval: await moneySafe(session, approval) },
+        { status: 201 },
+      );
     } catch (error) {
       return fromException(request, error, { stage: "approvals-post" });
     }

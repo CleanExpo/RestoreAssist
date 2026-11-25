@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
+import { SIGN_OFF_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 
 const source = readFileSync(
   join(process.cwd(), "app/dashboard/inspections/[id]/page.tsx"),
@@ -134,9 +135,17 @@ function expectOnlyUnderGate(gate: string, needles: string[]) {
 
 describe("inspection lifecycle controls", () => {
   it("keeps sign-off visible from completed work through signed submission", () => {
+    // RA-8422: the sign-off states moved to lib/inspections/active-status.ts,
+    // shared with the sign route. The page must use that owner, and the owner
+    // must still name these three states.
     expect(source).toMatch(
-      /const canSignOff =\s*\["ESTIMATED", "COMPLETED", "SUBMITTED"\]\.includes\(\s*inspection\.status,?\s*\)/,
+      /const canSignOff =\s*inspectionStatusAllowsSignOff\(\s*inspection\.status,?\s*\)/,
     );
+    expect([...SIGN_OFF_INSPECTION_STATUSES]).toEqual([
+      "ESTIMATED",
+      "COMPLETED",
+      "SUBMITTED",
+    ]);
     // What matters is that `canSignOff` gates <InspectionSignOff>, not how the
     // block is wrapped. The wrapper <div> moved OUTSIDE this conditional in
     // 04951e56d so the field evidence checklist renders unconditionally, which

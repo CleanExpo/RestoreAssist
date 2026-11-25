@@ -177,7 +177,7 @@ const GROUPS: readonly ComparisonGroup[] = [
         headline: true,
       },
       {
-        // NOT "IICRC S500 compliant". lib/iicrc-inclusion-check.ts sets the
+        // No standard-conformity claim here. lib/iicrc-inclusion-check.ts sets the
         // hard rule that this product never asserts "complies", "certifies",
         // "meets [the standard]" or "required by law" (regression-tested in
         // lib/__tests__/iicrc-inclusion-check.test.ts), and full S500 clause
@@ -298,7 +298,7 @@ function useRevealArmed(): boolean {
 function CellBody({ planLabel, cell }: { planLabel: string; cell: Cell }) {
   return (
     <>
-      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:sr-only">
+      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 sm:sr-only">
         {planLabel}
       </span>
       {cell.included ? (
@@ -309,11 +309,11 @@ function CellBody({ planLabel, cell }: { planLabel: string; cell: Cell }) {
           <span>{cell.label ?? "Included"}</span>
         </span>
       ) : cell.label ? (
-        <span className="block text-[15px] leading-[1.6] text-slate-400">
+        <span className="block text-[15px] leading-[1.6] text-slate-600">
           {cell.label}
         </span>
       ) : (
-        <span className="block text-[15px] leading-[1.6] text-slate-400">
+        <span className="block text-[15px] leading-[1.6] text-slate-600">
           <span aria-hidden="true">&mdash;</span>
           <span className="sr-only">Not included</span>
         </span>
@@ -389,7 +389,7 @@ export function TierComparison() {
                   </p>
                   <p className="mt-2 text-[15px] leading-[1.6]">
                     <span className="text-white/55">{cellText(row.free)}</span>
-                    <span aria-hidden="true" className="px-2 text-white/40">
+                    <span aria-hidden="true" className="px-2 text-white/60">
                       &rarr;
                     </span>
                     <span className="sr-only"> becomes </span>
@@ -425,7 +425,7 @@ export function TierComparison() {
                 >
                   {free.displayName}
                 </p>
-                <p className="mt-1 text-[13px] text-slate-500">
+                <p className="mt-1 text-[13px] text-slate-600">
                   $0 &middot; {free.trialDays} days &middot; no credit card
                 </p>
               </div>
@@ -435,7 +435,7 @@ export function TierComparison() {
                 >
                   {paid.displayName}
                 </p>
-                <p className="mt-1 text-[13px] text-slate-500">
+                <p className="mt-1 text-[13px] text-slate-600">
                   {paidPrice} {paid.currency} / {paid.interval} &middot; cancel
                   any time
                 </p>

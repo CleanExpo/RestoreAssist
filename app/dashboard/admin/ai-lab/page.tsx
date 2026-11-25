@@ -89,7 +89,7 @@ function ScoreBar({
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
         <span className="text-neutral-500 dark:text-slate-400">
-          {label} <span className="text-neutral-400">({weight}%)</span>
+          {label} <span className="text-brand-slate dark:text-neutral-400">({weight}%)</span>
         </span>
         <span
           className={cn(
@@ -146,15 +146,15 @@ function CaseCard({ c }: { c: EvaluationCaseResult }) {
             <div className="text-sm font-medium text-neutral-900 dark:text-white">
               {c.testCaseId}
             </div>
-            <div className="text-xs text-neutral-400">
+            <div className="text-xs text-brand-slate dark:text-neutral-400">
               {c.claimType} · {c.durationMs}ms
             </div>
           </div>
         </div>
         {open ? (
-          <ChevronUp size={14} className="text-neutral-400" />
+          <ChevronUp size={14} className="text-brand-slate dark:text-neutral-400" />
         ) : (
-          <ChevronDown size={14} className="text-neutral-400" />
+          <ChevronDown size={14} className="text-brand-slate dark:text-neutral-400" />
         )}
       </button>
       {open && (
@@ -241,7 +241,7 @@ export default function AILabPage() {
   if (status === "loading")
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="animate-spin text-cyan-500" size={28} />
+        <Loader2 className="animate-spin text-brand-harbour-500" size={28} />
       </div>
     );
   if (!session) {
@@ -312,7 +312,7 @@ export default function AILabPage() {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-            <Sparkles size={20} className="text-cyan-500" />
+            <Sparkles size={20} className="text-brand-harbour-500" />
             AI Lab
           </h1>
           <p className="text-sm text-neutral-500 dark:text-slate-400 mt-0.5">
@@ -339,7 +339,7 @@ export default function AILabPage() {
             <Button
               onClick={runVectorise}
               disabled={isVectorising}
-              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white"
+              className="flex items-center gap-2 bg-brand-cta hover:bg-brand-cta-hover text-white"
             >
               {isVectorising ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -348,7 +348,7 @@ export default function AILabPage() {
               )}
               {isVectorising ? "Vectorising…" : "Vectorise 50 Jobs"}
             </Button>
-            <span className="text-xs text-neutral-400">
+            <span className="text-xs text-brand-slate dark:text-neutral-400">
               Processes 50 un-embedded jobs per run. Idempotent — safe to
               re-run.
             </span>
@@ -371,7 +371,7 @@ export default function AILabPage() {
                 {
                   label: "Skipped",
                   value: vectoriseResult.skipped,
-                  color: "text-neutral-400",
+                  color: "text-brand-slate dark:text-neutral-400",
                 },
                 {
                   label: "Remaining",
@@ -384,7 +384,7 @@ export default function AILabPage() {
                 {
                   label: "Duration",
                   value: `${vectoriseResult.durationMs}ms`,
-                  color: "text-neutral-400",
+                  color: "text-brand-slate dark:text-neutral-400",
                 },
               ].map((s) => (
                 <div
@@ -394,13 +394,13 @@ export default function AILabPage() {
                   <div className={`text-lg font-bold ${s.color}`}>
                     {s.value}
                   </div>
-                  <div className="text-xs text-neutral-400">{s.label}</div>
+                  <div className="text-xs text-brand-slate dark:text-neutral-400">{s.label}</div>
                 </div>
               ))}
             </div>
           )}
           {vectoriseResult && (
-            <div className="text-xs text-neutral-400">
+            <div className="text-xs text-brand-slate dark:text-neutral-400">
               Provider: {vectoriseResult.provider} · Total jobs:{" "}
               {vectoriseResult.total}
             </div>
@@ -412,7 +412,7 @@ export default function AILabPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <BarChart2 size={16} className="text-cyan-500" />
+            <BarChart2 size={16} className="text-brand-harbour-500" />
             Scope Quality Evaluation
           </CardTitle>
           <CardDescription>
@@ -431,7 +431,7 @@ export default function AILabPage() {
                 onChange={(e) =>
                   setEvalClaimType(e.target.value as ClaimType | "all")
                 }
-                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               >
                 <option value="all">All claim types</option>
                 {CLAIM_TYPES.map((ct) => (
@@ -451,14 +451,14 @@ export default function AILabPage() {
                 max={10}
                 value={evalSampleSize}
                 onChange={(e) => setEvalSampleSize(Number(e.target.value))}
-                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
             <div className="flex items-end">
               <Button
                 onClick={runEvaluation}
                 disabled={isEvaluating}
-                className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-white"
+                className="flex items-center gap-2 bg-brand-cta hover:bg-brand-cta-hover text-white"
               >
                 {isEvaluating ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -504,11 +504,11 @@ export default function AILabPage() {
                   >
                     <div className="text-xl font-bold text-neutral-900 dark:text-white">
                       {s.value}
-                      <span className="text-sm font-normal text-neutral-400">
+                      <span className="text-sm font-normal text-brand-slate dark:text-neutral-400">
                         {s.suffix}
                       </span>
                     </div>
-                    <div className="text-xs text-neutral-400 mt-0.5">
+                    <div className="text-xs text-brand-slate dark:text-neutral-400 mt-0.5">
                       {s.label}
                     </div>
                   </div>
@@ -584,7 +584,7 @@ export default function AILabPage() {
               <select
                 value={optClaimType}
                 onChange={(e) => setOptClaimType(e.target.value as ClaimType)}
-                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               >
                 {CLAIM_TYPES.map((ct) => (
                   <option key={ct.value} value={ct.value}>
@@ -603,7 +603,7 @@ export default function AILabPage() {
                 max={100}
                 value={optBudget}
                 onChange={(e) => setOptBudget(Number(e.target.value))}
-                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
             <div className="w-28">
@@ -616,14 +616,14 @@ export default function AILabPage() {
                 max={20}
                 value={optThreshold}
                 onChange={(e) => setOptThreshold(Number(e.target.value))}
-                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500"
               />
             </div>
             <div className="flex items-end">
               <Button
                 onClick={runOptimisation}
                 disabled={isOptimising}
-                className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white"
+                className="flex items-center gap-2 bg-brand-cta hover:bg-brand-cta-hover text-white"
               >
                 {isOptimising ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -635,7 +635,7 @@ export default function AILabPage() {
             </div>
           </div>
 
-          <div className="text-xs text-neutral-400 bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-lg p-2.5">
+          <div className="text-xs text-brand-slate dark:text-neutral-400 bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-lg p-2.5">
             Estimated cost: ~${(optBudget * 0.02).toFixed(2)} AUD · Budget{" "}
             {optBudget} calls · Threshold +{optThreshold} points required to
             promote
@@ -666,7 +666,7 @@ export default function AILabPage() {
                   <div className="text-lg font-bold">
                     {Math.round(optResult.baselineScore)}
                   </div>
-                  <div className="text-xs text-neutral-400">Baseline</div>
+                  <div className="text-xs text-brand-slate dark:text-neutral-400">Baseline</div>
                 </div>
                 <div>
                   <div
@@ -674,22 +674,22 @@ export default function AILabPage() {
                       "text-lg font-bold",
                       optResult.improvement > 0
                         ? "text-success"
-                        : "text-neutral-400",
+                        : "text-brand-slate dark:text-neutral-400",
                     )}
                   >
                     {optResult.improvement > 0 ? "+" : ""}
                     {Math.round(optResult.improvement)}
                   </div>
-                  <div className="text-xs text-neutral-400">Improvement</div>
+                  <div className="text-xs text-brand-slate dark:text-neutral-400">Improvement</div>
                 </div>
                 <div>
                   <div className="text-lg font-bold">
                     ${optResult.estimatedCostAud.toFixed(2)}
                   </div>
-                  <div className="text-xs text-neutral-400">Cost AUD</div>
+                  <div className="text-xs text-brand-slate dark:text-neutral-400">Cost AUD</div>
                 </div>
               </div>
-              <div className="text-xs text-neutral-400">
+              <div className="text-xs text-brand-slate dark:text-neutral-400">
                 {optResult.iterationsRun} iterations ·{" "}
                 {optResult.claimType.replace("_", " ")}
                 {optResult.promptVariantId &&

@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 type Status = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 
@@ -53,7 +54,7 @@ export function MirrorJobsTable() {
   async function refresh() {
     try {
       const res = await fetch("/api/storage/mirror-jobs");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(statusErrorMessage(res.status));
       const json = (await res.json()) as {
         data: { jobs: MirrorJob[]; stats: Stats };
       };
@@ -81,7 +82,7 @@ export function MirrorJobsTable() {
       const res = await fetch(`/api/storage/mirror-jobs/retry/${jobId}`, {
         method: "POST",
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(statusErrorMessage(res.status));
       toast.success("Retry queued — will run on the next minute tick");
     } catch (err) {
       toast.error("Retry failed");

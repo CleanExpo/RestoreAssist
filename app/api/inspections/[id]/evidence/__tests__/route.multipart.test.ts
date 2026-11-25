@@ -802,7 +802,7 @@ describe("POST /evidence (multipart): one photograph rule (RA-8388)", () => {
     // tests above are the ones that failed first. This one fails if the two
     // writers are ever given different inputs again.
     const { decideBackfill } = await import(
-      "@/scripts/backfill-evidence-authoritative-rows"
+      "@/scripts/lib/backfill-evidence-authoritative-rows"
     );
     for (const [bytes, declared] of [
       [FIXTURE_BYTES, ""],
@@ -985,11 +985,60 @@ describe("POST /evidence (multipart): one path per evidence class (RA-8388)", ()
     },
   );
 
+  // RA-8407 item 2: "not turned away" was all this used to assert, which a
+  // 500 or a refusal for some other reason also satisfies. An accepted class
+  // must be stored: 201, a type that fits the class, and metadata that tells
+  // the truth. These uploads are unsigned (policy OFF in beforeEach), so the
+  // truth is "not verified" with the server's own hash. The expected kind is
+  // written out here rather than read from the module under test.
+  const MP4_BYTES = new Uint8Array([
+    0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d,
+  ]);
+  const OGG_BYTES = new Uint8Array([0x4f, 0x67, 0x67, 0x53, 0x00, 0x02, 0, 0]);
+  const KIND_FIXTURE = {
+    image: { bytes: FIXTURE_BYTES, declared: "image/jpeg", stored: /^image\/jpeg$/ },
+    video: { bytes: MP4_BYTES, declared: "video/mp4", stored: /^video\// },
+    audio: { bytes: OGG_BYTES, declared: "audio/ogg", stored: /^audio\// },
+  } as const;
+  const KIND_FOR_CLASS = (cls: string): keyof typeof KIND_FIXTURE =>
+    cls === "VIDEO_WALKTHROUGH" ? "video" : cls === "VOICE_MEMO" ? "audio" : "image";
+
   it.each(forFiles)(
-    "does not turn %s away for being sent as a file",
+    "stores %s sent as a file of its own kind: 201, a fitting type, truthful metadata",
     async (evidenceClass) => {
-      const res = await POST(multipartRequest(formFor(evidenceClass)), params);
-      expect(JSON.stringify(await res.json())).not.toMatch(FILE_REFUSAL);
+      const fixture = KIND_FIXTURE[KIND_FOR_CLASS(evidenceClass)];
+      const form = new FormData();
+      form.append(
+        "file",
+        new File([fixture.bytes], "capture-1", { type: fixture.declared }),
+      );
+      form.append("evidenceClass", evidenceClass);
+      form.append("workflowStepId", "step1");
+      const res = await POST(multipartRequest(form), params);
+      const body = await res.json();
+      expect(JSON.stringify(body)).not.toMatch(FILE_REFUSAL);
+      expect(res.status).toBe(201);
+
+      expect(mCreate).toHaveBeenCalledTimes(1);
+      const created = mCreate.mock.calls[0][0].data;
+      expect(created.evidenceClass).toBe(evidenceClass);
+      expect(created.fileMimeType).toMatch(fixture.stored);
+      expect(uploadMock.mock.calls[0][0].mimeType).toBe(created.fileMimeType);
+      const serverHash = createHash("sha256")
+        .update(Buffer.from(fixture.bytes))
+        .digest("hex");
+      expect(created.hashSha256).toBe(serverHash);
+      // Unsigned, so it must not present as verified.
+      const structured = JSON.parse(created.structuredData);
+      expect(structured.signedManifestVerified).toBe(false);
     },
   );
+
+  // RA-8407: the per-class media check on this path, unsigned.
+  it("refuses a VOICE_MEMO whose bytes are a JPEG and stores nothing", async () => {
+    const res = await POST(multipartRequest(formFor("VOICE_MEMO")), params);
+    await expectRefused(res, 400, /voice memo, but the file is not an audio recording/);
+    expect(uploadMock).not.toHaveBeenCalled();
+    expect(mCreate).not.toHaveBeenCalled();
+  });
 });

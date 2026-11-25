@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { isConfirmedEmpty } from "@/lib/client/load-state";
+import {
+  createAttemptKey,
+  settleCreateAttempt,
+  type CreateAttempt,
+} from "@/lib/form-templates/create-attempt-key";
 import {
   Plus,
   Search,
@@ -147,6 +152,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
   const [form, setForm] = useState<CreateFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const createAttempt = useRef<CreateAttempt | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -161,16 +167,22 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
     setSaving(true);
     setError(null);
     try {
+      const body = JSON.stringify({
+        name: form.name.trim(),
+        formType: form.formType,
+        category: form.category || "CUSTOM",
+        description: form.description.trim() || undefined,
+      });
+      // RA-8543: one key per attempt, reused if this attempt is retried.
       const res = await fetch("/api/form-templates", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          formType: form.formType,
-          category: form.category || "CUSTOM",
-          description: form.description.trim() || undefined,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": createAttemptKey(createAttempt, body),
+        },
+        body,
       });
+      settleCreateAttempt(createAttempt, res.status);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(apiErrorMessage(data) ?? `Server error ${res.status}`);
@@ -198,7 +210,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
         <button
           type="button"
           onClick={onCancel}
-          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          className="text-brand-slate dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
           aria-label="Close"
         >
           <X className="h-4 w-4" />
@@ -380,6 +392,9 @@ export default function FormTemplatesPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // RA-7957: a failed delete is shown, not swallowed. Kept apart from the
+  // load error so it never reads as "templates could not be loaded".
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -455,14 +470,23 @@ export default function FormTemplatesPage() {
 
   async function handleDelete(id: string) {
     setDeletingId(id);
+    setActionError(null);
     try {
       const res = await fetch(`/api/form-templates/${id}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Delete failed");
+      if (!res.ok) {
+        const data: unknown = await res.json().catch(() => null);
+        throw new Error(apiErrorMessage(data) ?? "Could not remove template");
+      }
       setTemplates((prev) => prev.filter((t) => t.id !== id));
-    } catch {
-      // Keep row on failure, clear confirm state
+    } catch (err) {
+      // Keep the row and say why.
+      setActionError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Could not remove template",
+      );
     } finally {
       setDeletingId(null);
       setConfirmDeleteId(null);
@@ -531,7 +555,7 @@ export default function FormTemplatesPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-brand-slate dark:text-slate-400 pointer-events-none" />
           <Input
             placeholder="Search templates…"
             value={search}
@@ -575,6 +599,15 @@ export default function FormTemplatesPage() {
         </div>
       )}
 
+      {actionError && (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive-subtle-foreground/30 bg-destructive-subtle px-4 py-3 text-sm text-destructive-subtle-foreground"
+        >
+          {actionError}
+        </div>
+      )}
+
       {/* Table */}
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
         <Table>
@@ -609,7 +642,7 @@ export default function FormTemplatesPage() {
                   className="py-16 text-center text-sm text-slate-500 dark:text-slate-400"
                 >
                   <div className="flex flex-col items-center gap-3">
-                    <FileText className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                    <FileText className="h-8 w-8 text-brand-slate dark:text-slate-600" />
                     {templates.length === 0 && !isConfirmedEmpty(error, 0) ? (
                       // RA-8084: a failed load is unknown, not empty.
                       <span>Templates could not be loaded.</span>
@@ -695,7 +728,7 @@ export default function FormTemplatesPage() {
                         onCheckedChange={() => handleToggleActive(template)}
                         disabled={isToggling}
                         aria-label={`Toggle ${template.name} active state`}
-                        className="data-[state=checked]:bg-cyan-500"
+                        className="data-[state=checked]:bg-brand-harbour-500"
                       />
                     </TableCell>
 

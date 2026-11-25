@@ -97,7 +97,7 @@ export function requiredPpe(hazard: HazardProfile): PpeRequirement {
     if (mc >= 3) {
       respiratory = maxRpe(respiratory, "P3");
       escalations.push(
-        "S520 Condition 3 (active growth): fit-tested RPE required (AS/NZS 1715); consider PAPR for heavy remediation.",
+        "Active mould growth recorded or suspected (treated as the highest S520 condition for PPE until a qualified assessor records the condition): fit-tested RPE required (AS/NZS 1715); consider PAPR for heavy remediation.",
       );
     }
     references.add("IICRC S520:2024 §5 (Safety and Health)");

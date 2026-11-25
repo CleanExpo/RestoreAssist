@@ -17,10 +17,15 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
+  isFinalCheckoutAnswer,
   parseCheckoutReply,
-  type CheckoutReply,
 } from "@/lib/billing/checkout-return";
 import BillingGate from "@/components/capacitor/BillingGate";
+import {
+  ADDON_LABEL_TEXT,
+  type AddonAccess,
+  type AddonLabel,
+} from "@/lib/billing/addon-access";
 
 export interface CatalogAddon {
   sku: string;
@@ -32,11 +37,36 @@ export interface CatalogAddon {
   perSeat: boolean;
 }
 
-interface CatalogResponse {
+export interface CatalogResponse {
   addons: CatalogAddon[];
   owned: string[];
   technicianSeats?: { purchased: number; used: number } | null;
+  /** RA-8466: label and allowed action per pack, decided on the server. */
+  access?: Record<string, AddonAccess>;
+  canManageBilling?: boolean;
 }
+
+/**
+ * The card's access when the server sent none (an older deployment answering
+ * mid-release): today's behaviour, Manage on an owned pack, otherwise Add.
+ */
+export function cardAccess(
+  data: Pick<CatalogResponse, "access">,
+  sku: string,
+  isOwned: boolean,
+  perSeat: boolean,
+): AddonAccess {
+  const fromServer = data.access?.[sku];
+  if (fromServer) return fromServer;
+  return {
+    label: "optional_paid",
+    holding: isOwned ? "paid" : "none",
+    action: isOwned ? (perSeat ? "add_seat" : "manage") : "buy",
+    reason: "",
+  };
+}
+
+export type AddonReturnTarget = "setup" | "addons";
 
 /** Where an owner chooses or manages the plan. Reachable during setup too. */
 export const PLAN_PAGE_HREF = "/dashboard/subscription";
@@ -97,72 +127,9 @@ function formatPrice(addon: CatalogAddon): string {
   return addon.perSeat ? `${money} ${period} per seat` : `${money} ${period}`;
 }
 
-/**
- * Review rounds 1 and 2: whether a checkout reply is a FINAL answer, so the
- * pack's Idempotency-Key can be released and the next press may start a new
- * purchase. Decided positively: only a reply we could read and that names an
- * outcome counts. Everything else means the purchase may or may not have
- * happened, and the key must be kept so a retry replays the first result:
- *   - no readable body (connection cut mid-reply, truncated or non-JSON body);
- *   - a server error (5xx): the work may have run before it failed;
- *   - a 409 that is not the billing-portal case: the idempotency layer saying
- *     the same request is still running or its result could not be verified;
- *   - a 2xx that names no outcome (no checkout link, no seat count).
- */
-/**
- * Review round 3: the checkout route and the idempotency layer both send 409.
- * Every 409 either can send, and what it means:
- *   - route, apiError envelope `{ error: { code: "CONFLICT", message } }`:
- *     the pack is free in the Founding Trial, or another seat checkout won the
- *     race. Nothing was bought; final. (The idempotency layer caches this reply,
- *     so keeping the key would replay it for ever.)
- *   - billing-portal reply (`portalRequired: true`): final.
- *   - idempotency layer, plain-string `error`: the same request is still
- *     running, or its completion could not be verified, or the key was reused
- *     with another body. Outcome unknown; keep the key.
- */
-function isRouteConflict(body: unknown): boolean {
-  const error = (body as { error?: unknown }).error;
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as { code?: unknown }).code === "CONFLICT"
-  );
-}
-
-/**
- * Review round 4: some refusals come from checks the route runs BEFORE it
- * looks up the Idempotency-Key (iOS block, sign-in, owner check, rate limit).
- * They refuse this press only and say nothing about an earlier press with the
- * same key. So once a key has an unknown outcome (`unresolved`), a refusal
- * settles it only when it is the server's stored reply for that key, which
- * the idempotency layer marks with `Idempotent-Replayed: true` (`replayed`).
- * Keeping a key is always safe: the server either replays the stored outcome
- * or, if nothing was stored, runs the request once.
- */
-export function isFinalCheckoutAnswer(
-  status: number,
-  body: unknown,
-  reply: CheckoutReply,
-  context: { unresolved: boolean; replayed: boolean } = {
-    unresolved: false,
-    replayed: false,
-  },
-): boolean {
-  if (body === null || typeof body !== "object") return false;
-  if (status >= 500) return false;
-  if (status >= 200 && status < 300) {
-    return reply.kind === "redirect" || reply.kind === "updated";
-  }
-  if (
-    status === 409 &&
-    !(reply.kind === "portalRequired" || isRouteConflict(body))
-  ) {
-    return false;
-  }
-  if (context.unresolved && !context.replayed) return false;
-  return true;
-}
+// RA-8272: isFinalCheckoutAnswer moved to lib/billing/checkout-return.ts so
+// the Team page seat panel and the floor-plan upgrade button share it.
+export { isFinalCheckoutAnswer };
 
 /**
  * Review round 5: a pack's Idempotency-Key must outlive the component. The
@@ -196,6 +163,11 @@ type PendingKey = {
    * the count of the first press, not a re-read one.
    */
   expectedSeats?: number;
+  /**
+   * RA-8466: where the checkout returns. Kept with the key for the same
+   * reason as the seat count: a retry must resend the first press's body.
+   */
+  returnTo?: AddonReturnTarget;
 };
 
 const PENDING_KEY_PREFIX = "restoreassist:addon-checkout-key:";
@@ -224,6 +196,9 @@ function readPendingKey(slot: string): PendingKey | null {
     attempt: typeof e.attempt === "string" ? e.attempt : "",
     ...(typeof e.expectedSeats === "number"
       ? { expectedSeats: e.expectedSeats }
+      : {}),
+    ...(e.returnTo === "setup" || e.returnTo === "addons"
+      ? { returnTo: e.returnTo }
       : {}),
   };
 }
@@ -254,7 +229,17 @@ type CardNotice = { text: string; link?: { href: string; label: string } };
 
 export interface AddonCardDeckProps {
   className?: string;
+  /** RA-8466: where a checkout started here returns, paid or cancelled. */
+  returnTo?: AddonReturnTarget;
 }
+
+const LABEL_STYLE: Record<AddonLabel, string> = {
+  included: "bg-success-subtle text-success-subtle-foreground ring-success/20",
+  complimentary_pilot:
+    "bg-success-subtle text-success-subtle-foreground ring-success/20",
+  optional_paid: "bg-brand-navy/5 text-brand-navy ring-brand-navy/15 dark:text-slate-100",
+  unavailable: "bg-muted text-muted-foreground ring-border",
+};
 
 /**
  * The deck is a purchase surface, so it carries its own BillingGate: every
@@ -273,18 +258,30 @@ export function AddonCardDeck(props: AddonCardDeckProps) {
         </p>
       }
     >
-      <AddonCardDeckContent {...props} />
+      <AddonCardDeckWithAccount {...props} />
     </BillingGate>
   );
 }
 
-function AddonCardDeckContent({ className }: AddonCardDeckProps) {
+/**
+ * Everything the deck holds (catalogue access, notices, pending purchases)
+ * belongs to one signed-in account. Keying the content by account means a
+ * different account signing in gets a fresh deck that loads its own access,
+ * rather than one field at a time remembering to reset.
+ */
+function AddonCardDeckWithAccount(props: AddonCardDeckProps) {
+  const accountId = useSession().data?.user?.id ?? null;
+  return <AddonCardDeckContent key={accountId ?? "no-account"} {...props} />;
+}
+
+function AddonCardDeckContent({ className, returnTo }: AddonCardDeckProps) {
   // Pending purchase keys are stored per account (see readPendingKey). No
   // purchase starts until the signed-in account is known.
   const accountId = useSession().data?.user?.id ?? null;
   const [addons, setAddons] = useState<CatalogAddon[]>([]);
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [seats, setSeats] = useState<CatalogResponse["technicianSeats"]>(null);
+  const [access, setAccess] = useState<CatalogResponse["access"]>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
@@ -299,6 +296,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
     setAddons(data.addons ?? []);
     setOwned(new Set(data.owned ?? []));
     setSeats(data.technicianSeats ?? null);
+    setAccess(data.access);
   }, []);
 
   useEffect(() => {
@@ -343,6 +341,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
       unresolved: false,
       attempt,
       ...(seatPack && seats ? { expectedSeats: seats.purchased } : {}),
+      ...(returnTo ? { returnTo } : {}),
     };
     writePendingKey(slot, { ...pending, unresolved: true, attempt });
     try {
@@ -357,6 +356,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
           ...(pending.expectedSeats !== undefined
             ? { expectedSeats: pending.expectedSeats }
             : {}),
+          ...(pending.returnTo ? { returnTo: pending.returnTo } : {}),
         }),
       });
       const json: unknown = await res.json().catch(() => null);
@@ -463,6 +463,7 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
         const seatUse = addon.perSeat ? seats : null;
         const notice = notices[addon.sku];
         const busy = buying === addon.sku;
+        const cardState = cardAccess({ access }, addon.sku, isOwned, addon.perSeat);
         return (
           <li key={addon.sku} data-testid={`addon-card-${addon.sku}`}>
             <article
@@ -519,7 +520,23 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
               </div>
 
               <div className="mx-3 mt-3 mb-5">
-                {isOwned && !addon.perSeat ? (
+                <div className="mb-2 flex flex-col items-center gap-1 text-center">
+                  <span
+                    data-testid={`addon-label-${addon.sku}`}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs font-semibold ring-1",
+                      LABEL_STYLE[cardState.label],
+                    )}
+                  >
+                    {ADDON_LABEL_TEXT[cardState.label]}
+                  </span>
+                  {cardState.reason ? (
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {cardState.reason}
+                    </p>
+                  ) : null}
+                </div>
+                {cardState.action === "manage" ? (
                   <div className="flex items-center justify-between gap-2">
                     <span className="rounded-md bg-success-subtle px-2.5 py-1 text-xs font-semibold text-success-subtle-foreground ring-1 ring-success/20">
                       Active
@@ -531,7 +548,8 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
                       Manage
                     </Link>
                   </div>
-                ) : (
+                ) : cardState.action === "buy" ||
+                  cardState.action === "add_seat" ? (
                   <button
                     type="button"
                     onClick={() => handleAdd(addon.sku)}
@@ -540,11 +558,18 @@ function AddonCardDeckContent({ className }: AddonCardDeckProps) {
                   >
                     {busy
                       ? "Please wait"
-                      : isOwned && addon.perSeat
+                      : cardState.action === "add_seat"
                         ? "Add a seat"
                         : "Add pack"}
                   </button>
-                )}
+                ) : cardState.action === "choose_plan" ? (
+                  <Link
+                    href={PLAN_PAGE_HREF}
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-brand-navy/20 px-4 text-sm font-medium text-brand-navy hover:bg-brand-navy/5 dark:text-slate-100"
+                  >
+                    Choose a plan
+                  </Link>
+                ) : null}
                 {notice ? (
                   <p
                     role="status"

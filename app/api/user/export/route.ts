@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { withoutCachedEquipmentMoney } from "@/lib/reports/stored-equipment-pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 /**
  * Export user data as JSON
@@ -133,7 +134,9 @@ export async function GET(request: NextRequest) {
     // Return as downloadable JSON
     const filename = `restoreassist-export-${new Date().toISOString().split("T")[0]}.json`;
 
-    return new NextResponse(JSON.stringify(exportData, null, 2), {
+    // RA-8494: a technician's export carries their records without the business's prices.
+    const safeExport = await moneySafe(session, exportData);
+    return new NextResponse(JSON.stringify(safeExport, null, 2), {
       headers: {
         "Content-Type": "application/json",
         "Content-Disposition": `attachment; filename="${filename}"`,

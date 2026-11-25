@@ -7,7 +7,7 @@ import {
   SHA_SENTINEL,
   redactedReleaseReceipt,
   renderProductionAppSpec,
-} from "../render-production-app-spec.mjs";
+} from "../lib/render-production-app-spec.mjs";
 
 const template = JSON.parse(readFileSync(".do/app.yaml", "utf8"));
 const digest = `sha256:${"a".repeat(64)}`;

@@ -13,7 +13,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { prisma } from "@/lib/prisma";
-import { grandfatherVoiceAddon } from "../grandfather-voice-addon";
+import { grandfatherVoiceAddon } from "../lib/grandfather-voice-addon";
 
 const mockFindMany = prisma.providerConnection.findMany as ReturnType<
   typeof vi.fn

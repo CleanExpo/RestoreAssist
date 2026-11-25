@@ -19,7 +19,7 @@ import { HOME } from "./homeContent";
 
 /**
  * Home 1 hero — full-bleed water damage inspection photography.
- * Soft left wash keeps headline/CTA readable over the kitchen scene.
+ * Soft left wash keeps headline/CTA readable over the drying scene.
  */
 export function LandingHero() {
   const reduce = useLandingReduceMotion();
@@ -34,12 +34,12 @@ export function LandingHero() {
           className="absolute inset-0"
         >
           <Image
-            src="/landing/hero-flooded-home.jpg"
-            alt="RestoreAssist technician extracting floodwater from a water-filled home during active restoration"
+            src="/landing/hero-flooded-home.avif"
+            alt="Restoration technician photographing a moisture meter reading on a water-stained wall, with air movers and a dehumidifier drying an Australian home"
             fill
             priority
             sizes="100vw"
-            className="object-cover object-[42%_55%]"
+            className="object-cover object-[72%_55%]"
           />
           <div
             className="pointer-events-none absolute inset-0 bg-gradient-to-r from-brand-navy/90 via-brand-navy/50 to-brand-navy/20 sm:via-brand-navy/42 sm:to-transparent"
@@ -121,7 +121,7 @@ export function LandingHero() {
             <motion.li
               key={item}
               variants={fadeUpSoft}
-              className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.02em] text-slate-500"
+              className="flex items-center gap-2.5 text-[12px] font-medium tracking-[0.02em] text-slate-600"
             >
               <span
                 className="h-1 w-1 shrink-0 rounded-full bg-brand-harbour"

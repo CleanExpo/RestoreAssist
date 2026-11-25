@@ -70,6 +70,12 @@ jobs:
       - name: Run the PreToolUse guard tests
         run: bash .claude/hooks/tests/test-guards.sh
 
+      # The settings.json hook COMMANDS, run with a wrong CLAUDE_PROJECT_DIR. A
+      # guard that cannot be found exits 127, which Claude Code treats as a
+      # non-blocking error, so the call goes ahead with no check (RA-8127 class).
+      - name: Run the hook-resolution tests
+        run: bash .claude/hooks/tests/test-hook-resolution.sh
+
       # The Stop hook's metrics write. Its own shape must stay identical to the
       # TypeScript writer's, or two records of one event disagree.
       - name: Run the ledger-append tests

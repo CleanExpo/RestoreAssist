@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Terms of Service — RestoreAssist",
   description:
     "Terms of Service governing your use of RestoreAssist. Australian Consumer Law applies.",
+  alternates: { canonical: "/terms" },
   robots: { index: true, follow: true },
 };
 

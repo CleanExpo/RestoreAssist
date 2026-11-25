@@ -10,6 +10,7 @@ import {
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { hasActiveSubscription } from "@/lib/billing/subscription-gate";
 import { requirePaidBasePlan } from "@/lib/billing/paid-base-plan";
+import { canSeeMoney, moneySafe } from "@/lib/auth/redact-money";
 
 // Configuration constants
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -363,8 +364,9 @@ export async function POST(request: NextRequest) {
       incidentDate: parsedData.incidentDate || "",
       technicianAttendanceDate: parsedData.technicianAttendanceDate || "",
       technicianName: parsedData.technicianName || "",
-      technicianFieldReport:
-        parsedData.technicianFieldReport || parsedData.fullText || "",
+      // RA-8494: never the raw PDF text: it carries the imported prices, and
+      // the field report is read by technicians.
+      technicianFieldReport: parsedData.technicianFieldReport || "",
 
       // Property Intelligence
       buildingAge: parsedData.buildingAge
@@ -512,8 +514,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      extractedText: parsedData.fullText || "",
-      parsedData: extractedData,
+      // RA-8494: the raw PDF text carries its prices.
+      extractedText: (await canSeeMoney(session)) ? parsedData.fullText || "" : null,
+      // RA-8494: parsed equipment carries daily rates and totals.
+      parsedData: await moneySafe(session, extractedData),
       message:
         "PDF parsed successfully. All available data extracted. Please review and complete the form.",
     });

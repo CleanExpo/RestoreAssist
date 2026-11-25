@@ -43,6 +43,8 @@ const READ_GETS = [
   "drying-goal/route.ts",
   "drying-status/route.ts",
   "report/route.ts",
+  // RA-8531: a manager opening the owner's job got 404 here.
+  "next-service/route.ts",
 ];
 
 function exportedHandler(sf: ts.SourceFile, name: string): ts.Node | null {

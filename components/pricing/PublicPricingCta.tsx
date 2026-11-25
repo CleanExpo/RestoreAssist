@@ -42,7 +42,7 @@ export function PublicPricingCta({
         data-testid="public-pricing-pack-note"
         className={
           className ??
-          "mt-6 text-center text-sm leading-relaxed text-slate-500"
+          "mt-6 text-center text-sm leading-relaxed text-slate-600"
         }
       >
         {PINNED_PUBLIC_PACK_NOTE.label}

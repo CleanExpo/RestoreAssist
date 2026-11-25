@@ -7,20 +7,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Loader2,
   CheckCircle2,
   AlertTriangle,
   XCircle,
   ExternalLink,
   ArrowLeft,
   RefreshCw,
-  ClipboardCheck,
   FileText,
   Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { completenessSectionHref } from "@/lib/dashboard/completeness-blocker-links";
 
 interface Section {
   name: string;
@@ -30,6 +29,7 @@ interface Section {
 }
 interface CompletenessResult {
   reportId: string;
+  inspectionId: string | null;
   reportTitle: string;
   overallScore: number;
   sections: Section[];
@@ -70,7 +70,7 @@ function ScoreRing({ score }: { score: number }) {
             stroke="currentColor"
             strokeWidth={12}
             fill="none"
-            className="text-slate-200 dark:text-slate-700"
+            className="text-brand-navy dark:text-slate-700"
           />
           <circle
             cx={90}
@@ -96,26 +96,13 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
-/* ── Fix-link helper ── */
-function getFixLink(sectionName: string, reportId: string): string | null {
-  const map: Record<string, string> = {
-    "Client Information": "/dashboard/clients",
-    "Inspection Data": `/dashboard/inspections`,
-    "IICRC Classification": `/dashboard/reports/${reportId}?tab=classification`,
-    "Scope of Works": `/dashboard/reports/${reportId}?tab=scope`,
-    "Cost Estimates": `/dashboard/reports/${reportId}?tab=costs`,
-    "Site Photos": `/dashboard/inspections`,
-  };
-  return map[sectionName] ?? null;
-}
-
 /* ── Section Card ── */
 function SectionCard({
   section,
-  reportId,
+  inspectionId,
 }: {
   section: Section;
-  reportId: string;
+  inspectionId: string | null;
 }) {
   const cfg = {
     complete: {
@@ -146,7 +133,8 @@ function SectionCard({
       : section.score >= 50
         ? "bg-amber-500"
         : "bg-red-500";
-  const fixLink = getFixLink(section.name, reportId);
+  // RA-8545: fixes live on the linked inspection, via the shared link owner.
+  const fixLink = completenessSectionHref(section.name, inspectionId);
 
   return (
     <Card className="flex flex-col">
@@ -415,7 +403,7 @@ export default function ReportCompletenessPage() {
                   <SectionCard
                     key={section.name}
                     section={section}
-                    reportId={result.reportId}
+                    inspectionId={result.inspectionId}
                   />
                 ))}
               </div>

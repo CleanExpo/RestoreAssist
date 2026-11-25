@@ -29,7 +29,7 @@ describe("EvidenceQueueRecovery", () => {
   it("shows the later HTTP rejection while preserving earlier unverified upload state", async () => {
     getQueuedEvidenceForInspection.mockResolvedValue([{ id: "ev-1", filename: "room.webp", retryCount: 2, readbackPending: true, readbackStatus: 404, lastStatus: 400, blob: new Blob(["synthetic"]) }]);
     render(<EvidenceQueueRecovery inspectionId="job-1" />);
-    expect(await screen.findByText(/not verified in the job list.*later upload retry was rejected \(HTTP 400\)/i)).toBeInTheDocument();
+    expect(await screen.findByText(/not verified in the job list.*later upload retry was rejected/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save backup" })).toBeEnabled();
     if (!navigator.locks?.request) expect(screen.getByText(/Automatic queue replay is unavailable/)).toBeInTheDocument();
   });
@@ -38,7 +38,7 @@ describe("EvidenceQueueRecovery", () => {
     retryQueuedEvidence.mockResolvedValue(0);
     render(<EvidenceQueueRecovery inspectionId="job-1" />);
     expect(await screen.findByText("room.webp")).toBeInTheDocument();
-    expect(screen.getByText(/Upload rejected \(HTTP 400\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Upload rejected\. Save a backup/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry upload" }));
     await waitFor(() => expect(retryQueuedEvidence).toHaveBeenCalledWith("ev-1", "job-1"));
     expect(screen.getByText("room.webp")).toBeInTheDocument();
@@ -52,20 +52,40 @@ describe("EvidenceQueueRecovery", () => {
     render(<EvidenceQueueRecovery inspectionId="job-1" />);
     await screen.findByText("Waiting to sync");
     fireEvent.click(screen.getByRole("button", { name: "Retry upload" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/HTTP 413.*Save a backup/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/too large.*Save a backup/i);
     expect(screen.getByRole("button", { name: "Save backup" })).toBeEnabled();
     expect(screen.queryByText("Waiting to sync")).not.toBeInTheDocument();
   });
 
   it.each([
     { status: 401, message: /Sign in as the original account/i },
-    { status: 403, message: /Sign in as the original account/i },
+    { status: 403, message: /does not have access to this job.*saved copy remains on this device/i },
     { status: 409, message: /do not choose the same photo again/i },
-  ])("gives the correct remedy for HTTP $status without suggesting a new upload", async ({ status, message }) => {
+  ])("gives the correct remedy for status $status without suggesting a new upload", async ({ status, message }) => {
     getQueuedEvidenceForInspection.mockResolvedValue([{ id: "ev-1", filename: "room.webp", retryCount: 1, lastStatus: status, blob: new Blob(["synthetic"]) }]);
     render(<EvidenceQueueRecovery inspectionId="job-1" />);
     expect(await screen.findByText(message)).toBeInTheDocument();
     expect(screen.queryByText(/choose a supported photo/i)).not.toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(/HTTP \d{3}/);
+  });
+
+  it("never tells a customer to sign in again when the server refused the account (403, no access)", async () => {
+    getQueuedEvidenceForInspection.mockResolvedValue([{ id: "ev-1", filename: "room.webp", retryCount: 1, lastStatus: 403, blob: new Blob(["synthetic"]) }]);
+    render(<EvidenceQueueRecovery inspectionId="job-1" />);
+    await screen.findByText(/does not have access to this job/i);
+    expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(/HTTP \d{3}/);
+  });
+
+  it.each([
+    { status: 401, message: /Sign in as the original account and retry/i, noSignIn: false },
+    { status: 403, message: /does not have access to this job.*saved copy remains on this device/i, noSignIn: true },
+  ])("splits the job readback message for HTTP $status", async ({ status, message, noSignIn }) => {
+    getQueuedEvidenceForInspection.mockResolvedValue([{ id: "ev-1", filename: "room.webp", retryCount: 1, readbackPending: true, readbackStatus: status, blob: new Blob(["synthetic"]) }]);
+    render(<EvidenceQueueRecovery inspectionId="job-1" />);
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    if (noSignIn) expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(/HTTP \d{3}/);
   });
 
   it("reports an unreadable device queue rather than showing a false empty state", async () => {

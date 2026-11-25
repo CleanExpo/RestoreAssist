@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MapPin, Loader2, Search, X, ChevronRight } from "lucide-react";
+import { MapPin, Loader2, X, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ParsedAddress {
@@ -243,7 +243,7 @@ export function AustralianAddressSearch({
             "w-full pl-10 pr-10 py-2 rounded-lg text-sm",
             "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
             "text-neutral-900 dark:text-neutral-50 placeholder:text-neutral-400 dark:placeholder:text-slate-500",
-            "focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30",
+            "focus:outline-none focus:border-brand-harbour-500 focus:ring-1 focus:ring-brand-harbour-500/30",
             disabled && "opacity-50 cursor-not-allowed",
           )}
         />
@@ -284,13 +284,13 @@ export function AustralianAddressSearch({
                 className={cn(
                   "w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors text-sm",
                   isActive
-                    ? "bg-cyan-50 dark:bg-cyan-900/20"
+                    ? "bg-brand-harbour-50 dark:bg-brand-harbour-900/20"
                     : "hover:bg-neutral-50 dark:hover:bg-slate-700/50",
                 )}
               >
                 <MapPin
                   size={14}
-                  className="flex-shrink-0 mt-0.5 text-cyan-500"
+                  className="flex-shrink-0 mt-0.5 text-brand-harbour-500"
                 />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-neutral-900 dark:text-white truncate">
@@ -306,7 +306,7 @@ export function AustralianAddressSearch({
                 {isActive && (
                   <ChevronRight
                     size={14}
-                    className="flex-shrink-0 mt-0.5 text-cyan-500"
+                    className="flex-shrink-0 mt-0.5 text-brand-harbour-500"
                   />
                 )}
               </button>

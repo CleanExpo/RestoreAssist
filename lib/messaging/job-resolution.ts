@@ -20,11 +20,12 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { resolveInspectionWriteReach } from "@/lib/auth/assert-tenancy";
+import { INACTIVE_INSPECTION_STATUSES } from "@/lib/inspections/active-status";
 
 export const TOP_JOBS_LIMIT = 3;
 
 /** Closed or finished jobs never receive texted notes. */
-const INACTIVE_STATUSES = ["COMPLETED", "CLOSED", "ARCHIVED", "REJECTED"] as const;
+const INACTIVE_STATUSES = INACTIVE_INSPECTION_STATUSES;
 
 /** The sender's own organisation. Never widened, even for platform support. */
 export function orgScope(organizationId: string): Prisma.InspectionWhereInput {

@@ -56,7 +56,7 @@ photos from the field.
 
 ### AI Report Generation on Mobile
 
-Generate full IICRC-compliant scope narratives from the mobile app using the
+Generate full scope narratives that cite IICRC standards from the mobile app using the
 device's stored API key. Streams the response using the same SSE endpoint as
 the web platform.
 

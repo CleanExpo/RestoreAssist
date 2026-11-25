@@ -2,7 +2,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/credential-vault";
-import { isOAuthIntegration } from "@/lib/integrations/identity";
+import { getOAuthReadiness, isOAuthIntegration } from "@/lib/integrations/identity";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
 
 export const XERO_BINDING_SELECT = {
@@ -51,7 +51,11 @@ export async function readReadyXeroBinding(integrationId: string, expected: Xero
   const result = await readXeroBinding(integrationId, expected);
   if (!result.ok) return result;
   const binding = result.data;
-  if (!binding.tenantId?.trim() || !binding.accessToken?.trim() || !["CONNECTED", "SYNCING", "ERROR"].includes(binding.status)) {
+  // RA-8446: readiness is getOAuthReadiness's answer (status, stored
+  // credentials, organisation), never a copy of its status list here.
+  // The `!binding.tenantId` / `!binding.accessToken` tests repeat what the
+  // owner already checked, only so TypeScript narrows the types.
+  if (!getOAuthReadiness(binding, "XERO").ready || !binding.tenantId || !binding.accessToken) {
     return fail("DISCONNECTED" as const, { detail: "Xero connection requires a validated organisation and credentials" });
   }
   try {

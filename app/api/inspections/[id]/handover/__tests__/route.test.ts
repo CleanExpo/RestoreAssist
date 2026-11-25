@@ -17,6 +17,7 @@ const exportHandoverPackageToBYOKStorage = vi.fn();
 const writeLifecycleTransition = vi.fn();
 const inspectionFindUnique = vi.fn();
 const inspectionUpdateMany = vi.fn();
+const userFindUnique = vi.fn();
 const createSignedUrl = vi.fn();
 
 vi.mock("next-auth", () => ({
@@ -52,6 +53,9 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: (...a: unknown[]) => inspectionFindUnique(...a),
       updateMany: (...a: unknown[]) => inspectionUpdateMany(...a),
     },
+    user: {
+      findUnique: (...a: unknown[]) => userFindUnique(...a),
+    },
   },
 }));
 vi.mock("@/lib/supabase-server", () => ({
@@ -75,6 +79,10 @@ beforeEach(() => {
   inspectionFindUnique.mockReset();
   inspectionUpdateMany.mockReset();
   createSignedUrl.mockReset();
+  userFindUnique.mockReset();
+
+  // RA-8067: the lifecycle actor role is read from the database row.
+  userFindUnique.mockResolvedValue({ role: "USER", isJuniorTechnician: false });
 
   // Default happy-path doubles. Each `it()` overrides as needed.
   inspectionFindUnique.mockResolvedValue({
@@ -116,6 +124,44 @@ function makeReq(): NextRequest {
 const routeParams = { params: Promise.resolve({ id: "ins_1" }) };
 
 describe("POST /api/inspections/[id]/handover — auth + tenancy", () => {
+  it("RA-8067: stamps the database role, not a stale session role, on the transition", async () => {
+    // The login cookie still says MANAGER; the owner has since demoted the
+    // user to USER. The append-only record must carry the current role in
+    // the progress vocabulary.
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", name: "Alice Tradie", role: "MANAGER" },
+    });
+    userFindUnique.mockResolvedValueOnce({
+      role: "USER",
+      isJuniorTechnician: false,
+    });
+
+    const res = await POST(makeReq(), routeParams);
+
+    expect(res.status).toBe(200);
+    expect(userFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "u_1" } }),
+    );
+    expect(writeLifecycleTransition).toHaveBeenCalledTimes(1);
+    expect(writeLifecycleTransition.mock.calls[0][0].actorRole).toBe(
+      "TECHNICIAN",
+    );
+  });
+
+  it("RA-8067: 403 and no package when the caller's user row is gone", async () => {
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", name: "A", role: "MANAGER" },
+    });
+    userFindUnique.mockResolvedValueOnce(null);
+
+    const res = await POST(makeReq(), routeParams);
+
+    expect(res.status).toBe(403);
+    expect(exportHandoverPackageToBYOKStorage).not.toHaveBeenCalled();
+    expect(inspectionUpdateMany).not.toHaveBeenCalled();
+    expect(writeLifecycleTransition).not.toHaveBeenCalled();
+  });
+
   it("401 when no session", async () => {
     getServerSession.mockResolvedValueOnce(null);
     const res = await POST(makeReq(), routeParams);

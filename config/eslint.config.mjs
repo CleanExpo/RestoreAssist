@@ -25,6 +25,7 @@ import typescriptPlugin from "@typescript-eslint/eslint-plugin";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import nextPlugin from "@next/eslint-plugin-next";
 import jsxA11yPlugin from "eslint-plugin-jsx-a11y";
+import { processEnvConfigBlocks } from "./eslint-process-env.mjs";
 
 export default [
   {
@@ -156,4 +157,8 @@ export default [
       ...jsxA11yPlugin.flatConfigs.recommended.rules,
     },
   },
+  // RA-7784: lib/env.ts is the only reader of process.env. Files that read
+  // it today are baselined in config/process-env-baseline.json; a new reader
+  // anywhere else fails lint. See config/eslint-process-env.mjs.
+  ...processEnvConfigBlocks(),
 ];

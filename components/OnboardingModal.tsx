@@ -1,23 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   X,
   CheckCircle,
-  Circle,
   ArrowRight,
-  Crown,
   Key,
   Settings,
   AlertCircle,
-  User,
-  FileText,
   Sparkles,
   Zap,
-  Home,
 } from "lucide-react";
-import { PropertyDataSetupWizard } from "@/components/property-data/PropertyDataSetupWizard";
 
 interface OnboardingStatus {
   isComplete: boolean;
@@ -39,13 +33,6 @@ interface OnboardingStatus {
       route: string;
     };
     pricing_config: {
-      completed: boolean;
-      required: boolean;
-      title: string;
-      description: string;
-      route: string;
-    };
-    property_data: {
       completed: boolean;
       required: boolean;
       title: string;
@@ -76,16 +63,14 @@ export default function OnboardingModal({
   const router = useRouter();
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showPropertyWizard, setShowPropertyWizard] = useState(false);
-  const [skippedPropertyData, setSkippedPropertyData] = useState(false);
 
+  // Latest-value ref so the fetch effect fires only when isOpen changes.
+  const onCompleteRef = useRef(onComplete);
   useEffect(() => {
-    if (isOpen) {
-      fetchOnboardingStatus();
-    }
-  }, [isOpen]);
+    onCompleteRef.current = onComplete;
+  });
 
-  const fetchOnboardingStatus = async () => {
+  const fetchOnboardingStatus = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch("/api/onboarding/status");
@@ -94,8 +79,8 @@ export default function OnboardingModal({
         setStatus(data);
 
         // If all steps are complete, call onComplete
-        if (data.isComplete && onComplete) {
-          onComplete();
+        if (data.isComplete && onCompleteRef.current) {
+          onCompleteRef.current();
         }
       }
     } catch (error) {
@@ -103,7 +88,13 @@ export default function OnboardingModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchOnboardingStatus();
+    }
+  }, [isOpen, fetchOnboardingStatus]);
 
   const handleStepAction = (step: string) => {
     if (status?.steps[step as keyof typeof status.steps]) {
@@ -164,8 +155,8 @@ export default function OnboardingModal({
         {/* Header */}
         <div className="sticky top-0 bg-slate-900 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-cyan-500/10 rounded-lg">
-              <AlertCircle className="w-6 h-6 text-cyan-400" />
+            <div className="p-2 bg-brand-harbour-500/10 rounded-lg">
+              <AlertCircle className="w-6 h-6 text-brand-harbour-400" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">
@@ -195,7 +186,7 @@ export default function OnboardingModal({
         <div className="p-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-harbour-500"></div>
             </div>
           ) : status && !status.isComplete ? (
             <div className="space-y-4">
@@ -223,19 +214,19 @@ export default function OnboardingModal({
                         <div className="absolute left-6 top-12 w-0.5 h-full bg-slate-700"></div>
                       )}
 
-                      <div className="relative bg-slate-800/50 border border-slate-700 rounded-lg p-5 hover:border-cyan-500/50 transition-all">
+                      <div className="relative bg-slate-800/50 border border-slate-700 rounded-lg p-5 hover:border-brand-harbour-500/50 transition-all">
                         <div className="flex items-start gap-4">
                           {/* Step Icon */}
                           <div
                             className={`p-3 rounded-lg ${
                               isFirst
-                                ? "bg-cyan-500/20 border-2 border-cyan-500"
+                                ? "bg-brand-harbour-500/20 border-2 border-brand-harbour-500"
                                 : "bg-slate-700/50 border border-slate-600"
                             }`}
                           >
                             <Icon
                               className={`w-6 h-6 ${
-                                isFirst ? "text-cyan-400" : "text-slate-400"
+                                isFirst ? "text-brand-harbour-400" : "text-slate-400"
                               }`}
                             />
                           </div>
@@ -258,7 +249,7 @@ export default function OnboardingModal({
                               onClick={() => handleStepAction(step)}
                               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group ${
                                 isFirst
-                                  ? "bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30"
+                                  ? "bg-gradient-to-r from-brand-harbour-600 to-blue-600 hover:from-brand-harbour-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl shadow-brand-harbour-500/20 hover:shadow-brand-harbour-500/30"
                                   : "bg-slate-700 hover:bg-slate-600 text-slate-200 shadow-md hover:shadow-lg"
                               }`}
                             >
@@ -294,49 +285,9 @@ export default function OnboardingModal({
                 You've completed all required setup steps.
               </p>
 
-              {/* Optional: Connect Property Data */}
-              {status.steps.property_data &&
-                !status.steps.property_data.completed &&
-                !skippedPropertyData && (
-                  <div className="mb-6 text-left p-4 rounded-xl border border-slate-700 bg-slate-800/50">
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="p-2 bg-cyan-500/10 rounded-lg">
-                        <Home className="w-5 h-5 text-cyan-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-white text-sm">
-                            {status.steps.property_data.title}
-                          </h4>
-                          <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded-full">
-                            Optional
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-400">
-                          {status.steps.property_data.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowPropertyWizard(true)}
-                        className="flex-1 px-3 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all"
-                      >
-                        Connect Now
-                      </button>
-                      <button
-                        onClick={() => setSkippedPropertyData(true)}
-                        className="px-3 py-2 border border-slate-600 text-slate-400 rounded-lg text-sm hover:bg-slate-700 transition-colors"
-                      >
-                        Skip
-                      </button>
-                    </div>
-                  </div>
-                )}
-
               <button
                 onClick={onClose}
-                className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl hover:shadow-cyan-500/30 flex items-center justify-center gap-2 group mx-auto"
+                className="px-6 py-2 bg-gradient-to-r from-brand-harbour-600 to-blue-600 hover:from-brand-harbour-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl hover:shadow-brand-harbour-500/30 flex items-center justify-center gap-2 group mx-auto"
               >
                 <Zap className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
                 <span>Get Started</span>
@@ -346,17 +297,6 @@ export default function OnboardingModal({
           ) : null}
         </div>
       </div>
-
-      {/* Property Data Setup Wizard (launched from optional step) */}
-      {showPropertyWizard && (
-        <PropertyDataSetupWizard
-          onClose={() => setShowPropertyWizard(false)}
-          onComplete={() => {
-            setShowPropertyWizard(false);
-            fetchOnboardingStatus();
-          }}
-        />
-      )}
     </div>
   );
 }

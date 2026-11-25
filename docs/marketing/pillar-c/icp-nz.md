@@ -204,7 +204,7 @@ questions to interviews and turning a gap into a permanent one.
   Solutions. That is how young the organised NZ side is. `[primary — RIA Australasia]`
 - **The annual conference is in Australia** — The Star, Gold Coast, 25–27 August 2026.
 - **IICRC training in NZ runs through two named providers:** **Cleaning Systems Ltd / CSL Ascend
-  Training** (East Tamaki, Auckland — an IICRC-approved facility with in-house instructors, also
+  Training** (East Tamaki, Auckland — a facility approved by the IICRC to teach its courses, with in-house instructors, also
   running NZQA Level 3 qualifications) and **The Restoration Group NZ** (Auckland and
   Christchurch). Deconsystems (AU) also runs NZ courses. `[primary — provider sites]`
 - **LinkedIn is where the visible NZ restoration conversation happens** — RIA Australasia, RIC

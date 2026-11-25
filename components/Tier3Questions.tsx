@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CheckCircle, Save, ArrowRight, Camera, X, Zap } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -78,11 +78,7 @@ export default function Tier3Questions({
     T3_Q5_class4DryingAssessment: "",
   });
 
-  useEffect(() => {
-    fetchExistingResponses();
-  }, [reportId]);
-
-  const fetchExistingResponses = async () => {
+  const fetchExistingResponses = useCallback(async () => {
     try {
       const response = await fetch(`/api/reports/${reportId}`);
       if (response.ok) {
@@ -122,7 +118,11 @@ export default function Tier3Questions({
     } catch (error) {
       console.error("Error fetching existing responses:", error);
     }
-  };
+  }, [reportId]);
+
+  useEffect(() => {
+    fetchExistingResponses();
+  }, [fetchExistingResponses]);
 
   const handleSave = async () => {
     setLoading(true);
@@ -314,7 +314,7 @@ export default function Tier3Questions({
                     T3_Q1_timelineRequirements: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-harbour-500"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -364,7 +364,7 @@ export default function Tier3Questions({
                     T3_Q2_dryingPreferences: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-harbour-500"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -402,7 +402,7 @@ export default function Tier3Questions({
                     T3_Q3_chemicalTreatment: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-harbour-500"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -432,7 +432,7 @@ export default function Tier3Questions({
             }))
           }
           placeholder="Enter total affected area breakdown..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-harbour-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
@@ -464,7 +464,7 @@ export default function Tier3Questions({
                     T3_Q5_class4DryingAssessment: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-harbour-500"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}

@@ -105,7 +105,7 @@ import {
   runInspectionBackfill,
   type BackfillEvidenceItem,
   type ExistingAuthoritativeRows,
-} from "../backfill-evidence-authoritative-rows";
+} from "../lib/backfill-evidence-authoritative-rows";
 import { exemptFromSigningPolicy } from "@/lib/evidence/signing-policy";
 import { buildEvidenceStructuredData } from "@/lib/evidence/structured-data";
 

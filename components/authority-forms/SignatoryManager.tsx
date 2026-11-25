@@ -137,7 +137,7 @@ export function SignatoryManager({
         <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
-              isCompleted ? "bg-emerald-500" : "bg-cyan-500"
+              isCompleted ? "bg-emerald-500" : "bg-brand-harbour-500"
             }`}
             style={{
               width: `${totalCount > 0 ? (signedCount / totalCount) * 100 : 0}%`,
@@ -261,7 +261,7 @@ export function SignatoryManager({
               <button
                 onClick={handleAddSignatory}
                 disabled={adding || !newName.trim()}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-cyan-500 hover:bg-cyan-600 text-white disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white disabled:opacity-50 transition-colors"
               >
                 {adding ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

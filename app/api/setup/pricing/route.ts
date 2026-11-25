@@ -142,7 +142,6 @@ export async function PATCH(req: Request) {
 
   await prisma.organizationPricingConfig.upsert({
     where: { organizationId: org.id },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     create: { organizationId: org.id, ...createData } as any,
     update: patch,
   });

@@ -17,7 +17,6 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
   Key,
 } from "lucide-react";
 import { apiErrorMessage } from "@/lib/api-error-message";
@@ -41,7 +40,7 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [shouldRedirect, setShouldRedirect] = useState(false);
+  const [shouldRedirect, _setShouldRedirect] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   // RA-1255: ToS + Privacy acceptance required for AU consumer law compliance
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -153,7 +152,7 @@ export default function SignupPage() {
         setError(message);
         notifyError(message);
       }
-    } catch (error) {
+    } catch {
       const message = "An error occurred. Please try again.";
       setError(message);
       notifyError(message);
@@ -169,7 +168,7 @@ export default function SignupPage() {
       // RA-1842 Ground 3 — on iOS this opens SFSafariViewController
       // instead of bouncing to Safari proper. Web behaviour unchanged.
       await signInWithOAuth("google", { callbackUrl: "/dashboard?welcome=1" });
-    } catch (error: any) {
+    } catch {
       const message = "Google sign-in failed. Please try again.";
       setError(message);
       notifyError(message);
@@ -183,7 +182,7 @@ export default function SignupPage() {
     setError("");
     try {
       await signInWithOAuth("apple", { callbackUrl: "/dashboard?welcome=1" });
-    } catch (error: any) {
+    } catch {
       const message = "Apple sign-in failed. Please try again.";
       setError(message);
       notifyError(message);
@@ -230,7 +229,7 @@ export default function SignupPage() {
           initial={{ opacity: 1, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.08 }}
-          className="mb-4 bg-cyan-50 border border-cyan-200 rounded-xl p-4"
+          className="mb-4 bg-brand-harbour-50 border border-brand-harbour-200 rounded-xl p-4"
           role="note"
           aria-label={SIGNUP_KEY_NOTE_TITLE}
         >

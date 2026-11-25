@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { OG_SHARE_IMAGE } from "@/lib/og/constants";
 
 export const metadata: Metadata = {
   title: "Features - AI-Assisted Damage Assessment & IICRC S500 Alignment",
@@ -7,7 +8,7 @@ export const metadata: Metadata = {
   keywords: [
     "restoration software features",
     "AI report generation",
-    "IICRC S500 compliance",
+    "IICRC S500 alignment",
     "water damage assessment",
     "cost estimation software",
     "interactive inspection forms",
@@ -15,12 +16,12 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title:
-      "Features - AI-Assisted Damage Assessment & IICRC S500 Alignment | Restore Assist",
+      "Features - AI-Assisted Damage Assessment & IICRC S500 Alignment | RestoreAssist",
     description:
       "AI-assisted report generation, IICRC S500 alignment, and comprehensive restoration tools used by Australian professionals.",
     type: "website",
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      OG_SHARE_IMAGE,
     ],
   },
   alternates: { canonical: "/features" },

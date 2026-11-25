@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { OAUTH_CANDIDATE_WHERE } from "@/lib/services/integrations/select-oauth";
-import { isOAuthIntegration } from "@/lib/integrations/identity";
+import { isReadyOAuthCandidate, OAUTH_CANDIDATE_WHERE, OAUTH_READY_PREFILTER_WHERE } from "@/lib/services/integrations/select-oauth";
 import { verifyCronAuth } from "@/lib/cron/auth";
 import { runCronJob } from "@/lib/cron/runner";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
+import { WebhookReclaimError } from "@/lib/jobs/webhook-reclaim";
 
 const MAX_XERO_INTEGRATIONS_PER_CRON_RUN = 100;
+
+// RA-8426 — a claim this run holds must end before WEBHOOK_STALE_CLAIM_MS
+// (10 minutes), or the next run would release a live claim. Keep it below.
+export const maxDuration = 300;
 
 /** Xero amounts are decimal dollars; Invoice amounts are integer cents. */
 function xeroDollarsToCents(value: unknown): number | null {
@@ -30,7 +34,8 @@ function xeroDollarsToCents(value: unknown): number | null {
  * Secured by CRON_SECRET bearer token via verifyCronAuth (timing-safe comparison).
  *
  * Integration rule: sync failures NEVER block user-facing operations.
- * This route always returns 200 with structured stats — never 5xx.
+ * This route returns 200 with structured stats, except when the stale-claim
+ * reclaim fails (RA-8481): that fails the run so monitoring sees it.
  */
 export async function GET(request: NextRequest) {
   const authError = verifyCronAuth(request);
@@ -62,6 +67,11 @@ async function syncXeroPaymentsOnce() {
     invoiceErrors: 0,
   };
 
+  // RA-8481 — a failed stale-claim reclaim is not a per-event problem: dead
+  // claims stay PROCESSING and are never retried. The polling phase still
+  // runs, then the error is rethrown so runCronJob records the run failed.
+  let reclaimError: WebhookReclaimError | null = null;
+
   // ── Phase 1: Drain pending webhook events ────────────────────────────────
   try {
     const batchResult = await processXeroWebhookBatch(50);
@@ -70,6 +80,7 @@ async function syncXeroPaymentsOnce() {
     stats.webhookEventsSkipped = batchResult.skipped;
   } catch (err) {
     console.error("[Xero Payment Sync] Webhook batch processing error:", err);
+    if (err instanceof WebhookReclaimError) reclaimError = err;
     // Non-fatal — continue to polling phase
   }
 
@@ -78,13 +89,14 @@ async function syncXeroPaymentsOnce() {
     where: {
       ...OAUTH_CANDIDATE_WHERE,
       provider: "XERO",
-      status: "CONNECTED",
+      // RA-8446: readiness is getOAuthReadiness's answer, not status === CONNECTED.
+      ...OAUTH_READY_PREFILTER_WHERE,
     },
     select: {
       name: true, icon: true, config: true, workspaceId: true,
       tokenExpiresAt: true, realmId: true, companyId: true,
       id: true,
-      provider: true, tenantId: true,
+      provider: true, tenantId: true, status: true,
       userId: true,
     },
     orderBy: { createdAt: "asc" },
@@ -92,7 +104,8 @@ async function syncXeroPaymentsOnce() {
   });
 
   for (const integration of xeroIntegrations) {
-    if (!isOAuthIntegration(integration, "XERO") || !integration.tenantId) continue;
+    // The owner refuses a row with no Xero organisation (tenantId).
+    if (!isReadyOAuthCandidate(integration, "XERO") || !integration.tenantId) continue;
 
     try {
       // Service-layer credentials result — log + continue on failure so a single
@@ -204,6 +217,8 @@ async function syncXeroPaymentsOnce() {
       // Do not abort — process remaining integrations
     }
   }
+
+  if (reclaimError) throw reclaimError;
 
   return {
     itemsProcessed: stats.webhookEventsProcessed + stats.invoicesMarkedPaid,

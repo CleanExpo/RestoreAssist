@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -40,7 +40,11 @@ import {
  * View-only summary: ?sessionId=<id> (no formTemplateId) shows completed interview Q&A.
  */
 export default function InterviewPage() {
-  const searchParams = useSearchParams() ?? new URLSearchParams();
+  const rawSearchParams = useSearchParams();
+  const searchParams = useMemo(
+    () => rawSearchParams ?? new URLSearchParams(),
+    [rawSearchParams],
+  );
   const router = useRouter();
   const formTemplateId = searchParams.get("formTemplateId") || "";
   const reportId = searchParams.get("reportId");
@@ -311,7 +315,7 @@ export default function InterviewPage() {
       {interviewStatus === "loading" && (
         <div className="flex-1 flex items-center justify-center px-6 py-6">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-brand-harbour-500" />
             <p className="text-sm text-slate-600 dark:text-slate-400">
               Loading interview summary...
             </p>
@@ -402,7 +406,7 @@ export default function InterviewPage() {
             <AlertDialogCancel>Keep going</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmCancel}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               Yes, cancel interview
             </AlertDialogAction>

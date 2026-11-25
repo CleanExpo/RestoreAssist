@@ -1,42 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  createAttemptKey,
+  settleCreateAttempt,
+  type CreateAttempt,
+} from "@/lib/form-templates/create-attempt-key";
+import type { FormCategory, FormType } from "@prisma/client";
 
+// RA-7957: these must be the schema's FormType and FormCategory values; the
+// create route rejects anything else.
 const FORM_TYPES = [
-  { value: "INITIAL_ASSESSMENT", label: "Initial Assessment" },
-  { value: "MOISTURE_MAPPING", label: "Moisture Mapping" },
-  { value: "EQUIPMENT_LOG", label: "Equipment Log" },
-  { value: "DAILY_MONITORING", label: "Daily Monitoring" },
-  { value: "FINAL_INSPECTION", label: "Final Inspection" },
-  { value: "SCOPE_OF_WORKS", label: "Scope of Works" },
-  { value: "PHOTO_LOG", label: "Photo Log" },
-  { value: "CLIENT_COMMUNICATION", label: "Client Communication" },
+  { value: "WORK_ORDER", label: "Work Order" },
+  { value: "AUTHORITY_TO_COMMENCE", label: "Authority to Commence" },
+  { value: "JSA", label: "JSA" },
+  { value: "SDS", label: "SDS" },
+  { value: "SWIMS", label: "SWIMS" },
+  { value: "SITE_INDUCTION", label: "Site Induction" },
   { value: "CUSTOM", label: "Custom" },
-];
+] satisfies { value: FormType; label: string }[];
 
 const CATEGORIES = [
-  { value: "ASSESSMENT", label: "Assessment" },
-  { value: "MONITORING", label: "Monitoring" },
-  { value: "REPORTING", label: "Reporting" },
+  { value: "SAFETY", label: "Safety" },
   { value: "COMPLIANCE", label: "Compliance" },
-  { value: "EQUIPMENT", label: "Equipment" },
-  { value: "COMMUNICATION", label: "Communication" },
-  { value: "OTHER", label: "Other" },
-];
+  { value: "CLIENT_INTAKE", label: "Client Intake" },
+  { value: "JOB_DOCUMENTATION", label: "Job Documentation" },
+  { value: "INSURANCE", label: "Insurance" },
+  { value: "QUALITY_CONTROL", label: "Quality Control" },
+  { value: "CUSTOM", label: "Custom" },
+] satisfies { value: FormCategory; label: string }[];
 
 export default function NewFormTemplatePage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const createAttempt = useRef<CreateAttempt | null>(null);
   const [form, setForm] = useState({
     name: "",
     description: "",
     formType: "CUSTOM",
-    category: "OTHER",
+    category: "CUSTOM",
     requiresSignatures: false,
   });
 
@@ -48,22 +55,28 @@ export default function NewFormTemplatePage() {
     }
     setIsSubmitting(true);
     try {
+      const body = JSON.stringify({
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        formType: form.formType,
+        category: form.category,
+        requiresSignatures: form.requiresSignatures,
+        formSchema: JSON.stringify({ sections: [], fields: [] }),
+        status: "DRAFT",
+      });
+      // RA-8543: one key per attempt, reused if this attempt is retried.
       const response = await fetch("/api/form-templates", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          description: form.description.trim() || null,
-          formType: form.formType,
-          category: form.category,
-          requiresSignatures: form.requiresSignatures,
-          formSchema: JSON.stringify({ sections: [], fields: [] }),
-          status: "DRAFT",
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": createAttemptKey(createAttempt, body),
+        },
+        body,
       });
+      settleCreateAttempt(createAttempt, response.status);
 
       if (!response.ok) {
-        const data = await response.json();
+        const data: unknown = await response.json().catch(() => null);
         throw new Error(apiErrorMessage(data) || "Failed to create template");
       }
 
@@ -77,19 +90,19 @@ export default function NewFormTemplatePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-brand-navy dark:text-white p-6">
       <div className="max-w-9xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Link
             href="/dashboard/forms/templates"
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-brand-cream dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
-            <ArrowLeft size={20} className="text-slate-400" />
+            <ArrowLeft size={20} className="text-brand-slate dark:text-slate-400" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-white">New Form Template</h1>
-            <p className="text-slate-400 text-sm mt-0.5">
+            <h1 className="text-2xl font-bold text-brand-navy dark:text-white">New Form Template</h1>
+            <p className="text-brand-slate dark:text-slate-400 text-sm mt-0.5">
               Create a reusable template for inspections and reports
             </p>
           </div>
@@ -97,10 +110,10 @@ export default function NewFormTemplatePage() {
 
         {/* Form */}
         <form method="post" onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 space-y-5">
+          <div className="bg-white dark:bg-slate-800/50 border border-brand-mist dark:border-slate-700/50 rounded-2xl p-6 space-y-5">
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                 Template Name <span className="text-destructive">*</span>
               </label>
               <input
@@ -111,13 +124,13 @@ export default function NewFormTemplatePage() {
                 }
                 placeholder="e.g. Water Damage Initial Assessment"
                 required
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
+                className="w-full px-4 py-2.5 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-xl text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50"
               />
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                 Description
               </label>
               <textarea
@@ -127,13 +140,13 @@ export default function NewFormTemplatePage() {
                 }
                 placeholder="What is this template used for?"
                 rows={3}
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 resize-none"
+                className="w-full px-4 py-2.5 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-xl text-brand-navy dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50 resize-none"
               />
             </div>
 
             {/* Form Type */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                 Form Type
               </label>
               <select
@@ -141,7 +154,7 @@ export default function NewFormTemplatePage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, formType: e.target.value }))
                 }
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
+                className="w-full px-4 py-2.5 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-xl text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50"
               >
                 {FORM_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -153,7 +166,7 @@ export default function NewFormTemplatePage() {
 
             {/* Category */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-brand-slate dark:text-slate-300 mb-2">
                 Category
               </label>
               <select
@@ -161,7 +174,7 @@ export default function NewFormTemplatePage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, category: e.target.value }))
                 }
-                className="w-full px-4 py-2.5 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50"
+                className="w-full px-4 py-2.5 bg-brand-cream dark:bg-slate-700/50 border border-slate-600/50 rounded-xl text-brand-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/50 focus:border-brand-harbour-500/50"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -183,11 +196,11 @@ export default function NewFormTemplatePage() {
                     requiresSignatures: e.target.checked,
                   }))
                 }
-                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500/50"
+                className="w-4 h-4 rounded border-slate-600 bg-brand-cream dark:bg-slate-700 text-brand-harbour-500 focus:ring-brand-harbour-500/50"
               />
               <label
                 htmlFor="requiresSignatures"
-                className="text-sm text-slate-300"
+                className="text-sm text-brand-slate dark:text-slate-300"
               >
                 Requires client signature
               </label>
@@ -198,14 +211,14 @@ export default function NewFormTemplatePage() {
           <div className="flex gap-3">
             <Link
               href="/dashboard/forms/templates"
-              className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600/50 rounded-xl text-slate-300 font-medium text-center transition-colors"
+              className="flex-1 py-3 bg-white dark:bg-slate-800 hover:bg-brand-cream dark:hover:bg-slate-700 border border-slate-600/50 rounded-xl text-brand-slate dark:text-slate-300 font-medium text-center transition-colors"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={isSubmitting || !form.name.trim()}
-              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-brand-harbour-600 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <Loader2 size={18} className="animate-spin" />

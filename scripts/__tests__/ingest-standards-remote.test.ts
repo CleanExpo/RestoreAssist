@@ -10,7 +10,7 @@ import {
   planBatches,
   MAX_FILES_PER_POST,
   type IngestFile,
-} from "@/scripts/ingest-standards-remote";
+} from "@/scripts/lib/ingest-standards-remote";
 
 const mk = (n: number, size = 10): IngestFile[] =>
   Array.from({ length: n }, (_, i) => ({

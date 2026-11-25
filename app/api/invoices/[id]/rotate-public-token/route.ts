@@ -21,6 +21,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { apiError, fromException } from "@/lib/api-errors";
 import { mintPublicToken } from "@/lib/invoices/public-token";
 import { recordMutationAudit } from "@/lib/audit-log";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 export async function POST(
   request: NextRequest,
@@ -35,6 +36,15 @@ export async function POST(
       code: "UNAUTHORIZED",
       message: "Sign in required",
       status: 401,
+    });
+  }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
     });
   }
 

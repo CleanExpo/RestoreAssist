@@ -3,7 +3,7 @@
   "total": 357,
   "files": {
     "app/contractors/[slug]/page.tsx": 1,
-    "app/contractors/page.tsx": 1,
+    "app/contractors/ContractorDirectory.tsx": 1,
     "app/dashboard/__tests__/nav-config.test.tsx": 1,
     "app/dashboard/admin/ai-lab/page.tsx": 1,
     "app/dashboard/admin/business/page.tsx": 1,
@@ -104,8 +104,6 @@
     "app/dashboard/margot/page.tsx": 1,
     "app/dashboard/margot/social/page.tsx": 1,
     "app/dashboard/media/page.tsx": 1,
-    "app/dashboard/mission-control/page.tsx": 1,
-    "app/dashboard/mobile/page.tsx": 1,
     "app/dashboard/nav-config.ts": 2,
     "app/dashboard/notifications/page.tsx": 1,
     "app/dashboard/onboarding/OnboardingClient.tsx": 1,

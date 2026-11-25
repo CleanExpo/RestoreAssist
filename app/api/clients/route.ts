@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth/assert-tenancy";
 import { EXCLUDED_FROM_REVENUE } from "@/lib/invoice-status";
 import { scheduleZohoCustomerPush } from "@/lib/integrations/zoho/queue";
+import { moneySafe } from "@/lib/auth/redact-money";
 
 export async function GET(request: NextRequest) {
   try {
@@ -151,7 +152,8 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      clients: clientsWithStats,
+      // RA-8494: a client's invoiced revenue is money.
+      clients: await moneySafe(session, clientsWithStats),
       pagination: {
         page,
         limit,
@@ -220,8 +222,15 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-8535: matched without case, as matchClientForReport and the Zoho
+      // mirror already do, so the same person cannot be added twice under a
+      // different capitalisation. The email is stored as typed.
       const existingClient = await prisma.client.findFirst({
-        where: { email, userId },
+        where: {
+          userId,
+          email: { equals: email, mode: "insensitive" },
+        },
+        select: { id: true },
       });
 
       if (existingClient) {

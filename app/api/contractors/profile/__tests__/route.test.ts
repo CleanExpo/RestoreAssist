@@ -94,6 +94,42 @@ beforeEach(() => {
   );
 });
 
+describe("/api/contractors/profile servicesOffered (RA-8220)", () => {
+  async function saveAsOwner(body: Record<string, unknown>) {
+    getServerSession.mockResolvedValue({ user: { id: "owner1" } });
+    userFindUnique.mockResolvedValue({ role: "ADMIN", businessName: "Acme Restoration" });
+    const res = await PUT(putReq(body));
+    expect(res.status).toBe(200);
+    return profileUpsert.mock.calls.at(-1)![0] as {
+      create: Record<string, unknown>;
+      update: Record<string, unknown>;
+    };
+  }
+
+  it("stores the catalogue as normalised v1 JSON, dropping unknown ids", async () => {
+    const args = await saveAsOwner({
+      ...VALID_BODY,
+      servicesOffered: { services: ["upholstery-cleaning", "not-a-service", "carpet-cleaning"], custom: [" Window cleaning "] },
+    });
+    expect(JSON.parse(args.create.servicesOffered as string)).toEqual({
+      v: 1,
+      services: ["carpet-cleaning", "upholstery-cleaning"],
+      custom: ["Window cleaning"],
+    });
+    expect(args.update.servicesOffered).toBe(args.create.servicesOffered);
+  });
+
+  it("leaves the stored services untouched when the body omits them", async () => {
+    const args = await saveAsOwner({ ...VALID_BODY });
+    expect(args.update.servicesOffered).toBeUndefined();
+  });
+
+  it("clears to null when nothing is offered", async () => {
+    const args = await saveAsOwner({ ...VALID_BODY, servicesOffered: { services: [], custom: [""] } });
+    expect(args.update.servicesOffered).toBeNull();
+  });
+});
+
 describe("/api/contractors/profile (RA-7723)", () => {
   it("GET with no profile row yet returns 200 and an empty profile, not an error", async () => {
     getServerSession.mockResolvedValue({ user: { id: "owner1" } });

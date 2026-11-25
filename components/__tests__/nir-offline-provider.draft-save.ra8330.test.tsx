@@ -51,7 +51,11 @@ vi.mock("@/lib/voice-note-queue", () => ({
 }));
 
 import { NirOfflineProvider, NirSyncStatusBadge } from "@/components/nir-offline-provider";
-import { reportDraftSave } from "@/lib/offline/draft-save-status";
+import { reportDraftSave, setActiveDraft } from "@/lib/offline/draft-save-status";
+
+// RA-8358: every report names its inspection. These tests use one inspection
+// that is open on screen, so the badge shows that inspection's state.
+const DRAFT = { inspectionId: "insp-1", formKey: "form-1" };
 
 const tree = () => (
   <NirOfflineProvider>
@@ -73,6 +77,7 @@ describe("sync badge after a draft save", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     auth.session = { data: null, status: "unauthenticated" };
+    setActiveDraft(DRAFT);
   });
 
   it("does not say Synced after a draft save failed", async () => {
@@ -81,7 +86,7 @@ describe("sync badge after a draft save", () => {
       expect(badge).toHaveAttribute("aria-label", "Sync status: Synced"),
     );
 
-    act(() => reportDraftSave(false));
+    act(() => reportDraftSave(false, DRAFT, null));
 
     await waitFor(() =>
       expect(badge).toHaveAttribute("aria-label", "Sync status: Draft not saved"),
@@ -90,12 +95,12 @@ describe("sync badge after a draft save", () => {
 
   it("returns to Synced once a later draft save succeeds", async () => {
     const badge = await renderBadge();
-    act(() => reportDraftSave(false));
+    act(() => reportDraftSave(false, DRAFT, null));
     await waitFor(() =>
       expect(badge).toHaveAttribute("aria-label", "Sync status: Draft not saved"),
     );
 
-    act(() => reportDraftSave(true));
+    act(() => reportDraftSave(true, DRAFT, null));
 
     await waitFor(() =>
       expect(badge).toHaveAttribute("aria-label", "Sync status: Synced"),
@@ -112,6 +117,7 @@ describe("draft-save failure across session changes", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     auth.session = signedIn("user-a");
+    setActiveDraft(DRAFT);
   });
 
   async function failDraftAsUserA() {
@@ -120,7 +126,7 @@ describe("draft-save failure across session changes", () => {
     await waitFor(() =>
       expect(badge).toHaveAttribute("aria-label", "Sync status: Synced"),
     );
-    act(() => reportDraftSave(false));
+    act(() => reportDraftSave(false, DRAFT, null));
     await waitFor(() =>
       expect(badge).toHaveAttribute("aria-label", "Sync status: Draft not saved"),
     );

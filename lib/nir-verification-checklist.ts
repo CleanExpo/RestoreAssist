@@ -15,9 +15,8 @@
  * Used by: lib/nir-report-generation.ts → generateNIRPDF()
  */
 
-import { S500_FIELD_MAP, S520_FIELD_MAP } from "@/lib/nir-standards-mapping";
+import { S500_FIELD_MAP } from "@/lib/nir-standards-mapping";
 import {
-  SUPPLEMENTARY_FIELDS,
   type TieredField,
 } from "@/lib/nir-tiered-completion";
 

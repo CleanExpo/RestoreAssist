@@ -61,7 +61,7 @@ export default async function GovernancePage({ searchParams }: Props) {
       <header>
         <h1 className="text-2xl font-semibold">Override Governance</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          M-15 5% safeguard · RA-1390. Gates with override-rate &gt; 5% surface
+          5% safeguard. Gates with override-rate &gt; 5% surface
           to the board for re-classification.
         </p>
       </header>

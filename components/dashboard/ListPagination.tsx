@@ -101,7 +101,7 @@ export function ListPagination({
             className={cn(
               "min-w-[2.25rem] px-3 py-1.5 rounded-lg transition-colors text-sm",
               pageNum === safePage
-                ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
+                ? "bg-gradient-to-r from-blue-600 to-brand-harbour-600 text-white"
                 : cn(
                     "border border-neutral-300 dark:border-slate-700",
                     "hover:bg-neutral-100 dark:hover:bg-slate-800",

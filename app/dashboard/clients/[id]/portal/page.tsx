@@ -14,7 +14,6 @@ import {
 import toast from "react-hot-toast";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,22 +60,22 @@ function StatusBadge({ status }: { status: InvitationStatus }) {
   > = {
     PENDING: {
       label: "Pending",
-      variant: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+      variant: "bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30",
       icon: <Clock size={12} />,
     },
     ACCEPTED: {
       label: "Accepted",
-      variant: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+      variant: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
       icon: <CheckCircle size={12} />,
     },
     EXPIRED: {
       label: "Expired",
-      variant: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+      variant: "bg-slate-500/20 text-brand-slate dark:text-slate-400 border-slate-500/30",
       icon: <XCircle size={12} />,
     },
     REVOKED: {
       label: "Revoked",
-      variant: "bg-red-500/20 text-red-400 border-red-500/30",
+      variant: "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30",
       icon: <ShieldOff size={12} />,
     },
   };
@@ -267,7 +266,7 @@ export default function ClientPortalPage({
       <div className="flex items-center gap-4">
         <Link
           href={`/dashboard/clients/${clientId}`}
-          className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
+          className="p-2 hover:bg-brand-cream dark:hover:bg-slate-700/50 rounded-lg transition-colors"
           title="Back to client"
         >
           <ArrowLeft size={20} />
@@ -280,7 +279,7 @@ export default function ClientPortalPage({
               Portal Access — {client?.name ?? "Client"}
             </h1>
           )}
-          <p className="text-slate-400 text-sm">
+          <p className="text-brand-slate dark:text-slate-400 text-sm">
             Manage portal invitations for this client
           </p>
         </div>
@@ -289,7 +288,7 @@ export default function ClientPortalPage({
       {clientLoadError ? (
         <div
           role="alert"
-          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 flex items-start justify-between gap-3"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200 flex items-start justify-between gap-3"
         >
           <p>{clientLoadError}</p>
           <Button
@@ -307,7 +306,7 @@ export default function ClientPortalPage({
       {invitationsLoadError ? (
         <div
           role="alert"
-          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 flex items-start justify-between gap-3"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200 flex items-start justify-between gap-3"
         >
           <p>{invitationsLoadError}</p>
           <Button
@@ -323,9 +322,9 @@ export default function ClientPortalPage({
       ) : null}
 
       {/* Portal status card */}
-      <Card className="bg-slate-800/50 border-slate-700/50">
+      <Card className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700/50">
         <CardHeader>
-          <CardTitle className="text-base font-medium text-white">
+          <CardTitle className="text-base font-medium text-brand-navy dark:text-white">
             Portal Status
           </CardTitle>
         </CardHeader>
@@ -336,7 +335,7 @@ export default function ClientPortalPage({
               <Skeleton className="h-4 w-64" />
             </div>
           ) : invitationsLoadError ? (
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-brand-slate dark:text-slate-400">
               Invitation status unavailable until the list loads.
             </p>
           ) : acceptedInvitation ? (
@@ -347,17 +346,17 @@ export default function ClientPortalPage({
               />
               <div>
                 <p className="font-medium text-success">Portal Active</p>
-                <p className="text-sm text-slate-400 mt-0.5">
+                <p className="text-sm text-brand-slate dark:text-slate-400 mt-0.5">
                   {client?.name ?? "Client"} accepted the invitation on{" "}
                   {fmt(acceptedInvitation.acceptedAt)}.
                 </p>
-                <p className="text-sm text-slate-400 mt-1">
+                <p className="text-sm text-brand-slate dark:text-slate-400 mt-1">
                   Portal URL:{" "}
                   <a
                     href={portalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-400 hover:underline"
+                    className="text-blue-700 dark:text-blue-400 hover:underline"
                   >
                     {portalUrl}
                   </a>
@@ -366,18 +365,18 @@ export default function ClientPortalPage({
             </div>
           ) : latestPending ? (
             <div className="flex items-start gap-3">
-              <Clock size={22} className="text-blue-400 mt-0.5 shrink-0" />
+              <Clock size={22} className="text-blue-700 dark:text-blue-400 mt-0.5 shrink-0" />
               <div>
-                <p className="font-medium text-blue-400">Pending acceptance</p>
-                <p className="text-sm text-slate-400 mt-0.5">
+                <p className="font-medium text-blue-700 dark:text-blue-400">Pending acceptance</p>
+                <p className="text-sm text-brand-slate dark:text-slate-400 mt-0.5">
                   Invitation sent to{" "}
-                  <span className="text-slate-300">{latestPending.email}</span>.
+                  <span className="text-brand-slate dark:text-slate-300">{latestPending.email}</span>.
                   Expires {fmt(latestPending.expiresAt)}.
                 </p>
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-3 text-slate-400">
+            <div className="flex items-center gap-3 text-brand-slate dark:text-slate-400">
               <XCircle size={20} />
               <p className="text-sm">
                 Portal not yet activated for this client.
@@ -388,9 +387,9 @@ export default function ClientPortalPage({
       </Card>
 
       {/* Send invitation form */}
-      <Card className="bg-slate-800/50 border-slate-700/50">
+      <Card className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700/50">
         <CardHeader>
-          <CardTitle className="text-base font-medium text-white">
+          <CardTitle className="text-base font-medium text-brand-navy dark:text-white">
             Send Invitation
           </CardTitle>
         </CardHeader>
@@ -405,7 +404,7 @@ export default function ClientPortalPage({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="client@example.com"
-                  className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
+                  className="bg-brand-cream dark:bg-slate-700/50 border-slate-600 text-brand-navy dark:text-white placeholder:text-slate-500"
                   required
                 />
               </div>
@@ -418,7 +417,7 @@ export default function ClientPortalPage({
                   max={30}
                   value={expiryDays}
                   onChange={(e) => setExpiryDays(Number(e.target.value))}
-                  className="bg-slate-700/50 border-slate-600 text-white"
+                  className="bg-brand-cream dark:bg-slate-700/50 border-slate-600 text-brand-navy dark:text-white"
                 />
               </div>
             </div>
@@ -430,7 +429,7 @@ export default function ClientPortalPage({
                 onChange={(e) => setMessage(e.target.value)}
                 rows={3}
                 placeholder="Add a personal note to include in the invitation email..."
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-md text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full px-3 py-2 bg-brand-cream dark:bg-slate-700/50 border border-slate-600 rounded-md text-brand-navy dark:text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
             <Button
@@ -454,12 +453,12 @@ export default function ClientPortalPage({
         </CardContent>
       </Card>
 
-      <Separator className="border-slate-700/50" />
+      <Separator className="border-brand-mist dark:border-slate-700/50" />
 
       {/* Invitations history table */}
-      <Card className="bg-slate-800/50 border-slate-700/50">
+      <Card className="bg-white dark:bg-slate-800/50 border-brand-mist dark:border-slate-700/50">
         <CardHeader>
-          <CardTitle className="text-base font-medium text-white">
+          <CardTitle className="text-base font-medium text-brand-navy dark:text-white">
             Invitation History
           </CardTitle>
         </CardHeader>
@@ -483,23 +482,23 @@ export default function ClientPortalPage({
           ) : (
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-700/50 hover:bg-transparent">
-                  <TableHead className="text-slate-400 font-medium">
+                <TableRow className="border-brand-mist dark:border-slate-700/50 hover:bg-transparent">
+                  <TableHead className="text-brand-slate dark:text-slate-400 font-medium">
                     Status
                   </TableHead>
-                  <TableHead className="text-slate-400 font-medium">
+                  <TableHead className="text-brand-slate dark:text-slate-400 font-medium">
                     Email
                   </TableHead>
-                  <TableHead className="text-slate-400 font-medium">
+                  <TableHead className="text-brand-slate dark:text-slate-400 font-medium">
                     Sent
                   </TableHead>
-                  <TableHead className="text-slate-400 font-medium">
+                  <TableHead className="text-brand-slate dark:text-slate-400 font-medium">
                     Expires
                   </TableHead>
-                  <TableHead className="text-slate-400 font-medium">
+                  <TableHead className="text-brand-slate dark:text-slate-400 font-medium">
                     Accepted
                   </TableHead>
-                  <TableHead className="text-slate-400 font-medium text-right">
+                  <TableHead className="text-brand-slate dark:text-slate-400 font-medium text-right">
                     Actions
                   </TableHead>
                 </TableRow>
@@ -508,21 +507,21 @@ export default function ClientPortalPage({
                 {invitations.map((inv) => (
                   <TableRow
                     key={inv.id}
-                    className="border-slate-700/50 hover:bg-slate-700/20"
+                    className="border-brand-mist dark:border-slate-700/50 hover:bg-brand-cream dark:hover:bg-slate-700/20"
                   >
                     <TableCell>
                       <StatusBadge status={inv.status} />
                     </TableCell>
-                    <TableCell className="text-slate-300 text-sm">
+                    <TableCell className="text-brand-slate dark:text-slate-300 text-sm">
                       {inv.email}
                     </TableCell>
-                    <TableCell className="text-slate-400 text-sm">
+                    <TableCell className="text-brand-slate dark:text-slate-400 text-sm">
                       {fmt(inv.createdAt)}
                     </TableCell>
-                    <TableCell className="text-slate-400 text-sm">
+                    <TableCell className="text-brand-slate dark:text-slate-400 text-sm">
                       {fmt(inv.expiresAt)}
                     </TableCell>
-                    <TableCell className="text-slate-400 text-sm">
+                    <TableCell className="text-brand-slate dark:text-slate-400 text-sm">
                       {fmt(inv.acceptedAt)}
                     </TableCell>
                     <TableCell className="text-right">
@@ -535,7 +534,7 @@ export default function ClientPortalPage({
                             variant="ghost"
                             disabled={resendingId === inv.id}
                             onClick={() => handleResend(inv.id)}
-                            className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 h-7 px-2 text-xs"
+                            className="text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-500/10 h-7 px-2 text-xs"
                           >
                             {resendingId === inv.id ? (
                               <RefreshCw size={13} className="animate-spin" />
@@ -550,7 +549,7 @@ export default function ClientPortalPage({
                           <>
                             {revokeTargetId === inv.id ? (
                               <div className="flex items-center gap-1">
-                                <span className="text-xs text-slate-400 mr-1">
+                                <span className="text-xs text-brand-slate dark:text-slate-400 mr-1">
                                   Confirm?
                                 </span>
                                 <Button
@@ -558,7 +557,7 @@ export default function ClientPortalPage({
                                   variant="ghost"
                                   disabled={revoking}
                                   onClick={handleRevoke}
-                                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 px-2 text-xs"
+                                  className="text-red-700 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10 h-7 px-2 text-xs"
                                 >
                                   {revoking ? (
                                     <RefreshCw
@@ -574,7 +573,7 @@ export default function ClientPortalPage({
                                   variant="ghost"
                                   disabled={revoking}
                                   onClick={cancelRevoke}
-                                  className="text-slate-400 hover:text-slate-300 h-7 px-2 text-xs"
+                                  className="text-brand-slate dark:text-slate-400 hover:text-brand-slate dark:hover:text-slate-300 h-7 px-2 text-xs"
                                 >
                                   Cancel
                                 </Button>
@@ -584,7 +583,7 @@ export default function ClientPortalPage({
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => confirmRevoke(inv.id)}
-                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 px-2 text-xs"
+                                className="text-red-700 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10 h-7 px-2 text-xs"
                               >
                                 <ShieldOff size={13} className="mr-1" />
                                 Revoke

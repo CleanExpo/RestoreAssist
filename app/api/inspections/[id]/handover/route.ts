@@ -36,6 +36,7 @@ import { apiError } from "@/lib/api-errors";
 import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { exportHandoverPackageToBYOKStorage } from "@/lib/queue/exportHandoverPackageToBYOKStorage";
+import { loadActorProgressRole } from "@/lib/progress/actor-role";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { BUCKET_ORIGINALS } from "@/lib/storage/types";
 
@@ -144,6 +145,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         code: tenancy.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
         message: tenancy.reason,
         status: tenancy.status,
+      });
+    }
+
+    // RA-8067: read the caller's current role before any side effect, so
+    // the append-only transition never carries a stale login-cookie role.
+    const actorRole = await loadActorProgressRole(userId);
+    if (!actorRole) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
       });
     }
 
@@ -262,7 +274,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         toState: ClaimState.CLOSED,
         transitionKey: "complete_handover",
         actorUserId: userId,
-        actorRole: (session.user as { role?: string }).role ?? "USER",
+        actorRole,
         actorName: session.user.name ?? "User",
         guardSnapshot: {
           handoverPackageStorageKey: exportResult.storageKey,

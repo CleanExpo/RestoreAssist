@@ -126,7 +126,7 @@ export async function vectorClassify(input: {
 // Stage 3: LLM classifier — Claude Opus 4.7 via Anthropic SDK (RA-1126).
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You are an IICRC S500:2021-certified water damage classifier for Australian and New Zealand restoration contractors.
+const SYSTEM_PROMPT = `You are an experienced water damage classifier, who cites IICRC S500:2021 by section number, for Australian and New Zealand restoration contractors.
 
 Given inspection data, return JSON with:
 - claimType (water/fire/mould/storm/biohazard)

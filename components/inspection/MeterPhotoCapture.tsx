@@ -29,6 +29,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SignInAgainButton } from "@/components/dashboard/SignInAgainButton";
+import { SESSION_ENDED_MESSAGE } from "@/lib/client/customer-error-copy";
 import toast from "react-hot-toast";
 import type { OcrExtraction, ExtractionType } from "@/lib/nir-vision-ocr";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
@@ -119,7 +121,7 @@ export function visionErrorMessage(status: number, code: string | null) {
     case "PARSE_FAILED":
       return "The meter display could not be interpreted. Retake the photo, or enter the reading manually.";
     default:
-      if (status === 401) return "Your session has expired — sign in again.";
+      if (status === 401) return SESSION_ENDED_MESSAGE;
       if (status === 402)
         return "An active subscription is required to read meters with AI.";
       if (status === 413)
@@ -220,7 +222,7 @@ function Field({
         min={min}
         max={max}
         disabled={disabled}
-        className="w-full mt-1 px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 transition-colors"
+        className="w-full mt-1 px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30 focus:border-brand-harbour-500 transition-colors"
       />
     </div>
   );
@@ -503,7 +505,7 @@ function MoistureConfirm({
       )}
 
       {readingSaved && file && (
-        <button type="button" onClick={() => saveOriginalCopy(file)} className="text-xs underline text-cyan-700">Save original meter photo copy</button>
+        <button type="button" onClick={() => saveOriginalCopy(file)} className="text-xs underline text-brand-harbour-700">Save original meter photo copy</button>
       )}
 
       <div className="flex gap-2 pt-1">
@@ -517,7 +519,7 @@ function MoistureConfirm({
         <button
           onClick={save}
           disabled={saving}
-          className="flex-1 min-h-[44px] py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          className="flex-1 min-h-[44px] py-3 rounded-xl bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           {saving ? (
             <Loader2 size={14} className="animate-spin" />
@@ -812,7 +814,7 @@ function EnvironmentalConfirm({
       )}
 
       {readingSaved && file && (
-        <button type="button" onClick={() => saveOriginalCopy(file)} className="text-xs underline text-cyan-700">Save original meter photo copy</button>
+        <button type="button" onClick={() => saveOriginalCopy(file)} className="text-xs underline text-brand-harbour-700">Save original meter photo copy</button>
       )}
 
       <div className="flex gap-2 pt-1">
@@ -826,7 +828,7 @@ function EnvironmentalConfirm({
         <button
           onClick={save}
           disabled={saving}
-          className="flex-1 min-h-[44px] py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          className="flex-1 min-h-[44px] py-3 rounded-xl bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           {saving ? (
             <Loader2 size={14} className="animate-spin" />
@@ -899,7 +901,7 @@ function MeasurementConfirm({
           <select
             value={unit ?? "m"}
             onChange={(e) => setUnit(e.target.value as typeof unit)}
-            className="w-full mt-1 px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+            className="w-full mt-1 px-3 py-2 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
           >
             <option value="m">m</option>
             <option value="mm">mm</option>
@@ -933,7 +935,7 @@ function MeasurementConfirm({
         </button>
         <button
           onClick={copy}
-          className="flex-1 min-h-[44px] py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          className="flex-1 min-h-[44px] py-3 rounded-xl bg-brand-harbour-600 hover:bg-brand-harbour-700 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           <CheckCircle2 size={14} />
           Copy to Clipboard
@@ -1140,7 +1142,7 @@ export function MeterPhotoCapture({
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
-            <Camera size={15} className="text-cyan-500 flex-shrink-0" />
+            <Camera size={15} className="text-brand-harbour-500 flex-shrink-0" />
             {MODE_LABELS[mode]} — Photo OCR
           </p>
           <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">{MODE_HINTS[mode]}</p>
@@ -1186,7 +1188,7 @@ export function MeterPhotoCapture({
           <div className="flex gap-2">
             <button
               onClick={capturePhoto}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-neutral-200 dark:border-slate-700 hover:border-cyan-400 hover:bg-cyan-50/50 dark:hover:bg-cyan-900/10 transition-all text-sm text-neutral-600 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 font-medium"
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-neutral-200 dark:border-slate-700 hover:border-brand-harbour-400 hover:bg-brand-harbour-50/50 dark:hover:bg-brand-harbour-900/10 transition-all text-sm text-neutral-600 dark:text-slate-400 hover:text-brand-harbour-600 dark:hover:text-brand-harbour-400 font-medium"
             >
               <Camera size={17} />
               Take Photo
@@ -1206,7 +1208,6 @@ export function MeterPhotoCapture({
       {preview && !extraction && (
         <div className="space-y-3">
           {/* Preview */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={preview}
             alt="Meter display preview"
@@ -1224,6 +1225,16 @@ export function MeterPhotoCapture({
                 <p className="text-xs text-destructive">
                   {error}
                 </p>
+                {error === SESSION_ENDED_MESSAGE && (
+                  <SignInAgainButton
+                    className="mt-2"
+                    callbackUrl={
+                      typeof window !== "undefined"
+                        ? window.location.pathname
+                        : "/dashboard"
+                    }
+                  />
+                )}
                 {error.includes("Integrations") && (
                   <a
                     href="/dashboard/integrations"
@@ -1245,7 +1256,7 @@ export function MeterPhotoCapture({
                 ? "Reading meter with AI…"
                 : "Analyse meter photo with AI"
             }
-            className="w-full min-h-[44px] py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            className="w-full min-h-[44px] py-2.5 rounded-xl bg-brand-harbour-600 hover:bg-brand-harbour-700 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
             {analysing ? (
               <>

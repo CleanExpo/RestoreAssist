@@ -194,8 +194,20 @@ export async function POST(
         businessAddress: report.user.businessAddress || null,
       };
 
-      // For team members, get Admin's business info
-      if (session.user.role === "MANAGER" || session.user.role === "USER") {
+      // For team members, get Admin's business info. RA-8067: the caller's
+      // role comes from the database, not the possibly stale login cookie.
+      const caller = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+      if (!caller) {
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
+      }
+      if (caller.role === "MANAGER" || caller.role === "USER") {
         const ownerId = await getOrganizationOwner(userId);
         if (ownerId) {
           const owner = await prisma.user.findUnique({
@@ -261,7 +273,7 @@ export async function POST(
       // Create signature placeholders for required signatories
       if (signatoryRoles && Array.isArray(signatoryRoles)) {
         const signatureData = signatoryRoles.map(
-          (role: string, index: number) => ({
+          (role: string, _index: number) => ({
             instanceId: formInstance.id,
             signatoryName: role === "CLIENT" ? report.clientName : "",
             signatoryRole: role as AuthoritySignatoryRole,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import {
   Card,
@@ -49,27 +49,30 @@ export default function FeedbackPage() {
   // RA-1804: gate on ADMIN role, not a hardcoded personal email
   const canViewInbox = (session?.user as { role?: string })?.role === "ADMIN";
 
-  const loadInbox = async (page = 1, append = false) => {
-    if (!canViewInbox) return;
-    setInboxLoading(true);
-    try {
-      const res = await fetch(`/api/feedback?inbox=1&page=${page}&limit=20`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(apiErrorMessage(data) || "Failed to load");
-      const list = data.feedback ?? [];
-      setInboxList((prev) => (append ? [...prev, ...list] : list));
-      setInboxTotal(data.pagination?.total ?? 0);
-      setInboxPage(page);
-    } catch {
-      toast.error("Failed to load feedback.");
-    } finally {
-      setInboxLoading(false);
-    }
-  };
+  const loadInbox = useCallback(
+    async (page = 1, append = false) => {
+      if (!canViewInbox) return;
+      setInboxLoading(true);
+      try {
+        const res = await fetch(`/api/feedback?inbox=1&page=${page}&limit=20`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(apiErrorMessage(data) || "Failed to load");
+        const list = data.feedback ?? [];
+        setInboxList((prev) => (append ? [...prev, ...list] : list));
+        setInboxTotal(data.pagination?.total ?? 0);
+        setInboxPage(page);
+      } catch {
+        toast.error("Failed to load feedback.");
+      } finally {
+        setInboxLoading(false);
+      }
+    },
+    [canViewInbox],
+  );
 
   useEffect(() => {
     if (canViewInbox) loadInbox(1);
-  }, [canViewInbox]);
+  }, [canViewInbox, loadInbox]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +118,12 @@ export default function FeedbackPage() {
         eyebrow={ADVANCED_WORKSPACE_EYEBROW}
         title="Feedback"
         description="Share your experience and help us improve RestoreAssist."
-        icon={<Send className="h-7 w-7 text-cyan-400" aria-hidden />}
+        icon={
+          <Send
+            className="h-7 w-7 text-brand-harbour-700 dark:text-brand-harbour-400"
+            aria-hidden
+          />
+        }
         secondaryLinks={workspaceHubLinks({ omitHref: "/dashboard/feedback" })}
       />
 

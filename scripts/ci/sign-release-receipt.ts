@@ -55,7 +55,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { canonicalizeManifest as canonicalJson } from "../../lib/evidence/manifest-canonical";
-import { markdownSection } from "../release-gate-score";
+import { markdownSection } from "../lib/release-gate-score";
 
 const PRIVATE_KEY_ENV = "RELEASE_RECEIPT_PRIVATE_KEY";
 const ROOT = process.cwd();
@@ -99,7 +99,7 @@ const PRODUCERS: Record<
       const apiKey = process.env.LINEAR_API_KEY;
       if (!apiKey) fail("LINEAR_API_KEY is not set; the A3 producer cannot run");
       const { produceA3Measurements } = await import(
-        "./producers/a3-open-blockers"
+        "./producers/lib/a3-open-blockers"
       );
       return produceA3Measurements(apiKey) as Promise<Record<string, unknown>>;
     },
@@ -114,7 +114,7 @@ const PRODUCERS: Record<
             "the producer deliberately does not fetch its own scanner.",
         );
       }
-      const { produceC2Measurements } = await import("./producers/c2-secrets-scan");
+      const { produceC2Measurements } = await import("./producers/lib/c2-secrets-scan");
       return produceC2Measurements() as Promise<Record<string, unknown>>;
     },
   },
@@ -124,7 +124,7 @@ const PRODUCERS: Record<
       const token = process.env.GITHUB_TOKEN;
       if (!token) fail("GITHUB_TOKEN is not set; the F1 producer cannot run");
       const { produceF1Measurements } = await import(
-        "./producers/f1-monitoring-alerting"
+        "./producers/lib/f1-monitoring-alerting"
       );
       return produceF1Measurements(token) as Promise<Record<string, unknown>>;
     },
@@ -140,7 +140,7 @@ const PRODUCERS: Record<
             "is nothing to measure without one.",
         );
       }
-      const { produceA1Measurements } = await import("./producers/a1-core-journeys");
+      const { produceA1Measurements } = await import("./producers/lib/a1-core-journeys");
       return produceA1Measurements(reportPath) as Promise<Record<string, unknown>>;
     },
   },
@@ -150,7 +150,7 @@ const PRODUCERS: Record<
       if (!process.env.STRIPE_TEST_SECRET_KEY) {
         fail("STRIPE_TEST_SECRET_KEY is not set; the D1 producer cannot run");
       }
-      const { produceD1Measurements } = await import("./producers/d1-billing-flows");
+      const { produceD1Measurements } = await import("./producers/lib/d1-billing-flows");
       return produceD1Measurements() as Promise<Record<string, unknown>>;
     },
   },
@@ -164,7 +164,7 @@ const PRODUCERS: Record<
         fail("DATABASE_URL is not set; the D3 producer cannot reconcile");
       }
       const { produceD3Measurements } = await import(
-        "./producers/d3-revenue-reconciliation"
+        "./producers/lib/d3-revenue-reconciliation"
       );
       return produceD3Measurements() as Promise<Record<string, unknown>>;
     },

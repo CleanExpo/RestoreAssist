@@ -155,7 +155,7 @@ export function StatesSection() {
               >
                 NZ
               </p>
-              <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
                 Same system
               </p>
             </div>
@@ -172,11 +172,11 @@ export function StatesSection() {
         >
           <div className="flex items-center justify-between gap-4">
             <p
-              className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400`}
+              className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600`}
             >
               Jurisdictional meridian
             </p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-600">
               Select a region — same claim workflow
             </p>
           </div>
@@ -234,7 +234,7 @@ export function StatesSection() {
                           "text-sm font-bold tracking-wide transition-colors sm:text-[15px]",
                           selected
                             ? "text-brand-navy"
-                            : "text-slate-500 group-hover:text-brand-navy-hover",
+                            : "text-slate-600 group-hover:text-brand-navy-hover",
                         ].join(" ")}
                       >
                         {r.code}
@@ -269,7 +269,7 @@ export function StatesSection() {
                     <span className="tabular-nums text-brand-harbour">
                       {region.code}
                     </span>
-                    <span className="mx-3 text-slate-300">·</span>
+                    <span aria-hidden="true" className="mx-3 text-slate-600">·</span>
                     {region.name}
                   </p>
                   <p className="mt-2 text-[15px] leading-relaxed text-slate-600">
@@ -297,7 +297,7 @@ export function StatesSection() {
           {BUILT_IN.map((item) => (
             <motion.li key={item.label} variants={fadeUp}>
               <p
-                className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400`}
+                className={`${FONT_DISPLAY} text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600`}
               >
                 {item.label}
               </p>

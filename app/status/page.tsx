@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   title: "System Status · RestoreAssist",
   description:
     "Live status of RestoreAssist platform services — API, database, background jobs.",
+  alternates: { canonical: "/status" },
 };
 
 export const dynamic = "force-dynamic";
@@ -154,10 +155,6 @@ export default async function StatusPage() {
           >
             support@restoreassist.app
           </a>
-        </p>
-        <p className="mt-2 text-xs text-slate-500">
-          Historic incident log + RSS feed will land alongside the public
-          Statuspage integration (tracked in Linear).
         </p>
       </section>
     </main>

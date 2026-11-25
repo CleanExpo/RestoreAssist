@@ -25,7 +25,7 @@ const STEPS = [
   {
     step: "02",
     title: "Finish the report",
-    body: "IICRC S500:2021-aligned report drafts take shape in minutes from what you captured. You review, edit, and own every decision before it leaves your company.",
+    body: "IICRC S500:2021-aligned report drafts are built from what you captured. You review, edit, and own every decision before it leaves your company.",
   },
   {
     step: "03",
@@ -120,8 +120,8 @@ export function WorkflowSection() {
           className="relative mt-16 aspect-[21/9] min-h-[14rem] overflow-hidden rounded-2xl border border-slate-200/90 shadow-[0_12px_40px_rgba(15,23,42,0.06)] sm:mt-20 sm:min-h-[16rem] lg:mt-24"
         >
           <Image
-            src="/landing/field-capture.jpg"
-            alt="Restoration technician measuring and documenting conditions on a job site"
+            src="/landing/field-capture.avif"
+            alt="Restoration technician on a suburban driveway photographing a house front with a rugged tablet, air movers drying a wet runner beside him"
             fill
             sizes="(max-width: 1280px) 100vw, 80rem"
             className="object-cover object-center"

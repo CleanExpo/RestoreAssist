@@ -92,7 +92,7 @@ export default function MargotSocialTrainingPage() {
       <DashboardPanel>
         <DashboardPanelHeader
           title="What restoration means for us"
-          description="Canonical definition used by the gate, chat, Hermes, and public orb."
+          description="Canonical definition used by the gate, chat, Margot, and the public orb."
         />
         <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
           {PROPERTY_RESTORATION_DEFINITION}

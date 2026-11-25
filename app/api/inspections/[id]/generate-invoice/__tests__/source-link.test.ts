@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// RA-8494: the caller here may see money; the money rule is proven in
+// technician-no-money.test.ts (see lib/auth/__mocks__/redact-money.ts).
+vi.mock("@/lib/auth/redact-money");
 import { NextRequest } from "next/server";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
@@ -96,6 +100,12 @@ vi.mock("@/lib/lifecycle/subscribers/next-action", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findFirst: inspectionFindFirst },
+    // RA-8067: the lifecycle actor role is read from the database row.
+    user: {
+      findUnique: vi
+        .fn()
+        .mockResolvedValue({ role: "USER", isJuniorTechnician: false }),
+    },
     estimate: { findFirst: estimateFindFirst },
     // No frozen approval snapshot: the route falls back to the live lines.
     estimateVersion: { findUnique: vi.fn().mockResolvedValue(null) },

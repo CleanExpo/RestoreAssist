@@ -1,6 +1,11 @@
 /**
- * IICRC S500:2021-Compliant Report PDF Generator (RA-428)
+ * IICRC report PDF generator (RA-428)
  * Produces a professional, insurer-grade PDF from RestoreAssist report data.
+ *
+ * The report is aligned to the IICRC standard for its claim type and says so
+ * as a reference only. It never states that the report or the job is
+ * compliant with, or certified against, a standard (RA-7665). The edition
+ * comes from lib/nir-standards-mapping.ts, never a hand-typed year.
  *
  * Sections:
  *   1. Header + property details
@@ -9,11 +14,38 @@
  *   4. Moisture readings table (S500 §10)
  *   5. Equipment deployment log (S500 §6)
  *   6. Psychrometric data (S500 §5)
+ *   6A. Sampling & laboratory results (mould jobs only, RA-7686)
+ *   6B. Independent verification handoff (mould jobs only, RA-8373)
+ *   6C. Room observations: odour, visible growth, staining (any job, RA-7694)
  *   7. Inspection report narrative
- *   8. Drying goals reference (S500 §12.5.7)
+ *   8. Drying goal basis (reference readings; guide values marked, RA-8508)
  *   9. Signed declaration
  */
 
+import {
+  mouldLabResultRows,
+  shouldPrintMouldLabResults,
+  type MouldLabAssessment,
+} from "@/lib/reports/mould-lab-results";
+import {
+  ROOM_OBSERVATIONS_NOTICE,
+  roomObservationGroups,
+  roomObservationsOmittedNotice,
+  shouldPrintRoomObservations,
+  type ReportRoomObservation,
+} from "@/lib/reports/room-observations";
+import {
+  MOISTURE_GUIDE_HINT,
+  MOISTURE_GUIDE_LABEL,
+  dryingGoalTableRows,
+  moistureRowGoal,
+  pickReferenceReadings,
+  type ReferenceCandidate,
+} from "@/lib/iicrc-dry-standards";
+import {
+  buildVerificationHandoff,
+  verificationHandoffRows,
+} from "@/lib/reports/independent-verification-handoff";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import {
   hexToRgb,
@@ -22,7 +54,36 @@ import {
 } from "@/lib/clients/brand";
 import { isSafePublicHttpsUrl } from "@/lib/security/safe-external-url";
 import { drawAiOwnershipWatermark } from "@/lib/reports/ai-ownership-watermark";
+import {
+  reportAlignedStandard,
+  standardCite,
+  standardDesignation,
+  type StandardKey,
+} from "@/lib/nir-standards-mapping";
 import { readEquipmentDeploymentLog } from "@/lib/reports/stored-equipment-pricing";
+import {
+  type StormReportAssessment,
+  stormFindingRows,
+  stormSafetyRows,
+} from "@/lib/reports/storm-assessment-rows";
+
+/**
+ * RA-8508: PDF moisture rows as owner inputs. Rows come from the relational
+ * adapter (lib/reports/pdf-moisture-readings.ts, which carries `unit`) or from
+ * legacy JSON (no unit, no baseline flag, so never a reference).
+ */
+function pdfReferenceCandidates(rows: any[]): ReferenceCandidate[] {
+  return rows.map((r) => ({
+    surfaceType: r.surfaceType ?? r.material ?? r.materialType ?? null,
+    moistureLevel:
+      typeof r.moistureLevel === "number" ? r.moistureLevel : Number.parseFloat(String(r.moistureLevel ?? "")),
+    isBaseline: r.isBaseline === true,
+    unit: typeof r.unit === "string" ? r.unit : null,
+    // Relational rows are queried with invalidatedAt: null; JSON rows carry none.
+    invalidatedAt: null,
+    recordedAt: r.date ?? null,
+  }));
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +111,15 @@ export interface IICRCReportData {
   /** Opaque: only stored-equipment-pricing.ts reads inside it. */
   equipmentSelection?: unknown;
   scopeAreas?: any;
+  /** RA-7686: the job's claim type and mould sampling record, for Section 6A. */
+  claimType?: string | null;
+  mouldAssessment?: MouldLabAssessment | null;
+  /** RA-8592: the saved storm record, for Sections 6D and 6E. */
+  stormAssessment?: StormReportAssessment | null;
+  /** RA-7694: per-room odour, visible growth and staining, for Section 6C. */
+  roomObservations?: ReportRoomObservation[] | null;
+  /** Recorded observations beyond the bounded read, so the report can say so. */
+  roomObservationsOmitted?: number | null;
   user?: {
     name?: string | null;
     email?: string | null;
@@ -79,9 +149,6 @@ const C_TEXT = rgb(0.1, 0.1, 0.1);
 const C_MUTED = rgb(0.45, 0.45, 0.45);
 const C_LIGHT = rgb(0.94, 0.96, 0.98);
 const C_WHITE = rgb(1, 1, 1);
-const C_GREEN = rgb(0.08, 0.5, 0.08);
-const C_AMBER = rgb(0.7, 0.4, 0.0);
-const C_RED = rgb(0.75, 0.1, 0.1);
 
 const WATER_CATEGORIES: Record<string, string> = {
   "1": "Category 1 — Clean Water (S500:2021 §10.4.1)",
@@ -285,11 +352,26 @@ export function fmtCurrency(n: number | null | undefined): string {
 
 // ─── Header + Footer ──────────────────────────────────────────────────────────
 
+/** Page header strap, e.g. "Inspection Report | Aligned to IICRC S500:2021". */
+export function reportPdfHeaderStrap(std: StandardKey | null): string {
+  return std
+    ? `Inspection Report | Aligned to IICRC ${standardCite(std)}`
+    : "Inspection Report";
+}
+
+/** Page footer line, e.g. "References ANSI/IICRC S500-2021 | Alignment, not certification". */
+export function reportPdfFooterLine(std: StandardKey | null): string {
+  return std
+    ? `References ${standardDesignation(std)} | Alignment, not certification`
+    : "Restoration inspection report";
+}
+
 function drawPageHeader(
   w: PDFWriter,
   reportNumber: string,
   pageNum: number,
   accent: ReturnType<typeof rgb> = C_NAVY,
+  std: StandardKey | null = "S500",
 ) {
   const p = w.page;
   p.drawRectangle({
@@ -306,7 +388,7 @@ function drawPageHeader(
     font: w.bold,
     color: C_WHITE,
   });
-  p.drawText("IICRC S500:2021 Compliant Inspection Report", {
+  p.drawText(reportPdfHeaderStrap(std), {
     x: MARGIN + 105,
     y: A4_H - 22,
     size: 8,
@@ -325,11 +407,12 @@ function drawPageHeader(
 function drawPageFooter(
   w: PDFWriter,
   accent: ReturnType<typeof rgb> = C_NAVY,
+  std: StandardKey | null = "S500",
 ) {
   const p = w.page;
   p.drawRectangle({ x: 0, y: 0, width: A4_W, height: 28, color: accent });
   p.drawText(
-    "Compliant with IICRC S500:2021 | Australian Water Damage Restoration Standard",
+    reportPdfFooterLine(std),
     {
       x: MARGIN,
       y: 10,
@@ -367,7 +450,7 @@ export interface GenerateIICRCReportOptions {
 }
 
 /**
- * Generate an IICRC S500:2021-compliant PDF from RestoreAssist report data.
+ * Generate the IICRC-aligned inspection report PDF from RestoreAssist report data.
  * Returns a Uint8Array ready to stream as application/pdf.
  */
 export async function generateIICRCReportPDF(
@@ -419,11 +502,13 @@ export async function generateIICRCReportPDF(
 
   const reportNum =
     data.reportNumber ?? `RA-${data.id.slice(0, 8).toUpperCase()}`;
+  // RA-7665 / RA-8282: a mould report references S520, a fire report S700.
+  const pdfStandard = reportAlignedStandard(data.claimType, data.hazardType);
   let pageNum = 1;
 
   // ── SECTION 1: Property & Claim Details ─────────────────────────────────────
-  drawPageHeader(w, reportNum, pageNum, themeRgb);
-  drawPageFooter(w, themeRgb);
+  drawPageHeader(w, reportNum, pageNum, themeRgb, pdfStandard);
+  drawPageFooter(w, themeRgb, pdfStandard);
   if (clientLogoImage) {
     // Render the logo inside the header band — top-right, height-capped
     // to the band so it never bleeds into the page body.
@@ -601,32 +686,28 @@ export async function generateIICRCReportPDF(
     ];
     const mWidths = [100, 90, 65, 65, 65, 68];
     w.tableRow(mCols, mWidths, true);
+    // RA-8508: each row's goal and status come from the owner (the job's
+    // reference reading first, then the guide), the same goal Section 9 prints.
+    const rowReferences = pickReferenceReadings(pdfReferenceCandidates(moistureArr));
     moistureArr.forEach((r: any, i: number) => {
       const val = r.moistureLevel ?? r.value ?? r.reading ?? r.moisture ?? "";
-      const threshold =
-        r.threshold ??
-        (r.material?.toLowerCase().includes("timber") ? "≤18%" : "≤14%");
-      const numVal = parseFloat(String(val));
-      const statusColor = isNaN(numVal)
-        ? C_MUTED
-        : numVal > 18
-          ? C_RED
-          : numVal > 14
-            ? C_AMBER
-            : C_GREEN;
-      const status = isNaN(numVal)
-        ? "—"
-        : numVal > 18
-          ? "ABOVE GOAL"
-          : numVal > 14
-            ? "MONITORING"
-            : "WITHIN GOAL";
+      const rowGoal = moistureRowGoal(
+        {
+          material: r.material ?? r.materialType,
+          surfaceType: r.surfaceType,
+          moistureLevel: val,
+          isBaseline: r.isBaseline,
+          unit: r.unit,
+        },
+        rowReferences,
+      );
+      const status = rowGoal.status;
       w.tableRow(
         [
           r.location ?? r.room ?? r.roomZoneId ?? "—",
           r.material ?? r.materialType ?? "—",
           val ? `${val}%` : "—",
-          String(threshold),
+          rowGoal.goalText,
           status,
           r.date
             ? fmtDate(r.date)
@@ -641,7 +722,7 @@ export async function generateIICRCReportPDF(
     });
     w.gap(4);
     w.text(
-      "Drying goal: all affected materials must achieve equilibrium moisture content per S500:2021 §12.5.7.",
+      "Drying goal: the reference reading from unaffected like material in the same building where one was recorded, otherwise a guide value (see Section 9).",
       {
         size: 8,
         color: C_MUTED,
@@ -720,13 +801,94 @@ export async function generateIICRCReportPDF(
     w.gap(8);
   }
 
+  // ── SECTION 6A: Sampling & Laboratory Results (RA-7686) ─────────────────────
+  // Mould jobs only. Empty fields print "Not tested"; no automatic pass/fail.
+  if (shouldPrintMouldLabResults(data.mouldAssessment, data.claimType)) {
+    w.sectionHeader("SECTION 6A - Sampling & laboratory results");
+    w.gap(4);
+    for (const [label, value] of mouldLabResultRows(data.mouldAssessment)) {
+      w.kv(label, value, 170);
+    }
+    w.gap(8);
+
+    // ── SECTION 6B: Independent verification handoff (RA-8373) ──────────────
+    // Derived from the record above; the generator persists nothing. No
+    // reviewer record is stored yet, so reviewer items print as outstanding.
+    // Tenancy is the PDF route's job (resolveReportFinancialReach) before this
+    // generator is called.
+    const handoff = buildVerificationHandoff({
+      tenancy: "asserted_by_caller",
+      restorer: { organizationId: null, userIds: [] },
+      assessment: data.mouldAssessment,
+      reviewer: null,
+    });
+    if (handoff.ok) {
+      w.sectionHeader("SECTION 6B - Independent verification handoff");
+      w.gap(4);
+      w.text(handoff.notice, { size: 9, color: C_MUTED });
+      w.gap(4);
+      for (const [label, value] of verificationHandoffRows(handoff)) {
+        w.kv(label, value, 170);
+      }
+      w.gap(8);
+    }
+  }
+
+  // ── SECTION 6D: Site safety (RA-8592) ──────────────────────────────────────
+  // Safety facts the technician recorded. A flag prints only when raised: the
+  // schema defaults these to false, so false is not a recorded "no".
+  const safetyRows = stormSafetyRows(data.stormAssessment);
+  if (safetyRows.length > 0) {
+    w.sectionHeader("SECTION 6D - Site safety");
+    w.gap(4);
+    for (const [label, value] of safetyRows) w.kv(label, value, 170);
+    w.gap(8);
+  }
+
+  // ── SECTION 6E: Storm assessment (RA-8592) ─────────────────────────────────
+  // Only the fields that were filled; an absent record prints nothing.
+  const stormRows = stormFindingRows(data.stormAssessment);
+  if (stormRows.length > 0) {
+    w.sectionHeader("SECTION 6E - Storm assessment");
+    w.gap(4);
+    for (const [label, value] of stormRows) w.kv(label, value, 170);
+    w.gap(8);
+  }
+
+  // ── SECTION 6C: Room observations (RA-7694) ─────────────────────────────────
+  // Odour, visible growth and staining per room, on any job type. Printed only
+  // when something was recorded; each line states what it rests on.
+  if (shouldPrintRoomObservations(data.roomObservations)) {
+    w.sectionHeader("SECTION 6C - Room observations");
+    w.gap(4);
+    w.text(ROOM_OBSERVATIONS_NOTICE, {
+      size: 8,
+      color: C_MUTED,
+      maxWidth: COL_W,
+    });
+    w.gap(4);
+    for (const group of roomObservationGroups(data.roomObservations)) {
+      w.ensureSpace(40);
+      w.text(group.room, { size: 10, bold: true, color: C_NAVY, maxWidth: COL_W });
+      for (const [label, value] of group.rows) {
+        w.kv(label, value, 110);
+      }
+      w.gap(4);
+    }
+    const omitted = roomObservationsOmittedNotice(data.roomObservationsOmitted);
+    if (omitted) {
+      w.text(omitted, { size: 8, color: C_MUTED, maxWidth: COL_W });
+    }
+    w.gap(4);
+  }
+
   // ── SECTION 7: Inspection Report Narrative ───────────────────────────────────
   if (data.detailedReport) {
     // New page for the narrative — it may be long
     w.newPage();
     pageNum++;
-    drawPageHeader(w, reportNum, pageNum, themeRgb);
-    drawPageFooter(w, themeRgb);
+    drawPageHeader(w, reportNum, pageNum, themeRgb, pdfStandard);
+    drawPageFooter(w, themeRgb, pdfStandard);
     w.y = A4_H - 60;
 
     w.sectionHeader("SECTION 7 — PROFESSIONAL INSPECTION REPORT NARRATIVE");
@@ -821,26 +983,37 @@ export async function generateIICRCReportPDF(
     w.gap(8);
   }
 
-  // ── SECTION 9: IICRC Drying Goals Reference ──────────────────────────────────
+  // ── SECTION 9: Drying goal basis (RA-8508) ─────────────────────────────────
+  // The goal for each material is the job's reference reading from unaffected
+  // like material. Guide values have no cited source and are labelled as such.
   w.ensureSpace(80);
-  w.sectionHeader("SECTION 9 — IICRC S500:2021 DRYING GOALS REFERENCE (§12.5.7)");
+  w.sectionHeader("SECTION 9 — DRYING GOAL BASIS");
   w.gap(4);
-  const dryingGoals = [
-    ["Hardwood flooring (solid)", "≤12% MC", "§12.5.7"],
-    ["Softwood / structural timber", "≤19% MC", "§12.5.7"],
-    ["Plasterboard (gypsum)", "≤1% MC", "§12.5.7"],
-    ["Concrete (slab, block)", "≤5% MC", "§12.5.7"],
-    ["Relative humidity (interior)", "≤50% RH", "§5"],
-    ["Indoor temperature", "21–27°C", "§5"],
-  ];
-  w.tableRow(
-    ["Material / Condition", "Drying Goal", "S500:2021 Ref."],
-    [170, 120, 100],
-    true,
-  );
-  dryingGoals.forEach(([mat, goal, ref], i) => {
-    w.tableRow([mat, goal, ref], [170, 120, 100], false, i % 2 === 1);
+  // One row per material with a reference reading, plus a guide row for each
+  // monitored material without one (owner: dryingGoalTableRows).
+  const goalRows = dryingGoalTableRows(pdfReferenceCandidates(moistureArr));
+  const anyReference = goalRows.some((g) => g.basis === "reference");
+  w.tableRow(["Material", "Drying goal", "Basis"], [170, 120, 160], true);
+  goalRows.forEach((g, i) => {
+    w.tableRow(
+      [
+        // RA-8517: capitalised as in Section 4 (the owner returns lower-case keys).
+        sanitise(g.material.charAt(0).toUpperCase() + g.material.slice(1)),
+        `≤${g.target}% MC`,
+        g.basis === "reference" ? "Reference reading" : MOISTURE_GUIDE_LABEL,
+      ],
+      [170, 120, 160],
+      false,
+      i % 2 === 1,
+    );
   });
+  w.gap(4);
+  w.text(
+    anyReference
+      ? `Reference readings were taken on unaffected like material in the same building. ${MOISTURE_GUIDE_HINT.replace("Replace it with", "Materials without one use a guide value; replace it with")}`
+      : `No reference reading was recorded. The values above are a starting guide only and are not a published standard. ${MOISTURE_GUIDE_HINT.replace("Replace it with a reference reading", "Replace them with reference readings")}`,
+    { size: 8, color: C_MUTED, maxWidth: COL_W },
+  );
   w.gap(8);
 
   // ── SECTION 10: Signed Declaration ───────────────────────────────────────────

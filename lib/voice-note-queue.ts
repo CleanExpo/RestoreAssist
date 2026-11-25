@@ -21,6 +21,7 @@
 
 import { getOfflineOwner, requireOfflineOwner, ownsOfflineEntry, fetchOfflineReplay, withOfflineDrainLock, type OfflineOwner } from "@/lib/offline/account-boundary";
 import { notifySyncQueueChanged } from "@/lib/offline/sync-status-event";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -341,7 +342,7 @@ async function drainVoiceNoteQueueImpl(): Promise<number> {
         await putEntry(db, {
           ...entry,
           status: "error",
-          error: extractErrorMessage(body, `HTTP ${response.status}`),
+          error: extractErrorMessage(body, statusErrorMessage(response.status)),
         });
         continue;
       }

@@ -8,6 +8,7 @@ import { resolveUserGstTreatment } from "@/lib/gst/resolve-user-gst";
 import { resolveLineGstRatePercent } from "@/lib/gst-rules";
 import { lineAmountsCents } from "@/lib/invoices/calc";
 import { assertFinancialWriter, canLinkRecord } from "@/lib/auth/assert-tenancy";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 function nextDateFromFrequency(start: Date, frequency: string): Date {
   const d = new Date(start);
@@ -46,6 +47,15 @@ export async function GET(request: NextRequest) {
         status: 401,
       });
     }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
+      });
+    }
 
     const recurringInvoices = await prisma.recurringInvoice.findMany({
       where: { userId: session.user.id },
@@ -70,6 +80,15 @@ export async function POST(request: NextRequest) {
       code: "UNAUTHORIZED",
       message: "Unauthorized",
       status: 401,
+    });
+  }
+  // RA-8494: prices only for a caller who may see money (never a technician).
+  const priceGate = await assertMoneyViewer(session);
+  if (!priceGate.ok) {
+    return apiError(request, {
+      code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+      message: priceGate.reason,
+      status: priceGate.status,
     });
   }
   const userId = session.user.id;

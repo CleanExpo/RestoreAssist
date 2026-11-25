@@ -59,9 +59,12 @@ export async function GET(
           },
         },
       }),
-      prisma.moistureReading.count({ where: { inspectionId } }),
+      // RA-8476: voided readings are kept for audit but never shown to the client.
+      prisma.moistureReading.count({
+        where: { inspectionId, invalidatedAt: null },
+      }),
       prisma.moistureReading.findFirst({
-        where: { inspectionId },
+        where: { inspectionId, invalidatedAt: null },
         orderBy: { recordedAt: "desc" },
         select: { recordedAt: true },
       }),

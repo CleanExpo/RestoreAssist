@@ -66,7 +66,7 @@ export default function ClaimActions({
 
   const submitTransition = async (
     action: LegalAction,
-    extra?: { transitionId?: string },
+    _extra?: { transitionId?: string },
   ) => {
     setSubmitting(true);
     setError(null);

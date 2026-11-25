@@ -34,6 +34,18 @@ function inspection(
   };
 }
 
+describe("buildReportPrefill job number (RA-8495)", () => {
+  it("uses the office job number when the job has one", () => {
+    const { fields } = buildReportPrefill(inspection({ jobNumber: "DRC-0042" }));
+    expect(fields.jobNumber).toBe("DRC-0042");
+  });
+
+  it("falls back to the NIR number for a job logged before office numbering", () => {
+    const { fields } = buildReportPrefill(inspection({ jobNumber: null }));
+    expect(fields.jobNumber).toBe("NIR-2026-09-0007");
+  });
+});
+
 describe("buildReportPrefill", () => {
   it("copies what the inspection records", () => {
     const { fields } = buildReportPrefill(inspection());

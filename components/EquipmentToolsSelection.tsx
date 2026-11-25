@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { RAIcon } from "@/components/brand/RAIcon";
 import {
   Info,
@@ -20,21 +20,17 @@ import {
   calculateWaterRemovalTarget,
   calculateAirMoversRequired,
   calculateTotalVolume,
-  type PsychrometricData,
 } from "@/lib/psychrometric-calculations";
 import {
   lgrDehumidifiers,
   desiccantDehumidifiers,
   airMovers,
   afdUnits,
-  heatDrying,
-  getAllEquipmentGroups,
   getEquipmentGroupById,
   calculateTotalAmps,
   getEquipmentDailyRateOrNull,
   selectionDailyRateOrNull,
   type EquipmentSelection,
-  type EquipmentGroup,
 } from "@/lib/equipment-matrix";
 import { RateNotSetError } from "@/lib/pricing/rate-not-set";
 import {
@@ -97,7 +93,7 @@ export default function EquipmentToolsSelection({
   const [waterClass, setWaterClass] = useState<1 | 2 | 3 | 4>(2);
   const [temperature, setTemperature] = useState(25);
   const [humidity, setHumidity] = useState(60);
-  const [systemType, setSystemType] = useState<"open" | "closed">("closed");
+  const [systemType, _setSystemType] = useState<"open" | "closed">("closed");
 
   // Step 2: Scope Areas
   const [areas, setAreas] = useState<ScopeArea[]>(
@@ -126,6 +122,10 @@ export default function EquipmentToolsSelection({
   );
   const [durationDays, setDurationDays] = useState(4);
 
+  // Selection count at mount: the pricing fetch below runs once on mount and
+  // has always judged "are there lines to reprice" against this value.
+  const initialSelectionCount = useRef(equipmentSelections.length);
+
   // Fetch pricing config on mount
   useEffect(() => {
     const fetchPricingConfig = async () => {
@@ -141,7 +141,7 @@ export default function EquipmentToolsSelection({
           }
 
           // Update equipment selections with pricing config rates if they don't have rates
-          if (config && equipmentSelections.length > 0) {
+          if (config && initialSelectionCount.current > 0) {
             setEquipmentSelections((prev) =>
               prev.map((sel) => ({
                 ...sel,
@@ -207,7 +207,7 @@ export default function EquipmentToolsSelection({
     return total;
   }, 0);
 
-  const totalAirflow = equipmentSelections.reduce((total, sel) => {
+  const _totalAirflow = equipmentSelections.reduce((total, sel) => {
     // Only count air movers toward "air movement" target (exclude AFD units which also have airflow).
     if (!sel.groupId.startsWith("airmover-")) return total;
     const group = getEquipmentGroupById(sel.groupId);
@@ -267,7 +267,7 @@ export default function EquipmentToolsSelection({
           s.groupId === groupId ? { ...s, quantity: newQuantity } : s,
         );
       } else if (delta > 0) {
-        const group = getEquipmentGroupById(groupId);
+        const _group = getEquipmentGroupById(groupId);
         // Use pricing config rate if available, otherwise use default from equipment matrix
         // This ensures we use the correct rate for each capacity group
         const rate = pricingConfig
@@ -410,7 +410,7 @@ export default function EquipmentToolsSelection({
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
                   currentStep === step
-                    ? "bg-cyan-500 text-white"
+                    ? "bg-brand-harbour-500 text-white"
                     : currentStep > step
                       ? "bg-green-500 text-white"
                       : "bg-slate-700 text-slate-400"
@@ -466,7 +466,7 @@ export default function EquipmentToolsSelection({
                     onClick={() => setWaterClass(cls as 1 | 2 | 3 | 4)}
                     className={`px-4 py-2 rounded-lg border transition-colors ${
                       waterClass === cls
-                        ? "border-cyan-500 bg-cyan-500/20 text-cyan-400"
+                        ? "border-brand-harbour-500 bg-brand-harbour-500/20 text-brand-harbour-400"
                         : "border-slate-600 bg-slate-700/50 text-slate-400 hover:border-slate-500"
                     }`}
                   >
@@ -558,7 +558,7 @@ export default function EquipmentToolsSelection({
           <div className="flex justify-end">
             <button
               onClick={() => setCurrentStep(2)}
-              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
             >
               Next: Scope Areas
               <ArrowRight className="w-4 h-4" />
@@ -720,7 +720,7 @@ export default function EquipmentToolsSelection({
                       </div>
                       <div className="w-full bg-slate-700 rounded-full h-2">
                         <div
-                          className="bg-cyan-500 h-2 rounded-full"
+                          className="bg-brand-harbour-500 h-2 rounded-full"
                           style={{ width: `${area.wetPercentage}%` }}
                         />
                       </div>
@@ -741,7 +741,7 @@ export default function EquipmentToolsSelection({
             </button>
             <button
               onClick={() => setCurrentStep(3)}
-              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
             >
               Next: Select Equipment
               <ArrowRight className="w-4 h-4" />
@@ -798,7 +798,7 @@ export default function EquipmentToolsSelection({
                       </div>
                       <div className="w-full bg-slate-700 rounded-full h-2">
                         <div
-                          className="bg-cyan-500 h-2 rounded-full"
+                          className="bg-brand-harbour-500 h-2 rounded-full"
                           style={{
                             width: `${Math.min(
                               100,
@@ -821,7 +821,7 @@ export default function EquipmentToolsSelection({
                       </div>
                       <div className="w-full bg-slate-700 rounded-full h-2">
                         <div
-                          className="bg-cyan-500 h-2 rounded-full"
+                          className="bg-brand-harbour-500 h-2 rounded-full"
                           style={{
                             width: `${Math.min(
                               100,
@@ -875,7 +875,7 @@ export default function EquipmentToolsSelection({
             <div className="space-y-4">
               <button
                 onClick={handleAutoSelect}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-brand-harbour-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
               >
                 <Wrench className="w-4 h-4" />
                 Auto-Select Best Fit
@@ -895,7 +895,7 @@ export default function EquipmentToolsSelection({
                         key={group.id}
                         className={`p-3 rounded-lg border ${
                           quantity > 0
-                            ? "border-cyan-500/50 bg-cyan-500/10"
+                            ? "border-brand-harbour-500/50 bg-brand-harbour-500/10"
                             : "border-slate-700 bg-slate-900/50"
                         }`}
                       >
@@ -905,7 +905,7 @@ export default function EquipmentToolsSelection({
                             <div className="text-xs text-slate-400">
                               {group.amps}A | {group.models.length} Models
                             </div>
-                            <div className="text-xs text-cyan-400 mt-1">
+                            <div className="text-xs text-brand-harbour-400 mt-1">
                               {formatDailyRate(
                                 selectionDailyRateOrNull(
                                   { groupId: group.id, dailyRate: selection?.dailyRate },
@@ -915,7 +915,7 @@ export default function EquipmentToolsSelection({
                             </div>
                           </div>
                           {quantity > 0 && (
-                            <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
+                            <div className="px-3 py-1 bg-brand-harbour-500/20 text-brand-harbour-400 rounded text-sm font-semibold mr-2">
                               {quantity}
                             </div>
                           )}
@@ -958,7 +958,7 @@ export default function EquipmentToolsSelection({
                         key={group.id}
                         className={`p-3 rounded-lg border ${
                           quantity > 0
-                            ? "border-cyan-500/50 bg-cyan-500/10"
+                            ? "border-brand-harbour-500/50 bg-brand-harbour-500/10"
                             : "border-slate-700 bg-slate-900/50"
                         }`}
                       >
@@ -968,7 +968,7 @@ export default function EquipmentToolsSelection({
                             <div className="text-xs text-slate-400">
                               {group.amps}A | {group.models.length} Models
                             </div>
-                            <div className="text-xs text-cyan-400 mt-1">
+                            <div className="text-xs text-brand-harbour-400 mt-1">
                               {formatDailyRate(
                                 selectionDailyRateOrNull(
                                   { groupId: group.id, dailyRate: selection?.dailyRate },
@@ -978,7 +978,7 @@ export default function EquipmentToolsSelection({
                             </div>
                           </div>
                           {quantity > 0 && (
-                            <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
+                            <div className="px-3 py-1 bg-brand-harbour-500/20 text-brand-harbour-400 rounded text-sm font-semibold mr-2">
                               {quantity}
                             </div>
                           )}
@@ -1023,7 +1023,7 @@ export default function EquipmentToolsSelection({
                         key={group.id}
                         className={`p-3 rounded-lg border ${
                           quantity > 0
-                            ? "border-cyan-500/50 bg-cyan-500/10"
+                            ? "border-brand-harbour-500/50 bg-brand-harbour-500/10"
                             : "border-slate-700 bg-slate-900/50"
                         }`}
                       >
@@ -1033,7 +1033,7 @@ export default function EquipmentToolsSelection({
                             <div className="text-xs text-slate-400">
                               {group.amps}A | {group.models.length} Models
                             </div>
-                            <div className="text-xs text-cyan-400 mt-1">
+                            <div className="text-xs text-brand-harbour-400 mt-1">
                               {formatDailyRate(
                                 selectionDailyRateOrNull(
                                   { groupId: group.id, dailyRate: selection?.dailyRate },
@@ -1043,7 +1043,7 @@ export default function EquipmentToolsSelection({
                             </div>
                           </div>
                           {quantity > 0 && (
-                            <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
+                            <div className="px-3 py-1 bg-brand-harbour-500/20 text-brand-harbour-400 rounded text-sm font-semibold mr-2">
                               {quantity}
                             </div>
                           )}
@@ -1092,7 +1092,7 @@ export default function EquipmentToolsSelection({
                         key={group.id}
                         className={`p-3 rounded-lg border ${
                           quantity > 0
-                            ? "border-cyan-500/50 bg-cyan-500/10"
+                            ? "border-brand-harbour-500/50 bg-brand-harbour-500/10"
                             : "border-slate-700 bg-slate-900/50"
                         }`}
                       >
@@ -1102,7 +1102,7 @@ export default function EquipmentToolsSelection({
                             <div className="text-xs text-slate-400">
                               {group.amps}A | {group.models.length} Models
                             </div>
-                            <div className="text-xs text-cyan-400 mt-1">
+                            <div className="text-xs text-brand-harbour-400 mt-1">
                               {formatDailyRate(
                                 selectionDailyRateOrNull(
                                   { groupId: group.id, dailyRate: selection?.dailyRate },
@@ -1112,7 +1112,7 @@ export default function EquipmentToolsSelection({
                             </div>
                           </div>
                           {quantity > 0 && (
-                            <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
+                            <div className="px-3 py-1 bg-brand-harbour-500/20 text-brand-harbour-400 rounded text-sm font-semibold mr-2">
                               {quantity}
                             </div>
                           )}

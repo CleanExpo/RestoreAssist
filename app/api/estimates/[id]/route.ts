@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordMutationAudit } from "@/lib/audit-log";
 import { apiError, fromException } from "@/lib/api-errors";
+import { assertMoneyViewer } from "@/lib/auth/redact-money";
 
 /**
  * GET /api/estimates/[id] — fetch a single estimate with full line items
@@ -23,6 +24,15 @@ export async function GET(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(_request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 
@@ -70,6 +80,15 @@ export async function DELETE(
         code: "UNAUTHORIZED",
         message: "Unauthorized",
         status: 401,
+      });
+    }
+    // RA-8494: prices only for a caller who may see money (never a technician).
+    const priceGate = await assertMoneyViewer(session);
+    if (!priceGate.ok) {
+      return apiError(request, {
+        code: priceGate.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
+        message: priceGate.reason,
+        status: priceGate.status,
       });
     }
 

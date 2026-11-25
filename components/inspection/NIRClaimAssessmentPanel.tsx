@@ -24,7 +24,18 @@ import {
   useRef,
 } from "react";
 import toast from "react-hot-toast";
+import ThirdPartyReportReader from "@/components/third-party-report/ThirdPartyReportReader";
+import { LAB_FIELDS } from "@/lib/third-party-report/schema";
 import { readIfCurrent } from "@/lib/nir-draft-save";
+import {
+  CONDITION_GRADES,
+  CONDITION_GRADE_LABELS,
+  PACK_OUT_DECISIONS,
+  PACK_OUT_DECISION_LABELS,
+  type ConditionGrade,
+  type PackOutDecision,
+  type PackOutItemInput,
+} from "@/lib/contents/pack-out-item-schema";
 import {
   Droplets,
   Flame,
@@ -43,6 +54,7 @@ import {
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ContentsItemPhoto } from "./ContentsItemPhoto";
 import { isNrpgEnabled } from "@/lib/flags/one-crm-flags";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -85,6 +97,11 @@ export type NIRClaimAssessmentPanelHandle = {
   /** RA-8330: true once the saved assessment and compliance records have
    *  loaded. Before that, persist() refuses rather than save a half-loaded form. */
   isReady: () => boolean;
+  /** RA-8359: true when a read of the saved records failed. The panel shows
+   *  the error and a Try again action instead of an empty form. */
+  loadFailed: () => boolean;
+  /** RA-8359: re-runs every read that failed. Resolves to isReady(). */
+  reload: () => Promise<boolean>;
   applyQuickFillSeed: (seed: {
     assessment?: Record<string, unknown>;
     compliance?: Record<string, unknown>;
@@ -104,6 +121,60 @@ function waterChoice(
 
 // ─── Claim type metadata ──────────────────────────────────────────────────────
 
+/** The lab fields the third-party report confirm can write (RA-7687, the one
+ *  list LAB_FIELDS), as the mould-remediation Save compares them: a value the
+ *  record lacks is null. */
+function labValuesOf(
+  record: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of LAB_FIELDS) out[key] = record?.[key] ?? null;
+  return out;
+}
+
+/** One comparable form of a lab value: a blank is null, a date is its day. */
+function labComparable(key: string, v: unknown): string | null {
+  if (v === null || v === undefined || v === "") return null;
+  return key === "samplingDate" ? String(v).slice(0, 10) : String(v);
+}
+
+/**
+ * A report confirm returned the lab values now stored. The one place the
+ * outgoing form values and the values a Save names as loaded (`expectedLab`)
+ * are brought together after a confirm: every stored value that changed, or
+ * that this confirm applied, goes into the form and into the baseline at the
+ * same moment, so the two cannot differ. A stored value that changed under an
+ * unsaved local edit of the same field is a clash: nothing is adopted and the
+ * caller tells the user to reload, so the Save is refused by the server and
+ * never overwrites silently.
+ */
+export function adoptConfirmedLab(
+  form: Record<string, unknown>,
+  baseline: Record<string, unknown>,
+  storedLab: Record<string, unknown>,
+  appliedFields: string[],
+): {
+  clash: boolean;
+  form: Record<string, unknown>;
+  baseline: Record<string, unknown>;
+} {
+  const stored = labValuesOf(storedLab);
+  const next = { ...form };
+  for (const key of LAB_FIELDS) {
+    const changed =
+      labComparable(key, stored[key]) !== labComparable(key, baseline[key]);
+    const applied = appliedFields.includes(key);
+    if (!changed && !applied) continue;
+    const edited =
+      labComparable(key, form[key]) !== labComparable(key, baseline[key]);
+    if (changed && !applied && edited) {
+      return { clash: true, form, baseline };
+    }
+    next[key] = stored[key];
+  }
+  return { clash: false, form: next, baseline: stored };
+}
+
 const CLAIM_TYPES: {
   type: NIRClaimType;
   label: string;
@@ -116,7 +187,7 @@ const CLAIM_TYPES: {
     label: "Water",
     icon: Droplets,
     route: "water-damage-classification",
-    color: "cyan",
+    color: "brand-harbour",
   },
   {
     type: "FIRE",
@@ -183,8 +254,12 @@ const CLAIM_TYPES: {
   },
 ];
 
+// Tailwind compiles only class names it can read literally. The form header
+// builds text-, bg- and dark:bg- classes from the claim colour at runtime, so
+// the brand harbour versions are listed here for the compiler:
+// text-brand-harbour-500 bg-brand-harbour-50 dark:bg-brand-harbour-900/10
 const COLOR_MAP: Record<string, string> = {
-  cyan: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 ring-cyan-400",
+  "brand-harbour": "bg-brand-harbour-100 dark:bg-brand-harbour-900/30 text-brand-harbour-700 dark:text-brand-harbour-300 ring-brand-harbour-400",
   orange:
     "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 ring-orange-400",
   green:
@@ -244,7 +319,7 @@ function Select({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
     >
       <option value="">{placeholder}</option>
       {options.map((o) => (
@@ -282,7 +357,7 @@ function Input({
       min={min}
       max={max}
       step={step}
-      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-harbour-500/30"
     />
   );
 }
@@ -300,7 +375,7 @@ function Toggle({
       onClick={() => onChange(!value)}
       className={cn(
         "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
-        value ? "bg-cyan-500" : "bg-neutral-300 dark:bg-slate-600",
+        value ? "bg-brand-harbour-500" : "bg-neutral-300 dark:bg-slate-600",
       )}
     >
       <span
@@ -545,7 +620,10 @@ function MouldForm({
 }) {
   return (
     <>
-      <FieldRow label="Condition Level" hint="IICRC S520:2024 Condition 1–3">
+      <FieldRow
+        label="Condition Level"
+        hint="Assessor entry only (IICRC S520:2024 Condition 1–3)"
+      >
         <Select
           value={(data.mouldConditionLevel as string) || ""}
           onChange={(v) => onChange("mouldConditionLevel", v || null)}
@@ -571,14 +649,14 @@ function MouldForm({
           onChange={(v) => onChange("visibleGrowthObserved", v)}
         />
       </FieldRow>
-      <FieldRow label="Spore Type">
+      <FieldRow label="Spore Type (laboratory result)">
         <Select
           value={(data.sporeType as string) || ""}
           onChange={(v) => onChange("sporeType", v || null)}
           options={[
             { value: "CLADOSPORIUM", label: "Cladosporium" },
             { value: "ASPERGILLUS", label: "Aspergillus / Penicillium" },
-            { value: "STACHYBOTRYS", label: "Stachybotrys (Black Mould)" },
+            { value: "STACHYBOTRYS", label: "Stachybotrys" },
             { value: "ALTERNARIA", label: "Alternaria" },
             { value: "OTHER", label: "Other / Mixed" },
           ]}
@@ -800,38 +878,113 @@ function StormForm({
   );
 }
 
+// RA-8533: the Contents form sends the contents-pack-out route's own field
+// names, built from the shared schema module. Before this it sent `itemName` /
+// `condition`, the route required `itemDescription`, and every add got a 400.
+const CONDITION_GRADE_OPTIONS = CONDITION_GRADES.map((g) => ({
+  value: g,
+  label: CONDITION_GRADE_LABELS[g],
+}));
+const PACK_OUT_DECISION_OPTIONS = PACK_OUT_DECISIONS.map((d) => ({
+  value: d,
+  label: PACK_OUT_DECISION_LABELS[d],
+}));
+
+type ContentsItemDraft = {
+  itemDescription: string;
+  make: string;
+  model: string;
+  serialNumber: string;
+  ageYears: string;
+  conditionPreLoss: string;
+  conditionPostLoss: string;
+  packOutDecision: string;
+  packOutTag: string;
+  replacementValueAud: string;
+  /** RA-8537: a verified photo URL from the job's photo upload, or "". */
+  beforePhotoUrl: string;
+};
+
+const EMPTY_CONTENTS_DRAFT: ContentsItemDraft = {
+  itemDescription: "",
+  make: "",
+  model: "",
+  serialNumber: "",
+  ageYears: "",
+  conditionPreLoss: "",
+  conditionPostLoss: "",
+  packOutDecision: "",
+  packOutTag: "",
+  replacementValueAud: "",
+  beforePhotoUrl: "",
+};
+
+/** Builds the POST body: only schema fields, blanks omitted, numbers parsed. */
+function buildContentsPackOutBody(draft: ContentsItemDraft): PackOutItemInput {
+  const text = (v: string) => (v.trim() ? v.trim() : undefined);
+  const body: PackOutItemInput = {
+    itemDescription: draft.itemDescription.trim(),
+    make: text(draft.make),
+    model: text(draft.model),
+    serialNumber: text(draft.serialNumber),
+    conditionPreLoss: text(
+      draft.conditionPreLoss,
+    ) as PackOutItemInput["conditionPreLoss"],
+    conditionPostLoss: text(
+      draft.conditionPostLoss,
+    ) as PackOutItemInput["conditionPostLoss"],
+    packOutDecision: text(
+      draft.packOutDecision,
+    ) as PackOutItemInput["packOutDecision"],
+    packOutTag: text(draft.packOutTag),
+    beforePhotoUrl: text(draft.beforePhotoUrl),
+  };
+  const age = parseInt(draft.ageYears, 10);
+  if (Number.isFinite(age) && age >= 0) body.ageYears = age;
+  const value = parseFloat(draft.replacementValueAud);
+  if (Number.isFinite(value) && value >= 0) body.replacementValueAud = value;
+  return Object.fromEntries(
+    Object.entries(body).filter(([, v]) => v !== undefined),
+  ) as PackOutItemInput;
+}
+
 function ContentsNewItemForm({
+  inspectionId,
   onAdd,
 }: {
-  onAdd: (item: Record<string, unknown>) => void;
+  inspectionId: string;
+  onAdd: (item: PackOutItemInput) => Promise<boolean>;
 }) {
-  const [form, setForm] = useState<Record<string, unknown>>({
-    itemName: "",
-    itemCategory: "",
-    condition: "",
-    preExistingDamage: false,
-    quantityAffected: 1,
-    replacementValueAud: "",
-  });
+  const [form, setForm] = useState<ContentsItemDraft>(EMPTY_CONTENTS_DRAFT);
 
-  const handleChange = (k: string, v: unknown) =>
+  const handleChange = (k: keyof ContentsItemDraft, v: string) =>
     setForm((p) => ({ ...p, [k]: v }));
 
-  const handleAdd = () => {
-    if (!form.itemName || !form.condition) {
-      toast.error("Item name and condition are required");
+  const handleAdd = async () => {
+    if (!form.itemDescription.trim() || !form.packOutDecision) {
+      toast.error("Item description and disposition are required");
       return;
     }
-    onAdd({ ...form });
-    setForm({
-      itemName: "",
-      itemCategory: "",
-      condition: "",
-      preExistingDamage: false,
-      quantityAffected: 1,
-      replacementValueAud: "",
-    });
+    // Keep what the technician typed if the save is refused.
+    if (await onAdd(buildContentsPackOutBody(form))) {
+      setForm(EMPTY_CONTENTS_DRAFT);
+    }
   };
+
+  const field = (
+    key: keyof ContentsItemDraft,
+    label: string,
+    placeholder?: string,
+  ) => (
+    <div>
+      <label className="text-xs text-neutral-500 mb-1 block">{label}</label>
+      <Input
+        value={form[key]}
+        onChange={(v) => handleChange(key, v)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
 
   return (
     <div className="p-4 rounded-xl border border-dashed border-neutral-200 dark:border-slate-700 space-y-3 mt-2">
@@ -839,47 +992,55 @@ function ContentsNewItemForm({
         Add Pack-Out Item
       </p>
       <div className="grid grid-cols-2 gap-2">
+        {field(
+          "itemDescription",
+          "Item description *",
+          "e.g. Front-loader washing machine",
+        )}
+        {field("make", "Make", "e.g. Samsung")}
+        {field("model", "Model", "e.g. WW80T554DAW")}
+        {field("serialNumber", "Serial number")}
+        {field("packOutTag", "Pack-out tag", "e.g. BOX-014")}
         <div>
           <label className="text-xs text-neutral-500 mb-1 block">
-            Item Name *
+            Age (years)
           </label>
           <Input
-            value={(form.itemName as string) || ""}
-            onChange={(v) => handleChange("itemName", v)}
-            placeholder="e.g. Samsung Washing Machine"
+            type="number"
+            value={form.ageYears}
+            onChange={(v) => handleChange("ageYears", v)}
+            min={0}
+            step={1}
           />
         </div>
         <div>
           <label className="text-xs text-neutral-500 mb-1 block">
-            Category
+            Condition before loss
           </label>
           <Select
-            value={(form.itemCategory as string) || ""}
-            onChange={(v) => handleChange("itemCategory", v || null)}
-            options={[
-              { value: "APPLIANCE", label: "Appliance" },
-              { value: "FURNITURE", label: "Furniture" },
-              { value: "ELECTRONICS", label: "Electronics" },
-              { value: "DOCUMENTS", label: "Documents" },
-              { value: "CLOTHING", label: "Clothing" },
-              { value: "ART", label: "Art / Collectables" },
-              { value: "OTHER", label: "Other" },
-            ]}
+            value={form.conditionPreLoss}
+            onChange={(v) => handleChange("conditionPreLoss", v)}
+            options={CONDITION_GRADE_OPTIONS}
           />
         </div>
         <div>
           <label className="text-xs text-neutral-500 mb-1 block">
-            Condition *
+            Condition after loss
           </label>
           <Select
-            value={(form.condition as string) || ""}
-            onChange={(v) => handleChange("condition", v || null)}
-            options={[
-              { value: "RESTORABLE", label: "Restorable" },
-              { value: "CLEAN_ONSITE", label: "Clean On-site" },
-              { value: "PACK_OUT", label: "Pack Out" },
-              { value: "TOTAL_LOSS", label: "Total Loss" },
-            ]}
+            value={form.conditionPostLoss}
+            onChange={(v) => handleChange("conditionPostLoss", v)}
+            options={CONDITION_GRADE_OPTIONS}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-neutral-500 mb-1 block">
+            Disposition *
+          </label>
+          <Select
+            value={form.packOutDecision}
+            onChange={(v) => handleChange("packOutDecision", v)}
+            options={PACK_OUT_DECISION_OPTIONS}
           />
         </div>
         <div>
@@ -888,42 +1049,28 @@ function ContentsNewItemForm({
           </label>
           <Input
             type="number"
-            value={(form.replacementValueAud as number) || ""}
-            onChange={(v) =>
-              handleChange("replacementValueAud", v ? parseFloat(v) : null)
-            }
+            value={form.replacementValueAud}
+            onChange={(v) => handleChange("replacementValueAud", v)}
             min={0}
             step={10}
             placeholder="e.g. 850"
           />
         </div>
-        <div>
-          <label className="text-xs text-neutral-500 mb-1 block">
-            Quantity
-          </label>
-          <Input
-            type="number"
-            value={(form.quantityAffected as number) || 1}
-            onChange={(v) =>
-              handleChange("quantityAffected", v ? parseInt(v) : 1)
-            }
-            min={1}
-          />
-        </div>
-        <div className="flex items-end gap-2">
-          <label className="text-xs text-neutral-500">
-            Pre-existing damage
-          </label>
-          <Toggle
-            value={!!form.preExistingDamage}
-            onChange={(v) => handleChange("preExistingDamage", v)}
-          />
-        </div>
       </div>
+      <ContentsItemPhoto
+        inspectionId={inspectionId}
+        stage="before"
+        itemDescription={form.itemDescription}
+        url={form.beforePhotoUrl || null}
+        onChange={(url) => {
+          handleChange("beforePhotoUrl", url ?? "");
+          return true;
+        }}
+      />
       <button
         type="button"
         onClick={handleAdd}
-        className="px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium transition-colors"
+        className="px-4 py-1.5 rounded-lg bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white text-sm font-medium transition-colors"
       >
         Add Item
       </button>
@@ -1359,7 +1506,7 @@ function AustralianComplianceForm({
         className="w-full flex items-center justify-between px-4 py-3 bg-neutral-50 dark:bg-slate-800/60 hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Shield size={15} className="text-cyan-500" />
+          <Shield size={15} className="text-brand-harbour-500" />
           <span className="text-sm font-semibold text-neutral-700 dark:text-slate-200">
             Australian Compliance
           </span>
@@ -1486,6 +1633,48 @@ function AustralianComplianceForm({
   );
 }
 
+// ─── Load failure notice (RA-8359) ────────────────────────────────────────────
+
+/** Shown in place of a form whose saved record could not be read, so a failed
+ *  read never looks like "nothing entered yet" and cannot be typed over. */
+function LoadFailedNotice({
+  testId,
+  what,
+  retrying = false,
+  onRetry,
+}: {
+  testId: string;
+  what: string;
+  retrying?: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      data-testid={testId}
+      className="py-4 flex flex-col gap-3 text-sm text-neutral-700 dark:text-slate-200"
+    >
+      <div className="flex items-start gap-2">
+        <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-500" />
+        <p>
+          We couldn&apos;t load {what}. It is hidden so nothing can be saved over
+          it. Check your connection, then press Try again. Save Draft also
+          tries to load it again.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-slate-600 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-slate-800 disabled:opacity-50"
+      >
+        {retrying && <Loader2 size={13} className="animate-spin" />}
+        Try again
+      </button>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const NIRClaimAssessmentPanel = forwardRef<
@@ -1508,6 +1697,8 @@ const NIRClaimAssessmentPanel = forwardRef<
   const [selectedType, setSelectedType] = useState<NIRClaimType | null>(
     lockedClaimType ?? initialClaimType ?? null,
   );
+  const selectedTypeRef = useRef(selectedType);
+  selectedTypeRef.current = selectedType;
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [contentItems, setContentItems] = useState<Record<string, unknown>[]>(
     [],
@@ -1515,10 +1706,23 @@ const NIRClaimAssessmentPanel = forwardRef<
   const [complianceData, setComplianceData] = useState<Record<string, unknown>>(
     {},
   );
+  // Writes read these. The loaders also set them at once, so a save that runs
+  // straight after a re-read (RA-8359) sends the record just read, not the
+  // form as it was before React re-rendered.
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
+  const complianceDataRef = useRef(complianceData);
+  complianceDataRef.current = complianceData;
   const [asbestosWarning, setAsbestosWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [savingCompliance, setSavingCompliance] = useState(false);
+  // RA-7687: the lab values this form loaded or last saved, sent with a Save
+  // so the server refuses it if a report confirm changed any of them since,
+  // instead of overwriting. And whether a report confirm is in flight, during
+  // which the Save is held.
+  const loadedLabRef = useRef<Record<string, unknown>>(labValuesOf(null));
+  const reportConfirmInFlightRef = useRef(false);
+  const [_saving, setSaving] = useState(false);
+  const [_savingCompliance, setSavingCompliance] = useState(false);
   const [gates, setGates] = useState<Record<string, boolean>>({});
   // RA-8330: the Quick Fill seed must survive the first load. A claim with no
   // saved record (404) starts from the seed, not an empty form.
@@ -1529,6 +1733,21 @@ const NIRClaimAssessmentPanel = forwardRef<
   const complianceLoadedRef = useRef(false);
   const assessmentRequestRef = useRef(0);
   const complianceRequestRef = useRef(0);
+  // RA-8359: a failed read is shown as an error with Try again, never as an
+  // empty form that looks like "no assessment yet".
+  const [assessmentLoadFailed, setAssessmentLoadFailed] = useState(false);
+  const [complianceLoadFailed, setComplianceLoadFailed] = useState(false);
+  const [complianceRetrying, setComplianceRetrying] = useState(false);
+  const assessmentLoadFailedRef = useRef(false);
+  const complianceLoadFailedRef = useRef(false);
+  const markAssessmentFailed = (failed: boolean) => {
+    assessmentLoadFailedRef.current = failed;
+    setAssessmentLoadFailed(failed);
+  };
+  const markComplianceFailed = (failed: boolean) => {
+    complianceLoadFailedRef.current = failed;
+    setComplianceLoadFailed(failed);
+  };
 
   // ── Load assessment for a claim type ──────────────────────────────────────
 
@@ -1539,6 +1758,7 @@ const NIRClaimAssessmentPanel = forwardRef<
       const request = ++assessmentRequestRef.current;
       const isCurrent = () => request === assessmentRequestRef.current;
       assessmentLoadedRef.current = false;
+      markAssessmentFailed(false);
       setLoading(true);
       try {
         // RA-8330 round 7: readIfCurrent re-checks after the body is read too.
@@ -1549,7 +1769,9 @@ const NIRClaimAssessmentPanel = forwardRef<
         if (!res) return;
         if (res.ok) {
           const record = res.record as Record<string, unknown> | null;
+          loadedLabRef.current = labValuesOf(record);
           if (record && type !== "CONTENTS") {
+            formDataRef.current = record;
             setFormData(record);
             if (type === "WATER") {
               const c = waterChoice(record);
@@ -1568,14 +1790,19 @@ const NIRClaimAssessmentPanel = forwardRef<
           assessmentLoadedRef.current = true;
         } else if (res.status === 404) {
           // No record yet; start from the Quick Fill seed, if any
+          loadedLabRef.current = labValuesOf(null);
+          formDataRef.current = { ...(assessmentSeedRef.current ?? {}) };
           setFormData({ ...(assessmentSeedRef.current ?? {}) });
           setGates({});
           if (type === "CONTENTS") setContentItems([]);
           assessmentLoadedRef.current = true;
+        } else {
+          // Any other status: the saved record is unknown, so stay not ready.
+          markAssessmentFailed(true);
         }
-        // Any other status: the saved record is unknown, so stay not ready.
       } catch {
         // Network error: saved record unknown, stay not ready.
+        if (isCurrent()) markAssessmentFailed(true);
       } finally {
         if (isCurrent()) setLoading(false);
       }
@@ -1595,15 +1822,37 @@ const NIRClaimAssessmentPanel = forwardRef<
       if (!res) return;
       if (res.ok) {
         const record = res.record as Record<string, unknown> | null;
-        if (record) setComplianceData(record);
+        if (record) {
+          complianceDataRef.current = record;
+          setComplianceData(record);
+        }
         complianceLoadedRef.current = true;
+        markComplianceFailed(false);
       } else if (res.status === 404) {
         complianceLoadedRef.current = true;
+        markComplianceFailed(false);
+      } else {
+        // Saved record unknown: stay not ready.
+        markComplianceFailed(true);
       }
     } catch {
       // Saved record unknown: stay not ready.
+      if (request === complianceRequestRef.current) markComplianceFailed(true);
     }
   }, [inspectionId]);
+
+  // RA-8359: Try again (and Save Draft) re-run only the reads that failed.
+  const retryFailedLoads = useCallback(async () => {
+    const reads: Promise<void>[] = [];
+    const type = selectedTypeRef.current;
+    if (assessmentLoadFailedRef.current && type) reads.push(loadAssessment(type));
+    if (complianceLoadFailedRef.current) {
+      setComplianceRetrying(true);
+      reads.push(loadCompliance().finally(() => setComplianceRetrying(false)));
+    }
+    await Promise.all(reads);
+    return assessmentLoadedRef.current && complianceLoadedRef.current;
+  }, [loadAssessment, loadCompliance]);
 
   useEffect(() => {
     const type = lockedClaimType ?? initialClaimType;
@@ -1655,18 +1904,22 @@ const NIRClaimAssessmentPanel = forwardRef<
 
   // ── Save assessment ─────────────────────────────────────────────────────────
 
-  const formDataRef = useRef(formData);
-  formDataRef.current = formData;
-  const complianceDataRef = useRef(complianceData);
-  complianceDataRef.current = complianceData;
-  const selectedTypeRef = useRef(selectedType);
-  selectedTypeRef.current = selectedType;
-
   const persistAssessment = async (options?: { silent?: boolean }) => {
     const type = selectedTypeRef.current;
     if (!type || type === "CONTENTS") return;
     const meta = CLAIM_TYPES.find((c) => c.type === type);
     if (!meta) return;
+    // RA-8359: never write over a saved record this panel has not read.
+    if (!assessmentLoadedRef.current) {
+      throw new Error("Claim assessment has not loaded; nothing was saved");
+    }
+    if (type === "MOULD" && reportConfirmInFlightRef.current) {
+      const message =
+        "Report facts are still being saved. Wait a moment, then save again.";
+      if (options?.silent) throw new Error(message);
+      toast.error(message);
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(
@@ -1674,11 +1927,19 @@ const NIRClaimAssessmentPanel = forwardRef<
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formDataRef.current),
+          body: JSON.stringify(
+            type === "MOULD"
+              ? {
+                  ...formDataRef.current,
+                  expectedLab: loadedLabRef.current,
+                }
+              : formDataRef.current,
+          ),
         },
       );
       if (res.ok) {
         const record = await res.json();
+        if (type === "MOULD") loadedLabRef.current = labValuesOf(record);
         const g: Record<string, boolean> = {};
         for (const [k, v] of Object.entries(record)) {
           if (k.startsWith("gate") && typeof v === "boolean") g[k] = v;
@@ -1711,6 +1972,10 @@ const NIRClaimAssessmentPanel = forwardRef<
   };
 
   const persistCompliance = async (options?: { silent?: boolean }) => {
+    // RA-8359: never write over a saved record this panel has not read.
+    if (!complianceLoadedRef.current) {
+      throw new Error("Australian Compliance has not loaded; nothing was saved");
+    }
     setSavingCompliance(true);
     try {
       const res = await fetch(
@@ -1742,18 +2007,30 @@ const NIRClaimAssessmentPanel = forwardRef<
     }
   };
 
+  const persistFnsRef = useRef({ persistAssessment, persistCompliance });
+  useEffect(() => {
+    persistFnsRef.current = { persistAssessment, persistCompliance };
+  });
+
   useImperativeHandle(
     ref,
     () => ({
-      persistAssessment: () => persistAssessment({ silent: true }),
-      persistCompliance: () => persistCompliance({ silent: true }),
+      persistAssessment: () => persistFnsRef.current.persistAssessment({ silent: true }),
+      persistCompliance: () => persistFnsRef.current.persistCompliance({ silent: true }),
       isReady: () => assessmentLoadedRef.current && complianceLoadedRef.current,
+      loadFailed: () =>
+        assessmentLoadFailedRef.current || complianceLoadFailedRef.current,
+      reload: () => retryFailedLoads(),
       persist: async () => {
         if (!(assessmentLoadedRef.current && complianceLoadedRef.current)) {
-          throw new Error("Claim assessment is still loading");
+          throw new Error(
+            assessmentLoadFailedRef.current || complianceLoadFailedRef.current
+              ? "Claim assessment could not be loaded"
+              : "Claim assessment is still loading",
+          );
         }
-        await persistAssessment({ silent: true });
-        await persistCompliance({ silent: true });
+        await persistFnsRef.current.persistAssessment({ silent: true });
+        await persistFnsRef.current.persistCompliance({ silent: true });
       },
       applyQuickFillSeed: (seed) => {
         if (seed.assessment) {
@@ -1773,12 +2050,14 @@ const NIRClaimAssessmentPanel = forwardRef<
         }
       },
     }),
-    [inspectionId, onWaterClassificationSaved],
+    [onWaterClassificationSaved, retryFailedLoads],
   );
 
   // ── Add contents item ───────────────────────────────────────────────────────
 
-  const handleAddContentItem = async (item: Record<string, unknown>) => {
+  const handleAddContentItem = async (
+    item: PackOutItemInput,
+  ): Promise<boolean> => {
     setSaving(true);
     try {
       const res = await fetch(
@@ -1793,13 +2072,53 @@ const NIRClaimAssessmentPanel = forwardRef<
         const created = await res.json();
         setContentItems((prev) => [...prev, created]);
         toast.success("Item added");
-      } else {
-        toast.error("Failed to add item");
+        return true;
       }
+      toast.error("Failed to add item");
+      return false;
     } catch {
       toast.error("Network error");
+      return false;
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ── Contents item photos (RA-8537) ──────────────────────────────────────────
+
+  const handleContentItemPhoto = async (
+    itemId: string,
+    field: "beforePhotoUrl" | "afterPhotoUrl",
+    url: string | null,
+  ): Promise<boolean> => {
+    try {
+      const res = await fetch(
+        `/api/inspections/${inspectionId}/contents-pack-out/${encodeURIComponent(itemId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [field]: url }),
+        },
+      );
+      if (!res.ok) {
+        toast.error(
+          res.status === 403
+            ? "Only the job owner or a manager can change contents items"
+            : res.status === 404
+              ? "This item is no longer on the job"
+              : "Could not save the photo on this item",
+        );
+        return false;
+      }
+      const updated = await res.json();
+      setContentItems((prev) =>
+        prev.map((item) => (item.id === itemId ? updated : item)),
+      );
+      toast.success(url ? "Photo added to item" : "Photo removed");
+      return true;
+    } catch {
+      toast.error("Network error");
+      return false;
     }
   };
 
@@ -1914,6 +2233,12 @@ const NIRClaimAssessmentPanel = forwardRef<
               <div className="py-8 flex items-center justify-center">
                 <Loader2 size={20} className="animate-spin text-neutral-700 dark:text-neutral-300" />
               </div>
+            ) : assessmentLoadFailed ? (
+              <LoadFailedNotice
+                testId="nir-claim-assessment-load-error"
+                what={`the saved ${currentMeta?.label ?? "claim"} assessment`}
+                onRetry={() => void retryFailedLoads()}
+              />
             ) : (
               <>
                 {selectedType === "WATER" && (
@@ -1930,7 +2255,46 @@ const NIRClaimAssessmentPanel = forwardRef<
                   />
                 )}
                 {selectedType === "MOULD" && (
-                  <MouldForm data={formData} onChange={handleFieldChange} />
+                  <>
+                    <MouldForm data={formData} onChange={handleFieldChange} />
+                    <ThirdPartyReportReader
+                      inspectionId={inspectionId}
+                      onBusyChange={(busy) => {
+                        reportConfirmInFlightRef.current = busy;
+                      }}
+                      onApplied={(applied, storedLab) => {
+                        if (!storedLab) {
+                          for (const [field, value] of Object.entries(applied)) {
+                            handleFieldChange(
+                              field,
+                              field === "samplingDate"
+                                ? `${value}T00:00:00.000Z`
+                                : value,
+                            );
+                          }
+                          return;
+                        }
+                        const adopted = adoptConfirmedLab(
+                          formDataRef.current,
+                          loadedLabRef.current,
+                          storedLab,
+                          Object.keys(applied),
+                        );
+                        if (adopted.clash) {
+                          toast.error(
+                            "Another report changed lab values you have edited here. Reload this assessment before saving.",
+                          );
+                          return;
+                        }
+                        // The form and the values a Save will name as loaded
+                        // change together, in this turn: a Save that runs
+                        // before React renders sends the confirmed values.
+                        formDataRef.current = adopted.form;
+                        loadedLabRef.current = adopted.baseline;
+                        setFormData(adopted.form);
+                      }}
+                    />
+                  </>
                 )}
                 {selectedType === "STORM" && (
                   <StormForm data={formData} onChange={handleFieldChange} />
@@ -1942,40 +2306,89 @@ const NIRClaimAssessmentPanel = forwardRef<
                         {contentItems.map((item, i) => (
                           <div
                             key={(item.id as string) || i}
-                            className="flex items-center justify-between px-3 py-2 rounded-lg bg-neutral-50 dark:bg-slate-800/60 text-sm"
+                            className="px-3 py-2 rounded-lg bg-neutral-50 dark:bg-slate-800/60 text-sm space-y-2"
                           >
-                            <div>
-                              <span className="font-medium text-neutral-700 dark:text-slate-200">
-                                {item.itemName as string}
-                              </span>
-                              {item.itemCategory != null && (
-                                <span className="ml-2 text-xs text-neutral-600 dark:text-neutral-400">
-                                  {(item.itemCategory as string).toLowerCase()}
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="font-medium text-neutral-700 dark:text-slate-200">
+                                  {item.itemDescription as string}
                                 </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3 text-xs text-neutral-500">
-                              <span
-                                className={cn(
-                                  "px-2 py-0.5 rounded-full font-medium",
-                                  item.condition === "TOTAL_LOSS"
-                                    ? "bg-destructive-subtle text-destructive-subtle-foreground"
-                                    : item.condition === "PACK_OUT"
-                                      ? "bg-warning-subtle text-warning-subtle-foreground"
-                                      : "bg-success-subtle text-success-subtle-foreground",
+                                {(item.make != null || item.model != null) && (
+                                  <span className="ml-2 text-xs text-neutral-600 dark:text-neutral-400">
+                                    {[item.make, item.model]
+                                      .filter((v) => v != null && v !== "")
+                                      .join(" ")}
+                                  </span>
                                 )}
-                              >
-                                {(item.condition as string)?.replace(/_/g, " ")}
-                              </span>
-                              {item.replacementValueAud != null && (
-                                <span>
-                                  $
-                                  {(
-                                    item.replacementValueAud as number
-                                  ).toLocaleString("en-AU")}
-                                </span>
-                              )}
+                                {item.conditionPostLoss != null && (
+                                  <span className="ml-2 text-xs text-neutral-600 dark:text-neutral-400">
+                                    after loss:{" "}
+                                    {CONDITION_GRADE_LABELS[
+                                      item.conditionPostLoss as ConditionGrade
+                                    ] ?? String(item.conditionPostLoss)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-neutral-500">
+                                {item.packOutDecision != null && (
+                                  <span
+                                    className={cn(
+                                      "px-2 py-0.5 rounded-full font-medium",
+                                      item.packOutDecision === "TOTAL_LOSS"
+                                        ? "bg-destructive-subtle text-destructive-subtle-foreground"
+                                        : item.packOutDecision === "PACK_OUT"
+                                          ? "bg-warning-subtle text-warning-subtle-foreground"
+                                          : "bg-success-subtle text-success-subtle-foreground",
+                                    )}
+                                  >
+                                    {PACK_OUT_DECISION_LABELS[
+                                      item.packOutDecision as PackOutDecision
+                                    ] ?? String(item.packOutDecision)}
+                                  </span>
+                                )}
+                                {item.replacementValueAud != null && (
+                                  <span>
+                                    $
+                                    {Number(
+                                      item.replacementValueAud,
+                                    ).toLocaleString("en-AU")}
+                                  </span>
+                                )}
+                              </div>
                             </div>
+                            {typeof item.id === "string" && (
+                              <div className="flex flex-wrap gap-4">
+                                {(["before", "after"] as const).map((stage) => {
+                                  const field =
+                                    stage === "before"
+                                      ? "beforePhotoUrl"
+                                      : "afterPhotoUrl";
+                                  const current = item[field];
+                                  return (
+                                    <ContentsItemPhoto
+                                      key={stage}
+                                      inspectionId={inspectionId}
+                                      stage={stage}
+                                      itemDescription={String(
+                                        item.itemDescription ?? "",
+                                      )}
+                                      url={
+                                        typeof current === "string" && current
+                                          ? current
+                                          : null
+                                      }
+                                      onChange={(url) =>
+                                        handleContentItemPhoto(
+                                          item.id as string,
+                                          field,
+                                          url,
+                                        )
+                                      }
+                                    />
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1984,7 +2397,10 @@ const NIRClaimAssessmentPanel = forwardRef<
                         No contents items yet.
                       </p>
                     )}
-                    <ContentsNewItemForm onAdd={handleAddContentItem} />
+                    <ContentsNewItemForm
+                      inspectionId={inspectionId}
+                      onAdd={handleAddContentItem}
+                    />
                   </div>
                 )}
                 {selectedType === "BIOHAZARD" && (
@@ -2014,11 +2430,22 @@ const NIRClaimAssessmentPanel = forwardRef<
       )}
 
       {/* Australian Compliance (always visible) */}
-      <AustralianComplianceForm
-        data={complianceData}
-        onChange={(k, v) => setComplianceData((p) => ({ ...p, [k]: v }))}
-        asbestosWarning={asbestosWarning}
-      />
+      {complianceLoadFailed ? (
+        <div className="rounded-xl border border-neutral-200 dark:border-slate-700 px-4">
+          <LoadFailedNotice
+            testId="nir-compliance-load-error"
+            what="the saved Australian Compliance record"
+            retrying={complianceRetrying}
+            onRetry={() => void retryFailedLoads()}
+          />
+        </div>
+      ) : (
+        <AustralianComplianceForm
+          data={complianceData}
+          onChange={(k, v) => setComplianceData((p) => ({ ...p, [k]: v }))}
+          asbestosWarning={asbestosWarning}
+        />
+      )}
     </div>
   );
 });

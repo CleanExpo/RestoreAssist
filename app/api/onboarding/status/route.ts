@@ -133,11 +133,6 @@ export async function GET(request: NextRequest) {
       effectiveSub?.subscriptionStatus === "TRIAL" ||
       user.subscriptionStatus === "TRIAL";
 
-    // Check if user has connected property data (any PropertyLookup linked to their inspections)
-    const propertyLookupCount = await prisma.propertyLookup.count({
-      where: { inspection: { userId: session.user.id } },
-    });
-
     // RA-6792: Reconcile first-run surfaces. The canonical first action that
     // reaches first value is "create an inspection → generate a report"
     // (matches /api/onboarding/first-run and the in-app first-run checklist).
@@ -202,14 +197,10 @@ export async function GET(request: NextRequest) {
           "Set labour and line-item rates once — estimates and invoices pull from here with GST applied.",
         route: "/dashboard/pricing-config",
       },
-      property_data: {
-        completed: propertyLookupCount > 0,
-        required: false, // Optional — skippable
-        title: "Property lookup (optional)",
-        description:
-          "Prefill address and floor-plan hints from public property data when starting a job.",
-        route: "/dashboard/integrations",
-      },
+      // RA-8459: no "property lookup" step. Its finish line was a row in the
+      // legacy property lookup table, which nothing has written since RA-7581, so it
+      // could never be ticked. Bring it back only with a completion rule based
+      // on something a working lookup feature writes (RA-7627 item 2).
     };
 
     // Get incomplete required steps
