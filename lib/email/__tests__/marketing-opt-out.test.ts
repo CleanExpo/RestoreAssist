@@ -11,7 +11,10 @@ vi.mock("@/lib/email/send-transactional", () => ({
   sendTransactionalEmail: (...args: unknown[]) =>
     sendTransactionalEmail(...args),
 }));
-vi.mock("@/lib/email/resolve-platform-config", () => ({
+vi.mock("@/lib/email/resolve-platform-config", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/lib/email/resolve-platform-config")
+  >()),
   isEmailServiceConfigured: () => true,
   resolveFromAddress: () => "RestoreAssist <noreply@restoreassist.app>",
 }));
@@ -63,6 +66,66 @@ describe("marketingOptOut", () => {
     expect(optOut.headers["List-Unsubscribe"]).toBe(
       "<mailto:replies@restoreassist.app?subject=Unsubscribe>",
     );
+  });
+
+  // RA-8355 review finding: the mailto was built by raw interpolation, so a
+  // mailbox character that is valid in an address (# or ?) moved the opt-out
+  // to a different target, and a display-name value produced a malformed URI.
+  it("percent-encodes # and ? so the link and header keep the whole mailbox", () => {
+    process.env.EMAIL_REPLY_TO = "support#team@example.com";
+    const hash = marketingOptOut();
+    expect(hash.headers["List-Unsubscribe"]).toBe(
+      "<mailto:support%23team@example.com?subject=Unsubscribe>",
+    );
+    const url = new URL(
+      hash.headers["List-Unsubscribe"].slice(1, -1),
+    );
+    expect(decodeURIComponent(url.pathname)).toBe("support#team@example.com");
+    expect(url.hash).toBe("");
+    expect(hash.replyTo).toBe("support#team@example.com");
+
+    process.env.EMAIL_REPLY_TO = "a?b@example.com";
+    const query = marketingOptOut();
+    const queryUrl = new URL(query.headers["List-Unsubscribe"].slice(1, -1));
+    expect(decodeURIComponent(queryUrl.pathname)).toBe("a?b@example.com");
+    expect(queryUrl.search).toBe("?subject=Unsubscribe");
+  });
+
+  it("reduces a display-name value to its one mailbox everywhere", () => {
+    process.env.EMAIL_REPLY_TO = "Support Team <replies@restoreassist.app>";
+    const optOut = marketingOptOut();
+    expect(optOut.replyTo).toBe("replies@restoreassist.app");
+    expect(optOut.headers["List-Unsubscribe"]).toBe(
+      "<mailto:replies@restoreassist.app?subject=Unsubscribe>",
+    );
+    expect(optOut.footerHtml).toContain(
+      'href="mailto:replies@restoreassist.app?subject=Unsubscribe"',
+    );
+    expect(optOut.footerText).toContain("replies@restoreassist.app");
+    expect(optOut.footerText).not.toContain("<");
+  });
+
+  it.each([
+    ["line break", "a@example.com\r\nBcc: x@example.com"],
+    ["a list", "a@example.com, b@example.com"],
+    ["no domain", "support"],
+    ["spaces", "a b@example.com"],
+    ["blank", "   "],
+  ])("falls back to the support mailbox for %s", (_label, value) => {
+    process.env.EMAIL_REPLY_TO = value;
+    const optOut = marketingOptOut();
+    const support = BRAND.company.supportEmail;
+    expect(optOut.replyTo).toBe(support);
+    expect(optOut.headers["List-Unsubscribe"]).toBe(
+      `<mailto:${support}?subject=Unsubscribe>`,
+    );
+    expect(optOut.headers["List-Unsubscribe"]).not.toMatch(/[\r\n]/);
+  });
+
+  it("escapes a hostile mailbox in the HTML footer", () => {
+    process.env.EMAIL_REPLY_TO = 'x"onmouseover=alert(1)@example.com';
+    const optOut = marketingOptOut();
+    expect(optOut.footerHtml).not.toContain('"onmouseover');
   });
 });
 
