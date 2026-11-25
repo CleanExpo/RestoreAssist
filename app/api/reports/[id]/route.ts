@@ -23,6 +23,7 @@ import {
   isPaidReportDepth,
   requirePaidBasePlan,
 } from "@/lib/billing/paid-base-plan";
+import { canSeeMoney, keepHiddenMoney, moneySafe, withoutMoneyWrites } from "@/lib/auth/redact-money";
 
 export async function GET(
   request: NextRequest,
@@ -166,7 +167,10 @@ export async function GET(
       }),
     );
 
-    return NextResponse.json({ ...parsedReport, lawJurisdiction });
+    // RA-8494: the report's cost fields go only to a caller who may see money.
+    return NextResponse.json(
+      await moneySafe(session, { ...parsedReport, lawJurisdiction }),
+    );
   } catch (error) {
     return fromException(request, error, { stage: "get" });
   }
@@ -186,9 +190,27 @@ export async function PUT(
         status: 401,
       });
     }
+    const mayPrice = await canSeeMoney(session);
 
     const { id } = await params;
-    const body = await request.json();
+    // RA-8494: a technician reads money fields as null; echoing the report
+    // back must never overwrite a stored price or priced document.
+    const sent = await request.json();
+    const body = mayPrice ? sent : withoutMoneyWrites(sent);
+
+    // RA-8494 (verdict round 3): a JSON column built from a nested body value.
+    // A technician was shown it with prices withheld, so their copy keeps the
+    // stored money at every depth; a stored value that does not parse (and so
+    // was withheld whole) is never replaced by them.
+    const jsonColumn = (sentValue: unknown, storedText: string | null): string | null => {
+      if (mayPrice) return JSON.stringify(sentValue);
+      if (storedText == null) return JSON.stringify(keepHiddenMoney(sentValue, null));
+      try {
+        return JSON.stringify(keepHiddenMoney(sentValue, JSON.parse(storedText)));
+      } catch {
+        return storedText;
+      }
+    };
 
     // RA-1300 — reject malformed user-supplied dates up-front (400) instead
     // of persisting an Invalid Date silently. Only fail when the CALLER
@@ -390,10 +412,10 @@ export async function PUT(
 
         // Monitoring data (stored as JSON strings)
         psychrometricReadings: body.monitoringData?.psychrometricReadings
-          ? JSON.stringify(body.monitoringData.psychrometricReadings)
+          ? jsonColumn(body.monitoringData.psychrometricReadings, existingReport.psychrometricReadings)
           : existingReport.psychrometricReadings,
         moistureReadings: body.monitoringData?.moistureReadings
-          ? JSON.stringify(body.monitoringData.moistureReadings)
+          ? jsonColumn(body.monitoringData.moistureReadings, existingReport.moistureReadings)
           : existingReport.moistureReadings,
 
         // Remediation data (stored as JSON strings)
@@ -406,25 +428,27 @@ export async function PUT(
 
         // Insurance data (stored as JSON strings)
         propertyCover: body.insuranceData?.propertyCover
-          ? JSON.stringify(body.insuranceData.propertyCover)
+          ? jsonColumn(body.insuranceData.propertyCover, existingReport.propertyCover)
           : existingReport.propertyCover,
         contentsCover: body.insuranceData?.contentsCover
-          ? JSON.stringify(body.insuranceData.contentsCover)
+          ? jsonColumn(body.insuranceData.contentsCover, existingReport.contentsCover)
           : existingReport.contentsCover,
         liabilityCover: body.insuranceData?.liabilityCover
-          ? JSON.stringify(body.insuranceData.liabilityCover)
+          ? jsonColumn(body.insuranceData.liabilityCover, existingReport.liabilityCover)
           : existingReport.liabilityCover,
         businessInterruption: body.insuranceData?.businessInterruption
-          ? JSON.stringify(body.insuranceData.businessInterruption)
+          ? jsonColumn(body.insuranceData.businessInterruption, existingReport.businessInterruption)
           : existingReport.businessInterruption,
         additionalCover: body.insuranceData?.additionalCover
-          ? JSON.stringify(body.insuranceData.additionalCover)
+          ? jsonColumn(body.insuranceData.additionalCover, existingReport.additionalCover)
           : existingReport.additionalCover,
 
         // Optional fields
         // RA-1300 — validated parse above; falls back to existing value when not supplied.
         completionDate: completionDateParsed ?? existingReport.completionDate,
-        totalCost: body.totalCost,
+        // RA-8494: a technician's save never writes money; their copy of the
+        // report was served without it.
+        totalCost: mayPrice ? body.totalCost : undefined,
         description: sanitisedDescription,
 
         // Phase 6 & 7: Scope of Works and Cost Estimation documents
@@ -433,7 +457,7 @@ export async function PUT(
             ? body.scopeOfWorksDocument
             : existingReport.scopeOfWorksDocument,
         costEstimationDocument:
-          body.costEstimationDocument !== undefined
+          mayPrice && body.costEstimationDocument !== undefined
             ? body.costEstimationDocument
             : existingReport.costEstimationDocument,
 
@@ -479,7 +503,9 @@ export async function PUT(
 
     // RA-8281 B1 round 13: a saved row answers with its equipment priced now,
     // never the cached rate or the cached equipmentCostTotal.
-    return NextResponse.json(await withCurrentEquipment(updatedReport));
+    return NextResponse.json(
+      await moneySafe(session, await withCurrentEquipment(updatedReport)),
+    );
   } catch (error) {
     return fromException(request, error, { stage: "update" });
   }

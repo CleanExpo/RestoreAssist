@@ -16,6 +16,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyReportReaderToken } from "@/lib/report-share/access";
+import { canSeeMoney, redactMoney } from "@/lib/auth/redact-money";
 import { DamageReportView } from "@/components/reports/damage-report-view";
 
 export const dynamic = "force-dynamic"; // token-based access shouldn't be cached
@@ -41,21 +42,23 @@ export default async function ReportViewPage({
   const { token } = await searchParams;
 
   let authorised = false;
+  const session = await getServerSession(authOptions);
+  // RA-8494: a signed-in caller who may not see money never receives the
+  // price, on either path: the share link does not lift the rule for a
+  // technician who opens it while signed in (founder ruling 22/11).
+  const withholdPrice = Boolean(session?.user?.id) && !(await canSeeMoney(session));
 
   if (token) {
     const verified = await verifyReportReaderToken(token);
     if (verified?.reportId === id) authorised = true;
   }
 
-  if (!authorised) {
-    const session = await getServerSession(authOptions);
-    if (session?.user?.id) {
-      const owns = await prisma.report.findFirst({
-        where: { id, userId: session.user.id },
-        select: { id: true },
-      });
-      if (owns) authorised = true;
-    }
+  if (!authorised && session?.user?.id) {
+    const owns = await prisma.report.findFirst({
+      where: { id, userId: session.user.id },
+      select: { id: true },
+    });
+    if (owns) authorised = true;
   }
 
   if (!authorised) {
@@ -110,5 +113,9 @@ export default async function ReportViewPage({
 
   if (!report) notFound();
 
-  return <DamageReportView report={report} shareToken={token} />;
+  // RA-8494: the whole record goes through the owner, never a hand-picked
+  // field: the scope of works document and the structured report carry
+  // prices too.
+  const shown = withholdPrice ? redactMoney(report) : report;
+  return <DamageReportView report={shown} shareToken={token} />;
 }

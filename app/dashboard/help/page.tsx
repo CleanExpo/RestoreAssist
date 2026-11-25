@@ -267,10 +267,10 @@ export default async function HelpIndexPage() {
           <DashboardPanel className="py-12 text-center">
             <BookOpen className="mx-auto h-8 w-8 text-muted-foreground/50" />
             <p className="mt-3 font-medium text-foreground">
-              Help articles are coming soon
+              Need a hand?
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Meanwhile, try video tutorials or contact support.
+              Try the video tutorials or contact support.
             </p>
             <div className="mt-5 flex flex-row flex-wrap justify-center gap-2">
               <Button asChild variant="outline" size="sm">

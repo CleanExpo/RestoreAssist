@@ -29,6 +29,7 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminFromDb: (...a: unknown[]) => verifyAdminFromDb(...a),
+  verifyPlatformSupportOperator: () => ({ response: null }),
 }));
 vi.mock("@/lib/elevenlabs/client", () => ({
   textToSpeech: (...a: unknown[]) => textToSpeech(...a),

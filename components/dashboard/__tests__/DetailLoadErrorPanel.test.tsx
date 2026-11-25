@@ -7,7 +7,7 @@ describe("detailErrorFromResponse", () => {
       { code: "UNAUTHORIZED", message: "x", status: 401 },
       "report",
     );
-    expect(copy.title).toBe("Sign in required");
+    expect(copy.title).toBe("Your session has ended");
     expect(copy.message).toContain("report");
   });
 
@@ -25,6 +25,6 @@ describe("detailErrorFromResponse", () => {
       "invoice",
     );
     expect(copy.title).toBe("Could not load invoice");
-    expect(copy.message).toContain("Server error");
+    expect(copy.message).toBe("Something went wrong on our side. Try again in a moment.");
   });
 });

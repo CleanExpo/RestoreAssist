@@ -27,6 +27,7 @@ import {
   integrationProviderToSlug,
   runExternalIntegrationSync,
 } from "@/lib/integrations/external-sync-client";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -399,7 +400,7 @@ export default function SyncErrorsPage() {
     setFetchError(null);
     try {
       const res = await fetch("/api/integrations/sync-errors");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(statusErrorMessage(res.status));
       const data: SyncErrorsResponse = await res.json();
       if (data.success) {
         setSyncErrors(data.syncErrors ?? []);

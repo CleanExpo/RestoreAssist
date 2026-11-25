@@ -25,6 +25,7 @@ import {
 import toast from "react-hot-toast";
 import { isCapacitorIOS, shareBlobNatively } from "@/lib/capacitor";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { statusErrorMessage } from "@/lib/client/customer-error-copy";
 
 interface ReportViewData {
   id: string;
@@ -161,7 +162,7 @@ export function DamageReportView({
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(
-          apiErrorMessage(body) ?? `PDF generation failed (HTTP ${res.status})`,
+          apiErrorMessage(body) ?? statusErrorMessage(res.status),
         );
       }
       const blob = await res.blob();

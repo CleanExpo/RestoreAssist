@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+
+// RA-8494: the caller here may see money; the money rule is proven in
+// technician-no-money.test.ts (see lib/auth/__mocks__/redact-money.ts).
+vi.mock("@/lib/auth/redact-money");
 import { NextRequest } from "next/server";
 import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 

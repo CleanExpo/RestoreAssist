@@ -61,17 +61,20 @@ describe("CloudMirrorPicker — OneDrive", () => {
     searchParams = new URLSearchParams("onedrive=connected");
     mockCatalog(false);
     render(<CloudMirrorPicker />);
-    await waitFor(() => screen.getByLabelText(/microsoft onedrive/i));
-    expect(screen.getByLabelText(/microsoft onedrive/i)).toBeDisabled();
+    await waitFor(() => screen.getByLabelText(/google drive/i));
+    // Options the catalog does not offer are hidden, not shown as "coming soon".
+    expect(screen.queryByLabelText(/microsoft onedrive/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/apple icloud/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/onedrive connected/i)).not.toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(/coming soon/i);
   });
 
   it("a saved OneDrive choice that is switched off is not shown as current", async () => {
     // A user who saved OneDrive while it was offered, before RA-8078 hid it.
     mockCatalog(false, "onedrive");
     render(<CloudMirrorPicker />);
-    const radio = await waitFor(() => screen.getByLabelText(/microsoft onedrive/i));
-    expect(radio).not.toBeChecked();
+    await waitFor(() => screen.getByLabelText(/google drive/i));
+    expect(screen.queryByLabelText(/microsoft onedrive/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/currently using/i)).not.toBeInTheDocument();
   });
 

@@ -323,9 +323,8 @@ export default function SecurityPage() {
       </div>
 
       <p className="text-xs text-slate-500">
-        Phase 1: setup and management are live here. Login-time enforcement
-        (prompting for the code when you sign in) will roll out in a follow-up
-        release. Tracked under RA-1260.
+        You can turn two-factor authentication on or off here. Asking for the
+        code each time you sign in is not switched on yet.
       </p>
     </div>
   );

@@ -68,8 +68,8 @@ export default function LoginError({ error, retry }: LoginErrorProps) {
 
         <CardContent>
           <p className="text-sm text-slate-300 break-words">
-            {error.message ||
-              "Something interrupted the sign-in flow. Try again — if it keeps happening, reach out to support."}
+            Something interrupted the sign-in flow. Try again. If it keeps
+            happening, reach out to support.
           </p>
           {error.digest && (
             <p className="mt-2 text-xs text-slate-400 font-mono">
