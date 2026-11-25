@@ -14,6 +14,7 @@
  */
 
 import { BRAND } from "@/lib/brand";
+import { readEnv } from "@/lib/env";
 
 export interface MarketingOptOut {
   replyTo: string;
@@ -33,7 +34,7 @@ function escapeHtml(value: string): string {
 
 export function marketingOptOut(): MarketingOptOut {
   const mailbox =
-    process.env.EMAIL_REPLY_TO?.trim() || BRAND.company.supportEmail;
+    readEnv("EMAIL_REPLY_TO")?.trim() || BRAND.company.supportEmail;
   const mailto = `mailto:${mailbox}?subject=Unsubscribe`;
   const identity = [
     BRAND.company.legal,
