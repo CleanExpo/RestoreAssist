@@ -24,6 +24,15 @@ import {
   MARGOT_WELCOME,
 } from "@/lib/margot-surface";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import {
+  FAB_DRAG_THRESHOLD,
+  FAB_PANEL_GAP,
+  FAB_SIZE,
+  FAB_STORAGE_KEY,
+  clampFabPosition,
+  parseFabPosition,
+  type FabPosition,
+} from "@/components/chatbot-position";
 
 interface Message {
   id: string;
@@ -145,6 +154,92 @@ export default function Chatbot() {
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
+
+  // Button position. null = the default, lifted clear of the bottom bars; once
+  // the user drags the button the chosen spot is kept in this browser.
+  const [fabPos, setFabPos] = useState<FabPosition | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startRight: number;
+    startBottom: number;
+    moved: boolean;
+    last: FabPosition | null;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      const saved = parseFabPosition(window.localStorage.getItem(FAB_STORAGE_KEY));
+      if (saved) {
+        setFabPos(
+          clampFabPosition(saved, {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          }),
+        );
+      }
+    } catch {
+      // storage unavailable: keep the default position
+    }
+  }, []);
+
+  const onFabPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startRight: window.innerWidth - rect.right,
+      startBottom: window.innerHeight - rect.bottom,
+      moved: false,
+      last: null,
+    };
+  };
+
+  const onFabPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < FAB_DRAG_THRESHOLD) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    }
+    const next = clampFabPosition(
+      { right: drag.startRight - dx, bottom: drag.startBottom - dy },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
+    drag.last = next;
+    setFabPos(next);
+  };
+
+  const onFabPointerEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    dragRef.current = null;
+    if (!drag.moved) return;
+    // The press that ended a drag must not also open or close the chat.
+    suppressClickRef.current = true;
+    try {
+      if (drag.last) {
+        window.localStorage.setItem(FAB_STORAGE_KEY, JSON.stringify(drag.last));
+      }
+    } catch {
+      // storage unavailable: the position holds for this visit only
+    }
+  };
+
+  const onFabClick = () => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    setIsOpen((open) => !open);
+  };
 
   const _userName = session?.user?.name || "there";
 
@@ -433,11 +528,18 @@ export default function Chatbot() {
     <>
       {/* Chat Button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 w-16 h-16 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-[100] group p-1"
+        onClick={onFabClick}
+        onPointerDown={onFabPointerDown}
+        onPointerMove={onFabPointerMove}
+        onPointerUp={onFabPointerEnd}
+        onPointerCancel={onFabPointerEnd}
+        data-margot-button=""
+        className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 md:right-6 w-16 h-16 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-[box-shadow,transform] duration-300 flex items-center justify-center z-[100] group p-1 touch-none"
         style={{
           position: "fixed",
           boxShadow: isOpen ? undefined : `0 8px 28px ${MARGOT_ACCENT}66`,
+          // A dragged position replaces the default offsets.
+          ...(fabPos ? { right: fabPos.right, bottom: fabPos.bottom } : {}),
         }}
         aria-label={isOpen ? "Close chat" : `Open ${MARGOT_DISPLAY_NAME}`}
       >
@@ -468,8 +570,19 @@ export default function Chatbot() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-24 right-6 w-96 h-[600px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl flex flex-col z-[100] animate-fade-in"
-          style={{ position: "fixed" }}
+          data-margot-window=""
+          className="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom,0px))] right-4 md:right-6 w-96 max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100dvh-11rem)] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl flex flex-col z-[100] animate-fade-in"
+          style={{
+            position: "fixed",
+            // Sits just above the button, wherever the button has been moved.
+            ...(fabPos
+              ? {
+                  right: fabPos.right,
+                  bottom: fabPos.bottom + FAB_SIZE + FAB_PANEL_GAP,
+                  maxHeight: `calc(100dvh - ${fabPos.bottom + FAB_SIZE + FAB_PANEL_GAP + 16}px)`,
+                }
+              : {}),
+          }}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-t-lg">
