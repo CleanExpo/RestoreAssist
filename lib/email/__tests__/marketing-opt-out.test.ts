@@ -122,10 +122,23 @@ describe("marketingOptOut", () => {
     expect(optOut.headers["List-Unsubscribe"]).not.toMatch(/[\r\n]/);
   });
 
-  it("escapes a hostile mailbox in the HTML footer", () => {
-    process.env.EMAIL_REPLY_TO = 'x"onmouseover=alert(1)@example.com';
-    const optOut = marketingOptOut();
-    expect(optOut.footerHtml).not.toContain('"onmouseover');
+  // Both values pass the plain-mailbox rule (a & and a ' are valid in a local
+  // part), so they reach the HTML. The visible address is escaped; the href
+  // keeps & percent-encoded and escapes the one character the URI leaves raw.
+  it("escapes an accepted mailbox with & in the visible HTML line", () => {
+    process.env.EMAIL_REPLY_TO = "a&b@example.com";
+    const html = marketingOptOut().footerHtml;
+    expect(html).toContain("email a&amp;b@example.com with the subject");
+    expect(html).not.toContain("a&b@example.com");
+    expect(html).toContain('href="mailto:a%26b@example.com?subject=Unsubscribe"');
+  });
+
+  it("escapes an accepted mailbox with ' in both the href and the visible line", () => {
+    process.env.EMAIL_REPLY_TO = "o'brien@example.com";
+    const html = marketingOptOut().footerHtml;
+    expect(html).toContain('href="mailto:o&#39;brien@example.com?subject=Unsubscribe"');
+    expect(html).toContain("email o&#39;brien@example.com with the subject");
+    expect(html).not.toContain("o'brien");
   });
 });
 
