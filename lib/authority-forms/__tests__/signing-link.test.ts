@@ -8,13 +8,20 @@ import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   SIGNING_LINK_TTL_DAYS,
+  UNSTAMPED_GRACE_DAYS,
+  UNSTAMPED_GRACE_STARTS_ON,
   clearedSigningLinkData,
   isSigningLinkLive,
   liveSigningLinkWhere,
   signingLinkExpiresAt,
+  unstampedGraceEndsAt,
 } from "../signing-link";
 
+// NOW is before the deploy day; the unstamped grace is tested at IN_GRACE and
+// AFTER_GRACE so the stamped-link tests do not depend on the grace window.
 const NOW = new Date("2026-11-23T00:00:00.000Z");
+const IN_GRACE = new Date("2026-11-27T00:00:00.000Z");
+const AFTER_GRACE = new Date("2026-12-11T00:00:00.000Z");
 const daysAgo = (d: number) => new Date(NOW.getTime() - d * 86_400_000);
 
 describe("signing-link lifetime (RA-8589)", () => {
@@ -32,10 +39,9 @@ describe("signing-link lifetime (RA-8589)", () => {
     expect(isSigningLinkLive(daysAgo(60), NOW)).toBe(false);
   });
 
-  it("a token with no send time, or an unreadable one, is expired", () => {
-    expect(isSigningLinkLive(null, NOW)).toBe(false);
-    expect(isSigningLinkLive(undefined, NOW)).toBe(false);
+  it("an unreadable send time is never live, in or after the grace", () => {
     expect(isSigningLinkLive("not a date", NOW)).toBe(false);
+    expect(isSigningLinkLive("not a date", AFTER_GRACE)).toBe(false);
   });
 
   it("accepts the ISO string a JSON row carries", () => {
@@ -43,9 +49,67 @@ describe("signing-link lifetime (RA-8589)", () => {
   });
 
   it("the where fragment and the row check agree on the cutoff", () => {
-    const where = liveSigningLinkWhere(NOW);
-    expect(where).toEqual({ signatureRequestSentAt: { gt: daysAgo(14) } });
+    const where = liveSigningLinkWhere(AFTER_GRACE);
+    expect(where).toEqual({
+      OR: [
+        {
+          signatureRequestSentAt: {
+            gt: new Date(AFTER_GRACE.getTime() - 14 * 86_400_000),
+          },
+        },
+      ],
+    });
     expect(signingLinkExpiresAt(daysAgo(14))).toEqual(NOW);
+  });
+});
+
+// Founder ruling, Phill 26/11/2026: signing links with no recorded send time
+// get 14 days from the day this deploys, then expire.
+describe("signing links with no recorded send time (founder ruling 26/11/2026)", () => {
+  it("the grace is 14 days from the deploy day, ending 10/12/2026", () => {
+    expect(UNSTAMPED_GRACE_DAYS).toBe(14);
+    expect(UNSTAMPED_GRACE_STARTS_ON.toISOString()).toBe(
+      "2026-11-26T00:00:00.000Z",
+    );
+    expect(unstampedGraceEndsAt().toISOString()).toBe(
+      "2026-12-10T00:00:00.000Z",
+    );
+  });
+
+  it("a token with no send time is live on the deploy day and until the grace ends", () => {
+    expect(isSigningLinkLive(null, IN_GRACE)).toBe(true);
+    expect(isSigningLinkLive(undefined, IN_GRACE)).toBe(true);
+    expect(isSigningLinkLive(null, new Date("2026-12-09T23:59:59.999Z"))).toBe(
+      true,
+    );
+  });
+
+  it("a token with no send time is expired once the grace has ended", () => {
+    expect(isSigningLinkLive(null, new Date("2026-12-10T00:00:00.000Z"))).toBe(
+      false,
+    );
+    expect(isSigningLinkLive(null, AFTER_GRACE)).toBe(false);
+    expect(isSigningLinkLive(undefined, AFTER_GRACE)).toBe(false);
+  });
+
+  it("a stamped link is unaffected by the grace", () => {
+    const sent = new Date(IN_GRACE.getTime() - 15 * 86_400_000);
+    expect(isSigningLinkLive(sent, IN_GRACE)).toBe(false);
+  });
+
+  it("the where fragment takes an unstamped token during the grace, never a row with no token", () => {
+    expect(liveSigningLinkWhere(IN_GRACE).OR).toEqual([
+      {
+        signatureRequestSentAt: {
+          gt: new Date(IN_GRACE.getTime() - 14 * 86_400_000),
+        },
+      },
+      { signatureRequestSentAt: null, signatureRequestToken: { not: null } },
+    ]);
+  });
+
+  it("the where fragment drops the unstamped branch after the grace", () => {
+    expect(liveSigningLinkWhere(AFTER_GRACE).OR).toHaveLength(1);
   });
 
   it("clearing a link removes the token and the sent stamp", () => {

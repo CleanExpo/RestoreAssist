@@ -1,8 +1,10 @@
 /**
  * RA-8589 — an unsigned signing link expires 14 days after it was sent, and an
- * expired link gets exactly the reply an unknown token gets.
+ * expired link gets exactly the reply an unknown token gets. A token with no
+ * recorded send time keeps working for 14 days from the deploy day (founder
+ * ruling, 26/11/2026), then expires the same way.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 vi.mock("@/lib/rate-limiter", () => ({
@@ -76,8 +78,19 @@ async function unknownTokenReply(handler: typeof GET | typeof POST) {
   return { status: res.status, body: await res.json() };
 }
 
+// The clock is pinned inside the unstamped grace (ends 10/12/2026) so no test
+// here depends on the day it runs.
+const IN_GRACE = new Date("2026-11-27T00:00:00.000Z");
+const AFTER_GRACE = new Date("2026-12-11T00:00:00.000Z");
+
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(IN_GRACE);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("GET /api/authority-forms/sign/[token] — expiry (RA-8589)", () => {
@@ -98,10 +111,22 @@ describe("GET /api/authority-forms/sign/[token] — expiry (RA-8589)", () => {
     expect(body.error.message).toBe(unknown.body.error.message);
   });
 
-  it("refuses a token that was never stamped as sent", async () => {
+  it("serves a token with no recorded send time during the 14-day grace from the deploy day", async () => {
     sigFindUnique.mockResolvedValueOnce(row(null));
     const res = await GET(getReq(), ctx());
+    expect(res.status).toBe(200);
+  });
+
+  it("refuses a token with no recorded send time once the grace has ended", async () => {
+    const unknown = await unknownTokenReply(GET);
+    vi.setSystemTime(AFTER_GRACE);
+    sigFindUnique.mockResolvedValueOnce(row(null));
+    const res = await GET(getReq(), ctx());
+    expect(res.status).toBe(unknown.status);
     expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error.code).toBe(unknown.body.error.code);
+    expect(body.error.message).toBe(unknown.body.error.message);
   });
 });
 
@@ -123,8 +148,42 @@ describe("POST /api/authority-forms/sign/[token] — expiry (RA-8589)", () => {
     sigUpdateMany.mockResolvedValueOnce({ count: 0 });
     await POST(postReq(), ctx());
     const where = sigUpdateMany.mock.calls[0][0].where;
-    expect(where.signatureRequestSentAt.gt).toBeInstanceOf(Date);
-    const cutoffAge = Date.now() - where.signatureRequestSentAt.gt.getTime();
+    const stamped = where.OR[0].signatureRequestSentAt;
+    expect(stamped.gt).toBeInstanceOf(Date);
+    const cutoffAge = Date.now() - stamped.gt.getTime();
     expect(Math.round(cutoffAge / DAY)).toBe(14);
+  });
+
+  it("a token with no recorded send time can sign during the grace, and the write still requires a token", async () => {
+    sigFindUnique.mockResolvedValueOnce(row(null));
+    sigUpdateMany.mockResolvedValueOnce({ count: 0 });
+    await POST(postReq(), ctx());
+    expect(sigUpdateMany).toHaveBeenCalledTimes(1);
+    const where = sigUpdateMany.mock.calls[0][0].where;
+    expect(where.OR).toContainEqual({
+      signatureRequestSentAt: null,
+      signatureRequestToken: { not: null },
+    });
+  });
+
+  it("refuses a token with no recorded send time once the grace has ended, before any write", async () => {
+    const unknown = await unknownTokenReply(POST);
+    vi.setSystemTime(AFTER_GRACE);
+    sigFindUnique.mockResolvedValueOnce(row(null));
+    const res = await POST(postReq(), ctx());
+    expect(res.status).toBe(unknown.status);
+    const body = await res.json();
+    expect(body.error.code).toBe(unknown.body.error.code);
+    expect(body.error.message).toBe(unknown.body.error.message);
+    expect(sigUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("the write itself drops the unstamped branch once the grace has ended", async () => {
+    vi.setSystemTime(AFTER_GRACE);
+    sigFindUnique.mockResolvedValueOnce(row(1));
+    sigUpdateMany.mockResolvedValueOnce({ count: 0 });
+    await POST(postReq(), ctx());
+    const where = sigUpdateMany.mock.calls[0][0].where;
+    expect(where.OR).toHaveLength(1);
   });
 });

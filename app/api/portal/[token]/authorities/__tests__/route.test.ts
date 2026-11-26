@@ -80,16 +80,62 @@ describe("GET /api/portal/[token]/authorities", () => {
     await GET(req(), params);
     const after = Date.now();
     const args = p.authorityFormInstance.findMany.mock.calls[0][0];
-    const inWhere =
-      args.where.signatures.some.signatureRequestSentAt as { gt: Date };
-    const inSelect =
-      args.select.signatures.where.signatureRequestSentAt as { gt: Date };
+    // The stamped branch of the shared fragment is the first OR entry.
+    const inWhere = args.where.signatures.some.OR[0].signatureRequestSentAt as {
+      gt: Date;
+    };
+    const inSelect = args.select.signatures.where.OR[0]
+      .signatureRequestSentAt as { gt: Date };
     for (const clause of [inWhere, inSelect]) {
       expect(clause.gt).toBeInstanceOf(Date);
       const low = signingLinkCutoff(new Date(before)).getTime();
       const high = signingLinkCutoff(new Date(after)).getTime();
       expect(clause.gt.getTime()).toBeGreaterThanOrEqual(low);
       expect(clause.gt.getTime()).toBeLessThanOrEqual(high);
+    }
+  });
+
+  // Founder ruling 26/11/2026: a token with no recorded send time keeps
+  // working for 14 days from the deploy day. Both the form filter and the token
+  // select must take it, and only when the row really holds a token (a slot
+  // with no token must not sort ahead of a live one in the select).
+  it("lists a token with no send time during the grace, never a slot with no token", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-11-27T00:00:00.000Z"));
+      p.authorityFormInstance.findMany.mockResolvedValue([]);
+      await GET(req(), params);
+      const args = p.authorityFormInstance.findMany.mock.calls[0][0];
+      for (const where of [
+        args.where.signatures.some,
+        args.select.signatures.where,
+      ]) {
+        expect(where.OR).toContainEqual({
+          signatureRequestSentAt: null,
+          signatureRequestToken: { not: null },
+        });
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops listing a token with no send time once the grace has ended", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-12-11T00:00:00.000Z"));
+      p.authorityFormInstance.findMany.mockResolvedValue([]);
+      await GET(req(), params);
+      const args = p.authorityFormInstance.findMany.mock.calls[0][0];
+      for (const where of [
+        args.where.signatures.some,
+        args.select.signatures.where,
+      ]) {
+        expect(where.OR).toHaveLength(1);
+        expect(where.OR[0]).toHaveProperty("signatureRequestSentAt.gt");
+      }
+    } finally {
+      vi.useRealTimers();
     }
   });
 
