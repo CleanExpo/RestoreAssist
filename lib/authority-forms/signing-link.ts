@@ -74,16 +74,38 @@ export function isSigningLinkLive(
 
 /**
  * Where fragment for AuthorityFormSignature: its signing link has not expired.
- * Inside the unstamped grace it also takes a row that holds a token but no
- * send time; a row with no token is never a link.
+ * A live link is a row that holds a token, so EVERY branch carries the token
+ * test: the portal revoke and rotate clear the token and leave the send time,
+ * and such a row must never match. Inside the unstamped grace the second
+ * branch also takes a token with no send time. The test in
+ * lib/authority-forms/__tests__/signing-link.test.ts walks every branch.
  */
 export function liveSigningLinkWhere(now: Date = new Date()) {
-  const stamped = { signatureRequestSentAt: { gt: signingLinkCutoff(now) } };
-  const unstamped = {
-    signatureRequestSentAt: null,
-    signatureRequestToken: { not: null },
+  const hasToken = { signatureRequestToken: { not: null } };
+  const stamped = {
+    signatureRequestSentAt: { gt: signingLinkCutoff(now) },
+    ...hasToken,
   };
+  const unstamped = { signatureRequestSentAt: null, ...hasToken };
   return { OR: isUnstampedGraceOpen(now) ? [stamped, unstamped] : [stamped] };
+}
+
+/**
+ * Where fragment for AuthorityFormSignature: the slot still holds the email
+ * and token the caller read. A writer that issues a token and then emails it
+ * must use this in the issuing write, so a correction or cancellation landing
+ * between its read and its write makes the write match nothing instead of
+ * sending a live link to an address that was just replaced.
+ */
+export function unchangedSlotWhere(slot: {
+  signatoryEmail: string | null;
+  signatureRequestToken?: string | null;
+}) {
+  // null, never undefined: Prisma reads undefined as "no filter".
+  return {
+    signatoryEmail: slot.signatoryEmail,
+    signatureRequestToken: slot.signatureRequestToken ?? null,
+  };
 }
 
 /**

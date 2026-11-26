@@ -14,6 +14,7 @@ import {
   isSigningLinkLive,
   liveSigningLinkWhere,
   signingLinkExpiresAt,
+  unchangedSlotWhere,
   unstampedGraceEndsAt,
 } from "../signing-link";
 
@@ -56,6 +57,7 @@ describe("signing-link lifetime (RA-8589)", () => {
           signatureRequestSentAt: {
             gt: new Date(AFTER_GRACE.getTime() - 14 * 86_400_000),
           },
+          signatureRequestToken: { not: null },
         },
       ],
     });
@@ -103,13 +105,44 @@ describe("signing links with no recorded send time (founder ruling 26/11/2026)",
         signatureRequestSentAt: {
           gt: new Date(IN_GRACE.getTime() - 14 * 86_400_000),
         },
+        signatureRequestToken: { not: null },
       },
       { signatureRequestSentAt: null, signatureRequestToken: { not: null } },
     ]);
   });
 
+  // A live link is a row that holds a token. The portal revoke and rotate
+  // clear the token and leave the send time, so a branch without the token
+  // test would list a revoked slot, and the portal would pick its null token
+  // ahead of a live slot on the same form. Walk every branch, in and after the
+  // grace, so a branch added later without the token test fails here.
+  it.each([
+    ["in the grace", IN_GRACE],
+    ["after the grace", AFTER_GRACE],
+  ])(
+    "every branch of the where fragment requires a token (%s)",
+    (_label, at) => {
+      const { OR } = liveSigningLinkWhere(at);
+      expect(OR.length).toBeGreaterThan(0);
+      for (const branch of OR) {
+        expect(branch).toHaveProperty("signatureRequestToken", { not: null });
+      }
+    },
+  );
+
   it("the where fragment drops the unstamped branch after the grace", () => {
     expect(liveSigningLinkWhere(AFTER_GRACE).OR).toHaveLength(1);
+  });
+
+  it("unchangedSlotWhere pins the email and token a writer read, with null never undefined", () => {
+    expect(
+      unchangedSlotWhere({
+        signatoryEmail: "a@example.com",
+        signatureRequestToken: "t",
+      }),
+    ).toEqual({ signatoryEmail: "a@example.com", signatureRequestToken: "t" });
+    const unsent = unchangedSlotWhere({ signatoryEmail: "a@example.com" });
+    expect(unsent).toHaveProperty("signatureRequestToken", null);
   });
 
   it("clearing a link removes the token and the sent stamp", () => {

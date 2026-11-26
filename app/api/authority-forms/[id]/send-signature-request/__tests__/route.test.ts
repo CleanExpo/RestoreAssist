@@ -116,10 +116,7 @@ describe("POST /api/authority-forms/[id]/send-signature-request", () => {
     signatureFindFirst.mockResolvedValueOnce(ownSignature);
     signatureUpdateMany.mockResolvedValueOnce({ count: 1 });
 
-    const res = await POST(
-      makeRequest({ signatureId: "sig-1" }),
-      params(),
-    );
+    const res = await POST(makeRequest({ signatureId: "sig-1" }), params());
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -136,6 +133,9 @@ describe("POST /api/authority-forms/[id]/send-signature-request", () => {
           id: "sig-1",
           instanceId: "form-1",
           signedAt: null,
+          // RA-8589: the write is conditional on the email and token read.
+          signatoryEmail: "jane@example.com",
+          signatureRequestToken: null,
           instance: { status: { notIn: ["CANCELLED", "COMPLETED"] } },
         },
       }),
@@ -185,15 +185,134 @@ describe("POST /api/authority-forms/[id]/send-signature-request", () => {
     signatureFindFirst.mockResolvedValueOnce(ownSignature);
     signatureUpdateMany.mockResolvedValueOnce({ count: 0 });
 
-    const res = await POST(
-      makeRequest({ signatureId: "sig-1" }),
-      params(),
-    );
+    const res = await POST(makeRequest({ signatureId: "sig-1" }), params());
     const json = await res.json();
 
     expect(res.status).toBe(404);
     expect(json.error.code).toBe("NOT_FOUND");
     expect(emailSend).not.toHaveBeenCalled();
+  });
+
+  // RA-8589: the send route and the signatory PATCH both write the email and
+  // token of one slot. updateMany here behaves like the database: it matches
+  // the where against the CURRENT row, so a correction or cancellation that
+  // lands between the read and the write is seen, as it is in production.
+  function fakeSlotDb(current: {
+    signatoryEmail: string;
+    signatureRequestToken: string | null;
+  }) {
+    const row = {
+      id: "sig-1",
+      instanceId: "form-1",
+      signedAt: null,
+      ...current,
+    };
+    signatureUpdateMany.mockImplementation(
+      async ({
+        where,
+        data,
+      }: {
+        where: Record<string, unknown>;
+        data: Record<string, unknown>;
+      }) => {
+        const matches =
+          (where.signatoryEmail === undefined ||
+            where.signatoryEmail === row.signatoryEmail) &&
+          (where.signatureRequestToken === undefined ||
+            where.signatureRequestToken === row.signatureRequestToken);
+        if (!matches) return { count: 0 };
+        Object.assign(row, data);
+        return { count: 1 };
+      },
+    );
+    return row;
+  }
+
+  it("RA-8589: an email correction that lands after the read gets no live link at the old address", async () => {
+    const read = {
+      id: "sig-1",
+      instanceId: "form-1",
+      signatoryName: "Jane Client",
+      signatoryEmail: "wrong@example.com",
+      signatureRequestToken: null,
+      signedAt: null,
+    };
+    const row = fakeSlotDb({
+      signatoryEmail: "wrong@example.com",
+      signatureRequestToken: null,
+    });
+    signatureFindFirst
+      .mockImplementationOnce(async () => {
+        // The staff correction commits right after this read returns.
+        queueMicrotask(() => {
+          row.signatoryEmail = "right@example.com";
+        });
+        return read;
+      })
+      .mockResolvedValueOnce({ id: "sig-1" });
+
+    const res = await POST(makeRequest({ signatureId: "sig-1" }), params());
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe("CONFLICT");
+    expect(emailSend).not.toHaveBeenCalled();
+    expect(row.signatureRequestToken).toBeNull();
+    expect(row.signatoryEmail).toBe("right@example.com");
+  });
+
+  it("RA-8589: a cancellation that lands after the read is not revived by the resend", async () => {
+    const read = {
+      id: "sig-1",
+      instanceId: "form-1",
+      signatoryName: "Jane Client",
+      signatoryEmail: "jane@example.com",
+      signatureRequestToken: "old-token",
+      signedAt: null,
+    };
+    const row = fakeSlotDb({
+      signatoryEmail: "jane@example.com",
+      signatureRequestToken: "old-token",
+    });
+    signatureFindFirst
+      .mockImplementationOnce(async () => {
+        queueMicrotask(() => {
+          row.signatureRequestToken = null;
+        });
+        return read;
+      })
+      .mockResolvedValueOnce({ id: "sig-1" });
+
+    const res = await POST(makeRequest({ signatureId: "sig-1" }), params());
+
+    expect(res.status).toBe(409);
+    expect(emailSend).not.toHaveBeenCalled();
+    expect(row.signatureRequestToken).toBeNull();
+  });
+
+  it("RA-8589: with no interleaved change the resend still goes to the address it read", async () => {
+    const read = {
+      id: "sig-1",
+      instanceId: "form-1",
+      signatoryName: "Jane Client",
+      signatoryEmail: "jane@example.com",
+      signatureRequestToken: "old-token",
+      signedAt: null,
+    };
+    const row = fakeSlotDb({
+      signatoryEmail: "jane@example.com",
+      signatureRequestToken: "old-token",
+    });
+    signatureFindFirst.mockResolvedValueOnce(read);
+
+    const res = await POST(makeRequest({ signatureId: "sig-1" }), params());
+
+    expect(res.status).toBe(200);
+    expect(emailSend).toHaveBeenCalledTimes(1);
+    expect(emailSend.mock.calls[0][0]).toMatchObject({
+      to: "jane@example.com",
+    });
+    expect(row.signatureRequestToken).not.toBe("old-token");
+    expect(row.signatureRequestToken).not.toBeNull();
   });
 
   it("escapes HTML in tenant-controlled fields before interpolating them into the email body", async () => {
@@ -203,7 +322,7 @@ describe("POST /api/authority-forms/[id]/send-signature-request", () => {
     instanceFindUnique.mockResolvedValueOnce({
       ...ownedForm,
       companyName: '<script>alert("company")</script>',
-      clientName: '<img src=x onerror=alert(1)>',
+      clientName: "<img src=x onerror=alert(1)>",
       clientAddress: '"><b>injected</b>',
       template: { name: "<h1>form & name</h1>" },
     });
@@ -229,11 +348,15 @@ describe("POST /api/authority-forms/[id]/send-signature-request", () => {
     expect(html).not.toContain("<h1>form & name</h1>");
 
     // The payloads are present, but entity-escaped.
-    expect(html).toContain("&lt;script&gt;alert(&quot;company&quot;)&lt;/script&gt;");
+    expect(html).toContain(
+      "&lt;script&gt;alert(&quot;company&quot;)&lt;/script&gt;",
+    );
     expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
     expect(html).toContain("&quot;&gt;&lt;b&gt;injected&lt;/b&gt;");
     expect(html).toContain("&lt;h1&gt;form &amp; name&lt;/h1&gt;");
-    expect(html).toContain("&lt;script&gt;alert(&#039;name&#039;)&lt;/script&gt;");
+    expect(html).toContain(
+      "&lt;script&gt;alert(&#039;name&#039;)&lt;/script&gt;",
+    );
   });
 
   it("403 when the caller has no relationship to the form", async () => {
@@ -246,10 +369,7 @@ describe("POST /api/authority-forms/[id]/send-signature-request", () => {
       },
     });
 
-    const res = await POST(
-      makeRequest({ signatureId: "sig-1" }),
-      params(),
-    );
+    const res = await POST(makeRequest({ signatureId: "sig-1" }), params());
 
     expect(res.status).toBe(403);
     expect(signatureFindFirst).not.toHaveBeenCalled();
