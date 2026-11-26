@@ -13,6 +13,10 @@ import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import {
+  summariseReaderOutcome,
+  type ImportOutcomeSummary,
+} from "@/lib/sketch/import-outcome-message";
 
 export const REFERENCE_EXTRACTION_ACTION =
   "Reference floor plan read for room suggestions";
@@ -47,6 +51,8 @@ export interface RecordedRead {
   rooms: unknown[];
   reader: unknown;
   promptVersion: unknown;
+  /** RA-8618: absent on reads recorded before the outcome was kept. */
+  outcome?: ImportOutcomeSummary;
 }
 
 export type StoredReferenceRead =
@@ -139,10 +145,12 @@ export async function findRecordedExtraction(
   try {
     const parsed = JSON.parse(row.changes) as Partial<RecordedRead>;
     if (!Array.isArray(parsed.rooms)) return null;
+    const outcome = summariseReaderOutcome(parsed.outcome);
     return {
       rooms: parsed.rooms,
       reader: parsed.reader,
       promptVersion: parsed.promptVersion,
+      ...(outcome ? { outcome } : {}),
     };
   } catch {
     return null;
