@@ -24,6 +24,8 @@ function SignupForm() {
   const [submitting, setSubmitting] = useState(false);
   const [invitationValid, setInvitationValid] = useState(false);
   const [invitationData, setInvitationData] = useState<any>(null);
+  // RA-8613: the link is an emailed password-recovery link, not an invitation.
+  const [isRecovery, setIsRecovery] = useState(false);
   const [error, setError] = useState("");
   const [inviteStatus, setInviteStatus] =
     useState<InviteFailureStatus>("INVALID");
@@ -45,6 +47,7 @@ function SignupForm() {
       if (data.valid) {
         setInvitationValid(true);
         setInvitationData(data.invitation);
+        setIsRecovery(data.recovery === true);
         // Pre-fill client name if available
         if (data.invitation.clientName) {
           setFormData((prev) => ({
@@ -117,7 +120,9 @@ function SignupForm() {
         throw new Error(apiErrorMessage(data) || "Failed to create account");
       }
 
-      toast.success("Account created successfully!");
+      toast.success(
+        isRecovery ? "Password updated" : "Account created successfully!",
+      );
 
       // The accept endpoint returns a portal JWT — store it and go straight in.
       if (data.token) {
@@ -174,11 +179,12 @@ function SignupForm() {
             className="mx-auto mb-4"
           />
           <h1 className="text-2xl font-bold text-brand-navy mb-2">
-            Create Your Portal Account
+            {isRecovery ? "Set a New Password" : "Create Your Portal Account"}
           </h1>
           <p className="text-brand-slate text-sm">
-            {invitationData.contractorName} has invited you to access the Client
-            Portal
+            {isRecovery
+              ? "Choose a new password for your Client Portal account"
+              : `${invitationData.contractorName} has invited you to access the Client Portal`}
           </p>
         </div>
 
@@ -277,7 +283,13 @@ function SignupForm() {
             disabled={submitting}
             className="w-full min-h-11 py-3 bg-brand-cta text-white rounded-lg font-medium hover:bg-brand-cta/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? "Creating Account..." : "Create Account & Sign In"}
+            {submitting
+              ? isRecovery
+                ? "Saving..."
+                : "Creating Account..."
+              : isRecovery
+                ? "Save Password & Sign In"
+                : "Create Account & Sign In"}
           </button>
         </form>
 

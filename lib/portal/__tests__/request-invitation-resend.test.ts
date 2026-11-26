@@ -4,8 +4,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     portalInvitation: {
       findMany: vi.fn(),
-      findFirst: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
     },
     clientUser: { findFirst: vi.fn() },
   },
@@ -13,9 +13,13 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/portal/extend-and-email-invitation", () => ({
   extendAndEmailPortalInvitation: vi.fn(),
 }));
+vi.mock("@/lib/portal/recovery-email", () => ({
+  emailRecoveryLink: vi.fn(),
+}));
 
 import { prisma } from "@/lib/prisma";
 import { extendAndEmailPortalInvitation } from "@/lib/portal/extend-and-email-invitation";
+import { emailRecoveryLink } from "@/lib/portal/recovery-email";
 import { requestPortalInvitationResend } from "../request-invitation-resend";
 import { GENERIC_INVITE_RESEND_MESSAGE } from "../recovery-paths";
 
@@ -25,19 +29,22 @@ const findMany = prisma.portalInvitation.findMany as unknown as ReturnType<
 const clientUserFindFirst = prisma.clientUser.findFirst as unknown as ReturnType<
   typeof vi.fn
 >;
-const invitationFindFirst = prisma.portalInvitation
-  .findFirst as unknown as ReturnType<typeof vi.fn>;
 const invitationCreate = prisma.portalInvitation.create as unknown as ReturnType<
+  typeof vi.fn
+>;
+const invitationUpdate = prisma.portalInvitation.update as unknown as ReturnType<
   typeof vi.fn
 >;
 const extend = extendAndEmailPortalInvitation as unknown as ReturnType<
   typeof vi.fn
 >;
+const recoveryEmail = emailRecoveryLink as unknown as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
   extend.mockResolvedValue({ ok: true, data: { expiresAt: new Date() } });
   clientUserFindFirst.mockResolvedValue(null);
+  recoveryEmail.mockResolvedValue(true);
 });
 
 describe("requestPortalInvitationResend", () => {
@@ -118,26 +125,21 @@ describe("requestPortalInvitationResend", () => {
     });
   });
 
+  // RA-8613: the first design stored the recovery link as an invitation row, so
+  // a contractor who listed invitations could read it and set the homeowner's
+  // password. The link is now stateless: nothing is stored for a contractor
+  // to read, and no invitation is created or extended.
   describe("account holder who lost the password (RA-8613)", () => {
-    const ACCOUNT = { clientId: "client_1", email: "client@example.com" };
-    const RECOVERY_INVITATION = {
-      id: "inv_new",
-      token: "tok_new",
+    const ACCOUNT = {
+      id: "client_user_1",
+      clientId: "client_1",
       email: "client@example.com",
-      client: { name: "Jordan Client" },
-      user: {
-        name: "Alex Tech",
-        businessName: "Harbour Restorations",
-        organizationId: "org_1",
-      },
+      name: "Jordan Client",
+      passwordHash: "$2a$10$stored-hash",
     };
 
-    it("issues a new single-use link and emails it as a password reset", async () => {
+    it("emails a recovery link to the account address and stores no invitation", async () => {
       clientUserFindFirst.mockResolvedValue(ACCOUNT);
-      invitationFindFirst
-        .mockResolvedValueOnce(null) // no open recovery link
-        .mockResolvedValueOnce({ userId: "contractor_1" }); // accepted invite
-      invitationCreate.mockResolvedValue(RECOVERY_INVITATION);
 
       const result = await requestPortalInvitationResend(" Client@Example.com ");
 
@@ -145,60 +147,29 @@ describe("requestPortalInvitationResend", () => {
         ok: true,
         data: { message: GENERIC_INVITE_RESEND_MESSAGE, matched: true },
       });
-      expect(invitationCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            email: "client@example.com",
-            clientId: "client_1",
-            userId: "contractor_1",
-          }),
-        }),
-      );
-      expect(extend).toHaveBeenCalledWith(
-        expect.objectContaining({
-          invitationId: "inv_new",
-          token: "tok_new",
-          email: "client@example.com",
-          kind: "recovery",
-        }),
-      );
-    });
-
-    it("reuses an open recovery link instead of minting another", async () => {
-      clientUserFindFirst.mockResolvedValue(ACCOUNT);
-      invitationFindFirst.mockResolvedValueOnce(RECOVERY_INVITATION);
-
-      await requestPortalInvitationResend("client@example.com");
-
+      expect(recoveryEmail).toHaveBeenCalledTimes(1);
+      expect(recoveryEmail).toHaveBeenCalledWith({
+        clientUserId: ACCOUNT.id,
+        clientId: ACCOUNT.clientId,
+        email: ACCOUNT.email,
+        name: ACCOUNT.name,
+        passwordHash: ACCOUNT.passwordHash,
+      });
       expect(invitationCreate).not.toHaveBeenCalled();
-      expect(extend).toHaveBeenCalledWith(
-        expect.objectContaining({ invitationId: "inv_new", kind: "recovery" }),
-      );
+      expect(invitationUpdate).not.toHaveBeenCalled();
+      expect(findMany).not.toHaveBeenCalled();
+      expect(extend).not.toHaveBeenCalled();
     });
 
-    it("returns the same message when the account has no accepted invitation", async () => {
+    it("returns the same message when the recovery email fails", async () => {
       clientUserFindFirst.mockResolvedValue(ACCOUNT);
-      invitationFindFirst.mockResolvedValue(null);
+      recoveryEmail.mockResolvedValue(false);
 
       const result = await requestPortalInvitationResend("client@example.com");
 
       expect(result).toEqual({
         ok: true,
         data: { message: GENERIC_INVITE_RESEND_MESSAGE, matched: false },
-      });
-      expect(extend).not.toHaveBeenCalled();
-    });
-
-    it("returns the same message when the reset email fails", async () => {
-      clientUserFindFirst.mockResolvedValue(ACCOUNT);
-      invitationFindFirst.mockResolvedValueOnce(RECOVERY_INVITATION);
-      extend.mockResolvedValue({ ok: false, reason: "email_failed" });
-
-      const result = await requestPortalInvitationResend("client@example.com");
-
-      expect(result).toEqual({
-        ok: true,
-        data: { message: GENERIC_INVITE_RESEND_MESSAGE, matched: true },
       });
     });
   });
