@@ -63,6 +63,11 @@ import {
 import toast from "react-hot-toast";
 import { importSketchUserMessage } from "@/lib/sketch/import-sketch-user-message";
 import {
+  droppedRoomsNote,
+  emptyImportMessage,
+  summariseReaderOutcome,
+} from "@/lib/sketch/import-outcome-message";
+import {
   omitRoomsAlreadyOnCanvas,
   referenceImportFailureMessage,
   requestReferenceRooms,
@@ -2924,6 +2929,7 @@ export function SketchEditorV2({
           }[];
           reader?: { vendor: "anthropic" | "abliteration"; model: string };
           primaryFailure?: { reason: string; detail?: string };
+          outcome?: unknown;
         };
         if (!res.ok) {
           const msg = failureMessage(
@@ -2934,10 +2940,15 @@ export function SketchEditorV2({
           throw new Error(msg);
         }
         const { reader, primaryFailure } = body;
+        // RA-8618: the reader's own message and dropped-room count.
+        const outcome = summariseReaderOutcome(body.outcome);
         if (!body.rooms?.length) {
-          if (emptyReferenceMessage) throw new Error(emptyReferenceMessage);
-          const emptyMsg =
-            "No rooms found in that image. Try a clearer photo with room outlines visible.";
+          if (emptyReferenceMessage) {
+            throw new Error(
+              outcome ? emptyImportMessage(outcome) : emptyReferenceMessage,
+            );
+          }
+          const emptyMsg = emptyImportMessage(outcome);
           toast.error(emptyMsg);
           throw new Error(emptyMsg);
         }
@@ -2974,17 +2985,24 @@ export function SketchEditorV2({
           primaryFailureDetail: primaryFailure?.detail ?? primaryFailure?.reason,
         });
 
+        const droppedNote = droppedRoomsNote(outcome);
+        const withDropped = (msg: string) =>
+          droppedNote ? `${msg} ${droppedNote}` : msg;
         if (reader?.vendor === "abliteration") {
           toast(
-            primaryFailure
-              ? "Primary reader was busy — rooms came from the backup reader. Measure and confirm each on site before billing."
-              : "Rooms imported via the backup reader — measure and confirm each on site before billing.",
+            withDropped(
+              primaryFailure
+                ? "Primary reader was busy — rooms came from the backup reader. Measure and confirm each on site before billing."
+                : "Rooms imported via the backup reader — measure and confirm each on site before billing.",
+            ),
             { duration: 6000 },
           );
         } else {
           toast.success(
-            `Imported ${rooms.length} room${rooms.length === 1 ? "" : "s"} — measure and confirm each before billing.`,
-            { duration: 5000 },
+            withDropped(
+              `Imported ${rooms.length} room${rooms.length === 1 ? "" : "s"} — measure and confirm each before billing.`,
+            ),
+            { duration: droppedNote ? 8000 : 5000 },
           );
         }
 
