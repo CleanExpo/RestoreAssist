@@ -216,6 +216,55 @@ describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
   });
 
   // RA-8232 — abliteration.ai backup reader, flag-gated and off by default.
+  describe("RA-8618: the reader outcome reaches the screen", () => {
+    it("returns status, message, fallback flag and dropped count, and no raw model text", async () => {
+      importSketchFromImage.mockResolvedValueOnce({
+        ok: true,
+        data: {
+          rooms: [],
+          usage: { inputTokens: 1, outputTokens: 1 },
+          reader: { vendor: "anthropic", model: "claude-sonnet-4-6" },
+          outcome: {
+            status: "invalid",
+            message:
+              "None of the 2 rooms the reader found had a usable outline, so the result was not used. You can draw the floor plan by hand instead.",
+            manualDrawingFallback: true,
+            droppedCount: 2,
+            dropped: [{ index: 0, label: "raw model label", reason: "x" }],
+            proposals: [],
+          },
+        },
+      });
+
+      const res = await POST(makeRequest(genuine.jpeg), ctx());
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.rooms).toEqual([]);
+      expect(body.outcome).toEqual({
+        status: "invalid",
+        message:
+          "None of the 2 rooms the reader found had a usable outline, so the result was not used. You can draw the floor plan by hand instead.",
+        manualDrawingFallback: true,
+        droppedCount: 2,
+      });
+      expect(JSON.stringify(body)).not.toContain("raw model label");
+    });
+
+    it("leaves outcome out when the reader gave none", async () => {
+      importSketchFromImage.mockResolvedValueOnce({
+        ok: true,
+        data: {
+          rooms: [],
+          usage: { inputTokens: 1, outputTokens: 1 },
+          reader: { vendor: "anthropic", model: "claude-sonnet-4-6" },
+        },
+      });
+      const res = await POST(makeRequest(genuine.jpeg), ctx());
+      const body = await res.json();
+      expect(body).not.toHaveProperty("outcome");
+    });
+  });
+
   describe("backup reader (RA-8232)", () => {
     const jpeg = () => genuine.jpeg; // RA-8234: bytes must now be a decodable JPEG
     const square = [
