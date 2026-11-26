@@ -17,12 +17,17 @@
  * contain absolute paths from a contributor's machine; the ledger carries only
  * what the bands are computed from.
  *
- * Appending is idempotent. Each line is keyed by session, timestamp and domain,
- * so re-running over the same reports adds nothing.
+ * Each new verification is its own file under verifier-ledger.d/, and the old
+ * verifier-ledger.jsonl is frozen history — see ledger.ts for why (a shared
+ * append-only file made every open branch conflict whenever one merged).
+ *
+ * Appending is idempotent. Each entry is keyed by session, timestamp and
+ * domain, so re-running over the same reports adds nothing.
  */
 
-import { readFileSync, readdirSync, existsSync, appendFileSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { ledgerKey, readLedger, writeLedgerEntry } from "./ledger";
 import {
   detect,
   parseReportFilename,
@@ -32,7 +37,6 @@ import {
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
 const REPORTS_DIR = join(REPO_ROOT, ".claude", "verifier-reports");
-const LEDGER = join(REPO_ROOT, "scripts", "observability", "verifier-ledger.jsonl");
 
 function readReportsDir(): VerifierReport[] {
   if (!existsSync(REPORTS_DIR)) return [];
@@ -61,38 +65,17 @@ function readReportsDir(): VerifierReport[] {
   return out;
 }
 
-function readLedger(): VerifierReport[] {
-  if (!existsSync(LEDGER)) return [];
-  return readFileSync(LEDGER, "utf8")
-    .split("\n")
-    .filter((l) => l.trim().length > 0)
-    .flatMap((line) => {
-      try {
-        return [JSON.parse(line) as VerifierReport];
-      } catch {
-        return [];
-      }
-    });
-}
-
-function key(r: VerifierReport): string {
-  return `${r.sessionId}:${r.timestamp}:${r.domain}`;
-}
-
 function main(): void {
   const args = new Set(process.argv.slice(2));
   const fromDir = readReportsDir();
   const fromLedger = readLedger();
 
-  const seen = new Set(fromLedger.map(key));
-  const fresh = fromDir.filter((r) => !seen.has(key(r)));
+  const seen = new Set(fromLedger.map(ledgerKey));
+  const fresh = fromDir.filter((r) => !seen.has(ledgerKey(r)));
 
-  if (args.has("--append") && fresh.length > 0) {
-    const lines = fresh
-      .sort((a, b) => a.timestamp - b.timestamp)
-      .map((r) => JSON.stringify(r))
-      .join("\n");
-    appendFileSync(LEDGER, lines + "\n");
+  if (args.has("--append")) {
+    // One file per entry, never the frozen verifier-ledger.jsonl.
+    for (const r of fresh) writeLedgerEntry(r);
   }
 
   // The union, so a report is counted once whether it came from the ledger or

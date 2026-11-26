@@ -8,7 +8,7 @@ measures the code. This measures the sessions that write it.
 
 | | State |
 | --- | --- |
-| A durable metric series | **Working.** `scripts/observability/verifier-ledger.jsonl`, 379 verifications. |
+| A durable metric series | **Working.** `scripts/observability/verifier-ledger.jsonl` (frozen history, 786 verifications) plus one file per verification since in `scripts/observability/verifier-ledger.d/`. |
 | Deterministic detection | **Working.** `scripts/observability/verifier-metrics.ts`, 24 tests. |
 | Control bands and a tier ladder | **Defined.** `scripts/observability/bands.yaml`. |
 | A trigger that invokes Claude on a breach | **Not wired.** See below. |
@@ -76,11 +76,36 @@ they predate that rule, and **no new report will ever be committed** — so the
 signal is discarded on every fresh clone, and a CI job would read a frozen,
 months-old corpus. A control band needs a series that grows.
 
-`verifier-ledger.jsonl` is therefore committed: one compact line per verification,
-carrying only what the bands are computed from. No free text, no claim bodies, no
-file paths — the reports contain absolute paths from contributors' machines, and
-those stay out of the tree. Appending is keyed on session, timestamp and domain,
-so re-running is idempotent.
+The ledger is therefore committed: one compact line per verification, carrying
+only what the bands are computed from. No free text, no claim bodies, no file
+paths — the reports contain absolute paths from contributors' machines, and those
+stay out of the tree. Every entry is keyed on session, timestamp and domain, so
+re-running is idempotent.
+
+### Layout: one file per entry
+
+| Path | Role |
+| --- | --- |
+| `scripts/observability/verifier-ledger.jsonl` | Frozen history. Read, never appended again. |
+| `scripts/observability/verifier-ledger.d/<timestamp>-<domain>-<hash>.jsonl` | One verification each, one line. `<hash>` is the first 12 hex characters of the SHA-256 of the session id. |
+
+The ledger used to be the single `.jsonl` file, and every mesh branch appended to
+it. Each branch therefore changed the same end of the same file, so whichever pull
+request merged first left every other open one conflicting; resolving that pushed
+a new head, which voided that PR's release receipt, and the PRs looped. With one
+file per entry, two branches add two different files and git merges them without
+asking.
+
+Both producers — the Stop hook's `.claude/hooks/lib/ledger-append.sh` and
+`collect-verifier-metrics.ts --append` — write the same line under the same
+deterministic name, so the same event recorded twice overwrites one file rather
+than adding a second. Every reader goes through `readLedger()` in
+`scripts/observability/ledger.ts`, which reads the frozen file and then every
+entry file, de-duplicated on session, timestamp and domain. Dotfiles (an entry
+still being written) and anything not ending `.jsonl` are ignored.
+
+Entry files are meant to be committed with the work that produced them, like the
+old appended lines were.
 
 ## Three safeguards worth knowing about
 

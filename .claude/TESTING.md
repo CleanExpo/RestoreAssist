@@ -141,16 +141,27 @@ answers, and costs whatever that agent costs. See `scripts/agent-evals/README.md
 
 ### The ledger write
 
-`.claude/hooks/lib/ledger-append.sh` records each verification into
-`scripts/observability/verifier-ledger.jsonl` as the Stop hook produces it,
-because `.claude/verifier-reports/` is gitignored and sweeping it afterwards only
-works on a machine that still has it.
+`.claude/hooks/lib/ledger-append.sh` records each verification as the Stop hook
+produces it, because `.claude/verifier-reports/` is gitignored and sweeping it
+afterwards only works on a machine that still has it. Each verification becomes
+its own one-line file in `scripts/observability/verifier-ledger.d/`;
+`scripts/observability/verifier-ledger.jsonl` is frozen history and is never
+appended again. A shared append-only file made every open branch conflict
+whenever one merged — see `docs/observability/README.md`.
 
-Its test pins the one property that is easy to break silently: the shell writer
-and `collect-verifier-metrics.ts` write into the same file and are read back by
-the same parser, so their line shapes must match key for key. It also feeds what
-the shell wrote through `summarise()` and checks the status survives, not just
-the row count.
+Its test pins the properties that are easy to break silently. The shell writer
+and `collect-verifier-metrics.ts` write into the same directory and are read back
+by the same `readLedger()`, so their line shapes must match key for key and their
+file names must match character for character. It feeds what the shell wrote
+through `readLedger()` and `summarise()` and checks the status survives, not just
+the row count. And it runs two real git branches that each record a
+verification, then requires them to touch no file in common, to merge without a
+conflict, and to leave the frozen file unchanged. `scripts/observability/__tests__/ledger.test.ts`
+covers the TypeScript side: naming, de-duplication of old and new entries, and
+the files a reader ignores.
 
 The write can never fail a Stop — a missing, malformed, skipped or unwritable
-target all return 0 silently. `VERIFIER_LEDGER_SKIP=1` turns it off.
+target all return 0 silently. `VERIFIER_LEDGER_SKIP=1` turns it off,
+`VERIFIER_LEDGER_DIR=<dir>` sends entries elsewhere, and the older
+`VERIFIER_LEDGER_PATH=<file>.jsonl` still works but is mapped to the sibling
+directory `<file>.d/`, so the named file itself is never appended to.
