@@ -56,6 +56,8 @@ interface ReadingSnapshot {
   surfaceType: string;
   moistureLevel: number;
   depth: string;
+  /** Recorded unit; a reference applies only to a moisture-content reading. */
+  unit: string | null;
   target: number;
   aboveTarget: boolean;
   notes: string | null;
@@ -93,6 +95,8 @@ interface MonitoringReport {
   currentAvgMoisture: number | null;
   overallDryingStatus: DryingStatus;
   dailyLogs: DailyLog[];
+  /** The job's reference readings by material (RA-8509), for the drying charts. */
+  references: Record<string, number>;
 }
 
 // ── Shared computation ────────────────────────────────────────────────────────
@@ -170,6 +174,7 @@ async function buildReport(
         surfaceType: r.surfaceType,
         moistureLevel: r.moistureLevel,
         depth: r.depth,
+        unit: r.unit,
         target,
         aboveTarget: r.moistureLevel > target,
         notes: r.notes,
@@ -278,6 +283,7 @@ async function buildReport(
     currentAvgMoisture,
     overallDryingStatus,
     dailyLogs,
+    references,
   };
 }
 

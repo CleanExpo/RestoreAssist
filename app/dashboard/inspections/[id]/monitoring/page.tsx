@@ -18,6 +18,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { MeterPhotoCapture } from "@/components/inspection/MeterPhotoCapture";
+import MoistureTrendChart from "@/components/inspection/MoistureTrendChart";
+import DryingProgressChart from "@/components/inspection/DryingProgressChart";
 
 // ── Types (mirrors API response) ─────────────────────────────────────────────
 
@@ -29,6 +31,7 @@ interface ReadingSnapshot {
   surfaceType: string;
   moistureLevel: number;
   depth: string;
+  unit?: string | null;
   target: number;
   aboveTarget: boolean;
   notes: string | null;
@@ -64,6 +67,8 @@ interface MonitoringReport {
   currentAvgMoisture: number | null;
   overallDryingStatus: DryingStatus;
   dailyLogs: DailyLog[];
+  /** The job's reference readings by material (RA-8509); feeds both charts. */
+  references?: Record<string, number>;
 }
 
 // ── Status helpers ────────────────────────────────────────────────────────────
@@ -188,6 +193,11 @@ export default function MonitoringPage({
   }
 
   const hasReadings = report.dailyLogs.length > 0;
+  // RA-8590: the drying charts plot the same progress readings as the daily
+  // log (reference and invalidated readings are already excluded by the API)
+  // and draw the goal from the job's reference readings.
+  const chartReadings = report.dailyLogs.flatMap((log) => log.readings);
+  const references = report.references ?? {};
 
   return (
     <div className="space-y-6 p-6 max-w-9xl mx-auto">
@@ -320,6 +330,39 @@ export default function MonitoringPage({
             </button>
           </CardContent>
         </Card>
+      )}
+
+      {/* ── Drying charts (RA-8590) ── */}
+      {hasReadings && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-neutral-700 dark:text-slate-200">
+                Moisture trend
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MoistureTrendChart
+                readings={chartReadings}
+                references={references}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-neutral-700 dark:text-slate-200">
+                Drying progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DryingProgressChart
+                readings={chartReadings}
+                references={references}
+                inspectionStartDate={report.inspectionDate ?? undefined}
+              />
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* ── Daily log timeline ── */}
