@@ -784,7 +784,3 @@
 {"sessionId":"80316dcb-3ccd-4ce5-9b50-fb0d478ddd69","timestamp":1795466752,"domain":"ios-app-review-static","status":"static-clean","claimsTotal":0,"claimsFailed":0,"claimsWarned":0}
 {"sessionId":"80316dcb-3ccd-4ce5-9b50-fb0d478ddd69","timestamp":1795466752,"domain":"claim-truthfulness-static","status":"static-clean"}
 {"sessionId":"44151bba-fb39-41d7-8d3d-4ebcfff53efb","timestamp":1795415371,"domain":"ios-app-review-static","status":"failed","claimsTotal":1,"claimsFailed":1,"claimsWarned":0}
-{"sessionId":"a1631124-447f-4684-95a5-5fd594a3adff","timestamp":1795463940,"domain":"ios-app-review-static","status":"static-clean","claimsTotal":0,"claimsFailed":0,"claimsWarned":0}
-{"sessionId":"a1631124-447f-4684-95a5-5fd594a3adff","timestamp":1795463945,"domain":"claim-truthfulness-static","status":"static-clean"}
-{"sessionId":"a1631124-447f-4684-95a5-5fd594a3adff","timestamp":1795464094,"domain":"ios-app-review-static","status":"static-clean","claimsTotal":0,"claimsFailed":0,"claimsWarned":0}
-{"sessionId":"a1631124-447f-4684-95a5-5fd594a3adff","timestamp":1795464094,"domain":"claim-truthfulness-static","status":"static-clean"}
