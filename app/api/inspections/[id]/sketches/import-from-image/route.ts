@@ -4,7 +4,10 @@
  *
  * Request: multipart/form-data with a `file` field (JPEG/PNG, max 10 MB)
  *   and optional `floorNumber` (defaults to 0).
- * Response: { rooms: [{ id, label, vertices: [{ x, y }, ...] }] }
+ * Response: { rooms: [{ id, label, vertices: [{ x, y }, ...] }], outcome? }
+ *   `outcome` (RA-8618) is { status, message, manualDrawingFallback,
+ *   droppedCount } from the reader's validator, so the screen can say why a
+ *   read placed no rooms or how many it left out.
  *   Vertices are in normalized coordinates [0, 1] relative to the image dimensions.
  *   `id` is server-issued so a first sketch save cannot claim operator_measured.
  *
@@ -73,6 +76,7 @@ import {
   NoWorkspaceKeyError,
 } from "@/lib/ai/resolve-workspace-ai-key";
 import { withAiSuggestedRoomIds } from "@/lib/sketch/sketch-field-status";
+import { summariseReaderOutcome } from "@/lib/sketch/import-outcome-message";
 
 // RA-1707 / P0-2 — Vision call costs roughly $0.005-0.012 per image at
 // claude-sonnet-4-x pricing (depends on image dimensions). We assume the
@@ -377,6 +381,10 @@ export async function POST(
       }
 
       const { primaryFailure, reader } = result.data;
+      // RA-8618: the validator's status, message and dropped count, without
+      // its per-room detail (model-written labels stay on the server).
+      const outcome = summariseReaderOutcome(result.data.outcome);
+      const outcomeField = outcome ? { outcome } : {};
       if (primaryFailure) {
         // RA-8232 — the backup reader produced these rooms. The workspace
         // Anthropic read failed, so log that failure as a primary failure would
@@ -524,6 +532,7 @@ export async function POST(
                 promptVersion: SKETCH_READER_PROMPT_VERSION,
                 reader: result.data.reader,
                 rooms: roomsWithIds,
+                ...outcomeField,
                 exportPolicy: "reference_only_never_export",
               }),
             },
@@ -537,6 +546,7 @@ export async function POST(
           rooms: roomsWithIds,
           reader: result.data.reader,
           promptVersion: SKETCH_READER_PROMPT_VERSION,
+          ...outcomeField,
           reference: {
             id: boundReferenceId,
             contentSha256: bound.contentSha256,
@@ -549,6 +559,7 @@ export async function POST(
       return NextResponse.json({
         rooms: roomsWithIds,
         reader: result.data.reader,
+        ...outcomeField,
         ...(primaryFailure ? { primaryFailure } : {}),
       });
     };
