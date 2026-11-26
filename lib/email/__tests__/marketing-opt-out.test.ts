@@ -91,6 +91,31 @@ describe("marketingOptOut", () => {
     expect(queryUrl.search).toBe("?subject=Unsubscribe");
   });
 
+  // Discovery sweep finding (P0): the # and ? case above only probed the local
+  // part, so removing the percent-encoding of the domain left every test
+  // green. The domain part needs its own guard.
+  it("percent-encodes # and ? in the domain so the link keeps the whole mailbox", () => {
+    process.env.EMAIL_REPLY_TO = "a@example#branch.com";
+    const hash = marketingOptOut();
+    expect(hash.headers["List-Unsubscribe"]).toBe(
+      "<mailto:a@example%23branch.com?subject=Unsubscribe>",
+    );
+    const hashUrl = new URL(hash.headers["List-Unsubscribe"].slice(1, -1));
+    expect(decodeURIComponent(hashUrl.pathname)).toBe("a@example#branch.com");
+    expect(hashUrl.hash).toBe("");
+    expect(hashUrl.search).toBe("?subject=Unsubscribe");
+    expect(hash.replyTo).toBe("a@example#branch.com");
+
+    process.env.EMAIL_REPLY_TO = "a@example?x=1.com";
+    const query = marketingOptOut();
+    const queryUrl = new URL(query.headers["List-Unsubscribe"].slice(1, -1));
+    expect(decodeURIComponent(queryUrl.pathname)).toBe("a@example?x=1.com");
+    expect(queryUrl.search).toBe("?subject=Unsubscribe");
+    expect(query.footerHtml).toContain(
+      'href="mailto:a@example%3Fx%3D1.com?subject=Unsubscribe"',
+    );
+  });
+
   it("reduces a display-name value to its one mailbox everywhere", () => {
     process.env.EMAIL_REPLY_TO = "Support Team <replies@restoreassist.app>";
     const optOut = marketingOptOut();
