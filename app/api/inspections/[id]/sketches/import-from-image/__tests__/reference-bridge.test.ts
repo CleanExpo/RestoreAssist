@@ -321,6 +321,34 @@ describe("reference bridge: provenance", () => {
     });
   });
 
+  it("RA-8618: records the reader outcome with the read and returns it", async () => {
+    importSketchFromImage.mockResolvedValue({
+      ...readOk(),
+      data: {
+        ...readOk().data,
+        outcome: {
+          status: "ok",
+          message: "Found 1 room. 1 room could not be used and was left out.",
+          manualDrawingFallback: false,
+          droppedCount: 1,
+          dropped: [{ index: 1, label: "raw model label", reason: "x" }],
+          proposals: [],
+        },
+      },
+    });
+    const res = await POST(request(), ctx());
+    const body = await res.json();
+    const expected = {
+      status: "ok",
+      message: "Found 1 room. 1 room could not be used and was left out.",
+      manualDrawingFallback: false,
+      droppedCount: 1,
+    };
+    expect(body.outcome).toEqual(expected);
+    expect(JSON.parse(finalWrites()[0].changes).outcome).toEqual(expected);
+    expect(JSON.stringify(body)).not.toContain("raw model label");
+  });
+
   it("tells the reader the image is a watermarked reference plan", async () => {
     await POST(request(), ctx());
     expect(importSketchFromImage.mock.calls[0][0].sourceContext).toBe(
@@ -405,6 +433,28 @@ describe("reference bridge: retries", () => {
     expect(applyRateLimit).not.toHaveBeenCalled();
     expect(auditCreate).not.toHaveBeenCalled();
     expect(claimSketchUpdate).not.toHaveBeenCalled();
+  });
+
+  it("RA-8618: a replayed read carries the recorded outcome", async () => {
+    const outcome = {
+      status: "no_plan",
+      message:
+        "No rooms were found in this image. You can draw the floor plan by hand instead.",
+      manualDrawingFallback: true,
+      droppedCount: 0,
+    };
+    auditFindFirst.mockResolvedValue({
+      changes: JSON.stringify({
+        ...JSON.parse(recordedRead().changes),
+        rooms: [],
+        outcome,
+      }),
+    });
+    const res = await POST(request(), ctx());
+    const body = await res.json();
+    expect(body.replayed).toBe(true);
+    expect(body.outcome).toEqual(outcome);
+    expect(importSketchFromImage).not.toHaveBeenCalled();
   });
 
   it("finds recorded reads by inspection, floor and hash", async () => {
