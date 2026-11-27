@@ -174,7 +174,13 @@ jobs:
           line=$(node trusted/scripts/ci/nexus-receipt/verdict.mjs "$RUNNER_TEMP/verdict.json")
           code=$?
           set -e
-          state="${line%%|*}"; desc="${line#*|}"
+          # Fail closed when the helper is missing or prints nothing (e.g. the
+          # trusted checkout failed): GitHub rejects an empty state, which would
+          # leave the receipt stuck at pending.
+          case "$line" in
+            success\|*|failure\|*) state="${line%%|*}"; desc="${line#*|}" ;;
+            *) state=failure; desc="Receipt helper produced no verdict"; code=1 ;;
+          esac
           echo "Verdict: $line"
           gh api "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" -f state="$state" \
             -f context=nexus/release-receipt -f description="$desc" -f target_url="$RUN_URL" >/dev/null
