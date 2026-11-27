@@ -11,7 +11,7 @@ import {
   COMMENT_MARKER,
   credentialStrings,
   scrub,
-} from './verdict.mjs';
+} from './lib.mjs';
 
 test('scrub removes every credential string from auth.json and the API key', () => {
   const auth = JSON.stringify({
