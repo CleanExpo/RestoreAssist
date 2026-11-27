@@ -48,3 +48,4 @@ scripts/ci/__tests__/verify-release-gate-run.test.mjs             run
 scripts/ci/__tests__/verify-release-provenance.test.mjs           run
 scripts/pilot/__tests__/validate-paid-pilot-package.test.mjs      elsewhere:paid-pilot-preflight.yml
 scripts/ci/__tests__/workflow-imports-lib.test.mjs                run
+scripts/ci/nexus-receipt/verdict.test.mjs                          run
