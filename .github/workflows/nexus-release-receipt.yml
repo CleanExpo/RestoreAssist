@@ -15,11 +15,10 @@ name: Nexus release receipt (CI)
 # Put the secret on the `nexus-release-receipt` environment (Settings →
 # Environments), not as a repository secret.
 #
-# The secret, one of:
-#   CODEX_AUTH_JSON  contents of ~/.codex/auth.json from a Mac logged in to Codex
-#                    with ChatGPT (no API spend), or
-#   OPENAI_API_KEY   an OpenAI API key (paid per use; only if Phill approves).
-# With neither set the job posts nothing and the Mac gate works as before.
+# The secret: CODEX_AUTH_JSON, the contents of ~/.codex/auth.json from a Mac
+# logged in to Codex with ChatGPT. No API key and no API spend (Phill,
+# 2026-11-27: "We dont use API credits"). Without the secret the job posts
+# nothing and the Mac gate works as before.
 #
 # A blocked PR is never silent: the findings go into ONE PR comment, updated in
 # place, which the MacBook receipt runner reads to fix the PR and push. The push
@@ -76,12 +75,10 @@ jobs:
         id: cred
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           if [ -n "$CODEX_AUTH_JSON" ]; then echo "mode=chatgpt" >> "$GITHUB_OUTPUT";
-          elif [ -n "$OPENAI_API_KEY" ]; then echo "mode=apikey" >> "$GITHUB_OUTPUT";
           else
-            echo "::notice::No CODEX_AUTH_JSON or OPENAI_API_KEY secret; no CI receipt posted."
+            echo "::notice::No CODEX_AUTH_JSON secret; no CI receipt posted."
             echo "mode=none" >> "$GITHUB_OUTPUT"
           fi
 
@@ -122,17 +119,11 @@ jobs:
         if: steps.cred.outputs.mode != 'none'
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          MODE: ${{ steps.cred.outputs.mode }}
         run: |
           npm install -g @openai/codex@0.168.0
           mkdir -p "$CODEX_HOME"
-          if [ "$MODE" = "chatgpt" ]; then
-            printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
-            chmod 600 "$CODEX_HOME/auth.json"
-          else
-            printenv OPENAI_API_KEY | codex login --with-api-key >/dev/null
-          fi
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
           # A JSON secret is not masked value by value, so mask each credential
           # string explicitly before Codex can print anything.
           node trusted/scripts/ci/nexus-receipt/verdict.mjs --mask "$CODEX_HOME/auth.json"
@@ -168,8 +159,6 @@ jobs:
 
       - name: Scrub credentials from the verdict
         if: always() && steps.cred.outputs.mode != 'none'
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           node trusted/scripts/ci/nexus-receipt/verdict.mjs --scrub "$RUNNER_TEMP/verdict.json" "$CODEX_HOME/auth.json"
           rm -rf "$CODEX_HOME" "$RUNNER_TEMP/codex.log"
