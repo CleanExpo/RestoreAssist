@@ -15,7 +15,8 @@ import {
 } from './lib.mjs';
 
 const SCRIPT = fileURLToPath(new URL('./verdict.mjs', import.meta.url));
-const verdict = (v, findings = [], summary = '') => JSON.stringify({ verdict: v, summary, findings });
+const verdict = (v, findings = [], summary = '') =>
+  JSON.stringify({ verdict: v, summary, findings });
 const finding = (severity, title = 't', file = 'a.ts') => ({ severity, title, file });
 
 test('schema-valid PASS with only P2/P3 findings is success', () => {
@@ -85,6 +86,17 @@ test('scrub removes credentials, including \\u-escaped ones, and long token runs
   assert.equal(JSON.parse(path).findings[0].file, 'scripts/ci/nexus-receipt/lib.mjs');
 });
 
+test('a credential used as a property name is scrubbed and never echoed (CodeRabbit #1386)', () => {
+  const secret = 'abcdefghijklmnopqrstuvwx';
+  const raw = JSON.stringify({ verdict: 'PASS', summary: '', findings: [], [secret]: 1 });
+  const out = scrub(raw, [secret]);
+  assert.ok(!out.includes(secret));
+  assert.ok('summary' in JSON.parse(out), 'ordinary keys are unchanged');
+  const r = decide(raw);
+  assert.equal(r.state, 'failure');
+  assert.ok(!r.description.includes(secret), 'schema errors never echo field names');
+});
+
 test('blocked comment carries the marker and findings table, and no free-text summary', () => {
   const raw = verdict(
     'BLOCK',
@@ -130,7 +142,10 @@ test('CLI --scrub rewrites the file; --mask prints one add-mask line per credent
   const dir = mkdtempSync(join(tmpdir(), 'scrub-'));
   const v = join(dir, 'v.json');
   const a = join(dir, 'auth.json');
-  writeFileSync(a, JSON.stringify({ t: 'secret-token-abcdefghijkl', u: 'other-secret-mnopqrstuv' }));
+  writeFileSync(
+    a,
+    JSON.stringify({ t: 'secret-token-abcdefghijkl', u: 'other-secret-mnopqrstuv' })
+  );
   writeFileSync(v, verdict('PASS', [], 'saw secret-token-abcdefghijkl'));
   assert.equal(run(['--scrub', v, a]).status, 0);
   assert.ok(!readFileSync(v, 'utf8').includes('secret-token-abcdefghijkl'));

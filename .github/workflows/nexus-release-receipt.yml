@@ -191,8 +191,10 @@ jobs:
           node "$V" "$RUNNER_TEMP/verdict.json" >/dev/null && passed=1
           body=$(node "$V" --comment "$RUNNER_TEMP/verdict.json" "$HEAD_SHA" "$RUN_URL")
           # --paginate: the receipt comment may sit beyond the first 100 comments.
+          # Only this workflow's own comments (github-actions[bot]): anyone can type the
+          # marker, and a user's comment must never be overwritten or trusted.
           id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments?per_page=100" \
-            --jq '.[]|select(.body|startswith("<!-- nexus-release-receipt -->"))|.id' | head -n1)
+            --jq '.[]|select(.user.login=="github-actions[bot]" and (.body|startswith("<!-- nexus-release-receipt -->")))|.id' | head -n1)
           # A clean pass with no earlier block needs no comment (no noise).
           if [ "$passed" = 1 ] && [ -z "$id" ]; then exit 0; fi
           if [ -n "$id" ]; then

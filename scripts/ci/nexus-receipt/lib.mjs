@@ -62,7 +62,10 @@ export function scrub(text, secrets) {
     if (typeof v === 'string') return scrubString(v, secrets);
     if (Array.isArray(v)) return v.map(walk);
     if (v && typeof v === 'object') {
-      return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+      // Keys too: a credential used as a property name must not survive.
+      return Object.fromEntries(
+        Object.entries(v).map(([k, x]) => [scrubString(k, secrets), walk(x)])
+      );
     }
     return v;
   };
@@ -73,13 +76,15 @@ export function scrub(text, secrets) {
 export function schemaError(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return 'verdict is not an object';
   const keys = Object.keys(v).sort().join(',');
-  if (keys !== 'findings,summary,verdict') return `unexpected fields (${keys.slice(0, 40)})`;
+  // Never echo field names: an unexpected one could be a credential.
+  if (keys !== 'findings,summary,verdict') return 'unexpected or missing fields';
   if (v.verdict !== 'PASS' && v.verdict !== 'BLOCK') return 'verdict is not PASS or BLOCK';
   if (typeof v.summary !== 'string') return 'summary is not a string';
   if (!Array.isArray(v.findings)) return 'findings is not a list';
   for (const f of v.findings) {
     if (!f || typeof f !== 'object' || Array.isArray(f)) return 'a finding is not an object';
-    if (Object.keys(f).sort().join(',') !== 'file,severity,title') return 'a finding has bad fields';
+    if (Object.keys(f).sort().join(',') !== 'file,severity,title')
+      return 'a finding has bad fields';
     if (!SEVERITIES.has(f.severity)) return 'a finding has an unknown severity';
     if (typeof f.title !== 'string' || typeof f.file !== 'string') return 'a finding is malformed';
   }
@@ -160,8 +165,7 @@ function readOrEmpty(p) {
 // Returns the process exit code. argv is process.argv.slice(2).
 export function main(argv = process.argv.slice(2), env = process.env) {
   const [first, ...rest] = argv;
-  const secretsFrom = (authFile) =>
-    credentialStrings(readOrEmpty(authFile), [env.OPENAI_API_KEY]);
+  const secretsFrom = (authFile) => credentialStrings(readOrEmpty(authFile), [env.OPENAI_API_KEY]);
   if (first === '--mask') {
     for (const s of secretsFrom(rest[0])) process.stdout.write(`::add-mask::${s}\n`);
     return 0;
