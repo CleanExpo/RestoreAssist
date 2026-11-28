@@ -135,7 +135,7 @@ describe("Dashboard home add-ons", () => {
     }
   });
 
-  it("RA-8665: the intro follows the server's audience, not the session role", async () => {
+  it("RA-8665: the intro follows the card verdicts, not the session role", async () => {
     // The server says this account manages billing: the owner offer shows.
     signIn("USER");
     serve(ownerReply);
@@ -177,6 +177,25 @@ describe("Dashboard home add-ons", () => {
       const { unmount } = render(<HomeAddons />);
       await screen.findByTestId("addon-card-PAYMENTS");
       expect(screen.queryByText(/Switch on extra features/)).toBeNull();
+      expect(screen.queryByText(HOME_ADDONS_STAFF_INTRO)).toBeNull();
+      expect(screen.queryAllByRole("button")).toEqual([]);
+      unmount();
+    }
+  });
+
+  it("RA-8665: a reply without card verdicts shows no intro, even one that names the owner audience", async () => {
+    // Review round 8: the reply says owner, but there are no verdicts (or
+    // only for a pack not drawn), so every card offers nothing.
+    signIn("ADMIN");
+    for (const served of [
+      { ...ownerReply, access: undefined, audience: "owner" },
+      { ...ownerReply, access: { HIDDEN: ownerReply.access.PAYMENTS }, audience: "owner" },
+    ]) {
+      serve(served);
+      const { unmount } = render(<HomeAddons />);
+      const card = await screen.findByTestId("addon-card-PAYMENTS");
+      expect(within(card).getByText(NO_VERDICT_REASON)).toBeInTheDocument();
+      expect(screen.queryByText(HOME_ADDONS_OWNER_INTRO)).toBeNull();
       expect(screen.queryByText(HOME_ADDONS_STAFF_INTRO)).toBeNull();
       expect(screen.queryAllByRole("button")).toEqual([]);
       unmount();

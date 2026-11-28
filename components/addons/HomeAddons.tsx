@@ -11,9 +11,9 @@
  * The whole section is a purchase surface, so it sits inside BillingGate and
  * shows nothing in the iOS app (App Review 3.1.1).
  *
- * This file decides nothing about billing. The intro line follows the server's
- * billingAudience, read from the cards' verdicts (by the deck); with none, no
- * line shows and each card says why. The "See all add-ons" link follows
+ * This file decides nothing about billing. The intro line follows the shared
+ * billingAudience rule, which the deck applies to the cards it draws; with
+ * none, no line shows and each card says why. The "See all add-ons" link follows
  * the Add-Ons tab's own rule (fieldAddonsTabVisible), so it shows only to the
  * people that page lets in.
  */

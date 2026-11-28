@@ -113,8 +113,10 @@ export function billingStanding(
  * owner offer shows only when some card offers an owner control, and the
  * ask-your-owner line only when some card says ask_owner. With neither, there
  * is no line: each card already says why. So the text above the cards can
- * never offer what no card offers (review rounds 1-7 found it could while it
- * was judged apart from the cards). An action not listed here offers nothing.
+ * never offer what no card offers (review rounds 1-8 found it could while it
+ * was judged apart from the cards). The deck applies it to the card states it
+ * draws (introAudience), so no reply field can speak for the cards. An action
+ * not listed here offers nothing.
  */
 export type BillingAudience = "owner" | "staff";
 

@@ -6,7 +6,6 @@
  */
 import {
   addonAccess,
-  billingAudience,
   type AddonAccess,
   type AddonViewer,
 } from "@/lib/billing/addon-access";
@@ -50,7 +49,7 @@ export function withServerVerdicts<
       featureLive: true,
     });
   }
-  // Same calls as the route: one rule decides the offer text and the controls.
-  const audience = billingAudience(access);
-  return { ...catalog, access, audience };
+  // Same calls as the route. The reply has no audience field: the deck reads
+  // the line above the cards from these verdicts.
+  return { ...catalog, access };
 }

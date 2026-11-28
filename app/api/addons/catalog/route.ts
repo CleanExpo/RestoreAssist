@@ -24,7 +24,6 @@ import { canOpenDashboardPage } from "@/lib/auth/dashboard-page-access";
 import {
   addonAccess,
   addonFeatureLive,
-  billingAudience,
   holdingFor,
   type AddonAccess,
   type AddonHoldingRow,
@@ -116,15 +115,14 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // RA-8665: `audience` is the reply's one answer to which line goes above
-    // the cards, read from the verdicts just made. There is no second flag
-    // for a screen to fall back on.
+    // RA-8665: the verdicts are the reply's only answer about billing. The
+    // deck reads the line above the cards from them (introAudience); there is
+    // no separate audience or canManageBilling field to disagree with them.
     return NextResponse.json({
       addons,
       owned,
       technicianSeats,
       access,
-      audience: billingAudience(access),
     });
   } catch (error) {
     return fromException(req, error, { stage: "catalog" });

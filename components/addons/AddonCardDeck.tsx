@@ -23,6 +23,7 @@ import {
 import BillingGate from "@/components/capacitor/BillingGate";
 import {
   ADDON_LABEL_TEXT,
+  billingAudience,
   type AddonAccess,
   type AddonLabel,
   type BillingAudience,
@@ -44,24 +45,6 @@ export interface CatalogResponse {
   technicianSeats?: { purchased: number; used: number } | null;
   /** RA-8466: label and allowed action per pack, decided on the server. */
   access?: Record<string, AddonAccess>;
-  /** RA-8665: the line above the cards, from billingAudience on the server. */
-  audience?: BillingAudience | null;
-}
-
-const AUDIENCES: readonly BillingAudience[] = ["owner", "staff"];
-
-/**
- * RA-8665: the reader as the server named them, and nothing else. A reply
- * without a known `audience` (an older server, or a value this screen does
- * not know) gives null, and the deck then shows no intro line. The screen
- * never works the audience out for itself, from canManageBilling, the session
- * role or a default, for the same reason a card without a verdict offers no
- * control: a guess can offer what checkout would refuse.
- */
-export function catalogAudience(
-  data: Pick<CatalogResponse, "audience">,
-): BillingAudience | null {
-  return data.audience && AUDIENCES.includes(data.audience) ? data.audience : null;
 }
 
 /** RA-8665: shown on a card when the server sent no verdict for it. */
@@ -92,6 +75,23 @@ export function cardAccess(
       reason: NO_VERDICT_REASON,
     }
   );
+}
+
+/**
+ * RA-8665: the line above the cards, read from the card states the deck
+ * draws: the same cardAccess for each drawn pack, then the shared
+ * billingAudience rule. So the line can only offer what a drawn card offers.
+ * No verdicts, or verdicts only for packs not drawn, give null and no line.
+ * The reply carries no separate audience field for the screen to trust.
+ */
+export function introAudience(
+  addons: Pick<CatalogAddon, "sku">[],
+  access: CatalogResponse["access"],
+  owned: ReadonlySet<string>,
+): BillingAudience | null {
+  const drawn: Record<string, AddonAccess> = {};
+  for (const a of addons) drawn[a.sku] = cardAccess({ access }, a.sku, owned.has(a.sku));
+  return billingAudience(drawn);
 }
 
 export type AddonReturnTarget = "setup" | "addons";
@@ -268,9 +268,9 @@ export interface AddonCardDeckProps {
   returnTo?: AddonReturnTarget;
   /**
    * RA-8665: a line shown above the cards once the catalogue has loaded,
-   * picked by the server's billingAudience from the cards' verdicts: the
-   * owner reads the offer, staff read who to ask. With no audience from the
-   * server, no line shows.
+   * picked by introAudience from the cards drawn: the owner reads the offer
+   * when a card offers an owner control, staff read who to ask when a card
+   * says ask the owner. Otherwise no line shows.
    */
   intro?: Record<BillingAudience, ReactNode>;
 }
@@ -325,7 +325,6 @@ function AddonCardDeckContent({ className, returnTo, intro }: AddonCardDeckProps
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [seats, setSeats] = useState<CatalogResponse["technicianSeats"]>(null);
   const [access, setAccess] = useState<CatalogResponse["access"]>(undefined);
-  const [audience, setAudience] = useState<BillingAudience | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
@@ -341,7 +340,6 @@ function AddonCardDeckContent({ className, returnTo, intro }: AddonCardDeckProps
     setOwned(new Set(data.owned ?? []));
     setSeats(data.technicianSeats ?? null);
     setAccess(data.access);
-    setAudience(catalogAudience(data));
   }, []);
 
   useEffect(() => {
@@ -492,6 +490,8 @@ function AddonCardDeckContent({ className, returnTo, intro }: AddonCardDeckProps
     );
   }
 
+  // RA-8665: from the same card states the cards below are drawn from.
+  const audience = introAudience(addons, access, owned);
   return (
     <>
       {intro && audience ? (

@@ -17,7 +17,7 @@ import {
   PLAN_REQUIRED_MESSAGE,
   PURCHASE_UNCONFIRMED_MESSAGE,
   cardMark,
-  catalogAudience,
+  introAudience,
   isFinalCheckoutAnswer,
 } from "../AddonCardDeck";
 import { parseCheckoutReply } from "@/lib/billing/checkout-return";
@@ -163,17 +163,20 @@ describe("AddonCardDeck (RA-8271)", () => {
     }
   });
 
-  it("RA-8665: the reader's audience comes only from the server's audience field", () => {
-    for (const named of ["owner", "staff"] as const) {
-      expect(catalogAudience({ audience: named })).toBe(named);
-    }
-    expect(catalogAudience({ audience: null })).toBeNull();
-    expect(catalogAudience({ audience: "no_business" } as never)).toBeNull();
-    // No audience, or one the screen does not know: no audience at all, and
-    // the old canManageBilling flag is never read.
-    expect(catalogAudience({})).toBeNull();
-    expect(catalogAudience({ canManageBilling: true } as never)).toBeNull();
-    expect(catalogAudience({ audience: "admin", canManageBilling: true } as never)).toBeNull();
+  it("RA-8665: the intro is read from the card states the deck draws, never from a reply field", () => {
+    const addons = [{ sku: "PAYMENTS" }, { sku: "VOICE" }];
+    const none = new Set<string>();
+    const v = (action: string) =>
+      ({ label: "optional_paid", holding: "none", action, reason: "r" }) as never;
+    // Review round 8: no verdicts, so every card offers nothing: no intro.
+    expect(introAudience(addons, undefined, none)).toBeNull();
+    expect(introAudience(addons, {}, none)).toBeNull();
+    expect(introAudience(addons, { PAYMENTS: v("buy") }, none)).toBe("owner");
+    expect(introAudience(addons, { PAYMENTS: v("none"), VOICE: v("manage") }, none)).toBe("owner");
+    expect(introAudience(addons, { PAYMENTS: v("ask_owner") }, none)).toBe("staff");
+    // A verdict for a pack the deck does not draw offers nothing on screen.
+    expect(introAudience(addons, { HIDDEN: v("buy") }, none)).toBeNull();
+    expect(introAudience([], { PAYMENTS: v("buy") }, none)).toBeNull();
   });
 
   it("RA-8665: with no audience from the server the deck shows no intro line", async () => {
@@ -196,6 +199,32 @@ describe("AddonCardDeck (RA-8271)", () => {
     await screen.findByTestId("addon-card-PAYMENTS");
     expect(screen.queryByText("OWNER INTRO")).toBeNull();
     expect(screen.queryByText("STAFF INTRO")).toBeNull();
+  });
+
+  it("RA-8665: the intro follows the drawn cards, not an audience field in the reply", async () => {
+    const one = [{ sku: "PAYMENTS", name: "Payments", description: "Pay.", amount: 1100, currency: "AUD", interval: "month", perSeat: false }];
+    const buy = { label: "optional_paid", holding: "none", action: "buy", reason: null };
+    for (const [reply, shows] of [
+      // Review round 8: the reply names the owner but sends no verdicts.
+      [{ addons: one, owned: [], audience: "owner" }, null],
+      // A verdict only for a pack that is not drawn.
+      [{ addons: one, owned: [], audience: "owner", access: { HIDDEN: buy } }, null],
+      // A drawn card offers Add, with no audience field at all.
+      [{ addons: one, owned: [], access: { PAYMENTS: buy } }, "OWNER INTRO"],
+    ] as const) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: true, json: async () => reply }) as never,
+      );
+      const { unmount } = render(
+        <AddonCardDeck intro={{ owner: "OWNER INTRO", staff: "STAFF INTRO" }} />,
+      );
+      await screen.findByTestId("addon-card-PAYMENTS");
+      if (shows) expect(screen.getByText(shows)).toBeInTheDocument();
+      else expect(screen.queryByText("OWNER INTRO")).toBeNull();
+      expect(screen.queryByText("STAFF INTRO")).toBeNull();
+      unmount();
+    }
   });
 
   it("RA-8665: every card shows GST inclusive and cancel any time beside its price", async () => {
