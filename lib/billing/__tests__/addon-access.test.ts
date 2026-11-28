@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   addonAccess,
+  mayManageBilling,
   addonFeatureLive,
   holdingFor,
   COMING_SOON_REASON,
@@ -280,6 +281,29 @@ describe("RA-8665: a card never sends anyone to a billing page that turns them a
             now: NOW,
           });
           expect(got).toMatchObject({ action: "ask_owner", reason: OWNER_ONLY_REASON });
+        }
+      }
+    }
+  });
+
+  it("RA-8665: one rule, mayManageBilling, decides both the owner offer and every billing control", () => {
+    expect(mayManageBilling(owner())).toBe(true);
+    expect(mayManageBilling(owner({ canOpenBillingPages: false }))).toBe(false);
+    expect(mayManageBilling(owner({ isBillingOwner: false }))).toBe(false);
+    // The offer and the controls cannot disagree: whenever the rule says no,
+    // every pack asks the owner; whenever a pack offers any control other
+    // than asking the owner, the rule says yes.
+    for (const isBillingOwner of [true, false]) {
+      for (const canOpenBillingPages of [true, false]) {
+        for (const role of ["ADMIN", "MANAGER", "USER"]) {
+          const viewer = owner({ isBillingOwner, canOpenBillingPages, role });
+          for (const perSeat of [false, true]) {
+            const got = addonAccess({ perSeat, holding: "none", viewer, now: NOW });
+            if (!mayManageBilling(viewer)) {
+              expect(got).toMatchObject({ action: "ask_owner", reason: OWNER_ONLY_REASON });
+            }
+            if (got.action !== "ask_owner") expect(mayManageBilling(viewer)).toBe(true);
+          }
         }
       }
     }

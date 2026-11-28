@@ -75,6 +75,17 @@ export interface AddonViewer {
   canOpenBillingPages: boolean;
 }
 
+/**
+ * RA-8665: the one rule for who acts on add-on billing. Rule 1 below and the
+ * catalogue's canManageBilling (which picks the owner offer text) both call
+ * it, so the text above the cards can never offer what the cards refuse.
+ */
+export function mayManageBilling(
+  viewer: Pick<AddonViewer, "isBillingOwner" | "canOpenBillingPages">,
+): boolean {
+  return viewer.isBillingOwner && viewer.canOpenBillingPages;
+}
+
 export interface AddonAccess {
   label: AddonLabel;
   holding: AddonHolding;
@@ -171,7 +182,7 @@ export function addonAccess(input: {
 
   // Rule 1: only the owner acts on billing, and only from pages they may open.
   // Team members, and anyone the billing pages turn away, see the label only.
-  if (!viewer.isBillingOwner || !viewer.canOpenBillingPages) {
+  if (!mayManageBilling(viewer)) {
     return {
       label: "optional_paid",
       holding,

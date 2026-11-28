@@ -250,6 +250,29 @@ describe("GET /api/addons/catalog", () => {
       }
     });
 
+    it("RA-8665: a USER in no organisation and with no workspace is not told it manages billing", async () => {
+      // The fourth review's case: no business owner over this account, so it
+      // counted as the billing owner, and the home section showed the owner
+      // offer while every card asked it to ask its owner.
+      mockSession.mockResolvedValue({ user: { id: "loner-3", role: "USER" } });
+      mockGetWorkspace.mockResolvedValue(null);
+      mockCallerWorkspace.mockResolvedValue(null);
+      mockFindMany.mockResolvedValue([]);
+      mockUser.mockResolvedValue({
+        organizationId: null,
+        role: "USER",
+        subscriptionStatus: "ACTIVE",
+        trialEndsAt: null,
+      });
+      mockOwner.mockResolvedValue(null);
+
+      const json = await (await GET(req())).json();
+      expect(json.canManageBilling).toBe(false);
+      for (const sku of Object.keys(RECURRING_ADDONS)) {
+        expect(["ask_owner", "none"]).toContain(json.access[sku].action);
+      }
+    });
+
     it("team member: no card offers a buy, add or manage action", async () => {
       mockSession.mockResolvedValue({ user: { id: "tech-1", role: "USER" } });
       mockGetWorkspace.mockResolvedValue({ id: "ws-owner" });

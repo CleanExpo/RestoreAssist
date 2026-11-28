@@ -120,6 +120,22 @@ describe("Dashboard home add-ons", () => {
     expect(screen.queryByText(/Switch on extra features/)).toBeNull();
   });
 
+  it("RA-8665: a USER in no business, whom the billing pages refuse, reads the staff text, not the owner offer", async () => {
+    // No business owner over this account (so it counts as billing owner),
+    // but /dashboard/subscription refuses role USER.
+    signIn("USER");
+    serve(
+      withServerVerdicts(catalog, {
+        ...OWNER_VIEWER,
+        role: "USER",
+        canOpenBillingPages: false,
+      }),
+    );
+    render(<HomeAddons />);
+    expect(await screen.findByText(HOME_ADDONS_STAFF_INTRO)).toBeInTheDocument();
+    expect(screen.queryByText(HOME_ADDONS_OWNER_INTRO)).toBeNull();
+  });
+
   it("RA-8665: in the iOS app the home section shows nothing and loads nothing", () => {
     signIn("ADMIN");
     const fetchMock = vi.fn();

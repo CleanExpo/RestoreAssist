@@ -24,6 +24,7 @@ import { canOpenDashboardPage } from "@/lib/auth/dashboard-page-access";
 import {
   addonAccess,
   addonFeatureLive,
+  mayManageBilling,
   holdingFor,
   type AddonAccess,
   type AddonHoldingRow,
@@ -115,7 +116,7 @@ export async function GET(req: NextRequest) {
       owned,
       technicianSeats,
       access,
-      canManageBilling: viewer.isBillingOwner,
+      canManageBilling: mayManageBilling(viewer),
     });
   } catch (error) {
     return fromException(req, error, { stage: "catalog" });

@@ -6,6 +6,7 @@
  */
 import {
   addonAccess,
+  mayManageBilling,
   type AddonAccess,
   type AddonViewer,
 } from "@/lib/billing/addon-access";
@@ -40,6 +41,6 @@ export function withServerVerdicts<
       featureLive: true,
     });
   }
-  // Same as the route: canManageBilling is the viewer's billing-owner flag.
-  return { ...catalog, access, canManageBilling: viewer.isBillingOwner };
+  // Same call as the route: one rule decides the offer text and the controls.
+  return { ...catalog, access, canManageBilling: mayManageBilling(viewer) };
 }
