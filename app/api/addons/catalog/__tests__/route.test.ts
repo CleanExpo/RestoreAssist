@@ -48,6 +48,8 @@ const req = () =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // RA-8665: checkout sells a pack onto this workspace; most callers have one.
+  mockCallerWorkspace.mockResolvedValue({ id: "ws1", name: "Workspace" });
 });
 
 describe("GET /api/addons/catalog", () => {
@@ -200,6 +202,28 @@ describe("GET /api/addons/catalog", () => {
       const res = await GET(req());
       expect(res.status).toBe(200);
       const json = await res.json();
+      for (const sku of Object.keys(RECURRING_ADDONS)) {
+        expect(["buy", "add_seat", "manage"]).not.toContain(json.access[sku].action);
+      }
+    });
+
+    it("RA-8665: an account in no organisation and with no workspace is offered no buy, add or manage control", async () => {
+      // The reviewer's case: refuseNonOwner passes someone in no organisation,
+      // but checkout then finds no workspace and answers 404.
+      mockSession.mockResolvedValue({ user: { id: "loner-1" } });
+      mockGetWorkspace.mockResolvedValue(null);
+      mockCallerWorkspace.mockResolvedValue(null);
+      mockFindMany.mockResolvedValue([]);
+      mockUser.mockResolvedValue({
+        organizationId: null,
+        role: "USER",
+        subscriptionStatus: "ACTIVE",
+        trialEndsAt: null,
+      });
+      mockOwner.mockResolvedValue(null);
+
+      const json = await (await GET(req())).json();
+      expect(mockCallerWorkspace).toHaveBeenCalledWith("loner-1");
       for (const sku of Object.keys(RECURRING_ADDONS)) {
         expect(["buy", "add_seat", "manage"]).not.toContain(json.access[sku].action);
       }

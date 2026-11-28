@@ -9,7 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { SimpleWalkthrough, readProgress } from "../SimpleWalkthrough";
-import { AddonCardDeck } from "../AddonCardDeck";
+import { AddonCardDeck, NO_VERDICT_REASON } from "../AddonCardDeck";
 import { CRM_WORKS_ALONE } from "@/lib/addons/addon-guide";
 import { OWNER_ONLY_REASON, TRIAL_PACK_REASON } from "@/lib/billing/addon-access";
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
@@ -126,14 +126,17 @@ describe("SimpleWalkthrough (RA-8466)", () => {
     expect(screen.queryByRole("button", { name: /add pack|add a seat/i })).toBeNull();
   });
 
-  it("RA-8665: with no access from the server, staff read that only the owner can add packs", async () => {
-    session.userId = "staff-A";
-    session.role = "USER";
-    serve({ ...trialCatalog, access: undefined });
-    render(<SimpleWalkthrough mode="setup" />);
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    for (const sku of ["VOICE", "TECHNICIAN_SEATS", "CLIENT_COMMS"]) {
-      expect(await screen.findByTestId(`guide-${sku}`)).toHaveTextContent(OWNER_ONLY_REASON);
+  it("RA-8665: with no verdict from the server, the guide says each pack could not be checked, for owner and staff alike", async () => {
+    for (const [userId, role] of [["owner-A", "ADMIN"], ["staff-A", "USER"]]) {
+      session.userId = userId;
+      session.role = role;
+      serve({ ...trialCatalog, access: undefined });
+      const { unmount } = render(<SimpleWalkthrough mode="setup" />);
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+      for (const sku of ["VOICE", "TECHNICIAN_SEATS", "CLIENT_COMMS"]) {
+        expect(await screen.findByTestId(`guide-${sku}`)).toHaveTextContent(NO_VERDICT_REASON);
+      }
+      unmount();
     }
   });
 

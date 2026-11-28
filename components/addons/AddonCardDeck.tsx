@@ -12,7 +12,7 @@
  * reason instead of a guess.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,6 @@ import {
 import BillingGate from "@/components/capacitor/BillingGate";
 import {
   ADDON_LABEL_TEXT,
-  OWNER_ONLY_REASON,
   type AddonAccess,
   type AddonLabel,
 } from "@/lib/billing/addon-access";
@@ -47,39 +46,32 @@ export interface CatalogResponse {
   canManageBilling?: boolean;
 }
 
+/** RA-8665: shown on a card when the server sent no verdict for it. */
+export const NO_VERDICT_REASON =
+  "We could not check this pack for your account. Refresh the page to try again.";
+
 /**
- * The card's access when the server sent none (an older deployment answering
- * mid-release): today's behaviour, Manage on an owned pack, otherwise Add.
+ * The card's access. The server decides it (addonAccess, through the
+ * catalogue), with the same rules and helpers checkout uses. It is the only
+ * judge of which control a card may offer.
  *
- * RA-8665: the dashboard home shows the deck to staff, so the fallback follows
- * the server's first rule (addonAccess, rule 1): once the session names a role
- * other than ADMIN, the card says to ask the owner and offers no control.
- * `role` is required so no caller can leave it out; while the session has not
- * loaded it is null, and checkout still refuses a non-owner (refuseNonOwner).
+ * RA-8665: with no verdict from the server the card offers no control, for
+ * every role. The screen never makes up its own rule, so it can never offer a
+ * button that checkout would refuse.
  */
 export function cardAccess(
   data: Pick<CatalogResponse, "access">,
   sku: string,
   isOwned: boolean,
-  perSeat: boolean,
-  role: string | null | undefined,
 ): AddonAccess {
-  const fromServer = data.access?.[sku];
-  if (fromServer) return fromServer;
-  if (role != null && role !== "ADMIN") {
-    return {
+  return (
+    data.access?.[sku] ?? {
       label: "optional_paid",
       holding: isOwned ? "paid" : "none",
-      action: "ask_owner",
-      reason: OWNER_ONLY_REASON,
-    };
-  }
-  return {
-    label: "optional_paid",
-    holding: isOwned ? "paid" : "none",
-    action: isOwned ? (perSeat ? "add_seat" : "manage") : "buy",
-    reason: "",
-  };
+      action: "none",
+      reason: NO_VERDICT_REASON,
+    }
+  );
 }
 
 export type AddonReturnTarget = "setup" | "addons";
@@ -254,6 +246,12 @@ export interface AddonCardDeckProps {
   className?: string;
   /** RA-8466: where a checkout started here returns, paid or cancelled. */
   returnTo?: AddonReturnTarget;
+  /**
+   * RA-8665: a line shown above the cards once the catalogue has loaded. The
+   * owner text shows only when the server says this account manages billing
+   * (canManageBilling); everyone else reads the staff text.
+   */
+  intro?: { owner: ReactNode; staff: ReactNode };
 }
 
 const LABEL_STYLE: Record<AddonLabel, string> = {
@@ -297,16 +295,15 @@ function AddonCardDeckWithAccount(props: AddonCardDeckProps) {
   return <AddonCardDeckContent key={accountId ?? "no-account"} {...props} />;
 }
 
-function AddonCardDeckContent({ className, returnTo }: AddonCardDeckProps) {
+function AddonCardDeckContent({ className, returnTo, intro }: AddonCardDeckProps) {
   // Pending purchase keys are stored per account (see readPendingKey). No
   // purchase starts until the signed-in account is known.
-  const sessionUser = useSession().data?.user;
-  const accountId = sessionUser?.id ?? null;
-  const role = sessionUser?.role ?? null;
+  const accountId = useSession().data?.user?.id ?? null;
   const [addons, setAddons] = useState<CatalogAddon[]>([]);
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [seats, setSeats] = useState<CatalogResponse["technicianSeats"]>(null);
   const [access, setAccess] = useState<CatalogResponse["access"]>(undefined);
+  const [canManageBilling, setCanManageBilling] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
@@ -322,6 +319,7 @@ function AddonCardDeckContent({ className, returnTo }: AddonCardDeckProps) {
     setOwned(new Set(data.owned ?? []));
     setSeats(data.technicianSeats ?? null);
     setAccess(data.access);
+    setCanManageBilling(data.canManageBilling === true);
   }, []);
 
   useEffect(() => {
@@ -473,149 +471,156 @@ function AddonCardDeckContent({ className, returnTo }: AddonCardDeckProps) {
   }
 
   return (
-    <ul
-      className={cn(
-        // Upright cards of a fixed playing-card width, dealt left to right and
-        // centred, rather than columns that stretch into wide rectangles.
-        "grid grid-cols-[repeat(auto-fill,minmax(15rem,17rem))] justify-center gap-5",
-        className,
-      )}
-      aria-label="Field Add-Ons"
-    >
-      {addons.map((addon) => {
-        const isOwned = owned.has(addon.sku);
-        const mark = cardMark(addon.sku, addon.name);
-        const seatUse = addon.perSeat ? seats : null;
-        const notice = notices[addon.sku];
-        const busy = buying === addon.sku;
-        const cardState = cardAccess({ access }, addon.sku, isOwned, addon.perSeat, role);
-        return (
-          <li key={addon.sku} data-testid={`addon-card-${addon.sku}`}>
-            <article
-              aria-label={addon.name}
-              className={cn(
-                "relative flex h-full min-h-[23.8rem] flex-col rounded-2xl border bg-white p-4 shadow-[0_1px_0_rgba(28,46,71,0.06),0_8px_24px_-12px_rgba(28,46,71,0.35)]",
-                "transition-transform duration-200 motion-safe:hover:-translate-y-1 focus-within:ring-2 focus-within:ring-brand-navy/35",
-                "dark:bg-slate-900",
-                isOwned
-                  ? "border-success/40 ring-1 ring-success/25"
-                  : "border-brand-navy/15",
-              )}
-            >
-              {/* Corner index, top left, as on a playing card. */}
-              <span
-                aria-hidden
-                className="absolute left-3 top-3 flex flex-col items-center text-sm font-semibold leading-none text-brand-navy dark:text-slate-100"
+    <>
+      {intro ? (
+        <p className="text-sm text-muted-foreground">
+          {canManageBilling ? intro.owner : intro.staff}
+        </p>
+      ) : null}
+      <ul
+        className={cn(
+          // Upright cards of a fixed playing-card width, dealt left to right and
+          // centred, rather than columns that stretch into wide rectangles.
+          "grid grid-cols-[repeat(auto-fill,minmax(15rem,17rem))] justify-center gap-5",
+          className,
+        )}
+        aria-label="Field Add-Ons"
+      >
+        {addons.map((addon) => {
+          const isOwned = owned.has(addon.sku);
+          const mark = cardMark(addon.sku, addon.name);
+          const seatUse = addon.perSeat ? seats : null;
+          const notice = notices[addon.sku];
+          const busy = buying === addon.sku;
+          const cardState = cardAccess({ access }, addon.sku, isOwned);
+          return (
+            <li key={addon.sku} data-testid={`addon-card-${addon.sku}`}>
+              <article
+                aria-label={addon.name}
+                className={cn(
+                  "relative flex h-full min-h-[23.8rem] flex-col rounded-2xl border bg-white p-4 shadow-[0_1px_0_rgba(28,46,71,0.06),0_8px_24px_-12px_rgba(28,46,71,0.35)]",
+                  "transition-transform duration-200 motion-safe:hover:-translate-y-1 focus-within:ring-2 focus-within:ring-brand-navy/35",
+                  "dark:bg-slate-900",
+                  isOwned
+                    ? "border-success/40 ring-1 ring-success/25"
+                    : "border-brand-navy/15",
+                )}
               >
-                {mark}
-              </span>
-              {/* Corner index, bottom right, upside down. */}
-              <span
-                aria-hidden
-                className="absolute bottom-3 right-3 rotate-180 text-sm font-semibold leading-none text-brand-navy dark:text-slate-100"
-              >
-                {mark}
-              </span>
-
-              <div className="mx-3 mt-4 flex flex-1 flex-col items-center rounded-xl border border-brand-bronze/25 px-3 pb-3 pt-5 text-center">
+                {/* Corner index, top left, as on a playing card. */}
                 <span
                   aria-hidden
-                  className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-navy text-3xl leading-none text-white ring-2 ring-brand-gold/50"
+                  className="absolute left-3 top-3 flex flex-col items-center text-sm font-semibold leading-none text-brand-navy dark:text-slate-100"
                 >
                   {mark}
                 </span>
-                <h3 className="mt-4 text-base font-semibold leading-snug text-brand-navy dark:text-slate-100">
-                  {addon.name}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {addon.description}
-                </p>
-                <p className="mt-auto pt-4 text-sm font-semibold tabular-nums text-brand-navy dark:text-slate-100">
-                  {formatPrice(addon)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {addon.currency}, GST inclusive, cancel any time
-                </p>
-                {seatUse ? (
-                  <p className="mt-1 text-xs font-medium text-brand-navy dark:text-slate-100">
-                    {seatUse.used} of {seatUse.purchased} seat
-                    {seatUse.purchased === 1 ? "" : "s"} in use
-                  </p>
-                ) : null}
-              </div>
+                {/* Corner index, bottom right, upside down. */}
+                <span
+                  aria-hidden
+                  className="absolute bottom-3 right-3 rotate-180 text-sm font-semibold leading-none text-brand-navy dark:text-slate-100"
+                >
+                  {mark}
+                </span>
 
-              <div className="mx-3 mt-3 mb-5">
-                <div className="mb-2 flex flex-col items-center gap-1 text-center">
+                <div className="mx-3 mt-4 flex flex-1 flex-col items-center rounded-xl border border-brand-bronze/25 px-3 pb-3 pt-5 text-center">
                   <span
-                    data-testid={`addon-label-${addon.sku}`}
-                    className={cn(
-                      "rounded-md px-2.5 py-1 text-xs font-semibold ring-1",
-                      LABEL_STYLE[cardState.label],
-                    )}
+                    aria-hidden
+                    className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-navy text-3xl leading-none text-white ring-2 ring-brand-gold/50"
                   >
-                    {ADDON_LABEL_TEXT[cardState.label]}
+                    {mark}
                   </span>
-                  {cardState.reason ? (
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      {cardState.reason}
+                  <h3 className="mt-4 text-base font-semibold leading-snug text-brand-navy dark:text-slate-100">
+                    {addon.name}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {addon.description}
+                  </p>
+                  <p className="mt-auto pt-4 text-sm font-semibold tabular-nums text-brand-navy dark:text-slate-100">
+                    {formatPrice(addon)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {addon.currency}, GST inclusive, cancel any time
+                  </p>
+                  {seatUse ? (
+                    <p className="mt-1 text-xs font-medium text-brand-navy dark:text-slate-100">
+                      {seatUse.used} of {seatUse.purchased} seat
+                      {seatUse.purchased === 1 ? "" : "s"} in use
                     </p>
                   ) : null}
                 </div>
-                {cardState.action === "manage" ? (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="rounded-md bg-success-subtle px-2.5 py-1 text-xs font-semibold text-success-subtle-foreground ring-1 ring-success/20">
-                      Active
+
+                <div className="mx-3 mt-3 mb-5">
+                  <div className="mb-2 flex flex-col items-center gap-1 text-center">
+                    <span
+                      data-testid={`addon-label-${addon.sku}`}
+                      className={cn(
+                        "rounded-md px-2.5 py-1 text-xs font-semibold ring-1",
+                        LABEL_STYLE[cardState.label],
+                      )}
+                    >
+                      {ADDON_LABEL_TEXT[cardState.label]}
                     </span>
+                    {cardState.reason ? (
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {cardState.reason}
+                      </p>
+                    ) : null}
+                  </div>
+                  {cardState.action === "manage" ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="rounded-md bg-success-subtle px-2.5 py-1 text-xs font-semibold text-success-subtle-foreground ring-1 ring-success/20">
+                        Active
+                      </span>
+                      <Link
+                        href={PLAN_PAGE_HREF}
+                        className="text-sm font-medium text-brand-navy underline underline-offset-4 dark:text-slate-100"
+                      >
+                        Manage
+                      </Link>
+                    </div>
+                  ) : cardState.action === "buy" ||
+                    cardState.action === "add_seat" ? (
+                    <button
+                      type="button"
+                      onClick={() => handleAdd(addon.sku)}
+                      disabled={busy || !accountId}
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-brand-navy px-4 text-sm font-medium text-white hover:bg-brand-navy-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-bronze disabled:opacity-60"
+                    >
+                      {busy
+                        ? "Please wait"
+                        : cardState.action === "add_seat"
+                          ? "Add a seat"
+                          : "Add pack"}
+                    </button>
+                  ) : cardState.action === "choose_plan" ? (
                     <Link
                       href={PLAN_PAGE_HREF}
-                      className="text-sm font-medium text-brand-navy underline underline-offset-4 dark:text-slate-100"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-brand-navy/20 px-4 text-sm font-medium text-brand-navy hover:bg-brand-navy/5 dark:text-slate-100"
                     >
-                      Manage
+                      Choose a plan
                     </Link>
-                  </div>
-                ) : cardState.action === "buy" ||
-                  cardState.action === "add_seat" ? (
-                  <button
-                    type="button"
-                    onClick={() => handleAdd(addon.sku)}
-                    disabled={busy || !accountId}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-brand-navy px-4 text-sm font-medium text-white hover:bg-brand-navy-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-bronze disabled:opacity-60"
-                  >
-                    {busy
-                      ? "Please wait"
-                      : cardState.action === "add_seat"
-                        ? "Add a seat"
-                        : "Add pack"}
-                  </button>
-                ) : cardState.action === "choose_plan" ? (
-                  <Link
-                    href={PLAN_PAGE_HREF}
-                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-brand-navy/20 px-4 text-sm font-medium text-brand-navy hover:bg-brand-navy/5 dark:text-slate-100"
-                  >
-                    Choose a plan
-                  </Link>
-                ) : null}
-                {notice ? (
-                  <p
-                    role="status"
-                    className="mt-2 text-xs leading-relaxed text-brand-navy dark:text-slate-100"
-                  >
-                    {notice.text}{" "}
-                    {notice.link ? (
-                      <Link
-                        href={notice.link.href}
-                        className="font-semibold underline underline-offset-4"
-                      >
-                        {notice.link.label}
-                      </Link>
-                    ) : null}
-                  </p>
-                ) : null}
-              </div>
-            </article>
-          </li>
-        );
-      })}
-    </ul>
+                  ) : null}
+                  {notice ? (
+                    <p
+                      role="status"
+                      className="mt-2 text-xs leading-relaxed text-brand-navy dark:text-slate-100"
+                    >
+                      {notice.text}{" "}
+                      {notice.link ? (
+                        <Link
+                          href={notice.link.href}
+                          className="font-semibold underline underline-offset-4"
+                        >
+                          {notice.link.label}
+                        </Link>
+                      ) : null}
+                    </p>
+                  ) : null}
+                </div>
+              </article>
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }

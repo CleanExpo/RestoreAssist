@@ -14,8 +14,9 @@ const { sessionRef } = vi.hoisted(() => ({
 }));
 vi.mock("next-auth/react", () => ({ useSession: () => sessionRef.current }));
 
-import { HOME_ADDONS_STAFF_INTRO, HomeAddons } from "../HomeAddons";
-import { ADDON_PRICE_TERMS } from "../AddonCardDeck";
+import { HOME_ADDONS_OWNER_INTRO, HOME_ADDONS_STAFF_INTRO, HomeAddons } from "../HomeAddons";
+import { ADDON_PRICE_TERMS, NO_VERDICT_REASON } from "../AddonCardDeck";
+import { OWNER_VIEWER, STAFF_VIEWER, withServerVerdicts } from "./server-verdicts";
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
 import { OWNER_ONLY_REASON } from "@/lib/billing/addon-access";
 
@@ -33,6 +34,15 @@ const catalog = {
   addons: [pack("PAYMENTS", "Payments Collection"), pack("VOICE", "ElevenLabs Voice")],
   owned: ["VOICE"],
 };
+const ownerReply = withServerVerdicts(catalog, OWNER_VIEWER);
+const staffReply = withServerVerdicts(catalog, STAFF_VIEWER);
+
+function serve(reply: unknown) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({ ok: true, json: async () => reply }) as never,
+  );
+}
 
 function signIn(role: string) {
   sessionRef.current = {
@@ -44,10 +54,7 @@ function signIn(role: string) {
 beforeEach(() => {
   vi.restoreAllMocks();
   window.localStorage.clear();
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({ ok: true, json: async () => catalog }) as never,
-  );
+  serve(ownerReply);
 });
 
 describe("Dashboard home add-ons", () => {
@@ -78,45 +85,39 @@ describe("Dashboard home add-ons", () => {
     expect(screen.queryByRole("link", { name: "See all add-ons" })).toBeNull();
   });
 
-  it("RA-8665: staff never get a buy or manage control, with or without access from the server", async () => {
-    const askOwner = { label: "optional_paid", action: "ask_owner", reason: OWNER_ONLY_REASON };
-    const withAccess = {
-      ...catalog,
-      access: {
-        PAYMENTS: { ...askOwner, holding: "none" },
-        VOICE: { ...askOwner, holding: "paid" },
-      },
-    };
+  it("RA-8665: staff never get a buy or manage control, with or without a verdict from the server", async () => {
     signIn("USER");
-    for (const served of [catalog, withAccess]) {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockResolvedValue({ ok: true, json: async () => served }) as never,
-      );
+    for (const [served, reason] of [
+      [catalog, NO_VERDICT_REASON],
+      [staffReply, OWNER_ONLY_REASON],
+    ] as const) {
+      serve(served);
       const { unmount } = render(<HomeAddons />);
       await screen.findByTestId("addon-card-PAYMENTS");
-      expect(screen.queryAllByRole("button", { name: /add|manage|seat/i })).toEqual([]);
+      expect(screen.queryAllByRole("button")).toEqual([]);
       for (const sku of ["PAYMENTS", "VOICE"]) {
         expect(
-          within(screen.getByTestId(`addon-card-${sku}`)).getByText(OWNER_ONLY_REASON),
+          within(screen.getByTestId(`addon-card-${sku}`)).getByText(reason),
         ).toBeInTheDocument();
       }
       unmount();
     }
   });
 
-  it("RA-8665: the owner is offered the packs; staff are told who can add them", async () => {
-    signIn("ADMIN");
-    const { unmount } = render(<HomeAddons />);
-    expect(screen.getByText(/Switch on extra features for your business\./)).toBeInTheDocument();
-    expect(screen.queryByText(HOME_ADDONS_STAFF_INTRO)).toBeNull();
-    await screen.findByTestId("addon-card-PAYMENTS");
-    unmount();
+  it("RA-8665: the intro follows the server's canManageBilling, not the session role", async () => {
+    // The server says this account manages billing: the owner offer shows.
     signIn("USER");
+    serve(ownerReply);
+    const first = render(<HomeAddons />);
+    expect(await screen.findByText(HOME_ADDONS_OWNER_INTRO)).toBeInTheDocument();
+    expect(screen.queryByText(HOME_ADDONS_STAFF_INTRO)).toBeNull();
+    first.unmount();
+    // The server says it does not: staff read who can add packs.
+    signIn("ADMIN");
+    serve(staffReply);
     render(<HomeAddons />);
-    expect(screen.getByText(HOME_ADDONS_STAFF_INTRO)).toBeInTheDocument();
+    expect(await screen.findByText(HOME_ADDONS_STAFF_INTRO)).toBeInTheDocument();
     expect(screen.queryByText(/Switch on extra features/)).toBeNull();
-    await screen.findByTestId("addon-card-PAYMENTS");
   });
 
   it("RA-8665: in the iOS app the home section shows nothing and loads nothing", () => {

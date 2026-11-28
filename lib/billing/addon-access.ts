@@ -8,7 +8,12 @@
  *   1. refuseNonOwner: only the business owner (or a solo operator) buys.
  *   2. The plan must be ACTIVE, except a technician seat during a current trial.
  *   3. A seat needs the database role ADMIN.
- *   4. A pack held free in the Founding Trial is never sold.
+ *   4. A pack other than a seat needs a business workspace
+ *      (getWorkspaceForUser); checkout answers 404 without one.
+ *   5. A pack held free in the Founding Trial is never sold.
+ *
+ * RA-8665: this function is the only judge of which control a card offers.
+ * The cards on screen show its verdict and never make up their own.
  *
  * The label is decided from the entitlement row the catalogue reads, never
  * from pricing copy:
@@ -54,6 +59,11 @@ export interface AddonViewer {
   role: string | null;
   subscriptionStatus: string | null;
   trialEndsAt: Date | string | null;
+  /**
+   * RA-8665: whether getWorkspaceForUser finds a workspace for this account,
+   * the lookup checkout uses before it sells a pack that is not a seat.
+   */
+  hasWorkspace: boolean;
 }
 
 export interface AddonAccess {
@@ -82,6 +92,8 @@ export const SEAT_ON_TRIAL_REASON =
 
 export const COMING_SOON_REASON =
   "Not available yet. It cannot be added at the moment.";
+export const NO_WORKSPACE_REASON =
+  "This account is not linked to a business workspace, so packs cannot be added here.";
 
 /**
  * Whether a pack's feature is switched on. Floor Plan Underlay unlocks only
@@ -199,6 +211,16 @@ export function addonAccess(input: {
       holding,
       action: "ask_owner",
       reason: OWNER_ONLY_REASON,
+    };
+  }
+  // Rule 4: checkout files the pack on the buyer's workspace and refuses
+  // without one. A seat is different: checkout sets up its workspace first.
+  if (!perSeat && !viewer.hasWorkspace) {
+    return {
+      label: "unavailable",
+      holding,
+      action: "none",
+      reason: NO_WORKSPACE_REASON,
     };
   }
   return {

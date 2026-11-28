@@ -143,9 +143,7 @@ function SimpleWalkthroughWithAccount(props: SimpleWalkthroughProps) {
 }
 
 function SimpleWalkthroughContent({ mode, onClose }: SimpleWalkthroughProps) {
-  const sessionUser = useSession().data?.user;
-  const accountId = sessionUser?.id ?? null;
-  const role = sessionUser?.role ?? null;
+  const accountId = useSession().data?.user?.id ?? null;
   const [status, setStatus] = useState<WalkthroughStatus>("in_progress");
   const [step, setStep] = useState(0);
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
@@ -315,8 +313,6 @@ function SimpleWalkthroughContent({ mode, onClose }: SimpleWalkthroughProps) {
                     catalog,
                     addon.sku,
                     catalog.owned.includes(addon.sku),
-                    addon.perSeat,
-                    role,
                   );
                   return (
                     <li

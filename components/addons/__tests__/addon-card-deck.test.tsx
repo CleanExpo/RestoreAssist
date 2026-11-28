@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { OWNER_ONLY_REASON } from "@/lib/billing/addon-access";
+import { STAFF_VIEWER, withServerVerdicts } from "./server-verdicts";
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
@@ -12,6 +13,7 @@ import {
 import {
   AddonCardDeck,
   IOS_ADDONS_MESSAGE,
+  NO_VERDICT_REASON,
   PLAN_REQUIRED_MESSAGE,
   PURCHASE_UNCONFIRMED_MESSAGE,
   cardMark,
@@ -31,7 +33,8 @@ const { sessionRef } = vi.hoisted(() => ({
 }));
 vi.mock("next-auth/react", () => ({ useSession: () => sessionRef.current }));
 
-const catalog = {
+// RA-8665: every card's verdict comes from the server's own rules.
+const catalog = withServerVerdicts({
   addons: [
     {
       sku: "VOICE",
@@ -62,7 +65,7 @@ const catalog = {
     },
   ],
   owned: ["VOICE"],
-};
+});
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -102,32 +105,45 @@ describe("AddonCardDeck (RA-8271)", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
   });
 
-  it("RA-8665: with no access from the server, staff are told to ask the owner and the owner keeps Add", async () => {
+  it("RA-8665: with no verdict from the server, no card offers a control, to the owner or to staff", async () => {
+    for (const user of [{ id: "owner-A", role: "ADMIN" }, { id: "staff-A", role: "USER" }]) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...catalog, access: undefined }) }) as never,
+      );
+      sessionRef.current = { data: { user }, status: "authenticated" };
+      const { unmount } = render(<AddonCardDeck />);
+      await screen.findByTestId("addon-card-VOICE");
+      expect(screen.queryAllByRole("button")).toEqual([]);
+      expect(screen.queryAllByRole("link")).toEqual([]);
+      for (const sku of ["VOICE", "BOOKKEEPING", "AI_COPILOT"]) {
+        expect(
+          within(screen.getByTestId(`addon-card-${sku}`)).getByText(NO_VERDICT_REASON),
+        ).toBeInTheDocument();
+      }
+      unmount();
+    }
+  });
+
+  it("the server's verdict decides the controls, whatever role the session names", async () => {
+    // A staff verdict, shown to a session that says ADMIN: the card follows
+    // the server and offers nothing to press.
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...catalog, access: undefined }) }) as never,
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => withServerVerdicts({ addons: catalog.addons, owned: catalog.owned }, STAFF_VIEWER),
+      }) as never,
     );
-    sessionRef.current = {
-      data: { user: { id: "staff-A", role: "USER" } },
-      status: "authenticated",
-    };
-    const staff = render(<AddonCardDeck />);
+    sessionRef.current = { data: { user: { id: "owner-A", role: "ADMIN" } }, status: "authenticated" };
+    render(<AddonCardDeck />);
     await screen.findByTestId("addon-card-VOICE");
-    expect(screen.queryAllByRole("button", { name: /add|manage|seat/i })).toEqual([]);
+    expect(screen.queryAllByRole("button")).toEqual([]);
     for (const sku of ["VOICE", "BOOKKEEPING", "AI_COPILOT"]) {
       expect(
         within(screen.getByTestId(`addon-card-${sku}`)).getByText(OWNER_ONLY_REASON),
       ).toBeInTheDocument();
     }
-    staff.unmount();
-
-    sessionRef.current = {
-      data: { user: { id: "owner-A", role: "ADMIN" } },
-      status: "authenticated",
-    };
-    render(<AddonCardDeck />);
-    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
-    expect(within(books).getByRole("button", { name: /add pack/i })).toBeEnabled();
   });
 
   it("RA-8665: every card shows GST inclusive and cancel any time beside its price", async () => {
@@ -926,7 +942,7 @@ describe("AddonCardDeck (RA-8271)", () => {
 
   // RA-8271 server-side guard: a seat pack sends the seat count the page
   // shows, and every retry with the same key sends the same count.
-  const seatCatalog = (purchased: number) => ({
+  const seatCatalog = (purchased: number) => withServerVerdicts({
     addons: [
       ...catalog.addons,
       {

@@ -5,6 +5,7 @@ import {
   holdingFor,
   COMING_SOON_REASON,
   NO_PLAN_REASON,
+  NO_WORKSPACE_REASON,
   OWNER_ONLY_REASON,
   TRIAL_PACK_REASON,
   type AddonViewer,
@@ -20,6 +21,7 @@ const owner = (over: Partial<AddonViewer> = {}): AddonViewer => ({
   role: "ADMIN",
   subscriptionStatus: "ACTIVE",
   trialEndsAt: null,
+  hasWorkspace: true,
   ...over,
 });
 
@@ -234,6 +236,33 @@ describe("addonAccess mirrors POST /api/addons/checkout", () => {
         now: NOW,
       }).reason,
     ).toBe(COMING_SOON_REASON);
+  });
+});
+
+describe("RA-8665: a pack needs the workspace checkout files it on", () => {
+  it("RA-8665: an account with no business workspace is offered no buy on a pack, and is told why", () => {
+    const got = addonAccess({
+      perSeat: false,
+      holding: "none",
+      viewer: owner({ role: "USER", hasWorkspace: false }),
+      now: NOW,
+    });
+    expect(got).toMatchObject({
+      label: "unavailable",
+      action: "none",
+      reason: NO_WORKSPACE_REASON,
+    });
+  });
+
+  it("a seat still follows the role rule, because checkout sets up the seat's workspace itself", () => {
+    expect(
+      addonAccess({
+        perSeat: true,
+        holding: "none",
+        viewer: owner({ hasWorkspace: false }),
+        now: NOW,
+      }).action,
+    ).toBe("buy");
   });
 });
 
