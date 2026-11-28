@@ -134,8 +134,12 @@ export function entryLine(r: VerifierReport): string {
 /**
  * Whether a parsed line is a ledger record. A line can be valid JSON and still
  * not be one (`null`, a number, an object missing a key field). Only the fields
- * the idempotency key and the metrics rest on are checked.
+ * the idempotency key and the metrics rest on are checked. The claim counts are
+ * optional, but when present they must be numbers: a string count would fail
+ * the metrics' `> 0` test and, read first for its key, drop the valid row.
  */
+const COUNT_FIELDS = ["claimsTotal", "claimsFailed", "claimsWarned"] as const;
+
 function isLedgerRow(value: unknown): value is VerifierReport {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const v = value as Record<string, unknown>;
@@ -143,7 +147,8 @@ function isLedgerRow(value: unknown): value is VerifierReport {
     typeof v.sessionId === "string" &&
     Number.isSafeInteger(v.timestamp) &&
     typeof v.domain === "string" &&
-    typeof v.status === "string"
+    typeof v.status === "string" &&
+    COUNT_FIELDS.every((k) => v[k] === undefined || Number.isFinite(v[k]))
   );
 }
 

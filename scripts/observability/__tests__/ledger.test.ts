@@ -242,6 +242,9 @@ describe("reading", () => {
       JSON.stringify({ ...row(), timestamp: 1.5 }),
       JSON.stringify({ ...row(), domain: null }),
       JSON.stringify({ sessionId: "s", timestamp: 1, domain: "d" }),
+      JSON.stringify({ ...row(), claimsTotal: "bad" }),
+      JSON.stringify({ ...row(), claimsFailed: "1" }),
+      JSON.stringify({ ...row(), claimsWarned: null }),
     ];
     mkdirSync(dir);
     bad.forEach((line, i) => writeFileSync(join(dir, `${i}-bad-000000000000.jsonl`), line + "\n"));

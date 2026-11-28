@@ -44,7 +44,8 @@ This is a threshold, not a band, because a control that is off has no acceptable
 background rate to be measured against. It needs no baseline and fires from the
 first window, which is why it was the signal worth wiring first.
 
-Currently **1.6%** (6 of 379), just under the 2% threshold. The usual cause is a
+On 2026-11-22 it was **1.6%** (6 of 379), just under the 2% threshold; that is a
+dated snapshot, so run `collect-verifier-metrics.ts` for the current rate. The usual cause is a
 missing API key — `error_code: 4` in the report means none was found. The
 resolution order is documented at the top of `.claude/hooks/lib/openrouter-call.sh`.
 
