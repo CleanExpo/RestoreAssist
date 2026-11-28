@@ -86,7 +86,7 @@ Build a commercially viable, evidence-led restoration platform for Australia and
 
 Nothing below starts on customer-facing work until these are VERIFIED.
 
-- [ ] **RA-7588** *Founder console action.* Details in Linear.
+- [ ] **RA-7588** Details in Linear.
 - [ ] **RA-7703** Details in Linear.
 - [ ] **RA-7449** Details in Linear.
 - [ ] **RA-8620, RA-7861** Remove every path that writes invented facts or dates into a real record.
@@ -337,7 +337,7 @@ A receipt is written by a reviewer who did not build the change.
 
 | Lane | Delivers | Depends on |
 |---|---|---|
-| A Safety floor | Stage 0 items VERIFIED | Founder console action for RA-7588 |
+| A Safety floor | Stage 0 items VERIFIED | RA-7588 (details in Linear) |
 | B Custody | Branch clean-up, manifest, production record | Estate consolidation; D2 |
 | C Discovery | Three audits, six-user walk, frozen requirements, baseline | Lane A for anything touching live data |
 | D Workflow and UX | Stages 3 and 4 | Lane C |
@@ -368,7 +368,7 @@ A receipt is written by a reviewer who did not build the change.
 
 ## 13. First execution checkpoint (once authorised)
 
-- Lane A starts. RA-7588 goes to the founder as the single console action needed.
+- Lane A starts with RA-7588. Details in Linear.
 - Lane B records what production runs and classifies branches, read-only.
 - Lane C finishes the three audits and drafts test cases.
 - One consolidated decision register comes back with D1–D6 and nothing else.
