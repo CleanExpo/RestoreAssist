@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { parse as parseYaml } from 'yaml';
+import { CODEX_VERSION } from '../nexus-receipt/sandbox-lib.mjs';
 
 // The workflow IS the control: .github/workflows/nexus-release-receipt.yml
 // posts the required `nexus/release-receipt` status. Whether the job that posts
@@ -26,7 +27,80 @@ const RECEIPT_JOB = 'receipt';
 // condition calls none of always(), failure(), cancelled() or success(), so the
 // safe set is this one known expression, not "anything without always()".
 const RECEIPT_IF = 'github.event.pull_request.head.repo.full_name == github.repository';
-const TEST_COMMAND = 'node --test scripts/ci/nexus-receipt/verdict.test.mjs';
+const TEST_COMMAND =
+  'node --test scripts/ci/nexus-receipt/verdict.test.mjs scripts/ci/nexus-receipt/sandbox.test.mjs';
+
+// --- the sandbox the review runs in (RA-8676) -------------------------------
+// The receipt job's steps, by name and in this exact order. The login is
+// written only after the sandbox config, the preflight proves the real layout
+// before the review, and the review never starts without a clean preflight.
+const RECEIPT_STEPS = [
+  'Set paths',
+  'Check a Codex credential is configured',
+  'Checkout base (trusted)',
+  'Checkout PR head (read only)',
+  'Remove PR-supplied Codex configuration',
+  'Setup Node.js',
+  'Mark receipt pending',
+  'Install Codex',
+  'Write sandbox config',
+  'Write Codex login',
+  'Prepare runner for the sandbox',
+  'Sandbox preflight',
+  'Codex review of the diff',
+  'Scrub credentials from the verdict',
+  'Post receipt',
+  'Publish finding counts to the PR',
+];
+const OWNER = 'node trusted/scripts/ci/nexus-receipt/sandbox.mjs';
+const REVIEW_IF = "steps.cred.outputs.mode != 'none' && steps.preflight.outcome == 'success'";
+const ALWAYS_IF = "always() && steps.cred.outputs.mode != 'none'";
+// Text that must not appear anywhere in the workflow. `codex exec` belongs to
+// the owner alone; the flags would undo the profile or widen what it sees.
+const FORBIDDEN_TEXT = [
+  'codex exec', '--sandbox', '--ignore-user-config', '--add-dir', '--full-auto', '--yolo',
+  '--dangerously-bypass', 'danger-full-access', 'shell_environment_policy', 'default_permissions',
+];
+
+/** Plain-English problems with how the receipt job uses the sandbox owner. */
+export function sandboxProblems(yamlText, wf) {
+  const problems = [];
+  for (const t of FORBIDDEN_TEXT) {
+    if (yamlText.includes(t)) problems.push(`the workflow contains "${t}"; only the sandbox owner may`);
+  }
+  for (const m of yamlText.matchAll(/@openai\/codex@([^\s"']+)/g)) {
+    if (m[1] !== CODEX_VERSION) problems.push(`the workflow pins Codex ${m[1]}, the owner pins ${CODEX_VERSION}`);
+  }
+  const steps = Array.isArray(wf?.jobs?.[RECEIPT_JOB]?.steps) ? wf.jobs[RECEIPT_JOB].steps : [];
+  const names = steps.map((s) => s?.name ?? '(unnamed)');
+  if (!isDeepStrictEqual(names, RECEIPT_STEPS)) {
+    problems.push(`receipt steps are [${names.join(' | ')}], expected exactly [${RECEIPT_STEPS.join(' | ')}]`);
+  }
+  const step = (n) => steps.find((s) => s?.name === n) ?? {};
+  const run = (n) => String(step(n).run ?? '');
+  if (run('Install Codex').trim() !== `${OWNER} install`) problems.push('Codex is not installed by the owner');
+  const strip = step('Remove PR-supplied Codex configuration');
+  if (run('Remove PR-supplied Codex configuration').trim() !== 'rm -rf pr/.codex'
+    || strip.if !== "steps.cred.outputs.mode != 'none'" || 'continue-on-error' in strip)
+    problems.push('the PR-supplied .codex is not removed exactly as reviewed');
+  if (!run('Write sandbox config').includes(`${OWNER} write-config "$CODEX_HOME"`))
+    problems.push('the sandbox config is not written by the owner');
+  if (!run('Prepare runner for the sandbox').includes(`${OWNER} prepare-host`))
+    problems.push('the runner is not prepared by the owner');
+  const pre = step('Sandbox preflight');
+  if (pre.id !== 'preflight' || !run('Sandbox preflight').includes(`${OWNER} preflight --checkout pr --codex-home "$CODEX_HOME"`))
+    problems.push('the preflight is missing, has another id, or does not test the real layout');
+  if (pre['continue-on-error'] !== undefined) problems.push('the preflight may fail quietly');
+  const review = step('Codex review of the diff');
+  if (review.if !== REVIEW_IF) problems.push('the review does not wait for a clean preflight');
+  if (!run('Codex review of the diff').includes(`${OWNER} review --checkout pr --base "$BASE_REF"`))
+    problems.push('the review is not run by the owner');
+  if (review['continue-on-error'] !== undefined || review['working-directory'] !== undefined)
+    problems.push('the review step has settings beyond the reviewed shape');
+  for (const n of ['Scrub credentials from the verdict', 'Post receipt', 'Publish finding counts to the PR'])
+    if (step(n).if !== ALWAYS_IF) problems.push(`"${n}" no longer runs after a failure`);
+  return problems;
+}
 
 // The test job is held to ONE reviewed shape, not checked against a list of
 // settings known to be harmful. A list is only as long as its author's
@@ -93,6 +167,7 @@ export function receiptWorkflowProblems(yamlText) {
         'anything added to it can stop the verdict tests running while it still succeeds'
     );
   }
+  problems.push(...sandboxProblems(String(yamlText), wf));
   return problems;
 }
 
@@ -208,6 +283,52 @@ test('each way of unhooking the receipt from its tests is caught', () => {
     ),
   };
   // Collect every planted edit the check misses, so one run names them all.
+  const missed = [];
+  for (const [name, text] of Object.entries(cases)) {
+    assert.notEqual(text, good, `${name}: the mutation changed nothing`);
+    if (receiptWorkflowProblems(text).length === 0) missed.push(name);
+  }
+  assert.deepEqual(missed, [], 'planted edits the check did not catch');
+});
+
+test('each way of loosening the review sandbox is caught (RA-8676)', () => {
+  const good = real();
+  const reviewRun = `${OWNER} review --checkout pr --base "$BASE_REF"`;
+  const preflightBlock = good.slice(good.indexOf('      - name: Sandbox preflight'),
+    good.indexOf('      - name: Codex review of the diff'));
+  assert.ok(preflightBlock.length > 0, 'the workflow has a preflight step before the review');
+  const stripBlock = good.slice(good.indexOf('      # The PR controls pr/.codex.'),
+    good.indexOf('      - name: Setup Node.js'));
+  assert.ok(stripBlock.includes('rm -rf pr/.codex'), 'the workflow removes pr/.codex before Node is set up');
+  const cases = {
+    // The layout merged in PR 2728: Codex run inline with the built-in
+    // read-only sandbox, which leaves $CODEX_HOME/auth.json readable.
+    "today's layout": mutate(good, reviewRun,
+      'codex exec --ephemeral --sandbox read-only --skip-git-repo-check "review" #'),
+    'preflight removed': good.replace(preflightBlock, ''),
+    'preflight moved after the review': good.replace(preflightBlock, '').replace(
+      '      - name: Scrub credentials from the verdict', `${preflightBlock}      - name: Scrub credentials from the verdict`),
+    'preflight may fail quietly': mutate(good, '        id: preflight\n',
+      '        id: preflight\n        continue-on-error: true\n'),
+    'review no longer waits for the preflight': mutate(good, ` && steps.preflight.outcome == 'success'`, ''),
+    'review flag widens the sandbox': mutate(good, reviewRun, `${reviewRun} --add-dir /`),
+    'sandbox switched off by flag': mutate(good, reviewRun, `${reviewRun} --dangerously-bypass-approvals-and-sandbox`),
+    'user config ignored': mutate(good, reviewRun, `${reviewRun} --ignore-user-config`),
+    'Codex version pinned in the workflow differs': mutate(good, `${OWNER} install`,
+      'npm install -g @openai/codex@0.1.0'),
+    'login written before the sandbox config': (() => {
+      const cfg = good.slice(good.indexOf('      - name: Write sandbox config'), good.indexOf('      - name: Write Codex login'));
+      return good.replace(cfg, '').replace('      - name: Prepare runner for the sandbox', `${cfg}      - name: Prepare runner for the sandbox`);
+    })(),
+    'PR .codex removal step removed': good.replace(stripBlock, ''),
+    'PR .codex removal moved after the review': good.replace(stripBlock, '').replace(
+      '      - name: Scrub credentials from the verdict', `${stripBlock}      - name: Scrub credentials from the verdict`),
+    'PR .codex removal softened': mutate(good, 'run: rm -rf pr/.codex', 'run: rm -rf pr/.codex || true'),
+    'PR .codex removal aimed elsewhere': mutate(good, 'run: rm -rf pr/.codex', 'run: rm -rf .codex'),
+    'scrub no longer runs after a failure': mutate(good,
+      `      - name: Scrub credentials from the verdict\n        if: ${ALWAYS_IF}`,
+      `      - name: Scrub credentials from the verdict\n        if: steps.cred.outputs.mode != 'none'`),
+  };
   const missed = [];
   for (const [name, text] of Object.entries(cases)) {
     assert.notEqual(text, good, `${name}: the mutation changed nothing`);
