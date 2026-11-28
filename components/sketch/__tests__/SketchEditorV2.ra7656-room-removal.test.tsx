@@ -142,6 +142,7 @@ vi.mock("next/dynamic", async () => {
 
 import { prisma } from "@/lib/prisma";
 import { POST } from "@/app/api/inspections/[id]/sketches/route";
+import { NO_ROOM_DEPENDENTS } from "@/lib/sketch/sync-room-graph";
 import { SketchEditorV2 } from "../SketchEditorV2";
 
 type Fn = ReturnType<typeof vi.fn>;
@@ -370,7 +371,10 @@ function expectRoutePersistedRemoval(status: number) {
       (o) => o.data?.type === "room",
     ),
   ).toBe(false);
-  expect(p.sketchRoom.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["sr_kitchen"] } } });
+  // The delete only matches a room that still has no dependent (RA-8501).
+  expect(p.sketchRoom.deleteMany).toHaveBeenCalledWith({
+    where: { id: { in: ["sr_kitchen"] }, ...NO_ROOM_DEPENDENTS },
+  });
   expect(p.sketchRoom.updateMany.mock.calls.at(-1)?.[0]?.where).toEqual({
     id: { in: ["sr_laundry"] },
     detachedAt: null,

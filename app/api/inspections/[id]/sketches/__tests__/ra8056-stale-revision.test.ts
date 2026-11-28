@@ -69,7 +69,7 @@ vi.mock("@/lib/prisma", () => {
       findMany: vi.fn(),
       create: vi.fn(async () => ({ id: "sr_new" })),
       update: vi.fn(async () => ({ id: "sr_existing" })),
-      deleteMany: vi.fn(async () => ({ count: 0 })),
+      deleteMany: vi.fn(async (a?: { where?: { id?: { in?: string[] } } }) => ({ count: a?.where?.id?.in?.length ?? 0 })),
       updateMany: vi.fn(async () => ({ count: 0 })),
     },
     sketchMoistureReading: {
@@ -293,8 +293,8 @@ describe("RA-8056 matching revision", () => {
 
     expect(res.status).toBe(201);
     expect(p.sketchRoom.deleteMany).toHaveBeenCalledTimes(1);
-    expect(p.sketchRoom.deleteMany.mock.calls[0][0]).toEqual({
-      where: { id: { in: ["sr_kitchen"] } },
+    expect(p.sketchRoom.deleteMany.mock.calls[0][0]).toMatchObject({
+      where: { id: { in: ["sr_kitchen"] }, evidencePins: { none: {} }, contentsPackOutItems: { none: {} } },
     });
     // The floor write is conditional on the revision the check passed.
     expect(p.claimSketch.update.mock.calls[0][0].where).toMatchObject({

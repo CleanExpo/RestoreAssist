@@ -199,9 +199,9 @@ const DELETES_ALLOWED: Record<string, DeleteException[]> = {
     },
     {
       model: "sketchRoom",
-      where: "{ id: { in: deletableIds } }",
+      where: "{ id: { in: deletableIds }, ...NO_ROOM_DEPENDENTS }",
       ownerOnly: true,
-      reason: "evidence-free rooms gone from the canvas; the technician path detaches them instead",
+      reason: "evidence-free rooms gone from the canvas, and only a room that still has no dependent at delete time (RA-8501); the technician path detaches them instead",
     },
     {
       model: "sketchMoistureReading",

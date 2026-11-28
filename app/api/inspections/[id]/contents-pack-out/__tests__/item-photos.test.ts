@@ -32,6 +32,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: async () => ({ role: "ADMIN", organizationId: null, organizationLeftAt: null, organizationLeftId: null, organization: null }) },
     inspectionPhoto: { findMany: (...a: unknown[]) => photoFindMany(...a) },
+    // RA-8501: GET also lists the job's rooms.
+    sketchRoom: { findMany: vi.fn(async () => []) },
     contentsPackOutItem: {
       findMany: (...a: unknown[]) => itemFindMany(...a),
       findFirst: (...a: unknown[]) => itemFindFirst(...a),

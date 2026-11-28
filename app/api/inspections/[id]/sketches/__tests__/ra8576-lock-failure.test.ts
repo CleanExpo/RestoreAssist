@@ -70,6 +70,7 @@ vi.mock("@/lib/prisma", () => ({
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
+import { NO_ROOM_DEPENDENTS } from "@/lib/sketch/sync-room-graph";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
@@ -182,8 +183,10 @@ describe("RA-8576 failed stale-room lock", () => {
 
     expect(res.status).toBe(201);
     expect(p.$queryRaw).toHaveBeenCalledTimes(2);
+    // The removal is applied under the lock (RA-8576) and the delete itself
+    // still matches only a room with no dependent (RA-8501).
     expect(p.sketchRoom.deleteMany).toHaveBeenCalledWith({
-      where: { id: { in: ["sr_kitchen"] } },
+      where: { id: { in: ["sr_kitchen"] }, ...NO_ROOM_DEPENDENTS },
     });
   });
 

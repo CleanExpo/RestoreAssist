@@ -8,6 +8,7 @@
  * placed inside a LiDAR polygon binds to the same SketchRoom row after save.
  */
 import { createHash } from "node:crypto";
+import { SKETCH_ROOM_DEPENDENT_RELATIONS } from "./room-dependents";
 import { polygonAbsolutePoints } from "./fabric-absolute";
 import {
   resolvePxPerMetre,
@@ -78,6 +79,21 @@ function xy(p: Point): { x: number; y: number } {
 
 
 
+/**
+ * Every relation that points at SketchRoom with onDelete: SetNull, so deleting
+ * a room that has any of them silently blanks the room link. The one list the
+ * delete's own `where` reads (NO_ROOM_DEPENDENTS), so a dependent that arrives
+ * between the count read and the delete (RA-8501 review) keeps its room: the
+ * delete matches only a room that still has none, and the survivor is detached.
+ * partitionStaleRooms sums the same relations from counts.
+ */
+export const ROOM_DEPENDENT_RELATIONS = SKETCH_ROOM_DEPENDENT_RELATIONS;
+
+/** Prisma `where` fragment: the room has no dependent of any kind. */
+export const NO_ROOM_DEPENDENTS = Object.fromEntries(
+  ROOM_DEPENDENT_RELATIONS.map((relation) => [relation, { none: {} }]),
+);
+
 /** A room that is no longer present in the incoming canvas. */
 export interface StaleRoom {
   id: string;
@@ -121,6 +137,8 @@ export function partitionStaleRooms(stale: StaleRoom[]): {
   const detachableIds: string[] = [];
 
   for (const room of stale) {
+    // Every count is summed, so a relation added to room-dependents.ts cannot
+    // be missed here (RA-8501 review: roomObservations was).
     const dependents = Object.values(room._count ?? {}).reduce<number>(
       (sum, n) => sum + (n ?? 0),
       0,

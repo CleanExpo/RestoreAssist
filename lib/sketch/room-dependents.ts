@@ -23,6 +23,8 @@ export const SKETCH_ROOM_DEPENDENT_RELATIONS = [
   "scopeItems",
   "hazards",
   "roomObservations",
+  // RA-8501: ContentsPackOutItem.sketchRoomId is SetNull too.
+  "contentsPackOutItems",
 ] as const;
 
 /** `_count.select` argument covering every dependent relation. */

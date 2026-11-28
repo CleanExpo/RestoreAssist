@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   partitionStaleRooms,
+  ROOM_DEPENDENT_RELATIONS,
   resolveFabricObjectId,
   type StaleRoom,
 } from "../sync-room-graph";
@@ -49,6 +50,8 @@ describe("partitionStaleRooms", () => {
     // RA-8538: ScopeItem.sketchRoomId is SetNull too, and scope items are
     // priced lines grouped by room in the report.
     ["a scope item", { scopeItems: 1 }],
+    // RA-8501: ContentsPackOutItem.sketchRoomId is SetNull too.
+    ["a contents item", { contentsPackOutItems: 1 }],
     // RA-8576: RoomObservation.sketchRoomId is SetNull too, and was never
     // counted; any count under any key now keeps the room.
     ["a room observation", { roomObservations: 1 }],
@@ -61,6 +64,19 @@ describe("partitionStaleRooms", () => {
     expect(deletableIds).toEqual([]);
     expect(detachableIds).toEqual(["room-1"]);
   });
+
+  // One list owns the SetNull dependents (the delete's own where reads it too);
+  // a relation added to it but missed by the count sum would be deleted here.
+  it.each(ROOM_DEPENDENT_RELATIONS)(
+    "never deletes a stale room holding a %s dependent",
+    (relation) => {
+      const { deletableIds, detachableIds } = partitionStaleRooms([
+        withCounts("room-1", { [relation]: 1 }),
+      ]);
+      expect(deletableIds).toEqual([]);
+      expect(detachableIds).toEqual(["room-1"]);
+    },
+  );
 
   it("splits a mixed batch, keeping every room that holds evidence", () => {
     const { deletableIds, detachableIds } = partitionStaleRooms([
