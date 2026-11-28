@@ -12,23 +12,22 @@ import {
  * them. These guard the Field Add-Ons tab in both modes and who sees it.
  */
 describe("Field Add-Ons side-panel tab", () => {
-  it("is called Field Add-Ons and opens the add-ons page", () => {
-    expect(FIELD_ADDONS_NAV_ITEM.label).toBe("Field Add-Ons");
+  it("RA-8665: is called Add-Ons and opens the add-ons page", () => {
+    expect(FIELD_ADDONS_NAV_ITEM.label).toBe("Add-Ons");
     expect(FIELD_ADDONS_NAV_ITEM.href).toBe("/dashboard/addons");
   });
 
-  it("shows in the Simple sidebar for an owner, above Account & Billing", () => {
+  it("RA-8665: sits straight after Overview, at the top of the Simple sidebar", () => {
     const hrefs = buildSimpleNavItems({ showFieldAddons: true }).map(
       (i) => i.href,
     );
-    const at = hrefs.indexOf("/dashboard/addons");
-    expect(at).toBeGreaterThan(-1);
-    expect(hrefs[at + 1]).toBe("/dashboard/subscription");
+    expect(hrefs.slice(0, 2)).toEqual(["/dashboard", "/dashboard/addons"]);
   });
 
-  it("shows in the Simple sidebar for an owner who also gets the manager inbox", () => {
+  it("RA-8665: for an owner who also gets the manager inbox, it is once, in the top two", () => {
     const items = buildSimpleNavItems({ isManager: true, showFieldAddons: true });
     expect(items.filter((i) => i.href === "/dashboard/addons")).toHaveLength(1);
+    expect(items.findIndex((i) => i.href === "/dashboard/addons")).toBeLessThan(2);
   });
 
   it("is absent from the Simple sidebar when the shell says not to show it", () => {
@@ -42,10 +41,20 @@ describe("Field Add-Ons side-panel tab", () => {
     ).toBe(false);
   });
 
-  it("is grouped under Setup in the Advanced sidebar, not left in More", () => {
-    const groups = buildAdvancedNavGroups([FIELD_ADDONS_NAV_ITEM]);
-    expect(groups.map((g) => g.label)).toEqual(["Setup"]);
-    expect(groups[0].items[0].label).toBe("Field Add-Ons");
+  it("RA-8665: leads the Advanced sidebar as its own first group, not under Setup", () => {
+    const flat = [
+      { icon: FIELD_ADDONS_NAV_ITEM.icon, label: "Dashboard", href: "/dashboard" },
+      { icon: FIELD_ADDONS_NAV_ITEM.icon, label: "Team", href: "/dashboard/team" },
+      FIELD_ADDONS_NAV_ITEM,
+      { icon: FIELD_ADDONS_NAV_ITEM.icon, label: "Settings", href: "/dashboard/settings" },
+    ];
+    const groups = buildAdvancedNavGroups(flat);
+    expect(groups[0].label).toBe("Add-Ons");
+    expect(groups[0].items.map((i) => i.href)).toEqual(["/dashboard/addons"]);
+    expect(groups.find((g) => g.label === "Setup")?.items.map((i) => i.href)).toEqual([
+      "/dashboard/team",
+      "/dashboard/settings",
+    ]);
   });
 
   it("is visible to the business owner only, and never in the iOS app", () => {

@@ -101,6 +101,22 @@ describe("AddonCardDeck (RA-8271)", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
   });
 
+  it("RA-8665: every card shows GST inclusive and cancel any time beside its price", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => catalog }) as never,
+    );
+    render(<AddonCardDeck />);
+    await screen.findByTestId("addon-card-VOICE");
+    for (const sku of ["VOICE", "BOOKKEEPING", "AI_COPILOT"]) {
+      expect(
+        within(screen.getByTestId(`addon-card-${sku}`)).getByText(
+          "AUD, GST inclusive, cancel any time",
+        ),
+      ).toBeInTheDocument();
+    }
+  });
+
   it("tells a trial owner plainly that packs start with the plan, on the card they pressed", async () => {
     vi.stubGlobal(
       "fetch",

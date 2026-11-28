@@ -76,7 +76,14 @@ export const PLAN_PAGE_HREF = "/dashboard/subscription";
  * on the free trial). Plain words, and it says what to do next.
  */
 export const PLAN_REQUIRED_MESSAGE =
-  "Packs start once your plan is active. Choose a plan, then add this pack from Field Add-Ons in the side panel.";
+  "Packs start once your plan is active. Choose a plan, then add this pack from Add-Ons in the side panel.";
+
+/**
+ * RA-8665: the billing terms shown with the packs, in one place, so the
+ * dashboard home and the Add-Ons page cannot drift apart.
+ */
+export const ADDON_PRICE_TERMS =
+  "Prices are GST inclusive. Each pack is a separate subscription you can cancel any time from Subscription settings.";
 
 /**
  * Shown when the request may have reached the server but no answer came back
@@ -509,7 +516,7 @@ function AddonCardDeckContent({ className, returnTo }: AddonCardDeckProps) {
                   {formatPrice(addon)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {addon.currency}, GST inclusive
+                  {addon.currency}, GST inclusive, cancel any time
                 </p>
                 {seatUse ? (
                   <p className="mt-1 text-xs font-medium text-brand-navy dark:text-slate-100">

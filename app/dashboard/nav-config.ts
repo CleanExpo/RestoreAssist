@@ -117,7 +117,9 @@ export const simpleNavItems: NavItem[] = [
  */
 export const FIELD_ADDONS_NAV_ITEM: NavItem = {
   icon: Package,
-  label: "Field Add-Ons",
+  // RA-8665 (founder, 28/11/2026): the packs were buried. The tab is called
+  // Add-Ons and sits near the top of both menus.
+  label: "Add-Ons",
   href: "/dashboard/addons",
 };
 
@@ -149,10 +151,10 @@ export function buildSimpleNavItems(options?: {
 }): NavItem[] {
   const items: NavItem[] = [...simpleNavItems];
   if (options?.showFieldAddons) {
-    // Straight after Invoices, above Account & Billing, so it reads as part of
-    // the product rather than a billing setting.
-    const at = items.findIndex((i) => i.href === "/dashboard/subscription");
-    items.splice(at === -1 ? items.length : at, 0, FIELD_ADDONS_NAV_ITEM);
+    // RA-8665: straight after Overview, near the top, so an owner sees the
+    // packs without hunting for them.
+    const at = items.findIndex((i) => i.href === "/dashboard");
+    items.splice(at + 1, 0, FIELD_ADDONS_NAV_ITEM);
   }
   if (options?.isManager) {
     // RA-8523: the manager destinations go in once, at the top. They used to
@@ -232,6 +234,8 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
   // Group render order. The HREF_TO_GROUP map below assigns each destination
   // to exactly one of these.
   const GROUP_ORDER = [
+    // RA-8665: the packs lead the Advanced menu, near the top.
+    "Add-Ons",
     "Jobs",
     "Documents & Billing",
     "Compliance & WHS",
@@ -270,7 +274,7 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
     "/dashboard/interviews": "Insights",
     // Setup — Team, Integrations, Pricing Configuration, Settings (+ Feedback,
     // Tutorials, Help)
-    "/dashboard/addons": "Setup",
+    "/dashboard/addons": "Add-Ons",
     "/dashboard/team": "Setup",
     "/dashboard/contractors": "Setup",
     "/dashboard/integrations": "Setup",
@@ -291,6 +295,7 @@ export function buildAdvancedNavGroups(flatItems: NavItem[]): NavGroup[] {
   };
 
   const groups: Record<GroupLabel, NavItem[]> = {
+    "Add-Ons": [],
     Jobs: [],
     "Documents & Billing": [],
     "Compliance & WHS": [],
