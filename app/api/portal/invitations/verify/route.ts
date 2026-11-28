@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { isPortalInvitationToken } from "@/lib/public-token-shape";
 import { apiError, fromException } from "@/lib/api-errors";
+import { markInvitationExpired } from "@/lib/portal/invitation-transitions";
 import {
   looksLikeRecoveryToken,
   recoveryLinkIsLive,
@@ -117,13 +118,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if expired
-    if (invitation.status === "EXPIRED" || invitation.expiresAt < new Date()) {
-      // Update status if not already marked as expired
-      if (invitation.status !== "EXPIRED") {
-        await prisma.portalInvitation.update({
-          where: { id: invitation.id },
-          data: { status: "EXPIRED" },
-        });
+    const now = new Date();
+    if (invitation.status === "EXPIRED" || invitation.expiresAt < now) {
+      // RA-8668: record the expiry only while the invitation is still pending
+      // and still lapsed. One revoked, accepted or resent since the read above
+      // is left as it is; the caller is told "expired" either way.
+      if (invitation.status === "PENDING") {
+        await markInvitationExpired(invitation.id, now);
       }
       return NextResponse.json({
         valid: false,

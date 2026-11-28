@@ -7,7 +7,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     portalInvitation: {
       findFirst: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }));
@@ -20,7 +20,7 @@ const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
   portalInvitation: {
     findFirst: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
+    updateMany: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -64,12 +64,35 @@ describe("DELETE /api/portal/invitations/[id]", () => {
       id: "inv1",
       status: "PENDING",
     });
-    p.portalInvitation.update.mockResolvedValueOnce({});
+    p.portalInvitation.updateMany.mockResolvedValueOnce({ count: 1 });
     const res = await DELETE(req(), { params: Promise.resolve({ id: "inv1" }) });
     expect(res.status).toBe(200);
-    expect(p.portalInvitation.update).toHaveBeenCalledWith({
-      where: { id: "inv1" },
+    // RA-8668: the write names the statuses it may revoke from, and the owner.
+    expect(p.portalInvitation.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "inv1",
+        status: { in: ["PENDING", "EXPIRED"] },
+        userId: "u1",
+      },
       data: { status: "REVOKED" },
     });
+  });
+
+  it("409 when the invitation is no longer revocable and is not accepted or revoked", async () => {
+    p.portalInvitation.findFirst
+      .mockResolvedValueOnce({ id: "inv1", status: "PENDING" })
+      .mockResolvedValueOnce({ status: "PENDING" });
+    p.portalInvitation.updateMany.mockResolvedValueOnce({ count: 0 });
+    const res = await DELETE(req(), { params: Promise.resolve({ id: "inv1" }) });
+    expect(res.status).toBe(409);
+  });
+
+  it("404 when the invitation is gone by the time it is revoked", async () => {
+    p.portalInvitation.findFirst
+      .mockResolvedValueOnce({ id: "inv1", status: "PENDING" })
+      .mockResolvedValueOnce(null);
+    p.portalInvitation.updateMany.mockResolvedValueOnce({ count: 0 });
+    const res = await DELETE(req(), { params: Promise.resolve({ id: "inv1" }) });
+    expect(res.status).toBe(404);
   });
 });

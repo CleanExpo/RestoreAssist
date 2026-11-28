@@ -1,7 +1,7 @@
 import { getAppUrl } from "@/lib/app-url";
 import { sendTransactionalEmail } from "@/lib/email/send-transactional";
 import { escapeHtml } from "@/lib/email";
-import { prisma } from "@/lib/prisma";
+import { reopenInvitation } from "@/lib/portal/invitation-transitions";
 import { fail, ok, type ServiceResult } from "@/lib/services/_shared/result";
 
 export type InvitationEmailKind = "invite" | "reminder";
@@ -75,18 +75,9 @@ export async function extendAndEmailPortalInvitation(
 
   // Compare-and-set: only an invitation that is still open is extended. The
   // caller read the row earlier, so it may since have been revoked or accepted;
-  // that row matches nothing here, stays as it is, and no link is emailed.
-  const extended = await prisma.portalInvitation.updateMany({
-    where: {
-      id: input.invitationId,
-      status: { in: ["PENDING", "EXPIRED"] },
-    },
-    data: {
-      expiresAt,
-      status: "PENDING",
-    },
-  });
-  if (extended.count !== 1) {
+  // that row is left as it is, and no link is emailed.
+  const reopened = await reopenInvitation(input.invitationId, expiresAt);
+  if (!reopened) {
     return fail("invitation_not_open", {
       detail: "This invitation is no longer open, so no email was sent",
     });

@@ -209,6 +209,25 @@ export async function POST(request: NextRequest) {
     });
 
     if (!emailResult.ok) {
+      // RA-8668: the invitation was revoked or accepted by another request
+      // between being created above and being emailed. Nothing upstream
+      // failed, so this is a conflict, not a 502. No email went out, and the
+      // link is not returned: it is not one the client can use.
+      if (emailResult.reason === "invitation_not_open") {
+        return NextResponse.json(
+          {
+            error: {
+              code: "CONFLICT",
+              message:
+                "This invitation was revoked or accepted before its email was sent, so no email was sent",
+              eventId: Math.random().toString(36).slice(2, 10),
+            },
+            reason: "invitation_not_open",
+            emailSent: false,
+          },
+          { status: 409 },
+        );
+      }
       if (emailResult.reason === "email_not_configured") {
         return NextResponse.json(
           {

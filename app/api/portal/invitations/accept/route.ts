@@ -6,10 +6,55 @@ import { validateCsrf } from "@/lib/csrf";
 import { isPortalInvitationToken } from "@/lib/public-token-shape";
 import { signClientPortalJwt } from "@/lib/portal/client-jwt";
 import {
+  claimInvitationForAcceptance,
+  markInvitationExpired,
+} from "@/lib/portal/invitation-transitions";
+import {
   looksLikeRecoveryToken,
   recoveryLinkIsLive,
   verifyRecoveryToken,
 } from "@/lib/portal/recovery-token";
+
+/**
+ * RA-8668 - the reply for an acceptance that lost a race: the invitation was
+ * PENDING when it was read and is not any more. The status it has now decides
+ * the reply, so the caller hears what a request arriving a moment later would.
+ */
+async function invitationNoLongerOpen(invitationId: string) {
+  const current = await prisma.portalInvitation.findUnique({
+    where: { id: invitationId },
+    select: { status: true },
+  });
+  if (!current) {
+    return NextResponse.json(
+      { error: "Invalid invitation token" },
+      { status: 404 },
+    );
+  }
+  if (current.status === "ACCEPTED") {
+    return NextResponse.json(
+      { error: "Invitation already accepted" },
+      { status: 400 },
+    );
+  }
+  if (current.status === "REVOKED") {
+    return NextResponse.json(
+      { error: "Invitation has been revoked" },
+      { status: 400 },
+    );
+  }
+  if (current.status === "EXPIRED") {
+    return NextResponse.json(
+      { error: "Invitation has expired" },
+      { status: 400 },
+    );
+  }
+  // PENDING again: it changed and was reopened while this request ran.
+  return NextResponse.json(
+    { error: "This invitation changed while it was being accepted. Try again." },
+    { status: 409 },
+  );
+}
 
 /**
  * RA-8613 - set a new password for an existing portal account from the
@@ -140,11 +185,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if expired
-    if (invitation.status === "EXPIRED" || invitation.expiresAt < new Date()) {
-      await prisma.portalInvitation.update({
-        where: { id: invitation.id },
-        data: { status: "EXPIRED" },
-      });
+    const now = new Date();
+    if (invitation.status === "EXPIRED" || invitation.expiresAt < now) {
+      // RA-8668: record the expiry only while the invitation is still pending
+      // and still lapsed. One revoked, accepted or resent since the read above
+      // is left as it is; the caller is told "expired" either way.
+      if (invitation.status === "PENDING") {
+        await markInvitationExpired(invitation.id, now);
+      }
       return NextResponse.json(
         { error: "Invitation has expired" },
         { status: 400 },
@@ -174,9 +222,16 @@ export async function POST(request: NextRequest) {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create ClientUser and update invitation in a transaction
+    // RA-8668: claim the invitation, then create the account, in one
+    // transaction. The claim only succeeds while the invitation is still
+    // PENDING, so one revoked, expired or accepted by another request since
+    // the read above creates no account. A failed account creation rolls the
+    // claim back and leaves the invitation open.
     const result = await prisma.$transaction(async (tx) => {
-      const clientUser = await tx.clientUser.create({
+      if (!(await claimInvitationForAcceptance(tx, invitation.id))) {
+        return null;
+      }
+      return tx.clientUser.create({
         data: {
           email: invitation.email,
           passwordHash,
@@ -185,17 +240,11 @@ export async function POST(request: NextRequest) {
           clientId: invitation.clientId,
         },
       });
-
-      await tx.portalInvitation.update({
-        where: { id: invitation.id },
-        data: {
-          status: "ACCEPTED",
-          acceptedAt: new Date(),
-        },
-      });
-
-      return clientUser;
     });
+
+    if (!result) {
+      return invitationNoLongerOpen(invitation.id);
+    }
 
     // Issue the portal JWT immediately so signup flows straight into the
     // portal without a second login round-trip.
