@@ -153,7 +153,8 @@ describe("GET /api/addons/catalog", () => {
       mockOwner.mockResolvedValue("owner-1");
 
       const json = await (await GET(req())).json();
-      expect(json.canManageBilling).toBe(true);
+      expect(json.audience).toBe("owner");
+      expect(json).not.toHaveProperty("canManageBilling");
       expect(json.access.TECHNICIAN_SEATS).toMatchObject({
         label: "optional_paid",
         action: "buy",
@@ -285,7 +286,7 @@ describe("GET /api/addons/catalog", () => {
       mockOwner.mockResolvedValue(null);
 
       const json = await (await GET(req())).json();
-      expect(json.canManageBilling).toBe(false);
+      expect(json.audience).toBe("no_business");
       for (const sku of Object.keys(RECURRING_ADDONS)) {
         expect(["ask_owner", "none"]).toContain(json.access[sku].action);
       }
@@ -306,7 +307,6 @@ describe("GET /api/addons/catalog", () => {
       mockOwner.mockResolvedValue("owner-1");
 
       const json = await (await GET(req())).json();
-      expect(json.canManageBilling).toBe(false);
       expect(json.audience).toBe("staff");
       for (const sku of Object.keys(RECURRING_ADDONS)) {
         expect(["ask_owner", "none"]).toContain(json.access[sku].action);
@@ -353,7 +353,6 @@ describe("GET /api/addons/catalog", () => {
 
       const json = await (await GET(req())).json();
       expect(json.audience).toBe("no_business");
-      expect(json.canManageBilling).toBe(false);
       expect(Object.values(json.access).map((a) => (a as { reason: string }).reason)).toContain(
         NO_BUSINESS_REASON,
       );

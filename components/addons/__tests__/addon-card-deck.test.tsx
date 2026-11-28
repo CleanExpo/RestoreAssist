@@ -17,6 +17,7 @@ import {
   PLAN_REQUIRED_MESSAGE,
   PURCHASE_UNCONFIRMED_MESSAGE,
   cardMark,
+  catalogAudience,
   isFinalCheckoutAnswer,
 } from "../AddonCardDeck";
 import { parseCheckoutReply } from "@/lib/billing/checkout-return";
@@ -160,6 +161,40 @@ describe("AddonCardDeck (RA-8271)", () => {
         within(screen.getByTestId(`addon-card-${sku}`)).getByText(OWNER_ONLY_REASON),
       ).toBeInTheDocument();
     }
+  });
+
+  it("RA-8665: the reader's audience comes only from the server's audience field", () => {
+    for (const named of ["owner", "staff", "no_business"] as const) {
+      expect(catalogAudience({ audience: named })).toBe(named);
+    }
+    // No audience, or one the screen does not know: no audience at all, and
+    // the old canManageBilling flag is never read.
+    expect(catalogAudience({})).toBeNull();
+    expect(catalogAudience({ canManageBilling: true } as never)).toBeNull();
+    expect(catalogAudience({ audience: "admin", canManageBilling: true } as never)).toBeNull();
+  });
+
+  it("RA-8665: with no audience from the server the deck shows no intro line", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          addons: [{ sku: "PAYMENTS", name: "Payments", description: "Pay.", amount: 1100, currency: "AUD", interval: "month", perSeat: false }],
+          owned: [],
+          canManageBilling: true,
+        }),
+      }) as never,
+    );
+    render(
+      <AddonCardDeck
+        intro={{ owner: "OWNER INTRO", staff: "STAFF INTRO", no_business: "NO BUSINESS INTRO" }}
+      />,
+    );
+    await screen.findByTestId("addon-card-PAYMENTS");
+    expect(screen.queryByText("OWNER INTRO")).toBeNull();
+    expect(screen.queryByText("STAFF INTRO")).toBeNull();
+    expect(screen.queryByText("NO BUSINESS INTRO")).toBeNull();
   });
 
   it("RA-8665: every card shows GST inclusive and cancel any time beside its price", async () => {

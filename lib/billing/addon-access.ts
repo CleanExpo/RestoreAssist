@@ -82,9 +82,9 @@ export interface AddonViewer {
 }
 
 /**
- * RA-8665: the one rule for who acts on add-on billing. Rule 1 below and the
- * catalogue's canManageBilling (which picks the owner offer text) both call
- * it, so the text above the cards can never offer what the cards refuse.
+ * RA-8665: the one rule for who acts on add-on billing. Rule 1 below and
+ * billingAudience (which picks the owner offer text) both call it, so the
+ * text above the cards can never offer what the cards refuse.
  */
 export function mayManageBilling(
   viewer: Pick<AddonViewer, "isBillingOwner" | "canOpenBillingPages">,

@@ -52,5 +52,5 @@ export function withServerVerdicts<
   }
   // Same calls as the route: one rule decides the offer text and the controls.
   const audience = billingAudience(viewer);
-  return { ...catalog, access, audience, canManageBilling: audience === "owner" };
+  return { ...catalog, access, audience };
 }

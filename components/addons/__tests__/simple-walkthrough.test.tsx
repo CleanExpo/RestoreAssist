@@ -41,7 +41,7 @@ const trialCatalog = {
     addon("CLIENT_COMMS", "Restoration Pulse Client Comms"),
   ],
   owned: ["CLIENT_COMMS"],
-  canManageBilling: true,
+  audience: "owner",
   access: {
     VOICE: { label: "unavailable", holding: "none", action: "choose_plan", reason: TRIAL_PACK_REASON },
     TECHNICIAN_SEATS: { label: "optional_paid", holding: "none", action: "buy", reason: "You can add technician seats during the free trial." },
@@ -51,7 +51,7 @@ const trialCatalog = {
 
 const teamCatalog = {
   ...trialCatalog,
-  canManageBilling: false,
+  audience: "staff",
   access: {
     VOICE: { label: "optional_paid", holding: "none", action: "ask_owner", reason: OWNER_ONLY_REASON },
     TECHNICIAN_SEATS: { label: "optional_paid", holding: "none", action: "ask_owner", reason: OWNER_ONLY_REASON },

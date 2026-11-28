@@ -116,14 +116,14 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const audience = billingAudience(viewer);
+    // RA-8665: `audience` is the reply's one answer to who is reading. There
+    // is no second flag for a screen to fall back on.
     return NextResponse.json({
       addons,
       owned,
       technicianSeats,
       access,
-      audience,
-      canManageBilling: audience === "owner",
+      audience: billingAudience(viewer),
     });
   } catch (error) {
     return fromException(req, error, { stage: "catalog" });

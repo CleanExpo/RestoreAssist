@@ -165,6 +165,25 @@ describe("Dashboard home add-ons", () => {
     expect(screen.queryAllByRole("button")).toEqual([]);
   });
 
+  it("RA-8665: a reply that does not name the audience shows no intro, even one that says canManageBilling", async () => {
+    // An older server sent canManageBilling without audience. The screen makes
+    // no claim the server did not make: no owner offer, no owner to ask.
+    signIn("USER");
+    for (const served of [
+      { ...catalog, canManageBilling: true },
+      { ...catalog, audience: "admin", canManageBilling: true },
+    ]) {
+      serve(served);
+      const { unmount } = render(<HomeAddons />);
+      await screen.findByTestId("addon-card-PAYMENTS");
+      expect(screen.queryByText(/Switch on extra features/)).toBeNull();
+      expect(screen.queryByText(HOME_ADDONS_STAFF_INTRO)).toBeNull();
+      expect(screen.queryByText(HOME_ADDONS_NO_BUSINESS_INTRO)).toBeNull();
+      expect(screen.queryAllByRole("button")).toEqual([]);
+      unmount();
+    }
+  });
+
   it("RA-8665: in the iOS app the home section shows nothing and loads nothing", () => {
     signIn("ADMIN");
     const fetchMock = vi.fn();

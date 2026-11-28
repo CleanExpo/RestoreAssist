@@ -46,21 +46,22 @@ export interface CatalogResponse {
   access?: Record<string, AddonAccess>;
   /** RA-8665: who is reading, from billingAudience on the server. */
   audience?: BillingAudience;
-  canManageBilling?: boolean;
 }
 
 const AUDIENCES: readonly BillingAudience[] = ["owner", "staff", "no_business"];
 
 /**
- * RA-8665: the reader as the server named them. An older reply without
- * `audience` falls back to canManageBilling; anything else reads as staff,
- * which offers nothing.
+ * RA-8665: the reader as the server named them, and nothing else. A reply
+ * without a known `audience` (an older server, or a value this screen does
+ * not know) gives null, and the deck then shows no intro line. The screen
+ * never works the audience out for itself, from canManageBilling, the session
+ * role or a default, for the same reason a card without a verdict offers no
+ * control: a guess can offer what checkout would refuse.
  */
 export function catalogAudience(
-  data: Pick<CatalogResponse, "audience" | "canManageBilling">,
-): BillingAudience {
-  if (data.audience && AUDIENCES.includes(data.audience)) return data.audience;
-  return data.canManageBilling === true ? "owner" : "staff";
+  data: Pick<CatalogResponse, "audience">,
+): BillingAudience | null {
+  return data.audience && AUDIENCES.includes(data.audience) ? data.audience : null;
 }
 
 /** RA-8665: shown on a card when the server sent no verdict for it. */
@@ -269,6 +270,7 @@ export interface AddonCardDeckProps {
    * RA-8665: a line shown above the cards once the catalogue has loaded,
    * picked by the server's billingAudience: the owner reads the offer, staff
    * read who to ask, and an account in no business reads that it has none.
+   * With no audience from the server, no line shows.
    */
   intro?: Record<BillingAudience, ReactNode>;
 }
@@ -323,7 +325,7 @@ function AddonCardDeckContent({ className, returnTo, intro }: AddonCardDeckProps
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [seats, setSeats] = useState<CatalogResponse["technicianSeats"]>(null);
   const [access, setAccess] = useState<CatalogResponse["access"]>(undefined);
-  const [audience, setAudience] = useState<BillingAudience>("staff");
+  const [audience, setAudience] = useState<BillingAudience | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
@@ -492,7 +494,7 @@ function AddonCardDeckContent({ className, returnTo, intro }: AddonCardDeckProps
 
   return (
     <>
-      {intro ? (
+      {intro && audience ? (
         <p className="text-sm text-muted-foreground">
           {intro[audience]}
         </p>
