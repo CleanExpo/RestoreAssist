@@ -1,0 +1,10 @@
+{
+  "schema": "done/1",
+  "work_id": "w_f6a1a4f025dd",
+  "contract_digest": "2815d431045ca88b9314b38e3bdbbd20b287cfd989e503072ba6283202cfeb8a",
+  "baseline_head": "e088d9f0a97a8d2d32014d42587bae08c695f0fa",
+  "identity_key": "mesh/phills-mac-mini/ra-8614-e60c83ff@/Volumes/Mini Mini 2T Storage/code/RestoreAssist/.git/worktrees/mesh-RA-8614-e60c83ff",
+  "locked_at_utc": "2026-11-23T19:24:36Z",
+  "criteria_count": 2,
+  "recipe_pins": {}
+}
