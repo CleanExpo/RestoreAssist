@@ -9,6 +9,10 @@
  * on the platform-support allowlist, and any business without an ABR-confirmed
  * ABN, unless (RA-8664) the ABR lookup never finished and the founder gives a
  * reason for an override, which is recorded with the grant.
+ *
+ * Every Preview also shows what the business holds now (add-ons held free,
+ * the base plan, any founder override), even when the ABN check stops the
+ * dry run, so an already-granted business never reads as never granted.
  */
 
 import { useState } from "react";
@@ -41,6 +45,18 @@ interface Outcome {
   billingCheckedBy?: "stripe" | "database";
 }
 
+/** What the business holds now, as a Preview read it (route `current`). */
+interface CurrentState {
+  foundingTrialAddons: string[];
+  paidAddons: string[];
+  owner: {
+    subscriptionStatus: string | null;
+    trialEndsAt: string | null;
+    lifetimeAccess?: boolean;
+  } | null;
+  founderOverride: { recordedAt: string } | null;
+}
+
 const BASE_PLAN_TEXT: Record<string, string> = {
   extended: "Base plan free until",
   kept_longer: "Already free for longer, until",
@@ -56,6 +72,51 @@ function formatDate(value: string | null | undefined): string {
     month: "long",
     year: "numeric",
   });
+}
+
+function addonCount(n: number): string {
+  return `${n} add-on${n === 1 ? "" : "s"}`;
+}
+
+function currentBasePlanText(owner: CurrentState["owner"]): string {
+  if (!owner) return "no owner account found for the base plan";
+  // Lifetime access is stored as ACTIVE too; it is not a recurring payment.
+  if (owner.lifetimeAccess) return "lifetime access to the base plan";
+  const ends = owner.trialEndsAt;
+  switch (owner.subscriptionStatus) {
+    case "TRIAL":
+      if (!ends) return "base plan on trial, no end date on record";
+      return new Date(ends).getTime() > Date.now()
+        ? `base plan free until ${formatDate(ends)}`
+        : `base plan trial ended ${formatDate(ends)}`;
+    case "EXPIRED":
+      return ends ? `base plan trial ended ${formatDate(ends)}` : "base plan trial ended";
+    case "ACTIVE":
+      return "paying for the base plan";
+    case "PAST_DUE":
+      return "base plan payment overdue";
+    case "CANCELED":
+      return "base plan cancelled";
+    case null:
+      return "no base plan on record";
+    default:
+      return `base plan status ${owner.subscriptionStatus}`;
+  }
+}
+
+/** One plain sentence: is this business on the Founding Trial now, and how. */
+function currentStateText(current: CurrentState): string {
+  const free = current.foundingTrialAddons.length;
+  const override = current.founderOverride ? " (founder override recorded)" : "";
+  const lead =
+    free > 0
+      ? `Already on the Founding Trial: ${addonCount(free)} free`
+      : "Not on the Founding Trial now: no add-ons held free";
+  const paid =
+    current.paidAddons.length > 0
+      ? ` ${addonCount(current.paidAddons.length)} paid through Stripe.`
+      : "";
+  return `${lead}, ${currentBasePlanText(current.owner)}${override}.${paid}`;
 }
 
 /** The business a Preview showed: what the operator ticks and Apply sends. */
@@ -88,6 +149,9 @@ export default function FoundingTrialPage() {
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // What the business holds now, from the latest Preview; cleared by Apply.
+  const [current, setCurrent] = useState<CurrentState | null>(null);
+  const [currentError, setCurrentError] = useState<string | null>(null);
   // RA-8664: the override reason being typed, and the one the latest Preview
   // used. Apply sends the reason Preview used, never a later edit.
   const [overrideReason, setOverrideReason] = useState("");
@@ -104,6 +168,8 @@ export default function FoundingTrialPage() {
       setPreviewed(null);
       setPreviewOverride(null);
     }
+    setCurrent(null);
+    setCurrentError(null);
     setBusy(true);
     setError(null);
     try {
@@ -133,6 +199,10 @@ export default function FoundingTrialPage() {
         setOutcome(null);
       } else if (data.outcome) {
         setOutcome(data.outcome as Outcome);
+        if (!apply) {
+          setCurrent((data.current as CurrentState | null | undefined) ?? null);
+          setCurrentError(typeof data.currentError === "string" ? data.currentError : null);
+        }
         setConfirmed(null);
         const entity = (data.outcome as Outcome).entity;
         if (
@@ -234,6 +304,22 @@ export default function FoundingTrialPage() {
             </div>
           )}
 
+          {current && (
+            <div
+              role="status"
+              aria-label="Current Founding Trial state"
+              className="rounded-lg border border-neutral-200 px-4 py-3 text-sm font-medium text-neutral-900 dark:border-neutral-800 dark:text-white"
+            >
+              {currentStateText(current)}
+            </div>
+          )}
+
+          {currentError && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+              {currentError}
+            </div>
+          )}
+
           {outcome && outcome.status === "identity_changed" && (
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
               Not granted. The business&apos;s details changed after Preview.
@@ -243,7 +329,13 @@ export default function FoundingTrialPage() {
 
           {outcome && outcome.status === "unverified_abn" && (
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-              Not granted. {outcome.reason}
+              {/* "Not granted" only when the read shows nothing held free: a
+                  failed read, or a grant already in place, must not read as
+                  the business holding nothing. */}
+              {current && current.foundingTrialAddons.length === 0
+                ? "Not granted."
+                : "A new grant cannot run from this Preview."}{" "}
+              {outcome.reason}
             </div>
           )}
 

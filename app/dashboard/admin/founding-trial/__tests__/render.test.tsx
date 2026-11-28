@@ -322,3 +322,169 @@ describe("Founding Trial page - founder override", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("Founding Trial page - what the business holds now", () => {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  const NINE = [
+    "VOICE",
+    "TECHNICIAN_SEATS",
+    "BOOKKEEPING",
+    "SERVICE_CRM",
+    "PAYMENTS",
+    "FLOORPLAN_UNDERLAY",
+    "CLIENT_COMMS",
+    "CLIENT_EDUCATION",
+    "AI_COPILOT",
+  ];
+  const GRANTED = {
+    workspaceId: "ws_drc",
+    activeAddons: NINE,
+    foundingTrialAddons: NINE,
+    paidAddons: [],
+    owner: { subscriptionStatus: "TRIAL", trialEndsAt: "2027-01-28T03:00:00.000Z" },
+    founderOverride: { recordedAt: "2026-11-29T01:00:00.000Z" },
+  };
+  const ALREADY =
+    "Already on the Founding Trial: 9 add-ons free, base plan free until 28 January 2027 (founder override recorded).";
+
+  beforeEach(() => {
+    // Only Date is faked, so "free until" is judged against 29/11/2026 and
+    // the test does not change meaning after 28/01/2027.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-29T02:00:00.000Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  async function preview(body: unknown, status: number) {
+    const fetchMock = vi.fn(async () => json(body, status));
+    vi.stubGlobal("fetch", fetchMock);
+    await renderAs(OPERATOR);
+    fireEvent.change(screen.getByLabelText("ABN or organisation id"), {
+      target: { value: "28 614 802 425" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    return fetchMock;
+  }
+
+  it("a granted business whose ABN is unconfirmed shows the grant in place, and the override still works", async () => {
+    await preview(
+      {
+        organizationId: "org_drc",
+        current: GRANTED,
+        outcome: {
+          status: "unverified_abn",
+          organizationId: "org_drc",
+          reason: "The Australian Business Register has not confirmed this business's ABN.",
+          overridable: true,
+        },
+      },
+      422,
+    );
+    const state = await screen.findByRole("status", { name: "Current Founding Trial state" });
+    expect(state).toHaveTextContent(ALREADY);
+    expect(screen.queryByText(/^Not granted\./)).not.toBeInTheDocument();
+    expect(screen.getByText(/A new grant cannot run from this Preview\./)).toBeInTheDocument();
+    expect(screen.getByLabelText("Founder override reason")).toBeInTheDocument();
+  });
+
+  it("a granted business whose ABN is confirmed shows the grant in place above the dry run", async () => {
+    await preview(
+      {
+        organizationId: "org_drc",
+        current: GRANTED,
+        outcome: {
+          status: "dry_run",
+          entity: { abn: "28614802425", legalName: "DRC (NSW) PTY LTD", tradingNames: [] },
+          result: { granted: NINE, skippedPaid: [], applied: false },
+          basePlan: { outcome: "extended", trialEndsAt: "2027-01-28T03:00:00.000Z" },
+        },
+      },
+      200,
+    );
+    const state = await screen.findByRole("status", { name: "Current Founding Trial state" });
+    expect(state).toHaveTextContent(ALREADY);
+    expect(screen.getByRole("button", { name: "Apply Founding Trial" })).toBeDisabled();
+  });
+
+  it("control: a never-granted business reads as not on the trial, and the refusal still says Not granted", async () => {
+    await preview(
+      {
+        organizationId: "org_new",
+        current: {
+          workspaceId: "ws_new",
+          activeAddons: [],
+          foundingTrialAddons: [],
+          paidAddons: [],
+          owner: { subscriptionStatus: "EXPIRED", trialEndsAt: "2026-10-15T00:00:00.000Z" },
+          founderOverride: null,
+        },
+        outcome: {
+          status: "unverified_abn",
+          organizationId: "org_new",
+          reason: "The Australian Business Register has not confirmed this business's ABN.",
+          overridable: true,
+        },
+      },
+      422,
+    );
+    const state = await screen.findByRole("status", { name: "Current Founding Trial state" });
+    expect(state).toHaveTextContent(
+      "Not on the Founding Trial now: no add-ons held free, base plan trial ended 15 October 2026.",
+    );
+    expect(screen.getByText(/Not granted\./)).toBeInTheDocument();
+  });
+
+  it("a failed read is said plainly, never shown as an empty state", async () => {
+    await preview(
+      {
+        organizationId: "org_drc",
+        current: null,
+        currentError:
+          "What this business holds now could not be read, so this Preview cannot say whether it is already on the Founding Trial.",
+        outcome: {
+          status: "unverified_abn",
+          organizationId: "org_drc",
+          reason: "The Australian Business Register has not confirmed this business's ABN.",
+          overridable: true,
+        },
+      },
+      422,
+    );
+    expect(await screen.findByText(/could not be read/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("status", { name: "Current Founding Trial state" }),
+    ).not.toBeInTheDocument();
+    // Review D3: an unknown state must not read as "Not granted".
+    expect(screen.queryByText(/Not granted\./)).not.toBeInTheDocument();
+    expect(screen.getByText(/A new grant cannot run from this Preview\./)).toBeInTheDocument();
+  });
+
+  it("review D4: lifetime access reads as lifetime access, not as paying", async () => {
+    await preview(
+      {
+        organizationId: "org_life",
+        current: {
+          workspaceId: "ws_life",
+          activeAddons: [],
+          foundingTrialAddons: [],
+          paidAddons: [],
+          owner: { subscriptionStatus: "ACTIVE", trialEndsAt: null, lifetimeAccess: true },
+          founderOverride: null,
+        },
+        outcome: {
+          status: "dry_run",
+          entity: { abn: "28614802425", legalName: "LIFETIME PTY LTD", tradingNames: [] },
+          result: { granted: ["VOICE"], skippedPaid: [], applied: false },
+          basePlan: { outcome: "skipped_lifetime", trialEndsAt: null },
+        },
+      },
+      200,
+    );
+    const state = await screen.findByRole("status", { name: "Current Founding Trial state" });
+    expect(state).toHaveTextContent(
+      "Not on the Founding Trial now: no add-ons held free, lifetime access to the base plan.",
+    );
+    expect(state).not.toHaveTextContent(/paying/);
+  });
+});

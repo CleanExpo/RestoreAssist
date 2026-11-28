@@ -23,6 +23,10 @@
  *     With any Stripe billing on record it answers 424, names what is on
  *     record, and writes nothing (or, in the second check, puts the grant
  *     back).
+ *   - A Preview also returns `current`: what the business holds now (add-ons
+ *     held free, the owner's base plan, any founder override), read before
+ *     the ABN check, so an already-granted business is not shown as never
+ *     granted. Read-only; a failed read returns `currentError` instead.
  *
  * Platform staff only. `role: "ADMIN"` is every self-registered firm owner, so
  * verifyAdminFromDb is followed by verifyPlatformSupportOperator, which fails
@@ -46,9 +50,16 @@ import {
   FoundingTrialBillingUncheckedError,
   FoundingTrialGrantError,
   FoundingTrialSettleCheckError,
+  foundingTrialCurrentState,
   runFoundingTrialGrant,
+  type FoundingTrialCurrentState,
   type StripeHistory,
 } from "@/lib/billing/founding-trial-grant";
+import { reportError } from "@/lib/observability";
+
+const CURRENT_STATE_UNREADABLE =
+  "What this business holds now could not be read, so this Preview cannot " +
+  "say whether it is already on the Founding Trial.";
 
 // The script waits five minutes (GRANT_SETTLE_MS) before its second Stripe
 // check. That wait is margin, not correctness (see GRANT_SETTLE_MS): checkout
@@ -214,6 +225,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Preview reads what the business holds now before the ABN check can stop
+    // the dry run, so a business already granted (on an override, say) is not
+    // shown as never granted. Read-only. A failed read is said, never shown
+    // as an empty state.
+    let current: FoundingTrialCurrentState | null = null;
+    let currentError: string | undefined;
+    if (!apply) {
+      try {
+        current = await foundingTrialCurrentState(prisma, org.id);
+      } catch (err) {
+        reportError(err, {
+          route: "/api/admin/founding-trial",
+          stage: "admin.founding-trial.current-state",
+          organizationId: org.id,
+        });
+        currentError = CURRENT_STATE_UNREADABLE;
+      }
+    }
+
     const outcome = await runFoundingTrialGrant({
       db: prisma,
       stripe,
@@ -224,7 +254,12 @@ export async function POST(request: NextRequest) {
       ...(abnOverride ? { abnOverride } : {}),
     });
     return NextResponse.json(
-      { outcome, organizationId: org.id },
+      {
+        outcome,
+        organizationId: org.id,
+        ...(apply ? {} : { current }),
+        ...(currentError ? { currentError } : {}),
+      },
       { status: STATUS_CODE[outcome.status] ?? 500 },
     );
   } catch (err) {

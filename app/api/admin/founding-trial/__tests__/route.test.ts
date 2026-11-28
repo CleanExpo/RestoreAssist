@@ -14,6 +14,7 @@ import { NextRequest } from "next/server";
 const getServerSession = vi.fn();
 const orgFindUnique = vi.fn();
 const runFoundingTrialGrant = vi.fn();
+const foundingTrialCurrentState = vi.fn();
 
 const OPERATOR = "operator_ra7721";
 const TENANT_ADMIN = "tenant_admin_ra7721";
@@ -42,6 +43,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/billing/founding-trial-grant", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/billing/founding-trial-grant")>()),
   runFoundingTrialGrant: (...args: unknown[]) => runFoundingTrialGrant(...args),
+  foundingTrialCurrentState: (...args: unknown[]) => foundingTrialCurrentState(...args),
 }));
 
 import { POST } from "../route";
@@ -64,6 +66,15 @@ beforeEach(() => {
   getServerSession.mockReset();
   orgFindUnique.mockReset();
   runFoundingTrialGrant.mockReset();
+  foundingTrialCurrentState.mockReset();
+  foundingTrialCurrentState.mockResolvedValue({
+    workspaceId: "ws_1",
+    activeAddons: [],
+    foundingTrialAddons: [],
+    paidAddons: [],
+    owner: { subscriptionStatus: "EXPIRED", trialEndsAt: null },
+    founderOverride: null,
+  });
   orgFindUnique.mockImplementation(async ({ where }: { where: { id?: string; abn?: string } }) =>
     where.abn === "51824753556" || where.id === "org_firm" ? { id: "org_firm" } : null,
   );
@@ -304,5 +315,98 @@ describe("POST /api/admin/founding-trial - Stripe failure and founder override",
   it("control: no override field sends no override", async () => {
     await post({ abn: "51824753556" });
     expect(runFoundingTrialGrant.mock.calls[0][0].abnOverride).toBeUndefined();
+  });
+});
+
+describe("POST /api/admin/founding-trial - Preview shows what the business holds now", () => {
+  const NINE = [
+    "VOICE",
+    "TECHNICIAN_SEATS",
+    "BOOKKEEPING",
+    "SERVICE_CRM",
+    "PAYMENTS",
+    "FLOORPLAN_UNDERLAY",
+    "CLIENT_COMMS",
+    "CLIENT_EDUCATION",
+    "AI_COPILOT",
+  ];
+  const GRANTED = {
+    workspaceId: "ws_1",
+    activeAddons: NINE,
+    foundingTrialAddons: NINE,
+    paidAddons: [],
+    owner: { subscriptionStatus: "TRIAL", trialEndsAt: new Date("2027-01-28T03:00:00.000Z") },
+    founderOverride: { recordedAt: new Date("2026-11-29T01:00:00.000Z") },
+  };
+
+  beforeEach(() => {
+    signIn(OPERATOR);
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", OPERATOR);
+    foundingTrialCurrentState.mockResolvedValue(GRANTED);
+  });
+
+  it("a granted business whose ABN is unconfirmed: the refusal carries the grant already in place", async () => {
+    runFoundingTrialGrant.mockResolvedValue({
+      status: "unverified_abn",
+      organizationId: "org_firm",
+      reason: "The Australian Business Register has not confirmed this business's ABN.",
+      overridable: true,
+    });
+    const res = await post({ abn: "51824753556" });
+    const body = await res.json();
+    expect(res.status).toBe(422);
+    expect(body.outcome.status).toBe("unverified_abn");
+    expect(foundingTrialCurrentState).toHaveBeenCalledTimes(1);
+    expect(foundingTrialCurrentState.mock.calls[0][1]).toBe("org_firm");
+    expect(body.current.foundingTrialAddons).toEqual(NINE);
+    expect(body.current.owner).toEqual({
+      subscriptionStatus: "TRIAL",
+      trialEndsAt: "2027-01-28T03:00:00.000Z",
+    });
+    expect(body.current.founderOverride).toEqual({ recordedAt: "2026-11-29T01:00:00.000Z" });
+    expect(body.currentError).toBeUndefined();
+  });
+
+  it("a granted business whose ABN is confirmed: the dry run carries the grant already in place", async () => {
+    const res = await post({ organizationId: "org_firm" });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.outcome.status).toBe("dry_run");
+    expect(body.current.foundingTrialAddons).toEqual(NINE);
+    expect(body.current.owner.subscriptionStatus).toBe("TRIAL");
+  });
+
+  it("Apply does not read it and does not return it (the write path is unchanged)", async () => {
+    const res = await post({
+      organizationId: "org_firm",
+      apply: true,
+      confirmed: {
+        organizationId: "org_firm",
+        abn: "51824753556",
+        legalName: "WATERLINE RESTORATIONS PTY LTD",
+      },
+    });
+    const body = await res.json();
+    expect(foundingTrialCurrentState).not.toHaveBeenCalled();
+    expect(body).not.toHaveProperty("current");
+  });
+
+  it("a failed read says so and the Preview still answers; it is never shown as an empty state", async () => {
+    foundingTrialCurrentState.mockRejectedValue(new Error("connection reset"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await post({ abn: "51824753556" });
+    const body = await res.json();
+    spy.mockRestore();
+    expect(res.status).toBe(200);
+    expect(body.outcome.status).toBe("dry_run");
+    expect(body.current).toBeNull();
+    expect(body.currentError).toMatch(/could not be read/);
+  });
+
+  it("a tenant ADMIN is refused before anything about the business is read", async () => {
+    signIn(TENANT_ADMIN);
+    const res = await post({ abn: "51824753556" });
+    expect(res.status).toBe(403);
+    expect(foundingTrialCurrentState).not.toHaveBeenCalled();
   });
 });
