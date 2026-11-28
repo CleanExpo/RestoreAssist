@@ -7,12 +7,9 @@
  * current password hash, so setting the password again ends every earlier
  * session.
  *
- * Interim (RA-8461 slice 1): a token minted before binding carries no
- * fingerprint and is still accepted. Nothing can change a portal password
- * yet, so such a token cannot be stale, and refusing it would sign out
- * homeowners who have forgotten their password before recovery exists.
- * The change that first writes ClientUser.passwordHash (recovery) must make
- * a missing fingerprint a refusal in the same commit.
+ * RA-8613: a token with no fingerprint is refused. Portal passwords can now
+ * be set again through recovery (invitations/accept), so a token minted
+ * before binding could outlive a credential change.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -71,11 +68,10 @@ export async function requireClientAuth(
     if (
       !clientUser ||
       clientUser.clientId !== claims.clientId ||
-      (claims.credentialFingerprint !== null &&
-        !credentialFingerprintMatches(
-          claims.credentialFingerprint,
-          clientUser.passwordHash,
-        ))
+      !credentialFingerprintMatches(
+        claims.credentialFingerprint,
+        clientUser.passwordHash,
+      )
     ) {
       return unauthorizedResult();
     }

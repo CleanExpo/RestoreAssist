@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { afterResponse } from "@/lib/portal/after-response";
 import { extendAndEmailPortalInvitation } from "@/lib/portal/extend-and-email-invitation";
+import { emailRecoveryLink } from "@/lib/portal/recovery-email";
 import {
   GENERIC_INVITE_RESEND_MESSAGE,
   isLikelyEmail,
@@ -11,14 +13,20 @@ export type RequestInviteResendFailure = "invalid_email";
 
 export type RequestInviteResendData = {
   message: string;
-  /** Internal only — never expose on the public HTTP body. */
+  /** Internal only - never expose on the public HTTP body. True when mail was queued for a matching address. */
   matched: boolean;
 };
 
 /**
  * Public recovery: resend a PENDING or EXPIRED portal invitation for an email.
  * Always returns the same client message so the address cannot be enumerated.
- * REVOKED and ACCEPTED invitations are left alone.
+ * REVOKED and ACCEPTED invitations are never resent.
+ *
+ * RA-8613: when the email belongs to an existing portal account, a stateless
+ * signed "set a new password" link is emailed to that address (see
+ * lib/portal/recovery-token.ts). Nothing is stored and no invitation row is
+ * created or extended, so no API a contractor can call exposes the link;
+ * knowing the address alone is never enough to set the password.
  */
 export async function requestPortalInvitationResend(
   rawEmail: string,
@@ -29,28 +37,57 @@ export async function requestPortalInvitationResend(
 
   const email = normaliseRecoveryEmail(rawEmail);
 
-  const invitations = await prisma.portalInvitation.findMany({
-    where: {
-      email,
-      status: { in: ["PENDING", "EXPIRED"] },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 5,
-    select: {
-      id: true,
-      token: true,
-      email: true,
-      status: true,
-      client: { select: { name: true } },
-      user: {
-        select: {
-          name: true,
-          businessName: true,
-          organizationId: true,
+  // The same two reads run for every address, so the awaited work does not
+  // reveal whether the address has an account, an invitation or neither.
+  const [accountHolder, invitations] = await Promise.all([
+    prisma.clientUser.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
+      select: {
+        id: true,
+        clientId: true,
+        email: true,
+        name: true,
+        passwordHash: true,
+      },
+    }),
+    prisma.portalInvitation.findMany({
+      where: {
+        email,
+        status: { in: ["PENDING", "EXPIRED"] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        token: true,
+        email: true,
+        status: true,
+        client: { select: { name: true } },
+        user: {
+          select: {
+            name: true,
+            businessName: true,
+            organizationId: true,
+          },
         },
       },
-    },
-  });
+    }),
+  ]);
+
+  if (accountHolder) {
+    // Mail is sent after the response (afterResponse): its round trip and any
+    // failure are never part of what the caller sees.
+    afterResponse(() =>
+      emailRecoveryLink({
+        clientUserId: accountHolder.id,
+        clientId: accountHolder.clientId,
+        email: accountHolder.email,
+        name: accountHolder.name,
+        passwordHash: accountHolder.passwordHash,
+      }),
+    );
+    return ok({ message: GENERIC_INVITE_RESEND_MESSAGE, matched: true });
+  }
 
   const invitation = invitations[0];
   if (!invitation) {
@@ -63,18 +100,21 @@ export async function requestPortalInvitationResend(
   const contractorName =
     invitation.user.businessName || invitation.user.name || "RestoreAssist";
 
-  await extendAndEmailPortalInvitation({
-    invitationId: invitation.id,
-    token: invitation.token,
-    email: invitation.email,
-    clientName: invitation.client.name,
-    contractorName,
-    organizationId: invitation.user.organizationId,
-    kind: "reminder",
-  });
+  // After the response, like the recovery email above: neither the time the
+  // mail takes nor its failure can be used as an existence oracle. The generic
+  // message still points at the contractor.
+  afterResponse(() =>
+    extendAndEmailPortalInvitation({
+      invitationId: invitation.id,
+      token: invitation.token,
+      email: invitation.email,
+      clientName: invitation.client.name,
+      contractorName,
+      organizationId: invitation.user.organizationId,
+      kind: "reminder",
+    }),
+  );
 
-  // Email failure is swallowed on the public path so a 503 cannot be used
-  // as an existence oracle. The generic message still points at the contractor.
   return ok({
     message: GENERIC_INVITE_RESEND_MESSAGE,
     matched: true,

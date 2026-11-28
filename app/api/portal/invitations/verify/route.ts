@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { isPortalInvitationToken } from "@/lib/public-token-shape";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  looksLikeRecoveryToken,
+  recoveryLinkIsLive,
+  verifyRecoveryToken,
+} from "@/lib/portal/recovery-token";
 
 // GET /api/portal/invitations/verify?token=... - Verify invitation token
 export async function GET(request: NextRequest) {
@@ -22,6 +27,45 @@ export async function GET(request: NextRequest) {
         code: "VALIDATION",
         message: "Token is required",
         status: 400,
+      });
+    }
+
+    // RA-8613: an emailed password-recovery link (stateless, never stored).
+    if (looksLikeRecoveryToken(token)) {
+      const claims = await verifyRecoveryToken(token);
+      const account = claims
+        ? await prisma.clientUser.findUnique({
+            where: { id: claims.clientUserId },
+            select: {
+              clientId: true,
+              email: true,
+              name: true,
+              passwordHash: true,
+            },
+          })
+        : null;
+      if (
+        !claims ||
+        !account ||
+        account.clientId !== claims.clientId ||
+        account.email.toLowerCase() !== claims.email.toLowerCase() ||
+        !recoveryLinkIsLive(claims, account.passwordHash)
+      ) {
+        return NextResponse.json({
+          valid: false,
+          error: "This recovery link is invalid or has expired",
+          status: "EXPIRED",
+        });
+      }
+      return NextResponse.json({
+        valid: true,
+        recovery: true,
+        invitation: {
+          email: account.email,
+          clientName: account.name,
+          contractorName: "RestoreAssist",
+          expiresAt: claims.expiresAt,
+        },
       });
     }
 
