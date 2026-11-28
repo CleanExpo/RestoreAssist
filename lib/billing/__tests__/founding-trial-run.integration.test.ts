@@ -20,8 +20,10 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { AddonSku } from "@prisma/client";
 import {
   COMPLIMENTARY_PRICE_ID,
+  foundingTrialCurrentState,
   runFoundingTrialGrant,
   type BillingReader,
 } from "../founding-trial-grant";
@@ -255,5 +257,51 @@ describe.skipIf(!HAS_DB)("runFoundingTrialGrant on a real database (RA-7721 r2)"
     const out = await grant(b.organizationId);
     expect(out).toMatchObject({ status: "granted", basePlan: { outcome: "skipped_paying" } });
     expect(await ownerRow(b.ownerId)).toEqual(before);
+  });
+  it("current state, ABN unconfirmed: a founder-override grant reads as in place before the ABN check", async () => {
+    const b = await business();
+    await prisma.hydrationJob.update({
+      where: { organizationId_kind: { organizationId: b.organizationId, kind: "ABR" } },
+      data: { status: "ERROR", errorMessage: "UPSTREAM_ERROR" },
+    });
+    const before = await foundingTrialCurrentState(prisma, b.organizationId);
+    expect(before.foundingTrialAddons).toEqual([]);
+    expect(before.founderOverride).toBeNull();
+
+    const out = await runFoundingTrialGrant({
+      db: prisma as unknown as PrismaClient,
+      stripe: noBilling,
+      organizationId: b.organizationId,
+      apply: true,
+      now: NOW,
+      sleep: async () => {},
+      abnOverride: { reason: "Founder approved: ABR lookup failed at signup.", operatorUserId: b.ownerId },
+    });
+    expect(out.status).toBe("granted");
+
+    // What Preview now reads first, while the dry run itself still stops at the ABN.
+    const preview = await runFoundingTrialGrant({
+      db: prisma as unknown as PrismaClient,
+      stripe: noBilling,
+      organizationId: b.organizationId,
+      apply: false,
+      now: NOW,
+    });
+    expect(preview.status).toBe("unverified_abn");
+    const state = await foundingTrialCurrentState(prisma, b.organizationId);
+    expect(state.workspaceId).toBe(b.workspaceId);
+    expect([...state.foundingTrialAddons].sort()).toEqual([...Object.values(AddonSku)].sort());
+    expect(state.paidAddons).toEqual([]);
+    expect(state.owner).toEqual({ subscriptionStatus: "TRIAL", trialEndsAt: SIXTY });
+    expect(state.founderOverride).not.toBeNull();
+  });
+
+  it("current state, ABN confirmed: a granted business reads as in place, with no override", async () => {
+    const b = await business();
+    expect((await grant(b.organizationId)).status).toBe("granted");
+    const state = await foundingTrialCurrentState(prisma, b.organizationId);
+    expect(state.foundingTrialAddons).toHaveLength(Object.values(AddonSku).length);
+    expect(state.owner).toEqual({ subscriptionStatus: "TRIAL", trialEndsAt: SIXTY });
+    expect(state.founderOverride).toBeNull();
   });
 });

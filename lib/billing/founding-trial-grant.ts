@@ -905,6 +905,18 @@ async function organisationOwnerId(
   return org.ownerId;
 }
 
+/** The owner's oldest READY workspace: the one the grant writes to. */
+async function ownerGrantWorkspace(
+  db: GrantDb,
+  ownerId: string,
+): Promise<{ id: string } | null> {
+  return db.workspace.findFirst({
+    where: { ownerId, status: "READY" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+}
+
 async function grantWorkspaceId(
   db: GrantDb,
   organizationId: string,
@@ -919,11 +931,7 @@ async function grantWorkspaceId(
     );
   }
 
-  const workspace = await db.workspace.findFirst({
-    where: { ownerId: org.ownerId, status: "READY" },
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
+  const workspace = await ownerGrantWorkspace(db, org.ownerId);
   if (!workspace) {
     throw new FoundingTrialGrantError(
       `Organisation ${organizationId} has no READY workspace`,
@@ -1013,4 +1021,95 @@ export async function grantFoundingTrial(
   }
 
   return { workspaceId, granted, skippedPaid, prior, applied: true };
+}
+
+/**
+ * What a business holds now, read before any check that could stop a Preview,
+ * so the page can tell "never granted" from "already granted" (29/11/2026: a
+ * business granted on a founder override previewed as "Not granted" because
+ * the ABR check stopped the dry run before it read anything). Read-only.
+ */
+export interface FoundingTrialCurrentState {
+  /** The workspace the grant writes to; null when the owner has no READY one. */
+  workspaceId: string | null;
+  /** Add-ons switched on for that workspace. */
+  activeAddons: AddonSku[];
+  /** Of those, the ones a Founding Trial grant holds free (no Stripe subscription). */
+  foundingTrialAddons: AddonSku[];
+  /** Of those, the ones a Stripe subscription pays for. */
+  paidAddons: AddonSku[];
+  /** The organisation owner's base plan, as the User row holds it. */
+  owner: {
+    subscriptionStatus: SubscriptionStatus | null;
+    trialEndsAt: Date | null;
+  } | null;
+  /**
+   * The latest founder override recorded for this business, unless a later
+   * put-back (ABN_OVERRIDE_REVERTED_EVENT) for the same business followed it.
+   */
+  founderOverride: { recordedAt: Date } | null;
+}
+
+/** Override events to scan, newest first; one business rarely has more than two. */
+const OVERRIDE_EVENT_SCAN = 50;
+
+export async function foundingTrialCurrentState(
+  db: GrantDb,
+  organizationId: string,
+): Promise<FoundingTrialCurrentState> {
+  const org = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { ownerId: true },
+  });
+  if (!org) {
+    throw new FoundingTrialGrantError(`No organisation with id ${organizationId}`);
+  }
+  const [workspace, owner, events] = await Promise.all([
+    ownerGrantWorkspace(db, org.ownerId),
+    db.user.findUnique({
+      where: { id: org.ownerId },
+      select: { subscriptionStatus: true, trialEndsAt: true },
+    }),
+    db.subscriptionEvent.findMany({
+      where: {
+        userId: org.ownerId,
+        eventType: { in: [ABN_OVERRIDE_EVENT, ABN_OVERRIDE_REVERTED_EVENT] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: OVERRIDE_EVENT_SCAN,
+      select: { eventType: true, payload: true, createdAt: true },
+    }),
+  ]);
+
+  const rows = workspace
+    ? await db.featureEntitlement.findMany({
+        where: { workspaceId: workspace.id, active: true },
+        select: { sku: true, stripePriceId: true, stripeSubscriptionId: true },
+      })
+    : [];
+  const activeAddons = rows.map((r) => r.sku);
+  const foundingTrialAddons = rows
+    .filter((r) => isComplimentaryEntitlement(r) && !r.stripeSubscriptionId)
+    .map((r) => r.sku);
+  const paidAddons = rows.filter((r) => r.stripeSubscriptionId).map((r) => r.sku);
+
+  // The owner may own more than one business; the event names which one.
+  const latest = events.find(
+    (e) =>
+      (e.payload as { organizationId?: unknown } | null)?.organizationId ===
+      organizationId,
+  );
+  const founderOverride =
+    latest?.eventType === ABN_OVERRIDE_EVENT ? { recordedAt: latest.createdAt } : null;
+
+  return {
+    workspaceId: workspace?.id ?? null,
+    activeAddons,
+    foundingTrialAddons,
+    paidAddons,
+    owner: owner
+      ? { subscriptionStatus: owner.subscriptionStatus, trialEndsAt: owner.trialEndsAt }
+      : null,
+    founderOverride,
+  };
 }
