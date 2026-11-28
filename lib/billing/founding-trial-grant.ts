@@ -87,6 +87,23 @@ export class FoundingTrialGrantError extends Error {
 }
 
 /**
+ * RA-8664 (discovery sweep): the second Stripe check, after the grant
+ * committed, could not finish. The grant cannot prove the business is not
+ * also paying, so it was put back as it was before this error was thrown.
+ * `settleError` is what the Stripe read threw.
+ */
+export class FoundingTrialSettleCheckError extends Error {
+  readonly settleError: unknown;
+  constructor(settleError: unknown) {
+    super(
+      "The second billing check could not finish, so the Founding Trial grant was put back as it was.",
+    );
+    this.name = "FoundingTrialSettleCheckError";
+    this.settleError = settleError;
+  }
+}
+
+/**
  * Stripe billing for this business that the grant would collide with: an
  * add-on Checkout not yet finished, or a live add-on subscription that no
  * entitlement row records yet (its checkout completed but the webhook has not
@@ -208,7 +225,13 @@ async function currentConflicts(
 export const GRANT_SETTLE_MS = 5 * 60 * 1000;
 
 export type FoundingTrialRunOutcome =
-  | { status: "unverified_abn"; organizationId: string; reason: string }
+  | {
+      status: "unverified_abn";
+      organizationId: string;
+      reason: string;
+      /** True when a founder override with a recorded reason may grant it. */
+      overridable: boolean;
+    }
   | { status: "identity_changed"; organizationId: string; reason: string }
   | { status: "refused"; workspaceId: string; conflicts: BillingConflict[] }
   | { status: "reverted"; workspaceId: string; conflicts: BillingConflict[] }
@@ -233,12 +256,34 @@ export interface ConfirmedBusiness {
 const IDENTITY_CHANGED =
   "The business's details changed after Preview. Preview again before applying.";
 
-/** The business as the Australian Business Register named it at signup. */
+/**
+ * The business the grant is for. `source` says who vouched for it: the
+ * Australian Business Register at signup, or the founder on an override
+ * (RA-8664), in which case the name is the one the business entered.
+ */
 export interface VerifiedAbrEntity {
   abn: string;
   legalName: string;
   tradingNames: string[];
+  source: "abr" | "founder_override";
 }
+
+/**
+ * Why there is no ABR-confirmed identity. Only `not_confirmed` (the lookup
+ * never finished: no job, still running, or it errored) may be overridden.
+ * A register answer that names a different ABN, or a cancelled one, never is.
+ */
+export type AbrRefusal =
+  | "no_organisation"
+  | "no_abn"
+  | "not_confirmed"
+  | "different_abn"
+  | "cancelled"
+  | "no_entity_name";
+
+type IdentityCheck =
+  | { ok: true; entity: VerifiedAbrEntity }
+  | { ok: false; reason: string; code: AbrRefusal };
 
 const digitsOnly = (v: unknown) =>
   typeof v === "string" ? v.replace(/\D/g, "") : "";
@@ -252,15 +297,17 @@ const digitsOnly = (v: unknown) =>
 export async function verifiedAbrEntity(
   db: GrantDb,
   organizationId: string,
-): Promise<{ ok: true; entity: VerifiedAbrEntity } | { ok: false; reason: string }> {
+): Promise<IdentityCheck> {
   const org = await db.organization.findUnique({
     where: { id: organizationId },
     select: { abn: true },
   });
-  if (!org) return { ok: false, reason: `No organisation with id ${organizationId}` };
+  if (!org) {
+    return { ok: false, code: "no_organisation", reason: `No organisation with id ${organizationId}` };
+  }
   const abn = digitsOnly(org.abn);
   if (abn.length !== 11) {
-    return { ok: false, reason: "This business has no ABN on record." };
+    return { ok: false, code: "no_abn", reason: "This business has no ABN on record." };
   }
   const job = await db.hydrationJob.findUnique({
     where: { organizationId_kind: { organizationId, kind: "ABR" } },
@@ -269,6 +316,7 @@ export async function verifiedAbrEntity(
   if (!job || job.status !== "READY" || !job.payload) {
     return {
       ok: false,
+      code: "not_confirmed",
       reason: "The Australian Business Register has not confirmed this business's ABN.",
     };
   }
@@ -276,19 +324,83 @@ export async function verifiedAbrEntity(
   if (digitsOnly(p.abn) !== abn) {
     return {
       ok: false,
+      code: "different_abn",
       reason: "The ABN on this business is not the one the Australian Business Register confirmed.",
     };
   }
   if (p.status !== "ACTIVE") {
-    return { ok: false, reason: "The Australian Business Register lists this ABN as cancelled." };
+    return {
+      ok: false,
+      code: "cancelled",
+      reason: "The Australian Business Register lists this ABN as cancelled.",
+    };
   }
   if (typeof p.legalName !== "string" || !p.legalName) {
-    return { ok: false, reason: "The Australian Business Register record has no entity name." };
+    return {
+      ok: false,
+      code: "no_entity_name",
+      reason: "The Australian Business Register record has no entity name.",
+    };
   }
   const tradingNames = Array.isArray(p.tradingNames)
     ? p.tradingNames.filter((n): n is string => typeof n === "string")
     : [];
-  return { ok: true, entity: { abn, legalName: p.legalName, tradingNames } };
+  return {
+    ok: true,
+    entity: { abn, legalName: p.legalName, tradingNames, source: "abr" },
+  };
+}
+
+/**
+ * RA-8664 founder ruling (28/11/2026): a named business whose ABN check did
+ * not complete may get the grant on a founder override, with the reason
+ * recorded. The reason is written as a SubscriptionEvent on the owner in the
+ * same transaction as the grant, so it exists exactly when the grant does.
+ */
+export interface FoundingTrialAbnOverride {
+  reason: string;
+  operatorUserId: string;
+}
+
+export const ABN_OVERRIDE_MIN_REASON = 20;
+export const ABN_OVERRIDE_EVENT = "FOUNDING_TRIAL_ABN_OVERRIDE";
+export const ABN_OVERRIDE_REVERTED_EVENT = "FOUNDING_TRIAL_ABN_OVERRIDE_REVERTED";
+
+/**
+ * The identity the grant is bound to: the ABR-confirmed one, or, with an
+ * override and only for a lookup that never finished, the ABN and name the
+ * business holds on its own record. A different or cancelled ABN still
+ * refuses, override or not.
+ */
+async function grantIdentity(
+  db: GrantDb,
+  organizationId: string,
+  override: FoundingTrialAbnOverride | undefined,
+): Promise<IdentityCheck> {
+  const verified = await verifiedAbrEntity(db, organizationId);
+  if (verified.ok || verified.code !== "not_confirmed" || !override) return verified;
+  if (override.reason.trim().length < ABN_OVERRIDE_MIN_REASON) {
+    return {
+      ok: false,
+      code: "not_confirmed",
+      reason: `A founder override needs a reason of at least ${ABN_OVERRIDE_MIN_REASON} characters.`,
+    };
+  }
+  const org = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { abn: true, legalName: true, name: true },
+  });
+  const legalName = org?.legalName?.trim() || org?.name?.trim() || "";
+  if (!org || !legalName) return verified;
+  return {
+    ok: true,
+    entity: {
+      abn: digitsOnly(org.abn),
+      legalName,
+      tradingNames: [],
+      source: "founder_override",
+    },
+  };
 }
 
 /** Length of the free base plan for a Founding Trial business. */
@@ -472,14 +584,21 @@ export async function runFoundingTrialGrant(deps: {
   now?: Date;
   /** What the operator saw on Preview; when absent, the check below. */
   confirmed?: ConfirmedBusiness;
+  /** RA-8664: founder override for an ABN check that never completed. */
+  abnOverride?: FoundingTrialAbnOverride;
 }): Promise<FoundingTrialRunOutcome> {
-  const { db, stripe, organizationId, apply, confirmed } = deps;
+  const { db, stripe, organizationId, apply, confirmed, abnOverride } = deps;
   if (confirmed && confirmed.organizationId !== organizationId) {
     return { status: "identity_changed", organizationId, reason: IDENTITY_CHANGED };
   }
-  const verified = await verifiedAbrEntity(db, organizationId);
+  const verified = await grantIdentity(db, organizationId, abnOverride);
   if (!verified.ok) {
-    return { status: "unverified_abn", organizationId, reason: verified.reason };
+    return {
+      status: "unverified_abn",
+      organizationId,
+      reason: verified.reason,
+      overridable: verified.code === "not_confirmed",
+    };
   }
   const { entity } = verified;
   const workspaceId = await grantWorkspaceId(db, organizationId);
@@ -514,9 +633,14 @@ export async function runFoundingTrialGrant(deps: {
     await tx.$queryRaw(
       Prisma.sql`SELECT "id" FROM "HydrationJob" WHERE "organizationId" = ${organizationId} AND "kind" = 'ABR' FOR UPDATE`,
     );
-    const still = await verifiedAbrEntity(tx, organizationId);
+    const still = await grantIdentity(tx, organizationId, abnOverride);
     if (!still.ok) {
-      return { ok: false as const, status: "unverified_abn" as const, reason: still.reason };
+      return {
+        ok: false as const,
+        status: "unverified_abn" as const,
+        reason: still.reason,
+        overridable: still.code === "not_confirmed",
+      };
     }
     // Bound to what the operator confirmed on Preview, or, with no preview,
     // to what this run checked before the Stripe reads.
@@ -527,32 +651,76 @@ export async function runFoundingTrialGrant(deps: {
     ) {
       return { ok: false as const, status: "identity_changed" as const, reason: IDENTITY_CHANGED };
     }
-    return {
-      ok: true as const,
-      result: await grantFoundingTrial(tx, organizationId, {
-        apply: true,
-        expectWorkspaceId: workspaceId,
-      }),
-      basePlan: await grantFoundingTrialBasePlan(tx, ownerId, {
-        apply: true,
-        now: deps.now,
-      }),
-    };
+    const result = await grantFoundingTrial(tx, organizationId, {
+      apply: true,
+      expectWorkspaceId: workspaceId,
+    });
+    const basePlan = await grantFoundingTrialBasePlan(tx, ownerId, {
+      apply: true,
+      now: deps.now,
+    });
+    if (still.entity.source === "founder_override" && abnOverride) {
+      await tx.subscriptionEvent.create({
+        data: {
+          userId: ownerId,
+          eventType: ABN_OVERRIDE_EVENT,
+          payload: {
+            organizationId,
+            workspaceId,
+            abn: still.entity.abn,
+            legalName: still.entity.legalName,
+            reason: abnOverride.reason.trim(),
+            operatorUserId: abnOverride.operatorUserId,
+            grantedAt: (deps.now ?? new Date()).toISOString(),
+          },
+        },
+      });
+    }
+    return { ok: true as const, result, basePlan };
   });
   if (!written.ok) {
-    return { status: written.status, organizationId, reason: written.reason };
+    return written.status === "unverified_abn"
+      ? {
+          status: written.status,
+          organizationId,
+          reason: written.reason,
+          overridable: written.overridable,
+        }
+      : { status: written.status, organizationId, reason: written.reason };
   }
   const { result, basePlan } = written;
   const sleep =
     deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   await sleep(deps.settleMs ?? GRANT_SETTLE_MS);
 
-  const after = await currentConflicts(db, stripe, workspaceId);
+  // One way back for both reasons the grant cannot stand: Stripe shows a
+  // payable conflict, or Stripe could not be read to prove there is none.
+  const putBack = (payload: Record<string, unknown>) =>
+    db.$transaction(async (tx) => {
+      await revertFoundingTrial(tx, result);
+      await revertFoundingTrialBasePlan(tx, basePlan);
+      if (entity.source === "founder_override") {
+        await tx.subscriptionEvent.create({
+          data: {
+            userId: ownerId,
+            eventType: ABN_OVERRIDE_REVERTED_EVENT,
+            payload: { organizationId, workspaceId, ...payload },
+          },
+        });
+      }
+    });
+
+  let after: BillingConflict[];
+  try {
+    after = await currentConflicts(db, stripe, workspaceId);
+  } catch (err) {
+    // If the put-back itself fails, that error propagates instead, so no
+    // caller is ever told the grant was put back when it was not.
+    await putBack({ conflicts: [], settleCheckFailed: true });
+    throw new FoundingTrialSettleCheckError(err);
+  }
   if (!after.length) return { status: "granted", entity, result, basePlan };
-  await db.$transaction(async (tx) => {
-    await revertFoundingTrial(tx, result);
-    await revertFoundingTrialBasePlan(tx, basePlan);
-  });
+  await putBack({ conflicts: after.map((c) => c.id) });
   return { status: "reverted", workspaceId, conflicts: after };
 }
 

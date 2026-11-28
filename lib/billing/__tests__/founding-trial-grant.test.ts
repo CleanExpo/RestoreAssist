@@ -897,3 +897,167 @@ describe("runFoundingTrialGrant — Apply is bound to the business the operator 
     expect(h.rows.size).toBeGreaterThan(0);
   });
 });
+
+describe("runFoundingTrialGrant - founder override for an ABN check that never finished", () => {
+  const REASON = "Founder approved 28/11/2026: ABR lookup failed at signup (CONFIG_ERROR); ABN checked by hand.";
+
+  /** org_1 as DRC (NSW) was found: ABN held, lookup errored, name typed at signup. */
+  function lookupErrored() {
+    const h = makeRunDb();
+    h.abrJob.current = { status: "ERROR", payload: null };
+    Object.assign(h.orgs.get("org_1")!, { legalName: "DRC (NSW) Pty Ltd", name: "Owner's Organisation" });
+    const create = vi.fn(async (_args: { data: { userId: string; eventType: string; payload: Record<string, unknown> } }) => ({}));
+    Object.assign(h.db, { subscriptionEvent: { create } });
+    return { h, create };
+  }
+
+  async function runWith(
+    h: ReturnType<typeof makeRunDb>,
+    stripe: unknown,
+    opts: { apply?: boolean; reason?: string; duringSettle?: () => void } = {},
+  ) {
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    return runFoundingTrialGrant({
+      db: h.db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply: opts.apply ?? true,
+      sleep: async () => opts.duringSettle?.(),
+      ...(opts.reason !== undefined
+        ? { abnOverride: { reason: opts.reason, operatorUserId: "operator_1" } }
+        : {}),
+    });
+  }
+
+  it("RA-8664: without an override the refusal says a founder override may grant it", async () => {
+    const { h } = lookupErrored();
+    const { stripe } = makeStripe([], []);
+    const out = await runWith(h, stripe);
+    expect(out).toMatchObject({ status: "unverified_abn", overridable: true });
+    expect(h.rows.size).toBe(0);
+  });
+
+  it("RA-8664: an override grants it and records the reason, in the grant's transaction", async () => {
+    const { h, create } = lookupErrored();
+    const { stripe } = makeStripe([], []);
+    const out = await runWith(h, stripe, { reason: REASON });
+    expect(out).toMatchObject({
+      status: "granted",
+      entity: { abn: "51824753556", legalName: "DRC (NSW) Pty Ltd", source: "founder_override" },
+      basePlan: { outcome: "extended" },
+    });
+    expect(h.rows.size).toBeGreaterThan(0);
+    expect(h.owner.subscriptionStatus).toBe("TRIAL");
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0][0].data).toMatchObject({
+      userId: "owner_1",
+      eventType: "FOUNDING_TRIAL_ABN_OVERRIDE",
+      payload: { organizationId: "org_1", abn: "51824753556", reason: REASON, operatorUserId: "operator_1" },
+    });
+    // Written inside the transaction, after the grant rows.
+    expect(h.db.$transaction).toHaveBeenCalled();
+    const lastGrantWrite = Math.max(...h.db.user.updateMany.mock.invocationCallOrder);
+    expect(create.mock.invocationCallOrder[0]).toBeGreaterThan(lastGrantWrite);
+  });
+
+  it("RA-8664: an override dry run names the business from its own record and writes nothing", async () => {
+    const { h, create } = lookupErrored();
+    const { stripe } = makeStripe([], []);
+    const out = await runWith(h, stripe, { apply: false, reason: REASON });
+    expect(out).toMatchObject({
+      status: "dry_run",
+      entity: { legalName: "DRC (NSW) Pty Ltd", source: "founder_override" },
+    });
+    expect(h.rows.size).toBe(0);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("RA-8664: an override reason under 20 characters is refused and writes nothing", async () => {
+    const { h, create } = lookupErrored();
+    const { stripe } = makeStripe([], []);
+    const out = await runWith(h, stripe, { reason: "founder said ok" });
+    expect(out).toMatchObject({ status: "unverified_abn", overridable: true });
+    expect((out as { reason: string }).reason).toMatch(/at least 20 characters/);
+    expect(h.rows.size).toBe(0);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("RA-8664: an override never grants an ABN the register lists as cancelled", async () => {
+    const { h, create } = lookupErrored();
+    h.abrJob.current = {
+      status: "READY",
+      payload: { ...VERIFIED_ABR_JOB.payload, status: "CANCELLED" },
+    };
+    const { stripe } = makeStripe([], []);
+    const out = await runWith(h, stripe, { reason: REASON });
+    expect(out).toMatchObject({ status: "unverified_abn", overridable: false });
+    expect(h.rows.size).toBe(0);
+    expect(h.db.user.updateMany).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("RA-8664: an override never grants when the register confirmed a different ABN", async () => {
+    const { h, create } = lookupErrored();
+    h.abrJob.current = {
+      status: "READY",
+      payload: { abn: "33102417032", status: "ACTIVE", legalName: "OTHER PTY LTD", tradingNames: [] },
+    };
+    const { stripe } = makeStripe([], []);
+    const out = await runWith(h, stripe, { reason: REASON });
+    expect(out).toMatchObject({ status: "unverified_abn", overridable: false });
+    expect(h.rows.size).toBe(0);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("RA-8664: an override grant put back after the settle check is recorded as reverted", async () => {
+    const { h, create } = lookupErrored();
+    const sessions: Session[] = [];
+    const { stripe } = makeStripe(sessions, []);
+    const out = await runWith(h, stripe, {
+      reason: REASON,
+      duringSettle: () => sessions.push(seatCheckout("cs_racing", "cus_owner")),
+    });
+    expect(out).toMatchObject({ status: "reverted", conflicts: [{ id: "cs_racing" }] });
+    expect(create.mock.calls.map((c) => c[0].data.eventType)).toEqual([
+      "FOUNDING_TRIAL_ABN_OVERRIDE",
+      "FOUNDING_TRIAL_ABN_OVERRIDE_REVERTED",
+    ]);
+  });
+
+  it("RA-8664: a second Stripe check that cannot finish puts the grant back and says so", async () => {
+    const { h, create } = lookupErrored();
+    const statusBefore = h.owner.subscriptionStatus;
+    const { stripe, sessionsList } = makeStripe([], []);
+    let granted = false;
+    const keyRefused = Object.assign(new Error("Expired API Key provided"), {
+      type: "StripeAuthenticationError",
+    });
+    const { FoundingTrialSettleCheckError } = await import("../founding-trial-grant");
+    await expect(
+      runWith(h, stripe, {
+        reason: REASON,
+        duringSettle: () => {
+          granted = h.rows.size > 0 && h.owner.subscriptionStatus === "TRIAL";
+          sessionsList.mockImplementation(() => {
+            throw keyRefused;
+          });
+        },
+      }),
+    ).rejects.toSatisfy(
+      (e: unknown) =>
+        e instanceof FoundingTrialSettleCheckError && e.settleError === keyRefused,
+    );
+    // The grant had committed, and is now put back as it was.
+    expect(granted).toBe(true);
+    expect(h.rows.size).toBe(0);
+    expect(h.owner.subscriptionStatus).toBe(statusBefore);
+    expect(create.mock.calls.map((c) => c[0].data.eventType)).toEqual([
+      "FOUNDING_TRIAL_ABN_OVERRIDE",
+      "FOUNDING_TRIAL_ABN_OVERRIDE_REVERTED",
+    ]);
+    expect(create.mock.calls[1][0].data.payload).toMatchObject({
+      conflicts: [],
+      settleCheckFailed: true,
+    });
+  });
+});

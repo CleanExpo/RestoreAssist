@@ -7,7 +7,8 @@
  * Australian Business Register recorded it at signup), then Apply once the
  * operator has confirmed it is the right business. The API refuses anyone not
  * on the platform-support allowlist, and any business without an ABR-confirmed
- * ABN.
+ * ABN, unless (RA-8664) the ABR lookup never finished and the founder gives a
+ * reason for an override, which is recorded with the grant.
  */
 
 import { useState } from "react";
@@ -26,7 +27,13 @@ import { apiErrorMessage } from "@/lib/api-error-message";
 interface Outcome {
   status: string;
   reason?: string;
-  entity?: { abn: string; legalName: string; tradingNames: string[] };
+  overridable?: boolean;
+  entity?: {
+    abn: string;
+    legalName: string;
+    tradingNames: string[];
+    source?: "abr" | "founder_override";
+  };
   result?: { granted: string[]; skippedPaid: string[]; applied: boolean };
   basePlan?: { outcome: string; trialEndsAt: string | null };
   conflicts?: Array<{ kind: string; id: string }>;
@@ -56,6 +63,9 @@ interface PreviewedBusiness {
   legalName: string;
 }
 
+/** Must match ABN_OVERRIDE_MIN_REASON in lib/billing/founding-trial-grant.ts. */
+const OVERRIDE_MIN_REASON = 20;
+
 const sameBusiness = (a: PreviewedBusiness | null, b: PreviewedBusiness | null) =>
   !!a &&
   !!b &&
@@ -76,15 +86,21 @@ export default function FoundingTrialPage() {
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // RA-8664: the override reason being typed, and the one the latest Preview
+  // used. Apply sends the reason Preview used, never a later edit.
+  const [overrideReason, setOverrideReason] = useState("");
+  const [previewOverride, setPreviewOverride] = useState<string | null>(null);
 
   const trimmed = lookup.trim();
   const isAbn = /^[\d\s]+$/.test(trimmed);
 
-  async function send(apply: boolean) {
+  async function send(apply: boolean, overrideForPreview?: string) {
     const confirmedAtClick = confirmed;
+    const override = apply ? previewOverride : (overrideForPreview ?? null);
     if (!apply) {
       setConfirmed(null);
       setPreviewed(null);
+      setPreviewOverride(null);
     }
     setBusy(true);
     setError(null);
@@ -100,8 +116,13 @@ export default function FoundingTrialPage() {
                 organizationId: confirmedAtClick.organizationId,
                 apply: true,
                 confirmed: confirmedAtClick,
+                ...(override ? { override: { reason: override } } : {}),
               }
-            : { ...(isAbn ? { abn: trimmed } : { organizationId: trimmed }), apply: false },
+            : {
+                ...(isAbn ? { abn: trimmed } : { organizationId: trimmed }),
+                apply: false,
+                ...(override ? { override: { reason: override } } : {}),
+              },
         ),
       });
       const data = await response.json().catch(() => ({}));
@@ -124,6 +145,7 @@ export default function FoundingTrialPage() {
             abn: entity.abn,
             legalName: entity.legalName,
           });
+          setPreviewOverride(entity.source === "founder_override" ? override : null);
         } else {
           setPreviewFor(null);
           setPreviewed(null);
@@ -223,6 +245,30 @@ export default function FoundingTrialPage() {
             </div>
           )}
 
+          {outcome?.status === "unverified_abn" && outcome.overridable && (
+            <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-neutral-900 dark:text-white">
+              <p>
+                The register lookup for this business never finished. The founder
+                can grant it anyway. Write why; the reason is recorded with the
+                grant.
+              </p>
+              <textarea
+                aria-label="Founder override reason"
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                rows={3}
+                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
+              />
+              <Button
+                variant="outline"
+                disabled={busy || overrideReason.trim().length < OVERRIDE_MIN_REASON}
+                onClick={() => void send(false, overrideReason.trim())}
+              >
+                Preview with founder override
+              </Button>
+            </div>
+          )}
+
           {outcome && (outcome.status === "refused" || outcome.status === "reverted") && (
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
               Not granted: this business has an add-on payment in progress
@@ -236,6 +282,12 @@ export default function FoundingTrialPage() {
               <p className="font-medium text-neutral-900 dark:text-white">
                 {outcome.entity.legalName}
               </p>
+              {outcome.entity.source === "founder_override" && (
+                <p className="text-amber-700 dark:text-amber-400">
+                  Not confirmed by the Australian Business Register. Founder
+                  override; the reason is recorded with the grant.
+                </p>
+              )}
               <p className="text-neutral-600 dark:text-neutral-400">
                 ABN {outcome.entity.abn}
                 {outcome.entity.tradingNames.length > 0 &&

@@ -175,3 +175,117 @@ describe("Founding Trial page, rendered through its layout", () => {
     });
   });
 });
+
+describe("Founding Trial page - founder override", () => {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  const REASON = "Founder approved: ABR lookup failed at signup.";
+
+  it("RA-8664: an overridable refusal offers a reason box; the override Preview and Apply both carry the reason", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () =>
+        json(
+          {
+            organizationId: "org_drc",
+            outcome: {
+              status: "unverified_abn",
+              organizationId: "org_drc",
+              reason: "The Australian Business Register has not confirmed this business's ABN.",
+              overridable: true,
+            },
+          },
+          422,
+        ),
+      )
+      .mockImplementationOnce(async () =>
+        json({
+          organizationId: "org_drc",
+          outcome: {
+            status: "dry_run",
+            entity: {
+              abn: "51824753556",
+              legalName: "DRC (NSW) Pty Ltd",
+              tradingNames: [],
+              source: "founder_override",
+            },
+            result: { granted: ["VOICE"], skippedPaid: [], applied: false },
+            basePlan: { outcome: "extended", trialEndsAt: "2027-01-27T00:00:00.000Z" },
+          },
+        }),
+      )
+      .mockImplementation(async () =>
+        json({
+          organizationId: "org_drc",
+          outcome: {
+            status: "granted",
+            entity: {
+              abn: "51824753556",
+              legalName: "DRC (NSW) Pty Ltd",
+              tradingNames: [],
+              source: "founder_override",
+            },
+            result: { granted: ["VOICE"], skippedPaid: [], applied: true },
+            basePlan: { outcome: "extended", trialEndsAt: "2027-01-27T00:00:00.000Z" },
+          },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    await renderAs(OPERATOR);
+    fireEvent.change(screen.getByLabelText("ABN or organisation id"), {
+      target: { value: "51824753556" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+
+    const box = await screen.findByLabelText("Founder override reason");
+    const overridePreview = screen.getByRole("button", { name: "Preview with founder override" });
+    expect(overridePreview).toBeDisabled();
+    fireEvent.change(box, { target: { value: REASON } });
+    expect(overridePreview).toBeEnabled();
+    fireEvent.click(overridePreview);
+
+    expect(await screen.findByText(/Founder\s+override; the reason is recorded/)).toBeInTheDocument();
+    expect(JSON.parse((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body as string)).toEqual({
+      abn: "51824753556",
+      apply: false,
+      override: { reason: REASON },
+    });
+
+    fireEvent.click(screen.getByLabelText("This is the right business"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply Founding Trial" }));
+    expect(await screen.findByText("Granted.")).toBeInTheDocument();
+    expect(JSON.parse((fetchMock.mock.calls[2] as unknown as [string, RequestInit])[1].body as string)).toEqual({
+      organizationId: "org_drc",
+      apply: true,
+      confirmed: { organizationId: "org_drc", abn: "51824753556", legalName: "DRC (NSW) Pty Ltd" },
+      override: { reason: REASON },
+    });
+  });
+
+  it("control: a refusal that cannot be overridden offers no reason box", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        json(
+          {
+            organizationId: "org_x",
+            outcome: {
+              status: "unverified_abn",
+              organizationId: "org_x",
+              reason: "The Australian Business Register lists this ABN as cancelled.",
+              overridable: false,
+            },
+          },
+          422,
+        ),
+      ),
+    );
+    await renderAs(OPERATOR);
+    fireEvent.change(screen.getByLabelText("ABN or organisation id"), {
+      target: { value: "51824753556" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(await screen.findByText(/lists this ABN as cancelled/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Founder override reason")).not.toBeInTheDocument();
+  });
+});
