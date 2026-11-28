@@ -179,34 +179,14 @@ describe("AddonCardDeck (RA-8271)", () => {
     expect(introAudience([], { PAYMENTS: v("buy") }, none)).toBeNull();
   });
 
-  it("RA-8665: with no audience from the server the deck shows no intro line", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          addons: [{ sku: "PAYMENTS", name: "Payments", description: "Pay.", amount: 1100, currency: "AUD", interval: "month", perSeat: false }],
-          owned: [],
-          canManageBilling: true,
-        }),
-      }) as never,
-    );
-    render(
-      <AddonCardDeck
-        intro={{ owner: "OWNER INTRO", staff: "STAFF INTRO" }}
-      />,
-    );
-    await screen.findByTestId("addon-card-PAYMENTS");
-    expect(screen.queryByText("OWNER INTRO")).toBeNull();
-    expect(screen.queryByText("STAFF INTRO")).toBeNull();
-  });
-
   it("RA-8665: the intro follows the drawn cards, not an audience field in the reply", async () => {
     const one = [{ sku: "PAYMENTS", name: "Payments", description: "Pay.", amount: 1100, currency: "AUD", interval: "month", perSeat: false }];
     const buy = { label: "optional_paid", holding: "none", action: "buy", reason: null };
     for (const [reply, shows] of [
       // Review round 8: the reply names the owner but sends no verdicts.
       [{ addons: one, owned: [], audience: "owner" }, null],
+      // An older reply: canManageBilling and no verdicts.
+      [{ addons: one, owned: [], canManageBilling: true }, null],
       // A verdict only for a pack that is not drawn.
       [{ addons: one, owned: [], audience: "owner", access: { HIDDEN: buy } }, null],
       // A drawn card offers Add, with no audience field at all.
