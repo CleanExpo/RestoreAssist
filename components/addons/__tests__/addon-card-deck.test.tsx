@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { OWNER_ONLY_REASON } from "@/lib/billing/addon-access";
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
@@ -99,6 +100,34 @@ describe("AddonCardDeck (RA-8271)", () => {
     ).toBeInTheDocument();
 
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("RA-8665: with no access from the server, staff are told to ask the owner and the owner keeps Add", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...catalog, access: undefined }) }) as never,
+    );
+    sessionRef.current = {
+      data: { user: { id: "staff-A", role: "USER" } },
+      status: "authenticated",
+    };
+    const staff = render(<AddonCardDeck />);
+    await screen.findByTestId("addon-card-VOICE");
+    expect(screen.queryAllByRole("button", { name: /add|manage|seat/i })).toEqual([]);
+    for (const sku of ["VOICE", "BOOKKEEPING", "AI_COPILOT"]) {
+      expect(
+        within(screen.getByTestId(`addon-card-${sku}`)).getByText(OWNER_ONLY_REASON),
+      ).toBeInTheDocument();
+    }
+    staff.unmount();
+
+    sessionRef.current = {
+      data: { user: { id: "owner-A", role: "ADMIN" } },
+      status: "authenticated",
+    };
+    render(<AddonCardDeck />);
+    const books = await screen.findByTestId("addon-card-BOOKKEEPING");
+    expect(within(books).getByRole("button", { name: /add pack/i })).toBeEnabled();
   });
 
   it("RA-8665: every card shows GST inclusive and cancel any time beside its price", async () => {

@@ -15,10 +15,14 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import BillingGate from "@/components/capacitor/BillingGate";
+import { OWNER_ONLY_REASON } from "@/lib/billing/addon-access";
 import { ADDON_PRICE_TERMS, AddonCardDeck } from "./AddonCardDeck";
 
+/** RA-8665: staff read who can add packs, not an offer they cannot take. */
+export const HOME_ADDONS_STAFF_INTRO = `These packs add extra features to RestoreAssist. ${OWNER_ONLY_REASON}`;
+
 export function HomeAddons() {
-  const role = useSession().data?.user?.role;
+  const isOwner = useSession().data?.user?.role === "ADMIN";
   return (
     <BillingGate fallback={null}>
       <section aria-labelledby="home-addons-heading" className="space-y-3">
@@ -30,7 +34,7 @@ export function HomeAddons() {
             Add-Ons
           </h2>
           {/* The Add-Ons page is owner-only; staff would be turned away. */}
-          {role === "ADMIN" && (
+          {isOwner && (
             <Link
               href="/dashboard/addons"
               className="text-sm font-medium text-primary underline-offset-4 hover:underline"
@@ -40,7 +44,9 @@ export function HomeAddons() {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          Switch on extra features for your business. {ADDON_PRICE_TERMS}
+          {isOwner
+            ? `Switch on extra features for your business. ${ADDON_PRICE_TERMS}`
+            : HOME_ADDONS_STAFF_INTRO}
         </p>
         <AddonCardDeck returnTo="addons" />
       </section>

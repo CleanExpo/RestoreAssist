@@ -23,6 +23,7 @@ import {
 import BillingGate from "@/components/capacitor/BillingGate";
 import {
   ADDON_LABEL_TEXT,
+  OWNER_ONLY_REASON,
   type AddonAccess,
   type AddonLabel,
 } from "@/lib/billing/addon-access";
@@ -49,15 +50,30 @@ export interface CatalogResponse {
 /**
  * The card's access when the server sent none (an older deployment answering
  * mid-release): today's behaviour, Manage on an owned pack, otherwise Add.
+ *
+ * RA-8665: the dashboard home shows the deck to staff, so the fallback follows
+ * the server's first rule (addonAccess, rule 1): once the session names a role
+ * other than ADMIN, the card says to ask the owner and offers no control.
+ * `role` is required so no caller can leave it out; while the session has not
+ * loaded it is null, and checkout still refuses a non-owner (refuseNonOwner).
  */
 export function cardAccess(
   data: Pick<CatalogResponse, "access">,
   sku: string,
   isOwned: boolean,
   perSeat: boolean,
+  role: string | null | undefined,
 ): AddonAccess {
   const fromServer = data.access?.[sku];
   if (fromServer) return fromServer;
+  if (role != null && role !== "ADMIN") {
+    return {
+      label: "optional_paid",
+      holding: isOwned ? "paid" : "none",
+      action: "ask_owner",
+      reason: OWNER_ONLY_REASON,
+    };
+  }
   return {
     label: "optional_paid",
     holding: isOwned ? "paid" : "none",
@@ -284,7 +300,9 @@ function AddonCardDeckWithAccount(props: AddonCardDeckProps) {
 function AddonCardDeckContent({ className, returnTo }: AddonCardDeckProps) {
   // Pending purchase keys are stored per account (see readPendingKey). No
   // purchase starts until the signed-in account is known.
-  const accountId = useSession().data?.user?.id ?? null;
+  const sessionUser = useSession().data?.user;
+  const accountId = sessionUser?.id ?? null;
+  const role = sessionUser?.role ?? null;
   const [addons, setAddons] = useState<CatalogAddon[]>([]);
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [seats, setSeats] = useState<CatalogResponse["technicianSeats"]>(null);
@@ -470,7 +488,7 @@ function AddonCardDeckContent({ className, returnTo }: AddonCardDeckProps) {
         const seatUse = addon.perSeat ? seats : null;
         const notice = notices[addon.sku];
         const busy = buying === addon.sku;
-        const cardState = cardAccess({ access }, addon.sku, isOwned, addon.perSeat);
+        const cardState = cardAccess({ access }, addon.sku, isOwned, addon.perSeat, role);
         return (
           <li key={addon.sku} data-testid={`addon-card-${addon.sku}`}>
             <article

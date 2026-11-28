@@ -16,9 +16,12 @@ import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvi
 
 // The signed-in account can change while a component stays mounted (sign out
 // and in as someone else in the same tab), so the tests can switch it.
-const session = vi.hoisted(() => ({ userId: "owner-A" }));
+const session = vi.hoisted(() => ({ userId: "owner-A", role: undefined as string | undefined }));
 vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: { user: { id: session.userId } }, status: "authenticated" }),
+  useSession: () => ({
+    data: { user: { id: session.userId, role: session.role } },
+    status: "authenticated",
+  }),
 }));
 
 const addon = (sku: string, name: string, perSeat = false) => ({
@@ -66,6 +69,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
   window.localStorage.clear();
   session.userId = "owner-A";
+  session.role = undefined;
 });
 
 describe("SimpleWalkthrough (RA-8466)", () => {
@@ -120,6 +124,17 @@ describe("SimpleWalkthrough (RA-8466)", () => {
     );
     // The guide never sells: no purchase buttons inside it.
     expect(screen.queryByRole("button", { name: /add pack|add a seat/i })).toBeNull();
+  });
+
+  it("RA-8665: with no access from the server, staff read that only the owner can add packs", async () => {
+    session.userId = "staff-A";
+    session.role = "USER";
+    serve({ ...trialCatalog, access: undefined });
+    render(<SimpleWalkthrough mode="setup" />);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    for (const sku of ["VOICE", "TECHNICIAN_SEATS", "CLIENT_COMMS"]) {
+      expect(await screen.findByTestId(`guide-${sku}`)).toHaveTextContent(OWNER_ONLY_REASON);
+    }
   });
 
   it("says plainly when the packs cannot be loaded", async () => {

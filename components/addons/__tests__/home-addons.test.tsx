@@ -14,8 +14,10 @@ const { sessionRef } = vi.hoisted(() => ({
 }));
 vi.mock("next-auth/react", () => ({ useSession: () => sessionRef.current }));
 
-import { HomeAddons } from "../HomeAddons";
+import { HOME_ADDONS_STAFF_INTRO, HomeAddons } from "../HomeAddons";
 import { ADDON_PRICE_TERMS } from "../AddonCardDeck";
+import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
+import { OWNER_ONLY_REASON } from "@/lib/billing/addon-access";
 
 const pack = (sku: string, name: string) => ({
   sku,
@@ -74,6 +76,61 @@ describe("Dashboard home add-ons", () => {
     render(<HomeAddons />);
     await screen.findByTestId("addon-card-PAYMENTS");
     expect(screen.queryByRole("link", { name: "See all add-ons" })).toBeNull();
+  });
+
+  it("RA-8665: staff never get a buy or manage control, with or without access from the server", async () => {
+    const askOwner = { label: "optional_paid", action: "ask_owner", reason: OWNER_ONLY_REASON };
+    const withAccess = {
+      ...catalog,
+      access: {
+        PAYMENTS: { ...askOwner, holding: "none" },
+        VOICE: { ...askOwner, holding: "paid" },
+      },
+    };
+    signIn("USER");
+    for (const served of [catalog, withAccess]) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: true, json: async () => served }) as never,
+      );
+      const { unmount } = render(<HomeAddons />);
+      await screen.findByTestId("addon-card-PAYMENTS");
+      expect(screen.queryAllByRole("button", { name: /add|manage|seat/i })).toEqual([]);
+      for (const sku of ["PAYMENTS", "VOICE"]) {
+        expect(
+          within(screen.getByTestId(`addon-card-${sku}`)).getByText(OWNER_ONLY_REASON),
+        ).toBeInTheDocument();
+      }
+      unmount();
+    }
+  });
+
+  it("RA-8665: the owner is offered the packs; staff are told who can add them", async () => {
+    signIn("ADMIN");
+    const { unmount } = render(<HomeAddons />);
+    expect(screen.getByText(/Switch on extra features for your business\./)).toBeInTheDocument();
+    expect(screen.queryByText(HOME_ADDONS_STAFF_INTRO)).toBeNull();
+    await screen.findByTestId("addon-card-PAYMENTS");
+    unmount();
+    signIn("USER");
+    render(<HomeAddons />);
+    expect(screen.getByText(HOME_ADDONS_STAFF_INTRO)).toBeInTheDocument();
+    expect(screen.queryByText(/Switch on extra features/)).toBeNull();
+    await screen.findByTestId("addon-card-PAYMENTS");
+  });
+
+  it("RA-8665: in the iOS app the home section shows nothing and loads nothing", () => {
+    signIn("ADMIN");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock as never);
+    const { container } = render(
+      <ShellPlatformProvider isIosShell>
+        <HomeAddons />
+      </ShellPlatformProvider>,
+    );
+    expect(container).toBeEmptyDOMElement();
+    expect(screen.queryByRole("heading", { name: "Add-Ons" })).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("RA-8665: the dashboard home renders the add-ons above its first panel", () => {
