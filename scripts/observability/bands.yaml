@@ -27,7 +27,11 @@ metrics:
       Share of turns where the Stop-hook verifier could not run. On those turns
       the LLM stage of the gate was OFF, and in any summary that counts only
       failures that reads identically to a clean pass.
-    source: scripts/observability/verifier-ledger.jsonl
+    # Read through scripts/observability/ledger.ts readLedger(): the frozen
+    # history file plus one file per verification since, de-duplicated.
+    source:
+      - scripts/observability/verifier-ledger.jsonl
+      - scripts/observability/verifier-ledger.d/*.jsonl
     # A FIXED THRESHOLD, NOT A BAND. A control that is off has no acceptable
     # background rate to be measured against, so this needs no baseline and
     # fires from the first window. That is why it is the signal wired first.
@@ -48,7 +52,11 @@ metrics:
       build was not backed by anything that actually ran. This is the failure
       .claude/rules/verification-gate.md exists to prevent, measured rather than
       asserted.
-    source: scripts/observability/verifier-ledger.jsonl
+    # Read through scripts/observability/ledger.ts readLedger(): the frozen
+    # history file plus one file per verification since, de-duplicated.
+    source:
+      - scripts/observability/verifier-ledger.jsonl
+      - scripts/observability/verifier-ledger.d/*.jsonl
     kind: control_band
     # WHAT THE DETECTOR ACTUALLY DOES, which is less than the names below would
     # suggest and is written plainly rather than aspirationally. It takes the

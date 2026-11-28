@@ -1,0 +1,82 @@
+{
+  "comment": "Entry file names both ledger writers must produce, byte for byte. Computed independently of both (Python hashlib). scripts/observability/__tests__/ledger.test.ts checks ledger.ts against it and .claude/hooks/tests/test-ledger-append.sh checks ledger-append.sh against it.",
+  "vectors": [
+    {
+      "case": "an ordinary domain",
+      "sessionId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "timestamp": 1788046563,
+      "domain": "claim-truthfulness-static",
+      "name": "1788046563-claim-truthfulness-static-6cad3a1e417cea098f5bd4b5327b16a0.jsonl"
+    },
+    {
+      "case": "a/b, which the old rule named the same as a?b",
+      "sessionId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "timestamp": 1788046563,
+      "domain": "a/b",
+      "name": "1788046563-a_b-b77e69b76dd51d6b8570f55bcba6c18c.jsonl"
+    },
+    {
+      "case": "a?b, which the old rule named the same as a/b",
+      "sessionId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "timestamp": 1788046563,
+      "domain": "a?b",
+      "name": "1788046563-a_b-b049642738ac90538968569eef6c42e3.jsonl"
+    },
+    {
+      "case": "a path-shaped domain",
+      "sessionId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "timestamp": 1788046563,
+      "domain": "../../evil",
+      "name": "1788046563-.._.._evil-162a58f57563df3a1cd1c24d068b988a.jsonl"
+    },
+    {
+      "case": "a two-byte character",
+      "sessionId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "timestamp": 1788046563,
+      "domain": "\u00e9",
+      "name": "1788046563-__-09904fececf4947dadfeb1f000117553.jsonl"
+    },
+    {
+      "case": "an empty domain",
+      "sessionId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "timestamp": 1788046563,
+      "domain": "",
+      "name": "1788046563-_-f12a6e0aa6206885d0ea34068ff780ba.jsonl"
+    },
+    {
+      "case": "a domain holding a line break",
+      "sessionId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "timestamp": 1788046563,
+      "domain": "line1\nline2",
+      "name": "1788046563-line1_line2-3111e2b608f53c2516ada67f8c1ce931.jsonl"
+    },
+    {
+      "case": "a domain holding a space and a colon",
+      "sessionId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "timestamp": 1788046563,
+      "domain": "x: y",
+      "name": "1788046563-x__y-c18a27b791934d120485b0835fed86b5.jsonl"
+    },
+    {
+      "case": "a 300-byte domain, cut to 64 in the readable part",
+      "sessionId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "timestamp": 1788046563,
+      "domain": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "name": "1788046563-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd-aa26a5bb0152824006e8dfcf1254b9ec.jsonl"
+    },
+    {
+      "case": "session s:1 at 2 in domain d, which the old reader key ran together with the next row",
+      "sessionId": "s:1",
+      "timestamp": 2,
+      "domain": "d",
+      "name": "2-d-de6a8ca3d9e196a1ec5059aeafcf99c7.jsonl"
+    },
+    {
+      "case": "session s at 1 in domain 2:d, which the old reader key ran together with the previous row",
+      "sessionId": "s",
+      "timestamp": 1,
+      "domain": "2:d",
+      "name": "1-2_d-e3c82877bd3cb34db42e51fd8ab8bd10.jsonl"
+    }
+  ]
+}
