@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { OWNER_ONLY_REASON } from "@/lib/billing/addon-access";
+import { STAFF_VIEWER, withServerVerdicts } from "./server-verdicts";
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
@@ -11,9 +13,11 @@ import {
 import {
   AddonCardDeck,
   IOS_ADDONS_MESSAGE,
+  NO_VERDICT_REASON,
   PLAN_REQUIRED_MESSAGE,
   PURCHASE_UNCONFIRMED_MESSAGE,
   cardMark,
+  introAudience,
   isFinalCheckoutAnswer,
 } from "../AddonCardDeck";
 import { parseCheckoutReply } from "@/lib/billing/checkout-return";
@@ -30,7 +34,8 @@ const { sessionRef } = vi.hoisted(() => ({
 }));
 vi.mock("next-auth/react", () => ({ useSession: () => sessionRef.current }));
 
-const catalog = {
+// RA-8665: every card's verdict comes from the server's own rules.
+const catalog = withServerVerdicts({
   addons: [
     {
       sku: "VOICE",
@@ -61,7 +66,7 @@ const catalog = {
     },
   ],
   owned: ["VOICE"],
-};
+});
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -99,6 +104,123 @@ describe("AddonCardDeck (RA-8271)", () => {
     ).toBeInTheDocument();
 
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("RA-8665: with no verdict from the server, no card offers a control, to the owner or to staff", async () => {
+    for (const user of [{ id: "owner-A", role: "ADMIN" }, { id: "staff-A", role: "USER" }]) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...catalog, access: undefined }) }) as never,
+      );
+      sessionRef.current = { data: { user }, status: "authenticated" };
+      const { unmount } = render(<AddonCardDeck />);
+      await screen.findByTestId("addon-card-VOICE");
+      expect(screen.queryAllByRole("button")).toEqual([]);
+      expect(screen.queryAllByRole("link")).toEqual([]);
+      for (const sku of ["VOICE", "BOOKKEEPING", "AI_COPILOT"]) {
+        expect(
+          within(screen.getByTestId(`addon-card-${sku}`)).getByText(NO_VERDICT_REASON),
+        ).toBeInTheDocument();
+      }
+      unmount();
+    }
+  });
+
+  it("RA-8665: with no verdict, a card claims no label it cannot know, even for a pack the business already has", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...catalog, access: undefined }) }) as never,
+    );
+    sessionRef.current = { data: { user: { id: "owner-A", role: "ADMIN" } }, status: "authenticated" };
+    render(<AddonCardDeck />);
+    await screen.findByTestId("addon-card-VOICE");
+    // VOICE is owned: it may be paid, complimentary or included. Not known here.
+    for (const sku of ["VOICE", "BOOKKEEPING"]) {
+      const label = screen.getByTestId(`addon-label-${sku}`);
+      expect(label).toHaveTextContent("Could not be checked");
+      expect(label).not.toHaveTextContent("Optional, paid");
+    }
+  });
+
+  it("the server's verdict decides the controls, whatever role the session names", async () => {
+    // A staff verdict, shown to a session that says ADMIN: the card follows
+    // the server and offers nothing to press.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => withServerVerdicts({ addons: catalog.addons, owned: catalog.owned }, STAFF_VIEWER),
+      }) as never,
+    );
+    sessionRef.current = { data: { user: { id: "owner-A", role: "ADMIN" } }, status: "authenticated" };
+    render(<AddonCardDeck />);
+    await screen.findByTestId("addon-card-VOICE");
+    expect(screen.queryAllByRole("button")).toEqual([]);
+    for (const sku of ["VOICE", "BOOKKEEPING", "AI_COPILOT"]) {
+      expect(
+        within(screen.getByTestId(`addon-card-${sku}`)).getByText(OWNER_ONLY_REASON),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("RA-8665: the intro is read from the card states the deck draws, never from a reply field", () => {
+    const addons = [{ sku: "PAYMENTS" }, { sku: "VOICE" }];
+    const none = new Set<string>();
+    const v = (action: string) =>
+      ({ label: "optional_paid", holding: "none", action, reason: "r" }) as never;
+    // Review round 8: no verdicts, so every card offers nothing: no intro.
+    expect(introAudience(addons, undefined, none)).toBeNull();
+    expect(introAudience(addons, {}, none)).toBeNull();
+    expect(introAudience(addons, { PAYMENTS: v("buy") }, none)).toBe("owner");
+    expect(introAudience(addons, { PAYMENTS: v("none"), VOICE: v("manage") }, none)).toBe("owner");
+    expect(introAudience(addons, { PAYMENTS: v("ask_owner") }, none)).toBe("staff");
+    // A verdict for a pack the deck does not draw offers nothing on screen.
+    expect(introAudience(addons, { HIDDEN: v("buy") }, none)).toBeNull();
+    expect(introAudience([], { PAYMENTS: v("buy") }, none)).toBeNull();
+  });
+
+  it("RA-8665: the intro follows the drawn cards, not an audience field in the reply", async () => {
+    const one = [{ sku: "PAYMENTS", name: "Payments", description: "Pay.", amount: 1100, currency: "AUD", interval: "month", perSeat: false }];
+    const buy = { label: "optional_paid", holding: "none", action: "buy", reason: null };
+    for (const [reply, shows] of [
+      // Review round 8: the reply names the owner but sends no verdicts.
+      [{ addons: one, owned: [], audience: "owner" }, null],
+      // An older reply: canManageBilling and no verdicts.
+      [{ addons: one, owned: [], canManageBilling: true }, null],
+      // A verdict only for a pack that is not drawn.
+      [{ addons: one, owned: [], audience: "owner", access: { HIDDEN: buy } }, null],
+      // A drawn card offers Add, with no audience field at all.
+      [{ addons: one, owned: [], access: { PAYMENTS: buy } }, "OWNER INTRO"],
+    ] as const) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: true, json: async () => reply }) as never,
+      );
+      const { unmount } = render(
+        <AddonCardDeck intro={{ owner: "OWNER INTRO", staff: "STAFF INTRO" }} />,
+      );
+      await screen.findByTestId("addon-card-PAYMENTS");
+      if (shows) expect(screen.getByText(shows)).toBeInTheDocument();
+      else expect(screen.queryByText("OWNER INTRO")).toBeNull();
+      expect(screen.queryByText("STAFF INTRO")).toBeNull();
+      unmount();
+    }
+  });
+
+  it("RA-8665: every card shows GST inclusive and cancel any time beside its price", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => catalog }) as never,
+    );
+    render(<AddonCardDeck />);
+    await screen.findByTestId("addon-card-VOICE");
+    for (const sku of ["VOICE", "BOOKKEEPING", "AI_COPILOT"]) {
+      expect(
+        within(screen.getByTestId(`addon-card-${sku}`)).getByText(
+          "AUD, GST inclusive, cancel any time",
+        ),
+      ).toBeInTheDocument();
+    }
   });
 
   it("tells a trial owner plainly that packs start with the plan, on the card they pressed", async () => {
@@ -881,7 +1003,7 @@ describe("AddonCardDeck (RA-8271)", () => {
 
   // RA-8271 server-side guard: a seat pack sends the seat count the page
   // shows, and every retry with the same key sends the same count.
-  const seatCatalog = (purchased: number) => ({
+  const seatCatalog = (purchased: number) => withServerVerdicts({
     addons: [
       ...catalog.addons,
       {

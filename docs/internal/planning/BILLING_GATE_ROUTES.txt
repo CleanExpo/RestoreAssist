@@ -19,6 +19,9 @@ app/pricing/page.tsx
 components/addons/AddonCardDeck.tsx
 # Same two pages (RA-8466): the walkthrough shows pack and plan prices.
 components/addons/SimpleWalkthrough.tsx
+# Rendered by app/dashboard/page.tsx (RA-8665 home add-ons section).
+# app/dashboard/layout.tsx supplies the verdict.
+components/addons/HomeAddons.tsx
 components/clients/upgrade-modal.tsx
 components/forms/guided-interview/GuidedInterviewPanel.tsx
 components/live-teacher/InspectionSidekick.tsx

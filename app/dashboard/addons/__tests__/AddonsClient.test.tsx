@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import AddonsClient from "../AddonsClient";
+import { withServerVerdicts } from "@/components/addons/__tests__/server-verdicts";
 
 // Review round 8: pending purchase keys are stored per signed-in account.
 const { sessionRef } = vi.hoisted(() => ({
@@ -15,7 +16,8 @@ const { sessionRef } = vi.hoisted(() => ({
 }));
 vi.mock("next-auth/react", () => ({ useSession: () => sessionRef.current }));
 
-const catalog = {
+// RA-8665: every card's verdict comes from the server's own rules.
+const catalog = withServerVerdicts({
   addons: [
     {
       sku: "VOICE",
@@ -37,7 +39,7 @@ const catalog = {
     },
   ],
   owned: ["VOICE"],
-};
+});
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -124,11 +126,11 @@ describe("AddonsClient", () => {
   });
 
   it("J-09: an active seat pack shows seats in use and adds a seat in place", async () => {
-    const seatCatalog = {
-      ...catalog,
+    const seatCatalog = withServerVerdicts({
+      addons: catalog.addons,
       owned: ["TECHNICIAN_SEATS"],
       technicianSeats: { purchased: 2, used: 1 },
-    };
+    });
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => seatCatalog })

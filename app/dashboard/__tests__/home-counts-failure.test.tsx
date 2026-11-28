@@ -41,6 +41,9 @@ beforeEach(() => {
   responses["/api/operations/completeness-inbox"] = () => json({ data: [] });
   responses["/api/dashboard/home-counts"] = () =>
     json({ activeJobs: 125, openReports: 245, awaitingPayment: 325, clients: 425 });
+  // RA-8665: the home page shows the add-on packs; an empty catalogue keeps
+  // their own load state out of these resource tests.
+  responses["/api/addons/catalog"] = () => json({ addons: [], owned: [] });
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string) => Promise.resolve(responses[url.split("?")[0]]())),

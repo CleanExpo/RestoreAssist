@@ -5,10 +5,18 @@
  * Every rule here mirrors a check POST /api/addons/checkout runs, in the same
  * order, using the same helpers, so a card never offers a button the server
  * would refuse:
- *   1. refuseNonOwner: only the business owner (or a solo operator) buys.
+ *   1. refuseNonOwner: only the business owner (or a solo operator) buys,
+ *      and only someone who may open the billing pages (canOpenDashboardPage
+ *      for /dashboard/subscription), where every other control and the
+ *      checkout's refusal notices lead.
  *   2. The plan must be ACTIVE, except a technician seat during a current trial.
  *   3. A seat needs the database role ADMIN.
- *   4. A pack held free in the Founding Trial is never sold.
+ *   4. A pack other than a seat needs a business workspace
+ *      (getWorkspaceForUser); checkout answers 404 without one.
+ *   5. A pack held free in the Founding Trial is never sold.
+ *
+ * RA-8665: this function is the only judge of which control a card offers.
+ * The cards on screen show its verdict and never make up their own.
  *
  * The label is decided from the entitlement row the catalogue reads, never
  * from pricing copy:
@@ -28,7 +36,9 @@ export type AddonLabel =
   | "included"
   | "optional_paid"
   | "unavailable"
-  | "complimentary_pilot";
+  | "complimentary_pilot"
+  // RA-8665: a card the server gave no verdict for. It claims no price.
+  | "unknown";
 
 /** What the card may offer. Nothing else is ever rendered as a button. */
 export type AddonAction =
@@ -50,10 +60,80 @@ export type AddonHolding = "none" | "complimentary" | "paid" | "included";
 export interface AddonViewer {
   /** Same rule as refuseNonOwner: the organisation owner, or in no organisation. */
   isBillingOwner: boolean;
+  /** RA-8665: whether this account belongs to a business (has an organisation owner). */
+  inOrganisation: boolean;
   /** Database role. A seat needs ADMIN. */
   role: string | null;
   subscriptionStatus: string | null;
   trialEndsAt: Date | string | null;
+  /**
+   * RA-8665: whether checkout would find a workspace to file the purchase on,
+   * for a pack and for a seat. Both come from addonCheckoutHasWorkspace
+   * (lib/billing/addon-checkout-workspace.ts), the function checkout itself
+   * calls before it creates a Stripe customer.
+   */
+  hasWorkspace: { pack: boolean; seat: boolean };
+  /**
+   * RA-8665: whether the page guard lets this viewer open the billing pages
+   * (canOpenDashboardPage(session role, "/dashboard/subscription")). Choose a
+   * plan and Manage open that page, so a viewer it refuses is offered neither.
+   */
+  canOpenBillingPages: boolean;
+}
+
+/**
+ * RA-8665: the one rule for who acts on add-on billing. Rule 1 below calls it
+ * (through billingStanding); the text above the cards reads the cards'
+ * verdicts instead (billingAudience).
+ */
+export function mayManageBilling(
+  viewer: Pick<AddonViewer, "isBillingOwner" | "canOpenBillingPages">,
+): boolean {
+  return viewer.isBillingOwner && viewer.canOpenBillingPages;
+}
+
+/**
+ * RA-8665: where the viewer stands for rule 1 below. "owner" may act on
+ * billing; "staff" belongs to a business and is sent to its owner;
+ * "no_business" belongs to none, so there is no owner to send them to. Only
+ * the judge reads this; later rules can still refuse an "owner" (a seat for a
+ * database role that is not ADMIN, a pack with no workspace).
+ */
+export type BillingStanding = "owner" | "staff" | "no_business";
+
+export function billingStanding(
+  viewer: Pick<AddonViewer, "isBillingOwner" | "canOpenBillingPages" | "inOrganisation">,
+): BillingStanding {
+  if (mayManageBilling(viewer)) return "owner";
+  return viewer.inOrganisation ? "staff" : "no_business";
+}
+
+/**
+ * RA-8665: the line above the cards, read from the cards' own verdicts. The
+ * owner offer shows only when some card offers an owner control, and the
+ * ask-your-owner line only when some card says ask_owner. With neither, there
+ * is no line: each card already says why. So the text above the cards can
+ * never offer what no card offers (review rounds 1-8 found it could while it
+ * was judged apart from the cards). The deck applies it to the card states it
+ * draws (introAudience), so no reply field can speak for the cards. An action
+ * not listed here offers nothing.
+ */
+export type BillingAudience = "owner" | "staff";
+
+const OWNER_ACTIONS: ReadonlySet<string> = new Set<AddonAction>([
+  "buy",
+  "add_seat",
+  "manage",
+  "choose_plan",
+]);
+
+export function billingAudience(
+  access: Record<string, Pick<AddonAccess, "action">>,
+): BillingAudience | null {
+  const actions = Object.values(access).map((a) => a.action);
+  if (actions.some((a) => OWNER_ACTIONS.has(a))) return "owner";
+  if (actions.includes("ask_owner")) return "staff";
+  return null;
 }
 
 export interface AddonAccess {
@@ -82,6 +162,10 @@ export const SEAT_ON_TRIAL_REASON =
 
 export const COMING_SOON_REASON =
   "Not available yet. It cannot be added at the moment.";
+export const NO_WORKSPACE_REASON =
+  "This account is not linked to a business workspace, so packs cannot be added here.";
+export const NO_BUSINESS_REASON =
+  "This account is not part of a business, so packs cannot be added here.";
 
 /**
  * Whether a pack's feature is switched on. Floor Plan Underlay unlocks only
@@ -148,8 +232,19 @@ export function addonAccess(input: {
     };
   }
 
-  // Rule 1: only the owner acts on billing. Team members see the label only.
-  if (!viewer.isBillingOwner) {
+  // Rule 1: only the owner acts on billing, and only from pages they may open.
+  // Team members, and anyone the billing pages turn away, see the label only.
+  // An account in no business has no owner to ask, so it is told that.
+  const audience = billingStanding(viewer);
+  if (audience === "no_business") {
+    return {
+      label: "optional_paid",
+      holding,
+      action: "none",
+      reason: NO_BUSINESS_REASON,
+    };
+  }
+  if (audience === "staff") {
     return {
       label: "optional_paid",
       holding,
@@ -194,11 +289,19 @@ export function addonAccess(input: {
     };
   }
   if (perSeat && viewer.role !== "ADMIN") {
+    return viewer.inOrganisation
+      ? { label: "optional_paid", holding, action: "ask_owner", reason: OWNER_ONLY_REASON }
+      : { label: "optional_paid", holding, action: "none", reason: NO_BUSINESS_REASON };
+  }
+  // Rule 4: checkout refuses, before Stripe, when it would find no workspace
+  // to file the purchase on. The answer comes from the function checkout
+  // calls (addonCheckoutHasWorkspace), for a seat and for a pack alike.
+  if (!(perSeat ? viewer.hasWorkspace.seat : viewer.hasWorkspace.pack)) {
     return {
-      label: "optional_paid",
+      label: "unavailable",
       holding,
-      action: "ask_owner",
-      reason: OWNER_ONLY_REASON,
+      action: "none",
+      reason: NO_WORKSPACE_REASON,
     };
   }
   return {
@@ -215,4 +318,5 @@ export const ADDON_LABEL_TEXT: Record<AddonLabel, string> = {
   optional_paid: "Optional, paid",
   unavailable: "Not available yet",
   complimentary_pilot: "Complimentary pilot",
+  unknown: "Could not be checked",
 };

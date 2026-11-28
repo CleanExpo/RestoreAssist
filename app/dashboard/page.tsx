@@ -9,6 +9,7 @@ import { useFetchWithError } from "@/lib/client/useFetchWithError";
 import type { ParsedApiError } from "@/lib/client/parse-api-error";
 import toast from "react-hot-toast";
 import { TechLicenceBanner } from "@/components/dashboard/TechLicenceBanner";
+import { HomeAddons } from "@/components/addons/HomeAddons";
 import { BasicReportWithoutKeyCta } from "@/components/onboarding/BasicReportWithoutKeyCta";
 import { InboundJobAlert } from "@/components/dashboard/InboundJobAlert";
 import { EvaluatorScoreBadge } from "@/components/SessionMetadataCard";
@@ -566,6 +567,9 @@ function DashboardContent({
         <BasicReportWithoutKeyCta variant="dark" />
       )}
       </div>
+
+      {/* RA-8665: the packs, near the top of the home page in both modes. */}
+      <HomeAddons />
 
       {workspaceLoading && (
         <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground" role="status">

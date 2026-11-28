@@ -24,6 +24,10 @@ import {
   seatsNeededToBuy,
 } from "@/lib/billing/technician-seats";
 import { planAllowsAddonPurchase } from "@/lib/billing/addon-access";
+import {
+  CHECKOUT_NO_WORKSPACE_MESSAGE,
+  addonCheckoutHasWorkspace,
+} from "@/lib/billing/addon-checkout-workspace";
 import { syncRecurringAddonsFromStripe } from "@/lib/billing/fulfill-recurring-addon";
 import { ensureWorkspaceForUser } from "@/lib/workspace/provision";
 import { reportError } from "@/lib/observability";
@@ -192,6 +196,20 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-8665: refuse before a Stripe customer is created when checkout
+      // would find no workspace to file this purchase on. The catalogue asks
+      // the same function, so a card never offers what this refuses.
+      if (
+        recurringAddon &&
+        !(await addonCheckoutHasWorkspace(userId, !!recurringAddon.perSeat))
+      ) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: CHECKOUT_NO_WORKSPACE_MESSAGE,
+          status: 404,
+        });
+      }
+
       let customerId = user.stripeCustomerId;
 
       // If no Stripe customer ID exists, create one
@@ -234,9 +252,10 @@ export async function POST(request: NextRequest) {
           workspace = await getWorkspaceForUser(userId);
         }
         if (!workspace) {
+          // Backstop: the pre-check above should already have refused.
           return apiError(request, {
             code: "NOT_FOUND",
-            message: "No workspace found for this account",
+            message: CHECKOUT_NO_WORKSPACE_MESSAGE,
             status: 404,
           });
         }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ChromePackage } from "@/components/brand/chrome-icons";
-import { AddonCardDeck } from "@/components/addons/AddonCardDeck";
+import { ADDON_PRICE_TERMS, AddonCardDeck } from "@/components/addons/AddonCardDeck";
 import { SimpleWalkthrough } from "@/components/addons/SimpleWalkthrough";
 import { Button } from "@/components/ui/button";
 import { DashboardListPageHeader } from "@/app/dashboard/components/DashboardListPageHeader";
@@ -75,8 +75,7 @@ export default function AddonsClient() {
       <AddonCardDeck returnTo="addons" />
 
       <p className="border-t border-border pt-4 text-xs text-muted-foreground">
-        Prices are GST inclusive. Each pack is a separate subscription you can
-        cancel any time from Subscription settings.
+        {ADDON_PRICE_TERMS}
       </p>
     </DashboardPageFrame>
   );

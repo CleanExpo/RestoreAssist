@@ -9,16 +9,19 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { SimpleWalkthrough, readProgress } from "../SimpleWalkthrough";
-import { AddonCardDeck } from "../AddonCardDeck";
+import { AddonCardDeck, NO_VERDICT_REASON } from "../AddonCardDeck";
 import { CRM_WORKS_ALONE } from "@/lib/addons/addon-guide";
 import { OWNER_ONLY_REASON, TRIAL_PACK_REASON } from "@/lib/billing/addon-access";
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
 
 // The signed-in account can change while a component stays mounted (sign out
 // and in as someone else in the same tab), so the tests can switch it.
-const session = vi.hoisted(() => ({ userId: "owner-A" }));
+const session = vi.hoisted(() => ({ userId: "owner-A", role: undefined as string | undefined }));
 vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: { user: { id: session.userId } }, status: "authenticated" }),
+  useSession: () => ({
+    data: { user: { id: session.userId, role: session.role } },
+    status: "authenticated",
+  }),
 }));
 
 const addon = (sku: string, name: string, perSeat = false) => ({
@@ -38,7 +41,6 @@ const trialCatalog = {
     addon("CLIENT_COMMS", "Restoration Pulse Client Comms"),
   ],
   owned: ["CLIENT_COMMS"],
-  canManageBilling: true,
   access: {
     VOICE: { label: "unavailable", holding: "none", action: "choose_plan", reason: TRIAL_PACK_REASON },
     TECHNICIAN_SEATS: { label: "optional_paid", holding: "none", action: "buy", reason: "You can add technician seats during the free trial." },
@@ -48,7 +50,6 @@ const trialCatalog = {
 
 const teamCatalog = {
   ...trialCatalog,
-  canManageBilling: false,
   access: {
     VOICE: { label: "optional_paid", holding: "none", action: "ask_owner", reason: OWNER_ONLY_REASON },
     TECHNICIAN_SEATS: { label: "optional_paid", holding: "none", action: "ask_owner", reason: OWNER_ONLY_REASON },
@@ -66,6 +67,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
   window.localStorage.clear();
   session.userId = "owner-A";
+  session.role = undefined;
 });
 
 describe("SimpleWalkthrough (RA-8466)", () => {
@@ -120,6 +122,20 @@ describe("SimpleWalkthrough (RA-8466)", () => {
     );
     // The guide never sells: no purchase buttons inside it.
     expect(screen.queryByRole("button", { name: /add pack|add a seat/i })).toBeNull();
+  });
+
+  it("RA-8665: with no verdict from the server, the guide says each pack could not be checked, for owner and staff alike", async () => {
+    for (const [userId, role] of [["owner-A", "ADMIN"], ["staff-A", "USER"]]) {
+      session.userId = userId;
+      session.role = role;
+      serve({ ...trialCatalog, access: undefined });
+      const { unmount } = render(<SimpleWalkthrough mode="setup" />);
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+      for (const sku of ["VOICE", "TECHNICIAN_SEATS", "CLIENT_COMMS"]) {
+        expect(await screen.findByTestId(`guide-${sku}`)).toHaveTextContent(NO_VERDICT_REASON);
+      }
+      unmount();
+    }
   });
 
   it("says plainly when the packs cannot be loaded", async () => {
