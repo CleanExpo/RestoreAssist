@@ -34,7 +34,11 @@ const TRIAL_END = new Date("2027-01-28T03:00:00.000Z");
 function fakeDb(opts: {
   rows?: Row[];
   events?: Event[];
-  owner?: { subscriptionStatus: string | null; trialEndsAt: Date | null } | null;
+  owner?: {
+    subscriptionStatus: string | null;
+    trialEndsAt: Date | null;
+    lifetimeAccess?: boolean | null;
+  } | null;
   workspace?: string | null;
   writes?: string[];
 }) {
@@ -72,17 +76,36 @@ function fakeDb(opts: {
       deleteMany: write("featureEntitlement.deleteMany"),
     },
     subscriptionEvent: {
+      // Honours the reader's payload filter, sort direction and limit the way
+      // Postgres does, so a reader that drops the organisation filter, reads
+      // newest first, or caps the list gets exactly what it asked for.
       findMany: async ({
         where,
+        orderBy,
         take,
       }: {
-        where: { userId: string; eventType: { in: string[] } };
-        take: number;
-      }) =>
-        events
-          .filter((e) => e.userId === where.userId && where.eventType.in.includes(e.eventType))
-          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-          .slice(0, take),
+        where: {
+          userId: string;
+          eventType: { in: string[] };
+          payload?: { path: string[]; equals: string };
+        };
+        orderBy?: { createdAt?: "asc" | "desc" } | Array<{ createdAt?: "asc" | "desc" }>;
+        take?: number;
+      }) => {
+        const first = Array.isArray(orderBy) ? orderBy[0] : orderBy;
+        const dir = first?.createdAt === "desc" ? -1 : 1;
+        const out = events
+          .filter(
+            (e) =>
+              e.userId === where.userId &&
+              where.eventType.in.includes(e.eventType) &&
+              (!where.payload ||
+                (e.payload as Record<string, unknown> | null)?.[where.payload.path[0]] ===
+                  where.payload.equals),
+          )
+          .sort((a, b) => dir * (a.createdAt.getTime() - b.createdAt.getTime()));
+        return take === undefined ? out : out.slice(0, take);
+      },
       create: write("subscriptionEvent.create"),
     },
   } as never;
@@ -118,7 +141,11 @@ describe("foundingTrialCurrentState", () => {
     expect(state.foundingTrialAddons).toHaveLength(9);
     expect(state.activeAddons).toHaveLength(9);
     expect(state.paidAddons).toEqual([]);
-    expect(state.owner).toEqual({ subscriptionStatus: "TRIAL", trialEndsAt: TRIAL_END });
+    expect(state.owner).toEqual({
+      subscriptionStatus: "TRIAL",
+      trialEndsAt: TRIAL_END,
+      lifetimeAccess: false,
+    });
     expect(state.founderOverride).toEqual({ recordedAt: new Date("2026-11-29T01:00:00.000Z") });
     expect(writes).toEqual([]);
   });
@@ -185,6 +212,48 @@ describe("foundingTrialCurrentState", () => {
       ORG,
     );
     expect(state.founderOverride).toBeNull();
+  });
+
+  it("review D1: the put-back of a repeat override leaves the earlier override that still stands", async () => {
+    const revert = (at: string): Event => ({
+      userId: OWNER,
+      eventType: ABN_OVERRIDE_REVERTED_EVENT,
+      payload: { organizationId: ORG },
+      createdAt: new Date(at),
+    });
+    const state = await foundingTrialCurrentState(
+      fakeDb({
+        events: [
+          overrideEvent("2026-11-29T01:00:00.000Z"),
+          overrideEvent("2026-11-29T02:00:00.000Z"),
+          revert("2026-11-29T02:05:00.000Z"),
+        ],
+      }),
+      ORG,
+    );
+    expect(state.founderOverride).toEqual({ recordedAt: new Date("2026-11-29T01:00:00.000Z") });
+  });
+
+  it("review D2: sixty newer events for the owner's other businesses cannot hide this business's override", async () => {
+    const others: Event[] = Array.from({ length: 60 }, (_, i) => ({
+      userId: OWNER,
+      eventType: ABN_OVERRIDE_REVERTED_EVENT,
+      payload: { organizationId: `org_other_${i}` },
+      createdAt: new Date(Date.UTC(2026, 10, 29, 3, i)),
+    }));
+    const state = await foundingTrialCurrentState(
+      fakeDb({ events: [overrideEvent("2026-11-29T01:00:00.000Z"), ...others] }),
+      ORG,
+    );
+    expect(state.founderOverride).toEqual({ recordedAt: new Date("2026-11-29T01:00:00.000Z") });
+  });
+
+  it("review D4: reports lifetime access, which is stored as ACTIVE", async () => {
+    const state = await foundingTrialCurrentState(
+      fakeDb({ owner: { subscriptionStatus: "ACTIVE", trialEndsAt: null, lifetimeAccess: true } }),
+      ORG,
+    );
+    expect(state.owner).toEqual({ subscriptionStatus: "ACTIVE", trialEndsAt: null, lifetimeAccess: true });
   });
 
   it("an owner with no READY workspace reads no add-ons instead of failing the Preview", async () => {

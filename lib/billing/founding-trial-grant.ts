@@ -1042,16 +1042,35 @@ export interface FoundingTrialCurrentState {
   owner: {
     subscriptionStatus: SubscriptionStatus | null;
     trialEndsAt: Date | null;
+    /** Lifetime access also reads ACTIVE; the page must not call it paying. */
+    lifetimeAccess: boolean;
   } | null;
   /**
-   * The latest founder override recorded for this business, unless a later
-   * put-back (ABN_OVERRIDE_REVERTED_EVENT) for the same business followed it.
+   * The newest founder override for this business that no put-back undid.
+   * Each put-back (ABN_OVERRIDE_REVERTED_EVENT) undoes the newest override
+   * before it not already undone: one grant run writes its override and, if
+   * it cannot stand, its put-back. So an earlier override that still stands
+   * survives the put-back of a later repeat attempt.
    */
   founderOverride: { recordedAt: Date } | null;
 }
 
-/** Override events to scan, newest first; one business rarely has more than two. */
-const OVERRIDE_EVENT_SCAN = 50;
+/**
+ * The override that still stands after pairing each put-back with the newest
+ * override before it that is not yet undone; null when none stands. `events`
+ * must be one business's events, oldest first.
+ */
+export function standingFounderOverride(
+  events: ReadonlyArray<{ eventType: string; createdAt: Date }>,
+): { recordedAt: Date } | null {
+  const standing: Date[] = [];
+  for (const e of events) {
+    if (e.eventType === ABN_OVERRIDE_EVENT) standing.push(e.createdAt);
+    else if (e.eventType === ABN_OVERRIDE_REVERTED_EVENT) standing.pop();
+  }
+  const last = standing.at(-1);
+  return last ? { recordedAt: last } : null;
+}
 
 export async function foundingTrialCurrentState(
   db: GrantDb,
@@ -1068,16 +1087,19 @@ export async function foundingTrialCurrentState(
     ownerGrantWorkspace(db, org.ownerId),
     db.user.findUnique({
       where: { id: org.ownerId },
-      select: { subscriptionStatus: true, trialEndsAt: true },
+      select: { subscriptionStatus: true, trialEndsAt: true, lifetimeAccess: true },
     }),
+    // Filtered to this business in the database, so the owner's other
+    // businesses cannot crowd it out. One business has one event per grant
+    // attempt, so the list is short and read whole.
     db.subscriptionEvent.findMany({
       where: {
         userId: org.ownerId,
         eventType: { in: [ABN_OVERRIDE_EVENT, ABN_OVERRIDE_REVERTED_EVENT] },
+        payload: { path: ["organizationId"], equals: organizationId },
       },
-      orderBy: { createdAt: "desc" },
-      take: OVERRIDE_EVENT_SCAN,
-      select: { eventType: true, payload: true, createdAt: true },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: { eventType: true, createdAt: true },
     }),
   ]);
 
@@ -1093,14 +1115,7 @@ export async function foundingTrialCurrentState(
     .map((r) => r.sku);
   const paidAddons = rows.filter((r) => r.stripeSubscriptionId).map((r) => r.sku);
 
-  // The owner may own more than one business; the event names which one.
-  const latest = events.find(
-    (e) =>
-      (e.payload as { organizationId?: unknown } | null)?.organizationId ===
-      organizationId,
-  );
-  const founderOverride =
-    latest?.eventType === ABN_OVERRIDE_EVENT ? { recordedAt: latest.createdAt } : null;
+  const founderOverride = standingFounderOverride(events);
 
   return {
     workspaceId: workspace?.id ?? null,
@@ -1108,7 +1123,11 @@ export async function foundingTrialCurrentState(
     foundingTrialAddons,
     paidAddons,
     owner: owner
-      ? { subscriptionStatus: owner.subscriptionStatus, trialEndsAt: owner.trialEndsAt }
+      ? {
+          subscriptionStatus: owner.subscriptionStatus,
+          trialEndsAt: owner.trialEndsAt,
+          lifetimeAccess: owner.lifetimeAccess === true,
+        }
       : null,
     founderOverride,
   };

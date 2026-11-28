@@ -49,7 +49,11 @@ interface Outcome {
 interface CurrentState {
   foundingTrialAddons: string[];
   paidAddons: string[];
-  owner: { subscriptionStatus: string | null; trialEndsAt: string | null } | null;
+  owner: {
+    subscriptionStatus: string | null;
+    trialEndsAt: string | null;
+    lifetimeAccess?: boolean;
+  } | null;
   founderOverride: { recordedAt: string } | null;
 }
 
@@ -76,6 +80,8 @@ function addonCount(n: number): string {
 
 function currentBasePlanText(owner: CurrentState["owner"]): string {
   if (!owner) return "no owner account found for the base plan";
+  // Lifetime access is stored as ACTIVE too; it is not a recurring payment.
+  if (owner.lifetimeAccess) return "lifetime access to the base plan";
   const ends = owner.trialEndsAt;
   switch (owner.subscriptionStatus) {
     case "TRIAL":
@@ -323,9 +329,12 @@ export default function FoundingTrialPage() {
 
           {outcome && outcome.status === "unverified_abn" && (
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-              {current && current.foundingTrialAddons.length > 0
-                ? "A new grant cannot run from this Preview."
-                : "Not granted."}{" "}
+              {/* "Not granted" only when the read shows nothing held free: a
+                  failed read, or a grant already in place, must not read as
+                  the business holding nothing. */}
+              {current && current.foundingTrialAddons.length === 0
+                ? "Not granted."
+                : "A new grant cannot run from this Preview."}{" "}
               {outcome.reason}
             </div>
           )}

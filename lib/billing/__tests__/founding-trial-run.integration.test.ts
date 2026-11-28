@@ -296,6 +296,19 @@ describe.skipIf(!HAS_DB)("runFoundingTrialGrant on a real database (RA-7721 r2)"
     expect(state.founderOverride).not.toBeNull();
   });
 
+  it("current state: Postgres filters override events to this business (another business's put-back does not count)", async () => {
+    const b = await business();
+    const at = (m: number) => new Date(NOW.getTime() + m * 60_000);
+    await prisma.subscriptionEvent.createMany({
+      data: [
+        { userId: b.ownerId, eventType: "FOUNDING_TRIAL_ABN_OVERRIDE", payload: { organizationId: b.organizationId }, createdAt: at(1) },
+        { userId: b.ownerId, eventType: "FOUNDING_TRIAL_ABN_OVERRIDE_REVERTED", payload: { organizationId: "org_someone_else" }, createdAt: at(2) },
+      ],
+    });
+    const state = await foundingTrialCurrentState(prisma, b.organizationId);
+    expect(state.founderOverride).toEqual({ recordedAt: at(1) });
+  });
+
   it("current state, ABN confirmed: a granted business reads as in place, with no override", async () => {
     const b = await business();
     expect((await grant(b.organizationId)).status).toBe("granted");

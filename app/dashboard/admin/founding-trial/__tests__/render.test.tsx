@@ -455,5 +455,36 @@ describe("Founding Trial page - what the business holds now", () => {
     expect(
       screen.queryByRole("status", { name: "Current Founding Trial state" }),
     ).not.toBeInTheDocument();
+    // Review D3: an unknown state must not read as "Not granted".
+    expect(screen.queryByText(/Not granted\./)).not.toBeInTheDocument();
+    expect(screen.getByText(/A new grant cannot run from this Preview\./)).toBeInTheDocument();
+  });
+
+  it("review D4: lifetime access reads as lifetime access, not as paying", async () => {
+    await preview(
+      {
+        organizationId: "org_life",
+        current: {
+          workspaceId: "ws_life",
+          activeAddons: [],
+          foundingTrialAddons: [],
+          paidAddons: [],
+          owner: { subscriptionStatus: "ACTIVE", trialEndsAt: null, lifetimeAccess: true },
+          founderOverride: null,
+        },
+        outcome: {
+          status: "dry_run",
+          entity: { abn: "28614802425", legalName: "LIFETIME PTY LTD", tradingNames: [] },
+          result: { granted: ["VOICE"], skippedPaid: [], applied: false },
+          basePlan: { outcome: "skipped_lifetime", trialEndsAt: null },
+        },
+      },
+      200,
+    );
+    const state = await screen.findByRole("status", { name: "Current Founding Trial state" });
+    expect(state).toHaveTextContent(
+      "Not on the Founding Trial now: no add-ons held free, lifetime access to the base plan.",
+    );
+    expect(state).not.toHaveTextContent(/paying/);
   });
 });
