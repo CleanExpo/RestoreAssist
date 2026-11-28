@@ -203,7 +203,7 @@ describe("POST /api/admin/founding-trial - Stripe failure and founder override",
     vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", OPERATOR);
   });
 
-  it("RA-8664: Stripe refusing the app's key is a 503 that says so, not a bare 500", async () => {
+  it("RA-8664b: Stripe refusing the app's key is a 424 that says so, not a 503 the host hides", async () => {
     // The shape stripe/esm/Error.js gives an expired or revoked secret key.
     runFoundingTrialGrant.mockRejectedValue(
       Object.assign(new Error("Expired API Key provided"), {
@@ -212,7 +212,7 @@ describe("POST /api/admin/founding-trial - Stripe failure and founder override",
       }),
     );
     const res = await post({ abn: "51824753556" });
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(424);
     const body = await res.json();
     expect(body.error.code).toBe("UPSTREAM_FAILED");
     expect(body.error.message).toMatch(/Stripe refused RestoreAssist's API key/);
@@ -220,7 +220,7 @@ describe("POST /api/admin/founding-trial - Stripe failure and founder override",
     expect(body.error.eventId).toEqual(expect.any(String));
   });
 
-  it("RA-8664: a failed second check says the grant was put back, never that nothing was written", async () => {
+  it("RA-8664b: a failed second check is a 424 that says the grant was put back, never that nothing was written", async () => {
     const { FoundingTrialSettleCheckError } = await import(
       "@/lib/billing/founding-trial-grant"
     );
@@ -234,7 +234,7 @@ describe("POST /api/admin/founding-trial - Stripe failure and founder override",
         ),
       );
       const res = await post({ abn: "51824753556" });
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(424);
       const body = await res.json();
       expect(body.error.code).toBe("UPSTREAM_FAILED");
       expect(body.error.message).toMatch(/the grant was put back as it was/);
@@ -244,13 +244,46 @@ describe("POST /api/admin/founding-trial - Stripe failure and founder override",
     }
   });
 
-  it("RA-8664: any other Stripe failure is a 503 that says to try again", async () => {
+  it("RA-8664b: any other Stripe failure is a 424 that says to try again", async () => {
     runFoundingTrialGrant.mockRejectedValue(
       Object.assign(new Error("socket hang up"), { type: "StripeConnectionError" }),
     );
     const res = await post({ abn: "51824753556" });
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(424);
     expect((await res.json()).error.message).toMatch(/Try again/);
+  });
+
+  it("RA-8664b: a refused key with Stripe billing on record is a 424 that says what is on record", async () => {
+    const { FoundingTrialBillingUncheckedError, FoundingTrialSettleCheckError } = await import(
+      "@/lib/billing/founding-trial-grant"
+    );
+    const stripeError = Object.assign(new Error("Expired API Key provided"), {
+      type: "StripeAuthenticationError",
+    });
+    runFoundingTrialGrant.mockRejectedValueOnce(
+      new FoundingTrialBillingUncheckedError(stripeError, ["linked_customer", "recent_account_deletion"]),
+    );
+    let res = await post({ abn: "51824753556" });
+    expect(res.status).toBe(424);
+    let body = await res.json();
+    expect(body.error.code).toBe("UPSTREAM_FAILED");
+    expect(body.error.message).toMatch(/Stripe refused RestoreAssist's API key/);
+    expect(body.error.message).toMatch(/a person linked to this business has a Stripe customer record/);
+    expect(body.error.message).toMatch(/an account was deleted in the last 25 hours/);
+    expect(body.error.message).toMatch(/Nothing was written/);
+
+    // The same during the second check: put back, never "nothing was written".
+    runFoundingTrialGrant.mockRejectedValueOnce(
+      new FoundingTrialSettleCheckError(
+        new FoundingTrialBillingUncheckedError(stripeError, ["workspace_customer"]),
+      ),
+    );
+    res = await post({ abn: "51824753556" });
+    expect(res.status).toBe(424);
+    body = await res.json();
+    expect(body.error.message).toMatch(/the grant was put back as it was/);
+    expect(body.error.message).toMatch(/its workspace has a Stripe customer record/);
+    expect(body.error.message).not.toMatch(/Nothing was written/);
   });
 
   it("RA-8664: an override reason reaches the grant with the operator's id", async () => {

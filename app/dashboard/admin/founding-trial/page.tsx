@@ -37,6 +37,8 @@ interface Outcome {
   result?: { granted: string[]; skippedPaid: string[]; applied: boolean };
   basePlan?: { outcome: string; trialEndsAt: string | null };
   conflicts?: Array<{ kind: string; id: string }>;
+  /** RA-8664b: "database" when Stripe refused the key and the records answered. */
+  billingCheckedBy?: "stripe" | "database";
 }
 
 const BASE_PLAN_TEXT: Record<string, string> = {
@@ -302,6 +304,13 @@ export default function FoundingTrialPage() {
                 <p className="text-neutral-600 dark:text-neutral-400">
                   {BASE_PLAN_TEXT[outcome.basePlan.outcome] ?? outcome.basePlan.outcome}{" "}
                   {formatDate(outcome.basePlan.trialEndsAt)}
+                </p>
+              )}
+              {outcome.billingCheckedBy === "database" && (
+                <p className="text-amber-700 dark:text-amber-400">
+                  Stripe refused the current API key, so add-on billing was checked
+                  against RestoreAssist&apos;s own records: no Stripe billing on record
+                  for this business.
                 </p>
               )}
               {outcome.status === "granted" ? (
