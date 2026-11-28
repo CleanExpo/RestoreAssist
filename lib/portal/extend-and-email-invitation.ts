@@ -17,6 +17,7 @@ export type ExtendAndEmailInput = {
 };
 
 export type ExtendAndEmailFailure =
+  | "invitation_not_open"
   | "email_not_configured"
   | "email_failed";
 
@@ -72,13 +73,24 @@ export async function extendAndEmailPortalInvitation(
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + INVITE_TTL_DAYS);
 
-  await prisma.portalInvitation.update({
-    where: { id: input.invitationId },
+  // Compare-and-set: only an invitation that is still open is extended. The
+  // caller read the row earlier, so it may since have been revoked or accepted;
+  // that row matches nothing here, stays as it is, and no link is emailed.
+  const extended = await prisma.portalInvitation.updateMany({
+    where: {
+      id: input.invitationId,
+      status: { in: ["PENDING", "EXPIRED"] },
+    },
     data: {
       expiresAt,
       status: "PENDING",
     },
   });
+  if (extended.count !== 1) {
+    return fail("invitation_not_open", {
+      detail: "This invitation is no longer open, so no email was sent",
+    });
+  }
 
   const inviteUrl = `${getAppUrl()}/portal/signup?token=${input.token}`;
   const subject =

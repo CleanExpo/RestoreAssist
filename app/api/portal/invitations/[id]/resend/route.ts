@@ -77,6 +77,15 @@ export async function POST(
     });
 
     if (!result.ok) {
+      if (result.reason === "invitation_not_open") {
+        // Revoked or accepted between the read above and the write.
+        return apiError(request, {
+          code: "CONFLICT",
+          message:
+            "This invitation was revoked or accepted and can no longer be resent",
+          status: 409,
+        });
+      }
       if (result.reason === "email_not_configured") {
         return apiError(request, {
           code: "UPSTREAM_FAILED",
