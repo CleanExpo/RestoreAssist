@@ -9,9 +9,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   BREACH_PROBES, CANARY_NAME, CONTROLS, HOOK_EVENTS, PROFILE_FLAG, PROJECT_CONFIG_EXIT,
-  PROJECT_CONFIG_REFUSAL, RESULT_PREFIX, SENTINEL, classify, configText, hostileProjectFiles,
-  judge, packageDirFromBin, parseExpectation, parseProbeOutput, probeScripts, reviewArgs, reviewEnv,
-  reviewPrompt, validBaseRef,
+  PROJECT_CONFIG_REFUSAL, REQUIRED_PROBES, RESULT_PREFIX, SENTINEL, classify, configText,
+  hostileProjectFiles, judge, packageDirFromBin, parseExpectation, parseProbeOutput, probeScripts,
+  reviewArgs, reviewEnv, reviewPrompt, validBaseRef, verdictSummary,
 } from './sandbox-lib.mjs';
 import { expectedNames, markerResults, runSuite } from './sandbox-probe.mjs';
 import { hasProjectConfig, runReview, writeConfig } from './sandbox-run.mjs';
@@ -60,6 +60,57 @@ test('a red control is red for the named reason only', () => {
   // And a red control still needs its functional controls.
   const noGit = { ...allDenied(), 'outside-read': 'breach', git: 'fail' };
   assert.equal(judge(noGit, 'breach:outside-read').ok, false);
+});
+
+test('no expectation passes while a probe did not run, is missing or has an unreadable result', () => {
+  // Every required breach was seen, but one other probe has no result. A red
+  // control must fail too, or an absent probe would go unnoticed.
+  const off = { ...allDenied(), 'outside-read': 'breach', 'net-ip': 'breach', 'net-host': 'breach',
+    'login-read': 'not-run' };
+  const v = judge(off, 'breach:outside-read,net-ip,net-host');
+  assert.equal(v.ok, false, 'a red control with a probe that never ran');
+  assert.deepEqual(v.notRun, ['login-read']);
+  // A probe left out of the results altogether counts as not run, for both
+  // kinds of expectation; so does an empty result set.
+  const { 'symlink-read': _gone, ...partial } = { ...allDenied(), 'outside-read': 'breach' };
+  const p = judge(partial, 'breach:outside-read');
+  assert.equal(p.ok, false, 'a red control with a missing probe');
+  assert.deepEqual(p.notRun, ['symlink-read']);
+  const { write: _w, ...cleanPartial } = allDenied();
+  assert.equal(judge(cleanPartial, 'clean').ok, false, 'a clean run with a missing probe');
+  assert.equal(judge({}, 'clean').ok, false);
+  assert.equal(judge({}, 'breach:outside-read').ok, false);
+  // A value outside the known results never passes either.
+  assert.equal(judge({ ...allDenied(), 'net-ip': 'maybe' }, 'clean').ok, false);
+  assert.equal(judge({ ...allDenied(), 'net-ip': 'pass' }, 'clean').ok, false, 'a control value on a sandbox probe');
+  assert.equal(
+    judge({ ...allDenied(), 'outside-read': 'breach', 'net-ip': '' }, 'breach:outside-read').ok, false);
+});
+
+test('a red control names the breaches it requires; any other breach is reported, never hidden', () => {
+  const off = { ...allDenied(), 'outside-read': 'breach', 'net-ip': 'breach', 'net-host': 'breach',
+    'login-read': 'breach' };
+  const v = judge(off, 'breach:outside-read,net-ip,net-host');
+  assert.equal(v.ok, true, 'the named breaches are a floor, not an exact match');
+  assert.deepEqual(v.required, ['outside-read', 'net-ip', 'net-host']);
+  assert.deepEqual(v.extraBreaches, ['login-read']);
+  assert.deepEqual(judge(allDenied(), 'clean').extraBreaches, []);
+  // The printed line says what was established and never claims an exact match.
+  assert.equal(verdictSummary(v),
+    'OK, every probe ran and the required breaches were seen: outside-read, net-ip, net-host; '
+    + 'also breached, not required by this control: login-read');
+  const exact = judge({ ...allDenied(), 'outside-read': 'breach' }, 'breach:outside-read');
+  assert.match(verdictSummary(exact), /required breaches were seen: outside-read; no other probe breached$/);
+  assert.match(verdictSummary(judge(allDenied(), 'clean')), /^OK, clean: no breach, every probe ran/);
+  assert.equal(verdictSummary(judge(off, 'clean')), 'FAILED');
+  for (const line of [verdictSummary(v), verdictSummary(exact), verdictSummary(judge(allDenied(), 'clean'))])
+    assert.doesNotMatch(line, /equals/);
+});
+
+test('the required probe set is every non-hostile sandbox probe plus every control', () => {
+  assert.deepEqual(REQUIRED_PROBES, Object.keys(allDenied()));
+  assert.deepEqual(expectedNames({ hostile: false }), REQUIRED_PROBES);
+  assert.deepEqual(expectedNames({ hostile: true }).slice(0, REQUIRED_PROBES.length), REQUIRED_PROBES);
 });
 
 test('only "clean" or "breach:<known names>" is an expectation', () => {

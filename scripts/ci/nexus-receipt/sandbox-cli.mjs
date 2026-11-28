@@ -6,7 +6,7 @@ import { release, tmpdir, type } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 import {
   CODEX_VERSION, PROFILE, PROJECT_CONFIG_EXIT, PROJECT_CONFIG_REFUSAL, configText, judge,
-  parseExpectation, probeScripts, parseProbeOutput, validBaseRef,
+  parseExpectation, probeScripts, parseProbeOutput, validBaseRef, verdictSummary,
 } from './sandbox-lib.mjs';
 import {
   codexPackageDir, findCodex, hasProjectConfig, install, run, runReview, runScript, writeConfig,
@@ -36,7 +36,7 @@ function report(label, results, expectation, record) {
   say(`${label}: expectation ${expectation}`);
   for (const [n, v] of Object.entries(results)) say(`  ${n.padEnd(22)} ${v}`);
   for (const r of verdict.reasons) say(`  MISMATCH ${r}`);
-  say(`${label}: ${verdict.ok ? 'OK, observed result equals the expectation' : 'FAILED'}`);
+  say(`${label}: ${verdictSummary(verdict)}`);
   if (record) appendFileSync(record, `${JSON.stringify({ label, expectation, results, ok: verdict.ok })}\n`);
   return verdict.ok ? 0 : 1;
 }

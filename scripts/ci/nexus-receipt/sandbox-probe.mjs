@@ -15,8 +15,8 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
-  BREACH_PROBES, CONTROLS, EXEC_MARKER_PROBES, HOSTILE_CONFIG, NET_HOST, classify,
-  hostileProjectFiles, parseProbeOutput, probeScripts, validBaseRef,
+  EXEC_MARKER_PROBES, HOSTILE_CONFIG, NET_HOST, REQUIRED_PROBES, classify, hostileProjectFiles,
+  parseProbeOutput, probeScripts, validBaseRef,
 } from './sandbox-lib.mjs';
 import { providerOverrides, startFakeModel } from './fake-model.mjs';
 import { hasProjectConfig, runReview, runScript } from './sandbox-run.mjs';
@@ -27,8 +27,7 @@ const git = (cwd, args) => spawnSync('git', args, { cwd, encoding: 'utf8' });
 
 /** The names one run must report on; a name with no result is `not-run`. */
 export function expectedNames({ hostile }) {
-  const base = BREACH_PROBES.filter((n) => !n.startsWith('hostile-'));
-  return [...base, ...(hostile ? HOSTILE_SUBSET.map((n) => `hostile-${n}`) : []), ...CONTROLS];
+  return [...REQUIRED_PROBES, ...(hostile ? HOSTILE_SUBSET.map((n) => `hostile-${n}`) : [])];
 }
 
 function firstTrackedFile(checkout) {

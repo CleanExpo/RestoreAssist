@@ -67,6 +67,9 @@ export const PROJECT_CONFIG_REFUSAL =
 // Functional controls that must SUCCEED, so a dead sandbox is never read as
 // "everything was denied" and the review is not vacuous.
 export const CONTROLS = ['tracked-read', 'git'];
+// What every run must report on, whatever it expects: each sandbox probe that
+// is not part of the optional hostile-config set, and each functional control.
+export const REQUIRED_PROBES = [...BREACH_PROBES.filter((n) => !n.startsWith('hostile-')), ...CONTROLS];
 
 // Environment variables the review may hand to Codex. Everything else, every
 // token included, is dropped before Codex starts.
@@ -259,22 +262,56 @@ export function parseExpectation(text) {
   return { kind: 'breach', names };
 }
 
-/** The single place a probe run is judged. `ok` only when observed equals expected. */
+const PROBE_VALUES = ['breach', 'denied', 'not-run'];
+const CONTROL_VALUES = ['pass', 'fail', 'not-run'];
+
+/**
+ * The single place a probe run is judged.
+ *
+ * Two rules hold for EVERY expectation and are applied to the whole result set
+ * before the expectation is read, so no branch can skip them. First, every
+ * required probe and every other probe the run reported on must have a known
+ * result: a probe that did not run, is missing from the results or carries an
+ * unreadable value never passes, in a proof or in a red control. Second, every
+ * functional control must pass.
+ *
+ * Then `clean` allows no breach at all. `breach:<names>` is a red control and
+ * the names are the breaches it REQUIRES. That is a floor, not an exact match:
+ * with the sandbox off other probes breach as well. Those come back in
+ * `extraBreaches` and verdictSummary prints them, so they are never hidden.
+ */
 export function judge(results, expectation) {
   const exp = parseExpectation(expectation);
-  const of = (kind) => Object.keys(results).filter((n) => results[n] === kind).sort();
-  const breaches = of('breach');
-  const notRun = of('not-run');
-  const failedControls = CONTROLS.filter((c) => results[c] !== 'pass');
+  const seen = results && typeof results === 'object' ? results : {};
+  const names = [...new Set([...REQUIRED_PROBES, ...Object.keys(seen)])].sort();
+  const valueOf = (n) => (Object.hasOwn(seen, n) ? seen[n] : 'not-run');
+  const known = (n) => (CONTROLS.includes(n) ? CONTROL_VALUES : PROBE_VALUES).includes(valueOf(n));
+  const notRun = names.filter((n) => valueOf(n) === 'not-run');
+  const unreadable = names.filter((n) => !known(n));
+  const breaches = names.filter((n) => valueOf(n) === 'breach');
+  const failedControls = CONTROLS.filter((c) => valueOf(c) !== 'pass');
+  const required = exp?.kind === 'breach' ? exp.names : [];
   const reasons = [];
-  if (!exp) reasons.push('the expectation is not "clean" or "breach:<known probe names>"');
-  else if (exp.kind === 'clean') {
-    for (const b of breaches) reasons.push(`breach: ${b}`);
-    for (const n of notRun) reasons.push(`not run (unknown is never clean): ${n}`);
-  } else {
-    for (const n of exp.names)
-      if (!breaches.includes(n)) reasons.push(`expected breach not seen: ${n}`);
-  }
+  for (const n of notRun) reasons.push(`not run (a probe with no result never passes): ${n}`);
+  for (const n of unreadable) reasons.push(`unreadable result: ${n}`);
   for (const c of failedControls) reasons.push(`functional control did not pass: ${c}`);
-  return { ok: reasons.length === 0, breaches, notRun, failedControls, reasons };
+  if (!exp) reasons.push('the expectation is not "clean" or "breach:<known probe names>"');
+  else if (exp.kind === 'clean') for (const b of breaches) reasons.push(`breach: ${b}`);
+  else for (const n of required) if (!breaches.includes(n)) reasons.push(`expected breach not seen: ${n}`);
+  const extraBreaches = exp?.kind === 'breach' ? breaches.filter((b) => !required.includes(b)) : [];
+  return {
+    ok: reasons.length === 0, kind: exp?.kind ?? null, required, breaches, extraBreaches,
+    notRun, failedControls, reasons,
+  };
+}
+
+/** One line saying what a verdict actually established. Never "equals". */
+export function verdictSummary(verdict) {
+  if (!verdict.ok) return 'FAILED';
+  if (verdict.kind === 'clean')
+    return 'OK, clean: no breach, every probe ran and every functional control passed';
+  const extra = verdict.extraBreaches.length
+    ? `; also breached, not required by this control: ${verdict.extraBreaches.join(', ')}`
+    : '; no other probe breached';
+  return `OK, every probe ran and the required breaches were seen: ${verdict.required.join(', ')}${extra}`;
 }
