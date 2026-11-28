@@ -75,12 +75,13 @@ describe("NIRClaimAssessmentPanel — locked claim type (RA-1029)", () => {
         screen.getByText("Assessor entry only (IICRC S520:2024 Condition 1–3)"),
       ).toBeInTheDocument();
     });
+    // RA-8642: spore type is a free-text box (any value a lab reports is
+    // kept), still marked as a laboratory result, with common genera offered.
+    expect(screen.getByLabelText("Spore type")).toBeInTheDocument();
+    expect(screen.getByText("Laboratory result")).toBeInTheDocument();
     expect(
-      screen.getByText("Spore Type (laboratory result)"),
-    ).toBeInTheDocument();
-    // The label changes; the stored option value stays, so saved data still matches.
-    const option = screen.getByRole("option", { name: "Stachybotrys" });
-    expect(option).toHaveAttribute("value", "STACHYBOTRYS");
+      document.querySelector('#mould-spore-type-options option[value="Stachybotrys"]'),
+    ).not.toBeNull();
     expect(screen.queryByText(/Black Mould/i)).not.toBeInTheDocument();
   });
 
