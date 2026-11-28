@@ -11,7 +11,10 @@ name: Nexus release receipt (CI)
 #     branch (main), so a PR cannot edit the workflow to reach the secret.
 #   - The PR head is checked out into ./pr only to be READ by Codex in a
 #     read-only sandbox. Nothing from ./pr is installed or executed.
-#   - The verdict is scrubbed of any credential string before it is posted.
+#   - Nothing Codex wrote is posted. The status and the PR comment carry fixed
+#     wording and finding COUNTS only (scripts/ci/nexus-receipt/lib.mjs, rule 2).
+#     The scrub step below is a second layer for the file on disk, not the
+#     protection for anything public.
 # Put the secret on the `nexus-release-receipt` environment (Settings →
 # Environments), not as a repository secret.
 #
@@ -20,9 +23,10 @@ name: Nexus release receipt (CI)
 # 2026-11-27: "We dont use API credits"). Without the secret the job posts
 # nothing and the Mac gate works as before.
 #
-# A blocked PR is never silent: the findings go into ONE PR comment, updated in
-# place, which the MacBook receipt runner reads to fix the PR and push. The push
-# re-runs this review on the new commit.
+# A blocked PR is never silent: ONE PR comment, updated in place, says how many
+# findings block it at each severity. It does not carry the finding text; whoever
+# fixes the PR runs the release-gate review locally on the same commit to read
+# it. A push re-runs this review on the new commit.
 
 on:
   pull_request_target:
@@ -54,7 +58,18 @@ jobs:
       - run: node --test scripts/ci/nexus-receipt/verdict.test.mjs
 
   receipt:
+    # The receipt is only as good as the verdict logic that decides it, so this
+    # job runs only when verdict-tests SUCCEEDED on the same commit. If those
+    # tests fail, are cancelled or are skipped, this job is skipped and posts
+    # nothing: no new success can appear on a commit whose verdict logic is
+    # unproven. (A status an earlier run already posted on that commit stays.)
+    needs: verdict-tests
     # Fork PRs are skipped: the receipt is for this repo's own branches.
+    # Keep this condition exactly as written. GitHub only adds "and every needed
+    # job succeeded" while the condition calls none of always(), failure(),
+    # cancelled() or success(); adding one would let this job run after failed
+    # tests. scripts/ci/__tests__/nexus-receipt-workflow.test.mjs fails if this
+    # line or the `needs` above changes.
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -66,6 +81,7 @@ jobs:
     steps:
       # `runner` is not available in job-level env, so set paths here.
       # CODEX_EXIT starts as not-run: if the review never runs, the receipt fails.
+      # The helper has no default either: an unset or empty CODEX_EXIT also fails.
       - name: Set paths
         run: |
           echo "CODEX_HOME=$RUNNER_TEMP/codex" >> "$GITHUB_ENV"
@@ -157,6 +173,7 @@ jobs:
           echo "CODEX_EXIT=$code" >> "$GITHUB_ENV"
           echo "Codex exited $code"
 
+      # Second layer, for the file on disk. Nothing public depends on it.
       - name: Scrub credentials from the verdict
         if: always() && steps.cred.outputs.mode != 'none'
         run: |
@@ -186,7 +203,8 @@ jobs:
             -f context=nexus/release-receipt -f description="$desc" -f target_url="$RUN_URL" >/dev/null
           exit $code
 
-      - name: Publish findings to the PR
+      # Counts only: the helper never copies finding text into the comment.
+      - name: Publish finding counts to the PR
         if: always() && steps.cred.outputs.mode != 'none'
         env:
           GH_TOKEN: ${{ github.token }}
