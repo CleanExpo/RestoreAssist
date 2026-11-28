@@ -13,8 +13,16 @@
  *     ABR lookup never finished; the reason is recorded with the grant. A
  *     different or cancelled ABN still refuses.
  *   - RA-8664: when Stripe cannot be read (an expired key answered every
- *     Preview with a bare 500), the operator gets a 503 that says so, and
- *     nothing is written.
+ *     Preview with a bare 500), the operator gets a 424 that says so. A 503
+ *     body is replaced by the host's own error page, so 424 is used for
+ *     every Stripe failure.
+ *   - RA-8664b: when Stripe refuses the key itself, the grant checks
+ *     RestoreAssist's own records instead. With no Stripe billing on record
+ *     the preview and the apply both go ahead (apply writes the grant), and
+ *     the outcome carries billingCheckedBy "database" so the page says so.
+ *     With any Stripe billing on record it answers 424, names what is on
+ *     record, and writes nothing (or, in the second check, puts the grant
+ *     back).
  *
  * Platform staff only. `role: "ADMIN"` is every self-registered firm owner, so
  * verifyAdminFromDb is followed by verifyPlatformSupportOperator, which fails

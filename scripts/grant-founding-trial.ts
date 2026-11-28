@@ -22,6 +22,11 @@
  * business paying for something now free: before writing, the script refuses;
  * after, it puts the grant back as it was. Either way it names what it found.
  * It never expires, cancels or refunds anything in Stripe.
+ *
+ * RA-8664b: if Stripe refuses the API key itself, the check falls back to
+ * RestoreAssist's own records and goes ahead only when no Stripe billing is
+ * on record for the business; otherwise it refuses and names what it found.
+ * The output says which check was used.
  */
 import Stripe from "stripe";
 import { PrismaClient } from "@prisma/client";
@@ -39,8 +44,8 @@ import {
 // `new PrismaClient()` throws before the first query (RA-7576).
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required.");
-// The open-checkout check is not optional: without Stripe the script cannot
-// know whether a paid subscription is about to land on a free grant.
+// The open-checkout check is not optional. Stripe is asked first; the
+// records fallback (RA-8664b) is used only when Stripe refuses the key.
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is required.");
 
@@ -124,6 +129,12 @@ async function main() {
   console.log(
     `  business (ABR): ${out.entity.legalName}  ABN ${out.entity.abn}` +
       (out.entity.tradingNames.length ? `  trading as ${out.entity.tradingNames.join(", ")}` : ""),
+  );
+  console.log(
+    out.billingCheckedBy === "database"
+      ? "  add-on billing: Stripe refused the API key, so it was checked against " +
+          "RestoreAssist's own records: no Stripe billing on record"
+      : "  add-on billing: checked with Stripe",
   );
   const bp = out.basePlan;
   console.log(
