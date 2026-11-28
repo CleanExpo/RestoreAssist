@@ -1,0 +1,12 @@
+{
+  "_comment": "Jobs the release gate's local copy of CI (pr-release-gate, ci_mirror.py) may skip in this repository. Every entry needs a reason, and a skipped job is a counted gap, never a pass. scripts/ci/__tests__/nexus-receipt-workflow.test.mjs fails if the nexus-release-receipt.yml entry is widened beyond the receipt job.",
+  "exempt": [
+    {
+      "workflow": "nexus-release-receipt.yml",
+      "job": "receipt",
+      "step": "*",
+      "test_gap": true,
+      "reason": "Writes the nexus/release-receipt status and a PR comment on GitHub, using the CODEX_AUTH_JSON secret held on the nexus-release-receipt environment and the Actions run link. A developer machine has neither and must not write that status, so this job cannot run locally. Its decision logic is still checked locally: the verdict-tests job of the same workflow stays in the local copy, and scripts/ci/__tests__/nexus-receipt-workflow.test.mjs checks the wiring between the two jobs."
+    }
+  ]
+}
