@@ -12,7 +12,8 @@
  * shows nothing in the iOS app (App Review 3.1.1).
  *
  * This file decides nothing about billing. The intro line follows the server's
- * billingAudience (read by the deck), and the "See all add-ons" link follows
+ * billingAudience, read from the cards' verdicts (by the deck); with none, no
+ * line shows and each card says why. The "See all add-ons" link follows
  * the Add-Ons tab's own rule (fieldAddonsTabVisible), so it shows only to the
  * people that page lets in.
  */
@@ -21,7 +22,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import BillingGate from "@/components/capacitor/BillingGate";
 import { fieldAddonsTabVisible } from "@/app/dashboard/nav-config";
-import { NO_BUSINESS_REASON, OWNER_ONLY_REASON } from "@/lib/billing/addon-access";
+import { OWNER_ONLY_REASON } from "@/lib/billing/addon-access";
 import { ADDON_PRICE_TERMS, AddonCardDeck } from "./AddonCardDeck";
 
 /** RA-8665: the owner reads the offer and its terms. */
@@ -29,9 +30,6 @@ export const HOME_ADDONS_OWNER_INTRO = `Switch on extra features for your busine
 
 /** RA-8665: staff read who can add packs, not an offer they cannot take. */
 export const HOME_ADDONS_STAFF_INTRO = `These packs add extra features to RestoreAssist. ${OWNER_ONLY_REASON}`;
-
-/** RA-8665: an account in no business has no owner to ask, so it is not told to. */
-export const HOME_ADDONS_NO_BUSINESS_INTRO = `These packs add extra features to RestoreAssist. ${NO_BUSINESS_REASON}`;
 
 export function HomeAddons() {
   // Inside BillingGate, so billing navigation is not hidden here.
@@ -64,7 +62,6 @@ export function HomeAddons() {
           intro={{
             owner: HOME_ADDONS_OWNER_INTRO,
             staff: HOME_ADDONS_STAFF_INTRO,
-            no_business: HOME_ADDONS_NO_BUSINESS_INTRO,
           }}
         />
       </section>

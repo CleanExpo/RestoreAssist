@@ -164,9 +164,11 @@ describe("AddonCardDeck (RA-8271)", () => {
   });
 
   it("RA-8665: the reader's audience comes only from the server's audience field", () => {
-    for (const named of ["owner", "staff", "no_business"] as const) {
+    for (const named of ["owner", "staff"] as const) {
       expect(catalogAudience({ audience: named })).toBe(named);
     }
+    expect(catalogAudience({ audience: null })).toBeNull();
+    expect(catalogAudience({ audience: "no_business" } as never)).toBeNull();
     // No audience, or one the screen does not know: no audience at all, and
     // the old canManageBilling flag is never read.
     expect(catalogAudience({})).toBeNull();
@@ -188,13 +190,12 @@ describe("AddonCardDeck (RA-8271)", () => {
     );
     render(
       <AddonCardDeck
-        intro={{ owner: "OWNER INTRO", staff: "STAFF INTRO", no_business: "NO BUSINESS INTRO" }}
+        intro={{ owner: "OWNER INTRO", staff: "STAFF INTRO" }}
       />,
     );
     await screen.findByTestId("addon-card-PAYMENTS");
     expect(screen.queryByText("OWNER INTRO")).toBeNull();
     expect(screen.queryByText("STAFF INTRO")).toBeNull();
-    expect(screen.queryByText("NO BUSINESS INTRO")).toBeNull();
   });
 
   it("RA-8665: every card shows GST inclusive and cancel any time beside its price", async () => {

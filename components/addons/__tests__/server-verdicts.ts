@@ -51,6 +51,6 @@ export function withServerVerdicts<
     });
   }
   // Same calls as the route: one rule decides the offer text and the controls.
-  const audience = billingAudience(viewer);
+  const audience = billingAudience(access);
   return { ...catalog, access, audience };
 }

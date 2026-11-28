@@ -44,11 +44,11 @@ export interface CatalogResponse {
   technicianSeats?: { purchased: number; used: number } | null;
   /** RA-8466: label and allowed action per pack, decided on the server. */
   access?: Record<string, AddonAccess>;
-  /** RA-8665: who is reading, from billingAudience on the server. */
-  audience?: BillingAudience;
+  /** RA-8665: the line above the cards, from billingAudience on the server. */
+  audience?: BillingAudience | null;
 }
 
-const AUDIENCES: readonly BillingAudience[] = ["owner", "staff", "no_business"];
+const AUDIENCES: readonly BillingAudience[] = ["owner", "staff"];
 
 /**
  * RA-8665: the reader as the server named them, and nothing else. A reply
@@ -268,9 +268,9 @@ export interface AddonCardDeckProps {
   returnTo?: AddonReturnTarget;
   /**
    * RA-8665: a line shown above the cards once the catalogue has loaded,
-   * picked by the server's billingAudience: the owner reads the offer, staff
-   * read who to ask, and an account in no business reads that it has none.
-   * With no audience from the server, no line shows.
+   * picked by the server's billingAudience from the cards' verdicts: the
+   * owner reads the offer, staff read who to ask. With no audience from the
+   * server, no line shows.
    */
   intro?: Record<BillingAudience, ReactNode>;
 }

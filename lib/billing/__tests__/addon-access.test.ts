@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   addonAccess,
   billingAudience,
+  billingStanding,
   mayManageBilling,
   addonFeatureLive,
   holdingFor,
@@ -283,14 +284,47 @@ describe("RA-8665: a pack needs the workspace checkout files it on", () => {
 });
 
 describe("RA-8665: an account in no business is not sent to a business owner", () => {
-  it("RA-8665: billingAudience names owner, staff and no_business from one rule", () => {
-    expect(billingAudience(owner())).toBe("owner");
-    expect(billingAudience(owner({ isBillingOwner: false, role: "USER", canOpenBillingPages: false }))).toBe("staff");
+  it("RA-8665: billingStanding names owner, staff and no_business from one rule", () => {
+    expect(billingStanding(owner())).toBe("owner");
+    expect(billingStanding(owner({ isBillingOwner: false, role: "USER", canOpenBillingPages: false }))).toBe("staff");
     // No organisation, so it counts as its own billing owner, but the billing
     // pages refuse role USER: it may not act, and it has no owner to ask.
     expect(
-      billingAudience(owner({ inOrganisation: false, role: "USER", canOpenBillingPages: false })),
+      billingStanding(owner({ inOrganisation: false, role: "USER", canOpenBillingPages: false })),
     ).toBe("no_business");
+  });
+
+  it("RA-8665: the intro audience is read from the card verdicts, never from the viewer", () => {
+    const card = (action: string) =>
+      ({ label: "optional_paid", holding: "none", action, reason: "r" }) as never;
+    for (const action of ["buy", "add_seat", "manage", "choose_plan"]) {
+      expect(billingAudience({ A: card("none"), B: card(action) })).toBe("owner");
+    }
+    expect(billingAudience({ A: card("ask_owner"), B: card("none") })).toBe("staff");
+    expect(billingAudience({ A: card("ask_owner"), B: card("buy") })).toBe("owner");
+    // No card offers anything: no intro. An action this rule does not know
+    // offers nothing either.
+    expect(billingAudience({ A: card("none"), B: card("none") })).toBeNull();
+    expect(billingAudience({})).toBeNull();
+    expect(billingAudience({ A: card("teleport") })).toBeNull();
+  });
+
+  it("RA-8665: a stale ADMIN session in no business and with no workspace gets no intro", () => {
+    // Round 7: the session says ADMIN (so the billing pages open), the
+    // database says USER, there is no organisation and no workspace. Every
+    // card offers nothing, so the intro must offer nothing either.
+    const viewer = owner({
+      inOrganisation: false,
+      role: "USER",
+      canOpenBillingPages: true,
+      hasWorkspace: { pack: false, seat: false },
+    });
+    const access: Record<string, ReturnType<typeof addonAccess>> = {};
+    for (const [sku, perSeat] of [["PACK", false], ["SEAT", true]] as const) {
+      access[sku] = addonAccess({ perSeat, holding: "none", viewer, now: NOW });
+      expect(access[sku].action).toBe("none");
+    }
+    expect(billingAudience(access)).toBeNull();
   });
 
   it("RA-8665: every pack tells an account in no business that it is not part of one, and offers no control", () => {

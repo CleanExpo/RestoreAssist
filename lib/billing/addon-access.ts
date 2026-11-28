@@ -82,9 +82,9 @@ export interface AddonViewer {
 }
 
 /**
- * RA-8665: the one rule for who acts on add-on billing. Rule 1 below and
- * billingAudience (which picks the owner offer text) both call it, so the
- * text above the cards can never offer what the cards refuse.
+ * RA-8665: the one rule for who acts on add-on billing. Rule 1 below calls it
+ * (through billingStanding); the text above the cards reads the cards'
+ * verdicts instead (billingAudience).
  */
 export function mayManageBilling(
   viewer: Pick<AddonViewer, "isBillingOwner" | "canOpenBillingPages">,
@@ -93,18 +93,45 @@ export function mayManageBilling(
 }
 
 /**
- * RA-8665: who is reading the add-on cards. "owner" may act on billing;
- * "staff" belongs to a business and is sent to its owner; "no_business"
- * belongs to none, so there is no owner to send them to. Rule 1 and the text
- * above the cards both read this, so they never disagree.
+ * RA-8665: where the viewer stands for rule 1 below. "owner" may act on
+ * billing; "staff" belongs to a business and is sent to its owner;
+ * "no_business" belongs to none, so there is no owner to send them to. Only
+ * the judge reads this; later rules can still refuse an "owner" (a seat for a
+ * database role that is not ADMIN, a pack with no workspace).
  */
-export type BillingAudience = "owner" | "staff" | "no_business";
+export type BillingStanding = "owner" | "staff" | "no_business";
 
-export function billingAudience(
+export function billingStanding(
   viewer: Pick<AddonViewer, "isBillingOwner" | "canOpenBillingPages" | "inOrganisation">,
-): BillingAudience {
+): BillingStanding {
   if (mayManageBilling(viewer)) return "owner";
   return viewer.inOrganisation ? "staff" : "no_business";
+}
+
+/**
+ * RA-8665: the line above the cards, read from the cards' own verdicts. The
+ * owner offer shows only when some card offers an owner control, and the
+ * ask-your-owner line only when some card says ask_owner. With neither, there
+ * is no line: each card already says why. So the text above the cards can
+ * never offer what no card offers (review rounds 1-7 found it could while it
+ * was judged apart from the cards). An action not listed here offers nothing.
+ */
+export type BillingAudience = "owner" | "staff";
+
+const OWNER_ACTIONS: ReadonlySet<string> = new Set<AddonAction>([
+  "buy",
+  "add_seat",
+  "manage",
+  "choose_plan",
+]);
+
+export function billingAudience(
+  access: Record<string, Pick<AddonAccess, "action">>,
+): BillingAudience | null {
+  const actions = Object.values(access).map((a) => a.action);
+  if (actions.some((a) => OWNER_ACTIONS.has(a))) return "owner";
+  if (actions.includes("ask_owner")) return "staff";
+  return null;
 }
 
 export interface AddonAccess {
@@ -206,7 +233,7 @@ export function addonAccess(input: {
   // Rule 1: only the owner acts on billing, and only from pages they may open.
   // Team members, and anyone the billing pages turn away, see the label only.
   // An account in no business has no owner to ask, so it is told that.
-  const audience = billingAudience(viewer);
+  const audience = billingStanding(viewer);
   if (audience === "no_business") {
     return {
       label: "optional_paid",

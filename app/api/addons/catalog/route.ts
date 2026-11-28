@@ -116,14 +116,15 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // RA-8665: `audience` is the reply's one answer to who is reading. There
-    // is no second flag for a screen to fall back on.
+    // RA-8665: `audience` is the reply's one answer to which line goes above
+    // the cards, read from the verdicts just made. There is no second flag
+    // for a screen to fall back on.
     return NextResponse.json({
       addons,
       owned,
       technicianSeats,
       access,
-      audience: billingAudience(viewer),
+      audience: billingAudience(access),
     });
   } catch (error) {
     return fromException(req, error, { stage: "catalog" });

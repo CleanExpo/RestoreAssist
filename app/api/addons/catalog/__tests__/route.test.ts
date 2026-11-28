@@ -286,7 +286,7 @@ describe("GET /api/addons/catalog", () => {
       mockOwner.mockResolvedValue(null);
 
       const json = await (await GET(req())).json();
-      expect(json.audience).toBe("no_business");
+      expect(json.audience).toBeNull();
       for (const sku of Object.keys(RECURRING_ADDONS)) {
         expect(["ask_owner", "none"]).toContain(json.access[sku].action);
       }
@@ -352,7 +352,7 @@ describe("GET /api/addons/catalog", () => {
       mockOwner.mockResolvedValue(null);
 
       const json = await (await GET(req())).json();
-      expect(json.audience).toBe("no_business");
+      expect(json.audience).toBeNull();
       expect(Object.values(json.access).map((a) => (a as { reason: string }).reason)).toContain(
         NO_BUSINESS_REASON,
       );
@@ -360,6 +360,28 @@ describe("GET /api/addons/catalog", () => {
         expect(json.access[sku].reason).not.toBe(OWNER_ONLY_REASON);
         expect(json.access[sku].action).not.toBe("ask_owner");
       }
+    });
+
+    it("RA-8665: a stale ADMIN session in no business and with no workspace is offered nothing, intro included", async () => {
+      // Round 7: the session still says ADMIN, the database says USER.
+      mockSession.mockResolvedValue({ user: { id: "stale-1", role: "ADMIN" } });
+      mockGetWorkspace.mockResolvedValue(null);
+      mockCallerWorkspace.mockResolvedValue(null);
+      seatRule.seatAnswer = false;
+      mockFindMany.mockResolvedValue([]);
+      mockUser.mockResolvedValue({
+        organizationId: null,
+        role: "USER",
+        subscriptionStatus: "ACTIVE",
+        trialEndsAt: null,
+      });
+      mockOwner.mockResolvedValue(null);
+
+      const json = await (await GET(req())).json();
+      for (const sku of Object.keys(RECURRING_ADDONS)) {
+        expect(json.access[sku].action).toBe("none");
+      }
+      expect(json.audience).toBeNull();
     });
   });
 });

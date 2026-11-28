@@ -36,7 +36,6 @@ vi.mock("@/app/dashboard/components/DashboardPanel", async (importOriginal) => {
 });
 
 import {
-  HOME_ADDONS_NO_BUSINESS_INTRO,
   HOME_ADDONS_OWNER_INTRO,
   HOME_ADDONS_STAFF_INTRO,
   HomeAddons,
@@ -50,7 +49,7 @@ import {
 } from "./server-verdicts";
 import DashboardPage from "@/app/dashboard/page";
 import { ShellPlatformProvider } from "@/components/capacitor/ShellPlatformProvider";
-import { OWNER_ONLY_REASON } from "@/lib/billing/addon-access";
+import { NO_BUSINESS_REASON, OWNER_ONLY_REASON } from "@/lib/billing/addon-access";
 
 const pack = (sku: string, name: string) => ({
   sku,
@@ -152,13 +151,14 @@ describe("Dashboard home add-ons", () => {
     expect(screen.queryByText(/Switch on extra features/)).toBeNull();
   });
 
-  it("RA-8665: an account in no business reads that it is not part of one, not the owner offer or an owner to ask", async () => {
+  it("RA-8665: an account in no business reads, on each card, that it is not part of one, and no intro offers it anything", async () => {
     // No business owner over this account (so it counts as billing owner),
     // but /dashboard/subscription refuses role USER, and there is no owner.
     signIn("USER");
     serve(withServerVerdicts(catalog, NO_BUSINESS_VIEWER));
     render(<HomeAddons />);
-    expect(await screen.findByText(HOME_ADDONS_NO_BUSINESS_INTRO)).toBeInTheDocument();
+    const card = await screen.findByTestId("addon-card-PAYMENTS");
+    expect(within(card).getByText(NO_BUSINESS_REASON)).toBeInTheDocument();
     expect(screen.queryByText(HOME_ADDONS_OWNER_INTRO)).toBeNull();
     expect(screen.queryByText(HOME_ADDONS_STAFF_INTRO)).toBeNull();
     expect(screen.queryByText(OWNER_ONLY_REASON)).toBeNull();
@@ -178,9 +178,30 @@ describe("Dashboard home add-ons", () => {
       await screen.findByTestId("addon-card-PAYMENTS");
       expect(screen.queryByText(/Switch on extra features/)).toBeNull();
       expect(screen.queryByText(HOME_ADDONS_STAFF_INTRO)).toBeNull();
-      expect(screen.queryByText(HOME_ADDONS_NO_BUSINESS_INTRO)).toBeNull();
       expect(screen.queryAllByRole("button")).toEqual([]);
       unmount();
+    }
+  });
+
+  it("RA-8665: a stale ADMIN session in no business and with no workspace reads no owner offer", async () => {
+    // Round 7: the session says ADMIN, so the billing pages open, but the
+    // database says USER and there is no business and no workspace.
+    signIn("ADMIN");
+    // No pack held, as in the review's case: then no card offers anything.
+    serve(
+      withServerVerdicts({ ...catalog, owned: [] }, {
+        ...NO_BUSINESS_VIEWER,
+        canOpenBillingPages: true,
+        hasWorkspace: { pack: false, seat: false },
+      }),
+    );
+    render(<HomeAddons />);
+    await screen.findByTestId("addon-card-PAYMENTS");
+    expect(screen.queryByText(/Switch on extra features/)).toBeNull();
+    expect(screen.queryByText(HOME_ADDONS_STAFF_INTRO)).toBeNull();
+    expect(screen.queryAllByRole("button")).toEqual([]);
+    for (const sku of ["PAYMENTS", "VOICE"]) {
+      expect(within(screen.getByTestId(`addon-card-${sku}`)).queryAllByRole("link")).toEqual([]);
     }
   });
 
