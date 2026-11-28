@@ -802,7 +802,16 @@ test("semantic workflow inspection covers the current workflow population", () =
     .filter((name) => /\.ya?ml$/i.test(name));
   // A deliberate review tripwire: adding a workflow must force someone to
   // re-confirm the inspection below still holds over the new population.
-  // Reviewed 2026-11-27 at 30 -> 31: nexus-release-receipt.yml (UNI-3575, PR 2728).
+  // Reviewed 2026-11-29 at 31 -> 32: nexus-sandbox-proof.yml (RA-8676). Runs on
+  // pull_request, push to main, a weekly schedule and workflow_dispatch with
+  // contents: read only, no secrets and no environment; checkout
+  // (persist-credentials false) and setup-node SHA-pinned; it installs the pinned
+  // Codex CLI and may relax one AppArmor sysctl on the ephemeral runner; no migrate,
+  // no deploy. The same change routes the nexus-release-receipt.yml review through
+  // scripts/ci/nexus-receipt/sandbox.mjs. findReleaseBootstrapViolations returned 0
+  // over all 32, and on an exported copy flagged a planted `actions/checkout@v4`
+  // in each of the two nexus workflows, so the inspection covers both.
+  // Prior review 2026-11-27 at 30 -> 31: nexus-release-receipt.yml (UNI-3575, PR 2728).
   // pull_request_target with checkout and setup-node SHA-pinned; the PR head is
   // checked out to ./pr and only read by Codex, never installed or run; the Codex
   // credential is on the nexus-release-receipt environment; no migrate, no deploy.
@@ -820,7 +829,7 @@ test("semantic workflow inspection covers the current workflow population", () =
   // Prior review 2026-11-02 at 26 -> 27: check-visuals.yml (PR 2483).
   // Prior reviews 2026-09-21 at 25 -> 26 (RA-7466) and 24 -> 25 (RA-7597);
   // 2026-09-06 at 20 -> 24.
-  assert.equal(workflowPopulation.length, 31);
+  assert.equal(workflowPopulation.length, 32);
   assert.deepEqual(findReleaseBootstrapViolations(process.cwd()), []);
 });
 
