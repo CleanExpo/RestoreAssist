@@ -19,12 +19,12 @@ import { getEntitlementWorkspaceForUser } from "@/lib/entitlements";
 import { apiError, fromException } from "@/lib/api-errors";
 import { technicianSeatUsage } from "@/lib/billing/technician-seats";
 import { getOrganizationOwner } from "@/lib/organization-credits";
-import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { addonCheckoutHasWorkspace } from "@/lib/billing/addon-checkout-workspace";
 import { canOpenDashboardPage } from "@/lib/auth/dashboard-page-access";
 import {
   addonAccess,
   addonFeatureLive,
-  mayManageBilling,
+  billingAudience,
   holdingFor,
   type AddonAccess,
   type AddonHoldingRow,
@@ -89,11 +89,16 @@ export async function GET(req: NextRequest) {
     const ownerId = await getOrganizationOwner(session.user.id);
     const viewer = {
       isBillingOwner: ownerId === null || ownerId === session.user.id,
+      inOrganisation: ownerId !== null,
       role: caller?.role ?? null,
       subscriptionStatus: caller?.subscriptionStatus ?? null,
       trialEndsAt: caller?.trialEndsAt ?? null,
-      // RA-8665: the same lookup checkout runs before it sells a pack.
-      hasWorkspace: (await getWorkspaceForUser(session.user.id)) !== null,
+      // RA-8665: the function checkout itself calls before it creates a
+      // Stripe customer, asked once for a pack and once for a seat.
+      hasWorkspace: {
+        pack: await addonCheckoutHasWorkspace(session.user.id, false),
+        seat: await addonCheckoutHasWorkspace(session.user.id, true),
+      },
       // RA-8665: the same rule, and the same session role, the billing pages'
       // own guard (requireDashboardPageAccess) uses.
       canOpenBillingPages: canOpenDashboardPage(
@@ -111,12 +116,14 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const audience = billingAudience(viewer);
     return NextResponse.json({
       addons,
       owned,
       technicianSeats,
       access,
-      canManageBilling: mayManageBilling(viewer),
+      audience,
+      canManageBilling: audience === "owner",
     });
   } catch (error) {
     return fromException(req, error, { stage: "catalog" });

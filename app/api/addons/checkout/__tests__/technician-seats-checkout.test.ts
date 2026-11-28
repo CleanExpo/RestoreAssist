@@ -573,4 +573,42 @@ describe("POST /api/addons/checkout — TECHNICIAN_SEATS per-seat quantity (RA-6
       expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
     },
   );
+
+  describe("RA-8665: no workspace to land on is refused before Stripe", () => {
+    beforeEach(() => {
+      // No Stripe customer yet, so a late refusal would leave one behind.
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        role: "ADMIN",
+        subscriptionStatus: "ACTIVE",
+        stripeCustomerId: null,
+        email: "owner@example.com",
+      } as never);
+      // The owner's only workspace is SUSPENDED: no READY one exists.
+      vi.mocked(prisma.workspace.findFirst).mockImplementation((async (args: {
+        where: { status?: string };
+      }) =>
+        args.where.status === "READY"
+          ? null
+          : { id: "ws_s", status: "SUSPENDED" }) as never);
+    });
+
+    it("RA-8665: a seat for an owner whose only workspace is SUSPENDED answers 404 and creates no Stripe customer", async () => {
+      const res = await POST(makeRequest({ addonKey: "TECHNICIAN_SEATS" }));
+      expect(res.status).toBe(404);
+      expect(JSON.stringify(await res.json())).toContain("No workspace found for this account");
+      expect(stripeMock.customers.create).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(ensureWorkspaceForUser).not.toHaveBeenCalled();
+      expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
+    });
+
+    it("RA-8665: a flat pack with no workspace answers 404 and creates no Stripe customer", async () => {
+      vi.mocked(getWorkspaceForUser).mockResolvedValue(null);
+      const res = await POST(makeRequest({ addonKey: "FLOORPLAN_UNDERLAY" }));
+      expect(res.status).toBe(404);
+      expect(stripeMock.customers.create).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(stripeMock.checkout.sessions.create).not.toHaveBeenCalled();
+    });
+  });
 });

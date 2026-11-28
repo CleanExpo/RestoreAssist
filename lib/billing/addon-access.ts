@@ -36,7 +36,9 @@ export type AddonLabel =
   | "included"
   | "optional_paid"
   | "unavailable"
-  | "complimentary_pilot";
+  | "complimentary_pilot"
+  // RA-8665: a card the server gave no verdict for. It claims no price.
+  | "unknown";
 
 /** What the card may offer. Nothing else is ever rendered as a button. */
 export type AddonAction =
@@ -58,15 +60,19 @@ export type AddonHolding = "none" | "complimentary" | "paid" | "included";
 export interface AddonViewer {
   /** Same rule as refuseNonOwner: the organisation owner, or in no organisation. */
   isBillingOwner: boolean;
+  /** RA-8665: whether this account belongs to a business (has an organisation owner). */
+  inOrganisation: boolean;
   /** Database role. A seat needs ADMIN. */
   role: string | null;
   subscriptionStatus: string | null;
   trialEndsAt: Date | string | null;
   /**
-   * RA-8665: whether getWorkspaceForUser finds a workspace for this account,
-   * the lookup checkout uses before it sells a pack that is not a seat.
+   * RA-8665: whether checkout would find a workspace to file the purchase on,
+   * for a pack and for a seat. Both come from addonCheckoutHasWorkspace
+   * (lib/billing/addon-checkout-workspace.ts), the function checkout itself
+   * calls before it creates a Stripe customer.
    */
-  hasWorkspace: boolean;
+  hasWorkspace: { pack: boolean; seat: boolean };
   /**
    * RA-8665: whether the page guard lets this viewer open the billing pages
    * (canOpenDashboardPage(session role, "/dashboard/subscription")). Choose a
@@ -84,6 +90,21 @@ export function mayManageBilling(
   viewer: Pick<AddonViewer, "isBillingOwner" | "canOpenBillingPages">,
 ): boolean {
   return viewer.isBillingOwner && viewer.canOpenBillingPages;
+}
+
+/**
+ * RA-8665: who is reading the add-on cards. "owner" may act on billing;
+ * "staff" belongs to a business and is sent to its owner; "no_business"
+ * belongs to none, so there is no owner to send them to. Rule 1 and the text
+ * above the cards both read this, so they never disagree.
+ */
+export type BillingAudience = "owner" | "staff" | "no_business";
+
+export function billingAudience(
+  viewer: Pick<AddonViewer, "isBillingOwner" | "canOpenBillingPages" | "inOrganisation">,
+): BillingAudience {
+  if (mayManageBilling(viewer)) return "owner";
+  return viewer.inOrganisation ? "staff" : "no_business";
 }
 
 export interface AddonAccess {
@@ -114,6 +135,8 @@ export const COMING_SOON_REASON =
   "Not available yet. It cannot be added at the moment.";
 export const NO_WORKSPACE_REASON =
   "This account is not linked to a business workspace, so packs cannot be added here.";
+export const NO_BUSINESS_REASON =
+  "This account is not part of a business, so packs cannot be added here.";
 
 /**
  * Whether a pack's feature is switched on. Floor Plan Underlay unlocks only
@@ -182,7 +205,17 @@ export function addonAccess(input: {
 
   // Rule 1: only the owner acts on billing, and only from pages they may open.
   // Team members, and anyone the billing pages turn away, see the label only.
-  if (!mayManageBilling(viewer)) {
+  // An account in no business has no owner to ask, so it is told that.
+  const audience = billingAudience(viewer);
+  if (audience === "no_business") {
+    return {
+      label: "optional_paid",
+      holding,
+      action: "none",
+      reason: NO_BUSINESS_REASON,
+    };
+  }
+  if (audience === "staff") {
     return {
       label: "optional_paid",
       holding,
@@ -227,16 +260,14 @@ export function addonAccess(input: {
     };
   }
   if (perSeat && viewer.role !== "ADMIN") {
-    return {
-      label: "optional_paid",
-      holding,
-      action: "ask_owner",
-      reason: OWNER_ONLY_REASON,
-    };
+    return viewer.inOrganisation
+      ? { label: "optional_paid", holding, action: "ask_owner", reason: OWNER_ONLY_REASON }
+      : { label: "optional_paid", holding, action: "none", reason: NO_BUSINESS_REASON };
   }
-  // Rule 4: checkout files the pack on the buyer's workspace and refuses
-  // without one. A seat is different: checkout sets up its workspace first.
-  if (!perSeat && !viewer.hasWorkspace) {
+  // Rule 4: checkout refuses, before Stripe, when it would find no workspace
+  // to file the purchase on. The answer comes from the function checkout
+  // calls (addonCheckoutHasWorkspace), for a seat and for a pack alike.
+  if (!(perSeat ? viewer.hasWorkspace.seat : viewer.hasWorkspace.pack)) {
     return {
       label: "unavailable",
       holding,
@@ -258,4 +289,5 @@ export const ADDON_LABEL_TEXT: Record<AddonLabel, string> = {
   optional_paid: "Optional, paid",
   unavailable: "Not available yet",
   complimentary_pilot: "Complimentary pilot",
+  unknown: "Could not be checked",
 };

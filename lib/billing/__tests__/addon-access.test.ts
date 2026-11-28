@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   addonAccess,
+  billingAudience,
   mayManageBilling,
   addonFeatureLive,
   holdingFor,
   COMING_SOON_REASON,
+  NO_BUSINESS_REASON,
   NO_PLAN_REASON,
   NO_WORKSPACE_REASON,
   OWNER_ONLY_REASON,
@@ -19,10 +21,11 @@ const TEN_DAYS_AGO = new Date(NOW - 10 * 24 * 60 * 60 * 1000);
 
 const owner = (over: Partial<AddonViewer> = {}): AddonViewer => ({
   isBillingOwner: true,
+  inOrganisation: true,
   role: "ADMIN",
   subscriptionStatus: "ACTIVE",
   trialEndsAt: null,
-  hasWorkspace: true,
+  hasWorkspace: { pack: true, seat: true },
   canOpenBillingPages: true,
   ...over,
 });
@@ -246,7 +249,7 @@ describe("RA-8665: a pack needs the workspace checkout files it on", () => {
     const got = addonAccess({
       perSeat: false,
       holding: "none",
-      viewer: owner({ role: "USER", hasWorkspace: false }),
+      viewer: owner({ role: "USER", hasWorkspace: { pack: false, seat: true } }),
       now: NOW,
     });
     expect(got).toMatchObject({
@@ -256,15 +259,61 @@ describe("RA-8665: a pack needs the workspace checkout files it on", () => {
     });
   });
 
-  it("a seat still follows the role rule, because checkout sets up the seat's workspace itself", () => {
+  it("a seat reads the seat answer, not the pack answer", () => {
     expect(
       addonAccess({
         perSeat: true,
         holding: "none",
-        viewer: owner({ hasWorkspace: false }),
+        viewer: owner({ hasWorkspace: { pack: false, seat: true } }),
         now: NOW,
       }).action,
     ).toBe("buy");
+  });
+
+  it("RA-8665: an owner whose seat checkout would find no workspace (only one SUSPENDED) is offered no seat Add", () => {
+    expect(
+      addonAccess({
+        perSeat: true,
+        holding: "none",
+        viewer: owner({ hasWorkspace: { pack: true, seat: false } }),
+        now: NOW,
+      }),
+    ).toMatchObject({ label: "unavailable", action: "none", reason: NO_WORKSPACE_REASON });
+  });
+});
+
+describe("RA-8665: an account in no business is not sent to a business owner", () => {
+  it("RA-8665: billingAudience names owner, staff and no_business from one rule", () => {
+    expect(billingAudience(owner())).toBe("owner");
+    expect(billingAudience(owner({ isBillingOwner: false, role: "USER", canOpenBillingPages: false }))).toBe("staff");
+    // No organisation, so it counts as its own billing owner, but the billing
+    // pages refuse role USER: it may not act, and it has no owner to ask.
+    expect(
+      billingAudience(owner({ inOrganisation: false, role: "USER", canOpenBillingPages: false })),
+    ).toBe("no_business");
+  });
+
+  it("RA-8665: every pack tells an account in no business that it is not part of one, and offers no control", () => {
+    const viewer = owner({ inOrganisation: false, role: "USER", canOpenBillingPages: false });
+    for (const perSeat of [false, true]) {
+      for (const holding of ["none", "paid"] as const) {
+        expect(addonAccess({ perSeat, holding, viewer, now: NOW })).toMatchObject({
+          action: "none",
+          reason: NO_BUSINESS_REASON,
+        });
+      }
+    }
+  });
+
+  it("RA-8665: a seat refused for the database role names no owner when there is no business", () => {
+    // Session role ADMIN (billing pages open) but database role USER.
+    const got = addonAccess({
+      perSeat: true,
+      holding: "none",
+      viewer: owner({ inOrganisation: false, role: "USER" }),
+      now: NOW,
+    });
+    expect(got).toMatchObject({ action: "none", reason: NO_BUSINESS_REASON });
   });
 });
 

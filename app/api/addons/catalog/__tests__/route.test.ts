@@ -14,6 +14,17 @@ vi.mock("@/lib/billing/technician-seats", () => ({
 vi.mock("@/lib/workspace/provider-connections", () => ({
   getWorkspaceForUser: vi.fn(),
 }));
+// RA-8665: the rule checkout itself calls. A pack follows getWorkspaceForUser
+// (as the real rule does); a seat follows `seatAnswer`, which a test can set.
+const seatRule = vi.hoisted(() => ({ seatAnswer: true }));
+vi.mock("@/lib/billing/addon-checkout-workspace", async () => {
+  const { getWorkspaceForUser } = await import("@/lib/workspace/provider-connections");
+  return {
+    addonCheckoutHasWorkspace: vi.fn(async (userId: string, perSeat: boolean) =>
+      perSeat ? seatRule.seatAnswer : (await getWorkspaceForUser(userId)) !== null,
+    ),
+  };
+});
 // RA-7893: "owned" is read from the business owner's workspace.
 vi.mock("@/lib/entitlements", () => ({
   getEntitlementWorkspaceForUser: vi.fn(),
@@ -31,6 +42,12 @@ import { getEntitlementWorkspaceForUser } from "@/lib/entitlements";
 import { RECURRING_ADDONS } from "@/lib/billing/addon-registry";
 import { getOrganizationOwner } from "@/lib/organization-credits";
 import { COMPLIMENTARY_PRICE_ID } from "@/lib/billing/founding-trial-grant";
+import { addonCheckoutHasWorkspace } from "@/lib/billing/addon-checkout-workspace";
+import {
+  NO_BUSINESS_REASON,
+  NO_WORKSPACE_REASON,
+  OWNER_ONLY_REASON,
+} from "@/lib/billing/addon-access";
 
 const mockSession = getServerSession as ReturnType<typeof vi.fn>;
 const mockFindMany = prisma.featureEntitlement.findMany as ReturnType<
@@ -50,6 +67,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   // RA-8665: checkout sells a pack onto this workspace; most callers have one.
   mockCallerWorkspace.mockResolvedValue({ id: "ws1", name: "Workspace" });
+  seatRule.seatAnswer = true;
 });
 
 describe("GET /api/addons/catalog", () => {
@@ -289,8 +307,59 @@ describe("GET /api/addons/catalog", () => {
 
       const json = await (await GET(req())).json();
       expect(json.canManageBilling).toBe(false);
+      expect(json.audience).toBe("staff");
       for (const sku of Object.keys(RECURRING_ADDONS)) {
         expect(["ask_owner", "none"]).toContain(json.access[sku].action);
+      }
+    });
+
+    it("RA-8665: the seat card follows checkout's own workspace rule, so a seat checkout would refuse offers no Add", async () => {
+      // An owner whose only workspace is SUSPENDED: checkout's rule says no seat.
+      seatRule.seatAnswer = false;
+      mockSession.mockResolvedValue({ user: { id: "owner-1", role: "ADMIN" } });
+      mockGetWorkspace.mockResolvedValue({ id: "ws1" });
+      mockFindMany.mockResolvedValue([]);
+      mockUser.mockResolvedValue({
+        organizationId: "org1",
+        role: "ADMIN",
+        subscriptionStatus: "ACTIVE",
+        trialEndsAt: null,
+      });
+      mockOwner.mockResolvedValue("owner-1");
+
+      const json = await (await GET(req())).json();
+      expect(addonCheckoutHasWorkspace).toHaveBeenCalledWith("owner-1", true);
+      expect(addonCheckoutHasWorkspace).toHaveBeenCalledWith("owner-1", false);
+      expect(json.access.TECHNICIAN_SEATS).toMatchObject({
+        label: "unavailable",
+        action: "none",
+        reason: NO_WORKSPACE_REASON,
+      });
+      expect(json.access.CLIENT_COMMS).toMatchObject({ action: "buy" });
+    });
+
+    it("RA-8665: an account in no business is told so, and no card sends it to a business owner", async () => {
+      mockSession.mockResolvedValue({ user: { id: "loner-4", role: "USER" } });
+      mockGetWorkspace.mockResolvedValue(null);
+      mockCallerWorkspace.mockResolvedValue(null);
+      mockFindMany.mockResolvedValue([]);
+      mockUser.mockResolvedValue({
+        organizationId: null,
+        role: "USER",
+        subscriptionStatus: "ACTIVE",
+        trialEndsAt: null,
+      });
+      mockOwner.mockResolvedValue(null);
+
+      const json = await (await GET(req())).json();
+      expect(json.audience).toBe("no_business");
+      expect(json.canManageBilling).toBe(false);
+      expect(Object.values(json.access).map((a) => (a as { reason: string }).reason)).toContain(
+        NO_BUSINESS_REASON,
+      );
+      for (const sku of Object.keys(RECURRING_ADDONS)) {
+        expect(json.access[sku].reason).not.toBe(OWNER_ONLY_REASON);
+        expect(json.access[sku].action).not.toBe("ask_owner");
       }
     });
   });

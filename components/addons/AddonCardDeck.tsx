@@ -25,6 +25,7 @@ import {
   ADDON_LABEL_TEXT,
   type AddonAccess,
   type AddonLabel,
+  type BillingAudience,
 } from "@/lib/billing/addon-access";
 
 export interface CatalogAddon {
@@ -43,7 +44,23 @@ export interface CatalogResponse {
   technicianSeats?: { purchased: number; used: number } | null;
   /** RA-8466: label and allowed action per pack, decided on the server. */
   access?: Record<string, AddonAccess>;
+  /** RA-8665: who is reading, from billingAudience on the server. */
+  audience?: BillingAudience;
   canManageBilling?: boolean;
+}
+
+const AUDIENCES: readonly BillingAudience[] = ["owner", "staff", "no_business"];
+
+/**
+ * RA-8665: the reader as the server named them. An older reply without
+ * `audience` falls back to canManageBilling; anything else reads as staff,
+ * which offers nothing.
+ */
+export function catalogAudience(
+  data: Pick<CatalogResponse, "audience" | "canManageBilling">,
+): BillingAudience {
+  if (data.audience && AUDIENCES.includes(data.audience)) return data.audience;
+  return data.canManageBilling === true ? "owner" : "staff";
 }
 
 /** RA-8665: shown on a card when the server sent no verdict for it. */
@@ -66,7 +83,9 @@ export function cardAccess(
 ): AddonAccess {
   return (
     data.access?.[sku] ?? {
-      label: "optional_paid",
+      // No verdict means no claim: not "Optional, paid", which would be
+      // wrong for a pack the business already has free or included.
+      label: "unknown",
       holding: isOwned ? "paid" : "none",
       action: "none",
       reason: NO_VERDICT_REASON,
@@ -247,11 +266,11 @@ export interface AddonCardDeckProps {
   /** RA-8466: where a checkout started here returns, paid or cancelled. */
   returnTo?: AddonReturnTarget;
   /**
-   * RA-8665: a line shown above the cards once the catalogue has loaded. The
-   * owner text shows only when the server says this account manages billing
-   * (canManageBilling); everyone else reads the staff text.
+   * RA-8665: a line shown above the cards once the catalogue has loaded,
+   * picked by the server's billingAudience: the owner reads the offer, staff
+   * read who to ask, and an account in no business reads that it has none.
    */
-  intro?: { owner: ReactNode; staff: ReactNode };
+  intro?: Record<BillingAudience, ReactNode>;
 }
 
 const LABEL_STYLE: Record<AddonLabel, string> = {
@@ -260,6 +279,7 @@ const LABEL_STYLE: Record<AddonLabel, string> = {
     "bg-success-subtle text-success-subtle-foreground ring-success/20",
   optional_paid: "bg-brand-navy/5 text-brand-navy ring-brand-navy/15 dark:text-slate-100",
   unavailable: "bg-muted text-muted-foreground ring-border",
+  unknown: "bg-muted text-muted-foreground ring-border",
 };
 
 /**
@@ -303,7 +323,7 @@ function AddonCardDeckContent({ className, returnTo, intro }: AddonCardDeckProps
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [seats, setSeats] = useState<CatalogResponse["technicianSeats"]>(null);
   const [access, setAccess] = useState<CatalogResponse["access"]>(undefined);
-  const [canManageBilling, setCanManageBilling] = useState(false);
+  const [audience, setAudience] = useState<BillingAudience>("staff");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
@@ -319,7 +339,7 @@ function AddonCardDeckContent({ className, returnTo, intro }: AddonCardDeckProps
     setOwned(new Set(data.owned ?? []));
     setSeats(data.technicianSeats ?? null);
     setAccess(data.access);
-    setCanManageBilling(data.canManageBilling === true);
+    setAudience(catalogAudience(data));
   }, []);
 
   useEffect(() => {
@@ -474,7 +494,7 @@ function AddonCardDeckContent({ className, returnTo, intro }: AddonCardDeckProps
     <>
       {intro ? (
         <p className="text-sm text-muted-foreground">
-          {canManageBilling ? intro.owner : intro.staff}
+          {intro[audience]}
         </p>
       ) : null}
       <ul

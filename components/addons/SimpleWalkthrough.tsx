@@ -97,6 +97,7 @@ const LABEL_STYLE: Record<AddonLabel, string> = {
     "bg-success-subtle text-success-subtle-foreground ring-success/20",
   optional_paid: "bg-brand-navy/5 text-brand-navy ring-brand-navy/15 dark:text-slate-100",
   unavailable: "bg-muted text-muted-foreground ring-border",
+  unknown: "bg-muted text-muted-foreground ring-border",
 };
 
 function LabelBadge({ label, testId }: { label: AddonLabel; testId?: string }) {

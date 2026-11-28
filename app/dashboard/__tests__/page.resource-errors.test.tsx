@@ -44,6 +44,9 @@ beforeEach(() => {
   responses["/api/invoices"] = () => json({ invoices: [invoice] });
   responses["/api/operations/completeness-inbox"] = () => json({ data: [] });
   responses["/api/dashboard/home-counts"] = () => json({ activeJobs: 0, openReports: 1, awaitingPayment: 1, clients: 1 });
+  // RA-8665: the home page shows the add-on packs; an empty catalogue keeps
+  // their own load state out of these resource tests.
+  responses["/api/addons/catalog"] = () => json({ addons: [], owned: [] });
   fetchMock = vi.fn((url: string) => {
     const path = url.split("?")[0];
     if (!responses[path]) throw new Error(`Unexpected synthetic request: ${path}`);

@@ -125,6 +125,22 @@ describe("AddonCardDeck (RA-8271)", () => {
     }
   });
 
+  it("RA-8665: with no verdict, a card claims no label it cannot know, even for a pack the business already has", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...catalog, access: undefined }) }) as never,
+    );
+    sessionRef.current = { data: { user: { id: "owner-A", role: "ADMIN" } }, status: "authenticated" };
+    render(<AddonCardDeck />);
+    await screen.findByTestId("addon-card-VOICE");
+    // VOICE is owned: it may be paid, complimentary or included. Not known here.
+    for (const sku of ["VOICE", "BOOKKEEPING"]) {
+      const label = screen.getByTestId(`addon-label-${sku}`);
+      expect(label).toHaveTextContent("Could not be checked");
+      expect(label).not.toHaveTextContent("Optional, paid");
+    }
+  });
+
   it("the server's verdict decides the controls, whatever role the session names", async () => {
     // A staff verdict, shown to a session that says ADMIN: the card follows
     // the server and offers nothing to press.

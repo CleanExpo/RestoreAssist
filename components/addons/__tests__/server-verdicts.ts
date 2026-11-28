@@ -6,7 +6,7 @@
  */
 import {
   addonAccess,
-  mayManageBilling,
+  billingAudience,
   type AddonAccess,
   type AddonViewer,
 } from "@/lib/billing/addon-access";
@@ -14,11 +14,20 @@ import {
 /** A business owner on an active plan, with a workspace. */
 export const OWNER_VIEWER: AddonViewer = {
   isBillingOwner: true,
+  inOrganisation: true,
   role: "ADMIN",
   subscriptionStatus: "ACTIVE",
   trialEndsAt: null,
-  hasWorkspace: true,
+  hasWorkspace: { pack: true, seat: true },
   canOpenBillingPages: true,
+};
+
+/** An account in no business: no owner over it, and billing pages refuse it. */
+export const NO_BUSINESS_VIEWER: AddonViewer = {
+  ...OWNER_VIEWER,
+  inOrganisation: false,
+  role: "USER",
+  canOpenBillingPages: false,
 };
 
 /** A team member of that business. */
@@ -41,6 +50,7 @@ export function withServerVerdicts<
       featureLive: true,
     });
   }
-  // Same call as the route: one rule decides the offer text and the controls.
-  return { ...catalog, access, canManageBilling: mayManageBilling(viewer) };
+  // Same calls as the route: one rule decides the offer text and the controls.
+  const audience = billingAudience(viewer);
+  return { ...catalog, access, audience, canManageBilling: audience === "owner" };
 }
