@@ -292,7 +292,7 @@ describe.skipIf(!HAS_DB)("runFoundingTrialGrant on a real database (RA-7721 r2)"
     expect(state.workspaceId).toBe(b.workspaceId);
     expect([...state.foundingTrialAddons].sort()).toEqual([...Object.values(AddonSku)].sort());
     expect(state.paidAddons).toEqual([]);
-    expect(state.owner).toEqual({ subscriptionStatus: "TRIAL", trialEndsAt: SIXTY });
+    expect(state.owner).toEqual({ subscriptionStatus: "TRIAL", trialEndsAt: SIXTY, lifetimeAccess: false });
     expect(state.founderOverride).not.toBeNull();
   });
 
@@ -314,7 +314,7 @@ describe.skipIf(!HAS_DB)("runFoundingTrialGrant on a real database (RA-7721 r2)"
     expect((await grant(b.organizationId)).status).toBe("granted");
     const state = await foundingTrialCurrentState(prisma, b.organizationId);
     expect(state.foundingTrialAddons).toHaveLength(Object.values(AddonSku).length);
-    expect(state.owner).toEqual({ subscriptionStatus: "TRIAL", trialEndsAt: SIXTY });
+    expect(state.owner).toEqual({ subscriptionStatus: "TRIAL", trialEndsAt: SIXTY, lifetimeAccess: false });
     expect(state.founderOverride).toBeNull();
   });
 });
