@@ -197,7 +197,7 @@ describe("POST /api/admin/founding-trial — what it grants", () => {
   });
 });
 
-describe("POST /api/admin/founding-trial — RA-8664", () => {
+describe("POST /api/admin/founding-trial - Stripe failure and founder override", () => {
   beforeEach(() => {
     signIn(OPERATOR);
     vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", OPERATOR);

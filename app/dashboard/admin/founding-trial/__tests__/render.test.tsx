@@ -176,7 +176,7 @@ describe("Founding Trial page, rendered through its layout", () => {
   });
 });
 
-describe("Founding Trial page — RA-8664 founder override", () => {
+describe("Founding Trial page - founder override", () => {
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   const REASON = "Founder approved: ABR lookup failed at signup.";

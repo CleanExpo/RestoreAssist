@@ -898,7 +898,7 @@ describe("runFoundingTrialGrant — Apply is bound to the business the operator 
   });
 });
 
-describe("runFoundingTrialGrant — RA-8664 founder override for an ABN check that never finished", () => {
+describe("runFoundingTrialGrant - founder override for an ABN check that never finished", () => {
   const REASON = "Founder approved 28/11/2026: ABR lookup failed at signup (CONFIG_ERROR); ABN checked by hand.";
 
   /** org_1 as DRC (NSW) was found: ABN held, lookup errored, name typed at signup. */
