@@ -155,7 +155,13 @@ by the same `readLedger()`, so their line shapes must match key for key and thei
 file names must match character for character. Both are held to
 `scripts/observability/__tests__/ledger-name-vectors.json`, a list of names
 computed by neither writer, and one session recording the domains `a/b` and
-`a?b` in the same second must leave two files, not one. It feeds what the shell wrote
+`a?b` in the same second must leave two files, not one. What a report becomes
+in its line is held to `scripts/observability/__tests__/ledger-report-vectors.json`:
+lines written by hand from the report rule in `ledger.ts`, plus every kind of
+JSON value tried as the whole report, as the status and as each count. A report
+whose count is `1e400`, or that is a list and not an object, must still leave a
+record from both writers, and the suite compares what the shell wrote on disk
+with what `ledger.ts` writes for the same report. It feeds what the shell wrote
 through `readLedger()` and `summarise()` and checks the status survives, not just
 the row count. And it runs two real git branches that each record a
 verification, then requires them to touch no file in common, to merge without a

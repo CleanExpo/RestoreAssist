@@ -1,0 +1,142 @@
+{
+  "about": "THE REPORT RULE (scripts/observability/ledger.ts): what a verifier report becomes in the ledger. Each case in `vectors` is a report as raw JSON text and the ledger line both writers must produce for it. The lines were written by hand from the rule, not computed by either writer. `values` and `shapes` make the generated cases: every value is put in every shape (the @ is replaced by the value), so each kind of JSON value is tried as the whole report, as the status and as each count. ledger.test.ts holds ledger.ts to this file and .claude/hooks/tests/test-ledger-append.sh holds the shell writer to it, then compares what the two writers produced.",
+  "sessionId": "report-vectors",
+  "domain": "static",
+  "vectors": [
+    {
+      "case": "three whole numbers, zero included, are all kept",
+      "timestamp": 1788050001,
+      "report": "{\"status\":\"partial\",\"claims_total\":4,\"claims_failed\":0,\"claims_warned\":4}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050001, "domain": "static", "status": "partial", "claimsTotal": 4, "claimsFailed": 0, "claimsWarned": 4 }
+    },
+    {
+      "case": "1e400 is valid JSON and reads as a number too large to be a count: left out, the failed verification stays",
+      "timestamp": 1788050002,
+      "report": "{\"status\":\"failed\",\"claims_total\":1e400,\"claims_failed\":1}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050002, "domain": "static", "status": "failed", "claimsFailed": 1 }
+    },
+    {
+      "case": "a null count is left out, never written",
+      "timestamp": 1788050003,
+      "report": "{\"status\":\"failed\",\"claims_total\":null,\"claims_failed\":2,\"claims_warned\":0}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050003, "domain": "static", "status": "failed", "claimsFailed": 2, "claimsWarned": 0 }
+    },
+    {
+      "case": "a count given as text is left out, even when the text is digits",
+      "timestamp": 1788050004,
+      "report": "{\"status\":\"partial\",\"claims_total\":\"4\",\"claims_failed\":\"bad\",\"claims_warned\":1}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050004, "domain": "static", "status": "partial", "claimsWarned": 1 }
+    },
+    {
+      "case": "true, a list and an object are not counts",
+      "timestamp": 1788050005,
+      "report": "{\"status\":\"verified\",\"claims_total\":true,\"claims_failed\":[1],\"claims_warned\":{\"n\":1}}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050005, "domain": "static", "status": "verified" }
+    },
+    {
+      "case": "a fraction and a negative number are not counts",
+      "timestamp": 1788050006,
+      "report": "{\"status\":\"partial\",\"claims_total\":2.5,\"claims_failed\":-1,\"claims_warned\":3}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050006, "domain": "static", "status": "partial", "claimsWarned": 3 }
+    },
+    {
+      "case": "the largest whole number a count can be is kept and the next one up is left out",
+      "timestamp": 1788050007,
+      "report": "{\"status\":\"partial\",\"claims_total\":9007199254740992,\"claims_failed\":9007199254740991,\"claims_warned\":0}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050007, "domain": "static", "status": "partial", "claimsFailed": 9007199254740991, "claimsWarned": 0 }
+    },
+    {
+      "case": "a whole number spelt 4.0 or 1e2 is written as 4 and 100",
+      "timestamp": 1788050008,
+      "report": "{\"status\":\"partial\",\"claims_total\":4.0,\"claims_failed\":1e2,\"claims_warned\":0}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050008, "domain": "static", "status": "partial", "claimsTotal": 4, "claimsFailed": 100, "claimsWarned": 0 }
+    },
+    {
+      "case": "a report that is a list, not an object, still leaves a record",
+      "timestamp": 1788050009,
+      "report": "[{\"status\":\"failed\",\"claims_failed\":1}]",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050009, "domain": "static", "status": "unknown" }
+    },
+    {
+      "case": "a report that is a piece of text, not an object, still leaves a record",
+      "timestamp": 1788050010,
+      "report": "\"failed\"",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050010, "domain": "static", "status": "unknown" }
+    },
+    {
+      "case": "a report that is a number, not an object, still leaves a record",
+      "timestamp": 1788050011,
+      "report": "42",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050011, "domain": "static", "status": "unknown" }
+    },
+    {
+      "case": "a report that is null, not an object, still leaves a record",
+      "timestamp": 1788050012,
+      "report": "null",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050012, "domain": "static", "status": "unknown" }
+    },
+    {
+      "case": "a report that is true, not an object, still leaves a record",
+      "timestamp": 1788050013,
+      "report": "true",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050013, "domain": "static", "status": "unknown" }
+    },
+    {
+      "case": "a status of false is not text: unknown, and the count beside it is kept",
+      "timestamp": 1788050014,
+      "report": "{\"status\":false,\"claims_failed\":1}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050014, "domain": "static", "status": "unknown", "claimsFailed": 1 }
+    },
+    {
+      "case": "a status that is a number is not text: unknown",
+      "timestamp": 1788050015,
+      "report": "{\"status\":7}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050015, "domain": "static", "status": "unknown" }
+    },
+    {
+      "case": "a status that is an object is not text: unknown",
+      "timestamp": 1788050016,
+      "report": "{\"status\":{\"state\":\"failed\"}}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050016, "domain": "static", "status": "unknown" }
+    },
+    {
+      "case": "a status of null reads as no status: unknown",
+      "timestamp": 1788050017,
+      "report": "{\"status\":null,\"claims_warned\":2}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050017, "domain": "static", "status": "unknown", "claimsWarned": 2 }
+    },
+    {
+      "case": "an empty status is still text and is kept as it is",
+      "timestamp": 1788050018,
+      "report": "{\"status\":\"\"}",
+      "line": { "sessionId": "report-vectors", "timestamp": 1788050018, "domain": "static", "status": "" }
+    }
+  ],
+  "values": [
+    "null",
+    "true",
+    "false",
+    "0",
+    "1",
+    "-1",
+    "2.5",
+    "4.0",
+    "1e400",
+    "9007199254740991",
+    "9007199254740992",
+    "\"4\"",
+    "\"\"",
+    "\"failed\"",
+    "[]",
+    "[1]",
+    "{}",
+    "{\"status\":\"failed\"}"
+  ],
+  "shapes": [
+    "@",
+    "{\"status\":@}",
+    "{\"status\":\"partial\",\"claims_total\":@}",
+    "{\"status\":\"partial\",\"claims_failed\":@}",
+    "{\"status\":\"partial\",\"claims_warned\":@}"
+  ]
+}

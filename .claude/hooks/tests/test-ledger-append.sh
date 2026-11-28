@@ -166,6 +166,74 @@ else
   bad "$stray entry file name(s) carry a line break"
 fi
 
+echo
+echo "== the report rule =="
+# THE REPORT RULE of scripts/observability/ledger.ts: whatever a report holds,
+# the verification happened and leaves a record. A report that is not an object,
+# a status that is not text and a count that is not a whole number from 0 up
+# each cost the record that one value and nothing else. The shared vectors were
+# written by hand from the rule; ledger.test.ts holds ledger.ts to the same
+# file. Each case below writes into its own directory, so the counts the
+# agreement probe checks further down are not disturbed.
+
+# The reproduced defect (RA-8661 review, third round): 1e400 is valid JSON, and
+# both writers passed it on as a count the reader then refused, so the failed
+# verification was dropped whole. The count is left out and the record stays.
+printf '{"status":"failed","claims_total":1e400,"claims_failed":1}' > "$tmp/overflow.json"
+overflow_dir="$tmp/overflow.d"
+VERIFIER_LEDGER_DIR="$overflow_dir" ledger_append "$tmp/overflow.json" "overflow" 1788050000 "static"
+check "a count too large to be a number is left out and the failed verification is kept" \
+  '{"sessionId":"overflow","timestamp":1788050000,"domain":"static","status":"failed","claimsFailed":1}' \
+  "$(cat "$overflow_dir"/1788050000-*.jsonl 2>/dev/null)"
+
+# A report that is valid JSON but not an object. jq could not index it, the
+# writer swallowed the error, and the verification left no record at all.
+printf '[{"status":"failed"}]' > "$tmp/list.json"
+notobj_dir="$tmp/notobj.d"
+VERIFIER_LEDGER_DIR="$notobj_dir" ledger_append "$tmp/list.json" "list" 1788050100 "static"
+check "a report that is not an object still leaves a record" \
+  '{"sessionId":"list","timestamp":1788050100,"domain":"static","status":"unknown"}' \
+  "$(cat "$notobj_dir"/1788050100-*.jsonl 2>/dev/null)"
+
+report_vectors="$PROJECT_ROOT/scripts/observability/__tests__/ledger-report-vectors.json"
+report_dir="$tmp/report-vectors.d"
+rv_session="$(jq -r '.sessionId' "$report_vectors" 2>/dev/null)"
+rv_domain="$(jq -r '.domain' "$report_vectors" 2>/dev/null)"
+rv_total="$(jq -r '.vectors | length' "$report_vectors" 2>/dev/null)"
+rv_total="${rv_total:-0}"
+for (( i = 0; i < rv_total; i++ )); do
+  rv_ts="$(jq -r --argjson i "$i" '.vectors[$i].timestamp' "$report_vectors")"
+  jq -j --argjson i "$i" '.vectors[$i].report' "$report_vectors" > "$tmp/rv-report.json"
+  VERIFIER_LEDGER_DIR="$report_dir" ledger_append "$tmp/rv-report.json" "$rv_session" "$rv_ts" "$rv_domain"
+  check "$(jq -r --argjson i "$i" '.vectors[$i].case' "$report_vectors")" \
+    "$(jq -c --argjson i "$i" '.vectors[$i].line' "$report_vectors")" \
+    "$(cat "$report_dir"/"$rv_ts"-*.jsonl 2>/dev/null)"
+done
+if (( rv_total >= 10 )) && [[ "$(entry_count "$report_dir")" == "$rv_total" ]]; then
+  ok "each of the $rv_total shared report vectors left exactly one entry"
+else
+  bad "shared report vectors: $rv_total listed, $(entry_count "$report_dir") entry file(s) written"
+fi
+
+# The generated cases: every value in every shape, which is each kind of JSON
+# value as the whole report, as the status and as each count. No shape may write
+# nothing. The list is kept so the agreement probe can put each report through
+# ledger.ts and compare.
+matrix_dir="$tmp/matrix.d"
+matrix_list="$tmp/matrix.jsonl"
+jq -c '[.values[] as $v | .shapes[] | split("@") | join($v)] | to_entries[] | {timestamp: (1788060001 + .key), report: .value}' \
+  "$report_vectors" > "$matrix_list" 2>/dev/null
+matrix_total="$(wc -l < "$matrix_list" | tr -d ' ')"
+while IFS=$'\t' read -r m_ts m_report; do
+  printf '%s' "$m_report" > "$tmp/matrix-report.json"
+  VERIFIER_LEDGER_DIR="$matrix_dir" ledger_append "$tmp/matrix-report.json" "$rv_session" "$m_ts" "$rv_domain"
+done < <(jq -r '"\(.timestamp)\t\(.report)"' "$matrix_list" 2>/dev/null)
+if (( matrix_total >= 60 )) && [[ "$(entry_count "$matrix_dir")" == "$matrix_total" ]]; then
+  ok "every one of the $matrix_total generated reports left an entry"
+else
+  bad "generated reports: $matrix_total built, $(entry_count "$matrix_dir") entry file(s) written"
+fi
+
 # A timestamp the two writers would not render the same way is refused, not guessed.
 VERIFIER_LEDGER_DIR="$tmp/oddts.d" ledger_append "$tmp/terse.json" "s" 007 "d"
 VERIFIER_LEDGER_DIR="$tmp/oddts.d" ledger_append "$tmp/terse.json" "s" 12345678901234567890 "d"
@@ -290,11 +358,29 @@ fi
 
 probe_name="__ledger_probe_$$.ts"
 cat > "$PROJECT_ROOT/scripts/observability/$probe_name" <<'TS'
-import { readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { entryFileName, readLedger } from "./ledger";
+import { entryFileName, entryLine, readLedger, reportFields } from "./ledger";
 import { summarise } from "./verifier-metrics";
-const [dir, mergedRoot, vectorsDir] = process.argv.slice(2);
+const [dir, mergedRoot, vectorsDir, reportDir, matrixDir, matrixList, reportVectorsFile] = process.argv.slice(2);
+// What the shell writer put on disk, parsed as it stands. No reader in between,
+// so a count the reader would tidy away still shows here.
+const onDisk = (d: string) =>
+  readdirSync(d)
+    .filter((n) => n.endsWith(".jsonl"))
+    .map((n) => JSON.parse(readFileSync(join(d, n), "utf8")))
+    .sort((a, b) => a.timestamp - b.timestamp);
+const rv = JSON.parse(readFileSync(reportVectorsFile, "utf8"));
+// The line ledger.ts would have written for the same report.
+const mine = (report: string, timestamp: number) =>
+  JSON.parse(entryLine({ sessionId: rv.sessionId, timestamp, domain: rv.domain, ...reportFields(JSON.parse(report)) }));
+// Keys in the same order and every value the same. JSON.stringify turns a
+// number too large to hold into null, so such a count can never pass as absent.
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const matrix = readFileSync(matrixList, "utf8").split("\n").filter((l) => l.length > 0).map((l) => JSON.parse(l));
+const shellMatrix = onDisk(matrixDir);
+const tsMatrix = matrix.map((m) => mine(m.report, m.timestamp));
+const diffAt = tsMatrix.findIndex((want, i) => !same(shellMatrix[i], want));
 const rows = readLedger(join(dir, "..", "absent.jsonl"), dir);
 const s = summarise(rows);
 const names = readdirSync(dir).filter((n) => n.endsWith(".jsonl")).sort();
@@ -312,9 +398,17 @@ console.log(JSON.stringify({
   unavailable: s.unavailableRate,
   namesAgree: JSON.stringify(names) === JSON.stringify(expected),
   merged: merged.map((r) => r.sessionId).sort(),
+  reportRows: readLedger(join(reportDir, "..", "absent.jsonl"), reportDir).length,
+  reportAgree: same(onDisk(reportDir), rv.vectors.map((v: { report: string; timestamp: number }) => mine(v.report, v.timestamp))),
+  matrixRows: readLedger(join(matrixDir, "..", "absent.jsonl"), matrixDir).length,
+  matrixAgree: shellMatrix.length === tsMatrix.length && diffAt < 0,
+  matrixDiff:
+    diffAt < 0
+      ? ""
+      : `report ${matrix[diffAt].report}: shell wrote ${JSON.stringify(shellMatrix[diffAt])}, ledger.ts writes ${JSON.stringify(tsMatrix[diffAt])}`,
 }));
 TS
-out="$(cd "$PROJECT_ROOT" && npx --no-install tsx "scripts/observability/$probe_name" "$VERIFIER_LEDGER_DIR" "$repo" "$vectors_dir" 2>/dev/null)" || out=""
+out="$(cd "$PROJECT_ROOT" && npx --no-install tsx "scripts/observability/$probe_name" "$VERIFIER_LEDGER_DIR" "$repo" "$vectors_dir" "$report_dir" "$matrix_dir" "$matrix_list" "$report_vectors" 2>/dev/null)" || out=""
 rm -f "$PROJECT_ROOT/scripts/observability/$probe_name"
 
 total="$(jq -r '.total // empty' <<<"$out" 2>/dev/null)"
@@ -344,6 +438,23 @@ if [[ "$vector_rows" == "$vector_total" && "$vector_names_agree" == "true" ]]; t
   ok "ledger.ts reads back all $vector_total vector entries and names each as the shell writer did"
 else
   bad "vector entries: ledger.ts read ${vector_rows:-none} of $vector_total, names agree=${vector_names_agree:-none}"
+fi
+# The report rule, from the other side: the reader returns every entry the shell
+# writer made, and ledger.ts, handed the same report, writes the same line.
+report_rows="$(jq -r '.reportRows // empty' <<<"$out" 2>/dev/null)"
+report_agree="$(jq -r '.reportAgree // empty' <<<"$out" 2>/dev/null)"
+if [[ "$report_rows" == "$rv_total" && "$report_agree" == "true" ]]; then
+  ok "ledger.ts reads back all $rv_total report-vector entries and writes each of those reports the same way"
+else
+  bad "report vectors: ledger.ts read ${report_rows:-none} of $rv_total, writers agree=${report_agree:-no}"
+fi
+matrix_rows="$(jq -r '.matrixRows // empty' <<<"$out" 2>/dev/null)"
+matrix_agree="$(jq -r '.matrixAgree // empty' <<<"$out" 2>/dev/null)"
+matrix_diff="$(jq -r '.matrixDiff // empty' <<<"$out" 2>/dev/null)"
+if [[ "$matrix_rows" == "$matrix_total" && "$matrix_agree" == "true" ]]; then
+  ok "ledger.ts reads back all $matrix_total generated entries and writes each of those reports the same way"
+else
+  bad "generated reports: ledger.ts read ${matrix_rows:-none} of $matrix_total, writers agree=${matrix_agree:-no} ${matrix_diff}"
 fi
 check "after the merge the reader returns the frozen history plus both branches" \
   '["history","session-aaaa","session-bbbb"]' "${merged:-null}"

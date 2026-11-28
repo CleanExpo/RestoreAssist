@@ -36,6 +36,14 @@
 # scripts/observability/__tests__/ledger-name-vectors.json, which neither of
 # them computed.
 #
+# THE REPORT RULE, set out at the top of ledger.ts, says what a report becomes.
+# A verification that happened is always recorded. A report that is valid JSON
+# but not an object, or whose status is not text, is recorded as "unknown". A
+# claim count is written only when it is a whole number from 0 to
+# 9007199254740991; anything else (null, text, a fraction, 1e400) is left out
+# and the record is written without it. Both writers are held to
+# scripts/observability/__tests__/ledger-report-vectors.json.
+#
 # THIS NEVER FAILS THE HOOK. Every path swallows its errors and returns 0. A
 # metrics write that could block a Stop would be a worse defect than the missing
 # metric it was added to fix.
@@ -114,17 +122,33 @@ ledger_append() {
   # zero, and at most 15 digits so neither jq nor JavaScript rounds it.
   [[ "$ts" =~ ^(0|[1-9][0-9]{0,14})$ ]] || return 0
 
+  # THE REPORT RULE of scripts/observability/ledger.ts (reportFields), in jq. A
+  # report that is not an object has no status and no counts. A status that is
+  # not text is "unknown". A count is kept only when it is a whole number from 0
+  # to 9007199254740991, and is written in its plainest form (4.0 and 1e2 become
+  # 4 and 100, as JSON.stringify writes them). Nothing a report holds can make
+  # this program fail, so a verification that happened always leaves a record.
   local line
   line=$(jq -c -n \
     --arg s "$session" \
     --argjson t "$ts" \
     --arg d "$domain" \
     --slurpfile r "$report" '
-      ($r[0] // {}) as $body
-      | {sessionId: $s, timestamp: $t, domain: $d, status: (($body.status // "unknown") | tostring)}
-      + (if ($body.claims_total   | type) == "number" then {claimsTotal:  $body.claims_total}   else {} end)
-      + (if ($body.claims_failed  | type) == "number" then {claimsFailed: $body.claims_failed}  else {} end)
-      + (if ($body.claims_warned  | type) == "number" then {claimsWarned: $body.claims_warned}  else {} end)
+      def count:
+        if type != "number" then null
+        elif . < 0 or . > 9007199254740991 then null
+        elif . != floor then null
+        elif . == 0 then 0
+        else floor end;
+      def counted($key; $value):
+        ($value | count) as $c | if $c == null then {} else {($key): $c} end;
+      ($r[0]) as $report
+      | (if ($report | type) == "object" then $report else {} end) as $body
+      | {sessionId: $s, timestamp: $t, domain: $d,
+         status: (if ($body.status | type) == "string" then $body.status else "unknown" end)}
+      + counted("claimsTotal";  $body.claims_total)
+      + counted("claimsFailed"; $body.claims_failed)
+      + counted("claimsWarned"; $body.claims_warned)
     ' 2>/dev/null) || return 0
 
   [[ -n "$line" ]] || return 0

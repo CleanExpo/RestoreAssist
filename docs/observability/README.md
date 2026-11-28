@@ -104,8 +104,19 @@ than adding a second. Every reader goes through `readLedger()` in
 `scripts/observability/ledger.ts`, which reads the frozen file and then every
 entry file, de-duplicated on session, timestamp and domain. Dotfiles (an entry
 still being written) and anything not ending `.jsonl` are ignored, and a line
-that is not a ledger record (unparsable, or valid JSON of another shape) is
-skipped, so one bad entry cannot stop the reader.
+that is not a ledger record (unparsable, or valid JSON without a session,
+timestamp, domain and status) is skipped, so one bad entry cannot stop the
+reader.
+
+What a report becomes in its line is one rule, set out at the top of
+`ledger.ts` and followed by both producers: a verification that happened is
+always recorded. The status is the report's `status` when that is text and
+`unknown` otherwise, which covers a report that is valid JSON but not an object.
+A claim count is kept only when it is a whole number from 0 to
+9007199254740991. Any other value (null, text, a fraction, a number too large
+to hold such as `1e400`) is left out, and the reader removes such a count from a
+line already on disk instead of dropping the line. Both producers are held to
+`scripts/observability/__tests__/ledger-report-vectors.json`.
 
 Entry files are meant to be committed with the work that produced them, like the
 old appended lines were.

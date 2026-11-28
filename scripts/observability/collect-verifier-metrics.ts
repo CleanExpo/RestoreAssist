@@ -27,7 +27,7 @@
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { ledgerKey, readLedger, writeLedgerEntry } from "./ledger";
+import { ledgerKey, readLedger, reportFields, writeLedgerEntry } from "./ledger";
 import {
   detect,
   parseReportFilename,
@@ -45,7 +45,7 @@ function readReportsDir(): VerifierReport[] {
     if (!name.endsWith(".json")) continue;
     const parts = parseReportFilename(name);
     if (!parts) continue;
-    let body: Record<string, unknown>;
+    let body: unknown;
     try {
       body = JSON.parse(readFileSync(join(REPORTS_DIR, name), "utf8"));
     } catch {
@@ -54,13 +54,10 @@ function readReportsDir(): VerifierReport[] {
       out.push({ ...parts, status: "verifier-error" });
       continue;
     }
-    out.push({
-      ...parts,
-      status: String(body.status ?? "unknown"),
-      claimsTotal: typeof body.claims_total === "number" ? body.claims_total : undefined,
-      claimsFailed: typeof body.claims_failed === "number" ? body.claims_failed : undefined,
-      claimsWarned: typeof body.claims_warned === "number" ? body.claims_warned : undefined,
-    });
+    // THE REPORT RULE in ledger.ts: the status and the counts come from one
+    // place, so this writer and the Stop hook's cannot drift. It takes any JSON
+    // value; a report holding `null` used to throw here and stop every metric.
+    out.push({ ...parts, ...reportFields(body) });
   }
   return out;
 }
