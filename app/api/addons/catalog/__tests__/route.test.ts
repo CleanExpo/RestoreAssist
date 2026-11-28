@@ -100,7 +100,7 @@ describe("GET /api/addons/catalog", () => {
   });
 
   it("RA-7893: an invited technician sees the business owner's add-ons as owned", async () => {
-    mockSession.mockResolvedValue({ user: { id: "tech-1" } });
+    mockSession.mockResolvedValue({ user: { id: "tech-1", role: "USER" } });
     // The technician has no workspace of their own (invites create none).
     mockCallerWorkspace.mockResolvedValue(null);
     mockGetWorkspace.mockResolvedValue({ id: "ws-owner", name: "Owner" });
@@ -123,7 +123,7 @@ describe("GET /api/addons/catalog", () => {
     const inTenDays = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
 
     it("trial owner: seats can be bought, other packs are not available yet", async () => {
-      mockSession.mockResolvedValue({ user: { id: "owner-1" } });
+      mockSession.mockResolvedValue({ user: { id: "owner-1", role: "ADMIN" } });
       mockGetWorkspace.mockResolvedValue({ id: "ws1" });
       mockFindMany.mockResolvedValue([]);
       mockUser.mockResolvedValue({
@@ -147,7 +147,7 @@ describe("GET /api/addons/catalog", () => {
     });
 
     it("Founding Trial owner: every held pack is a complimentary pilot with no button", async () => {
-      mockSession.mockResolvedValue({ user: { id: "owner-1" } });
+      mockSession.mockResolvedValue({ user: { id: "owner-1", role: "ADMIN" } });
       mockGetWorkspace.mockResolvedValue({ id: "ws1" });
       mockFindMany.mockResolvedValue(
         Object.keys(RECURRING_ADDONS).map((sku) => ({
@@ -174,7 +174,7 @@ describe("GET /api/addons/catalog", () => {
     });
 
     it("paid-plan owner: buy on unheld packs, manage on a paid pack", async () => {
-      mockSession.mockResolvedValue({ user: { id: "owner-1" } });
+      mockSession.mockResolvedValue({ user: { id: "owner-1", role: "ADMIN" } });
       mockGetWorkspace.mockResolvedValue({ id: "ws1" });
       mockFindMany.mockResolvedValue([
         { sku: "VOICE", stripePriceId: "price_x", stripeSubscriptionId: "sub_1" },
@@ -210,7 +210,7 @@ describe("GET /api/addons/catalog", () => {
     it("RA-8665: an account in no organisation and with no workspace is offered no buy, add or manage control", async () => {
       // The reviewer's case: refuseNonOwner passes someone in no organisation,
       // but checkout then finds no workspace and answers 404.
-      mockSession.mockResolvedValue({ user: { id: "loner-1" } });
+      mockSession.mockResolvedValue({ user: { id: "loner-1", role: "USER" } });
       mockGetWorkspace.mockResolvedValue(null);
       mockCallerWorkspace.mockResolvedValue(null);
       mockFindMany.mockResolvedValue([]);
@@ -229,8 +229,29 @@ describe("GET /api/addons/catalog", () => {
       }
     });
 
+    it("RA-8665: a USER in no organisation on a trial gets no Choose a plan link to the owner-only billing page", async () => {
+      // The third review's case: the plan rule used to answer choose_plan
+      // first, linking to /dashboard/subscription, which refuses role USER.
+      mockSession.mockResolvedValue({ user: { id: "loner-2", role: "USER" } });
+      mockGetWorkspace.mockResolvedValue(null);
+      mockCallerWorkspace.mockResolvedValue(null);
+      mockFindMany.mockResolvedValue([]);
+      mockUser.mockResolvedValue({
+        organizationId: null,
+        role: "USER",
+        subscriptionStatus: "TRIAL",
+        trialEndsAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+      });
+      mockOwner.mockResolvedValue(null);
+
+      const json = await (await GET(req())).json();
+      for (const sku of Object.keys(RECURRING_ADDONS)) {
+        expect(["ask_owner", "none"]).toContain(json.access[sku].action);
+      }
+    });
+
     it("team member: no card offers a buy, add or manage action", async () => {
-      mockSession.mockResolvedValue({ user: { id: "tech-1" } });
+      mockSession.mockResolvedValue({ user: { id: "tech-1", role: "USER" } });
       mockGetWorkspace.mockResolvedValue({ id: "ws-owner" });
       mockFindMany.mockResolvedValue([
         { sku: "VOICE", stripePriceId: "price_x", stripeSubscriptionId: "sub_1" },

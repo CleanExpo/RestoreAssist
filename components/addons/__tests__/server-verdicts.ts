@@ -17,6 +17,7 @@ export const OWNER_VIEWER: AddonViewer = {
   subscriptionStatus: "ACTIVE",
   trialEndsAt: null,
   hasWorkspace: true,
+  canOpenBillingPages: true,
 };
 
 /** A team member of that business. */
@@ -24,6 +25,7 @@ export const STAFF_VIEWER: AddonViewer = {
   ...OWNER_VIEWER,
   isBillingOwner: false,
   role: "USER",
+  canOpenBillingPages: false,
 };
 
 export function withServerVerdicts<

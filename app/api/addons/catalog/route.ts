@@ -20,6 +20,7 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { technicianSeatUsage } from "@/lib/billing/technician-seats";
 import { getOrganizationOwner } from "@/lib/organization-credits";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { canOpenDashboardPage } from "@/lib/auth/dashboard-page-access";
 import {
   addonAccess,
   addonFeatureLive,
@@ -92,6 +93,12 @@ export async function GET(req: NextRequest) {
       trialEndsAt: caller?.trialEndsAt ?? null,
       // RA-8665: the same lookup checkout runs before it sells a pack.
       hasWorkspace: (await getWorkspaceForUser(session.user.id)) !== null,
+      // RA-8665: the same rule, and the same session role, the billing pages'
+      // own guard (requireDashboardPageAccess) uses.
+      canOpenBillingPages: canOpenDashboardPage(
+        (session.user as { role?: string }).role,
+        "/dashboard/subscription",
+      ),
     };
     const access: Record<string, AddonAccess> = {};
     for (const a of addons) {

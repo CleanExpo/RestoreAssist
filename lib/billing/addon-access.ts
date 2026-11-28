@@ -5,7 +5,10 @@
  * Every rule here mirrors a check POST /api/addons/checkout runs, in the same
  * order, using the same helpers, so a card never offers a button the server
  * would refuse:
- *   1. refuseNonOwner: only the business owner (or a solo operator) buys.
+ *   1. refuseNonOwner: only the business owner (or a solo operator) buys,
+ *      and only someone who may open the billing pages (canOpenDashboardPage
+ *      for /dashboard/subscription), where every other control and the
+ *      checkout's refusal notices lead.
  *   2. The plan must be ACTIVE, except a technician seat during a current trial.
  *   3. A seat needs the database role ADMIN.
  *   4. A pack other than a seat needs a business workspace
@@ -64,6 +67,12 @@ export interface AddonViewer {
    * the lookup checkout uses before it sells a pack that is not a seat.
    */
   hasWorkspace: boolean;
+  /**
+   * RA-8665: whether the page guard lets this viewer open the billing pages
+   * (canOpenDashboardPage(session role, "/dashboard/subscription")). Choose a
+   * plan and Manage open that page, so a viewer it refuses is offered neither.
+   */
+  canOpenBillingPages: boolean;
 }
 
 export interface AddonAccess {
@@ -160,8 +169,9 @@ export function addonAccess(input: {
     };
   }
 
-  // Rule 1: only the owner acts on billing. Team members see the label only.
-  if (!viewer.isBillingOwner) {
+  // Rule 1: only the owner acts on billing, and only from pages they may open.
+  // Team members, and anyone the billing pages turn away, see the label only.
+  if (!viewer.isBillingOwner || !viewer.canOpenBillingPages) {
     return {
       label: "optional_paid",
       holding,

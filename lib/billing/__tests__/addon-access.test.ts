@@ -22,6 +22,7 @@ const owner = (over: Partial<AddonViewer> = {}): AddonViewer => ({
   subscriptionStatus: "ACTIVE",
   trialEndsAt: null,
   hasWorkspace: true,
+  canOpenBillingPages: true,
   ...over,
 });
 
@@ -263,6 +264,25 @@ describe("RA-8665: a pack needs the workspace checkout files it on", () => {
         now: NOW,
       }).action,
     ).toBe("buy");
+  });
+});
+
+describe("RA-8665: a card never sends anyone to a billing page that turns them away", () => {
+  it("RA-8665: a viewer the billing pages refuse is offered no buy, plan or manage control on any pack", () => {
+    const viewer = owner({ role: "USER", canOpenBillingPages: false });
+    for (const perSeat of [false, true]) {
+      for (const subscriptionStatus of ["ACTIVE", "TRIAL", null]) {
+        for (const holding of ["none", "paid"] as const) {
+          const got = addonAccess({
+            perSeat,
+            holding,
+            viewer: { ...viewer, subscriptionStatus, trialEndsAt: IN_TEN_DAYS },
+            now: NOW,
+          });
+          expect(got).toMatchObject({ action: "ask_owner", reason: OWNER_ONLY_REASON });
+        }
+      }
+    }
   });
 });
 
