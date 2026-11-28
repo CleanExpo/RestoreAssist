@@ -4,6 +4,7 @@ import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { PORTAL_SIGNATORY_ROLES } from "@/lib/portal/clear-client-signing-links";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { fromException } from "@/lib/api-errors";
+import { liveSigningLinkWhere } from "@/lib/authority-forms/signing-link";
 
 /**
  * Client-portal authorities (client portal Phase 3).
@@ -66,7 +67,12 @@ export async function GET(
         },
         status: { in: [...OPEN_STATUSES] },
         signatures: {
-          some: { signatoryRole: { in: [...CLIENT_ROLES] }, signedAt: null },
+          some: {
+            signatoryRole: { in: [...CLIENT_ROLES] },
+            signedAt: null,
+            // RA-8589: a lapsed link is hidden, not shown as a dead button.
+            ...liveSigningLinkWhere(),
+          },
         },
       },
       select: {
@@ -75,7 +81,11 @@ export async function GET(
         authorityDescription: true,
         template: { select: { name: true } },
         signatures: {
-          where: { signatoryRole: { in: [...CLIENT_ROLES] }, signedAt: null },
+          where: {
+            signatoryRole: { in: [...CLIENT_ROLES] },
+            signedAt: null,
+            ...liveSigningLinkWhere(),
+          },
           select: { signatureRequestToken: true },
         },
       },

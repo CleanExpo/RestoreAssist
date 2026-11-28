@@ -5,13 +5,19 @@ import {
   CheckCircle,
   Clock,
   Loader2,
+  Ban,
   Mail,
+  Pencil,
   Plus,
   Send,
   UserPlus,
   X,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import {
+  isSigningLinkLive,
+  signingLinkExpiresAt,
+} from "@/lib/authority-forms/signing-link";
 
 interface Signatory {
   id: string;
@@ -52,6 +58,10 @@ export function SignatoryManager({
   const [newRole, setNewRole] = useState("CLIENT");
   const [adding, setAdding] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editEmail, setEditEmail] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
 
   const signedCount = signatories.filter((s) => s.signedAt).length;
   const totalCount = signatories.length;
@@ -120,6 +130,51 @@ export function SignatoryManager({
     }
   };
 
+  // RA-8589: switch an emailed link off, or correct the address. Both clear
+  // the old link; staff then press Send Request to mail a fresh one.
+  const patchSignatory = async (
+    signatureId: string,
+    body: { action: "cancel_request" } | { signatoryEmail: string },
+  ): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `/api/authority-forms/${formId}/signatures/${signatureId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+      if (response.ok) return true;
+      const data = await response.json().catch(() => ({}));
+      toast.error(data.error?.message || "Could not update the signatory");
+    } catch {
+      toast.error("Could not update the signatory");
+    }
+    return false;
+  };
+
+  const handleCancelRequest = async (signatureId: string) => {
+    setCancellingId(signatureId);
+    if (await patchSignatory(signatureId, { action: "cancel_request" })) {
+      toast.success("Signing link cancelled. The emailed link no longer works.");
+      onUpdate();
+    }
+    setCancellingId(null);
+  };
+
+  const handleSaveEmail = async (signatureId: string) => {
+    if (!editEmail.trim()) return;
+    setSavingEmail(true);
+    if (await patchSignatory(signatureId, { signatoryEmail: editEmail.trim() })) {
+      toast.success("Email updated. Any link already sent no longer works.");
+      setEditingId(null);
+      setEditEmail("");
+      onUpdate();
+    }
+    setSavingEmail(false);
+  };
+
   return (
     <div className="space-y-4">
       {/* Progress bar */}
@@ -176,10 +231,40 @@ export function SignatoryManager({
                   {sig.signatoryRole}
                 </span>
               </div>
-              {sig.signatoryEmail && (
-                <p className="text-xs text-muted-foreground truncate">
-                  {sig.signatoryEmail}
-                </p>
+              {editingId === sig.id ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    aria-label={`Email address for ${sig.signatoryName}`}
+                    className="flex-1 min-w-0 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded-md text-xs bg-white dark:bg-slate-900"
+                  />
+                  <button
+                    onClick={() => handleSaveEmail(sig.id)}
+                    disabled={savingEmail || !editEmail.trim()}
+                    className="px-2 py-1 text-xs font-medium rounded-md bg-brand-harbour-500 hover:bg-brand-harbour-600 text-white disabled:opacity-50"
+                  >
+                    {savingEmail ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      "Save"
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    aria-label="Stop editing email"
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                sig.signatoryEmail && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {sig.signatoryEmail}
+                  </p>
+                )
               )}
               {sig.signedAt && (
                 <p className="text-xs text-success">
@@ -194,9 +279,43 @@ export function SignatoryManager({
                     {new Date(sig.signatureRequestSentAt).toLocaleDateString(
                       "en-AU",
                     )}
+                    {isSigningLinkLive(sig.signatureRequestSentAt)
+                      ? ` · link expires ${signingLinkExpiresAt(
+                          new Date(sig.signatureRequestSentAt),
+                        ).toLocaleDateString("en-AU")}`
+                      : " · link expired, resend to renew"}
                   </p>
                 )}
             </div>
+
+            {/* RA-8589: correct the address or switch the emailed link off */}
+            {!sig.signedAt && !isCompleted && editingId !== sig.id && (
+              <button
+                onClick={() => {
+                  setEditingId(sig.id);
+                  setEditEmail(sig.signatoryEmail ?? "");
+                }}
+                aria-label={`Edit email for ${sig.signatoryName}`}
+                title="Edit email"
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {!sig.signedAt && sig.signatureRequestSent && !isCompleted && (
+              <button
+                onClick={() => handleCancelRequest(sig.id)}
+                disabled={cancellingId === sig.id}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors shrink-0"
+              >
+                {cancellingId === sig.id ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Ban className="h-3.5 w-3.5" />
+                )}
+                Cancel request
+              </button>
+            )}
 
             {/* Action */}
             {!sig.signedAt && sig.signatoryEmail && !isCompleted && (

@@ -13,6 +13,10 @@ import { apiError, fromException } from "@/lib/api-errors";
 import { escapeHtml, getFromEmail } from "@/lib/email";
 import { isEmailServiceConfigured } from "@/lib/email/resolve-platform-config";
 import { sendTransactionalEmail } from "@/lib/email/send-transactional";
+import {
+  SIGNING_LINK_TTL_DAYS,
+  unchangedSlotWhere,
+} from "@/lib/authority-forms/signing-link";
 
 /**
  * POST /api/authority-forms/:id/send-signature-request
@@ -147,6 +151,11 @@ export async function POST(
           id: signatureId,
           instanceId: formId,
           ...unsignedSlotWhere(),
+          // RA-8589: the slot must still hold the email and token read above.
+          // A staff correction or cancellation that landed in between leaves
+          // this write matching nothing, so no live link goes to the old
+          // address and a cancelled link is not revived.
+          ...unchangedSlotWhere(signature),
           instance: formAcceptsSignatureWhere(),
         },
         data: {
@@ -157,6 +166,20 @@ export async function POST(
       });
 
       if (updateResult.count === 0) {
+        // The row is gone (404), or it changed between the read and the write
+        // (409): the caller re-reads and sends again.
+        const stillThere = await prisma.authorityFormSignature.findFirst({
+          where: { id: signatureId, instanceId: formId },
+          select: { id: true },
+        });
+        if (stillThere) {
+          return apiError(request, {
+            code: "CONFLICT",
+            message:
+              "This signatory or form was changed while the request was being sent. Check the details and send again.",
+            status: 409,
+          });
+        }
         return apiError(request, {
           code: "NOT_FOUND",
           message: "Signature not found",
@@ -211,7 +234,7 @@ export async function POST(
                 Review & Sign Form
               </a>
             </div>
-            <p style="font-size: 13px; color: #6b7280;">This link is unique to you and will expire once signed. If you did not expect this request, please disregard this email.</p>
+            <p style="font-size: 13px; color: #6b7280;">This link is unique to you. It stops working once signed, or ${SIGNING_LINK_TTL_DAYS} days after this email was sent. If you did not expect this request, please disregard this email.</p>
           </div>
         </body>
         </html>

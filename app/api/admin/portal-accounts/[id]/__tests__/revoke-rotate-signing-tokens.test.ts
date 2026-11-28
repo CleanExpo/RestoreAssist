@@ -27,6 +27,8 @@ type SigRow = {
   signatoryEmail: string | null;
   signedAt: Date | null;
   signatureRequestToken: string | null;
+  // RA-8589: the signing route only honours a link sent within its lifetime.
+  signatureRequestSentAt: Date | null;
   signatureData: string | null;
 };
 type AccountRow = {
@@ -80,6 +82,16 @@ function sigMatches(row: SigRow, where: Record<string, unknown>): boolean {
           return false;
         }
         break;
+      case "signatureRequestSentAt": {
+        // RA-8589: liveSigningLinkWhere() -> { gt: cutoff }.
+        const gt = (cond as { gt?: unknown }).gt;
+        if (!(gt instanceof Date)) {
+          throw new Error("fake: unsupported signatureRequestSentAt filter");
+        }
+        if (!row.signatureRequestSentAt) return false;
+        if (row.signatureRequestSentAt.getTime() <= gt.getTime()) return false;
+        break;
+      }
       case "signatoryRole": {
         const list = (cond as { in?: unknown }).in;
         if (!Array.isArray(list)) {
@@ -283,6 +295,8 @@ function seed(accountRevokedAt: Date | null = null) {
     clientId: "c_1",
     signatoryName: "Margaret",
     signatoryEmail: "margaret@example.com",
+    // RA-8589: every seeded link was sent recently, so it is still live.
+    signatureRequestSentAt: new Date(),
     signatureData: null,
   };
   db.sigs = [

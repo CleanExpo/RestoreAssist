@@ -93,6 +93,8 @@ const GUARDED_WRITERS = [
   "app/api/authority-forms/[id]/signatures/route.ts",
   "app/api/authority-forms/sign/[token]/route.ts",
   "app/api/authority-forms/[id]/send-signature-request/route.ts",
+  // RA-8589: cancel a signing link or correct an unsigned signatory's email.
+  "app/api/authority-forms/[id]/signatures/[signatureId]/route.ts",
 ];
 
 /** Writers reviewed and left unguarded, each with its reason. */
