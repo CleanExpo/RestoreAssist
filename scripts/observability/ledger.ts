@@ -12,15 +12,38 @@
  * new head and voided the PR's release receipt. One file per entry means two
  * branches add two different files, which git merges without asking.
  *
- * FILE NAME: `<timestamp>-<domain>-<first 12 hex of sha256(session)>.jsonl`.
- * Deterministic, so the same event recorded by both producers (the Stop hook's
- * .claude/hooks/lib/ledger-append.sh and collect-verifier-metrics.ts) lands on
- * the same name and overwrites rather than duplicates. The shell writer must
- * produce the same name and the same line, key for key;
- * .claude/hooks/tests/test-ledger-append.sh compares them directly.
+ * THE NAMING RULE. One event is one (session, timestamp, domain). Its file is
  *
- * READING de-duplicates on the existing idempotency key (session, timestamp,
- * domain), first occurrence wins, frozen history first.
+ *   <timestamp>-<readable domain>-<key hash>.jsonl
+ *
+ *   readable domain  the domain with every byte outside [A-Za-z0-9._-] turned
+ *                    into "_", cut to its first 64 bytes, "_" when empty. It is
+ *                    there for a person listing the directory and nothing else.
+ *   key hash         the first 32 hex characters of
+ *                    sha256( sha256hex(session) ":" timestamp ":" sha256hex(domain) )
+ *                    taken over the UTF-8 bytes of the untouched session and
+ *                    domain.
+ *
+ * The hash is what tells entries apart. The readable part alone cannot: "a/b"
+ * and "a?b" both read "a_b", and while the name was built from that text the
+ * second write replaced the first and a verification record was lost. Hashing
+ * the two free-text parts before joining them means no choice of session or
+ * domain can make two different events share a string, and so a name.
+ *
+ * The same event recorded by both producers (the Stop hook's
+ * .claude/hooks/lib/ledger-append.sh and collect-verifier-metrics.ts) lands on
+ * the same name and overwrites rather than duplicates. The shell writer follows
+ * this rule byte for byte. Both are held to
+ * scripts/observability/__tests__/ledger-name-vectors.json, a list of names
+ * computed by neither of them, and
+ * .claude/hooks/tests/test-ledger-append.sh also compares the two directly.
+ *
+ * Entries written before the key hash was added keep their older names
+ * (`<timestamp>-<domain>-<12 hex of the session>.jsonl`). Nothing reads a name:
+ * readLedger() goes by the content of each file, so old and new sit side by side.
+ *
+ * READING de-duplicates on the idempotency key (session, timestamp, domain),
+ * first occurrence wins, frozen history first.
  */
 
 import { createHash } from "node:crypto";
@@ -42,17 +65,29 @@ export const LEDGER_FILE = join(OBSERVABILITY_DIR, "verifier-ledger.jsonl");
 /** One file per verification from here on. */
 export const LEDGER_DIR = join(OBSERVABILITY_DIR, "verifier-ledger.d");
 
-/** The idempotency key every reader de-duplicates on. */
-export function ledgerKey(r: Pick<VerifierReport, "sessionId" | "timestamp" | "domain">): string {
-  return `${r.sessionId}:${r.timestamp}:${r.domain}`;
+type EntryKey = Pick<VerifierReport, "sessionId" | "timestamp" | "domain">;
+
+/**
+ * The idempotency key every reader de-duplicates on. A JSON array, so the
+ * three parts stay three parts: joined with ":" a session "s:1" at 2 in domain
+ * "d" and a session "s" at 1 in domain "2:d" were the same string, and the
+ * reader dropped one of them.
+ */
+export function ledgerKey(r: EntryKey): string {
+  return JSON.stringify([r.sessionId, r.timestamp, r.domain]);
 }
 
 const SAFE_BYTE = /^[A-Za-z0-9._-]$/;
+/** How much of the sanitised domain the name carries for a person to read. */
+const READABLE_DOMAIN_BYTES = 64;
+/** 128 bits of the key hash: enough that two events never meet by accident. */
+const KEY_HASH_HEX = 32;
 
 /**
  * Anything outside [A-Za-z0-9._-] becomes "_", byte by byte over UTF-8, which
- * is what `LC_ALL=C sed 's/[^A-Za-z0-9._-]/_/g'` does in the shell writer. A
- * domain can therefore never carry a path separator.
+ * is what `LC_ALL=C tr -c 'A-Za-z0-9._-' '_'` does in the shell writer. The
+ * result can therefore never carry a path separator or a line break. It is not
+ * reversible and must never be used to tell two entries apart.
  */
 export function safeSegment(s: string): string {
   const out = Array.from(Buffer.from(s, "utf8"), (b) => {
@@ -62,12 +97,21 @@ export function safeSegment(s: string): string {
   return out.length > 0 ? out : "_";
 }
 
-export function sessionHash(sessionId: string): string {
-  return createHash("sha256").update(sessionId, "utf8").digest("hex").slice(0, 12);
+function sha256Hex(s: string): string {
+  return createHash("sha256").update(s, "utf8").digest("hex");
 }
 
-export function entryFileName(r: Pick<VerifierReport, "sessionId" | "timestamp" | "domain">): string {
-  return `${r.timestamp}-${safeSegment(r.domain)}-${sessionHash(r.sessionId)}.jsonl`;
+/** The part of the name that identifies the event. See THE NAMING RULE above. */
+export function keyHash(r: EntryKey): string {
+  return sha256Hex(`${sha256Hex(r.sessionId)}:${r.timestamp}:${sha256Hex(r.domain)}`).slice(0, KEY_HASH_HEX);
+}
+
+export function entryFileName(r: EntryKey): string {
+  // A timestamp is a plain integer and passes through untouched. Sanitising it
+  // anyway means a malformed row can never turn the name into a path.
+  const timestamp = safeSegment(String(r.timestamp));
+  const readable = safeSegment(r.domain).slice(0, READABLE_DOMAIN_BYTES);
+  return `${timestamp}-${readable}-${keyHash(r)}.jsonl`;
 }
 
 /**

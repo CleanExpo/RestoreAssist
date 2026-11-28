@@ -1,6 +1,6 @@
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   LEDGER_DIR,
@@ -24,6 +24,22 @@ function row(over: Partial<VerifierReport> = {}): VerifierReport {
   };
 }
 
+interface NameVector {
+  case: string;
+  sessionId: string;
+  timestamp: number;
+  domain: string;
+  name: string;
+}
+
+/**
+ * The entry names both writers must produce, computed by neither of them. The
+ * shell writer is held to the same file in .claude/hooks/tests/test-ledger-append.sh.
+ */
+const vectors: NameVector[] = JSON.parse(
+  readFileSync(join(import.meta.dirname, "ledger-name-vectors.json"), "utf8"),
+).vectors;
+
 let root: string;
 let file: string;
 let dir: string;
@@ -45,9 +61,9 @@ describe("the ledger layout", () => {
 });
 
 describe("naming an entry", () => {
-  it("is deterministic and carries timestamp, domain and a short session hash", () => {
+  it("is deterministic and carries the timestamp, the readable domain and a 32-hex key hash", () => {
     const name = entryFileName(row());
-    expect(name).toMatch(/^1788046563-claim-truthfulness-static-[0-9a-f]{12}\.jsonl$/);
+    expect(name).toMatch(/^1788046563-claim-truthfulness-static-[0-9a-f]{32}\.jsonl$/);
     expect(entryFileName(row())).toBe(name);
   });
 
@@ -61,12 +77,37 @@ describe("naming an entry", () => {
     expect(names.size).toBe(4);
   });
 
+  it("gives two domains that sanitise alike two different names", () => {
+    // RA-8661 review: "a/b" and "a?b" both sanitise to "a_b". While the name was
+    // built from the sanitised domain alone, the second write replaced the first.
+    expect(safeSegment("a/b")).toBe(safeSegment("a?b"));
+    expect(entryFileName(row({ domain: "a/b" }))).not.toBe(entryFileName(row({ domain: "a?b" })));
+  });
+
+  it("matches the shared name vectors the shell writer is also held to", () => {
+    expect(vectors.length).toBeGreaterThanOrEqual(10);
+    for (const v of vectors) {
+      expect(entryFileName(v), v.case).toBe(v.name);
+    }
+    expect(new Set(vectors.map((v) => v.name)).size).toBe(vectors.length);
+  });
+
   it("never lets a domain become a path", () => {
     expect(safeSegment("../../evil")).toBe(".._.._evil");
     expect(entryFileName(row({ domain: "a/b" }))).not.toContain("/");
-    // Byte-wise over UTF-8, matching `LC_ALL=C sed` in the shell writer.
+    expect(entryFileName(row({ domain: "line1\nline2" }))).not.toContain("\n");
+    // A malformed row cannot turn the timestamp into a path either.
+    expect(entryFileName(row({ timestamp: "../../x" as unknown as number }))).not.toContain("/");
+    // Byte-wise over UTF-8, matching `LC_ALL=C tr -c` in the shell writer.
     expect(safeSegment("é")).toBe("__");
     expect(safeSegment("")).toBe("_");
+  });
+
+  it("keeps the name of a very long domain inside the file-name limit", () => {
+    const name = entryFileName(row({ domain: "d".repeat(300) }));
+    expect(Buffer.byteLength(name, "utf8")).toBeLessThanOrEqual(128);
+    // The cut part is still told apart by the hash.
+    expect(name).not.toBe(entryFileName(row({ domain: "d".repeat(301) })));
   });
 });
 
@@ -106,6 +147,27 @@ describe("writing", () => {
     }
   });
 
+  it("keeps both records when two domains in one session and second sanitise alike", () => {
+    // The reproduced defect: same session, same second, domains "a/b" then
+    // "a?b". Both must survive, each with its own status.
+    writeLedgerEntry(row({ domain: "a/b", status: "failed" }), dir);
+    writeLedgerEntry(row({ domain: "a?b", status: "static-clean" }), dir);
+
+    expect(readdirSync(dir)).toHaveLength(2);
+    expect(
+      readLedger(file, dir)
+        .map((r) => `${r.domain} ${r.status}`)
+        .sort(),
+    ).toEqual(["a/b failed", "a?b static-clean"]);
+  });
+
+  it("writes an entry whose domain is longer than a file name may be", () => {
+    const long = "d".repeat(300);
+    const p = writeLedgerEntry(row({ domain: long }), dir);
+    expect(Buffer.byteLength(basename(p), "utf8")).toBeLessThanOrEqual(128);
+    expect(readLedger(file, dir).map((r) => r.domain)).toEqual([long]);
+  });
+
   it("overwrites rather than duplicates when the same event is written twice", () => {
     writeLedgerEntry(row(), dir);
     writeLedgerEntry(row(), dir);
@@ -131,6 +193,27 @@ describe("reading", () => {
     const rows = readLedger(file, dir);
     expect(rows.map(ledgerKey)).toEqual([old1, old2, fresh].map(ledgerKey));
     expect(rows.find((r) => r.sessionId === "new-1")?.status).toBe("failed");
+  });
+
+  it("does not run two different keys together", () => {
+    // Joined with ":" these were both "s:1:2:d", so the reader dropped the second.
+    const a = row({ sessionId: "s:1", timestamp: 2, domain: "d", status: "failed" });
+    const b = row({ sessionId: "s", timestamp: 1, domain: "2:d" });
+    expect(ledgerKey(a)).not.toBe(ledgerKey(b));
+
+    writeFileSync(file, [a, b].map(entryLine).join("\n") + "\n");
+    expect(readLedger(file, dir).map((r) => r.sessionId)).toEqual(["s:1", "s"]);
+  });
+
+  it("still returns one row for an event held under an older file name", () => {
+    // Entries written before the name carried the key hash keep their old names.
+    // The reader goes by content, so a re-record under the new name is one row.
+    mkdirSync(dir);
+    writeFileSync(join(dir, "1788046563-claim-truthfulness-static-24ed905418b8.jsonl"), entryLine(row()) + "\n");
+    writeLedgerEntry(row(), dir);
+
+    expect(readdirSync(dir)).toHaveLength(2);
+    expect(readLedger(file, dir)).toHaveLength(1);
   });
 
   it("ignores dotfiles, other extensions and malformed lines", () => {

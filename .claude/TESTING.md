@@ -152,7 +152,10 @@ whenever one merged — see `docs/observability/README.md`.
 Its test pins the properties that are easy to break silently. The shell writer
 and `collect-verifier-metrics.ts` write into the same directory and are read back
 by the same `readLedger()`, so their line shapes must match key for key and their
-file names must match character for character. It feeds what the shell wrote
+file names must match character for character. Both are held to
+`scripts/observability/__tests__/ledger-name-vectors.json`, a list of names
+computed by neither writer, and one session recording the domains `a/b` and
+`a?b` in the same second must leave two files, not one. It feeds what the shell wrote
 through `readLedger()` and `summarise()` and checks the status survives, not just
 the row count. And it runs two real git branches that each record a
 verification, then requires them to touch no file in common, to merge without a

@@ -17,6 +17,13 @@
 # so whichever PR merged first left every other open PR conflicting on it. Each
 # entry is now its own file, and the old .jsonl is frozen history. The merge test
 # below runs two real branches through git and requires a clean merge.
+#
+# ONE EVENT, ONE NAME: the file name is the idempotency key (session, timestamp,
+# domain) in a form that cannot run two keys together. Two domains that sanitise
+# to the same text ("a/b" and "a?b") must still get two files. The shared vector
+# file scripts/observability/__tests__/ledger-name-vectors.json lists names
+# computed by neither writer; this file holds the shell writer to it and
+# ledger.test.ts holds ledger.ts to it.
 
 set -uo pipefail
 
@@ -32,7 +39,9 @@ LIB="$HOOKS_DIR/lib"
 source "$LIB/ledger-append.sh"
 
 pass=0; fail=0
-tmp="$(mktemp -d)"
+# Under TMPDIR when it is set. A bare `mktemp -d` ignores TMPDIR on macOS, so a
+# sandbox that only allows writes under its own TMPDIR could not run this file.
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/ledger-test.XXXXXX")" || { echo "RESULT: FAILED (no temporary directory)"; exit 1; }
 trap 'rm -rf "$tmp" 2>/dev/null || true' EXIT
 export VERIFIER_LEDGER_DIR="$tmp/ledger.d"
 unset VERIFIER_LEDGER_PATH VERIFIER_LEDGER_SKIP
@@ -106,6 +115,65 @@ else
   bad "a domain containing ../ was not contained to the ledger directory"
 fi
 rm -f "$VERIFIER_LEDGER_DIR"/1788046650-*.jsonl
+
+echo
+echo "== one event, one name =="
+# The reproduced defect (RA-8661 review): one session records two domains in the
+# same second, and both domains sanitise to "a_b". While the name was built from
+# the sanitised domain alone, the second write replaced the first and a
+# verification record was lost. Kept in its own directory so the counts the
+# agreement probe checks further down are not disturbed.
+collide="$tmp/collide.d"
+VERIFIER_LEDGER_DIR="$collide" ledger_append "$tmp/unavail.json" "aaaa-bbbb" 1788046900 "a/b"
+VERIFIER_LEDGER_DIR="$collide" ledger_append "$tmp/terse.json" "aaaa-bbbb" 1788046900 "a?b"
+if [[ "$(entry_count "$collide")" == "2" ]]; then
+  ok "domains a/b and a?b in one session and second make two entry files"
+else
+  bad "domains a/b and a?b in one session and second made $(entry_count "$collide") entry file(s), expected 2"
+fi
+check "both records survive, each with its own status" \
+  '[{"domain":"a/b","status":"verifier-unavailable"},{"domain":"a?b","status":"static-clean"}]' \
+  "$(cat "$collide"/*.jsonl 2>/dev/null | jq -s -c 'map({domain, status}) | sort_by(.domain)' 2>/dev/null)"
+
+# The shared name vectors. Each expected name was computed by neither writer.
+vectors_file="$PROJECT_ROOT/scripts/observability/__tests__/ledger-name-vectors.json"
+vectors_dir="$tmp/vectors.d"
+vector_total="$(jq -r '.vectors | length' "$vectors_file" 2>/dev/null)"
+vector_total="${vector_total:-0}"
+vector_bad=0
+for (( i = 0; i < vector_total; i++ )); do
+  # A trailing "x" keeps a value that ends in a line break intact through $(...).
+  v_session="$(jq -j --argjson i "$i" '.vectors[$i].sessionId + "x"' "$vectors_file")"; v_session="${v_session%x}"
+  v_domain="$(jq -j --argjson i "$i" '.vectors[$i].domain + "x"' "$vectors_file")"; v_domain="${v_domain%x}"
+  v_ts="$(jq -r --argjson i "$i" '.vectors[$i].timestamp' "$vectors_file")"
+  v_name="$(jq -r --argjson i "$i" '.vectors[$i].name' "$vectors_file")"
+  VERIFIER_LEDGER_DIR="$vectors_dir" ledger_append "$tmp/terse.json" "$v_session" "$v_ts" "$v_domain"
+  if [[ ! -f "$vectors_dir/$v_name" ]]; then
+    vector_bad=$((vector_bad+1))
+    printf '        no file named %s (%s)\n' "$v_name" "$(jq -r --argjson i "$i" '.vectors[$i].case' "$vectors_file")"
+  fi
+done
+if (( vector_total >= 10 && vector_bad == 0 )) && [[ "$(entry_count "$vectors_dir")" == "$vector_total" ]]; then
+  ok "the shell writer produces every one of the $vector_total shared vector names"
+else
+  bad "shared name vectors: $vector_total listed, $vector_bad not produced, $(entry_count "$vectors_dir") file(s) written"
+fi
+stray="$(find "$vectors_dir" -maxdepth 1 -name '*
+*' 2>/dev/null | wc -l | tr -d ' ')"
+if [[ "$stray" == "0" ]]; then
+  ok "no entry file name carries a line break"
+else
+  bad "$stray entry file name(s) carry a line break"
+fi
+
+# A timestamp the two writers would not render the same way is refused, not guessed.
+VERIFIER_LEDGER_DIR="$tmp/oddts.d" ledger_append "$tmp/terse.json" "s" 007 "d"
+VERIFIER_LEDGER_DIR="$tmp/oddts.d" ledger_append "$tmp/terse.json" "s" 12345678901234567890 "d"
+if [[ "$(entry_count "$tmp/oddts.d")" == "0" ]]; then
+  ok "a timestamp with a leading zero or beyond 15 digits writes no entry"
+else
+  bad "a timestamp the two writers render differently still wrote $(entry_count "$tmp/oddts.d") entry file(s)"
+fi
 
 echo
 echo "== it never breaks the hook =="
@@ -226,7 +294,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { entryFileName, readLedger } from "./ledger";
 import { summarise } from "./verifier-metrics";
-const [dir, mergedRoot] = process.argv.slice(2);
+const [dir, mergedRoot, vectorsDir] = process.argv.slice(2);
 const rows = readLedger(join(dir, "..", "absent.jsonl"), dir);
 const s = summarise(rows);
 const names = readdirSync(dir).filter((n) => n.endsWith(".jsonl")).sort();
@@ -235,14 +303,18 @@ const merged = readLedger(
   join(mergedRoot, "scripts", "observability", "verifier-ledger.jsonl"),
   join(mergedRoot, "scripts", "observability", "verifier-ledger.d"),
 );
+const vectorRows = readLedger(join(vectorsDir, "..", "absent.jsonl"), vectorsDir);
+const vectorNames = readdirSync(vectorsDir).filter((n) => n.endsWith(".jsonl")).sort();
 console.log(JSON.stringify({
+  vectorRows: vectorRows.length,
+  vectorNamesAgree: JSON.stringify(vectorNames) === JSON.stringify(vectorRows.map((r) => entryFileName(r)).sort()),
   total: s.totalReports,
   unavailable: s.unavailableRate,
   namesAgree: JSON.stringify(names) === JSON.stringify(expected),
   merged: merged.map((r) => r.sessionId).sort(),
 }));
 TS
-out="$(cd "$PROJECT_ROOT" && npx --no-install tsx "scripts/observability/$probe_name" "$VERIFIER_LEDGER_DIR" "$repo" 2>/dev/null)" || out=""
+out="$(cd "$PROJECT_ROOT" && npx --no-install tsx "scripts/observability/$probe_name" "$VERIFIER_LEDGER_DIR" "$repo" "$vectors_dir" 2>/dev/null)" || out=""
 rm -f "$PROJECT_ROOT/scripts/observability/$probe_name"
 
 total="$(jq -r '.total // empty' <<<"$out" 2>/dev/null)"
@@ -265,6 +337,13 @@ if [[ "$names_agree" == "true" ]]; then
   ok "the shell writer names each file exactly as ledger.ts entryFileName() does"
 else
   bad "the shell and TypeScript writers disagree on entry file names"
+fi
+vector_rows="$(jq -r '.vectorRows // empty' <<<"$out" 2>/dev/null)"
+vector_names_agree="$(jq -r '.vectorNamesAgree // empty' <<<"$out" 2>/dev/null)"
+if [[ "$vector_rows" == "$vector_total" && "$vector_names_agree" == "true" ]]; then
+  ok "ledger.ts reads back all $vector_total vector entries and names each as the shell writer did"
+else
+  bad "vector entries: ledger.ts read ${vector_rows:-none} of $vector_total, names agree=${vector_names_agree:-none}"
 fi
 check "after the merge the reader returns the frozen history plus both branches" \
   '["history","session-aaaa","session-bbbb"]' "${merged:-null}"

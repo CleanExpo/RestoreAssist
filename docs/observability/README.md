@@ -87,7 +87,7 @@ re-running is idempotent.
 | Path | Role |
 | --- | --- |
 | `scripts/observability/verifier-ledger.jsonl` | Frozen history. Read, never appended again. |
-| `scripts/observability/verifier-ledger.d/<timestamp>-<domain>-<hash>.jsonl` | One verification each, one line. `<hash>` is the first 12 hex characters of the SHA-256 of the session id. |
+| `scripts/observability/verifier-ledger.d/<timestamp>-<domain>-<hash>.jsonl` | One verification each, one line. `<domain>` is the domain made safe for a file name and cut to 64 bytes, for a person to read. `<hash>` is what identifies the entry: 32 hex characters of a SHA-256 taken over the session, the timestamp and the untouched domain, so two domains that read alike once made safe (`a/b` and `a?b`) still get two files. The exact rule is at the top of `scripts/observability/ledger.ts`. Entries written before 28/11/2026 keep an older, shorter name; the reader goes by content, not by name. |
 
 The ledger used to be the single `.jsonl` file, and every mesh branch appended to
 it. Each branch therefore changed the same end of the same file, so whichever pull
