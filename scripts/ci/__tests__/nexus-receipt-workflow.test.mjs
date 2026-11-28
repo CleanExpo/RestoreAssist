@@ -149,3 +149,81 @@ test('the workflow keeps its trigger and permissions as reviewed', () => {
   });
   for (const job of Object.values(wf.jobs)) assert.ok(!('permissions' in job));
 });
+
+// --- the release gate's local copy of CI ------------------------------------
+// The release gate re-runs this repository's workflows on the developer's
+// machine before a branch is published. The receipt job cannot run there: it
+// needs the Codex login held on the GitHub environment and it writes the
+// required status. So .github/ci-mirror.exempt.json says, in writing, that the
+// local copy skips it. That entry must stay exactly one job wide. An entry that
+// named every job (or no job, which means every job) would also stop the
+// verdict tests running locally, and nothing else would notice.
+const EXEMPTIONS = fileURLToPath(
+  new URL('../../../.github/ci-mirror.exempt.json', import.meta.url)
+);
+const WORKFLOW_FILE = 'nexus-release-receipt.yml';
+
+/** Returns a list of plain-English problems; empty means the entry is sound. */
+export function mirrorExemptionProblems(jsonText) {
+  let doc;
+  try {
+    doc = JSON.parse(jsonText);
+  } catch {
+    return ['the exemption file is not valid JSON'];
+  }
+  const list = (kind) => (Array.isArray(doc?.[kind]) ? doc[kind] : []);
+  const mine = (kind) => list(kind).filter((e) => e?.workflow === WORKFLOW_FILE);
+  const problems = [];
+  if (mine('unavailable').length !== 0) {
+    problems.push(`${WORKFLOW_FILE} has an "unavailable" entry; only the one exemption is reviewed`);
+  }
+  const entries = mine('exempt');
+  if (entries.length !== 1) {
+    problems.push(`${WORKFLOW_FILE} has ${entries.length} exemptions, expected exactly 1`);
+  }
+  for (const e of entries) {
+    if (e.job !== RECEIPT_JOB) {
+      problems.push(`an exemption covers job "${e.job ?? '*'}", expected only ${RECEIPT_JOB}`);
+    }
+    if (e.test_gap !== true) {
+      problems.push('the exemption does not declare itself as a counted gap (test_gap: true)');
+    }
+    if (typeof e.reason !== 'string' || e.reason.trim().length < 40) {
+      problems.push('the exemption has no real reason');
+    }
+  }
+  return problems;
+}
+
+const realExemptions = () => readFileSync(EXEMPTIONS, 'utf8');
+
+test('the local CI copy skips the receipt job only, and says why', () => {
+  assert.deepEqual(mirrorExemptionProblems(realExemptions()), []);
+});
+
+test('each way of widening the local skip is caught', () => {
+  const good = JSON.parse(realExemptions());
+  const entry = good.exempt.find((e) => e.workflow === WORKFLOW_FILE);
+  assert.ok(entry, 'the real file has the entry this test starts from');
+  const others = good.exempt.filter((e) => e !== entry);
+  const withEntries = (...es) => JSON.stringify({ ...good, exempt: [...others, ...es] });
+  const noJob = Object.fromEntries(Object.entries(entry).filter(([k]) => k !== 'job'));
+  const noGap = Object.fromEntries(Object.entries(entry).filter(([k]) => k !== 'test_gap'));
+  const cases = {
+    'every job': withEntries({ ...entry, job: '*' }),
+    'no job named, which means every job': withEntries(noJob),
+    'the test job instead': withEntries({ ...entry, job: TEST_JOB }),
+    'the test job as well': withEntries(entry, { ...entry, job: TEST_JOB }),
+    'gap not declared': withEntries(noGap),
+    'no reason': withEntries({ ...entry, reason: ' ' }),
+    'entry removed': withEntries(),
+    'marked unavailable too': JSON.stringify({
+      ...good,
+      unavailable: [{ ...entry, host: 'any' }],
+    }),
+    'not JSON': '{',
+  };
+  for (const [name, text] of Object.entries(cases)) {
+    assert.notDeepEqual(mirrorExemptionProblems(text), [], name);
+  }
+});
