@@ -1,0 +1,109 @@
+name: Nexus sandbox proof
+
+# Proves, on a real GitHub ubuntu-latest runner and with no credential, that the
+# sandbox the nexus/release-receipt review runs in (RA-8676) does what it says:
+# a command the model runs cannot read a file outside the checkout, cannot read
+# the Codex login, cannot see an environment token and cannot reach the network,
+# while it can still read the checkout and run git.
+#
+# Every file and value here is an obviously fake plant. No secret, no
+# environment, read-only token. The sandbox owner is
+# scripts/ci/nexus-receipt/sandbox.mjs; this file only calls it.
+#
+# Each control is red on purpose: the "sandbox off" step passes only when the
+# checker reports the outside read and the network as breaches, so a checker
+# that cannot go red cannot turn this job green.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/nexus-release-receipt.yml
+      - .github/workflows/nexus-sandbox-proof.yml
+      - scripts/ci/nexus-receipt/**
+      - scripts/ci/__tests__/nexus-receipt-workflow.test.mjs
+      - scripts/ci/__tests__/nexus-sandbox-proof-workflow.test.mjs
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/nexus-release-receipt.yml
+      - .github/workflows/nexus-sandbox-proof.yml
+      - scripts/ci/nexus-receipt/**
+      - scripts/ci/__tests__/nexus-receipt-workflow.test.mjs
+      - scripts/ci/__tests__/nexus-sandbox-proof-workflow.test.mjs
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexus-sandbox-proof-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SB: scripts/ci/nexus-receipt/sandbox.mjs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Codex
+        run: node "$SB" install
+
+      - name: Create a fake Codex home
+        run: |
+          echo "CODEX_HOME=$RUNNER_TEMP/codex-fake" >> "$GITHUB_ENV"
+          echo "PROOF_RECORD=$RUNNER_TEMP/proof-record.jsonl" >> "$GITHUB_ENV"
+          node "$SB" write-config "$RUNNER_TEMP/codex-fake"
+          printf '%s' '{"FAKE":"not a real login"}' > "$RUNNER_TEMP/codex-fake/auth.json"
+          chmod 600 "$RUNNER_TEMP/codex-fake/auth.json"
+
+      # Mirrors "Remove PR-supplied Codex configuration" in the receipt job, so
+      # the proof runs the layout the review runs and its hostile .codex plant
+      # (config, hooks, MCP server) is the only project config present.
+      - name: Remove PR-supplied Codex configuration
+        run: rm -rf .codex
+
+      - name: Observe the runner
+        run: node "$SB" observe --checkout . --codex-home "$CODEX_HOME"
+
+      - name: Prepare runner for the sandbox
+        run: node "$SB" prepare-host --checkout . --codex-home "$CODEX_HOME"
+
+      - name: Control, sandbox off
+        run: >-
+          node "$SB" probe --mode off --expect breach:outside-read,net-ip,net-host
+          --checkout . --codex-home "$CODEX_HOME" --base main
+          --label "Control, sandbox off" --record "$PROOF_RECORD"
+
+      - name: Control, today's layout
+        run: >-
+          node "$SB" probe --mode legacy --expect breach:outside-read,login-read
+          --checkout . --codex-home "$CODEX_HOME" --base main
+          --label "Control, today's layout" --record "$PROOF_RECORD"
+
+      - name: Proof, review profile
+        run: >-
+          node "$SB" probe --mode profile --expect clean --hostile-config
+          --checkout . --codex-home "$CODEX_HOME" --base main
+          --label "Proof, review profile" --record "$PROOF_RECORD"
+
+      - name: Proof, codex exec path with a scripted model
+        run: >-
+          node "$SB" exec-probe --checkout . --codex-home "$CODEX_HOME" --base main
+          --schema scripts/ci/nexus-receipt/schema.json
+          --label "Proof, codex exec path" --record "$PROOF_RECORD"
+
+      - name: Summary
+        if: always()
+        run: node "$SB" summary --record "$PROOF_RECORD" >> "$GITHUB_STEP_SUMMARY"
