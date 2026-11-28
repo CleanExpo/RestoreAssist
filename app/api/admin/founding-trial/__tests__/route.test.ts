@@ -220,6 +220,30 @@ describe("POST /api/admin/founding-trial - Stripe failure and founder override",
     expect(body.error.eventId).toEqual(expect.any(String));
   });
 
+  it("RA-8664: a failed second check says the grant was put back, never that nothing was written", async () => {
+    const { FoundingTrialSettleCheckError } = await import(
+      "@/lib/billing/founding-trial-grant"
+    );
+    for (const [type, said] of [
+      ["StripeAuthenticationError", /secret key in production needs replacing/],
+      ["StripeConnectionError", /Try again in a few minutes/],
+    ] as const) {
+      runFoundingTrialGrant.mockRejectedValueOnce(
+        new FoundingTrialSettleCheckError(
+          Object.assign(new Error("Stripe failed"), { type }),
+        ),
+      );
+      const res = await post({ abn: "51824753556" });
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.error.code).toBe("UPSTREAM_FAILED");
+      expect(body.error.message).toMatch(/the grant was put back as it was/);
+      expect(body.error.message).toMatch(said);
+      expect(body.error.message).not.toMatch(/Nothing was written/);
+      expect(body.error.eventId).toEqual(expect.any(String));
+    }
+  });
+
   it("RA-8664: any other Stripe failure is a 503 that says to try again", async () => {
     runFoundingTrialGrant.mockRejectedValue(
       Object.assign(new Error("socket hang up"), { type: "StripeConnectionError" }),

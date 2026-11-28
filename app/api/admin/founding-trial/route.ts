@@ -36,6 +36,7 @@ import {
 import {
   ABN_OVERRIDE_MIN_REASON,
   FoundingTrialGrantError,
+  FoundingTrialSettleCheckError,
   runFoundingTrialGrant,
 } from "@/lib/billing/founding-trial-grant";
 
@@ -67,6 +68,22 @@ const STRIPE_KEY_REFUSED =
 const STRIPE_UNAVAILABLE =
   "Stripe could not be read, so add-on billing could not be checked. Nothing " +
   "was written. Try again in a few minutes.";
+// The second check runs after the grant committed. The grant was put back,
+// so these never say nothing was written.
+const SETTLE_KEY_REFUSED =
+  "Stripe refused RestoreAssist's API key during the second billing check, so " +
+  "the grant was put back as it was. The Stripe secret key in production needs " +
+  "replacing.";
+const SETTLE_UNAVAILABLE =
+  "Stripe could not be read for the second billing check, so the grant was put " +
+  "back as it was. Try again in a few minutes.";
+
+function isKeyRefused(stripeType: string | null): boolean {
+  return (
+    stripeType === "StripeAuthenticationError" ||
+    stripeType === "StripePermissionError"
+  );
+}
 
 export async function POST(request: NextRequest) {
   const csrfErr = validateCsrf(request);
@@ -169,15 +186,23 @@ export async function POST(request: NextRequest) {
     if (err instanceof FoundingTrialGrantError) {
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
-    const stripeType = stripeErrorType(err);
-    if (stripeType) {
-      const keyRefused =
-        stripeType === "StripeAuthenticationError" ||
-        stripeType === "StripePermissionError";
+    if (err instanceof FoundingTrialSettleCheckError) {
       return apiError(request, {
         code: "UPSTREAM_FAILED",
         status: 503,
-        message: keyRefused ? STRIPE_KEY_REFUSED : STRIPE_UNAVAILABLE,
+        message: isKeyRefused(stripeErrorType(err.settleError))
+          ? SETTLE_KEY_REFUSED
+          : SETTLE_UNAVAILABLE,
+        err: err.settleError,
+        stage: "admin.founding-trial.settle",
+      });
+    }
+    const stripeType = stripeErrorType(err);
+    if (stripeType) {
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        status: 503,
+        message: isKeyRefused(stripeType) ? STRIPE_KEY_REFUSED : STRIPE_UNAVAILABLE,
         err,
         stage: "admin.founding-trial.stripe",
       });

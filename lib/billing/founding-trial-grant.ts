@@ -87,6 +87,23 @@ export class FoundingTrialGrantError extends Error {
 }
 
 /**
+ * RA-8664 (discovery sweep): the second Stripe check, after the grant
+ * committed, could not finish. The grant cannot prove the business is not
+ * also paying, so it was put back as it was before this error was thrown.
+ * `settleError` is what the Stripe read threw.
+ */
+export class FoundingTrialSettleCheckError extends Error {
+  readonly settleError: unknown;
+  constructor(settleError: unknown) {
+    super(
+      "The second billing check could not finish, so the Founding Trial grant was put back as it was.",
+    );
+    this.name = "FoundingTrialSettleCheckError";
+    this.settleError = settleError;
+  }
+}
+
+/**
  * Stripe billing for this business that the grant would collide with: an
  * add-on Checkout not yet finished, or a live add-on subscription that no
  * entitlement row records yet (its checkout completed but the webhook has not
@@ -676,21 +693,34 @@ export async function runFoundingTrialGrant(deps: {
     deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   await sleep(deps.settleMs ?? GRANT_SETTLE_MS);
 
-  const after = await currentConflicts(db, stripe, workspaceId);
+  // One way back for both reasons the grant cannot stand: Stripe shows a
+  // payable conflict, or Stripe could not be read to prove there is none.
+  const putBack = (payload: Record<string, unknown>) =>
+    db.$transaction(async (tx) => {
+      await revertFoundingTrial(tx, result);
+      await revertFoundingTrialBasePlan(tx, basePlan);
+      if (entity.source === "founder_override") {
+        await tx.subscriptionEvent.create({
+          data: {
+            userId: ownerId,
+            eventType: ABN_OVERRIDE_REVERTED_EVENT,
+            payload: { organizationId, workspaceId, ...payload },
+          },
+        });
+      }
+    });
+
+  let after: BillingConflict[];
+  try {
+    after = await currentConflicts(db, stripe, workspaceId);
+  } catch (err) {
+    // If the put-back itself fails, that error propagates instead, so no
+    // caller is ever told the grant was put back when it was not.
+    await putBack({ conflicts: [], settleCheckFailed: true });
+    throw new FoundingTrialSettleCheckError(err);
+  }
   if (!after.length) return { status: "granted", entity, result, basePlan };
-  await db.$transaction(async (tx) => {
-    await revertFoundingTrial(tx, result);
-    await revertFoundingTrialBasePlan(tx, basePlan);
-    if (entity.source === "founder_override") {
-      await tx.subscriptionEvent.create({
-        data: {
-          userId: ownerId,
-          eventType: ABN_OVERRIDE_REVERTED_EVENT,
-          payload: { organizationId, workspaceId, conflicts: after.map((c) => c.id) },
-        },
-      });
-    }
-  });
+  await putBack({ conflicts: after.map((c) => c.id) });
   return { status: "reverted", workspaceId, conflicts: after };
 }
 

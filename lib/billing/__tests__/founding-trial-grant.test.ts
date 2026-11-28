@@ -1023,4 +1023,41 @@ describe("runFoundingTrialGrant - founder override for an ABN check that never f
       "FOUNDING_TRIAL_ABN_OVERRIDE_REVERTED",
     ]);
   });
+
+  it("RA-8664: a second Stripe check that cannot finish puts the grant back and says so", async () => {
+    const { h, create } = lookupErrored();
+    const statusBefore = h.owner.subscriptionStatus;
+    const { stripe, sessionsList } = makeStripe([], []);
+    let granted = false;
+    const keyRefused = Object.assign(new Error("Expired API Key provided"), {
+      type: "StripeAuthenticationError",
+    });
+    const { FoundingTrialSettleCheckError } = await import("../founding-trial-grant");
+    await expect(
+      runWith(h, stripe, {
+        reason: REASON,
+        duringSettle: () => {
+          granted = h.rows.size > 0 && h.owner.subscriptionStatus === "TRIAL";
+          sessionsList.mockImplementation(() => {
+            throw keyRefused;
+          });
+        },
+      }),
+    ).rejects.toSatisfy(
+      (e: unknown) =>
+        e instanceof FoundingTrialSettleCheckError && e.settleError === keyRefused,
+    );
+    // The grant had committed, and is now put back as it was.
+    expect(granted).toBe(true);
+    expect(h.rows.size).toBe(0);
+    expect(h.owner.subscriptionStatus).toBe(statusBefore);
+    expect(create.mock.calls.map((c) => c[0].data.eventType)).toEqual([
+      "FOUNDING_TRIAL_ABN_OVERRIDE",
+      "FOUNDING_TRIAL_ABN_OVERRIDE_REVERTED",
+    ]);
+    expect(create.mock.calls[1][0].data.payload).toMatchObject({
+      conflicts: [],
+      settleCheckFailed: true,
+    });
+  });
 });
