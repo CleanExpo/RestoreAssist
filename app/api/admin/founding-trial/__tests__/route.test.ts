@@ -196,3 +196,56 @@ describe("POST /api/admin/founding-trial — what it grants", () => {
     expect(res.status).toBe(409);
   });
 });
+
+describe("POST /api/admin/founding-trial — RA-8664", () => {
+  beforeEach(() => {
+    signIn(OPERATOR);
+    vi.stubEnv("PLATFORM_SUPPORT_USER_IDS", OPERATOR);
+  });
+
+  it("RA-8664: Stripe refusing the app's key is a 503 that says so, not a bare 500", async () => {
+    // The shape stripe/esm/Error.js gives an expired or revoked secret key.
+    runFoundingTrialGrant.mockRejectedValue(
+      Object.assign(new Error("Expired API Key provided"), {
+        type: "StripeAuthenticationError",
+        statusCode: 401,
+      }),
+    );
+    const res = await post({ abn: "51824753556" });
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error.code).toBe("UPSTREAM_FAILED");
+    expect(body.error.message).toMatch(/Stripe refused RestoreAssist's API key/);
+    expect(body.error.message).toMatch(/Nothing was written/);
+    expect(body.error.eventId).toEqual(expect.any(String));
+  });
+
+  it("RA-8664: any other Stripe failure is a 503 that says to try again", async () => {
+    runFoundingTrialGrant.mockRejectedValue(
+      Object.assign(new Error("socket hang up"), { type: "StripeConnectionError" }),
+    );
+    const res = await post({ abn: "51824753556" });
+    expect(res.status).toBe(503);
+    expect((await res.json()).error.message).toMatch(/Try again/);
+  });
+
+  it("RA-8664: an override reason reaches the grant with the operator's id", async () => {
+    const reason = "  Founder approved: ABR lookup failed at signup.  ";
+    await post({ abn: "51824753556", override: { reason } });
+    expect(runFoundingTrialGrant.mock.calls[0][0].abnOverride).toEqual({
+      reason: reason.trim(),
+      operatorUserId: OPERATOR,
+    });
+  });
+
+  it("RA-8664: an override with a short or missing reason is a 400 before any grant", async () => {
+    expect((await post({ abn: "51824753556", override: { reason: "ok" } })).status).toBe(400);
+    expect((await post({ abn: "51824753556", override: {} })).status).toBe(400);
+    expect(runFoundingTrialGrant).not.toHaveBeenCalled();
+  });
+
+  it("control: no override field sends no override", async () => {
+    await post({ abn: "51824753556" });
+    expect(runFoundingTrialGrant.mock.calls[0][0].abnOverride).toBeUndefined();
+  });
+});

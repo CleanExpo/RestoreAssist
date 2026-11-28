@@ -9,6 +9,12 @@
  *     confirmed at signup (422 otherwise), and the response names the ABR
  *     entity so the operator confirms the right business before applying;
  *   - calls the same runFoundingTrialGrant as scripts/grant-founding-trial.ts.
+ *   - RA-8664: `override: { reason }` lets the operator grant a business whose
+ *     ABR lookup never finished; the reason is recorded with the grant. A
+ *     different or cancelled ABN still refuses.
+ *   - RA-8664: when Stripe cannot be read (an expired key answered every
+ *     Preview with a bare 500), the operator gets a 503 that says so, and
+ *     nothing is written.
  *
  * Platform staff only. `role: "ADMIN"` is every self-registered firm owner, so
  * verifyAdminFromDb is followed by verifyPlatformSupportOperator, which fails
@@ -22,12 +28,13 @@ import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { validateCsrf } from "@/lib/csrf";
 import { normaliseAbn } from "@/lib/abn/checksum";
-import { fromException } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 import {
   verifyAdminFromDb,
   verifyPlatformSupportOperator,
 } from "@/lib/admin-auth";
 import {
+  ABN_OVERRIDE_MIN_REASON,
   FoundingTrialGrantError,
   runFoundingTrialGrant,
 } from "@/lib/billing/founding-trial-grant";
@@ -47,6 +54,20 @@ const STATUS_CODE: Record<string, number> = {
   reverted: 409,
 };
 
+/** Stripe SDK errors carry `type: "Stripe..."` (stripe/esm/Error.js). */
+function stripeErrorType(err: unknown): string | null {
+  const type = (err as { type?: unknown } | null)?.type;
+  return typeof type === "string" && type.startsWith("Stripe") ? type : null;
+}
+
+const STRIPE_KEY_REFUSED =
+  "Stripe refused RestoreAssist's API key, so add-on billing could not be " +
+  "checked. Nothing was written. The Stripe secret key in production needs " +
+  "replacing.";
+const STRIPE_UNAVAILABLE =
+  "Stripe could not be read, so add-on billing could not be checked. Nothing " +
+  "was written. Try again in a few minutes.";
+
 export async function POST(request: NextRequest) {
   const csrfErr = validateCsrf(request);
   if (csrfErr) return csrfErr;
@@ -63,6 +84,7 @@ export async function POST(request: NextRequest) {
       organizationId?: unknown;
       apply?: unknown;
       confirmed?: unknown;
+      override?: unknown;
     } | null;
     const apply = body?.apply === true;
     // Apply must name the business the operator previewed: organisation id,
@@ -75,6 +97,19 @@ export async function POST(request: NextRequest) {
       typeof c.legalName === "string"
         ? { organizationId: c.organizationId, abn: c.abn, legalName: c.legalName }
         : null;
+    let abnOverride: { reason: string; operatorUserId: string } | undefined;
+    if (body?.override !== undefined && body?.override !== null) {
+      const reason = (body.override as { reason?: unknown }).reason;
+      if (typeof reason !== "string" || reason.trim().length < ABN_OVERRIDE_MIN_REASON) {
+        return NextResponse.json(
+          {
+            error: `A founder override needs a reason of at least ${ABN_OVERRIDE_MIN_REASON} characters.`,
+          },
+          { status: 400 },
+        );
+      }
+      abnOverride = { reason: reason.trim(), operatorUserId: operator.user!.id };
+    }
     const hasAbn = typeof body?.abn === "string" && body.abn.trim() !== "";
     const hasOrg =
       typeof body?.organizationId === "string" && body.organizationId !== "";
@@ -124,6 +159,7 @@ export async function POST(request: NextRequest) {
       apply,
       settleMs: ROUTE_SETTLE_MS,
       ...(apply && confirmed ? { confirmed } : {}),
+      ...(abnOverride ? { abnOverride } : {}),
     });
     return NextResponse.json(
       { outcome, organizationId: org.id },
@@ -132,6 +168,19 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     if (err instanceof FoundingTrialGrantError) {
       return NextResponse.json({ error: err.message }, { status: 409 });
+    }
+    const stripeType = stripeErrorType(err);
+    if (stripeType) {
+      const keyRefused =
+        stripeType === "StripeAuthenticationError" ||
+        stripeType === "StripePermissionError";
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        status: 503,
+        message: keyRefused ? STRIPE_KEY_REFUSED : STRIPE_UNAVAILABLE,
+        err,
+        stage: "admin.founding-trial.stripe",
+      });
     }
     return fromException(request, err, { stage: "admin.founding-trial" });
   }
