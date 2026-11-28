@@ -288,4 +288,37 @@ describe("Founding Trial page - founder override", () => {
     expect(await screen.findByText(/lists this ABN as cancelled/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Founder override reason")).not.toBeInTheDocument();
   });
+
+  it("RA-8664b: a preview checked against the database, because Stripe refused the key, says so", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          outcome: {
+            status: "dry_run",
+            billingCheckedBy: "database",
+            entity: {
+              abn: "51824753556",
+              legalName: "WATERLINE RESTORATIONS PTY LTD",
+              tradingNames: [],
+            },
+            result: { granted: ["VOICE"], skippedPaid: [], applied: false },
+            basePlan: { outcome: "extended", trialEndsAt: "2026-11-27T00:00:00.000Z" },
+          },
+          organizationId: "org_firm",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await renderAs(OPERATOR);
+    fireEvent.change(screen.getByLabelText("ABN or organisation id"), {
+      target: { value: "51 824 753 556" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(
+      await screen.findByText(
+        /Stripe refused the current API key, so add-on billing was checked against RestoreAssist's own records: no Stripe billing on record for this business\./,
+      ),
+    ).toBeInTheDocument();
+  });
 });

@@ -103,6 +103,98 @@ export class FoundingTrialSettleCheckError extends Error {
   }
 }
 
+/** RA-8664b: Stripe refused the API key itself (expired, revoked, or lacking permission). */
+export function isStripeKeyRefused(err: unknown): boolean {
+  const type = (err as { type?: unknown } | null)?.type;
+  return type === "StripeAuthenticationError" || type === "StripePermissionError";
+}
+
+/** RA-8664b: what RestoreAssist's own records hold of Stripe for a business. */
+export type StripeHistory =
+  | "linked_customer"
+  | "workspace_customer"
+  | "linked_subscription"
+  | "recent_account_deletion";
+
+/**
+ * An unfinished Checkout expires within 24 hours of being created. A payer
+ * deleted in that window can leave one open with no record left in the
+ * database, so any deletion this recent keeps the grant waiting on Stripe.
+ * The extra hour is margin.
+ */
+export const ACCOUNT_DELETION_WINDOW_MS = 25 * 60 * 60 * 1000;
+
+/**
+ * RA-8664b: Stripe refused the API key, and the database shows Stripe billing
+ * for this business, so its add-on billing could not be checked at all.
+ */
+export class FoundingTrialBillingUncheckedError extends Error {
+  readonly stripeError: unknown;
+  readonly history: StripeHistory[];
+  constructor(stripeError: unknown, history: StripeHistory[]) {
+    super(
+      "Stripe refused the API key and this business has Stripe billing on record, so its add-on billing could not be checked.",
+    );
+    this.name = "FoundingTrialBillingUncheckedError";
+    this.stripeError = stripeError;
+    this.history = history;
+  }
+}
+
+/**
+ * RA-8664b: the Stripe billing RestoreAssist's own records hold for this
+ * business; empty when there is none. Read only when Stripe refuses the key.
+ *
+ * Why the records can stand in for Stripe then: add-on Checkout saves the
+ * buyer's Stripe customer id on their user before it creates a session
+ * (/api/addons/checkout), and fulfilment saves the subscription id on the
+ * add-on row (fulfill-recurring-addon). With the key refused, the app cannot
+ * create a session at all. So every add-on payment the app started leaves a
+ * customer id on someone who could pay for this workspace (its owner, any
+ * member in any status, any user of the organisation, the workspace itself),
+ * or a subscription id on one of its rows, unless the payer has since been
+ * deleted: an account deleted inside ACCOUNT_DELETION_WINDOW_MS counts too.
+ * Named limit: a payer deleted longer ago whose subscription completed but
+ * whose webhook never landed leaves no record here.
+ */
+export async function stripeHistoryOnRecord(
+  db: GrantDb,
+  scope: { organizationId: string; workspaceId: string; ownerId: string },
+  now: Date,
+): Promise<StripeHistory[]> {
+  const notNull = { not: null };
+  const [customers, workspaceCustomer, linked, deletions] = await Promise.all([
+    db.user.count({
+      where: {
+        stripeCustomerId: notNull,
+        OR: [
+          { id: scope.ownerId },
+          { organizationId: scope.organizationId },
+          { workspaceMemberships: { some: { workspaceId: scope.workspaceId } } },
+        ],
+      },
+    }),
+    db.workspace.count({
+      where: { id: scope.workspaceId, stripeCustomerId: notNull },
+    }),
+    db.featureEntitlement.count({
+      where: { workspaceId: scope.workspaceId, stripeSubscriptionId: notNull },
+    }),
+    db.securityEvent.count({
+      where: {
+        eventType: "ACCOUNT_DELETED",
+        createdAt: { gte: new Date(now.getTime() - ACCOUNT_DELETION_WINDOW_MS) },
+      },
+    }),
+  ]);
+  const history: StripeHistory[] = [];
+  if (customers > 0) history.push("linked_customer");
+  if (workspaceCustomer > 0) history.push("workspace_customer");
+  if (linked > 0) history.push("linked_subscription");
+  if (deletions > 0) history.push("recent_account_deletion");
+  return history;
+}
+
 /**
  * Stripe billing for this business that the grant would collide with: an
  * add-on Checkout not yet finished, or a live add-on subscription that no
@@ -197,7 +289,37 @@ export async function addonBillingConflicts(
   return conflicts;
 }
 
+type BillingScope = { organizationId: string; workspaceId: string; ownerId: string };
+
+/** Who answered the billing check: Stripe, or (RA-8664b) the database. */
+export type BillingCheckedBy = "stripe" | "database";
+
+/**
+ * Stripe first, always. Only when Stripe refuses the API key itself does the
+ * database answer, and only when it holds no Stripe billing for the business;
+ * otherwise the check fails (FoundingTrialBillingUncheckedError). Any other
+ * Stripe error propagates unchanged.
+ */
 async function currentConflicts(
+  db: GrantDb,
+  stripe: BillingReader,
+  scope: BillingScope,
+  now: Date | undefined,
+): Promise<{ conflicts: BillingConflict[]; checkedBy: BillingCheckedBy }> {
+  try {
+    return {
+      conflicts: await stripeConflicts(db, stripe, scope.workspaceId),
+      checkedBy: "stripe",
+    };
+  } catch (err) {
+    if (!isStripeKeyRefused(err)) throw err;
+    const history = await stripeHistoryOnRecord(db, scope, now ?? new Date());
+    if (history.length) throw new FoundingTrialBillingUncheckedError(err, history);
+    return { conflicts: [], checkedBy: "database" };
+  }
+}
+
+async function stripeConflicts(
   db: GrantDb,
   stripe: BillingReader,
   workspaceId: string,
@@ -240,6 +362,8 @@ export type FoundingTrialRunOutcome =
       entity: VerifiedAbrEntity;
       result: FoundingTrialGrantResult;
       basePlan: FoundingTrialBasePlanResult;
+      /** RA-8664b: "database" when Stripe refused the key for either check. */
+      billingCheckedBy: BillingCheckedBy;
     };
 
 /**
@@ -604,9 +728,10 @@ export async function runFoundingTrialGrant(deps: {
   const workspaceId = await grantWorkspaceId(db, organizationId);
   const ownerId = await organisationOwnerId(db, organizationId);
 
-  const before = await currentConflicts(db, stripe, workspaceId);
-  if (before.length) {
-    return { status: "refused", workspaceId, conflicts: before };
+  const scope = { organizationId, workspaceId, ownerId };
+  const before = await currentConflicts(db, stripe, scope, deps.now);
+  if (before.conflicts.length) {
+    return { status: "refused", workspaceId, conflicts: before.conflicts };
   }
   // The grant is pinned to the workspace both checks cover, so it cannot land
   // on a different one if another of the owner's workspaces turns READY.
@@ -619,7 +744,13 @@ export async function runFoundingTrialGrant(deps: {
       apply: false,
       now: deps.now,
     });
-    return { status: "dry_run", entity, result, basePlan };
+    return {
+      status: "dry_run",
+      entity,
+      result,
+      basePlan,
+      billingCheckedBy: before.checkedBy,
+    };
   }
 
   const written = await db.$transaction(async (tx) => {
@@ -710,18 +841,27 @@ export async function runFoundingTrialGrant(deps: {
       }
     });
 
-  let after: BillingConflict[];
+  let after: { conflicts: BillingConflict[]; checkedBy: BillingCheckedBy };
   try {
-    after = await currentConflicts(db, stripe, workspaceId);
+    after = await currentConflicts(db, stripe, scope, deps.now);
   } catch (err) {
     // If the put-back itself fails, that error propagates instead, so no
     // caller is ever told the grant was put back when it was not.
     await putBack({ conflicts: [], settleCheckFailed: true });
     throw new FoundingTrialSettleCheckError(err);
   }
-  if (!after.length) return { status: "granted", entity, result, basePlan };
-  await putBack({ conflicts: after.map((c) => c.id) });
-  return { status: "reverted", workspaceId, conflicts: after };
+  if (!after.conflicts.length) {
+    return {
+      status: "granted",
+      entity,
+      result,
+      basePlan,
+      billingCheckedBy:
+        before.checkedBy === "stripe" && after.checkedBy === "stripe" ? "stripe" : "database",
+    };
+  }
+  await putBack({ conflicts: after.conflicts.map((c) => c.id) });
+  return { status: "reverted", workspaceId, conflicts: after.conflicts };
 }
 
 /**

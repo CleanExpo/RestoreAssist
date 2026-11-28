@@ -260,6 +260,80 @@ const seatSub = (
 
 type Member = { customer: string | null; status: string };
 
+/** RA-8664b: a user as the history query sees them. */
+type HistoryUser = {
+  id: string;
+  stripeCustomerId: string | null;
+  organizationId?: string | null;
+  memberships?: Array<{ workspaceId: string; status: string }>;
+};
+type History = {
+  users: HistoryUser[];
+  workspaceCustomer: boolean;
+  deletions: Date[];
+};
+const emptyHistory = (): History => ({ users: [], workspaceCustomer: false, deletions: [] });
+
+type NotNull = { not: null };
+const isNotNull = (v: unknown) =>
+  !!v && typeof v === "object" && "not" in v && (v as NotNull).not === null;
+
+function historyUserCount(h: History) {
+  return vi.fn(
+    async ({ where }: { where: { stripeCustomerId?: unknown; OR?: Array<Record<string, unknown>> } }) => {
+      if (!isNotNull(where.stripeCustomerId)) {
+        throw new Error("user.count must count only users with a Stripe customer");
+      }
+      const or = where.OR ?? [];
+      return h.users.filter(
+        (u) =>
+          u.stripeCustomerId !== null &&
+          or.some((c) => {
+            if (typeof c.id === "string") return c.id === u.id;
+            if (typeof c.organizationId === "string") return c.organizationId === u.organizationId;
+            const some = (c.workspaceMemberships as { some?: { workspaceId?: string; status?: string } } | undefined)?.some;
+            if (some?.workspaceId) {
+              return (u.memberships ?? []).some(
+                (m) => m.workspaceId === some.workspaceId && (!some.status || m.status === some.status),
+              );
+            }
+            return false;
+          }),
+      ).length;
+    },
+  );
+}
+
+function historyWorkspaceCount(h: History) {
+  return vi.fn(async ({ where }: { where: { id?: string; stripeCustomerId?: unknown } }) => {
+    if (!where.id || !isNotNull(where.stripeCustomerId)) {
+      throw new Error("workspace.count must ask about this workspace's Stripe customer");
+    }
+    return where.id === "ws_1" && h.workspaceCustomer ? 1 : 0;
+  });
+}
+
+function historyLinkedCount(rows: Map<string, Row>) {
+  return vi.fn(async ({ where }: { where: { workspaceId?: string; stripeSubscriptionId?: unknown } }) => {
+    if (!where.workspaceId || !isNotNull(where.stripeSubscriptionId)) {
+      throw new Error("featureEntitlement.count must ask about this workspace's Stripe links");
+    }
+    return [...rows.values()].filter(
+      (r) => r.workspaceId === where.workspaceId && r.stripeSubscriptionId !== null,
+    ).length;
+  });
+}
+
+function historyDeletionCount(h: History) {
+  return vi.fn(async ({ where }: { where: { eventType?: string; createdAt?: { gte?: Date } } }) => {
+    if (where.eventType !== "ACCOUNT_DELETED" || !(where.createdAt?.gte instanceof Date)) {
+      throw new Error("securityEvent.count must ask about recent account deletions");
+    }
+    const since = where.createdAt.gte;
+    return h.deletions.filter((d) => d >= since).length;
+  });
+}
+
 /**
  * makeDb plus what runFoundingTrialGrant needs: members, a transaction,
  * deletes. The members double honours a status filter in the query, so a
@@ -279,9 +353,13 @@ function makeRunDb(members: Array<string | null | Member> = []) {
   const roster: Member[] = members.map((m) =>
     m && typeof m === "object" ? m : { customer: m, status: "ACTIVE" },
   );
+  const history = emptyHistory();
   const db = {
     ...base.db,
+    // RA-8664b: what the database records of Stripe for this business.
+    securityEvent: { count: historyDeletionCount(history) },
     workspace: {
+      count: historyWorkspaceCount(history),
       findFirst: base.ws,
       findUnique: vi.fn(
         async (args: { select: { members: { where?: { status?: string } } } }) => {
@@ -310,6 +388,7 @@ function makeRunDb(members: Array<string | null | Member> = []) {
         base.rows.delete(k);
         return { count: 1 };
       }),
+      count: historyLinkedCount(base.rows),
     },
     // Founder input 28/09: the grant needs the firm's ABN confirmed by ABR
     // during the signup walkthrough (HydrationJob kind ABR, READY).
@@ -328,6 +407,7 @@ function makeRunDb(members: Array<string | null | Member> = []) {
     $queryRaw: vi.fn(async (_sql: unknown) => [{}]),
     // RA-7721 (28/09): the owner's base-plan trial, written with the grant.
     user: {
+      count: historyUserCount(history),
       findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
         where.id === owner.id ? { ...owner } : null,
       ),
@@ -343,7 +423,7 @@ function makeRunDb(members: Array<string | null | Member> = []) {
     },
     $transaction: vi.fn(async (fn: (tx: unknown) => unknown): Promise<unknown> => fn(db)),
   };
-  return { ...base, db, roster, owner, abrJob };
+  return { ...base, db, roster, owner, abrJob, history };
 }
 
 const VERIFIED_ABR_JOB = {
@@ -1029,8 +1109,8 @@ describe("runFoundingTrialGrant - founder override for an ABN check that never f
     const statusBefore = h.owner.subscriptionStatus;
     const { stripe, sessionsList } = makeStripe([], []);
     let granted = false;
-    const keyRefused = Object.assign(new Error("Expired API Key provided"), {
-      type: "StripeAuthenticationError",
+    const unreachable = Object.assign(new Error("socket hang up"), {
+      type: "StripeConnectionError",
     });
     const { FoundingTrialSettleCheckError } = await import("../founding-trial-grant");
     await expect(
@@ -1039,13 +1119,13 @@ describe("runFoundingTrialGrant - founder override for an ABN check that never f
         duringSettle: () => {
           granted = h.rows.size > 0 && h.owner.subscriptionStatus === "TRIAL";
           sessionsList.mockImplementation(() => {
-            throw keyRefused;
+            throw unreachable;
           });
         },
       }),
     ).rejects.toSatisfy(
       (e: unknown) =>
-        e instanceof FoundingTrialSettleCheckError && e.settleError === keyRefused,
+        e instanceof FoundingTrialSettleCheckError && e.settleError === unreachable,
     );
     // The grant had committed, and is now put back as it was.
     expect(granted).toBe(true);
@@ -1059,5 +1139,158 @@ describe("runFoundingTrialGrant - founder override for an ABN check that never f
       conflicts: [],
       settleCheckFailed: true,
     });
+  });
+});
+
+describe("runFoundingTrialGrant - Stripe refuses the key (RA-8664b)", () => {
+  const keyRefused = () =>
+    Object.assign(new Error("Expired API Key provided"), {
+      type: "StripeAuthenticationError",
+      statusCode: 401,
+    });
+  const unreachable = () =>
+    Object.assign(new Error("socket hang up"), { type: "StripeConnectionError" });
+
+  /** A Stripe double whose every list fails with `err` when read. */
+  function failingStripe(err: () => Error) {
+    const fail = () => ({
+      [Symbol.asyncIterator]: () => ({
+        next: async (): Promise<IteratorResult<never>> => {
+          throw err();
+        },
+      }),
+    });
+    const sessionsList = vi.fn(fail);
+    const subsList = vi.fn(fail);
+    return {
+      stripe: { checkout: { sessions: { list: sessionsList } }, subscriptions: { list: subsList } },
+      sessionsList,
+      subsList,
+    };
+  }
+
+  async function grant(h: ReturnType<typeof makeRunDb>, stripe: unknown, apply = true, duringSettle?: () => void) {
+    const { runFoundingTrialGrant } = await import("../founding-trial-grant");
+    return runFoundingTrialGrant({
+      db: h.db as never,
+      stripe: stripe as never,
+      organizationId: "org_1",
+      apply,
+      sleep: async () => duringSettle?.(),
+    });
+  }
+
+  it("RA-8664b: with no Stripe billing on record, the grant stands and says the database was checked", async () => {
+    const h = makeRunDb();
+    const { stripe, sessionsList } = failingStripe(keyRefused);
+    const out = await grant(h, stripe);
+    expect(out).toMatchObject({ status: "granted", billingCheckedBy: "database" });
+    // Stripe is always asked first, before and after the wait.
+    expect(sessionsList).toHaveBeenCalledTimes(2);
+    expect(h.get("TECHNICIAN_SEATS")?.active).toBe(true);
+    expect(h.owner.subscriptionStatus).toBe("TRIAL");
+  });
+
+  it("RA-8664b: the preview with a refused key and no Stripe billing writes nothing and says the database was checked", async () => {
+    const h = makeRunDb();
+    const { stripe } = failingStripe(keyRefused);
+    const out = await grant(h, stripe, false);
+    expect(out).toMatchObject({ status: "dry_run", billingCheckedBy: "database" });
+    expect(h.rows.size).toBe(0);
+    expect(h.owner.subscriptionStatus).toBe("EXPIRED");
+  });
+
+  it("RA-8664b: with Stripe readable, the outcome says Stripe was checked", async () => {
+    const h = makeRunDb();
+    const { stripe } = makeStripe([], []);
+    expect(await grant(h, stripe, false)).toMatchObject({ status: "dry_run", billingCheckedBy: "stripe" });
+    expect(await grant(h, stripe)).toMatchObject({ status: "granted", billingCheckedBy: "stripe" });
+  });
+
+  const HOURS = 60 * 60 * 1000;
+  const cases: Array<[string, (h: ReturnType<typeof makeRunDb>) => void, string]> = [
+    ["the owner has a Stripe customer", (h) => {
+      h.history.users.push({ id: "owner_1", stripeCustomerId: "cus_owner" });
+    }, "linked_customer"],
+    ["an active member of the workspace has one", (h) => {
+      h.history.users.push({ id: "m1", stripeCustomerId: "cus_m1", memberships: [{ workspaceId: "ws_1", status: "ACTIVE" }] });
+    }, "linked_customer"],
+    ["a REMOVED member of the workspace has one", (h) => {
+      h.history.users.push({ id: "m2", stripeCustomerId: "cus_m2", memberships: [{ workspaceId: "ws_1", status: "REMOVED" }] });
+    }, "linked_customer"],
+    ["a user of the organisation has one", (h) => {
+      h.history.users.push({ id: "u1", stripeCustomerId: "cus_u1", organizationId: "org_1" });
+    }, "linked_customer"],
+    ["the workspace has one", (h) => {
+      h.history.workspaceCustomer = true;
+    }, "workspace_customer"],
+    ["an add-on row is linked to a Stripe subscription", (h) => {
+      h.rows.set("ws_1:VOICE", {
+        workspaceId: "ws_1", sku: "VOICE" as AddonSku, active: true, seats: null,
+        stripeSubscriptionId: "sub_paid", stripePriceId: "price_paid",
+      });
+    }, "linked_subscription"],
+    ["an account was deleted 2 hours ago", (h) => {
+      h.history.deletions.push(new Date(Date.now() - 2 * HOURS));
+    }, "recent_account_deletion"],
+  ];
+  it.each(cases)("RA-8664b: a refused key still refuses, writing nothing, when %s", async (_name, setUp, label) => {
+    const h = makeRunDb();
+    setUp(h);
+    const rowsBefore = h.rows.size;
+    const { stripe } = failingStripe(keyRefused);
+    const { FoundingTrialBillingUncheckedError } = await import("../founding-trial-grant");
+    const err = await grant(h, stripe).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(FoundingTrialBillingUncheckedError);
+    expect((err as InstanceType<typeof FoundingTrialBillingUncheckedError>).history).toContain(label);
+    expect((err as { stripeError: { type: string } }).stripeError.type).toBe("StripeAuthenticationError");
+    expect(h.rows.size).toBe(rowsBefore);
+    expect(h.owner.subscriptionStatus).toBe("EXPIRED");
+  });
+
+  it("RA-8664b: an account deleted more than 25 hours ago does not stop the grant", async () => {
+    const h = makeRunDb();
+    h.history.deletions.push(new Date(Date.now() - 26 * HOURS));
+    h.history.users.push({ id: "elsewhere", stripeCustomerId: "cus_x", organizationId: "org_other", memberships: [{ workspaceId: "ws_other", status: "ACTIVE" }] });
+    const { stripe } = failingStripe(keyRefused);
+    expect(await grant(h, stripe)).toMatchObject({ status: "granted", billingCheckedBy: "database" });
+  });
+
+  it("control: any other Stripe error still refuses, and the database is not read in its place", async () => {
+    const h = makeRunDb();
+    const { stripe } = failingStripe(unreachable);
+    await expect(grant(h, stripe)).rejects.toMatchObject({ type: "StripeConnectionError" });
+    expect(h.db.user.count).not.toHaveBeenCalled();
+    expect(h.rows.size).toBe(0);
+  });
+
+  it("RA-8664b: after the wait, a refused key with no Stripe billing still lets the grant stand", async () => {
+    const h = makeRunDb();
+    const { stripe, sessionsList } = makeStripe([], []);
+    const out = await grant(h, stripe, true, () => {
+      sessionsList.mockImplementation(() => {
+        throw keyRefused();
+      });
+    });
+    expect(out).toMatchObject({ status: "granted", billingCheckedBy: "database" });
+    expect(h.get("TECHNICIAN_SEATS")?.active).toBe(true);
+  });
+
+  it("RA-8664b: after the wait, a refused key with Stripe billing now on record puts the grant back", async () => {
+    const h = makeRunDb();
+    const { stripe } = failingStripe(keyRefused);
+    let granted = false;
+    const { FoundingTrialSettleCheckError, FoundingTrialBillingUncheckedError } = await import(
+      "../founding-trial-grant"
+    );
+    const err = await grant(h, stripe, true, () => {
+      granted = h.rows.size > 0 && h.owner.subscriptionStatus === "TRIAL";
+      h.history.users.push({ id: "owner_1", stripeCustomerId: "cus_new" });
+    }).catch((e: unknown) => e);
+    expect(granted).toBe(true);
+    expect(err).toBeInstanceOf(FoundingTrialSettleCheckError);
+    expect((err as { settleError: unknown }).settleError).toBeInstanceOf(FoundingTrialBillingUncheckedError);
+    expect(h.rows.size).toBe(0);
+    expect(h.owner.subscriptionStatus).toBe("EXPIRED");
   });
 });

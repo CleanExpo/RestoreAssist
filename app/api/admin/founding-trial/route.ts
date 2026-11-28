@@ -35,9 +35,11 @@ import {
 } from "@/lib/admin-auth";
 import {
   ABN_OVERRIDE_MIN_REASON,
+  FoundingTrialBillingUncheckedError,
   FoundingTrialGrantError,
   FoundingTrialSettleCheckError,
   runFoundingTrialGrant,
+  type StripeHistory,
 } from "@/lib/billing/founding-trial-grant";
 
 // The script waits five minutes (GRANT_SETTLE_MS) before its second Stripe
@@ -77,6 +79,41 @@ const SETTLE_KEY_REFUSED =
 const SETTLE_UNAVAILABLE =
   "Stripe could not be read for the second billing check, so the grant was put " +
   "back as it was. Try again in a few minutes.";
+
+/**
+ * RA-8664b: every Stripe failure here answers 424 (Failed Dependency), not
+ * 503. On production DigitalOcean App Platform replaced the body of this
+ * route's 503 with its own error page (28/11/2026, eventId eo4wgvsb), so the
+ * operator saw none of the message. A 4xx reaches the page as sent.
+ */
+const STRIPE_FAILED_STATUS = 424;
+
+const HISTORY_TEXT: Record<StripeHistory, string> = {
+  linked_customer: "a person linked to this business has a Stripe customer record",
+  workspace_customer: "its workspace has a Stripe customer record",
+  linked_subscription: "one of its add-ons is linked to a Stripe subscription",
+  recent_account_deletion: "an account was deleted in the last 25 hours",
+};
+
+function historyText(history: StripeHistory[]): string {
+  return history.map((h) => HISTORY_TEXT[h]).join("; ");
+}
+
+function uncheckedMessage(e: FoundingTrialBillingUncheckedError): string {
+  return (
+    `Stripe refused RestoreAssist's API key, and ${historyText(e.history)}, so ` +
+    "add-on billing could not be checked. Nothing was written. The Stripe " +
+    "secret key in production needs replacing."
+  );
+}
+
+function settleUncheckedMessage(e: FoundingTrialBillingUncheckedError): string {
+  return (
+    "Stripe refused RestoreAssist's API key during the second billing check, " +
+    `and ${historyText(e.history)}, so the grant was put back as it was. The ` +
+    "Stripe secret key in production needs replacing."
+  );
+}
 
 function isKeyRefused(stripeType: string | null): boolean {
   return (
@@ -187,21 +224,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
     if (err instanceof FoundingTrialSettleCheckError) {
+      const inner = err.settleError;
       return apiError(request, {
         code: "UPSTREAM_FAILED",
-        status: 503,
-        message: isKeyRefused(stripeErrorType(err.settleError))
-          ? SETTLE_KEY_REFUSED
-          : SETTLE_UNAVAILABLE,
-        err: err.settleError,
+        status: STRIPE_FAILED_STATUS,
+        message:
+          inner instanceof FoundingTrialBillingUncheckedError
+            ? settleUncheckedMessage(inner)
+            : isKeyRefused(stripeErrorType(inner))
+              ? SETTLE_KEY_REFUSED
+              : SETTLE_UNAVAILABLE,
+        err: inner instanceof FoundingTrialBillingUncheckedError ? inner.stripeError : inner,
         stage: "admin.founding-trial.settle",
+      });
+    }
+    if (err instanceof FoundingTrialBillingUncheckedError) {
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        status: STRIPE_FAILED_STATUS,
+        message: uncheckedMessage(err),
+        err: err.stripeError,
+        stage: "admin.founding-trial.stripe",
       });
     }
     const stripeType = stripeErrorType(err);
     if (stripeType) {
       return apiError(request, {
         code: "UPSTREAM_FAILED",
-        status: 503,
+        status: STRIPE_FAILED_STATUS,
         message: isKeyRefused(stripeType) ? STRIPE_KEY_REFUSED : STRIPE_UNAVAILABLE,
         err,
         stage: "admin.founding-trial.stripe",
