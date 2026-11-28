@@ -227,6 +227,30 @@ describe("reading", () => {
     expect(readLedger(file, dir).map((r) => r.sessionId)).toEqual(["real"]);
   });
 
+  it("skips a line that is valid JSON but not a ledger record", () => {
+    // RA-8661 discovery sweep: a line holding `null` parsed cleanly and then
+    // crashed the reader when its key was built, so one bad entry stopped every
+    // metric. Such a line is skipped, as an unparsable one always was.
+    const bad = [
+      "null",
+      "42",
+      '"text"',
+      "[]",
+      "{}",
+      JSON.stringify({ ...row(), sessionId: 7 }),
+      JSON.stringify({ ...row(), timestamp: "1788046563" }),
+      JSON.stringify({ ...row(), timestamp: 1.5 }),
+      JSON.stringify({ ...row(), domain: null }),
+      JSON.stringify({ sessionId: "s", timestamp: 1, domain: "d" }),
+    ];
+    mkdirSync(dir);
+    bad.forEach((line, i) => writeFileSync(join(dir, `${i}-bad-000000000000.jsonl`), line + "\n"));
+    writeFileSync(file, bad.join("\n") + "\n");
+    writeLedgerEntry(row({ sessionId: "real" }), dir);
+
+    expect(readLedger(file, dir).map((r) => r.sessionId)).toEqual(["real"]);
+  });
+
   it("reads missing paths as empty", () => {
     expect(readLedger(join(root, "absent.jsonl"), join(root, "absent.d"))).toEqual([]);
   });

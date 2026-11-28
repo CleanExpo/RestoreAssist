@@ -131,13 +131,35 @@ export function entryLine(r: VerifierReport): string {
   return JSON.stringify(row);
 }
 
+/**
+ * Whether a parsed line is a ledger record. A line can be valid JSON and still
+ * not be one (`null`, a number, an object missing a key field). Only the fields
+ * the idempotency key and the metrics rest on are checked.
+ */
+function isLedgerRow(value: unknown): value is VerifierReport {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.sessionId === "string" &&
+    Number.isSafeInteger(v.timestamp) &&
+    typeof v.domain === "string" &&
+    typeof v.status === "string"
+  );
+}
+
+/**
+ * The records in a file's text. A line that is not a ledger record, whether it
+ * will not parse or parses to some other shape, is skipped, so one bad entry
+ * cannot stop the reader.
+ */
 function parseLines(text: string): VerifierReport[] {
   return text
     .split("\n")
     .filter((l) => l.trim().length > 0)
     .flatMap((line) => {
       try {
-        return [JSON.parse(line) as VerifierReport];
+        const parsed: unknown = JSON.parse(line);
+        return isLedgerRow(parsed) ? [parsed] : [];
       } catch {
         return [];
       }

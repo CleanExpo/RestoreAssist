@@ -102,7 +102,9 @@ deterministic name, so the same event recorded twice overwrites one file rather
 than adding a second. Every reader goes through `readLedger()` in
 `scripts/observability/ledger.ts`, which reads the frozen file and then every
 entry file, de-duplicated on session, timestamp and domain. Dotfiles (an entry
-still being written) and anything not ending `.jsonl` are ignored.
+still being written) and anything not ending `.jsonl` are ignored, and a line
+that is not a ledger record (unparsable, or valid JSON of another shape) is
+skipped, so one bad entry cannot stop the reader.
 
 Entry files are meant to be committed with the work that produced them, like the
 old appended lines were.
